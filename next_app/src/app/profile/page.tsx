@@ -164,10 +164,10 @@ export default function ProfilePage() {
           <div className="grid md:grid-cols-12 gap-6">
             <section className="md:col-span-9 space-y-4">
               <div className="flex items-center gap-4 py-4">
-                <span className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 overflow-hidden w-[72px] h-[72px] ring-2 ring-gray-300">
+                <span className="avatar" style={{width:72, height:72}}>
                   {profile.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={profile.imageUrl} alt={profile.name || profile.id} className="w-full h-full object-cover block" />
+                    <img src={profile.imageUrl} alt={profile.name || profile.id} />
                   ) : (
                     <span className="text-xl font-semibold">{getInitials(profile.name || '')}</span>
                   )}
@@ -258,8 +258,8 @@ export default function ProfilePage() {
                   {incoming.map((r) => (
                     <div key={r.id} className="flex items-center justify-between gap-2 border rounded p-2 bg-white">
                       <Link href={`/users/${r.requester.id}`} className="flex items-center gap-2 group">
-                        <span className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 overflow-hidden w-[24px] h-[24px] ring-1 ring-gray-300">
-                          {r.requester.imageUrl ? (<img src={r.requester.imageUrl} alt={r.requester.name || r.requester.id} className="w-full h-full object-cover block" />) : (<span className="text-[10px] font-semibold">{getInitials(r.requester.name || '')}</span>)}
+                        <span className="avatar-sm">
+                          {r.requester.imageUrl ? (<img src={r.requester.imageUrl} alt={r.requester.name || r.requester.id} />) : (<span className="text-[10px] font-semibold">{getInitials(r.requester.name || '')}</span>)}
                         </span>
                         <span className="text-sm text-gray-800 group-hover:underline">{r.requester.name || r.requester.id}</span>
                       </Link>
@@ -280,8 +280,8 @@ export default function ProfilePage() {
                     return (
                       <div key={u.id} className="flex items-center justify-between gap-2">
                         <Link href={`/users/${u.id}`} className="flex items-center gap-2 group">
-                          <span className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 overflow-hidden w-[24px] h-[24px] ring-1 ring-gray-300">
-                            {u.imageUrl ? (<img src={u.imageUrl} alt={u.name || u.id} className="w-full h-full object-cover block" />) : (<span className="text-[10px] font-semibold">{getInitials(u.name || '')}</span>)}
+                          <span className="avatar-sm">
+                            {u.imageUrl ? (<img src={u.imageUrl} alt={u.name || u.id} />) : (<span className="text-[10px] font-semibold">{getInitials(u.name || '')}</span>)}
                           </span>
                           <span className="text-sm text-gray-800 group-hover:underline">{u.name || u.id}</span>
                         </Link>

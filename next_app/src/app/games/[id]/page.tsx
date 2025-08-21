@@ -44,7 +44,7 @@ export default async function GameDetails(props: { params: Promise<{ id: string 
               <div className="text-xs text-[rgb(var(--fg)/0.7)]">{game.date} • {game.time} • {game.currentPlayers}/{game.maxPlayers} players</div>
             </div>
             <a
-              href={`https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(`Game at ${game.fieldName}`)}&dates=${toGCalTime(game.date, game.time, 1)}&details=${encodeURIComponent(game.description || '')}&location=${encodeURIComponent(game.fieldLocation || '')}`}
+              href={`https://calendar.google.com/calendar/u/0/r/eventedit?text=${encodeURIComponent(`Game at ${game.fieldName}`)}&dates=${encodeURIComponent(`${game.date.replace(/-/g, '')}T${game.time.replace(':','')}00/${game.date.replace(/-/g, '')}T${String(Number(game.time.split(':')[0])+1).padStart(2,'0')}${game.time.split(':')[1]}00`)}&details=${encodeURIComponent(game.description || '')}&location=${encodeURIComponent(game.fieldLocation || '')}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center rounded-md border border-[rgb(var(--border))] bg-white/80 px-3 py-2 text-xs font-medium text-[rgb(var(--fg))] shadow-sm transition hover:bg-[rgb(var(--muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
