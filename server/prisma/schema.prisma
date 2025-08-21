@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FieldType {
+  OPEN
+  CLOSED
+}
+
+model User {
+  id        String   @id
+  email     String?  @unique
+  name      String?
+  imageUrl  String?
+  phone     String?
+  city      String?
+  birthYear Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizedGames Game[]        @relation("OrganizerGames")
+  participations Participation[]
+
+  sports        UserSport[]
+  positions     UserPosition[]
+
+  friendshipsA  Friendship[]   @relation("A")
+  friendshipsB  Friendship[]   @relation("B")
+  requestsSent  FriendRequest[] @relation("Sent")
+  requestsRecv  FriendRequest[] @relation("Recv")
+
+  favoriteFields FavoriteField[]
+}
+
+model Field {
+  id          String    @id @default(cuid())
+  name        String
+  location    String
+  description String?
+  price       Int       @default(0)
+  rating      Float     @default(0)
+  image       String?
+  available   Boolean   @default(true)
+  type        FieldType
+  lat         Float?
+  lng         Float?
+  // Extra structured columns
+  city        String?
+  neighborhood String?
+  street      String?
+  streetNumber String?
+  phone       String?
+  email       String?
+  featuresJson Json?
+  photos      String[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  games       Game[]
+  favorites   FavoriteField[]
+}
+
+model Game {
+  id            String    @id @default(cuid())
+  fieldId       String
+  field         Field     @relation(fields: [fieldId], references: [id])
+  start         DateTime
+  duration      Int       @default(1)
+  maxPlayers    Int
+  isOpenToJoin  Boolean   @default(true)
+  description   String?
+  organizerId   String
+  organizer     User?     @relation("OrganizerGames", fields: [organizerId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  participants  Participation[]
+}
+
+model Participation {
+  id        String   @id @default(cuid())
+  gameId    String
+  userId    String
+  game      Game     @relation(fields: [gameId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([gameId, userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String?
+  text      String
+  createdAt DateTime @default(now())
+}
+
+model FavoriteField {
+  id      String @id @default(cuid())
+  userId  String
+  fieldId String
+  user    User   @relation(fields: [userId], references: [id])
+  field   Field  @relation(fields: [fieldId], references: [id])
+
+  @@unique([userId, fieldId])
+}
+
+enum FriendRequestStatus {
+  PENDING
+  DECLINED
+}
+
+// Undirected friendship: store ordered pair (userAId < userBId) in code
+model Friendship {
+  id       String   @id @default(cuid())
+  userAId  String
+  userBId  String
+  userA    User     @relation("A", fields: [userAId], references: [id])
+  userB    User     @relation("B", fields: [userBId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userAId, userBId])
+}
+
+model FriendRequest {
+  id          String               @id @default(cuid())
+  requesterId String
+  receiverId  String
+  requester   User                 @relation("Sent", fields: [requesterId], references: [id])
+  receiver    User                 @relation("Recv", fields: [receiverId], references: [id])
+  status      FriendRequestStatus  @default(PENDING)
+  createdAt   DateTime             @default(now())
+
+  @@unique([requesterId, receiverId])
+}
+
+model Sport {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  positions Position[]
+  users     UserSport[]
+}
+
+model Position {
+  id      String   @id @default(cuid())
+  name    String
+  sportId String
+  sport   Sport    @relation(fields: [sportId], references: [id])
+  users   UserPosition[]
+
+  @@unique([sportId, name])
+}
+
+// User plays a sport (preference/skill can be extended later)
+model UserSport {
+  id      String @id @default(cuid())
+  userId  String
+  sportId String
+  user    User   @relation(fields: [userId], references: [id])
+  sport   Sport  @relation(fields: [sportId], references: [id])
+
+  @@unique([userId, sportId])
+}
+
+// User preferred position in a given sport
+model UserPosition {
+  id         String   @id @default(cuid())
+  userId     String
+  positionId String
+  user       User     @relation(fields: [userId], references: [id])
+  position   Position @relation(fields: [positionId], references: [id])
+
+  @@unique([userId, positionId])
+}
+
+

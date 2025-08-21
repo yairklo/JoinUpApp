@@ -1,0 +1,74 @@
+[
+  {
+    "id": "fld-lion-park",
+    "name": "Lion Park Field",
+    "location": "Tel Aviv, Park HaYarkon",
+    "price": 0,
+    "rating": 4.6,
+    "image": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&h=800&fit=crop&auto=format",
+    "available": true,
+    "type": "open",
+    "description": "Well-maintained grass pitch in the heart of the park. Great for casual evening matches and pickup games.",
+    "games": []
+  },
+  {
+    "id": "fld-arena-north",
+    "name": "Arena North",
+    "location": "Herzliya, Industrial Zone",
+    "price": 220,
+    "rating": 4.8,
+    "image": "https://images.unsplash.com/photo-1521417531131-3b97dbe1df47?w=1200&h=800&fit=crop&auto=format",
+    "available": true,
+    "type": "closed",
+    "description": "Premium indoor turf with LED lighting and shower rooms. Perfect for leagues and 5v5 paid sessions.",
+    "games": []
+  },
+  {
+    "id": "fld-sea-breeze",
+    "name": "Sea Breeze Court",
+    "location": "Bat Yam, Beachfront Promenade",
+    "price": 0,
+    "rating": 4.3,
+    "image": "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=1200&h=800&fit=crop&auto=format",
+    "available": true,
+    "type": "open",
+    "description": "Open-air pitch by the sea. Slight wind in the evenings, magical sunsets. Casual and friendly crowd.",
+    "games": []
+  },
+  {
+    "id": "fld-city-dome",
+    "name": "City Dome",
+    "location": "Ramat Gan, Bursa District",
+    "price": 180,
+    "rating": 4.5,
+    "image": "https://images.unsplash.com/photo-1534158914592-062992fbe900?w=1200&h=800&fit=crop&auto=format",
+    "available": true,
+    "type": "closed",
+    "description": "Covered synthetic turf, regulation goals, excellent surface. Bookable by the hour for competitive play.",
+    "games": []
+  },
+  {
+    "id": "fld-neighborhood-green",
+    "name": "Neighborhood Green",
+    "location": "Holon, HeHalutz",
+    "price": 0,
+    "rating": 4.0,
+    "image": "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=1200&h=800&fit=crop&auto=format",
+    "available": true,
+    "type": "open",
+    "description": "Community pitch. Not perfect but always lively. Great for quick 6v6 games with locals.",
+    "games": []
+  },
+  {
+    "id": "fld-elite-center",
+    "name": "Elite Sports Center",
+    "location": "Givatayim, Borochov",
+    "price": 260,
+    "rating": 4.9,
+    "image": "https://images.unsplash.com/photo-1538860469-3a6e0b6b6b2a?w=1200&h=800&fit=crop&auto=format",
+    "available": true,
+    "type": "closed",
+    "description": "Top-tier facility with professional markings and staff. Ideal for tournaments and league nights.",
+    "games": []
+  }
+]

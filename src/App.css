@@ -1,0 +1,45 @@
+/* Toast Animations */
+.toast {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Custom Toast Styles */
+.toast.bg-success {
+  border-left: 4px solid #28a745;
+}
+
+.toast.bg-danger {
+  border-left: 4px solid #dc3545;
+}
+
+.toast.bg-warning {
+  border-left: 4px solid #ffc107;
+}
+
+.toast.bg-info {
+  border-left: 4px solid #17a2b8;
+}
+
+/* Hover effects for buttons */
+.btn:hover {
+  transform: translateY(-1px);
+  transition: transform 0.2s ease;
+}
+
+/* Card hover effects */
+.card:hover {
+  transform: translateY(-2px);
+  transition: transform 0.2s ease;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+}

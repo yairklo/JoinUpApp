@@ -1,0 +1,269 @@
+[
+  {
+    "id": "gm-lion-tonight",
+    "fieldId": "fld-lion-park",
+    "fieldName": "Lion Park Field",
+    "fieldLocation": "Tel Aviv, Park HaYarkon",
+    "fieldType": "open",
+    "date": "2025-08-21",
+    "time": "20:00",
+    "duration": 2,
+    "maxPlayers": 12,
+    "currentPlayers": 6,
+    "skillLevel": "Mixed",
+    "ageGroup": "Adult",
+    "isOpenToJoin": true,
+    "description": "Evening pickup game at the park.",
+    "organizer": "Demo User",
+    "organizerId": "user-demo",
+    "price": 0,
+    "participants": [
+      {
+        "id": "user-demo",
+        "name": "Demo User",
+        "avatar": null
+      },
+      {
+        "id": "u2",
+        "name": "Noa",
+        "avatar": null
+      },
+      {
+        "id": "u3",
+        "name": "Gil",
+        "avatar": null
+      },
+      {
+        "id": "u4",
+        "name": "Omer",
+        "avatar": null
+      },
+      {
+        "id": "u5",
+        "name": "Dana",
+        "avatar": null
+      },
+      {
+        "id": "u6",
+        "name": "Avi",
+        "avatar": null
+      }
+    ]
+  },
+  {
+    "id": "gm-arena-friday",
+    "fieldId": "fld-arena-north",
+    "fieldName": "Arena North",
+    "fieldLocation": "Herzliya, Industrial Zone",
+    "fieldType": "closed",
+    "date": "2025-08-22",
+    "time": "18:30",
+    "duration": 1,
+    "maxPlayers": 10,
+    "currentPlayers": 9,
+    "skillLevel": "Intermediate",
+    "ageGroup": "Adult",
+    "isOpenToJoin": true,
+    "description": "Indoor 5v5 session.",
+    "organizer": "Rotem",
+    "organizerId": "u7",
+    "price": 220,
+    "participants": [
+      {
+        "id": "u7",
+        "name": "Rotem",
+        "avatar": null
+      },
+      {
+        "id": "u8",
+        "name": "Yoni",
+        "avatar": null
+      },
+      {
+        "id": "u9",
+        "name": "Shai",
+        "avatar": null
+      },
+      {
+        "id": "u10",
+        "name": "Tal",
+        "avatar": null
+      },
+      {
+        "id": "u11",
+        "name": "Lior",
+        "avatar": null
+      },
+      {
+        "id": "u12",
+        "name": "Eran",
+        "avatar": null
+      },
+      {
+        "id": "u13",
+        "name": "Asaf",
+        "avatar": null
+      },
+      {
+        "id": "u14",
+        "name": "Ido",
+        "avatar": null
+      },
+      {
+        "id": "user_31YQhOUgigKuo8K0f4fZVs7uPhE",
+        "name": "יאיר קלוזנר",
+        "avatar": "https://img.clerk.com/eyJ0eXBlIjoicHJveHkiLCJzcmMiOiJodHRwczovL2ltYWdlcy5jbGVyay5kZXYvb2F1dGhfZ29vZ2xlL2ltZ18zMVlRaFUxQ2xrOXYxMW1hYk5PY1FydnlRRFAifQ"
+      }
+    ],
+    "updatedAt": "2025-08-20T15:11:36.758Z"
+  },
+  {
+    "id": "gm-sea-morning",
+    "fieldId": "fld-sea-breeze",
+    "fieldName": "Sea Breeze Court",
+    "fieldLocation": "Bat Yam, Beachfront Promenade",
+    "fieldType": "open",
+    "date": "2025-08-23",
+    "time": "07:30",
+    "duration": 1,
+    "maxPlayers": 14,
+    "currentPlayers": 5,
+    "skillLevel": "Mixed",
+    "ageGroup": "Adult",
+    "isOpenToJoin": true,
+    "description": "Sunrise casual game.",
+    "organizer": "Eli",
+    "organizerId": "u15",
+    "price": 0,
+    "participants": [
+      {
+        "id": "u15",
+        "name": "Eli",
+        "avatar": null
+      },
+      {
+        "id": "u16",
+        "name": "Niv",
+        "avatar": null
+      },
+      {
+        "id": "u17",
+        "name": "Neta",
+        "avatar": null
+      },
+      {
+        "id": "u18",
+        "name": "Tomer",
+        "avatar": null
+      },
+      {
+        "id": "user_31YQhOUgigKuo8K0f4fZVs7uPhE",
+        "name": "יאיר קלוזנר",
+        "avatar": "https://img.clerk.com/eyJ0eXBlIjoicHJveHkiLCJzcmMiOiJodHRwczovL2ltYWdlcy5jbGVyay5kZXYvb2F1dGhfZ29vZ2xlL2ltZ18zMVlRaFUxQ2xrOXYxMW1hYk5PY1FydnlRRFAifQ"
+      }
+    ],
+    "updatedAt": "2025-08-20T15:07:04.954Z"
+  },
+  {
+    "id": "gm-city-now",
+    "fieldId": "fld-city-dome",
+    "fieldName": "City Dome",
+    "fieldLocation": "Ramat Gan, Bursa District",
+    "fieldType": "closed",
+    "date": "2025-08-20",
+    "time": "10:00",
+    "duration": 3,
+    "maxPlayers": 12,
+    "currentPlayers": 9,
+    "skillLevel": "Advanced",
+    "ageGroup": "Adult",
+    "isOpenToJoin": true,
+    "description": "Ongoing match block.",
+    "organizer": "Or",
+    "organizerId": "u19",
+    "price": 180,
+    "participants": [
+      {
+        "id": "u19",
+        "name": "Or",
+        "avatar": null
+      }
+    ]
+  },
+  {
+    "id": "gm-past-example",
+    "fieldId": "fld-neighborhood-green",
+    "fieldName": "Neighborhood Green",
+    "fieldLocation": "Holon, HeHalutz",
+    "fieldType": "open",
+    "date": "2025-07-01",
+    "time": "19:00",
+    "duration": 1,
+    "maxPlayers": 12,
+    "currentPlayers": 12,
+    "skillLevel": "Mixed",
+    "ageGroup": "Adult",
+    "isOpenToJoin": false,
+    "description": "Finished game (for filtering demo).",
+    "organizer": "Guy",
+    "organizerId": "u20",
+    "price": 0,
+    "participants": []
+  },
+  {
+    "fieldId": "fld-sea-breeze",
+    "fieldName": "Sea Breeze Court",
+    "fieldLocation": "Bat Yam, Beachfront Promenade",
+    "fieldType": "open",
+    "date": "2025-08-20",
+    "time": "18:00",
+    "duration": 6,
+    "maxPlayers": 10,
+    "currentPlayers": 1,
+    "skillLevel": "Mixed",
+    "ageGroup": "Mixed",
+    "isOpenToJoin": true,
+    "description": "",
+    "organizer": "user_31YQhOUgigKuo8K0f4fZVs7uPhE",
+    "organizerId": "user_31YQhOUgigKuo8K0f4fZVs7uPhE",
+    "price": 0,
+    "participants": [
+      {
+        "id": "user_31YQhOUgigKuo8K0f4fZVs7uPhE",
+        "name": "user_31YQhOUgigKuo8K0f4fZVs7uPhE",
+        "avatar": null
+      }
+    ],
+    "id": "mek3iwwczljn3q0te1h",
+    "createdAt": "2025-08-20T14:56:47.628Z",
+    "updatedAt": "2025-08-20T14:56:47.628Z"
+  },
+  {
+    "fieldId": "cmek4yi9e00mitqpo9rxhnqis",
+    "fieldName": " אולם ספורט - בית יעקב",
+    "fieldLocation": "ירושלים, אהלי יוסף, 15",
+    "fieldType": "open",
+    "date": "2025-08-20",
+    "time": "19:00",
+    "duration": 1,
+    "maxPlayers": 10,
+    "currentPlayers": 1,
+    "skillLevel": "Mixed",
+    "ageGroup": "Mixed",
+    "isOpenToJoin": true,
+    "description": "",
+    "organizer": "יאיר קלוזנר",
+    "organizerId": "user_31YQhOUgigKuo8K0f4fZVs7uPhE",
+    "price": 0,
+    "participants": [
+      {
+        "id": "user_31YQhOUgigKuo8K0f4fZVs7uPhE",
+        "name": "יאיר קלוזנר",
+        "avatar": "https://img.clerk.com/eyJ0eXBlIjoicHJveHkiLCJzcmMiOiJodHRwczovL2ltYWdlcy5jbGVyay5kZXYvb2F1dGhfZ29vZ2xlL2ltZ18zMVlRaFUxQ2xrOXYxMW1hYk5PY1FydnlRRFAifQ"
+      }
+    ],
+    "id": "mek5i5eggdept5qunb",
+    "createdAt": "2025-08-20T15:52:11.224Z",
+    "updatedAt": "2025-08-20T15:52:11.224Z"
+  }
+]
