@@ -35,10 +35,20 @@ export default function Chat({ roomId = "global" }: ChatProps) {
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    // Ensure the Socket.IO server is initialized
-    fetch("/api/socket").catch(() => {});
+    // Determine socket base (Render URL in prod, same-origin in dev)
+    const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
+    // Warm up the socket endpoint (Next dev uses /api/socket, external uses /api/health)
+    if (base) {
+      fetch(`${base.replace(/\/$/, "")}/api/health`).catch(() => {});
+    } else {
+      fetch("/api/socket").catch(() => {});
+    }
 
-    const socket = io({ path: "/api/socket" });
+    const socket = io(base, {
+      path: "/api/socket",
+      transports: ["websocket"],
+      withCredentials: true,
+    });
     socketRef.current = socket;
 
     socket.on("connect", () => {
