@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
-export default function NewGamePage() {
+function NewGamePageInner() {
   const router = useRouter();
   const params = useSearchParams();
   const fieldId = params?.get("fieldId") ?? "";
@@ -239,5 +239,13 @@ export default function NewGamePage() {
         </form>
       </SignedIn>
     </main>
+  );
+}
+
+export default function NewGamePage() {
+  return (
+    <Suspense fallback={<main className="mx-auto max-w-xl p-6">Loading...</main>}>
+      <NewGamePageInner />
+    </Suspense>
   );
 }
