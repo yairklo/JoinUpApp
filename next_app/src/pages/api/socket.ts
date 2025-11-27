@@ -19,8 +19,18 @@ export default function handler(_req: NextApiRequest, res: NextApiResponse) {
   }
 
   if (!resWithSocket.socket.server.io) {
+    const allowedOrigin =
+      process.env.SOCKET_CORS_ORIGIN ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "*");
+
     const io = new IOServer(resWithSocket.socket.server, {
       path: "/api/socket",
+      cors: {
+        origin: allowedOrigin,
+        methods: ["GET", "POST"],
+        credentials: true,
+      },
     });
     resWithSocket.socket.server.io = io;
 
