@@ -231,7 +231,7 @@ function NewGamePageInner() {
           <div className="pt-2">
             <button
               disabled={!canSubmit || submitting}
-              className="rounded bg-blue-600 text-white px-4 py-2 text-sm disabled:opacity-50"
+              className="btn btn-success"
             >
               {submitting ? "Creating..." : "+ Create Game"}
             </button>
