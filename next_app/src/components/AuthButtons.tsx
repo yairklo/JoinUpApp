@@ -4,9 +4,10 @@ import { SignedIn, SignedOut, SignInButton, ClerkLoaded, UserButton } from "@cle
 export default function AuthButtons() {
   return (
     <div>
+      <label className="visually-hidden" htmlFor="navbar-signin-btn">Sign in</label>
       <SignedOut>
         <SignInButton mode="modal">
-          <button className="px-3 py-1 text-sm rounded bg-blue-600 text-white">Sign in</button>
+          <button id="navbar-signin-btn" className="btn btn-primary btn-sm">Sign in</button>
         </SignInButton>
       </SignedOut>
       <SignedIn>

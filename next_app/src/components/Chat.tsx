@@ -162,9 +162,7 @@ export default function Chat({ roomId = "global" }: ChatProps) {
           onBlur={() => socketRef.current?.emit("typing", { isTyping: false, roomId })}
           rows={1}
         />
-        <button className="rounded bg-blue-600 px-4 py-2 text-white" onClick={sendMessage}>
-          Send
-        </button>
+        <button className="btn btn-primary btn-sm" onClick={sendMessage}>Send</button>
       </div>
     </div>
   );
