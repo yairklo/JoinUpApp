@@ -22,6 +22,7 @@
     "@clerk/express": "^1.7.23",
     "@prisma/client": "^6.14.0",
     "bcryptjs": "^2.4.3",
+    "socket.io": "^4.7.5",
     "cors": "^2.8.5",
     "csv-parse": "^6.1.0",
     "dotenv": "^17.2.1",
