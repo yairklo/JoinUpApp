@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 import { ClerkProvider, SignedIn, UserButton } from "@clerk/nextjs";
 import AuthButtons from "@/components/AuthButtons";
+import AppNavbar from "@/components/AppNavbar";
 import Link from "next/link";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 
@@ -34,23 +36,7 @@ export default function RootLayout({
         </head>
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} data-nextjs-scroll-behavior="true" data-nextjs-router="true" suppressHydrationWarning>
           <ThemeProvider>
-          <header style={{position:"sticky", top:0, zIndex:50}} className="w-full border-b bg-background/80 backdrop-blur">
-            <div className="container" style={{display:"flex", alignItems:"center", gap:"1.5rem", height:64}}>
-              <Link href="/" className="logo" style={{fontWeight:800}}>⚽ JoinUp</Link>
-              <nav style={{display:"flex", gap:"1.5rem", marginInlineStart:"auto"}}>
-                <Link href="/">Home</Link>
-                <Link href="/fields">Fields</Link>
-                <Link href="/games">Active Games</Link>
-                <SignedIn>
-                  <Link href="/profile">My Profile</Link>
-                </SignedIn>
-                <AuthButtons />
-                <SignedIn>
-                  <UserButton afterSignOutUrl="/" />
-                </SignedIn>
-              </nav>
-            </div>
-          </header>
+          <AppNavbar />
           <main className="container" style={{paddingBlock:"1.25rem"}}>
             {children}
           </main>

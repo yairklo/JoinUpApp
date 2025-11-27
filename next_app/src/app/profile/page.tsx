@@ -5,6 +5,7 @@ import Container from "@/components/ui/Container";
 import { PageHeader } from "@/components/ui/PageHeader";
 import Link from "next/link";
 import AddFriendButton from "@/components/AddFriendButton";
+import Avatar from "@/components/Avatar";
 
 type PublicUser = {
   id: string;
@@ -164,14 +165,7 @@ export default function ProfilePage() {
           <div className="grid md:grid-cols-12 gap-6">
             <section className="md:col-span-9 space-y-4">
               <div className="flex items-center gap-4 py-4">
-                <span className="avatar" style={{width:72, height:72}}>
-                  {profile.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={profile.imageUrl} alt={profile.name || profile.id} />
-                  ) : (
-                    <span className="text-xl font-semibold">{getInitials(profile.name || '')}</span>
-                  )}
-                </span>
+                <Avatar src={profile.imageUrl} alt={profile.name || profile.id} name={profile.name || profile.id} size="lg" />
                 <div className="flex-1">
                   <PageHeader title={profile.name || 'Unnamed user'} description={profile.city || 'Unknown city'} />
                 </div>
@@ -236,9 +230,7 @@ export default function ProfilePage() {
                   {friends.slice(0, 6).map((f) => (
                     <div key={f.id} className="flex items-center justify-between gap-2 border rounded p-2 bg-white">
                       <Link href={`/users/${f.id}`} className="flex items-center gap-2 group">
-                        <span className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 overflow-hidden w-[28px] h-[28px] ring-1 ring-gray-300">
-                          {f.imageUrl ? (<img src={f.imageUrl} alt={f.name || f.id} className="w-full h-full object-cover block" />) : (<span className="text-[11px] font-semibold">{getInitials(f.name || '')}</span>)}
-                        </span>
+                        <Avatar src={f.imageUrl} alt={f.name || f.id} name={f.name || f.id} size="sm" />
                         <span className="text-sm text-gray-800 group-hover:underline">{f.name || f.id}</span>
                       </Link>
                       <div className="flex items-center gap-2">
@@ -258,9 +250,7 @@ export default function ProfilePage() {
                   {incoming.map((r) => (
                     <div key={r.id} className="flex items-center justify-between gap-2 border rounded p-2 bg-white">
                       <Link href={`/users/${r.requester.id}`} className="flex items-center gap-2 group">
-                        <span className="avatar-sm">
-                          {r.requester.imageUrl ? (<img src={r.requester.imageUrl} alt={r.requester.name || r.requester.id} />) : (<span className="text-[10px] font-semibold">{getInitials(r.requester.name || '')}</span>)}
-                        </span>
+                        <Avatar src={r.requester.imageUrl} alt={r.requester.name || r.requester.id} name={r.requester.name || r.requester.id} size="sm" />
                         <span className="text-sm text-gray-800 group-hover:underline">{r.requester.name || r.requester.id}</span>
                       </Link>
                       <div className="flex items-center gap-2">
@@ -280,9 +270,7 @@ export default function ProfilePage() {
                     return (
                       <div key={u.id} className="flex items-center justify-between gap-2">
                         <Link href={`/users/${u.id}`} className="flex items-center gap-2 group">
-                          <span className="avatar-sm">
-                            {u.imageUrl ? (<img src={u.imageUrl} alt={u.name || u.id} />) : (<span className="text-[10px] font-semibold">{getInitials(u.name || '')}</span>)}
-                          </span>
+                          <Avatar src={u.imageUrl} alt={u.name || u.id} name={u.name || u.id} size="sm" />
                           <span className="text-sm text-gray-800 group-hover:underline">{u.name || u.id}</span>
                         </Link>
                         {isFriend ? (

@@ -17,9 +17,13 @@ type Field = {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 async function fetchFields(): Promise<Field[]> {
-  const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
+    if (!res.ok) return [];
+    return res.json();
+  } catch (e) {
+    return [];
+  }
 }
 
 export default async function FieldsPage() {
@@ -28,7 +32,13 @@ export default async function FieldsPage() {
   return (
     <main className="container">
       <h1 className="text-2xl font-bold mb-4">Football Fields</h1>
-      <section style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:"1.25rem"}}>
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          gap: "1.25rem",
+        }}
+      >
         {fields.map((f) => (
           <FieldCard key={f.id} field={f as any} />
         ))}
@@ -36,4 +46,3 @@ export default async function FieldsPage() {
     </main>
   );
 }
-

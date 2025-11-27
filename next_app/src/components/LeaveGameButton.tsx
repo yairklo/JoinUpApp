@@ -37,11 +37,11 @@ export default function LeaveGameButton({ gameId, onLeft }: { gameId: string; on
     <div className="inline-flex flex-col items-end">
       <SignedOut>
         <SignInButton mode="modal">
-          <button className="px-3 py-1 rounded bg-blue-600 text-white text-xs">Sign in</button>
+          <button className="btn btn-primary btn-sm">Sign in</button>
         </SignInButton>
       </SignedOut>
       <SignedIn>
-        <button onClick={leave} disabled={loading} className="px-3 py-1 rounded bg-red-600 text-white text-xs disabled:opacity-50">
+        <button onClick={leave} disabled={loading} className="btn btn-danger btn-sm disabled:opacity-50">
           {loading ? "Leaving..." : "Leave game"}
         </button>
         {error && <div className="text-red-600 text-xs mt-1">{error}</div>}

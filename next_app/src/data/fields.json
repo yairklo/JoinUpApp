@@ -1,0 +1,32 @@
+[
+  {
+    "id": "field-1",
+    "name": "Ramat Gan Central Park",
+    "location": "Ramat Gan, Tel Aviv District",
+    "price": 0,
+    "rating": 4.6,
+    "image": "/images/default-field.jpg",
+    "type": "open",
+    "favoritesCount": 12
+  },
+  {
+    "id": "field-2",
+    "name": "Tel Aviv Sports Center",
+    "location": "Tel Aviv",
+    "price": 10,
+    "rating": 4.1,
+    "image": "/images/default-field.jpg",
+    "type": "closed",
+    "favoritesCount": 4
+  },
+  {
+    "id": "field-3",
+    "name": "Haifa Beach Field",
+    "location": "Haifa",
+    "price": 0,
+    "rating": 4.8,
+    "image": "/images/default-field.jpg",
+    "type": "open",
+    "favoritesCount": 21
+  }
+]

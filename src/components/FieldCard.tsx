@@ -22,19 +22,19 @@ const FieldCard: React.FC<FieldCardProps> = ({
   onBook
 }) => {
   return (
-    <div className="card h-100 shadow-sm">
+    <div className="card h-100 shadow-sm" style={{ maxWidth: '320px' }}>
       <img 
         src={image} 
         className="card-img-top" 
         alt={name}
-        style={{ height: '200px', objectFit: 'cover' }}
+        style={{ height: '140px', objectFit: 'cover' }}
       />
-      <div className="card-body d-flex flex-column">
-        <h5 className="card-title">{name}</h5>
-        <p className="card-text text-muted">
+      <div className="card-body p-3 d-flex flex-column">
+        <h6 className="card-title mb-1">{name}</h6>
+        <p className="card-text text-muted small mb-2">
           <i className="bi bi-geo-alt"></i> {location}
         </p>
-        <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="d-flex justify-content-between align-items-center mb-2">
           <span className="badge bg-success">${price}/hour</span>
           <div className="d-flex align-items-center">
             <i className="bi bi-star-fill text-warning me-1"></i>
@@ -44,14 +44,14 @@ const FieldCard: React.FC<FieldCardProps> = ({
         <div className="mt-auto">
           {available ? (
             <button 
-              className="btn btn-primary w-100"
+              className="btn btn-primary btn-sm w-100"
               onClick={() => onBook(id)}
             >
               <i className="bi bi-calendar-check me-2"></i>
               Book Now
             </button>
           ) : (
-            <button className="btn btn-secondary w-100" disabled>
+            <button className="btn btn-secondary btn-sm w-100" disabled>
               <i className="bi bi-x-circle me-2"></i>
               Not Available
             </button>

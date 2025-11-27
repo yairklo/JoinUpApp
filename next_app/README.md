@@ -34,3 +34,17 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Local dev backend (optional)
+
+If you don't have the API server running on http://localhost:3005, you can run a minimal local dev backend that provides `/api/fields` and other stubbed endpoints used by the frontend:
+
+```bash
+# install dependencies (if not already done)
+npm install
+
+# start the dev API server
+npm run dev:backend
+```
+
+The backend runs at http://localhost:3005 and serves the `src/data/fields.json` values under `/api/fields`.

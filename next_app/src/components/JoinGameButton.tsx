@@ -37,11 +37,11 @@ export default function JoinGameButton({ gameId, onJoined }: { gameId: string; o
     <div className="inline-flex flex-col items-end">
       <SignedOut>
         <SignInButton mode="modal">
-          <button className="px-3 py-1 rounded bg-blue-600 text-white text-xs">Sign in to join</button>
+          <button className="btn btn-primary btn-sm">Sign in to join</button>
         </SignInButton>
       </SignedOut>
       <SignedIn>
-        <button onClick={join} disabled={loading} className="px-3 py-1 rounded bg-green-600 text-white text-xs disabled:opacity-50">
+        <button onClick={join} disabled={loading} className="btn btn-primary btn-sm disabled:opacity-50">
           {loading ? "Joining..." : "Join"}
         </button>
         {error && <div className="text-red-600 text-xs mt-1">{error}</div>}

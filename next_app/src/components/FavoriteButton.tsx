@@ -41,8 +41,35 @@ export default function FavoriteButton({ fieldId }: { fieldId: string }) {
   if (!userId) return null;
 
   return (
-    <button onClick={toggle} disabled={loading} className="text-xs px-2 py-0.5 rounded border">
-      {isFav ? '★ Favorite' : '☆ Favorite'}
+    <button
+      onClick={toggle}
+      disabled={loading}
+      aria-pressed={isFav}
+      aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: '50%',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: '1px solid rgba(0,0,0,0.15)',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        backdropFilter: 'saturate(180%) blur(2px)',
+        cursor: loading ? 'not-allowed' : 'pointer'
+      }}
+      title={isFav ? 'Unfavorite' : 'Favorite'}
+    >
+      <span
+        aria-hidden
+        style={{
+          fontSize: 16,
+          lineHeight: 1,
+          color: isFav ? '#f59e0b' : '#666'
+        }}
+      >
+        {isFav ? '★' : '☆'}
+      </span>
     </button>
   );
 }

@@ -1,6 +1,7 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const dataManager = require('../utils/dataManager');
 
 function mapFieldForClient(f) {
   if (!f) return f;
@@ -18,7 +19,14 @@ router.get('/', async (req, res) => {
     res.json(fields.map(mapFieldForClient));
   } catch (error) {
     console.error('Get fields error:', error);
-    res.status(500).json({ error: 'Failed to get fields' });
+    // Fallback: serve from local JSON for dev environments without DB
+    try {
+      const fields = await dataManager.readData('fields.json');
+      return res.json(fields.map(mapFieldForClient));
+    } catch (fallbackErr) {
+      console.error('Fallback read fields.json failed:', fallbackErr);
+      return res.status(500).json({ error: 'Failed to get fields' });
+    }
   }
 });
 
@@ -34,7 +42,21 @@ router.get('/search', async (req, res) => {
     res.json(fields.map(mapFieldForClient));
   } catch (error) {
     console.error('Search fields error:', error);
-    res.status(500).json({ error: 'Failed to search fields' });
+    // Fallback: filter local JSON
+    try {
+      const { location, type, available } = req.query;
+      const raw = await dataManager.readData('fields.json');
+      const filtered = raw.filter((f) => {
+        const matchLocation = location ? (f.location || '').toLowerCase().includes(String(location).toLowerCase()) : true;
+        const matchType = type ? ((String(type).toLowerCase() === 'closed') ? (String(f.type).toLowerCase() === 'closed') : (String(f.type).toLowerCase() !== 'closed')) : true;
+        const matchAvail = typeof available !== 'undefined' ? (String(available) === 'true' ? !!f.available : !f.available) : true;
+        return matchLocation && matchType && matchAvail;
+      });
+      return res.json(filtered.map(mapFieldForClient));
+    } catch (fallbackErr) {
+      console.error('Fallback search fields.json failed:', fallbackErr);
+      return res.status(500).json({ error: 'Failed to search fields' });
+    }
   }
 });
 
@@ -50,7 +72,19 @@ router.get('/type/:type', async (req, res) => {
     res.json(fields.map(mapFieldForClient));
   } catch (error) {
     console.error('Get fields by type error:', error);
-    res.status(500).json({ error: 'Failed to get fields by type' });
+    // Fallback: filter local JSON
+    try {
+      const { type } = req.params;
+      if (!['open', 'closed'].includes(type)) {
+        return res.status(400).json({ error: 'Type must be "open" or "closed"' });
+      }
+      const raw = await dataManager.readData('fields.json');
+      const filtered = raw.filter((f) => String(f.type).toLowerCase() === String(type).toLowerCase());
+      return res.json(filtered.map(mapFieldForClient));
+    } catch (fallbackErr) {
+      console.error('Fallback type filter fields.json failed:', fallbackErr);
+      return res.status(500).json({ error: 'Failed to get fields by type' });
+    }
   }
 });
 
@@ -66,7 +100,18 @@ router.get('/:id', async (req, res) => {
     res.json(mapFieldForClient(field));
   } catch (error) {
     console.error('Get field error:', error);
-    res.status(500).json({ error: 'Failed to get field' });
+    // Fallback: read from local JSON
+    try {
+      const raw = await dataManager.readData('fields.json');
+      const found = raw.find((f) => f.id === req.params.id);
+      if (!found) {
+        return res.status(404).json({ error: 'Field not found' });
+      }
+      return res.json(mapFieldForClient(found));
+    } catch (fallbackErr) {
+      console.error('Fallback get field from fields.json failed:', fallbackErr);
+      return res.status(500).json({ error: 'Failed to get field' });
+    }
   }
 });
 

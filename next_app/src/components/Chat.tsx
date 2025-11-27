@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useUser } from "@clerk/nextjs";
+import Toast from "react-bootstrap/Toast";
+import ToastContainer from "react-bootstrap/ToastContainer";
+import Avatar from "@/components/Avatar";
 
 type ChatMessage = {
   id: number;
@@ -26,6 +29,7 @@ export default function Chat({ roomId = "global" }: ChatProps) {
   const { user } = useUser();
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
   const [avatarByUserId, setAvatarByUserId] = useState<Record<string, string | null>>({});
+  const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -79,7 +83,10 @@ export default function Chat({ roomId = "global" }: ChatProps) {
     missing.forEach((uid) => {
       fetch(`${API_BASE}/api/users/${uid}`).then(r => r.json()).then((u) => {
         setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
-      }).catch(() => setAvatarByUserId((prev) => ({ ...prev, [uid]: null })));
+        if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
+      }).catch(() => {
+        setAvatarByUserId((prev) => ({ ...prev, [uid]: null }));
+      });
     });
   }, [messages]);
 
@@ -109,47 +116,40 @@ export default function Chat({ roomId = "global" }: ChatProps) {
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Chat</h2>
       </div>
-      <div className="mb-3 h-80 overflow-y-auto rounded border p-3 space-y-3 bg-white" role="log" aria-live="polite">
-        {messages.map((m, idx) => {
-          const isMine = m.senderId === mySocketId;
-          const avatarUrl = m.userId ? avatarByUserId[m.userId] : undefined;
-          const zebra = idx % 2 === 1;
-          return (
-            <div key={m.id} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
-              {!isMine && (
-                <span className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 overflow-hidden w-[28px] h-[28px] ring-1 ring-gray-300">
-                  {avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover block" />
-                  ) : (
-                    <span className="text-[11px] font-semibold">{m.userId ? (m.userId.slice(0,2).toUpperCase()) : "?"}</span>
-                  )}
-                </span>
-              )}
-              <div className={`max-w-[70%] rounded px-3 py-2 text-sm shadow ${isMine ? "bg-blue-600 text-white" : zebra ? "bg-gray-100" : "bg-gray-50"} text-gray-900`}>
-                <div className="text-[11px] font-medium opacity-70 mb-0.5">{m.senderName || m.userId || ""}</div>
-                <div>{m.text}</div>
-                <div className="mt-1 text-[10px] opacity-60">{new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-              </div>
-              {isMine && (
-                <span className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 overflow-hidden w-[28px] h-[28px] ring-1 ring-gray-300">
-                  {user?.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={user.imageUrl} alt="me" className="w-full h-full object-cover block" />
-                  ) : (
-                    <span className="text-[11px] font-semibold">ME</span>
-                  )}
-                </span>
-              )}
-            </div>
-          );
-        })}
-        {messages.length === 0 && (
-          <div className="text-gray-500 text-sm">No messages yet <span aria-hidden>👋</span></div>
-        )}
-        {otherUserTyping && (
-          <div className="text-xs text-gray-500">Someone is typing...</div>
-        )}
+      <div className="mb-3 h-80 overflow-y-auto rounded border p-3 bg-white" role="log" aria-live="polite">
+        <ToastContainer className="position-static w-100">
+          {messages.map((m) => {
+            const isMine = m.userId && user?.id ? m.userId === user.id : false;
+            const avatarUrl = m.userId ? avatarByUserId[m.userId] : undefined;
+            const timeStr = new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            const displayName =
+              (m.userId && nameByUserId[m.userId]) ||
+              (m.userId && user?.id && m.userId === user.id ? (user.fullName || user.firstName || "Me") : "") ||
+              m.senderName ||
+              m.userId ||
+              "Unknown";
+            return (
+              <Toast
+                key={m.id}
+                bg={isMine ? "success" : "secondary"}
+                className={`mb-2 ${isMine ? "ms-auto" : ""}`}
+                style={{ maxWidth: "75%" }}
+              >
+                <Toast.Header closeButton={false}>
+                  {/* avatar */}
+                  <span className="me-2"><Avatar src={avatarUrl || undefined} alt={displayName} name={displayName} size="xs" /></span>
+                  <strong className="me-auto">{displayName}</strong>
+                  <small className="text-muted">{timeStr}</small>
+                </Toast.Header>
+                <Toast.Body>{m.text}</Toast.Body>
+              </Toast>
+            );
+          })}
+        </ToastContainer>
+        {messages.length === 0 ? (
+          <div className="text-gray-500 text-sm mt-2">No messages yet <span aria-hidden>👋</span></div>
+        ) : null}
+        {otherUserTyping ? <div className="text-xs text-gray-500 mt-1">Someone is typing...</div> : null}
       </div>
       <div className="flex gap-2" suppressHydrationWarning>
         <textarea
