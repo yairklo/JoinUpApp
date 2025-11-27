@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Field, Game } from '../types';
+import type { Field } from '../types';
 
 interface FieldDetailsProps {
   field: Field;

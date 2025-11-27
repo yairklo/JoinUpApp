@@ -12,6 +12,7 @@ const ActiveGamesPage: React.FC = () => {
       fieldId: '1',
       fieldName: 'Central Park Football Field',
       fieldLocation: 'New York, NY',
+      fieldType: 'closed',
       date: new Date().toISOString().split('T')[0],
       time: '18:00',
       duration: 2,
@@ -39,6 +40,7 @@ const ActiveGamesPage: React.FC = () => {
       fieldId: '2',
       fieldName: 'Riverside Sports Complex',
       fieldLocation: 'Los Angeles, CA',
+      fieldType: 'closed',
       date: new Date().toISOString().split('T')[0],
       time: '19:00',
       duration: 2,
@@ -68,6 +70,7 @@ const ActiveGamesPage: React.FC = () => {
       fieldId: '4',
       fieldName: 'Community Sports Center',
       fieldLocation: 'Miami, FL',
+      fieldType: 'closed',
       date: new Date().toISOString().split('T')[0],
       time: '17:00',
       duration: 1,
@@ -93,6 +96,7 @@ const ActiveGamesPage: React.FC = () => {
       fieldId: '1',
       fieldName: 'Central Park Football Field',
       fieldLocation: 'New York, NY',
+      fieldType: 'closed',
       date: new Date().toISOString().split('T')[0],
       time: '20:00',
       duration: 1,
@@ -116,7 +120,7 @@ const ActiveGamesPage: React.FC = () => {
   ]);
 
   const [showScheduler, setShowScheduler] = useState(false);
-  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  // removed unused selectedGame
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error' | 'info' | 'warning';
@@ -165,7 +169,6 @@ const ActiveGamesPage: React.FC = () => {
   const handleViewDetails = (gameId: string) => {
     const game = games.find(g => g.id === gameId);
     if (game) {
-      setSelectedGame(game);
       showToast(`Game Details: ${game.description}`, 'info');
     }
   };
@@ -183,6 +186,7 @@ const ActiveGamesPage: React.FC = () => {
       fieldId: gameData.fieldId!,
       fieldName: 'Your Field', // This would come from the form
       fieldLocation: 'Your Location',
+      fieldType: (gameData as any).fieldType || 'closed',
       date: gameData.date!,
       time: gameData.time!,
       duration: gameData.duration!,

@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import Header from './Header';
-import FieldCard from './FieldCard';
 import FieldDetails from './FieldDetails';
 import GameScheduler from './GameScheduler';
 import Toast from './Toast';
-import type { Field, Game, FieldType } from '../types';
+import type { Field, Game } from '../types';
 
 const FieldsPage: React.FC = () => {
   const [fields, setFields] = useState<Field[]>([

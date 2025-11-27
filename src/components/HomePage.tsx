@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Header from './Header';
 import FieldSearch from './FieldSearch';
-import FieldCard from './FieldCard';
 import FieldDetails from './FieldDetails';
 import GameScheduler from './GameScheduler';
 import Toast from './Toast';
