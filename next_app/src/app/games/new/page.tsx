@@ -12,6 +12,14 @@ function NewGamePageInner() {
   const [success, setSuccess] = useState<string | null>(null);
   const { getToken, isSignedIn } = useAuth();
   const [fields, setFields] = useState<Array<{ id: string; name: string; location?: string | null }>>([]);
+  const [query, setQuery] = useState("");
+  const [showSuggest, setShowSuggest] = useState(false);
+  const [newFieldMode, setNewFieldMode] = useState(false);
+  const [newField, setNewField] = useState<{ name: string; location: string; type: "open" | "closed" }>({
+    name: "",
+    location: "",
+    type: "open",
+  });
 
   const [form, setForm] = useState({
     fieldId,
@@ -68,6 +76,19 @@ function NewGamePageInner() {
     };
   }, [fieldId]);
 
+  const normalized = (s: string) =>
+    s.toLowerCase().normalize("NFKD").replace(/[^\w\s]/g, "");
+  const suggestions = useMemo(() => {
+    const q = normalized(query).trim();
+    if (!q) return fields.slice(0, 8);
+    return fields
+      .filter((f) => {
+        const hay = normalized(`${f.name} ${f.location || ""}`);
+        return hay.includes(q);
+      })
+      .slice(0, 8);
+  }, [fields, query]);
+
   useEffect(() => {
     if (!fieldId) return;
     // Pre-fill from field data if available
@@ -98,10 +119,20 @@ function NewGamePageInner() {
   }, [form.date]);
 
   const canSubmit = useMemo(() => {
+    const hasExistingField = !!form.fieldId;
+    const hasNewField =
+      newFieldMode &&
+      newField.name.trim() &&
+      newField.location.trim() &&
+      newField.type;
     return Boolean(
-      isSignedIn && form.fieldId && form.date && form.time && form.maxPlayers
+      isSignedIn &&
+        (hasExistingField || hasNewField) &&
+        form.date &&
+        form.time &&
+        form.maxPlayers
     );
-  }, [isSignedIn, form]);
+  }, [isSignedIn, form, newFieldMode, newField]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -118,6 +149,15 @@ function NewGamePageInner() {
         },
         body: JSON.stringify({
           ...form,
+          ...(newFieldMode && !form.fieldId
+            ? {
+                newField: {
+                  name: newField.name.trim(),
+                  location: newField.location.trim(),
+                  type: newField.type,
+                },
+              }
+            : {}),
           isOpenToJoin: true,
           // price will be derived on the server based on fieldType
         }),
@@ -176,22 +216,117 @@ function NewGamePageInner() {
           onSubmit={onSubmit}
           className="space-y-3 bg-white border rounded p-4 shadow"
         >
-          {/* Field selector if not provided */}
+          {/* Field selector (typeahead) if not provided */}
           {!fieldId && (
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium">Field</label>
-              <select
-                value={form.fieldId}
-                onChange={(e) => setForm((prev) => ({ ...prev, fieldId: e.target.value }))}
-                className="mt-1 w-full border rounded px-3 py-2 text-sm"
-              >
-                <option value="">Select a field…</option>
-                {fields.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}{f.location ? ` • ${f.location}` : ""}
-                  </option>
-                ))}
-              </select>
+              {!newFieldMode ? (
+                <div>
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setQuery(v);
+                      if (form.fieldId) setForm((prev) => ({ ...prev, fieldId: "" }));
+                    }}
+                    onFocus={() => setShowSuggest(true)}
+                    className="mt-1 w-full border rounded px-3 py-2 text-sm"
+                    placeholder="Search or type a field name…"
+                  />
+                  {showSuggest && (
+                    <div
+                      className="absolute z-10 mt-1 w-full border rounded bg-white shadow"
+                      style={{ maxHeight: 240, overflowY: "auto" }}
+                    >
+                      {suggestions.map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, fieldId: f.id }));
+                            setQuery(`${f.name}${f.location ? ` • ${f.location}` : ""}`);
+                            setShowSuggest(false);
+                          }}
+                        >
+                          {f.name}
+                          {f.location ? ` • ${f.location}` : ""}
+                        </button>
+                      ))}
+                      <div className="border-t my-1" />
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-blue-700 hover:bg-blue-50"
+                        onClick={() => {
+                          setNewFieldMode(true);
+                          setForm((prev) => ({ ...prev, fieldId: "" }));
+                          setShowSuggest(false);
+                          setNewField((prev) => ({ ...prev, name: query.trim() }));
+                        }}
+                      >
+                        Create new field: “{query.trim() || "…"}”
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-1 border rounded p-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Name</label>
+                      <input
+                        type="text"
+                        value={newField.name}
+                        onChange={(e) => setNewField((prev) => ({ ...prev, name: e.target.value }))}
+                        className="w-full border rounded px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Location</label>
+                      <input
+                        type="text"
+                        value={newField.location}
+                        onChange={(e) => setNewField((prev) => ({ ...prev, location: e.target.value }))}
+                        className="w-full border rounded px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium mb-1">Type</label>
+                    <div className="flex items-center gap-4 text-sm">
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={newField.type === "open"}
+                          onChange={() => setNewField((prev) => ({ ...prev, type: "open" }))}
+                        />
+                        Open (outdoor)
+                      </label>
+                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={newField.type === "closed"}
+                          onChange={() => setNewField((prev) => ({ ...prev, type: "closed" }))}
+                        />
+                        Closed (indoor)
+                      </label>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-light btn-sm"
+                      onClick={() => {
+                        setNewFieldMode(false);
+                        setNewField({ name: "", location: "", type: "open" });
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
