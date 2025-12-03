@@ -63,41 +63,37 @@ export default function MyJoinedGames() {
   }, [userId]);
 
   if (!userId) return null;
+  if (loading) return null;
+  if (games.length === 0) return null;
 
   return (
     <section className="mb-3">
       <h2 className="h5 mb-2">Your Upcoming Games</h2>
-      {loading ? (
-        <div className="text-muted">Loading...</div>
-      ) : games.length === 0 ? (
-        <div className="text-muted small">You have no upcoming games.</div>
-      ) : (
-        <div className="space-y-2">
-          {games.map((g) => {
-            const joined = true;
-            const title = `${g.fieldName} • ${g.fieldLocation}`;
-            return (
-              <GameHeaderCard
-                key={g.id}
-                time={g.time}
-                durationHours={g.duration ?? 1}
-                title={title}
-                currentPlayers={g.currentPlayers}
-                maxPlayers={g.maxPlayers}
-              >
-                {joined ? (
-                  <LeaveGameButton gameId={g.id} />
-                ) : (
-                  <JoinGameButton gameId={g.id} />
-                )}
-                <Link href={`/games/${g.id}`} className="btn btn-secondary btn-sm ms-2">
-                  Details
-                </Link>
-              </GameHeaderCard>
-            );
-          })}
-        </div>
-      )}
+      <div className="space-y-2">
+        {games.map((g) => {
+          const joined = true;
+          const title = `${g.fieldName} • ${g.fieldLocation}`;
+          return (
+            <GameHeaderCard
+              key={g.id}
+              time={g.time}
+              durationHours={g.duration ?? 1}
+              title={title}
+              currentPlayers={g.currentPlayers}
+              maxPlayers={g.maxPlayers}
+            >
+              {joined ? (
+                <LeaveGameButton gameId={g.id} />
+              ) : (
+                <JoinGameButton gameId={g.id} />
+              )}
+              <Link href={`/games/${g.id}`} className="btn btn-secondary btn-sm ms-2">
+                Details
+              </Link>
+            </GameHeaderCard>
+          );
+        })}
+      </div>
     </section>
   );
 }
