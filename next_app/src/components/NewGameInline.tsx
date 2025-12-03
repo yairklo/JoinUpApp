@@ -22,6 +22,14 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
     description: "",
   });
   const [fields, setFields] = useState<FieldOption[]>([]);
+  const [query, setQuery] = useState("");
+  const [showSuggest, setShowSuggest] = useState(false);
+  const [newFieldMode, setNewFieldMode] = useState(false);
+  const [newField, setNewField] = useState<{ name: string; location: string; type: "open" | "closed" }>({
+    name: "",
+    location: "",
+    type: "open",
+  });
 
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -70,8 +78,10 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
   }, [form.date, nextQuarterTimeStr, todayStr]);
 
   const canSubmit = useMemo(() => {
-    return Boolean(isSignedIn && form.fieldId && form.date && form.time && form.maxPlayers);
-  }, [isSignedIn, form]);
+    const hasExistingField = !!form.fieldId;
+    const hasNewField = newFieldMode && newField.name.trim() && newField.location.trim() && newField.type;
+    return Boolean(isSignedIn && (hasExistingField || hasNewField) && form.date && form.time && form.maxPlayers);
+  }, [isSignedIn, form, newFieldMode, newField]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,6 +98,9 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
         },
         body: JSON.stringify({
           ...form,
+          ...(newFieldMode && !form.fieldId
+            ? { newField: { name: newField.name.trim(), location: newField.location.trim(), type: newField.type } }
+            : {}),
           isOpenToJoin: true,
         }),
       });
@@ -108,6 +121,21 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+  function updateNewField<K extends keyof typeof newField>(key: K, value: (typeof newField)[K]) {
+    setNewField((prev) => ({ ...prev, [key]: value }));
+  }
+
+  const normalized = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\w\s]/g, "");
+  const suggestions = useMemo(() => {
+    const q = normalized(query).trim();
+    if (!q) return fields.slice(0, 8);
+    return fields
+      .filter((f) => {
+        const hay = normalized(`${f.name} ${f.location || ""}`);
+        return hay.includes(q);
+      })
+      .slice(0, 8);
+  }, [fields, query]);
 
   return (
     <div>
@@ -127,20 +155,111 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
         <Form onSubmit={onSubmit}>
           <div className="row g-2">
             {!fieldId && (
-              <div className="col-12">
+              <div className="col-12 position-relative">
                 <Form.Label className="small">Field</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={form.fieldId}
-                  onChange={(e) => update("fieldId", e.currentTarget.value)}
-                >
-                  <option value="">Select a field…</option>
-                  {fields.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}{f.location ? ` • ${f.location}` : ""}
-                    </option>
-                  ))}
-                </Form.Select>
+                {!newFieldMode ? (
+                  <div>
+                    <Form.Control
+                      type="text"
+                      size="sm"
+                      placeholder="Search or type a field name…"
+                      value={query}
+                      onFocus={() => setShowSuggest(true)}
+                      onChange={(e) => {
+                        const v = e.currentTarget.value;
+                        setQuery(v);
+                        // clear selected field if user edits
+                        if (form.fieldId) update("fieldId", "");
+                      }}
+                    />
+                    {showSuggest && (
+                      <div className="border rounded mt-1 bg-white shadow-sm" style={{ maxHeight: 220, overflowY: "auto" }}>
+                        {suggestions.map((f) => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            className="dropdown-item text-start w-100"
+                            onClick={() => {
+                              update("fieldId", f.id);
+                              setQuery(`${f.name}${f.location ? ` • ${f.location}` : ""}`);
+                              setShowSuggest(false);
+                            }}
+                          >
+                            {f.name}{f.location ? ` • ${f.location}` : ""}
+                          </button>
+                        ))}
+                        <div className="dropdown-divider" />
+                        <button
+                          type="button"
+                          className="dropdown-item text-start w-100 text-primary"
+                          onClick={() => {
+                            setNewFieldMode(true);
+                            update("fieldId", "");
+                            setShowSuggest(false);
+                            updateNewField("name", query.trim());
+                          }}
+                        >
+                          Create new field: “{query.trim() || "…" }”
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="border rounded p-2">
+                    <div className="row g-2">
+                      <div className="col-6">
+                        <Form.Label className="small mb-0">Name</Form.Label>
+                        <Form.Control
+                          size="sm"
+                          value={newField.name}
+                          onChange={(e) => updateNewField("name", e.currentTarget.value)}
+                        />
+                      </div>
+                      <div className="col-6">
+                        <Form.Label className="small mb-0">Location</Form.Label>
+                        <Form.Control
+                          size="sm"
+                          value={newField.location}
+                          onChange={(e) => updateNewField("location", e.currentTarget.value)}
+                        />
+                      </div>
+                      <div className="col-12">
+                        <Form.Label className="small mb-0">Type</Form.Label>
+                        <div className="d-flex gap-2">
+                          <Form.Check
+                            inline
+                            type="radio"
+                            id="type-open"
+                            label="Open (outdoor)"
+                            checked={newField.type === "open"}
+                            onChange={() => updateNewField("type", "open")}
+                          />
+                          <Form.Check
+                            inline
+                            type="radio"
+                            id="type-closed"
+                            label="Closed (indoor)"
+                            checked={newField.type === "closed"}
+                            onChange={() => updateNewField("type", "closed")}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="d-flex justify-content-end gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        variant="light"
+                        type="button"
+                        onClick={() => {
+                          setNewFieldMode(false);
+                          setNewField({ name: "", location: "", type: "open" });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <div className="col-6">

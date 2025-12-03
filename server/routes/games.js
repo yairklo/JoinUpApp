@@ -134,6 +134,7 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const {
       fieldId,
+      newField, // optional: { name, location, type: 'open' | 'closed' }
       date,
       time,
       duration,
@@ -142,14 +143,31 @@ router.post('/', authenticateToken, async (req, res) => {
       description
     } = req.body;
 
-    if (!fieldId || !date || !time || !maxPlayers) {
+    if ((!fieldId && !newField) || !date || !time || !maxPlayers) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const field = await prisma.field.findUnique({ where: { id: fieldId } });
-    if (!field) {
-      return res.status(404).json({ error: 'Field not found' });
+    let useFieldId = fieldId;
+
+    // If client requested to create a new field inline (no admin requirement here)
+    if (!useFieldId && newField && newField.name && newField.location && newField.type) {
+      const typeUpper = String(newField.type).toLowerCase() === 'closed' ? 'CLOSED' : 'OPEN';
+      const createdField = await prisma.field.create({
+        data: {
+          name: String(newField.name),
+          location: String(newField.location),
+          price: typeUpper === 'OPEN' ? 0 : 0,
+          rating: 0,
+          image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
+          available: true,
+          type: typeUpper,
+        }
+      });
+      useFieldId = createdField.id;
     }
+
+    const field = await prisma.field.findUnique({ where: { id: useFieldId } });
+    if (!field) return res.status(404).json({ error: 'Field not found' });
 
     // upsert user from Clerk
     await prisma.user.upsert({
@@ -161,14 +179,14 @@ router.post('/', authenticateToken, async (req, res) => {
     const start = new Date(`${date}T${time}:00`);
 
     // optional basic conflict check
-    const conflict = await prisma.game.findFirst({ where: { fieldId, start } });
+    const conflict = await prisma.game.findFirst({ where: { fieldId: useFieldId, start } });
     if (conflict) {
       return res.status(400).json({ error: 'Time slot is already booked' });
     }
 
     const created = await prisma.game.create({
       data: {
-        fieldId,
+        fieldId: useFieldId,
         start,
         duration: duration || 1,
         maxPlayers,
