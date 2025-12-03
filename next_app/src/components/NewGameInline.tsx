@@ -49,9 +49,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
   }
   const nextQuarterTimeStr = useMemo(() => roundUpToNextQuarter(today), []);
 
-  // Load fields if no fieldId provided
+  // Load fields for suggestions (always)
   useEffect(() => {
-    if (fieldId) return;
     let ignore = false;
     async function run() {
       try {
@@ -66,6 +65,27 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
       ignore = true;
     };
   }, [fieldId]);
+
+  // If fieldId provided, prefill the query display to allow editing
+  useEffect(() => {
+    if (!fieldId) return;
+    const found = fields.find((f) => f.id === fieldId);
+    if (found) {
+      setQuery(`${found.name}${found.location ? ` • ${found.location}` : ""}`);
+      return;
+    }
+    let ignore = false;
+    async function run() {
+      try {
+        const res = await fetch(`${API_BASE}/api/fields/${fieldId}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const f = await res.json();
+        if (!ignore) setQuery(`${f.name}${f.location ? ` • ${f.location}` : ""}`);
+      } catch {}
+    }
+    run();
+    return () => { ignore = true; };
+  }, [fieldId, fields]);
 
   useEffect(() => {
     // Ensure time defaults correctly when selecting today's date
@@ -154,8 +174,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
 
         <Form onSubmit={onSubmit}>
           <div className="row g-2">
-            {!fieldId && (
-              <div className="col-12 position-relative">
+            <div className="col-12 position-relative">
                 <Form.Label className="small">Field</Form.Label>
                 {!newFieldMode ? (
                   <div>
@@ -165,6 +184,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                       placeholder="Search or type a field name…"
                       value={query}
                       onFocus={() => setShowSuggest(true)}
+                      onBlur={() => setTimeout(() => setShowSuggest(false), 120)}
                       onChange={(e) => {
                         const v = e.currentTarget.value;
                         setQuery(v);
@@ -179,7 +199,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                             key={f.id}
                             type="button"
                             className="dropdown-item text-start w-100"
-                            onClick={() => {
+                            onMouseDown={() => {
                               update("fieldId", f.id);
                               setQuery(`${f.name}${f.location ? ` • ${f.location}` : ""}`);
                               setShowSuggest(false);
@@ -192,7 +212,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                         <button
                           type="button"
                           className="dropdown-item text-start w-100 text-primary"
-                          onClick={() => {
+                          onMouseDown={() => {
                             setNewFieldMode(true);
                             update("fieldId", "");
                             setShowSuggest(false);
@@ -261,7 +281,6 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                   </div>
                 )}
               </div>
-            )}
             <div className="col-6">
               <Form.Label className="small">Date</Form.Label>
               <Form.Control

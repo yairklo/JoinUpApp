@@ -231,6 +231,7 @@ function NewGamePageInner() {
                       if (form.fieldId) setForm((prev) => ({ ...prev, fieldId: "" }));
                     }}
                     onFocus={() => setShowSuggest(true)}
+                    onBlur={() => setTimeout(() => setShowSuggest(false), 120)}
                     className="mt-1 w-full border rounded px-3 py-2 text-sm"
                     placeholder="Search or type a field name…"
                   />
@@ -244,7 +245,7 @@ function NewGamePageInner() {
                           key={f.id}
                           type="button"
                           className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                          onClick={() => {
+                          onMouseDown={() => {
                             setForm((prev) => ({ ...prev, fieldId: f.id }));
                             setQuery(`${f.name}${f.location ? ` • ${f.location}` : ""}`);
                             setShowSuggest(false);
@@ -258,7 +259,7 @@ function NewGamePageInner() {
                       <button
                         type="button"
                         className="w-full text-left px-3 py-2 text-blue-700 hover:bg-blue-50"
-                        onClick={() => {
+                        onMouseDown={() => {
                           setNewFieldMode(true);
                           setForm((prev) => ({ ...prev, fieldId: "" }));
                           setShowSuggest(false);
