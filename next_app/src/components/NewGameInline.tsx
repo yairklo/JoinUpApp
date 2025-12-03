@@ -146,16 +146,58 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
   }
 
   const normalized = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\w\s]/g, "");
+
+  type FieldPrefixIndex = {
+    prefixToIds: Map<string, string[]>;
+    idToField: Map<string, FieldOption>;
+  };
+
+  function buildPrefixIndex(list: FieldOption[]): FieldPrefixIndex {
+    const prefixToIds = new Map<string, string[]>();
+    const idToField = new Map<string, FieldOption>();
+    for (const f of list) {
+      idToField.set(f.id, f);
+      const text = normalized(`${f.name} ${f.location || ""}`);
+      const words = text.split(/\s+/).filter(Boolean);
+      for (const w of words) {
+        const max = Math.min(w.length, 20);
+        for (let len = 2; len <= max; len++) {
+          const pref = w.slice(0, len);
+          const arr = prefixToIds.get(pref);
+          if (arr) {
+            if (arr[arr.length - 1] !== f.id) arr.push(f.id);
+          } else {
+            prefixToIds.set(pref, [f.id]);
+          }
+        }
+      }
+    }
+    return { prefixToIds, idToField };
+  }
+
+  function intersectIdLists(lists: string[][]): string[] {
+    if (lists.length === 0) return [];
+    let result = lists[0];
+    for (let i = 1; i < lists.length; i++) {
+      const set = new Set(lists[i]);
+      result = result.filter((id) => set.has(id));
+      if (result.length === 0) break;
+    }
+    return result;
+  }
+
+  const index = useMemo(() => buildPrefixIndex(fields), [fields]);
+
   const suggestions = useMemo(() => {
     const q = normalized(query).trim();
     if (!q) return fields.slice(0, 8);
-    return fields
-      .filter((f) => {
-        const hay = normalized(`${f.name} ${f.location || ""}`);
-        return hay.includes(q);
-      })
-      .slice(0, 8);
-  }, [fields, query]);
+    const tokens = q.split(/\s+/).filter((t) => t.length >= 2);
+    if (tokens.length === 0) return fields.slice(0, 8);
+    const lists = tokens.map((t) => index.prefixToIds.get(t) || []);
+    if (lists.some((l) => l.length === 0)) return [];
+    const ids = intersectIdLists(lists);
+    return ids.slice(0, 8).map((id) => index.idToField.get(id)!).filter(Boolean);
+  }, [fields, query, index]);
 
   return (
     <div>
