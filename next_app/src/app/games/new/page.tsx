@@ -233,7 +233,7 @@ function NewGamePageInner() {
               disabled={!canSubmit || submitting}
               className="btn btn-success"
             >
-              {submitting ? "Creating..." : "+ Create Game"}
+              {submitting ? "Creating..." : "Create Game"}
             </button>
           </div>
         </form>

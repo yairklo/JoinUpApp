@@ -51,7 +51,7 @@ export default function FieldCard({ field }: { field: Field }) {
           View games
         </Link>
         <Button variant="secondary" size="sm" className="ms-2" onClick={() => setShowNewGame(true)}>
-          + New game
+          New game
         </Button>
         {/* <a className="card-link" href="#">Another Link</a> */}
       </Card.Body>

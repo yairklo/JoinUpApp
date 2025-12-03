@@ -162,7 +162,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId: string;
 
           <div className="pt-2 d-flex justify-content-end">
             <Button type="submit" size="sm" variant="primary" disabled={!canSubmit || submitting}>
-              {submitting ? "Creating..." : "+ Create Game"}
+              {submitting ? "Creating..." : "Create Game"}
             </Button>
           </div>
         </Form>

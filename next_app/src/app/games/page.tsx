@@ -91,7 +91,7 @@ export default async function GamesPage(props: {
             }
             className="btn btn-success btn-lg w-100"
           >
-            + Create New Game
+            Create New Game
           </Link>
         </div>
 
