@@ -7,9 +7,11 @@ import NavDropdown from "react-bootstrap/NavDropdown";
 export default function GamesDateNav({
   selectedDate,
   fieldId,
+  onSelectDate,
 }: {
   selectedDate: string;
   fieldId?: string;
+  onSelectDate?: (date: string) => void;
 }) {
   const router = useRouter();
 
@@ -33,7 +35,11 @@ export default function GamesDateNav({
       ? "3"
       : "4";
 
-  function goToDate(dateStr: string) {
+  function navigateOrSelect(dateStr: string) {
+    if (onSelectDate) {
+      onSelectDate(dateStr);
+      return;
+    }
     const base = "/games";
     const url = new URL(base, window.location.origin);
     url.searchParams.set("date", dateStr);
@@ -42,17 +48,23 @@ export default function GamesDateNav({
   }
 
   return (
-    <Nav variant="pills" activeKey={activeKey} onSelect={(k) => {
-      if (!k) return;
-      if (k === "1") goToDate(todayStr);
-      if (k === "2") goToDate(tomorrowStr);
-      if (k === "3") goToDate(afterTomorrowStr);
-    }}>
+    <Nav
+      variant="pills"
+      activeKey={activeKey}
+      onSelect={(k) => {
+        if (!k) return;
+        if (k === "1") navigateOrSelect(todayStr);
+        if (k === "2") navigateOrSelect(tomorrowStr);
+        if (k === "3") navigateOrSelect(afterTomorrowStr);
+      }}
+    >
       <Nav.Item>
         <Nav.Link eventKey="1">Today</Nav.Link>
       </Nav.Item>
       <Nav.Item>
-        <Nav.Link eventKey="2" title="Tomorrow">Tomorrow</Nav.Link>
+        <Nav.Link eventKey="2" title="Tomorrow">
+          Tomorrow
+        </Nav.Link>
       </Nav.Item>
       <Nav.Item>
         <Nav.Link eventKey="3">Day after</Nav.Link>
@@ -66,7 +78,7 @@ export default function GamesDateNav({
             min={todayStr}
             onChange={(e) => {
               const v = e.currentTarget.value;
-              if (v) goToDate(v);
+              if (v) navigateOrSelect(v);
             }}
           />
         </div>
@@ -74,5 +86,4 @@ export default function GamesDateNav({
     </Nav>
   );
 }
-
 

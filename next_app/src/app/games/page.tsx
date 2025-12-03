@@ -1,10 +1,8 @@
 import Link from "next/link";
 import Container from "@/components/ui/Container";
-import GameHeaderCard from "@/components/GameHeaderCard";
-import JoinGameButton from "@/components/JoinGameButton";
-import LeaveGameButton from "@/components/LeaveGameButton";
 import { currentUser } from "@clerk/nextjs/server";
-import GamesDateNav from "@/components/GamesDateNav";
+import MyJoinedGames from "@/components/MyJoinedGames";
+import GamesByDateClient from "@/components/GamesByDateClient";
 
 type Game = {
   id: string;
@@ -70,79 +68,44 @@ export default async function GamesPage(props: {
   const mm = String(today.getMonth() + 1).padStart(2, "0");
   const dd = String(today.getDate()).padStart(2, "0");
   const todayStr = `${yyyy}-${mm}-${dd}`;
-  const selectedDate =
+  const initialDate =
     (typeof searchParams.date === "string" && searchParams.date) || todayStr;
-  // Group by date (YYYY-MM-DD)
-  const groups = games.reduce<Record<string, Game[]>>((acc, g) => {
-    (acc[g.date] ||= []).push(g);
-    return acc;
-  }, {});
-  // Make a 7-day window starting today
-  const dayKeys: string[] = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate() + i
-    );
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  });
 
   return (
     <main>
       <Container>
         <div className="d-flex align-items-center justify-content-between mb-3">
-          <h1 className="h4 m-0">Upcoming Games</h1>
-          {typeof searchParams.fieldId === "string" && (
-            <Link href={`/games/new?fieldId=${searchParams.fieldId}`} className="btn btn-primary btn-sm">
-              + New Game
-            </Link>
-          )}
+          <h1 className="h4 m-0">Active Games</h1>
         </div>
+
+        {/* Your joined games (regardless of date) */}
+        <MyJoinedGames />
+
+        {/* Big green create-new button */}
+        <div className="mb-4">
+          <Link
+            href={
+              typeof searchParams.fieldId === "string"
+                ? `/games/new?fieldId=${searchParams.fieldId}`
+                : "/games/new"
+            }
+            className="btn btn-success btn-lg w-100"
+          >
+            + Create New Game
+          </Link>
+        </div>
+
+        {/* Date-filtered games list (client-only; no full-page navigation) */}
         {typeof searchParams.fieldId === "string" && games[0] && (
           <div className="mb-3">
             <div className="h5 m-0">{games[0].fieldName}</div>
             <div className="text-muted">{games[0].fieldLocation}</div>
           </div>
         )}
-
-        <div className="mb-3">
-          <GamesDateNav selectedDate={selectedDate} fieldId={typeof searchParams.fieldId === "string" ? searchParams.fieldId : undefined} />
-        </div>
-        {games.length === 0 ? (
-          <div className="text-gray-600">No games found.</div>
-        ) : (
-          <div className="space-y-3">
-            {(groups[selectedDate] || []).map((g) => {
-              const joined =
-                !!userId && (g.participants || []).some((p) => p.id === userId);
-              const showTitle =
-                !(typeof searchParams.fieldId === "string" && searchParams.fieldId);
-              const title = showTitle ? `${g.fieldName} • ${g.fieldLocation}` : "";
-              return (
-                <GameHeaderCard
-                  key={g.id}
-                  time={g.time}
-                  durationHours={g.duration ?? 1}
-                  title={title}
-                  currentPlayers={g.currentPlayers}
-                  maxPlayers={g.maxPlayers}
-                >
-                  {joined ? (
-                    <LeaveGameButton gameId={g.id} />
-                  ) : (
-                    <JoinGameButton gameId={g.id} />
-                  )}
-                  <Link href={`/games/${g.id}`} className="btn btn-secondary btn-sm ms-2">
-                    Details
-                  </Link>
-                </GameHeaderCard>
-              );
-            })}
-          </div>
-        )}
+        <GamesByDateClient
+          initialDate={initialDate}
+          fieldId={typeof searchParams.fieldId === "string" ? searchParams.fieldId : undefined}
+        />
       </Container>
     </main>
   );
