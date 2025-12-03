@@ -101,6 +101,3 @@ Purpose: Provide concise, repository-specific guidance to AI agents (Copilot/ass
   // handle joinRoom, message, typing
   ```
 
----
-
-If any of the above is unclear or you want additional sections (e.g., auto-migration notes, test harness, or work items to improve dev experience like a `dev:backend` script), I can iterate and add them—tell me what to include next.
