@@ -18,10 +18,7 @@ export default function AppNavbar() {
         <Navbar.Brand as={Link} href="/" style={{ fontWeight: 800 }}>
           ⚽ JoinUp
         </Navbar.Brand>
-        <Nav className="me-auto">
-          <Nav.Link as={Link} href="/fields">Fields</Nav.Link>
-          <Nav.Link as={Link} href="/games">Active Games</Nav.Link>
-        </Nav>
+        <Nav className="me-auto" />
         <div className="d-flex align-items-center gap-3">
           {mounted ? (
             <ClerkLoaded>

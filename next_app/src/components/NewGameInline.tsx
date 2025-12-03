@@ -6,19 +6,22 @@ import Form from "react-bootstrap/Form";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export default function NewGameInline({ fieldId, onCreated }: { fieldId: string; onCreated?: (fieldId: string) => void }) {
+type FieldOption = { id: string; name: string; location?: string | null };
+
+export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string; onCreated?: (fieldId: string) => void }) {
   const { getToken, isSignedIn } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState({
-    fieldId,
+    fieldId: fieldId || "",
     date: "",
     time: "",
     duration: 1,
     maxPlayers: 10,
     description: "",
   });
+  const [fields, setFields] = useState<FieldOption[]>([]);
 
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -37,6 +40,24 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId: string;
     return `${h}:${m}`;
   }
   const nextQuarterTimeStr = useMemo(() => roundUpToNextQuarter(today), []);
+
+  // Load fields if no fieldId provided
+  useEffect(() => {
+    if (fieldId) return;
+    let ignore = false;
+    async function run() {
+      try {
+        const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
+        if (!res.ok) return;
+        const arr = await res.json();
+        if (!ignore) setFields(arr.map((f: any) => ({ id: f.id, name: f.name, location: f.location })));
+      } catch {}
+    }
+    run();
+    return () => {
+      ignore = true;
+    };
+  }, [fieldId]);
 
   useEffect(() => {
     // Ensure time defaults correctly when selecting today's date
@@ -105,6 +126,23 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId: string;
 
         <Form onSubmit={onSubmit}>
           <div className="row g-2">
+            {!fieldId && (
+              <div className="col-12">
+                <Form.Label className="small">Field</Form.Label>
+                <Form.Select
+                  size="sm"
+                  value={form.fieldId}
+                  onChange={(e) => update("fieldId", e.currentTarget.value)}
+                >
+                  <option value="">Select a field…</option>
+                  {fields.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}{f.location ? ` • ${f.location}` : ""}
+                    </option>
+                  ))}
+                </Form.Select>
+              </div>
+            )}
             <div className="col-6">
               <Form.Label className="small">Date</Form.Label>
               <Form.Control

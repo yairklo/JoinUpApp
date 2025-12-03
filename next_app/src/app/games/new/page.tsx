@@ -11,6 +11,7 @@ function NewGamePageInner() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const { getToken, isSignedIn } = useAuth();
+  const [fields, setFields] = useState<Array<{ id: string; name: string; location?: string | null }>>([]);
 
   const [form, setForm] = useState({
     fieldId,
@@ -48,6 +49,24 @@ function NewGamePageInner() {
   const nextQuarterTimeStr = roundUpToNextQuarter(today);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
+
+  // Load fields when there's no fixed fieldId
+  useEffect(() => {
+    if (fieldId) return;
+    let ignore = false;
+    async function run() {
+      try {
+        const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
+        if (!res.ok) return;
+        const arr = await res.json();
+        if (!ignore) setFields(arr.map((f: any) => ({ id: f.id, name: f.name, location: f.location })));
+      } catch {}
+    }
+    run();
+    return () => {
+      ignore = true;
+    };
+  }, [fieldId]);
 
   useEffect(() => {
     if (!fieldId) return;
@@ -157,7 +176,24 @@ function NewGamePageInner() {
           onSubmit={onSubmit}
           className="space-y-3 bg-white border rounded p-4 shadow"
         >
-          {/* Field details are fixed and loaded by fieldId; no need to edit them here */}
+          {/* Field selector if not provided */}
+          {!fieldId && (
+            <div>
+              <label className="block text-sm font-medium">Field</label>
+              <select
+                value={form.fieldId}
+                onChange={(e) => setForm((prev) => ({ ...prev, fieldId: e.target.value }))}
+                className="mt-1 w-full border rounded px-3 py-2 text-sm"
+              >
+                <option value="">Select a field…</option>
+                {fields.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}{f.location ? ` • ${f.location}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
