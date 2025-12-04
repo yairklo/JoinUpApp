@@ -159,7 +159,8 @@ router.post('/', authenticateToken, async (req, res) => {
           price: typeUpper === 'OPEN' ? 0 : 0,
           rating: 0,
           image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
-          available: true,
+          // Mark as unavailable so it won't appear in public field lists; used only via game relation
+          available: false,
           type: typeUpper,
         }
       });

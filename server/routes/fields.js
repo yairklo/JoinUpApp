@@ -15,14 +15,19 @@ const router = express.Router();
 // Get all fields
 router.get('/', async (req, res) => {
   try {
-    const fields = await prisma.field.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { favorites: true } } } });
+    const fields = await prisma.field.findMany({
+      where: { available: true },
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { favorites: true } } }
+    });
     res.json(fields.map(mapFieldForClient));
   } catch (error) {
     console.error('Get fields error:', error);
     // Fallback: serve from local JSON for dev environments without DB
     try {
       const fields = await dataManager.readData('fields.json');
-      return res.json(fields.map(mapFieldForClient));
+      const filtered = fields.filter((f) => f.available !== false);
+      return res.json(filtered.map(mapFieldForClient));
     } catch (fallbackErr) {
       console.error('Fallback read fields.json failed:', fallbackErr);
       return res.status(500).json({ error: 'Failed to get fields' });
@@ -37,8 +42,17 @@ router.get('/search', async (req, res) => {
     const where = {};
     if (location) where.location = { contains: String(location), mode: 'insensitive' };
     if (type) where.type = String(type).toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN';
-    if (available !== undefined) where.available = available === 'true';
-    const fields = await prisma.field.findMany({ where, orderBy: { name: 'asc' }, include: { _count: { select: { favorites: true } } } });
+    // Default to available=true unless explicitly requested otherwise
+    if (typeof available === 'undefined') {
+      where.available = true;
+    } else {
+      where.available = String(available) === 'true';
+    }
+    const fields = await prisma.field.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { favorites: true } } }
+    });
     res.json(fields.map(mapFieldForClient));
   } catch (error) {
     console.error('Search fields error:', error);
@@ -49,7 +63,9 @@ router.get('/search', async (req, res) => {
       const filtered = raw.filter((f) => {
         const matchLocation = location ? (f.location || '').toLowerCase().includes(String(location).toLowerCase()) : true;
         const matchType = type ? ((String(type).toLowerCase() === 'closed') ? (String(f.type).toLowerCase() === 'closed') : (String(f.type).toLowerCase() !== 'closed')) : true;
-        const matchAvail = typeof available !== 'undefined' ? (String(available) === 'true' ? !!f.available : !f.available) : true;
+        const matchAvail = typeof available !== 'undefined'
+          ? (String(available) === 'true' ? f.available !== false : f.available === false)
+          : f.available !== false;
         return matchLocation && matchType && matchAvail;
       });
       return res.json(filtered.map(mapFieldForClient));
@@ -68,7 +84,10 @@ router.get('/type/:type', async (req, res) => {
     if (!['open', 'closed'].includes(type)) {
       return res.status(400).json({ error: 'Type must be "open" or "closed"' });
     }
-    const fields = await prisma.field.findMany({ where: { type: type.toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN' }, include: { _count: { select: { favorites: true } } } });
+    const fields = await prisma.field.findMany({
+      where: { type: type.toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN', available: true },
+      include: { _count: { select: { favorites: true } } }
+    });
     res.json(fields.map(mapFieldForClient));
   } catch (error) {
     console.error('Get fields by type error:', error);
@@ -79,7 +98,7 @@ router.get('/type/:type', async (req, res) => {
         return res.status(400).json({ error: 'Type must be "open" or "closed"' });
       }
       const raw = await dataManager.readData('fields.json');
-      const filtered = raw.filter((f) => String(f.type).toLowerCase() === String(type).toLowerCase());
+      const filtered = raw.filter((f) => (f.available !== false) && (String(f.type).toLowerCase() === String(type).toLowerCase()));
       return res.json(filtered.map(mapFieldForClient));
     } catch (fallbackErr) {
       console.error('Fallback type filter fields.json failed:', fallbackErr);
