@@ -36,10 +36,12 @@ async function fetchGame(id: string): Promise<Game | null> {
   }
 }
 
-export default async function GameDetails(props: {
-  params: Promise<{ id: string }>;
+export default async function GameDetails({
+  params,
+}: {
+  params: { id: string };
 }) {
-  const { id } = await props.params;
+  const { id } = params;
   const game = await fetchGame(id);
   const user = await currentUser();
   const userId = user?.id || "";

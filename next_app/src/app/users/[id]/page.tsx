@@ -25,10 +25,12 @@ async function fetchUser(id: string): Promise<PublicUser | null> {
   }
 }
 
-export default async function UserPublicPage(props: {
-  params: Promise<{ id: string }>;
+export default async function UserPublicPage({
+  params,
+}: {
+  params: { id: string };
 }) {
-  const { id } = await props.params;
+  const { id } = params;
   const u = await fetchUser(id);
   if (!u) return <div className="p-6">User not found</div>;
   return (
