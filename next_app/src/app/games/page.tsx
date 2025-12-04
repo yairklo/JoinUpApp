@@ -55,11 +55,10 @@ async function fetchGames(
   // old code moved into try block
 }
 
-export default async function GamesPage({
-  searchParams,
-}: {
-  searchParams: Record<string, string | string[] | undefined>;
+export default async function GamesPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const searchParams = await props.searchParams;
   const games = await fetchGames(searchParams);
   const user = await currentUser();
   const userId = user?.id || "";
