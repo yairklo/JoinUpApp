@@ -152,8 +152,30 @@ router.post('/', authenticateToken, async (req, res) => {
     // Accept numeric strings as well
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
-    if ((!fieldId && !(newField && (String(newField.name || '').trim() || String(newField.location || '').trim())) && !(Number.isFinite(latNum) && Number.isFinite(lngNum))) || !date || !time || !maxPlayers) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    const hasFieldId = !!fieldId;
+    const hasNewFieldText = !!(newField && (String(newField.name || '').trim() || String(newField.location || '').trim()));
+    const hasCoords = Number.isFinite(latNum) && Number.isFinite(lngNum);
+    const hasDate = !!date;
+    const hasTime = !!time;
+    const hasMaxPlayers = !!maxPlayers;
+
+    if (!(hasFieldId || hasNewFieldText || hasCoords) || !hasDate || !hasTime || !hasMaxPlayers) {
+      console.warn('Create game validation failed', {
+        bodyKeys: Object.keys(req.body || {}),
+        fieldId,
+        hasFieldId,
+        hasNewFieldText,
+        hasCoords,
+        latNum,
+        lngNum,
+        hasDate,
+        hasTime,
+        hasMaxPlayers,
+      });
+      return res.status(400).json({
+        error: 'Missing required fields',
+        details: { hasFieldId, hasNewFieldText, hasCoords, hasDate, hasTime, hasMaxPlayers }
+      });
     }
 
     let useFieldId = fieldId;
@@ -208,7 +230,7 @@ router.post('/', authenticateToken, async (req, res) => {
         fieldId: useFieldId,
         start,
         duration: duration || 1,
-        maxPlayers,
+        maxPlayers: Number(maxPlayers),
         isOpenToJoin: isOpenToJoin !== false,
         description: description || '',
         ...(Number.isFinite(latNum) ? { customLat: latNum } : {}),
