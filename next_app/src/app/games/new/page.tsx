@@ -202,7 +202,8 @@ function NewGamePageInner() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to create game");
+        const detailTxt = body?.details ? ` | details: ${JSON.stringify(body.details)}` : "";
+        throw new Error((body?.error || "Failed to create game") + detailTxt);
       }
       const created = await res.json();
       setSuccess("Game created");
