@@ -83,14 +83,7 @@ export default async function GamesPage(props: {
 
         {/* Big green create-new button */}
         <div className="mb-4">
-          <Link
-            href={
-              typeof searchParams.fieldId === "string"
-                ? `/games/new?fieldId=${searchParams.fieldId}`
-                : "/games/new"
-            }
-            className="btn btn-success btn-lg w-100"
-          >
+          <Link href="/games/new" className="btn btn-success btn-lg w-100">
             Create New Game
           </Link>
         </div>

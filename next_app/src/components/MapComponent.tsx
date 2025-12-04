@@ -250,7 +250,7 @@ function ClusteredFieldMarkers({
                       className="btn btn-primary btn-sm"
                       onClick={() => onSelect?.({ id: f.id, name: f.name, location: f.location })}
                     >
-                      בחר מגרש זה
+                      Select this field
                     </button>
                   </div>
                 </div>

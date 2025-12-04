@@ -155,7 +155,7 @@ export default function ProfilePage() {
       <Container>
       <SignedOut>
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 text-sm rounded mb-3">
-          כדי לצפות בפרופיל ולהערוך אותו צריך להתחבר. <SignInButton mode="modal">Sign in</SignInButton>
+          You must sign in to view and edit your profile. <SignInButton mode="modal">Sign in</SignInButton>
         </div>
       </SignedOut>
       <SignedIn>

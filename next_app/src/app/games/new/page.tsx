@@ -160,14 +160,11 @@ function NewGamePageInner() {
 
   const canSubmit = useMemo(() => {
     const hasExistingField = !!form.fieldId;
-    const hasNewField =
-      newFieldMode &&
-      newField.name.trim() &&
-      newField.location.trim();
+    const hasNewFieldText = newFieldMode && (newField.name.trim() || newField.location.trim());
     const hasCustomPoint = !form.fieldId && newFieldMode ? !!customPoint : true;
     return Boolean(
       isSignedIn &&
-        (hasExistingField || hasNewField) &&
+        (hasExistingField || hasNewFieldText || (!!customPoint && newFieldMode)) &&
         hasCustomPoint &&
         form.date &&
         form.time &&
@@ -190,7 +187,7 @@ function NewGamePageInner() {
         },
         body: JSON.stringify({
           ...form,
-          ...(newFieldMode && !form.fieldId
+          ...(newFieldMode && !form.fieldId && (newField.name.trim() || newField.location.trim())
             ? {
                 newField: {
                   name: newField.name.trim(),
@@ -247,7 +244,7 @@ function NewGamePageInner() {
 
       <SignedOut>
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 text-sm rounded mb-3">
-          כדי ליצור משחק צריך להתחבר.{" "}
+          You must sign in to create a game.{" "}
           <SignInButton mode="modal">Sign in</SignInButton>
         </div>
       </SignedOut>
@@ -274,7 +271,7 @@ function NewGamePageInner() {
                     onFocus={() => setShowSuggest(true)}
                     onBlur={() => setTimeout(() => setShowSuggest(false), 120)}
                     className="form-control form-control-sm flex-grow-1"
-                    placeholder="חפש מגרש או הכנס שם חדש"
+                    placeholder="Search a field or type a new name"
                   />
                   <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowMap(true)}>
                     Search on Map
@@ -289,7 +286,7 @@ function NewGamePageInner() {
                       setNewField((prev) => ({ ...prev, name: query.trim(), location: "" }));
                     }}
                   >
-                    הוסף מקום חדש
+                    Add new field
                   </button>
                   {showSuggest && (
                     <div
@@ -312,7 +309,7 @@ function NewGamePageInner() {
                         </button>
                       ))}
                       <div className="border-top my-1 px-3 py-2 text-muted">
-                        כדי להוסיף מקום חדש לחץ/י על "הוסף מקום חדש"
+                        To add a new field, click "Add new field"
                       </div>
                     </div>
                   )}
@@ -346,7 +343,7 @@ function NewGamePageInner() {
                       : "Pick a location on the map (click on map)"}
                     </div>
                     <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowMap(true)}>
-                      בחר מיקום במפה
+                      Pick location on map
                     </button>
                     <button
                       type="button"

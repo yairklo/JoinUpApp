@@ -210,7 +210,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
     <div>
       <SignedOut>
         <div className="alert alert-warning py-2 px-3 mb-2">
-          כדי ליצור משחק צריך להתחבר.{" "}
+          You must sign in to create a game.{" "}
           <SignInButton mode="modal">
             <Button variant="link" className="p-0 align-baseline">Sign in</Button>
           </SignInButton>

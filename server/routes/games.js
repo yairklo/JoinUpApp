@@ -149,19 +149,26 @@ router.post('/', authenticateToken, async (req, res) => {
       customLocation
     } = req.body;
 
-    if ((!fieldId && !newField) || !date || !time || !maxPlayers) {
+    if ((!fieldId && !newField && (typeof customLat !== 'number' || typeof customLng !== 'number')) || !date || !time || !maxPlayers) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     let useFieldId = fieldId;
 
     // If client requested to create a new field inline (no admin requirement here)
-    if (!useFieldId && newField && newField.name && newField.location) {
-      const typeUpper = 'OPEN'; // default to OPEN; no UI for type
+    // If client requested to create a new field inline or provided only coordinates,
+    // create a minimal field (unlisted) to attach the game to.
+    if (!useFieldId && (newField || (typeof customLat === 'number' && typeof customLng === 'number'))) {
+      const typeUpper = 'OPEN';
+      const fallbackCoords = (typeof customLat === 'number' && typeof customLng === 'number')
+        ? `${customLat.toFixed(5)}, ${customLng.toFixed(5)}`
+        : '';
+      const name = (newField?.name && String(newField.name).trim()) || (customLocation && String(customLocation).trim()) || `Custom spot ${fallbackCoords}`;
+      const location = (newField?.location && String(newField.location).trim()) || (customLocation && String(customLocation).trim()) || fallbackCoords || 'Custom';
       const createdField = await prisma.field.create({
         data: {
-          name: String(newField.name),
-          location: String(newField.location),
+          name,
+          location,
           price: 0,
           rating: 0,
           image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
