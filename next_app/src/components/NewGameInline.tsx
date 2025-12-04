@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import Button from "react-bootstrap/Button";
+import Modal from "react-bootstrap/Modal";
+import dynamic from "next/dynamic";
 import Form from "react-bootstrap/Form";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -30,6 +32,11 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
     location: "",
     type: "open",
   });
+  const [showMap, setShowMap] = useState(false);
+  const MapWithNoSSR = useMemo(
+    () => dynamic(() => import("./MapComponent"), { ssr: false, loading: () => <div className="text-muted">Loading map…</div> }),
+    []
+  );
 
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -216,8 +223,11 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
 
         <Form onSubmit={onSubmit}>
           <div className="row g-2">
-            <div className="col-12 position-relative">
-                <Form.Label className="small">Field</Form.Label>
+              <div className="col-12 position-relative">
+                <div className="d-flex align-items-center justify-content-between">
+                  <Form.Label className="small mb-0">Field</Form.Label>
+                  <Button variant="outline-secondary" size="sm" onClick={() => setShowMap(true)}>Map</Button>
+                </div>
                 {!newFieldMode ? (
                   <div>
                     <Form.Control
@@ -384,6 +394,15 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
             </Button>
           </div>
         </Form>
+
+        <Modal show={showMap} onHide={() => setShowMap(false)} size="lg" centered>
+          <Modal.Header closeButton>
+            <Modal.Title>Fields map</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <MapWithNoSSR />
+          </Modal.Body>
+        </Modal>
       </SignedIn>
     </div>
   );

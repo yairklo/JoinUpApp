@@ -2,6 +2,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import dynamic from "next/dynamic";
+import { useMemo } from "react";
 
 function NewGamePageInner() {
   const router = useRouter();
@@ -11,6 +13,11 @@ function NewGamePageInner() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const { getToken, isSignedIn } = useAuth();
+  const [showMap, setShowMap] = useState(false);
+  const MapWithNoSSR = useMemo(
+    () => dynamic(() => import("@/components/MapComponent"), { ssr: false, loading: () => <div className="text-muted">Loading map…</div> }),
+    []
+  );
   const [fields, setFields] = useState<Array<{ id: string; name: string; location?: string | null }>>([]);
   const [query, setQuery] = useState("");
   const [showSuggest, setShowSuggest] = useState(false);
@@ -253,7 +260,12 @@ function NewGamePageInner() {
           {/* Field selector (typeahead) if not provided */}
           {!fieldId && (
             <div className="relative">
-              <label className="block text-sm font-medium">Field</label>
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium">Field</label>
+                <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setShowMap(true)}>
+                  Map
+                </button>
+              </div>
               {!newFieldMode ? (
                 <div>
                   <input
@@ -443,6 +455,17 @@ function NewGamePageInner() {
             </button>
           </div>
         </form>
+
+        {showMap ? (
+          <div className="mt-4">
+            <MapWithNoSSR />
+            <div className="mt-2 d-flex justify-content-end">
+              <button type="button" className="btn btn-light btn-sm" onClick={() => setShowMap(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        ) : null}
       </SignedIn>
     </main>
   );
