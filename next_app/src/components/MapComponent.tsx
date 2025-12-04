@@ -139,26 +139,41 @@ function ClusteredFieldMarkers({
     // Grid-based clustering in pixel space; tuned for performance/clarity
     const z = Math.round(zoom || 13);
     const gridSizePx = 60; // cluster bucket size in screen pixels
-    const buckets = new Map<string, { sumLat: number; sumLng: number; items: FieldWithCoords[] }>();
+    const buckets = new Map<string, { items: FieldWithCoords[]; bx: number; by: number }>();
 
     for (const p of points) {
       const projected = map.project(L.latLng(p.lat, p.lng), z);
-      const key = `${Math.floor(projected.x / gridSizePx)}:${Math.floor(projected.y / gridSizePx)}`;
+      const bx = Math.floor(projected.x / gridSizePx);
+      const by = Math.floor(projected.y / gridSizePx);
+      const key = `${bx}:${by}`;
       let bucket = buckets.get(key);
       if (!bucket) {
-        bucket = { sumLat: 0, sumLng: 0, items: [] };
+        bucket = { items: [], bx, by };
         buckets.set(key, bucket);
       }
-      bucket.sumLat += p.lat;
-      bucket.sumLng += p.lng;
       bucket.items.push(p);
     }
 
-    return Array.from(buckets.values()).map((b) => ({
-      lat: b.sumLat / b.items.length,
-      lng: b.sumLng / b.items.length,
-      items: b.items,
-    }));
+    return Array.from(buckets.values()).map((b) => {
+      // Place cluster at the closest real point to the bucket center to avoid
+      // "floating" markers that aren't on top of an actual field.
+      const centerPx = L.point((b.bx + 0.5) * gridSizePx, (b.by + 0.5) * gridSizePx);
+      const centerLL = map.unproject(centerPx, z);
+      let nearest = b.items[0];
+      let best = L.latLng(nearest.lat, nearest.lng).distanceTo(centerLL);
+      for (let i = 1; i < b.items.length; i++) {
+        const d = L.latLng(b.items[i].lat, b.items[i].lng).distanceTo(centerLL);
+        if (d < best) {
+          best = d;
+          nearest = b.items[i];
+        }
+      }
+      return {
+        lat: nearest.lat,
+        lng: nearest.lng,
+        items: b.items,
+      };
+    });
   }, [points, zoom, map]);
 
   return (
