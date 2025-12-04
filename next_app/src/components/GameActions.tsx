@@ -47,43 +47,33 @@ export default function GameActions({
 
   const shareText = `${fieldName ? `${fieldName} – ` : ""}Join this game: ${gameUrl}`;
 
-  const openWhatsApp = () => {
-    const app = `whatsapp://send?text=${encodeURIComponent(shareText)}`;
-    const web = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-    tryOpenAppThenWeb(app, web);
-  };
-  const openTelegram = () => {
-    const app = `tg://msg_url?url=${encodeURIComponent(gameUrl)}&text=${encodeURIComponent(
-      fieldName || "Join this game"
-    )}`;
-    const web = `https://t.me/share/url?url=${encodeURIComponent(
-      gameUrl
-    )}&text=${encodeURIComponent(fieldName || "Join this game")}`;
-    tryOpenAppThenWeb(app, web);
-  };
-
-  const doWebShare = async () => {
+  // Single Share button: show native share sheet when available, fallback to WhatsApp web
+  const share = async () => {
     if (navigator.share) {
       try {
         await navigator.share({ title: fieldName || "JoinUp", text: shareText, url: gameUrl });
         return;
       } catch {
-        // fall back to WhatsApp web if user cancels or not supported
+        // user cancelled or not available -> fallback below
       }
     }
-    openWhatsApp();
+    const web = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    // On mobile without Web Share API, try opening the native WhatsApp app first.
+    const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+      const app = `whatsapp://send?text=${encodeURIComponent(shareText)}`;
+      tryOpenAppThenWeb(app, web);
+    } else {
+      window.open(web, "_blank");
+    }
   };
 
-  const links = isLoc ? buildDirLinks() : null;
-
-  function buildDirLinks() {
-    const l = buildMapLinks(lat as number, lng as number, fieldName);
-    return [
-      { label: "Waze", app: l.wazeApp, web: l.wazeWeb },
-      { label: "Google Maps", app: l.gmapsApp, web: l.gmapsWeb },
-      { label: "Apple Maps", app: l.appleApp, web: l.appleWeb },
-    ];
-  }
+  // Single Navigate button: prefer Waze app, fallback to Waze web (which in turn offers open in app or maps)
+  const navigateToDest = () => {
+    if (!isLoc) return;
+    const { wazeApp, wazeWeb } = buildMapLinks(lat as number, lng as number, fieldName);
+    tryOpenAppThenWeb(wazeApp, wazeWeb);
+  };
 
   return (
     <section className="mb-4">
@@ -94,27 +84,14 @@ export default function GameActions({
           </a>
         ) : null}
 
-        {isLoc && links
-          ? links.map((l) => (
-              <button
-                key={l.label}
-                type="button"
-                className="btn btn-light btn-sm"
-                onClick={() => tryOpenAppThenWeb(l.app, l.web)}
-              >
-                {l.label}
-              </button>
-            ))
-          : null}
+        {isLoc ? (
+          <button className="btn btn-light btn-sm" onClick={navigateToDest}>
+            Navigate
+          </button>
+        ) : null}
 
-        <button className="btn btn-secondary btn-sm" onClick={doWebShare}>
+        <button className="btn btn-secondary btn-sm" onClick={share}>
           Share
-        </button>
-        <button className="btn btn-success btn-sm" onClick={openWhatsApp}>
-          WhatsApp
-        </button>
-        <button className="btn btn-info btn-sm" onClick={openTelegram}>
-          Telegram
         </button>
       </div>
     </section>
