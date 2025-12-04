@@ -107,7 +107,7 @@ export default function GameActions({
             ))
           : null}
 
-        <button className "btn btn-secondary btn-sm" onClick={doWorkaround(() => doWebShare())}>
+        <button className="btn btn-secondary btn-sm" onClick={doWebShare}>
           Share
         </button>
         <button className="btn btn-success btn-sm" onClick={openWhatsApp}>
@@ -119,13 +119,6 @@ export default function GameActions({
       </div>
     </section>
   );
-}
-
-function doWorkaround(fn: () => void) {
-  return () => {
-    // Ensure user gesture context is preserved in some browsers
-    fn();
-  };
 }
 
 

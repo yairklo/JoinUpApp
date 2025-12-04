@@ -8,6 +8,7 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import { currentUser } from "@clerk/nextjs/server";
 import dynamic from "next/dynamic";
 import GameActions from "@/components/GameActions";
+import GameLocationMap from "@/components/GameLocationMap";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Game = {
@@ -70,6 +71,16 @@ export default async function GameDetails(props: {
           lat={(game as any).field?.["lat"] ?? null}
           lng={(game as any).field?.["lng"] ?? null}
         />
+        {typeof (game as any).field?.lat === "number" && typeof (game as any).field?.lng === "number" ? (
+          <div id="game-map" className="mt-3">
+            <GameLocationMap
+              lat={(game as any).field.lat as number}
+              lng={(game as any).field.lng as number}
+              title={game.fieldName}
+              height={260}
+            />
+          </div>
+        ) : null}
         {typeof (game as any).field?.lat === "number" && typeof (game as any).field?.lng === "number" ? (
           <div id="game-map" className="mt-3">
             <GameLocationMap
@@ -148,6 +159,5 @@ export default async function GameDetails(props: {
   );
 }
 
-// client-only map component
-const GameLocationMap = dynamic(() => import("@/components/GameLocationMap"), { ssr: false });
+// (no dynamic import of client map inside server component; imported above)
 
