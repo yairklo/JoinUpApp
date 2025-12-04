@@ -68,24 +68,14 @@ export default async function GameDetails(props: {
         <GameActions
           gameId={game.id}
           fieldName={game.fieldName}
-          lat={(game as any).field?.["lat"] ?? null}
-          lng={(game as any).field?.["lng"] ?? null}
+          lat={(game as any).fieldLat ?? null}
+          lng={(game as any).fieldLng ?? null}
         />
-        {typeof (game as any).field?.lat === "number" && typeof (game as any).field?.lng === "number" ? (
+        {typeof (game as any).fieldLat === "number" && typeof (game as any).fieldLng === "number" ? (
           <div id="game-map" className="mt-3">
             <GameLocationMap
-              lat={(game as any).field.lat as number}
-              lng={(game as any).field.lng as number}
-              title={game.fieldName}
-              height={260}
-            />
-          </div>
-        ) : null}
-        {typeof (game as any).field?.lat === "number" && typeof (game as any).field?.lng === "number" ? (
-          <div id="game-map" className="mt-3">
-            <GameLocationMap
-              lat={(game as any).field.lat as number}
-              lng={(game as any).field.lng as number}
+              lat={(game as any).fieldLat as number}
+              lng={(game as any).fieldLng as number}
               title={game.fieldName}
               height={260}
             />

@@ -20,6 +20,8 @@ function mapGameForClient(game) {
     fieldId: game.fieldId,
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
+    fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
+    fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
     customLat: typeof game.customLat === 'number' ? game.customLat : null,
     customLng: typeof game.customLng === 'number' ? game.customLng : null,
     customLocation: game.customLocation || null,
