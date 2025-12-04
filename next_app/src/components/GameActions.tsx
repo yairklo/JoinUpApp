@@ -47,32 +47,37 @@ export default function GameActions({
 
   const shareText = `${fieldName ? `${fieldName} – ` : ""}Join this game: ${gameUrl}`;
 
-  // Single Share button: show native share sheet when available, fallback to WhatsApp web
+  // Single Share button: show native share sheet when available;
+  // If the user cancels, do nothing. If not supported, copy to clipboard.
   const share = async () => {
     if (navigator.share) {
       try {
         await navigator.share({ title: fieldName || "JoinUp", text: shareText, url: gameUrl });
         return;
-      } catch {
-        // user cancelled or not available -> fallback below
+      } catch (err: any) {
+        // If the user closed/cancelled the sheet, do nothing and do not fallback to web
+        const name = err?.name || "";
+        if (name === "AbortError" || name === "NotAllowedError") {
+          return;
+        }
+        // Other errors: continue to clipboard fallback
       }
     }
-    const web = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-    // On mobile without Web Share API, try opening the native WhatsApp app first.
-    const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile) {
-      const app = `whatsapp://send?text=${encodeURIComponent(shareText)}`;
-      tryOpenAppThenWeb(app, web);
-    } else {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      alert("Link copied to clipboard");
+    } catch {
+      // last resort: open a simple WhatsApp web share
+      const web = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
       window.open(web, "_blank");
     }
   };
 
-  // Single Navigate button: prefer Waze app, fallback to Waze web (which in turn offers open in app or maps)
+  // Single Navigate button: use a generic Google Maps URL to trigger OS intent/chooser
   const navigateToDest = () => {
     if (!isLoc) return;
-    const { wazeApp, wazeWeb } = buildMapLinks(lat as number, lng as number, fieldName);
-    tryOpenAppThenWeb(wazeApp, wazeWeb);
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    window.open(url, "_blank");
   };
 
   return (
