@@ -1,5 +1,6 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
+import GameLocationMap from "@/components/GameLocationMap";
 
 function buildMapLinks(lat: number, lng: number, label?: string) {
   const encLabel = encodeURIComponent(label || "Destination");
@@ -46,6 +47,8 @@ export default function GameActions({
   const gameUrl = origin ? `${origin}/games/${gameId}` : `/games/${gameId}`;
 
   const shareText = `${fieldName ? `${fieldName} – ` : ""}Join this game: ${gameUrl}`;
+  const [mapOpen, setMapOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   // Single Share button: show native share sheet when available;
   // If the user cancels, do nothing. If not supported, copy to clipboard.
@@ -84,13 +87,13 @@ export default function GameActions({
     <section className="mb-4">
       <div className="d-flex flex-wrap align-items-center gap-2">
         {isLoc ? (
-          <a className="btn btn-outline-primary btn-sm" href="#game-map">
+          <button className="btn btn-outline-primary btn-sm" onClick={() => setMapOpen(true)}>
             View on map
-          </a>
+          </button>
         ) : null}
 
         {isLoc ? (
-          <button className="btn btn-light btn-sm" onClick={navigateToDest}>
+          <button className="btn btn-light btn-sm" onClick={() => setNavOpen(true)}>
             Navigate
           </button>
         ) : null}
@@ -99,6 +102,90 @@ export default function GameActions({
           Share
         </button>
       </div>
+
+      {/* Map modal */}
+      {isLoc && mapOpen ? (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100"
+          style={{ background: "rgba(0,0,0,0.45)", zIndex: 1050 }}
+          onClick={() => setMapOpen(false)}
+        >
+          <div
+            className="position-absolute bg-white rounded shadow"
+            style={{
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "min(92vw, 720px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="d-flex align-items-center justify-content-between border-bottom p-2">
+              <div className="fw-semibold">{fieldName || "Game location"}</div>
+              <button className="btn btn-sm btn-light" onClick={() => setMapOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="p-2">
+              <GameLocationMap lat={lat as number} lng={lng as number} title={fieldName} height={360} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Navigation chooser modal */}
+      {isLoc && navOpen ? (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100"
+          style={{ background: "rgba(0,0,0,0.45)", zIndex: 1050 }}
+          onClick={() => setNavOpen(false)}
+        >
+          <div
+            className="position-absolute bg-white rounded shadow"
+            style={{
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "min(92vw, 520px)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="d-flex align-items-center justify-content-between border-bottom p-2">
+              <div className="fw-semibold">Open directions in…</div>
+              <button className="btn btn-sm btn-light" onClick={() => setNavOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="p-3 d-flex flex-column gap-2">
+              {(() => {
+                const l = buildMapLinks(lat as number, lng as number, fieldName);
+                return (
+                  <>
+                    <button
+                      className="btn btn-light text-start"
+                      onClick={() => tryOpenAppThenWeb(l.wazeApp, l.wazeWeb)}
+                    >
+                      Waze
+                    </button>
+                    <button
+                      className="btn btn-light text-start"
+                      onClick={() => tryOpenAppThenWeb(l.gmapsApp, l.gmapsWeb)}
+                    >
+                      Google Maps
+                    </button>
+                    <button
+                      className="btn btn-light text-start"
+                      onClick={() => tryOpenAppThenWeb(l.appleApp, l.appleWeb)}
+                    >
+                      Apple Maps
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

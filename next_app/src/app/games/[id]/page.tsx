@@ -71,16 +71,7 @@ export default async function GameDetails(props: {
           lat={(game as any).fieldLat ?? null}
           lng={(game as any).fieldLng ?? null}
         />
-        {typeof (game as any).fieldLat === "number" && typeof (game as any).fieldLng === "number" ? (
-          <div id="game-map" className="mt-3">
-            <GameLocationMap
-              lat={(game as any).fieldLat as number}
-              lng={(game as any).fieldLng as number}
-              title={game.fieldName}
-              height={260}
-            />
-          </div>
-        ) : null}
+        {/* Map is shown in a modal from GameActions; no inline map by default */}
 
         {/* Main grid */}
         <div className="grid md:grid-cols-12 gap-6">
