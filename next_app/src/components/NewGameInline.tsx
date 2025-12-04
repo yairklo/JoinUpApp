@@ -145,7 +145,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
     setNewField((prev) => ({ ...prev, [key]: value }));
   }
 
-  const normalized = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\w\s]/g, "");
+  const normalized = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}\s]/gu, "");
 
   type FieldPrefixIndex = {
     prefixToIds: Map<string, string[]>;
