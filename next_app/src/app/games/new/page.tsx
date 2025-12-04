@@ -21,10 +21,9 @@ function NewGamePageInner() {
   const [query, setQuery] = useState("");
   const [showSuggest, setShowSuggest] = useState(false);
   const [newFieldMode, setNewFieldMode] = useState(false);
-  const [newField, setNewField] = useState<{ name: string; location: string; type: "open" | "closed" }>({
+  const [newField, setNewField] = useState<{ name: string; location: string }>({
     name: "",
     location: "",
-    type: "open",
   });
   const [customPoint, setCustomPoint] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -164,8 +163,7 @@ function NewGamePageInner() {
     const hasNewField =
       newFieldMode &&
       newField.name.trim() &&
-      newField.location.trim() &&
-      newField.type;
+      newField.location.trim();
     const hasCustomPoint = !form.fieldId && newFieldMode ? !!customPoint : true;
     return Boolean(
       isSignedIn &&
@@ -197,7 +195,6 @@ function NewGamePageInner() {
                 newField: {
                   name: newField.name.trim(),
                   location: newField.location.trim(),
-                  type: newField.type,
                 },
               }
             : {}),
@@ -265,7 +262,7 @@ function NewGamePageInner() {
             <div className="relative">
               <label className="block text-sm font-medium mb-1">Field:</label>
               {!newFieldMode ? (
-                <div className="d-flex gap-2">
+                <div className="d-flex flex-column flex-sm-row gap-2 align-items-stretch">
                   <input
                     type="text"
                     value={query}
@@ -276,15 +273,27 @@ function NewGamePageInner() {
                     }}
                     onFocus={() => setShowSuggest(true)}
                     onBlur={() => setTimeout(() => setShowSuggest(false), 120)}
-                    className="w-100 border rounded px-3 py-2 text-sm"
+                    className="form-control form-control-sm flex-grow-1"
                     placeholder="חפש מגרש או הכנס שם חדש"
                   />
                   <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowMap(true)}>
-                    חפש מגרש במפה
+                    Search on Map
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    onClick={() => {
+                      setNewFieldMode(true);
+                      setForm((prev) => ({ ...prev, fieldId: "" }));
+                      setShowSuggest(false);
+                      setNewField((prev) => ({ ...prev, name: query.trim(), location: "" }));
+                    }}
+                  >
+                    הוסף מקום חדש
                   </button>
                   {showSuggest && (
                     <div
-                      className="absolute z-10 mt-1 w-full border rounded bg-white shadow"
+                      className="absolute z-10 mt-1 w-full border rounded bg-white shadow text-sm"
                       style={{ maxHeight: 240, overflowY: "auto" }}
                     >
                       {suggestions.map((f) => (
@@ -302,19 +311,9 @@ function NewGamePageInner() {
                           {f.location ? ` • ${f.location}` : ""}
                         </button>
                       ))}
-                      <div className="border-t my-1" />
-                      <button
-                        type="button"
-                        className="w-full text-left px-3 py-2 text-blue-700 hover:bg-blue-50"
-                        onMouseDown={() => {
-                          setNewFieldMode(true);
-                          setForm((prev) => ({ ...prev, fieldId: "" }));
-                          setShowSuggest(false);
-                          setNewField((prev) => ({ ...prev, name: query.trim() }));
-                        }}
-                      >
-                        Create new field: “{query.trim() || "…"}”
-                      </button>
+                      <div className="border-top my-1 px-3 py-2 text-muted">
+                        כדי להוסיף מקום חדש לחץ/י על "הוסף מקום חדש"
+                      </div>
                     </div>
                   )}
                 </div>
@@ -327,7 +326,7 @@ function NewGamePageInner() {
                         type="text"
                         value={newField.name}
                         onChange={(e) => setNewField((prev) => ({ ...prev, name: e.target.value }))}
-                        className="w-full border rounded px-3 py-2 text-sm"
+                        className="form-control form-control-sm w-100"
                       />
                     </div>
                     <div>
@@ -336,43 +335,25 @@ function NewGamePageInner() {
                         type="text"
                         value={newField.location}
                         onChange={(e) => setNewField((prev) => ({ ...prev, location: e.target.value }))}
-                        className="w-full border rounded px-3 py-2 text-sm"
+                        className="form-control form-control-sm w-100"
                       />
                     </div>
                   </div>
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium mb-1">Type</label>
-                    <div className="flex items-center gap-4 text-sm">
-                      <label className="inline-flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={newField.type === "open"}
-                          onChange={() => setNewField((prev) => ({ ...prev, type: "open" }))}
-                        />
-                        Open (outdoor)
-                      </label>
-                      <label className="inline-flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={newField.type === "closed"}
-                          onChange={() => setNewField((prev) => ({ ...prev, type: "closed" }))}
-                        />
-                        Closed (indoor)
-                      </label>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex justify-end gap-2">
-                  <div className="text-xs text-gray-600 me-auto">
+                  <div className="mt-3 d-flex align-items-center gap-2">
+                    <div className="text-xs text-gray-600 me-auto">
                     {customPoint
                       ? `Picked location: ${customPoint.lat.toFixed(5)}, ${customPoint.lng.toFixed(5)}`
                       : "Pick a location on the map (click on map)"}
-                  </div>
+                    </div>
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowMap(true)}>
+                      בחר מיקום במפה
+                    </button>
                     <button
                       type="button"
                       className="btn btn-light btn-sm"
                       onClick={() => {
                         setNewFieldMode(false);
-                        setNewField({ name: "", location: "", type: "open" });
+                        setNewField({ name: "", location: "" });
                       setCustomPoint(null);
                       }}
                     >

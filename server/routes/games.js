@@ -137,7 +137,7 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const {
       fieldId,
-      newField, // optional: { name, location, type: 'open' | 'closed' }
+      newField, // optional: { name, location }
       date,
       time,
       duration,
@@ -156,13 +156,13 @@ router.post('/', authenticateToken, async (req, res) => {
     let useFieldId = fieldId;
 
     // If client requested to create a new field inline (no admin requirement here)
-    if (!useFieldId && newField && newField.name && newField.location && newField.type) {
-      const typeUpper = String(newField.type).toLowerCase() === 'closed' ? 'CLOSED' : 'OPEN';
+    if (!useFieldId && newField && newField.name && newField.location) {
+      const typeUpper = 'OPEN'; // default to OPEN; no UI for type
       const createdField = await prisma.field.create({
         data: {
           name: String(newField.name),
           location: String(newField.location),
-          price: typeUpper === 'OPEN' ? 0 : 0,
+          price: 0,
           rating: 0,
           image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
           // Mark as unavailable so it won't appear in public field lists; used only via game relation
