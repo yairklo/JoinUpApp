@@ -12,6 +12,8 @@ type FieldPoint = {
   lng?: number | null;
 };
 
+type FieldWithCoords = Omit<FieldPoint, "lat" | "lng"> & { lat: number; lng: number };
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 // Use CDN icons to avoid bundling issues
@@ -78,10 +80,17 @@ export default function MapComponent({ onSelect }: MapComponentProps) {
     );
   }, []);
 
-  const fieldMarkers = useMemo(
-    () => fields.filter((f) => typeof f.lat === "number" && typeof f.lng === "number") as Required<FieldPoint>[],
-    [fields]
-  );
+  const fieldMarkers: FieldWithCoords[] = useMemo(() => {
+    return fields
+      .filter((f) => typeof f.lat === "number" && typeof f.lng === "number")
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        location: f.location ?? null,
+        lat: Number(f.lat),
+        lng: Number(f.lng),
+      }));
+  }, [fields]);
 
   if (!userLocation) return <div className="text-muted">Loading map…</div>;
 
@@ -109,7 +118,7 @@ function ClusteredFieldMarkers({
   points,
   onSelect,
 }: {
-  points: Required<FieldPoint>[];
+  points: FieldWithCoords[];
   onSelect?: (field: { id: string; name: string; location?: string | null }) => void;
 }) {
   const map = useMap();
@@ -130,10 +139,7 @@ function ClusteredFieldMarkers({
     // Grid-based clustering in pixel space; tuned for performance/clarity
     const z = Math.round(zoom || 13);
     const gridSizePx = 60; // cluster bucket size in screen pixels
-    const buckets = new Map<
-      string,
-      { sumLat: number; sumLng: number; items: Required<FieldPoint>[] }
-    >();
+    const buckets = new Map<string, { sumLat: number; sumLng: number; items: FieldWithCoords[] }>();
 
     for (const p of points) {
       const projected = map.project(L.latLng(p.lat, p.lng), z);
