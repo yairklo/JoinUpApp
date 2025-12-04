@@ -263,14 +263,9 @@ function NewGamePageInner() {
           {/* Field selector (typeahead) if not provided */}
           {!fieldId && (
             <div className="relative">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium">Field</label>
-                <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setShowMap(true)}>
-                  Map
-                </button>
-              </div>
+              <label className="block text-sm font-medium mb-1">Field:</label>
               {!newFieldMode ? (
-                <div>
+                <div className="d-flex gap-2">
                   <input
                     type="text"
                     value={query}
@@ -281,9 +276,12 @@ function NewGamePageInner() {
                     }}
                     onFocus={() => setShowSuggest(true)}
                     onBlur={() => setTimeout(() => setShowSuggest(false), 120)}
-                    className="mt-1 w-full border rounded px-3 py-2 text-sm"
-                    placeholder="Search or type a field name…"
+                    className="w-100 border rounded px-3 py-2 text-sm"
+                    placeholder="חפש מגרש או הכנס שם חדש"
                   />
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowMap(true)}>
+                    חפש מגרש במפה
+                  </button>
                   {showSuggest && (
                     <div
                       className="absolute z-10 mt-1 w-full border rounded bg-white shadow"
