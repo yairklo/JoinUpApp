@@ -77,7 +77,7 @@ function NewGamePageInner() {
   }, [fieldId]);
 
   const normalized = (s: string) =>
-    s.toLowerCase().normalize("NFKD").replace(/[^\w\s]/g, "");
+    s.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}\s]/gu, "");
 
   function buildPrefixIndex(list: Array<{ id: string; name: string; location?: string | null }>) {
     const prefixToIds = new Map<string, string[]>();
