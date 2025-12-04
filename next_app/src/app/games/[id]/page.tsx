@@ -6,6 +6,8 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import JoinGameButton from "@/components/JoinGameButton";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import { currentUser } from "@clerk/nextjs/server";
+import dynamic from "next/dynamic";
+import GameActions from "@/components/GameActions";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Game = {
@@ -60,6 +62,24 @@ export default async function GameDetails(props: {
         >
           {joined ? <LeaveGameButton gameId={game.id} /> : <JoinGameButton gameId={game.id} />}
         </GameHeaderCard>
+
+        {/* Actions: Map / Navigate / Invite */}
+        <GameActions
+          gameId={game.id}
+          fieldName={game.fieldName}
+          lat={(game as any).field?.["lat"] ?? null}
+          lng={(game as any).field?.["lng"] ?? null}
+        />
+        {typeof (game as any).field?.lat === "number" && typeof (game as any).field?.lng === "number" ? (
+          <div id="game-map" className="mt-3">
+            <GameLocationMap
+              lat={(game as any).field.lat as number}
+              lng={(game as any).field.lng as number}
+              title={game.fieldName}
+              height={260}
+            />
+          </div>
+        ) : null}
 
         {/* Main grid */}
         <div className="grid md:grid-cols-12 gap-6">
@@ -128,9 +148,6 @@ export default async function GameDetails(props: {
   );
 }
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+// client-only map component
+const GameLocationMap = dynamic(() => import("@/components/GameLocationMap"), { ssr: false });
+
