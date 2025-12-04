@@ -149,8 +149,9 @@ router.post('/', authenticateToken, async (req, res) => {
       customLocation
     } = req.body;
 
-    const latNum = typeof customLat !== 'undefined' ? Number(customLat) : NaN;
-    const lngNum = typeof customLng !== 'undefined' ? Number(customLng) : NaN;
+    // Accept numeric strings as well
+    const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
+    const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
     if ((!fieldId && !(newField && (String(newField.name || '').trim() || String(newField.location || '').trim())) && !(Number.isFinite(latNum) && Number.isFinite(lngNum))) || !date || !time || !maxPlayers) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -177,6 +178,8 @@ router.post('/', authenticateToken, async (req, res) => {
           // Mark as unavailable so it won't appear in public field lists; used only via game relation
           available: false,
           type: typeUpper,
+          ...(Number.isFinite(latNum) ? { lat: latNum } : {}),
+          ...(Number.isFinite(lngNum) ? { lng: lngNum } : {}),
         }
       });
       useFieldId = createdField.id;
@@ -208,8 +211,8 @@ router.post('/', authenticateToken, async (req, res) => {
         maxPlayers,
         isOpenToJoin: isOpenToJoin !== false,
         description: description || '',
-        ...(typeof customLat === 'number' ? { customLat: Number(customLat) } : {}),
-        ...(typeof customLng === 'number' ? { customLng: Number(customLng) } : {}),
+        ...(Number.isFinite(latNum) ? { customLat: latNum } : {}),
+        ...(Number.isFinite(lngNum) ? { customLng: lngNum } : {}),
         ...(typeof customLocation === 'string' && customLocation.trim() ? { customLocation: String(customLocation) } : {}),
         organizerId: req.user.id,
         participants: { create: { userId: req.user.id } }
