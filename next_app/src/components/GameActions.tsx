@@ -53,9 +53,14 @@ export default function GameActions({
   const isIOS =
     typeof navigator !== "undefined" &&
     (/iPad|iPhone|iPod/.test(navigator.userAgent) || /Macintosh/.test(navigator.userAgent) && "ontouchend" in document);
+  const isAndroid =
+    typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
   const navHref =
     isLoc && isIOS
       ? `http://maps.apple.com/?ll=${lat},${lng}&q=${encodeURIComponent(fieldName || "Destination")}`
+      : isLoc && isAndroid
+      // geo: scheme tends to trigger the Android intent picker when no default is pinned
+      ? `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(fieldName || "Destination")})`
       : isLoc
       ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
       : undefined;
