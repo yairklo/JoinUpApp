@@ -7,92 +7,80 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum FieldType {
-  OPEN
-  CLOSED
-}
-
 model User {
-  id        String   @id
-  email     String?  @unique
-  name      String?
-  imageUrl  String?
-  phone     String?
-  city      String?
-  birthYear Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  organizedGames Game[]        @relation("OrganizerGames")
-  participations Participation[]
-
-  sports        UserSport[]
-  positions     UserPosition[]
-
-  friendshipsA  Friendship[]   @relation("A")
-  friendshipsB  Friendship[]   @relation("B")
-  requestsSent  FriendRequest[] @relation("Sent")
-  requestsRecv  FriendRequest[] @relation("Recv")
-
+  id             String          @id
+  email          String?         @unique
+  name           String?
+  imageUrl       String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  birthYear      Int?
+  city           String?
+  phone          String?
   favoriteFields FavoriteField[]
+  requestsRecv   FriendRequest[] @relation("Recv")
+  requestsSent   FriendRequest[] @relation("Sent")
+  friendshipsA   Friendship[]    @relation("A")
+  friendshipsB   Friendship[]    @relation("B")
+  organizedGames Game[]          @relation("OrganizerGames")
+  participations Participation[]
+  positions      UserPosition[]
+  sports         UserSport[]
 }
 
 model Field {
-  id          String    @id @default(cuid())
-  name        String
-  location    String
-  description String?
-  price       Int       @default(0)
-  rating      Float     @default(0)
-  image       String?
-  available   Boolean   @default(true)
-  type        FieldType
-  lat         Float?
-  lng         Float?
-  // Extra structured columns
-  city        String?
-  neighborhood String?
-  street      String?
-  streetNumber String?
-  phone       String?
-  email       String?
+  id           String          @id @default(cuid())
+  name         String
+  location     String
+  description  String?
+  price        Int             @default(0)
+  rating       Float           @default(0)
+  image        String?
+  available    Boolean         @default(true)
+  type         FieldType
+  lat          Float?
+  lng          Float?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  city         String?
+  email        String?
   featuresJson Json?
-  photos      String[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  games       Game[]
-  favorites   FavoriteField[]
+  neighborhood String?
+  phone        String?
+  photos       String[]
+  street       String?
+  streetNumber String?
+  favorites    FavoriteField[]
+  games        Game[]
 }
 
 model Game {
-  id            String    @id @default(cuid())
-  fieldId       String
-  field         Field     @relation(fields: [fieldId], references: [id])
-  start         DateTime
-  duration      Int       @default(1)
-  maxPlayers    Int
-  isOpenToJoin  Boolean   @default(true)
-  description   String?
-  // Optional custom location for games not tied to an existing mapped field
-  customLat     Float?
-  customLng     Float?
+  id           String          @id @default(cuid())
+  fieldId      String
+  start        DateTime
+  duration     Int             @default(1)
+  maxPlayers   Int
+  isOpenToJoin Boolean         @default(true)
+  description  String?
+  // Optional custom location for games not tied to a mapped field
+  customLat    Float?
+  customLng    Float?
   customLocation String?
-  organizerId   String
-  organizer     User?     @relation("OrganizerGames", fields: [organizerId], references: [id])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  participants  Participation[]
+  organizerId  String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  field        Field           @relation(fields: [fieldId], references: [id])
+  organizer    User            @relation("OrganizerGames", fields: [organizerId], references: [id])
+  participants Participation[]
 }
 
 model Participation {
   id        String   @id @default(cuid())
   gameId    String
   userId    String
-  game      Game     @relation(fields: [gameId], references: [id])
-  user      User?    @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+  game      Game     @relation(fields: [gameId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([gameId, userId])
 }
@@ -109,37 +97,31 @@ model FavoriteField {
   id      String @id @default(cuid())
   userId  String
   fieldId String
-  user    User   @relation(fields: [userId], references: [id])
   field   Field  @relation(fields: [fieldId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
 
   @@unique([userId, fieldId])
 }
 
-enum FriendRequestStatus {
-  PENDING
-  DECLINED
-}
-
-// Undirected friendship: store ordered pair (userAId < userBId) in code
 model Friendship {
-  id       String   @id @default(cuid())
-  userAId  String
-  userBId  String
-  userA    User     @relation("A", fields: [userAId], references: [id])
-  userB    User     @relation("B", fields: [userBId], references: [id])
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
   createdAt DateTime @default(now())
+  userA     User     @relation("A", fields: [userAId], references: [id])
+  userB     User     @relation("B", fields: [userBId], references: [id])
 
   @@unique([userAId, userBId])
 }
 
 model FriendRequest {
-  id          String               @id @default(cuid())
+  id          String              @id @default(cuid())
   requesterId String
   receiverId  String
-  requester   User                 @relation("Sent", fields: [requesterId], references: [id])
-  receiver    User                 @relation("Recv", fields: [receiverId], references: [id])
-  status      FriendRequestStatus  @default(PENDING)
-  createdAt   DateTime             @default(now())
+  status      FriendRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  receiver    User                @relation("Recv", fields: [receiverId], references: [id])
+  requester   User                @relation("Sent", fields: [requesterId], references: [id])
 
   @@unique([requesterId, receiverId])
 }
@@ -152,35 +134,41 @@ model Sport {
 }
 
 model Position {
-  id      String   @id @default(cuid())
+  id      String         @id @default(cuid())
   name    String
   sportId String
-  sport   Sport    @relation(fields: [sportId], references: [id])
+  sport   Sport          @relation(fields: [sportId], references: [id])
   users   UserPosition[]
 
   @@unique([sportId, name])
 }
 
-// User plays a sport (preference/skill can be extended later)
 model UserSport {
   id      String @id @default(cuid())
   userId  String
   sportId String
-  user    User   @relation(fields: [userId], references: [id])
   sport   Sport  @relation(fields: [sportId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
 
   @@unique([userId, sportId])
 }
 
-// User preferred position in a given sport
 model UserPosition {
   id         String   @id @default(cuid())
   userId     String
   positionId String
-  user       User     @relation(fields: [userId], references: [id])
   position   Position @relation(fields: [positionId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, positionId])
 }
 
+enum FieldType {
+  OPEN
+  CLOSED
+}
 
+enum FriendRequestStatus {
+  PENDING
+  DECLINED
+}
