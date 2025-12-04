@@ -278,14 +278,8 @@ function clusterHtml(count: number) {
     height:${size}px;
     border-radius:50%;
     background:${bg};
-    color:#fff;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:700;
     box-shadow:${shadow};
-    font-size:13px;
-  ">${count}</div>`;
+  "></div>`;
 }
 
 
