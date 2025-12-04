@@ -138,6 +138,44 @@ function ClusteredFieldMarkers({
   const clusters = useMemo(() => {
     // Grid-based clustering in pixel space; tuned for performance/clarity
     const z = Math.round(zoom || 13);
+    const dissolveZoom = 17; // above this, show individual markers (no clusters)
+
+    // When highly zoomed-in, expand duplicates (same coordinates) in a small ring
+    if (z >= dissolveZoom) {
+      const keyFor = (p: FieldWithCoords) => `${p.lat.toFixed(6)}:${p.lng.toFixed(6)}`;
+      const groups = new Map<string, FieldWithCoords[]>();
+      for (const p of points) {
+        const k = keyFor(p);
+        const arr = groups.get(k);
+        if (arr) arr.push(p);
+        else groups.set(k, [p]);
+      }
+      const expanded: { lat: number; lng: number; items: FieldWithCoords[] }[] = [];
+      for (const list of groups.values()) {
+        if (list.length === 1) {
+          const p = list[0];
+          expanded.push({ lat: p.lat, lng: p.lng, items: [p] });
+        } else {
+          const center = list[0];
+          const lat = center.lat;
+          const metersPerDegLat = 111320;
+          const metersPerDegLng = 111320 * Math.cos((lat * Math.PI) / 180);
+          const radiusMeters = 12; // small ring radius
+          for (let i = 0; i < list.length; i++) {
+            const angle = (2 * Math.PI * i) / list.length;
+            const dLat = (Math.sin(angle) * radiusMeters) / metersPerDegLat;
+            const dLng = (Math.cos(angle) * radiusMeters) / metersPerDegLng;
+            expanded.push({
+              lat: center.lat + dLat,
+              lng: center.lng + dLng,
+              items: [list[i]],
+            });
+          }
+        }
+      }
+      return expanded;
+    }
+
     const gridSizePx = 60; // cluster bucket size in screen pixels
     const buckets = new Map<string, { items: FieldWithCoords[]; bx: number; by: number }>();
 
