@@ -28,9 +28,12 @@ const defaultIcon = L.icon({
 
 type MapComponentProps = {
   onSelect?: (field: { id: string; name: string; location?: string | null }) => void;
+  pickMode?: boolean;
+  picked?: { lat: number; lng: number } | null;
+  onPick?: (pt: { lat: number; lng: number }) => void;
 };
 
-export default function MapComponent({ onSelect }: MapComponentProps) {
+export default function MapComponent({ onSelect, pickMode, picked, onPick }: MapComponentProps) {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [fields, setFields] = useState<FieldPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +108,7 @@ export default function MapComponent({ onSelect }: MapComponentProps) {
           <Popup>You are here</Popup>
         </Marker>
         <ClusteredFieldMarkers points={fieldMarkers} onSelect={onSelect} />
+        {pickMode ? <PickLocationLayer picked={picked} onPick={onPick} /> : null}
       </MapContainer>
       {loading ? <div className="text-muted small mt-2">Loading fields…</div> : null}
       {!loading && fieldMarkers.length === 0 ? (
@@ -112,6 +116,21 @@ export default function MapComponent({ onSelect }: MapComponentProps) {
       ) : null}
     </div>
   );
+}
+
+function PickLocationLayer({
+  picked,
+  onPick,
+}: {
+  picked: { lat: number; lng: number } | null | undefined;
+  onPick?: (pt: { lat: number; lng: number }) => void;
+}) {
+  useMapEvents({
+    click(e) {
+      onPick?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+    },
+  });
+  return picked ? <Marker position={[picked.lat, picked.lng]} icon={defaultIcon} /> : null;
 }
 
 function ClusteredFieldMarkers({

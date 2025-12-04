@@ -20,6 +20,9 @@ function mapGameForClient(game) {
     fieldId: game.fieldId,
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
+    customLat: typeof game.customLat === 'number' ? game.customLat : null,
+    customLng: typeof game.customLng === 'number' ? game.customLng : null,
+    customLocation: game.customLocation || null,
     date,
     time,
     duration: game.duration,
@@ -140,7 +143,10 @@ router.post('/', authenticateToken, async (req, res) => {
       duration,
       maxPlayers,
       isOpenToJoin,
-      description
+      description,
+      customLat,
+      customLng,
+      customLocation
     } = req.body;
 
     if ((!fieldId && !newField) || !date || !time || !maxPlayers) {
@@ -193,6 +199,9 @@ router.post('/', authenticateToken, async (req, res) => {
         maxPlayers,
         isOpenToJoin: isOpenToJoin !== false,
         description: description || '',
+        ...(typeof customLat === 'number' ? { customLat: Number(customLat) } : {}),
+        ...(typeof customLng === 'number' ? { customLng: Number(customLng) } : {}),
+        ...(typeof customLocation === 'string' && customLocation.trim() ? { customLocation: String(customLocation) } : {}),
         organizerId: req.user.id,
         participants: { create: { userId: req.user.id } }
       },

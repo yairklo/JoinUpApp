@@ -26,6 +26,7 @@ function NewGamePageInner() {
     location: "",
     type: "open",
   });
+  const [customPoint, setCustomPoint] = useState<{ lat: number; lng: number } | null>(null);
 
   const [form, setForm] = useState({
     fieldId,
@@ -165,14 +166,16 @@ function NewGamePageInner() {
       newField.name.trim() &&
       newField.location.trim() &&
       newField.type;
+    const hasCustomPoint = !form.fieldId && newFieldMode ? !!customPoint : true;
     return Boolean(
       isSignedIn &&
         (hasExistingField || hasNewField) &&
+        hasCustomPoint &&
         form.date &&
         form.time &&
         form.maxPlayers
     );
-  }, [isSignedIn, form, newFieldMode, newField]);
+  }, [isSignedIn, form, newFieldMode, newField, customPoint]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -198,6 +201,7 @@ function NewGamePageInner() {
                 },
               }
             : {}),
+          ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
           isOpenToJoin: true,
           // price will be derived on the server based on fieldType
         }),
@@ -360,12 +364,18 @@ function NewGamePageInner() {
                     </div>
                   </div>
                   <div className="mt-3 flex justify-end gap-2">
+                  <div className="text-xs text-gray-600 me-auto">
+                    {customPoint
+                      ? `Picked location: ${customPoint.lat.toFixed(5)}, ${customPoint.lng.toFixed(5)}`
+                      : "Pick a location on the map (click on map)"}
+                  </div>
                     <button
                       type="button"
                       className="btn btn-light btn-sm"
                       onClick={() => {
                         setNewFieldMode(false);
                         setNewField({ name: "", location: "", type: "open" });
+                      setCustomPoint(null);
                       }}
                     >
                       Cancel
@@ -468,6 +478,11 @@ function NewGamePageInner() {
                 setQuery(`${f.name}${f.location ? ` • ${f.location}` : ""}`);
                 setShowSuggest(false);
                 setShowMap(false);
+              }}
+              pickMode={newFieldMode && !form.fieldId}
+              picked={customPoint}
+              onPick={(pt: { lat: number; lng: number }) => {
+                setCustomPoint(pt);
               }}
             />
             <div className="mt-2 d-flex justify-content-end">

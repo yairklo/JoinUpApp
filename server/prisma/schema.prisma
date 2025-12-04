@@ -74,6 +74,10 @@ model Game {
   maxPlayers    Int
   isOpenToJoin  Boolean   @default(true)
   description   String?
+  // Optional custom location for games not tied to an existing mapped field
+  customLat     Float?
+  customLng     Float?
+  customLocation String?
   organizerId   String
   organizer     User?     @relation("OrganizerGames", fields: [organizerId], references: [id])
   createdAt     DateTime  @default(now())
