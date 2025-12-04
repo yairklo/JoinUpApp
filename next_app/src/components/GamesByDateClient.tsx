@@ -99,8 +99,7 @@ export default function GamesByDateClient({
         <div className="space-y-3">
           {(groups[selectedDate] || []).map((g) => {
             const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
-            const showTitle = !fieldId;
-            const title = showTitle ? `${g.fieldName} • ${g.fieldLocation}` : "";
+            const title = `${g.fieldName} • ${g.fieldLocation}`;
             return (
               <GameHeaderCard
                 key={g.id}

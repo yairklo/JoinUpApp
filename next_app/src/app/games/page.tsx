@@ -96,12 +96,6 @@ export default async function GamesPage(props: {
         </div>
 
         {/* Date-filtered games list (client-only; no full-page navigation) */}
-        {typeof searchParams.fieldId === "string" && games[0] && (
-          <div className="mb-3">
-            <div className="h5 m-0">{games[0].fieldName}</div>
-            <div className="text-muted">{games[0].fieldLocation}</div>
-          </div>
-        )}
         <GamesByDateClient
           initialDate={initialDate}
           fieldId={typeof searchParams.fieldId === "string" ? searchParams.fieldId : undefined}
