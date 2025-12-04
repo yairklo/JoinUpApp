@@ -24,7 +24,11 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-export default function MapComponent() {
+type MapComponentProps = {
+  onSelect?: (field: { id: string; name: string; location?: string | null }) => void;
+};
+
+export default function MapComponent({ onSelect }: MapComponentProps) {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [fields, setFields] = useState<FieldPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,6 +101,15 @@ export default function MapComponent() {
               <div style={{ minWidth: 160 }}>
                 <div style={{ fontWeight: 600 }}>{f.name}</div>
                 <div style={{ fontSize: 12, opacity: 0.8 }}>{f.location || ""}</div>
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => onSelect?.({ id: f.id, name: f.name, location: f.location })}
+                  >
+                    בחר מגרש זה
+                  </button>
+                </div>
               </div>
             </Popup>
           </Marker>

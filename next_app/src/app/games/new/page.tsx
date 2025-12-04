@@ -457,7 +457,19 @@ function NewGamePageInner() {
 
         {showMap ? (
           <div className="mt-4">
-            <MapWithNoSSR />
+            <MapWithNoSSR
+              onSelect={(f: { id: string; name: string; location?: string | null }) => {
+                setForm((prev) => ({
+                  ...prev,
+                  fieldId: f.id,
+                  fieldName: f.name,
+                  fieldLocation: f.location || "",
+                }));
+                setQuery(`${f.name}${f.location ? ` • ${f.location}` : ""}`);
+                setShowSuggest(false);
+                setShowMap(false);
+              }}
+            />
             <div className="mt-2 d-flex justify-content-end">
               <button type="button" className="btn btn-light btn-sm" onClick={() => setShowMap(false)}>
                 Close
