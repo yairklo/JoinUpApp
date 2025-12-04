@@ -233,9 +233,6 @@ router.post('/', authenticateToken, async (req, res) => {
         maxPlayers: Number(maxPlayers),
         isOpenToJoin: isOpenToJoin !== false,
         description: description || '',
-        ...(Number.isFinite(latNum) ? { customLat: latNum } : {}),
-        ...(Number.isFinite(lngNum) ? { customLng: lngNum } : {}),
-        ...(typeof customLocation === 'string' && customLocation.trim() ? { customLocation: String(customLocation) } : {}),
         organizerId: req.user.id,
         participants: { create: { userId: req.user.id } }
       },
