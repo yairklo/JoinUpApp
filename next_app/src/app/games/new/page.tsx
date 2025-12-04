@@ -3,7 +3,6 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import dynamic from "next/dynamic";
-import { useMemo } from "react";
 
 function NewGamePageInner() {
   const router = useRouter();
