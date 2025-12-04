@@ -149,7 +149,9 @@ router.post('/', authenticateToken, async (req, res) => {
       customLocation
     } = req.body;
 
-    if ((!fieldId && !newField && (typeof customLat !== 'number' || typeof customLng !== 'number')) || !date || !time || !maxPlayers) {
+    const latNum = typeof customLat !== 'undefined' ? Number(customLat) : NaN;
+    const lngNum = typeof customLng !== 'undefined' ? Number(customLng) : NaN;
+    if ((!fieldId && !(newField && (String(newField.name || '').trim() || String(newField.location || '').trim())) && !(Number.isFinite(latNum) && Number.isFinite(lngNum))) || !date || !time || !maxPlayers) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -158,10 +160,10 @@ router.post('/', authenticateToken, async (req, res) => {
     // If client requested to create a new field inline (no admin requirement here)
     // If client requested to create a new field inline or provided only coordinates,
     // create a minimal field (unlisted) to attach the game to.
-    if (!useFieldId && (newField || (typeof customLat === 'number' && typeof customLng === 'number'))) {
+    if (!useFieldId && (newField || (Number.isFinite(latNum) && Number.isFinite(lngNum)))) {
       const typeUpper = 'OPEN';
-      const fallbackCoords = (typeof customLat === 'number' && typeof customLng === 'number')
-        ? `${customLat.toFixed(5)}, ${customLng.toFixed(5)}`
+      const fallbackCoords = (Number.isFinite(latNum) && Number.isFinite(lngNum))
+        ? `${latNum.toFixed(5)}, ${lngNum.toFixed(5)}`
         : '';
       const name = (newField?.name && String(newField.name).trim()) || (customLocation && String(customLocation).trim()) || `Custom spot ${fallbackCoords}`;
       const location = (newField?.location && String(newField.location).trim()) || (customLocation && String(customLocation).trim()) || fallbackCoords || 'Custom';

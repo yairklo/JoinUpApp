@@ -260,19 +260,46 @@ function NewGamePageInner() {
               <label className="block text-sm font-medium mb-1">Field:</label>
               {!newFieldMode ? (
                 <div className="d-flex flex-column flex-sm-row gap-2 align-items-stretch">
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setQuery(v);
-                      if (form.fieldId) setForm((prev) => ({ ...prev, fieldId: "" }));
-                    }}
-                    onFocus={() => setShowSuggest(true)}
-                    onBlur={() => setTimeout(() => setShowSuggest(false), 120)}
-                    className="form-control form-control-sm flex-grow-1"
-                    placeholder="Search a field or type a new name"
-                  />
+                  <div className="position-relative flex-grow-1">
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setQuery(v);
+                        if (form.fieldId) setForm((prev) => ({ ...prev, fieldId: "" }));
+                      }}
+                      onFocus={() => setShowSuggest(true)}
+                      onBlur={() => setTimeout(() => setShowSuggest(false), 120)}
+                      className="form-control form-control-sm w-100"
+                      placeholder="Search a field or type a new name"
+                    />
+                    {showSuggest && (
+                      <div
+                        className="position-absolute border rounded bg-white shadow text-sm"
+                        style={{ maxHeight: 240, overflowY: "auto", width: "100%", top: "100%", left: 0 }}
+                      >
+                        {suggestions.map((f) => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            className="w-100 text-start px-3 py-2 dropdown-item"
+                            onMouseDown={() => {
+                              setForm((prev) => ({ ...prev, fieldId: f.id }));
+                              setQuery(`${f.name}${f.location ? ` • ${f.location}` : ""}`);
+                              setShowSuggest(false);
+                            }}
+                          >
+                            {f.name}
+                            {f.location ? ` • ${f.location}` : ""}
+                          </button>
+                        ))}
+                        <div className="border-top my-1 px-3 py-2 text-muted">
+                          To add a new field, click "Add new field"
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowMap(true)}>
                     Search on Map
                   </button>
@@ -288,31 +315,6 @@ function NewGamePageInner() {
                   >
                     Add new field
                   </button>
-                  {showSuggest && (
-                    <div
-                      className="absolute z-10 mt-1 w-full border rounded bg-white shadow text-sm"
-                      style={{ maxHeight: 240, overflowY: "auto" }}
-                    >
-                      {suggestions.map((f) => (
-                        <button
-                          key={f.id}
-                          type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                          onMouseDown={() => {
-                            setForm((prev) => ({ ...prev, fieldId: f.id }));
-                            setQuery(`${f.name}${f.location ? ` • ${f.location}` : ""}`);
-                            setShowSuggest(false);
-                          }}
-                        >
-                          {f.name}
-                          {f.location ? ` • ${f.location}` : ""}
-                        </button>
-                      ))}
-                      <div className="border-top my-1 px-3 py-2 text-muted">
-                        To add a new field, click "Add new field"
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="mt-1 border rounded p-3">
