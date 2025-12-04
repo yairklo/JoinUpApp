@@ -48,7 +48,17 @@ export default function GameActions({
 
   const shareText = `${fieldName ? `${fieldName} – ` : ""}Join this game: ${gameUrl}`;
   const [mapOpen, setMapOpen] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
+
+  // Compute a native-friendly navigation URL (iOS -> Apple Maps; others -> Google Maps)
+  const isIOS =
+    typeof navigator !== "undefined" &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) || /Macintosh/.test(navigator.userAgent) && "ontouchend" in document);
+  const navHref =
+    isLoc && isIOS
+      ? `http://maps.apple.com/?ll=${lat},${lng}&q=${encodeURIComponent(fieldName || "Destination")}`
+      : isLoc
+      ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+      : undefined;
 
   // Single Share button: show native share sheet when available;
   // If the user cancels, do nothing. If not supported, copy to clipboard.
@@ -93,9 +103,9 @@ export default function GameActions({
         ) : null}
 
         {isLoc ? (
-          <button className="btn btn-light btn-sm" onClick={() => setNavOpen(true)}>
+          <a className="btn btn-light btn-sm" href={navHref} target="_blank" rel="noreferrer">
             Navigate
-          </button>
+          </a>
         ) : null}
 
         <button className="btn btn-secondary btn-sm" onClick={share}>
@@ -133,59 +143,7 @@ export default function GameActions({
         </div>
       ) : null}
 
-      {/* Navigation chooser modal */}
-      {isLoc && navOpen ? (
-        <div
-          className="position-fixed top-0 start-0 w-100 h-100"
-          style={{ background: "rgba(0,0,0,0.45)", zIndex: 1050 }}
-          onClick={() => setNavOpen(false)}
-        >
-          <div
-            className="position-absolute bg-white rounded shadow"
-            style={{
-              left: "50%",
-              top: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "min(92vw, 520px)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="d-flex align-items-center justify-content-between border-bottom p-2">
-              <div className="fw-semibold">Open directions in…</div>
-              <button className="btn btn-sm btn-light" onClick={() => setNavOpen(false)}>
-                Close
-              </button>
-            </div>
-            <div className="p-3 d-flex flex-column gap-2">
-              {(() => {
-                const l = buildMapLinks(lat as number, lng as number, fieldName);
-                return (
-                  <>
-                    <button
-                      className="btn btn-light text-start"
-                      onClick={() => tryOpenAppThenWeb(l.wazeApp, l.wazeWeb)}
-                    >
-                      Waze
-                    </button>
-                    <button
-                      className="btn btn-light text-start"
-                      onClick={() => tryOpenAppThenWeb(l.gmapsApp, l.gmapsWeb)}
-                    >
-                      Google Maps
-                    </button>
-                    <button
-                      className="btn btn-light text-start"
-                      onClick={() => tryOpenAppThenWeb(l.appleApp, l.appleWeb)}
-                    >
-                      Apple Maps
-                    </button>
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* No custom navigation chooser modal – native OS handles app selection */}
     </section>
   );
 }
