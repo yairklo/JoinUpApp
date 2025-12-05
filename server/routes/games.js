@@ -1,6 +1,6 @@
 const express = require('express');
 const dataManager = require('../utils/dataManager');
-const { authenticateToken } = require('../utils/auth');
+const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -39,10 +39,43 @@ function mapGameForClient(game) {
 
 const router = express.Router();
 
+// Build visibility where-clause depending on viewerId
+function buildVisibilityWhere(viewerId) {
+  if (!viewerId) {
+    return { isFriendsOnly: false };
+  }
+  return {
+    OR: [
+      { isFriendsOnly: false },
+      {
+        AND: [
+          { isFriendsOnly: true },
+          {
+            OR: [
+              { organizerId: viewerId },
+              { participants: { some: { userId: viewerId } } },
+              {
+                organizer: {
+                  OR: [
+                    { friendshipsA: { some: { userBId: viewerId } } },
+                    { friendshipsB: { some: { userAId: viewerId } } },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 // Get all games
-router.get('/', async (req, res) => {
+router.get('/', attachOptionalUser, async (req, res) => {
   try {
+    const visibility = buildVisibilityWhere(req.user?.id);
     const games = await prisma.game.findMany({
+      where: visibility,
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
@@ -54,7 +87,7 @@ router.get('/', async (req, res) => {
 });
 
 // Search games
-router.get('/search', async (req, res) => {
+router.get('/search', attachOptionalUser, async (req, res) => {
   try {
     const { fieldId, date, isOpenToJoin } = req.query;
     const where = {};
@@ -66,8 +99,9 @@ router.get('/search', async (req, res) => {
       const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
       where.start = { gte: startOfDay, lte: endOfDay };
     }
+    const visibility = buildVisibilityWhere(req.user?.id);
     const games = await prisma.game.findMany({
-      where,
+      where: { AND: [visibility, where] },
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
@@ -79,11 +113,12 @@ router.get('/search', async (req, res) => {
 });
 
 // Get games by field
-router.get('/field/:fieldId', async (req, res) => {
+router.get('/field/:fieldId', attachOptionalUser, async (req, res) => {
   try {
     const { fieldId } = req.params;
+    const visibility = buildVisibilityWhere(req.user?.id);
     const games = await prisma.game.findMany({
-      where: { fieldId },
+      where: { AND: [visibility, { fieldId }] },
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
@@ -95,13 +130,14 @@ router.get('/field/:fieldId', async (req, res) => {
 });
 
 // Get games by date
-router.get('/date/:date', async (req, res) => {
+router.get('/date/:date', attachOptionalUser, async (req, res) => {
   try {
     const d = new Date(String(req.params.date));
     const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
     const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+    const visibility = buildVisibilityWhere(req.user?.id);
     const games = await prisma.game.findMany({
-      where: { start: { gte: startOfDay, lte: endOfDay } },
+      where: { AND: [visibility, { start: { gte: startOfDay, lte: endOfDay } }] },
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
@@ -113,7 +149,7 @@ router.get('/date/:date', async (req, res) => {
 });
 
 // Games today in a specific city (by Field.city)
-router.get('/today-city', async (req, res) => {
+router.get('/today-city', attachOptionalUser, async (req, res) => {
   try {
     const { city } = req.query;
     const now = new Date();
@@ -123,8 +159,9 @@ router.get('/today-city', async (req, res) => {
       start: { gte: startOfDay, lte: endOfDay },
       ...(city ? { field: { city: { equals: String(city), mode: 'insensitive' } } } : {}),
     };
+    const visibility = buildVisibilityWhere(req.user?.id);
     const games = await prisma.game.findMany({
-      where,
+      where: { AND: [visibility, where] },
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });

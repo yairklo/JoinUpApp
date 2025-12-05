@@ -5,7 +5,7 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 
 type Game = {
   id: string;
@@ -33,6 +33,7 @@ export default function GamesByDateClient({
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useUser();
+  const { getToken } = useAuth();
   const userId = user?.id || "";
 
   const groups = useMemo(() => {
@@ -50,8 +51,10 @@ export default function GamesByDateClient({
         const qs = new URLSearchParams();
         qs.set("date", selectedDate);
         if (fieldId) qs.set("fieldId", fieldId);
+        const token = await getToken({ template: undefined }).catch(() => "");
         const res = await fetch(`${API_BASE}/api/games/search?${qs.toString()}`, {
           cache: "no-store",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok) throw new Error("Failed to fetch games");
         const data: Game[] = await res.json();
