@@ -61,6 +61,8 @@ model Game {
   duration     Int             @default(1)
   maxPlayers   Int
   isOpenToJoin Boolean         @default(true)
+  // Visible only to organizer's friends and participants when true
+  isFriendsOnly Boolean        @default(false)
   description  String?
   // Optional custom location for games not tied to a mapped field
   customLat    Float?

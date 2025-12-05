@@ -20,6 +20,7 @@ function mapGameForClient(game) {
     fieldId: game.fieldId,
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
+    isFriendsOnly: !!game.isFriendsOnly,
     fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
     fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
     customLat: typeof game.customLat === 'number' ? game.customLat : null,
@@ -145,6 +146,7 @@ router.post('/', authenticateToken, async (req, res) => {
       duration,
       maxPlayers,
       isOpenToJoin,
+      isFriendsOnly,
       description,
       customLat,
       customLng,
@@ -234,6 +236,7 @@ router.post('/', authenticateToken, async (req, res) => {
         duration: duration || 1,
         maxPlayers: Number(maxPlayers),
         isOpenToJoin: isOpenToJoin !== false,
+        isFriendsOnly: !!isFriendsOnly,
         description: description || '',
         organizerId: req.user.id,
         participants: { create: { userId: req.user.id } }

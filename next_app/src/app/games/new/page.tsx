@@ -37,6 +37,7 @@ function NewGamePageInner() {
     duration: 1,
     maxPlayers: 10,
     description: "",
+    isFriendsOnly: false,
   });
 
   // Helpers to block past dates/times
@@ -196,6 +197,7 @@ function NewGamePageInner() {
               }
             : {}),
           ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
+          isFriendsOnly: form.isFriendsOnly,
           isOpenToJoin: true,
           // price will be derived on the server based on fieldType
         }),
@@ -422,6 +424,17 @@ function NewGamePageInner() {
                 className="mt-1 w-full border rounded px-3 py-2 text-sm"
               />
             </div>
+          </div>
+
+          <div className="mt-2">
+            <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isFriendsOnly}
+                onChange={(e) => update("isFriendsOnly", e.target.checked as any)}
+              />
+              Friends only (visible only to your friends)
+            </label>
           </div>
 
           <div>
