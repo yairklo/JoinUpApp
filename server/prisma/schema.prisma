@@ -63,6 +63,8 @@ model Game {
   isOpenToJoin Boolean         @default(true)
   // Visible only to organizer's friends and participants when true
   isFriendsOnly Boolean        @default(false)
+  // When set, game becomes public automatically at this time
+  friendsOnlyUntil DateTime?
   description  String?
   // Optional custom location for games not tied to a mapped field
   customLat    Float?
