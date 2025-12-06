@@ -22,6 +22,10 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
     duration: 1,
     maxPlayers: 10,
     description: "",
+    lotteryEnabled: false,
+    organizerInLottery: false,
+    lotteryDate: "",
+    lotteryTime: "",
   });
   const [fields, setFields] = useState<FieldOption[]>([]);
   const [query, setQuery] = useState("");
@@ -117,6 +121,21 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
     setSubmitting(true);
     try {
       const token = await getToken({ template: undefined }).catch(() => "");
+
+      // Validate lottery datetime if enabled
+      if (form.lotteryEnabled) {
+        if (!form.lotteryDate || !form.lotteryTime) {
+          throw new Error("Please select lottery date and time");
+        }
+        const startTs = new Date(`${form.date}T${form.time}:00`).getTime();
+        const lotteryTs = new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).getTime();
+        if (!Number.isFinite(startTs) || !Number.isFinite(lotteryTs)) {
+          throw new Error("Invalid date/time");
+        }
+        if (lotteryTs >= startTs) {
+          throw new Error("Lottery time must be before game start");
+        }
+      }
       const res = await fetch(`${API_BASE}/api/games`, {
         method: "POST",
         headers: {
@@ -129,6 +148,13 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
             ? { newField: { name: newField.name.trim(), location: newField.location.trim(), type: newField.type } }
             : {}),
           isOpenToJoin: true,
+          ...(form.lotteryEnabled
+            ? {
+                lotteryEnabled: true,
+                organizerInLottery: !!form.organizerInLottery,
+                lotteryAt: `${form.lotteryDate}T${form.lotteryTime}:00`,
+              }
+            : { lotteryEnabled: false }),
         }),
       });
       if (!res.ok) {
@@ -386,6 +412,52 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                 size="sm"
               />
             </div>
+          </div>
+
+          {/* Lottery settings */}
+          <div className="row g-2 mt-1 border rounded p-2">
+            <div className="col-12">
+              <Form.Check
+                type="checkbox"
+                id="lottery-enabled"
+                label="Enable lottery (allow overbooking until lottery time)"
+                checked={form.lotteryEnabled}
+                onChange={(e) => update("lotteryEnabled", e.currentTarget.checked as any)}
+              />
+            </div>
+            {form.lotteryEnabled ? (
+              <>
+                <div className="col-6">
+                  <Form.Label className="small">Lottery date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    size="sm"
+                    min={todayStr}
+                    value={form.lotteryDate}
+                    onChange={(e) => update("lotteryDate", e.currentTarget.value as any)}
+                  />
+                </div>
+                <div className="col-6">
+                  <Form.Label className="small">Lottery time</Form.Label>
+                  <Form.Control
+                    type="time"
+                    size="sm"
+                    step={900}
+                    value={form.lotteryTime}
+                    onChange={(e) => update("lotteryTime", e.currentTarget.value as any)}
+                  />
+                </div>
+                <div className="col-12">
+                  <Form.Check
+                    type="checkbox"
+                    id="organizer-in-lottery"
+                    label="Include organizer in lottery (not auto-confirmed)"
+                    checked={form.organizerInLottery}
+                    onChange={(e) => update("organizerInLottery", e.currentTarget.checked as any)}
+                  />
+                </div>
+              </>
+            ) : null}
           </div>
 
           <div className="pt-2 d-flex justify-content-end">

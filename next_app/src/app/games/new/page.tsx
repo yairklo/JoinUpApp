@@ -38,6 +38,10 @@ function NewGamePageInner() {
     maxPlayers: 10,
     description: "",
     isFriendsOnly: false,
+    lotteryEnabled: false,
+    organizerInLottery: false,
+    lotteryDate: "",
+    lotteryTime: "",
   });
 
   // Helpers to block past dates/times
@@ -180,6 +184,22 @@ function NewGamePageInner() {
     setSubmitting(true);
     try {
       const token = await getToken({ template: undefined }).catch(() => "");
+
+      // Validate lottery datetime if enabled
+      if (form.lotteryEnabled) {
+        if (!form.lotteryDate || !form.lotteryTime) {
+          throw new Error("Please select lottery date and time");
+        }
+        const startTs = new Date(`${form.date}T${form.time}:00`).getTime();
+        const lotteryTs = new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).getTime();
+        if (!Number.isFinite(startTs) || !Number.isFinite(lotteryTs)) {
+          throw new Error("Invalid date/time");
+        }
+        if (lotteryTs >= startTs) {
+          throw new Error("Lottery time must be before game start");
+        }
+      }
+
       const res = await fetch(`${API_BASE}/api/games`, {
         method: "POST",
         headers: {
@@ -199,6 +219,13 @@ function NewGamePageInner() {
           ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
           isFriendsOnly: form.isFriendsOnly,
           isOpenToJoin: true,
+          ...(form.lotteryEnabled
+            ? {
+                lotteryEnabled: true,
+                organizerInLottery: !!form.organizerInLottery,
+                lotteryAt: `${form.lotteryDate}T${form.lotteryTime}:00`,
+              }
+            : { lotteryEnabled: false }),
           // price will be derived on the server based on fieldType
         }),
       });
@@ -435,6 +462,53 @@ function NewGamePageInner() {
               />
               Friends only (visible only to your friends)
             </label>
+          </div>
+
+          {/* Lottery settings */}
+          <div className="mt-2 border rounded p-3">
+            <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.lotteryEnabled}
+                onChange={(e) => update("lotteryEnabled", e.target.checked as any)}
+              />
+              Enable lottery (allow overbooking until lottery time)
+            </label>
+
+            {form.lotteryEnabled ? (
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div>
+                  <label className="block text-sm font-medium">Lottery date</label>
+                  <input
+                    type="date"
+                    value={form.lotteryDate}
+                    min={todayStr}
+                    onChange={(e) => update("lotteryDate", e.target.value as any)}
+                    className="mt-1 w-full border rounded px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Lottery time</label>
+                  <input
+                    type="time"
+                    step={900}
+                    value={form.lotteryTime}
+                    onChange={(e) => update("lotteryTime", e.target.value as any)}
+                    className="mt-1 w-full border rounded px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.organizerInLottery}
+                      onChange={(e) => update("organizerInLottery", e.target.checked as any)}
+                    />
+                    Include organizer in lottery (not auto-confirmed)
+                  </label>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div>
