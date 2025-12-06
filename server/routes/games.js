@@ -381,7 +381,10 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
           update: { name: req.user.name, imageUrl: req.user.avatar },
           create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
         });
-        await prisma.participation.create({ data: { gameId: game.id, userId: req.user.id, status: 'WAITLISTED' } });
+        // Confirm up to capacity; beyond capacity -> waitlist
+        const confirmedCountPre = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
+        const status = confirmedCountPre < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
+        await prisma.participation.create({ data: { gameId: game.id, userId: req.user.id, status } });
         const updated = await prisma.game.findUnique({
           where: { id: game.id },
           include: { field: true, participants: { include: { user: true } } }
