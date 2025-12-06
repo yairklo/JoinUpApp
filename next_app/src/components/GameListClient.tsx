@@ -63,9 +63,7 @@ export default function GameListClient({ games }: { games: Game[] }) {
                 >
                   View details
                 </Link>
-                {g.isOpenToJoin && !joined ? (
-                  <JoinGameButton gameId={g.id} onJoined={() => window.location.reload()} />
-                ) : null}
+                {g.isOpenToJoin && !joined ? <JoinGameButton gameId={g.id} /> : null}
               </div>
             </div>
 

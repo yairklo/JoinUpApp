@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 export default function JoinGameButton({ gameId, onJoined }: { gameId: string; onJoined?: () => void }) {
   const { getToken } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +27,8 @@ export default function JoinGameButton({ gameId, onJoined }: { gameId: string; o
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to join");
       }
+      // Soft-refresh the current route so server components refetch and counts update
+      router.refresh();
       if (onJoined) onJoined();
     } catch (e: any) {
       setError(e.message);

@@ -59,6 +59,11 @@ export default async function GameDetails(props: {
     return <div className="p-6">Game not found</div>;
   }
 
+  const headerCount =
+    (game.lotteryEnabled && game.lotteryPending
+      ? (game.totalSignups ?? game.currentPlayers)
+      : game.currentPlayers) || 0;
+
   return (
     <main>
       <Container>
@@ -66,7 +71,7 @@ export default async function GameDetails(props: {
           time={game.time}
           durationHours={game.duration ?? 1}
           title={game.fieldName}
-          currentPlayers={game.currentPlayers}
+          currentPlayers={headerCount}
           maxPlayers={game.maxPlayers}
         >
           {joined ? <LeaveGameButton gameId={game.id} /> : <JoinGameButton gameId={game.id} />}
