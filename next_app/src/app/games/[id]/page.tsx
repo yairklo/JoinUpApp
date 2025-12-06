@@ -23,6 +23,14 @@ type Game = {
   maxPlayers: number;
   currentPlayers: number;
   participants: Participant[];
+  // lottery/waitlist extras
+  lotteryEnabled?: boolean;
+  lotteryAt?: string | null;
+  lotteryPending?: boolean;
+  overbooked?: boolean;
+  totalSignups?: number;
+  waitlistCount?: number;
+  waitlistParticipants?: Participant[];
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -77,6 +85,17 @@ export default async function GameDetails(props: {
         <div className="grid md:grid-cols-12 gap-6">
           <section className="md:col-span-7">
             <div className="rounded-xl border border-[rgb(var(--border))] bg-white/90 p-4 shadow-sm">
+              {/* Lottery banner: only when pending and overbooked */}
+              {game.lotteryEnabled && game.lotteryPending && game.overbooked ? (
+                <div className="mb-3 text-sm rounded border border-amber-200 bg-amber-50 text-amber-800 p-2">
+                  Waiting for lottery at{" "}
+                  <strong>
+                    {game.lotteryAt ? new Date(game.lotteryAt).toLocaleString() : "—"}
+                  </strong>{" "}
+                  • Registered: {game.totalSignups ?? 0} (max {game.maxPlayers})
+                </div>
+              ) : null}
+
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xl font-semibold">Participants</h2>
                 <div className="flex items-center gap-2">
@@ -126,6 +145,32 @@ export default async function GameDetails(props: {
                   No participants yet.
                 </div>
               )}
+
+              {/* Waitlist section (shown only when there are signups beyond capacity and lottery pending) */}
+              {game.lotteryEnabled && game.lotteryPending && game.overbooked && (game.waitlistParticipants?.length || 0) > 0 ? (
+                <div className="mt-4">
+                  <h3 className="text-base font-semibold mb-2">Registered for lottery</h3>
+                  <div className="divide-y">
+                    {(game.waitlistParticipants || []).map((p) => (
+                      <Link
+                        key={p.id}
+                        href={`/users/${p.id}`}
+                        className="flex items-center justify-between py-2 group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
+                          <span className="text-sm text-gray-800 group-hover:underline">
+                            {p.name || p.id}
+                          </span>
+                        </div>
+                        <span className="text-xs text-[rgb(var(--fg)/0.6)]">
+                          Waitlist
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </section>
 

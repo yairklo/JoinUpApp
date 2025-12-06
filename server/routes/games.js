@@ -14,8 +14,22 @@ function mapGameForClient(game) {
   const mi = String(start.getMinutes()).padStart(2, '0');
   const date = `${yyyy}-${mm}-${dd}`;
   const time = `${hh}:${mi}`;
-  const confirmed = (game.participants || []).filter(p => p.status === 'CONFIRMED');
+  const allParts = game.participants || [];
+  const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
+  const waitlisted = allParts.filter(p => p.status === 'WAITLISTED');
+  const totalSignups = allParts.length;
+  const confirmedCount = confirmed.length;
+  const waitlistCount = waitlisted.length;
+  const now = new Date();
+  const lotteryAtIso = game.lotteryAt ? new Date(game.lotteryAt).toISOString() : null;
+  const lotteryPending = !!game.lotteryEnabled && !game.lotteryExecutedAt && !!game.lotteryAt && now < new Date(game.lotteryAt);
+  const overbooked = !!game.lotteryEnabled && !game.lotteryExecutedAt && totalSignups > game.maxPlayers;
   const participants = confirmed.map(p => ({
+    id: p.userId,
+    name: p.user?.name || null,
+    avatar: p.user?.imageUrl || null
+  }));
+  const waitlistParticipants = waitlisted.map(p => ({
     id: p.userId,
     name: p.user?.name || null,
     avatar: p.user?.imageUrl || null
@@ -27,7 +41,7 @@ function mapGameForClient(game) {
     fieldLocation: game.field?.location || '',
     isFriendsOnly: !!game.isFriendsOnly,
     lotteryEnabled: !!game.lotteryEnabled,
-    lotteryAt: game.lotteryAt ? new Date(game.lotteryAt).toISOString() : null,
+    lotteryAt: lotteryAtIso,
     organizerInLottery: !!game.organizerInLottery,
     fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
     fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
@@ -38,10 +52,16 @@ function mapGameForClient(game) {
     time,
     duration: game.duration,
     maxPlayers: game.maxPlayers,
-    currentPlayers: confirmed.length,
+    currentPlayers: confirmedCount,
+    totalSignups,
+    confirmedCount,
+    waitlistCount,
+    lotteryPending,
+    overbooked,
     description: game.description || '',
     isOpenToJoin: game.isOpenToJoin,
-    participants
+    participants,
+    waitlistParticipants
   };
 }
 

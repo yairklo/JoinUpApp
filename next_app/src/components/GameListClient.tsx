@@ -16,6 +16,12 @@ type Game = {
   description: string;
   isOpenToJoin: boolean;
   participants?: Array<{ id: string; name?: string | null; avatar?: string | null }>;
+  // lottery extras
+  lotteryEnabled?: boolean;
+  lotteryAt?: string | null;
+  lotteryPending?: boolean;
+  overbooked?: boolean;
+  totalSignups?: number;
 };
 
 export default function GameListClient({ games }: { games: Game[] }) {
@@ -35,6 +41,11 @@ export default function GameListClient({ games }: { games: Game[] }) {
                   {g.currentPlayers}/{g.maxPlayers}
                 </div>
                 <div className="mt-1 text-xs text-[rgb(var(--fg)/0.65)]">Spots left: {capacityLeft}</div>
+                {g.lotteryEnabled && g.lotteryPending && g.overbooked ? (
+                  <div className="mt-1 text-[11px] text-amber-700">
+                    Waiting for lottery at {g.lotteryAt ? new Date(g.lotteryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "—"} • Registered: {g.totalSignups ?? 0}
+                  </div>
+                ) : null}
               </div>
 
               {/* Middle: field name + address */}
