@@ -98,6 +98,31 @@ function buildVisibilityWhere(viewerId) {
   };
 }
 
+// Public games only (no auth, no friends-only)
+router.get('/public', async (req, res) => {
+  try {
+    const { fieldId, date, isOpenToJoin } = req.query;
+    const where = { isFriendsOnly: false };
+    if (fieldId) where.fieldId = String(fieldId);
+    if (typeof isOpenToJoin !== 'undefined') where.isOpenToJoin = String(isOpenToJoin) === 'true';
+    if (date) {
+      const d = new Date(String(date));
+      const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+      const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+      where.start = { gte: startOfDay, lte: endOfDay };
+    }
+    const games = await prisma.game.findMany({
+      where,
+      include: { field: true, participants: { include: { user: true } } },
+      orderBy: { start: 'asc' }
+    });
+    res.json(games.map(mapGameForClient));
+  } catch (error) {
+    console.error('Public games error:', error);
+    res.status(500).json({ error: 'Failed to get public games' });
+  }
+});
+
 // Get all games
 router.get('/', attachOptionalUser, async (req, res) => {
   try {
