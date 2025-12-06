@@ -29,7 +29,12 @@ const authenticateToken = (req, res, next) => {
 
 // Optional auth: try to attach req.user if possible, otherwise continue unauthenticated
 const attachOptionalUser = (req, res, next) => {
-  // Use a dummy response that doesn't terminate the pipeline on 401
+  // If there's no Authorization header, skip auth entirely (public access)
+  const hasAuthHeader = typeof req.headers?.authorization === 'string' && req.headers.authorization.trim().length > 0;
+  if (!hasAuthHeader) {
+    return next();
+  }
+  // Attempt to authenticate; if it fails, continue as guest
   baseRequireAuth(req, res, async (err) => {
     const userId = req.auth?.userId;
     if (err || !userId) {
