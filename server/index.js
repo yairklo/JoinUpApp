@@ -151,6 +151,97 @@ io.on('connection', (socket) => {
   });
 });
 
+// --- Lottery scheduler ---
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  return arr;
+}
+
+let lotterySweepRunning = false;
+async function runLotterySweep() {
+  if (lotterySweepRunning) return;
+  lotterySweepRunning = true;
+  try {
+    const now = new Date();
+    const games = await prisma.game.findMany({
+      where: {
+        lotteryEnabled: true,
+        lotteryExecutedAt: null,
+        lotteryAt: { lte: now },
+      },
+      include: { participants: true },
+    });
+
+    for (const game of games) {
+      const confirmed = game.participants.filter(p => p.status === 'CONFIRMED');
+      const waitlisted = game.participants.filter(p => p.status === 'WAITLISTED');
+      const slotsRemaining = Math.max(0, game.maxPlayers - confirmed.length);
+
+      const updates = [];
+      if (slotsRemaining > 0 && waitlisted.length > 0) {
+        shuffleInPlace(waitlisted);
+        const winners = waitlisted.slice(0, slotsRemaining);
+        const losers = waitlisted.slice(slotsRemaining);
+
+        if (winners.length) {
+          updates.push(
+            prisma.participation.updateMany({
+              where: { id: { in: winners.map(w => w.id) } },
+              data: { status: 'CONFIRMED' },
+            })
+          );
+        }
+        if (losers.length) {
+          updates.push(
+            prisma.participation.updateMany({
+              where: { id: { in: losers.map(l => l.id) } },
+              data: { status: 'NOT_SELECTED' },
+            })
+          );
+        }
+      } else if (waitlisted.length > 0) {
+        // No slots remaining: mark all waitlisted as not selected
+        updates.push(
+          prisma.participation.updateMany({
+            where: { id: { in: waitlisted.map(w => w.id) } },
+            data: { status: 'NOT_SELECTED' },
+          })
+        );
+      }
+
+      updates.push(
+        prisma.game.update({
+          where: { id: game.id },
+          data: { lotteryExecutedAt: now },
+        })
+      );
+
+      if (updates.length) {
+        await prisma.$transaction(updates);
+        console.log(`🎲 Lottery executed for game ${game.id} at ${now.toISOString()}`);
+      } else {
+        // Even if no updates (e.g., no waitlisted), still mark executed to avoid reprocessing
+        await prisma.game.update({
+          where: { id: game.id },
+          data: { lotteryExecutedAt: now },
+        });
+        console.log(`🎲 Lottery marked executed (no-op) for game ${game.id}`);
+      }
+    }
+  } catch (e) {
+    console.error('Lottery sweep error:', e);
+  } finally {
+    lotterySweepRunning = false;
+  }
+}
+
+setInterval(runLotterySweep, 60_000);
+
 // Start server (HTTP + Socket.IO)
 server.listen(PORT, async () => {
   await initializeDataFiles();

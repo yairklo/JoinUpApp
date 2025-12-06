@@ -14,13 +14,21 @@ function mapGameForClient(game) {
   const mi = String(start.getMinutes()).padStart(2, '0');
   const date = `${yyyy}-${mm}-${dd}`;
   const time = `${hh}:${mi}`;
-  const participants = (game.participants || []).map(p => ({ id: p.userId, name: p.user?.name || null, avatar: p.user?.imageUrl || null }));
+  const confirmed = (game.participants || []).filter(p => p.status === 'CONFIRMED');
+  const participants = confirmed.map(p => ({
+    id: p.userId,
+    name: p.user?.name || null,
+    avatar: p.user?.imageUrl || null
+  }));
   return {
     id: game.id,
     fieldId: game.fieldId,
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
     isFriendsOnly: !!game.isFriendsOnly,
+    lotteryEnabled: !!game.lotteryEnabled,
+    lotteryAt: game.lotteryAt ? new Date(game.lotteryAt).toISOString() : null,
+    organizerInLottery: !!game.organizerInLottery,
     fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
     fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
     customLat: typeof game.customLat === 'number' ? game.customLat : null,
@@ -30,7 +38,7 @@ function mapGameForClient(game) {
     time,
     duration: game.duration,
     maxPlayers: game.maxPlayers,
-    currentPlayers: participants.length,
+    currentPlayers: confirmed.length,
     description: game.description || '',
     isOpenToJoin: game.isOpenToJoin,
     participants
@@ -184,6 +192,9 @@ router.post('/', authenticateToken, async (req, res) => {
       maxPlayers,
       isOpenToJoin,
       isFriendsOnly,
+      lotteryEnabled,
+      lotteryAt,
+      organizerInLottery,
       description,
       customLat,
       customLng,
@@ -274,9 +285,18 @@ router.post('/', authenticateToken, async (req, res) => {
         maxPlayers: Number(maxPlayers),
         isOpenToJoin: isOpenToJoin !== false,
         isFriendsOnly: !!isFriendsOnly,
+        lotteryEnabled: !!lotteryEnabled,
+        ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
+        organizerInLottery: !!organizerInLottery,
         description: description || '',
         organizerId: req.user.id,
-        participants: { create: { userId: req.user.id } }
+        // Organizer: confirmed by default, or waitlisted if included in lottery
+        participants: {
+          create: {
+            userId: req.user.id,
+            status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
+          }
+        }
       },
       include: { field: true, participants: { include: { user: true } } }
     });
@@ -321,8 +341,38 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Game is not open for joining' });
     }
 
-    const count = await prisma.participation.count({ where: { gameId: game.id } });
-    if (count >= game.maxPlayers) {
+    // If lottery is enabled and hasn't executed yet, allow waitlist joins beyond capacity until lottery time
+    if (game.lotteryEnabled) {
+      const cutoff = game.lotteryAt ? new Date(game.lotteryAt) : null;
+      const now = new Date();
+      if (!game.lotteryExecutedAt) {
+        if (!cutoff) {
+          return res.status(400).json({ error: 'Lottery time is not set for this game' });
+        }
+        if (now >= cutoff) {
+          return res.status(400).json({ error: 'Lottery window is closed for this game' });
+        }
+        const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
+        if (already) {
+          return res.status(400).json({ error: 'You are already a participant' });
+        }
+        await prisma.user.upsert({
+          where: { id: req.user.id },
+          update: { name: req.user.name, imageUrl: req.user.avatar },
+          create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
+        });
+        await prisma.participation.create({ data: { gameId: game.id, userId: req.user.id, status: 'WAITLISTED' } });
+        const updated = await prisma.game.findUnique({
+          where: { id: game.id },
+          include: { field: true, participants: { include: { user: true } } }
+        });
+        return res.json(mapGameForClient(updated));
+      }
+      // If lottery already ran, fall through to capacity check based on confirmed count
+    }
+
+    const confirmedCount = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
+    if (confirmedCount >= game.maxPlayers) {
       return res.status(400).json({ error: 'Game is full' });
     }
 
@@ -337,7 +387,9 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
     });
 
-    await prisma.participation.create({ data: { gameId: game.id, userId: req.user.id } });
+    await prisma.participation.create({
+      data: { gameId: game.id, userId: req.user.id, status: 'CONFIRMED' }
+    });
 
     const updated = await prisma.game.findUnique({
       where: { id: game.id },
@@ -394,11 +446,11 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (game.organizerId !== req.user.id) {
       return res.status(403).json({ error: 'Only organizer can update game' });
     }
-    const { description, isOpenToJoin, maxPlayers } = req.body;
+    const { description, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt, organizerInLottery } = req.body;
 
     if (typeof maxPlayers !== 'undefined') {
-      const count = await prisma.participation.count({ where: { gameId: game.id } });
-      if (Number(maxPlayers) < count) {
+      const confirmedCount = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
+      if (Number(maxPlayers) < confirmedCount) {
         return res.status(400).json({ error: 'Max players cannot be less than current players' });
       }
     }
@@ -408,7 +460,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
       data: {
         ...(typeof description !== 'undefined' ? { description } : {}),
         ...(typeof isOpenToJoin !== 'undefined' ? { isOpenToJoin } : {}),
-        ...(typeof maxPlayers !== 'undefined' ? { maxPlayers: Number(maxPlayers) } : {})
+        ...(typeof maxPlayers !== 'undefined' ? { maxPlayers: Number(maxPlayers) } : {}),
+        ...(typeof lotteryEnabled !== 'undefined' ? { lotteryEnabled: !!lotteryEnabled } : {}),
+        ...(typeof organizerInLottery !== 'undefined' ? { organizerInLottery: !!organizerInLottery } : {}),
+        ...(typeof lotteryAt !== 'undefined' ? { lotteryAt: lotteryAt ? new Date(String(lotteryAt)) : null } : {}),
       },
       include: { field: true, participants: { include: { user: true } } }
     });
