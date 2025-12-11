@@ -6,9 +6,7 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import JoinGameButton from "@/components/JoinGameButton";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import { currentUser } from "@clerk/nextjs/server";
-import dynamic from "next/dynamic";
 import GameActions from "@/components/GameActions";
-import GameLocationMap from "@/components/GameLocationMap";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Game = {
@@ -23,6 +21,8 @@ type Game = {
   maxPlayers: number;
   currentPlayers: number;
   participants: Participant[];
+  fieldLat?: number | null;
+  fieldLng?: number | null;
   // lottery/waitlist extras
   lotteryEnabled?: boolean;
   lotteryAt?: string | null;
@@ -81,8 +81,8 @@ export default async function GameDetails(props: {
         <GameActions
           gameId={game.id}
           fieldName={game.fieldName}
-          lat={(game as any).fieldLat ?? null}
-          lng={(game as any).fieldLng ?? null}
+          lat={game.fieldLat ?? null}
+          lng={game.fieldLng ?? null}
         />
         {/* Map is shown in a modal from GameActions; no inline map by default */}
 

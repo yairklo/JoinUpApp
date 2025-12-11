@@ -25,7 +25,7 @@ const sizes: Record<string, string> = {
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className = "", variant = "default", size = "md", asChild, ...props }, ref) => {
-    const Comp: any = asChild ? Slot : "button";
+    const Comp = (asChild ? Slot : "button") as React.ElementType;
     const cls = [base, variants[variant], sizes[size], className].filter(Boolean).join(" ");
     return <Comp ref={ref} className={cls} {...props} />;
   }

@@ -80,8 +80,8 @@ export default function Chat({ roomId = "global" }: ChatProps) {
   // fetch history
   useEffect(() => {
     if (!roomId) return;
-    fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`).then(r => r.json()).then((arr) => {
-      const mapped = arr.map((m: any) => ({ id: m.id || Date.parse(m.ts), text: m.text, senderId: m.userId || "", ts: m.ts, roomId, userId: m.userId }));
+    fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`).then(r => r.json()).then((arr: Array<{ id?: number; text: string; userId?: string; ts: string }>) => {
+      const mapped = arr.map((m) => ({ id: m.id ?? Date.parse(m.ts), text: m.text, senderId: m.userId || "", ts: m.ts, roomId, userId: m.userId }));
       setMessages(mapped);
     }).catch(() => {});
   }, [roomId]);

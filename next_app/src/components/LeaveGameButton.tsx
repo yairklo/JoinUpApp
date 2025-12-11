@@ -26,8 +26,8 @@ export default function LeaveGameButton({ gameId, onLeft }: { gameId: string; on
         throw new Error(body.error || "Failed to leave");
       }
       if (onLeft) onLeft();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to leave");
     } finally {
       setLoading(false);
     }

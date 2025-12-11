@@ -67,8 +67,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
       try {
         const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
         if (!res.ok) return;
-        const arr = await res.json();
-        if (!ignore) setFields(arr.map((f: any) => ({ id: f.id, name: f.name, location: f.location })));
+        const arr: Array<{ id: string; name: string; location?: string | null }> = await res.json();
+        if (!ignore) setFields(arr.map((f) => ({ id: f.id, name: f.name, location: f.location })));
       } catch {}
     }
     run();
@@ -164,8 +164,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
       const created = await res.json();
       setSuccess("Game created");
       if (onCreated) onCreated(created.fieldId);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create game");
     } finally {
       setSubmitting(false);
     }
@@ -422,7 +422,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                 id="lottery-enabled"
                 label="Enable lottery (allow overbooking until lottery time)"
                 checked={form.lotteryEnabled}
-                onChange={(e) => update("lotteryEnabled", e.currentTarget.checked as any)}
+                onChange={(e) => update("lotteryEnabled", e.currentTarget.checked)}
               />
             </div>
             {form.lotteryEnabled ? (
@@ -434,7 +434,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                     size="sm"
                     min={todayStr}
                     value={form.lotteryDate}
-                    onChange={(e) => update("lotteryDate", e.currentTarget.value as any)}
+                    onChange={(e) => update("lotteryDate", e.currentTarget.value)}
                   />
                 </div>
                 <div className="col-6">
@@ -444,7 +444,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                     size="sm"
                     step={900}
                     value={form.lotteryTime}
-                    onChange={(e) => update("lotteryTime", e.currentTarget.value as any)}
+                    onChange={(e) => update("lotteryTime", e.currentTarget.value)}
                   />
                 </div>
                 <div className="col-12">
@@ -453,7 +453,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                     id="organizer-in-lottery"
                     label="Include organizer in lottery (not auto-confirmed)"
                     checked={form.organizerInLottery}
-                    onChange={(e) => update("organizerInLottery", e.currentTarget.checked as any)}
+                    onChange={(e) => update("organizerInLottery", e.currentTarget.checked)}
                   />
                 </div>
               </>

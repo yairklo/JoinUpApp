@@ -29,8 +29,8 @@ export default function AddFriendButton({ receiverId }: { receiverId: string }) 
         throw new Error(body.error || 'Failed');
       }
       setSent(true);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setLoading(false);
     }

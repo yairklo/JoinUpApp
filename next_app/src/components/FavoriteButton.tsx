@@ -13,8 +13,8 @@ export default function FavoriteButton({ fieldId }: { fieldId: string }) {
 
   useEffect(() => {
     if (!userId) return;
-    fetch(`${API_BASE}/api/users/${userId}/favorites`).then(r => r.json()).then((arr) => {
-      setIsFav(arr.some((f: any) => f.id === fieldId));
+    fetch(`${API_BASE}/api/users/${userId}/favorites`).then(r => r.json()).then((arr: Array<{ id: string }>) => {
+      setIsFav(arr.some((f) => f.id === fieldId));
     }).catch(() => {});
   }, [userId, fieldId]);
 

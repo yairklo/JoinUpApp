@@ -77,8 +77,8 @@ function NewGamePageInner() {
       try {
         const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
         if (!res.ok) return;
-        const arr = await res.json();
-        if (!ignore) setFields(arr.map((f: any) => ({ id: f.id, name: f.name, location: f.location })));
+        const arr: Array<{ id: string; name: string; location?: string | null }> = await res.json();
+        if (!ignore) setFields(arr.map((f) => ({ id: f.id, name: f.name, location: f.location })));
       } catch {}
     }
     run();
@@ -139,14 +139,14 @@ function NewGamePageInner() {
     // Pre-fill from field data if available
     fetch(`${API_BASE}/api/fields/${fieldId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((f) => {
+      .then((f: { id: string; name: string; location?: string | null; type?: "open" | "closed" } | null) => {
         if (f) {
           setForm((prev) => ({
             ...prev,
             fieldId: f.id,
             fieldName: f.name,
-            fieldLocation: f.location,
-            fieldType: f.type,
+            fieldLocation: f.location ?? "",
+            fieldType: f.type ?? prev.fieldType,
           }));
         }
       })
@@ -238,8 +238,8 @@ function NewGamePageInner() {
       setSuccess("Game created");
       // redirect to list filtered by this field
       router.push(`/games?fieldId=${created.fieldId}`);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setSubmitting(false);
     }
@@ -325,7 +325,7 @@ function NewGamePageInner() {
                           </button>
                         ))}
                         <div className="border-top my-1 px-3 py-2 text-muted">
-                          To add a new field, click "Add new field"
+                  To add a new field, click &quot;Add new field&quot;
                         </div>
                       </div>
                     )}
@@ -400,7 +400,7 @@ function NewGamePageInner() {
               <input
                 type="date"
                 value={form.date}
-                onChange={(e) => update("date", e.target.value)}
+        onChange={(e) => update("date", e.target.value)}
                 className="mt-1 w-full border rounded px-3 py-2 text-sm"
                 min={todayStr}
               />
@@ -412,7 +412,7 @@ function NewGamePageInner() {
                 step={900}
                 list="quarterHours"
                 value={form.time}
-                onChange={(e) => update("time", e.target.value)}
+        onChange={(e) => update("time", e.target.value)}
                 className="mt-1 w-full border rounded px-3 py-2 text-sm"
                 min={form.date === todayStr ? nextQuarterTimeStr : undefined}
               />
@@ -458,7 +458,7 @@ function NewGamePageInner() {
               <input
                 type="checkbox"
                 checked={form.isFriendsOnly}
-                onChange={(e) => update("isFriendsOnly", e.target.checked as any)}
+        onChange={(e) => update("isFriendsOnly", e.target.checked)}
               />
               Friends only (visible only to your friends)
             </label>
@@ -470,7 +470,7 @@ function NewGamePageInner() {
               <input
                 type="checkbox"
                 checked={form.lotteryEnabled}
-                onChange={(e) => update("lotteryEnabled", e.target.checked as any)}
+        onChange={(e) => update("lotteryEnabled", e.target.checked)}
               />
               Enable lottery (allow overbooking until lottery time)
             </label>
@@ -483,7 +483,7 @@ function NewGamePageInner() {
                     type="date"
                     value={form.lotteryDate}
                     min={todayStr}
-                    onChange={(e) => update("lotteryDate", e.target.value as any)}
+            onChange={(e) => update("lotteryDate", e.target.value)}
                     className="mt-1 w-full border rounded px-3 py-2 text-sm"
                   />
                 </div>
@@ -493,7 +493,7 @@ function NewGamePageInner() {
                     type="time"
                     step={900}
                     value={form.lotteryTime}
-                    onChange={(e) => update("lotteryTime", e.target.value as any)}
+            onChange={(e) => update("lotteryTime", e.target.value)}
                     className="mt-1 w-full border rounded px-3 py-2 text-sm"
                   />
                 </div>
@@ -502,7 +502,7 @@ function NewGamePageInner() {
                     <input
                       type="checkbox"
                       checked={form.organizerInLottery}
-                      onChange={(e) => update("organizerInLottery", e.target.checked as any)}
+              onChange={(e) => update("organizerInLottery", e.target.checked)}
                     />
                     Include organizer in lottery (not auto-confirmed)
                   </label>

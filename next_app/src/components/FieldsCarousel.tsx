@@ -11,7 +11,7 @@ export default function FieldsCarousel({ fields }: { fields: Field[] }) {
       {fields.map((f) => (
         <Carousel.Item key={f.id}>
           <div className="d-flex justify-content-center py-2">
-            <FieldCard field={f as any} />
+            <FieldCard field={{ id: f.id, name: f.name, location: f.location, price: 0, rating: 0, type: "open" }} />
           </div>
         </Carousel.Item>
       ))}
