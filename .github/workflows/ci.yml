@@ -81,7 +81,6 @@ jobs:
 
       - name: Run linter
         if: ${{ steps.detect.outputs.exists == 'true' }}
-        continue-on-error: true
         run: npm run lint --if-present
 
       - name: Check build
