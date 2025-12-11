@@ -69,7 +69,8 @@
 
 @layer base {
   * {
-    @apply border-border;
+    /* Tailwind v4 may not have the border-border utility; use CSS var directly */
+    border-color: hsl(var(--border));
   }
   html,
   body,

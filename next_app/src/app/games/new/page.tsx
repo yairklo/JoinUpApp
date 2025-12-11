@@ -145,7 +145,7 @@ function NewGamePageInner() {
             ...prev,
             fieldId: f.id,
             fieldName: f.name,
-            fieldLocation: f.location,
+            fieldLocation: f.location ?? "",
             fieldType: f.type ?? prev.fieldType,
           }));
         }

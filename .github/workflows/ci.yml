@@ -19,6 +19,9 @@ jobs:
   build-and-test:
     name: Build and Test Project
     runs-on: ubuntu-latest
+    env:
+      # Provide Clerk publishable key at build time to avoid prerender crashes
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
     defaults:
       run:
         working-directory: next_app
