@@ -30,8 +30,8 @@ export default function JoinGameButton({ gameId, onJoined }: { gameId: string; o
       // Soft-refresh the current route so server components refetch and counts update
       router.refresh();
       if (onJoined) onJoined();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to join");
     } finally {
       setLoading(false);
     }

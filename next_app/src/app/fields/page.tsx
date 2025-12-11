@@ -21,7 +21,7 @@ async function fetchFields(): Promise<Field[]> {
     const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
     if (!res.ok) return [];
     return res.json();
-  } catch (e) {
+  } catch {
     return [];
   }
 }
@@ -40,7 +40,7 @@ export default async function FieldsPage() {
         }}
       >
         {fields.map((f) => (
-          <FieldCard key={f.id} field={f as any} />
+          <FieldCard key={f.id} field={f} />
         ))}
       </section>
     </main>

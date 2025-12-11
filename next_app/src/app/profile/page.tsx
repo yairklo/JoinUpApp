@@ -49,7 +49,7 @@ export default function ProfilePage() {
     (async () => {
       try {
         const token = await getToken({ template: undefined }).catch(() => "");
-        const headers = token ? { Authorization: `Bearer ${token}` } : {} as any;
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         const inc = await fetch(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers });
         if (inc.ok) setIncoming(await inc.json());
         const out = await fetch(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers });

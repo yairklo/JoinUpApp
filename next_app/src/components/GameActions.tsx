@@ -72,9 +72,9 @@ export default function GameActions({
       try {
         await navigator.share({ title: fieldName || "JoinUp", text: shareText, url: gameUrl });
         return;
-      } catch (err: any) {
+      } catch (err: unknown) {
         // If the user closed/cancelled the sheet, do nothing and do not fallback to web
-        const name = err?.name || "";
+        const name = err && typeof err === "object" && "name" in err ? String((err as { name?: unknown }).name) : "";
         if (name === "AbortError" || name === "NotAllowedError") {
           return;
         }

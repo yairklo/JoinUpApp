@@ -44,8 +44,8 @@ export default function handler(_req: NextApiRequest, res: NextApiResponse) {
       socket.on("message", async (incoming: IncomingMessage) => {
         const text = typeof incoming === "string" ? incoming : incoming.text;
         const roomId = typeof incoming === "string" ? undefined : incoming.roomId;
-        const senderName = typeof incoming === "string" ? undefined : (incoming as any).senderName;
-        const userId = typeof incoming === "string" ? undefined : (incoming as any).userId;
+        const senderName = typeof incoming === "string" ? undefined : incoming.senderName;
+        const userId = typeof incoming === "string" ? undefined : incoming.userId;
         const payload: { id: number; text: string; senderId: string; senderName?: string; ts: string; roomId?: string; userId?: string } = {
           id: Date.now(),
           text,

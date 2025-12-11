@@ -43,7 +43,7 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
     async function run() {
       try {
         const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
-        const arr = (await res.json()) as any[];
+        const arr = (await res.json()) as Array<{ id: string; name: string; location?: string | null; lat?: number; lng?: number }>;
         if (!ignore) {
           setFields(
             arr.map((f) => ({
