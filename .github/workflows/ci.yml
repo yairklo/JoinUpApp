@@ -2,8 +2,6 @@ name: CI Check
 
 # Triggers: run the workflow when a PR targets the main branch
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
