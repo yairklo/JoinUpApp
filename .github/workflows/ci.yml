@@ -17,7 +17,7 @@ concurrency:
 jobs:
   # Frontend (Next.js) job — runs inside the next_app directory
   build-and-test:
-    name: Build and Lint (next_app)
+    name: Build and Test Project
     runs-on: ubuntu-latest
     defaults:
       run:
