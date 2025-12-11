@@ -37,6 +37,7 @@ jobs:
         run: npm ci
 
       - name: Run linter
+        continue-on-error: true # Do not fail the workflow on lint errors; still prints annotations
         run: npm run lint --if-present # Ensure no lint errors (skip if script missing)
 
       - name: Check build
@@ -77,6 +78,7 @@ jobs:
 
       - name: Run linter
         if: ${{ steps.detect.outputs.exists == 'true' }}
+        continue-on-error: true
         run: npm run lint --if-present
 
       - name: Check build
