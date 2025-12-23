@@ -1,12 +1,31 @@
 import Avatar from "@/components/Avatar";
 import Chat from "@/components/Chat";
 import Link from "next/link";
-import Container from "@/components/ui/Container";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import JoinGameButton from "@/components/JoinGameButton";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import { currentUser } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
+
+// MUI Imports
+import Container from "@mui/material/Container";
+import Grid from "@mui/material/Grid"; // השימוש הנכון שמצאנו
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Typography from "@mui/material/Typography";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemAvatar from "@mui/material/ListItemAvatar";
+import ListItemText from "@mui/material/ListItemText";
+import ListItemButton from "@mui/material/ListItemButton"; // כדי שהשורה תהיה לחיצה
+import AvatarGroup from "@mui/material/AvatarGroup";
+import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
+import Box from "@mui/material/Box";
+import Alert from "@mui/material/Alert";
+import Stack from "@mui/material/Stack";
+import PersonIcon from '@mui/icons-material/Person';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Game = {
@@ -23,7 +42,6 @@ type Game = {
   participants: Participant[];
   fieldLat?: number | null;
   fieldLng?: number | null;
-  // lottery/waitlist extras
   lotteryEnabled?: boolean;
   lotteryAt?: string | null;
   lotteryPending?: boolean;
@@ -55,8 +73,9 @@ export default async function GameDetails(props: {
   const user = await currentUser();
   const userId = user?.id || "";
   const joined = !!userId && (game?.participants || []).some((p) => p.id === userId);
+
   if (!game) {
-    return <div className="p-6">Game not found</div>;
+    return <Container sx={{ py: 4 }}><Alert severity="error">Game not found</Alert></Container>;
   }
 
   const headerCount =
@@ -66,129 +85,152 @@ export default async function GameDetails(props: {
 
   return (
     <main>
-      <Container>
-        <GameHeaderCard
-          time={game.time}
-          durationHours={game.duration ?? 1}
-          title={game.fieldName}
-          currentPlayers={headerCount}
-          maxPlayers={game.maxPlayers}
-        >
-          {joined ? <LeaveGameButton gameId={game.id} /> : <JoinGameButton gameId={game.id} />}
-        </GameHeaderCard>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        
+        {/* חלק עליון - כרגע נשאיר את הקומפוננטות שלך, נעטוף רק במרווח */}
+        <Box mb={4}>
+            <GameHeaderCard
+            time={game.time}
+            durationHours={game.duration ?? 1}
+            title={game.fieldName}
+            currentPlayers={headerCount}
+            maxPlayers={game.maxPlayers}
+            >
+            {joined ? <LeaveGameButton gameId={game.id} /> : <JoinGameButton gameId={game.id} />}
+            </GameHeaderCard>
 
-        {/* Actions: Map / Navigate / Invite */}
-        <GameActions
-          gameId={game.id}
-          fieldName={game.fieldName}
-          lat={game.fieldLat ?? null}
-          lng={game.fieldLng ?? null}
-        />
-        {/* Map is shown in a modal from GameActions; no inline map by default */}
+            <Box mt={2}>
+                <GameActions
+                gameId={game.id}
+                fieldName={game.fieldName}
+                lat={game.fieldLat ?? null}
+                lng={game.fieldLng ?? null}
+                />
+            </Box>
+        </Box>
 
-        {/* Main grid */}
-        <div className="grid md:grid-cols-12 gap-6">
-          <section className="md:col-span-7">
-            <div className="rounded-xl border border-[rgb(var(--border))] bg-white/90 p-4 shadow-sm">
-              {/* Lottery banner: only when pending and overbooked */}
-              {game.lotteryEnabled && game.lotteryPending && game.overbooked ? (
-                <div className="mb-3 text-sm rounded border border-amber-200 bg-amber-50 text-amber-800 p-2">
-                  Waiting for lottery at{" "}
-                  <strong>
-                    {game.lotteryAt ? new Date(game.lotteryAt).toLocaleString() : "—"}
-                  </strong>{" "}
-                  • Registered: {game.totalSignups ?? 0} (max {game.maxPlayers})
-                </div>
-              ) : null}
+        {/* Main Grid Layout */}
+        <Grid container spacing={3}>
+          
+          {/* Left Column: Participants (החלק המשודרג) */}
+          <Grid size={{ xs: 12, md: 7 }}>
+            <Card elevation={2}>
+              <CardContent>
+                
+                {/* 1. Lottery Warning Banner */}
+                {game.lotteryEnabled && game.lotteryPending && game.overbooked && (
+                  <Alert severity="warning" icon={<AccessTimeIcon />} sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" fontWeight="bold">
+                        Lottery Pending
+                    </Typography>
+                    <Typography variant="body2">
+                        Draw at: {game.lotteryAt ? new Date(game.lotteryAt).toLocaleString() : "—"}
+                    </Typography>
+                    <Typography variant="caption">
+                        Registered: {game.totalSignups ?? 0} (Max: {game.maxPlayers})
+                    </Typography>
+                  </Alert>
+                )}
 
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-semibold">Participants</h2>
-                <div className="flex items-center gap-2">
-                  <LeaveGameButton gameId={game.id} />
-                  <JoinGameButton gameId={game.id} />
-                </div>
-              </div>
-              {game.participants?.length ? (
-                <div className="space-y-3">
-                  {/* Avatar group */}
-                  <div className="flex -space-x-2">
-                    {game.participants.slice(0, 5).map((p) => (
-                      <span key={p.id} title={p.name || p.id} className="ring-2 ring-white rounded-full overflow-hidden">
-                        <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
-                      </span>
-                    ))}
-                    {game.participants.length > 5 && (
-                      <span className="inline-flex items-center justify-center rounded-full bg-gray-100 text-gray-700 w-[20px] h-[20px] ring-2 ring-white text-[10px] font-medium">
-                        +{game.participants.length - 5}
-                      </span>
+                {/* 2. Header & Avatar Group Summary */}
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={2}>
+                    <Box>
+                        <Typography variant="h6" fontWeight="bold">Participants</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {game.participants.length} / {game.maxPlayers} confirmed
+                        </Typography>
+                    </Box>
+                    
+                    {/* Avatar Group - Quick visual summary */}
+                    {game.participants.length > 0 && (
+                        <AvatarGroup max={5} sx={{ '& .MuiAvatar-root': { width: 32, height: 32, fontSize: 14 } }}>
+                            {game.participants.map(p => (
+                                // שים לב: AvatarGroup של MUI מצפה ל-div/img עם alt ו-src, 
+                                // אבל הקומפוננטה שלך מחזירה מבנה מורכב. 
+                                // עדיף פה להשתמש ב-Avatar של הקומפוננטה שלך בתוך div פשוט
+                                <div key={p.id}>
+                                    <Avatar src={p.avatar} alt={p.name || "?"} name={p.name || "?"} size="sm" />
+                                </div>
+                            ))}
+                        </AvatarGroup>
                     )}
-                  </div>
+                </Box>
 
-                  {/* List */}
-                  <div className="divide-y">
-                    {game.participants.map((p) => (
-                      <Link
-                        key={p.id}
-                        href={`/users/${p.id}`}
-                        className="flex items-center justify-between py-2 group"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
-                          <span className="text-sm text-gray-800 group-hover:underline">
-                            {p.name || p.id}
-                          </span>
-                        </div>
-                        <span className="text-xs text-[rgb(var(--fg)/0.6)]">
-                          Player
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500">
-                  No participants yet.
-                </div>
-              )}
+                <Divider sx={{ mb: 2 }} />
 
-              {/* Waitlist section (shown only when there are signups beyond capacity and lottery pending) */}
-              {game.lotteryEnabled && game.lotteryPending && game.overbooked && (game.waitlistParticipants?.length || 0) > 0 ? (
-                <div className="mt-4">
-                  <h3 className="text-base font-semibold mb-2">Registered for lottery</h3>
-                  <div className="divide-y">
-                    {(game.waitlistParticipants || []).map((p) => (
-                      <Link
-                        key={p.id}
-                        href={`/users/${p.id}`}
-                        className="flex items-center justify-between py-2 group"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
-                          <span className="text-sm text-gray-800 group-hover:underline">
-                            {p.name || p.id}
-                          </span>
-                        </div>
-                        <span className="text-xs text-[rgb(var(--fg)/0.6)]">
-                          Waitlist
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </section>
+                {/* 3. Main Participants List */}
+                {game.participants.length > 0 ? (
+                    <List disablePadding>
+                        {game.participants.map((p) => (
+                            <Link key={p.id} href={`/users/${p.id}`} passHref legacyBehavior>
+                                <ListItemButton component="a" sx={{ borderRadius: 2, mb: 0.5 }}>
+                                    <ListItemAvatar>
+                                        <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="md" />
+                                    </ListItemAvatar>
+                                    <ListItemText 
+                                        primary={p.name || "Unknown User"} 
+                                        primaryTypographyProps={{ fontWeight: 500 }}
+                                    />
+                                    <Chip 
+                                        label="Player" 
+                                        size="small" 
+                                        color="success" 
+                                        variant="outlined" 
+                                        icon={<PersonIcon />} 
+                                    />
+                                </ListItemButton>
+                            </Link>
+                        ))}
+                    </List>
+                ) : (
+                    <Typography variant="body2" color="text.secondary" align="center" py={4}>
+                        No participants yet. Be the first to join!
+                    </Typography>
+                )}
 
-          <aside className="md:col-span-5">
-            <div className="rounded-xl border border-[rgb(var(--border))] bg-white/90 p-4 shadow-sm">
-              <Chat roomId={game.id} />
-            </div>
-          </aside>
-        </div>
+                {/* 4. Waitlist Section (Conditional) */}
+                {game.lotteryEnabled && game.lotteryPending && game.overbooked && (game.waitlistParticipants?.length || 0) > 0 && (
+                    <Box mt={4}>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="warning.main">
+                            Waitlist / Lottery Pool
+                        </Typography>
+                        <List disablePadding>
+                            {(game.waitlistParticipants || []).map((p) => (
+                                <Link key={p.id} href={`/users/${p.id}`} passHref legacyBehavior>
+                                    <ListItemButton component="a" sx={{ borderRadius: 2 }}>
+                                        <ListItemAvatar>
+                                            <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
+                                        </ListItemAvatar>
+                                        <ListItemText 
+                                            primary={p.name || p.id} 
+                                            secondary="Waiting for lottery"
+                                        />
+                                        <Chip label="Waitlist" size="small" color="warning" variant="outlined" />
+                                    </ListItemButton>
+                                </Link>
+                            ))}
+                        </List>
+                    </Box>
+                )}
+
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Right Column: Chat */}
+          <Grid size={{ xs: 12, md: 5 }}>
+            <Card elevation={2} sx={{ height: '100%', minHeight: 400 }}>
+                {/* כאן נטפל בצ'אט בשלב הבא, כרגע זה עטוף יפה */}
+                <Box p={2} height="100%">
+                    <Typography variant="h6" gutterBottom>Chat</Typography>
+                    <Divider sx={{ mb: 2 }} />
+                    <Chat roomId={game.id} />
+                </Box>
+            </Card>
+          </Grid>
+
+        </Grid>
       </Container>
     </main>
   );
 }
-
-// (no dynamic import of client map inside server component; imported above)
-
