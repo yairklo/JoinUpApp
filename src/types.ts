@@ -36,7 +36,6 @@ export interface GameSeries {
 
 export interface Game {
   id: string;
-  seriesId: string | null;
   fieldId: string;
   fieldName: string;
   fieldLocation: string;
