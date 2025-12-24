@@ -1,38 +1,37 @@
 "use client";
 import { createTheme, ThemeOptions } from "@mui/material/styles";
 
-// Common settings (typography, shape, etc.)
-const baseOptions: ThemeOptions = {
-  typography: {
-    fontFamily: "inherit",
-    h1: { fontWeight: 700 },
-    h2: { fontWeight: 700 },
-    h3: { fontWeight: 700 },
-    button: { fontWeight: 600 },
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          textTransform: "none",
-          fontWeight: 600,
-        },
+// Common component overrides (Buttons, Cards, etc.)
+const componentOverrides: ThemeOptions["components"] = {
+  MuiButton: {
+    styleOverrides: {
+      root: {
+        borderRadius: 12,
+        textTransform: "none",
+        fontWeight: 600,
       },
     },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-        },
+  },
+  MuiCard: {
+    styleOverrides: {
+      root: {
+        borderRadius: 16,
       },
     },
   },
 };
 
-// Light Mode Palette
+// Common typography
+const typographyOptions: ThemeOptions["typography"] = {
+  fontFamily: "inherit",
+  h1: { fontWeight: 700 },
+  h2: { fontWeight: 700 },
+  h3: { fontWeight: 700 },
+  button: { fontWeight: 600 },
+};
+
+// --- LIGHT THEME ---
 const lightTheme = createTheme({
-  ...baseOptions,
   palette: {
     mode: "light",
     primary: {
@@ -51,32 +50,58 @@ const lightTheme = createTheme({
       secondary: "#64748b",
     },
   },
+  typography: typographyOptions,
+  components: {
+    ...componentOverrides,
+    // Define the Light Mode Gradient here
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundImage: "linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)",
+          backgroundAttachment: "fixed",
+          backgroundRepeat: "no-repeat",
+        },
+      },
+    },
+  },
 });
 
-// Dark Mode Palette
+// --- DARK THEME ---
 const darkTheme = createTheme({
-  ...baseOptions,
   palette: {
     mode: "dark",
     primary: {
-      main: "#818cf8", // Lighter shade for dark mode visibility
+      main: "#818cf8",
       contrastText: "#0f172a",
     },
     secondary: {
       main: "#34d399",
     },
     background: {
-      default: "#0f172a", // Dark Navy
-      paper: "#1e293b",   // Slightly lighter navy for cards
+      default: "#0f172a", // Fallback color
+      paper: "#1e293b",
     },
     text: {
       primary: "#f8fafc",
       secondary: "#94a3b8",
     },
   },
+  typography: typographyOptions,
+  components: {
+    ...componentOverrides,
+    // Define the Dark Mode Gradient here
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundImage: "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
+          backgroundAttachment: "fixed",
+          backgroundRepeat: "no-repeat",
+        },
+      },
+    },
+  },
 });
 
-// Function to get the correct theme
 export const getAppTheme = (mode: "light" | "dark") => {
   return mode === "light" ? lightTheme : darkTheme;
 };
