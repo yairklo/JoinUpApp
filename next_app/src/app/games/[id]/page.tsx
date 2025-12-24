@@ -7,14 +7,16 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import { currentUser } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
+import SeriesManager from "@/components/SeriesManager";
 
 // MUI Imports
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid"; // Regular Grid import
+import Grid from "@mui/material/Grid";
 import Card from "@mui/material/Card";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
+import Divider from "@mui/material/Divider";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; name?: string; avatar?: string; role?: string };
@@ -22,6 +24,7 @@ type Team = { id: string; name: string; color: string; playerIds: string[] };
 
 type Game = {
   id: string;
+  seriesId: string | null;
   fieldId: string;
   fieldName: string;
   fieldLocation: string;
@@ -107,6 +110,18 @@ export default async function GameDetails(props: {
               fieldName={game.fieldName}
               lat={game.fieldLat ?? null}
               lng={game.fieldLng ?? null}
+            />
+
+            <Divider sx={{ my: 2 }} />
+
+            <SeriesManager 
+              gameId={game.id}
+              seriesId={game.seriesId}
+              isOrganizer={game.organizerId === userId}
+              gameData={{
+                  time: game.time,
+                  date: game.date
+              }}
             />
           </Box>
         </Box>

@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth');
 const fieldsRoutes = require('./routes/fields');
 const gamesRoutes = require('./routes/games');
 const usersRoutes = require('./routes/users');
+const seriesRoutes = require('./routes/series');
 const messagesRoutes = require('./routes/messages');
 
 const app = express();
@@ -63,6 +64,7 @@ async function initializeDataFiles() {
 app.use('/api/auth', authRoutes);
 app.use('/api/fields', fieldsRoutes);
 app.use('/api/games', gamesRoutes);
+app.use('/api/series', seriesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/messages', messagesRoutes);
 
@@ -241,6 +243,118 @@ async function runLotterySweep() {
 }
 
 setInterval(runLotterySweep, 60_000);
+
+// --- Weekly Series Rolling Generation ---
+function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
+  const [hh, mm] = String(hhmm).split(':').map(n => parseInt(n, 10));
+  const d = new Date(now);
+  const day = d.getDay();
+  let addDays = (targetDay - day + 7) % 7;
+  // if today and time already passed, schedule next week
+  const candidate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  candidate.setDate(candidate.getDate() + addDays);
+  candidate.setHours(Number.isInteger(hh) ? hh : 0, Number.isInteger(mm) ? mm : 0, 0, 0);
+  if (candidate <= now) {
+    candidate.setDate(candidate.getDate() + 7);
+  }
+  return candidate;
+}
+
+let seriesGenRunning = false;
+async function runWeeklySeriesGeneration() {
+  if (seriesGenRunning) return;
+  seriesGenRunning = true;
+  try {
+    const now = new Date();
+    // Only active WEEKLY series that have a fieldId
+    const seriesList = await prisma.gameSeries.findMany({
+      where: { isActive: true, type: 'WEEKLY', NOT: { fieldId: null } }
+    });
+
+    for (const s of seriesList) {
+      if (typeof s.dayOfWeek !== 'number' || !s.time || !s.fieldId) continue;
+
+      // Count future games
+      const futureGames = await prisma.game.findMany({
+        where: { seriesId: s.id, start: { gte: now } },
+        orderBy: { start: 'asc' }
+      });
+
+      // Ensure at least 4 future games
+      const TARGET = 4;
+      if (futureGames.length >= TARGET) continue;
+
+      // Fetch subscribers
+      const subs = await prisma.seriesParticipant.findMany({
+        where: { seriesId: s.id },
+        select: { userId: true }
+      });
+      const subscriberIds = Array.from(new Set((subs || []).map(x => x.userId).filter(Boolean)));
+
+      // Compute next start
+      let nextStart = futureGames.length
+        ? new Date(futureGames[futureGames.length - 1].start.getTime() + 7 * 24 * 60 * 60 * 1000)
+        : nextWeeklyOccurrenceFrom(now, s.dayOfWeek, s.time);
+
+      const createOps = [];
+      while (futureGames.length + createOps.length < TARGET) {
+        // Participants: organizer + subscribers within capacity
+        const maxCap = Number(s.maxPlayers);
+        const participantsCreate = [];
+        participantsCreate.push({
+          userId: s.organizerId,
+          status: 'CONFIRMED'
+        });
+        let remaining = Math.max(0, maxCap - 1);
+        for (const uid of subscriberIds) {
+          if (uid === s.organizerId) continue;
+          if (remaining > 0) {
+            participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
+            remaining -= 1;
+          } else {
+            participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+          }
+        }
+
+        createOps.push(
+          prisma.game.create({
+            data: {
+              fieldId: s.fieldId,
+              seriesId: s.id,
+              start: nextStart,
+              duration: Math.round(Number(s.duration) || 1),
+              maxPlayers: Number(s.maxPlayers),
+              isOpenToJoin: true,
+              isFriendsOnly: false,
+              lotteryEnabled: false,
+              organizerInLottery: false,
+              description: '',
+              organizerId: s.organizerId,
+              participants: { create: participantsCreate },
+              roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } }
+            }
+          })
+        );
+
+        nextStart = new Date(nextStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+      }
+
+      if (createOps.length) {
+        await prisma.$transaction(createOps);
+        console.log(`🗓️  Generated ${createOps.length} weekly instances for series ${s.id}`);
+      }
+    }
+  } catch (e) {
+    console.error('Weekly series generation error:', e);
+  } finally {
+    seriesGenRunning = false;
+  }
+}
+
+// Run every 24 hours
+setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
+// Kick once on boot (non-blocking)
+runWeeklySeriesGeneration().catch(() => {});
 
 // Start server (HTTP + Socket.IO)
 server.listen(PORT, async () => {

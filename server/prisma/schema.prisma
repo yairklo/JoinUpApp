@@ -58,6 +58,8 @@ model Field {
 model Game {
   id           String          @id @default(cuid())
   fieldId      String
+  /// Optional reference to a recurring series
+  seriesId     String?
   start        DateTime
   duration     Int             @default(1)
   maxPlayers   Int
@@ -84,6 +86,8 @@ model Game {
   updatedAt    DateTime        @updatedAt
   field        Field           @relation(fields: [fieldId], references: [id])
   organizer    User            @relation("OrganizerGames", fields: [organizerId], references: [id])
+  /// Parent series relation (optional)
+  series       GameSeries?     @relation(fields: [seriesId], references: [id])
   participants Participation[]
   roles        GameRole[]
   teams        Team[]
@@ -226,4 +230,44 @@ enum GameRoleType {
   ORGANIZER
   MANAGER
   MODERATOR
+}
+
+model GameSeries {
+  id             String   @id @default(cuid())
+  organizerId    String
+  fieldId        String?
+  fieldName      String
+  fieldLocation  String
+  price          Int      @default(0)
+  maxPlayers     Int
+  /// 0-6 (Sunday=0 per JS Date.getDay()) - only for WEEKLY
+  dayOfWeek      Int?
+  /// "HH:MM"
+  time           String
+  /// hours (can be fractional)
+  duration       Float
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  /// Recurrence type: weekly auto vs. custom dates
+  type           RecurrenceType @default(WEEKLY)
+
+  games          Game[]
+  subscribers    SeriesParticipant[]
+}
+
+model SeriesParticipant {
+  id         String   @id @default(cuid())
+  seriesId   String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  series     GameSeries @relation(fields: [seriesId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([seriesId, userId])
+}
+
+enum RecurrenceType {
+  WEEKLY
+  CUSTOM
 }

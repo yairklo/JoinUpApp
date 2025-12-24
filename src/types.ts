@@ -18,8 +18,25 @@ export interface Field {
   games: Game[];
 }
 
+export type RecurrenceType = 'WEEKLY' | 'CUSTOM';
+
+export interface GameSeries {
+  id: string;
+  organizerId: string;
+  fieldId: string | null;
+  fieldName: string;
+  fieldLocation: string;
+  price: number;
+  maxPlayers: number;
+  dayOfWeek: number | null;
+  time: string;
+  isActive: boolean;
+  type: RecurrenceType;
+}
+
 export interface Game {
   id: string;
+  seriesId: string | null;
   fieldId: string;
   fieldName: string;
   fieldLocation: string;
@@ -35,6 +52,7 @@ export interface Game {
   description: string;
   organizer: string;
   price: number;
+  teams: any[];
   participants: Participant[];
 }
 
