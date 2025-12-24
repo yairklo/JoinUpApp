@@ -34,6 +34,14 @@ function mapGameForClient(game) {
     name: p.user?.name || null,
     avatar: p.user?.imageUrl || null
   }));
+  const managers = (game.roles || [])
+    .filter(r => r.role !== 'ORGANIZER')
+    .map(r => ({
+      id: r.userId,
+      name: r.user?.name || null,
+      avatar: r.user?.imageUrl || null,
+      role: r.role
+    }));
   return {
     id: game.id,
     fieldId: game.fieldId,
@@ -61,7 +69,9 @@ function mapGameForClient(game) {
     description: game.description || '',
     isOpenToJoin: game.isOpenToJoin,
     participants,
-    waitlistParticipants
+    waitlistParticipants,
+    organizerId: game.organizerId,
+    managers
   };
 }
 
@@ -120,6 +130,132 @@ router.get('/public', async (req, res) => {
   } catch (error) {
     console.error('Public games error:', error);
     res.status(500).json({ error: 'Failed to get public games' });
+  }
+});
+
+// --- Game roles (managers) ---
+const ROLE_LEVEL = { NONE: 0, MODERATOR: 1, MANAGER: 2, ORGANIZER: 3 };
+function roleToLevel(role) {
+  return ROLE_LEVEL[String(role || 'NONE').toUpperCase()] ?? 0;
+}
+async function getRoleLevel(gameId, userId) {
+  if (!userId) return ROLE_LEVEL.NONE;
+  const game = await prisma.game.findUnique({ where: { id: gameId }, select: { organizerId: true } });
+  if (!game) return ROLE_LEVEL.NONE;
+  if (game.organizerId === userId) return ROLE_LEVEL.ORGANIZER;
+  const r = await prisma.gameRole.findFirst({ where: { gameId, userId } });
+  return roleToLevel(r?.role);
+}
+async function canManageGame(gameId, userId) {
+  const level = await getRoleLevel(gameId, userId);
+  return level >= ROLE_LEVEL.MODERATOR;
+}
+
+// List roles for a game
+router.get('/:id/roles', attachOptionalUser, async (req, res) => {
+  try {
+    const game = await prisma.game.findUnique({
+      where: { id: req.params.id },
+      include: { roles: { include: { user: true } } }
+    });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    const managers = (game.roles || [])
+      .filter(r => r.role !== 'ORGANIZER')
+      .map(r => ({ id: r.userId, name: r.user?.name || null, avatar: r.user?.imageUrl || null, role: r.role }));
+    return res.json({ organizerId: game.organizerId, managers });
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to get roles' });
+  }
+});
+
+// Add or update a manager (organizer or existing manager only)
+router.post('/:id/roles', authenticateToken, async (req, res) => {
+  try {
+    const { userId, role } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+    const gameId = req.params.id;
+
+    // Actor's role level and target's current level
+    const actorLevel = await getRoleLevel(gameId, req.user.id);
+    if (actorLevel < ROLE_LEVEL.MODERATOR) return res.status(403).json({ error: 'Not allowed' });
+
+    // Ensure target is a participant
+    const isParticipant = await prisma.participation.findFirst({ where: { gameId, userId } });
+    if (!isParticipant) return res.status(400).json({ error: 'Target user is not a participant' });
+
+    // Prevent assigning organizer role via this endpoint, and enforce hierarchy
+    const requestedRole = (role && ['MANAGER','MODERATOR'].includes(String(role))) ? String(role).toUpperCase() : 'MANAGER';
+    const requestedLevel = roleToLevel(requestedRole);
+
+    // Target current level
+    const targetLevel = await getRoleLevel(gameId, userId);
+
+    // Actor can only affect users strictly below them now
+    if (targetLevel >= actorLevel) {
+      return res.status(403).json({ error: 'Cannot modify a peer or higher role' });
+    }
+    // Actor cannot assign a role higher than their own
+    if (requestedLevel > actorLevel) {
+      return res.status(403).json({ error: 'Cannot assign a higher role than your own' });
+    }
+    // Do not allow organizer assignment here
+    if (requestedRole === 'ORGANIZER') {
+      return res.status(400).json({ error: 'Cannot assign organizer via this endpoint' });
+    }
+
+    await prisma.gameRole.upsert({
+      where: { gameId_userId: { gameId, userId } },
+      create: { gameId, userId, role: requestedRole },
+      update: { role: requestedRole },
+    });
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { roles: { include: { user: true } } }
+    });
+    const managers = (game.roles || [])
+      .filter(r => r.role !== 'ORGANIZER')
+      .map(r => ({ id: r.userId, name: r.user?.name || null, avatar: r.user?.imageUrl || null, role: r.role }));
+    return res.json({ organizerId: game.organizerId, managers });
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to add manager' });
+  }
+});
+
+// Remove a manager
+router.delete('/:id/roles/:userId', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    const targetUserId = req.params.userId;
+
+    const actorLevel = await getRoleLevel(gameId, req.user.id);
+    if (actorLevel < ROLE_LEVEL.MODERATOR) return res.status(403).json({ error: 'Not allowed' });
+
+    // Do not allow removing organizer via roles
+    const game = await prisma.game.findUnique({ where: { id: gameId }, select: { organizerId: true } });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    if (game.organizerId === targetUserId) {
+      return res.status(400).json({ error: 'Cannot remove organizer role' });
+    }
+
+    // Hierarchy: can only remove roles below you
+    const targetLevel = await getRoleLevel(gameId, targetUserId);
+    if (targetLevel >= actorLevel) {
+      return res.status(403).json({ error: 'Cannot modify a peer or higher role' });
+    }
+
+    await prisma.gameRole.deleteMany({ where: { gameId, userId: targetUserId } });
+
+    const updated = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { roles: { include: { user: true } } }
+    });
+    const managers = (updated.roles || [])
+      .filter(r => r.role !== 'ORGANIZER')
+      .map(r => ({ id: r.userId, name: r.user?.name || null, avatar: r.user?.imageUrl || null, role: r.role }));
+    return res.json({ organizerId: updated.organizerId, managers });
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to remove manager' });
   }
 });
 
@@ -341,9 +477,12 @@ router.post('/', authenticateToken, async (req, res) => {
             userId: req.user.id,
             status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
           }
+        },
+        roles: {
+          create: { userId: req.user.id, role: 'ORGANIZER' }
         }
       },
-      include: { field: true, participants: { include: { user: true } } }
+      include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } } }
     });
 
     res.status(201).json(mapGameForClient(created));
@@ -358,7 +497,7 @@ router.get('/:id', async (req, res) => {
   try {
     const game = await prisma.game.findUnique({
       where: { id: req.params.id },
-      include: { field: true, participants: { include: { user: true } } }
+      include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } } }
     });
 
     if (!game) {

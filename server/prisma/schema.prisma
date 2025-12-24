@@ -24,6 +24,7 @@ model User {
   friendshipsB   Friendship[]    @relation("B")
   organizedGames Game[]          @relation("OrganizerGames")
   participations Participation[]
+  gameRoles      GameRole[]
   positions      UserPosition[]
   sports         UserSport[]
 }
@@ -84,6 +85,7 @@ model Game {
   field        Field           @relation(fields: [fieldId], references: [id])
   organizer    User            @relation("OrganizerGames", fields: [organizerId], references: [id])
   participants Participation[]
+  roles        GameRole[]
 }
 
 model Participation {
@@ -176,6 +178,18 @@ model UserPosition {
   @@unique([userId, positionId])
 }
 
+model GameRole {
+  id        String        @id @default(cuid())
+  gameId    String
+  userId    String
+  role      GameRoleType  @default(MANAGER)
+  createdAt DateTime      @default(now())
+  game      Game          @relation(fields: [gameId], references: [id])
+  user      User          @relation(fields: [userId], references: [id])
+
+  @@unique([gameId, userId])
+}
+
 enum FieldType {
   OPEN
   CLOSED
@@ -191,4 +205,10 @@ enum ParticipationStatus {
   CONFIRMED
   CANCELLED
   NOT_SELECTED
+}
+
+enum GameRoleType {
+  ORGANIZER
+  MANAGER
+  MODERATOR
 }
