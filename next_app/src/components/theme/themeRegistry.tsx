@@ -4,7 +4,7 @@ import * as React from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v13-appRouter";
-import { getAppTheme } from "@/theme/theme";
+import { getAppTheme } from "@/components/theme/theme";
 
 // Create a Context so other components (like Navbar) can switch modes
 export const ColorModeContext = React.createContext({
