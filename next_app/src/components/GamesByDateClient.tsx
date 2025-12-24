@@ -41,7 +41,7 @@ export default function GamesByDateClient({
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
-  const { user } = useUser();
+  const { user, isLoaded } = useUser(); // Added isLoaded to wait for auth check
   const { getToken } = useAuth();
   const userId = user?.id || "";
 
@@ -54,6 +54,10 @@ export default function GamesByDateClient({
 
   useEffect(() => {
     let ignore = false;
+    
+    // Wait until Clerk determines if user is logged in or not
+    if (!isLoaded) return;
+
     async function run() {
       setLoading(true);
       try {
@@ -61,15 +65,18 @@ export default function GamesByDateClient({
         qs.set("date", selectedDate);
         if (fieldId) qs.set("fieldId", fieldId);
 
+        // Try to get token
         const token = await getToken({ template: undefined }).catch(() => "");
-        const isGuest = !token;
-        const url = isGuest
-          ? `${API_BASE}/api/games/public?${qs.toString()}`
-          : `${API_BASE}/api/games/search?${qs.toString()}`;
+        
+        // Critical Logic Fix:
+        // If we have a token, use /search (personalized).
+        // If NO token, use /public (guaranteed access for guests).
+        const endpoint = token ? "/api/games/search" : "/api/games/public";
+        const url = `${API_BASE}${endpoint}?${qs.toString()}`;
 
         const res = await fetch(url, {
           cache: "no-store",
-          headers: isGuest ? {} : { Authorization: `Bearer ${token}` },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 
         if (!res.ok) throw new Error("Failed to fetch games");
@@ -89,7 +96,8 @@ export default function GamesByDateClient({
         );
 
         if (!ignore) setGames(filtered);
-      } catch {
+      } catch (err) {
+        console.error("Error loading games:", err);
         if (!ignore) setGames([]);
       } finally {
         if (!ignore) setLoading(false);
@@ -99,13 +107,12 @@ export default function GamesByDateClient({
     return () => {
       ignore = true;
     };
-  }, [selectedDate, fieldId]);
+  }, [selectedDate, fieldId, isLoaded, getToken]); // Added dependencies
 
   const currentDayGames = groups[selectedDate] || [];
 
   return (
     <Box>
-      {/* Header for the Date Section */}
       <Box display="flex" alignItems="center" gap={1} mb={1} px={1}>
         <CalendarTodayIcon color="primary" />
         <Typography variant="h6" fontWeight="bold">
@@ -113,7 +120,6 @@ export default function GamesByDateClient({
         </Typography>
       </Box>
 
-      {/* The Date Filter (Pills) */}
       <Box mb={2}>
         <GamesDateNav
           selectedDate={selectedDate}
@@ -122,26 +128,29 @@ export default function GamesByDateClient({
         />
       </Box>
 
-      {/* Content Area */}
       {loading ? (
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress size={30} />
         </Box>
       ) : games.length === 0 ? (
-        <Box 
-            sx={{ 
-                bgcolor: 'action.hover', 
-                borderRadius: 2, 
-                p: 4, 
-                textAlign: 'center' 
-            }}
+        <Box
+          sx={{
+            bgcolor: "action.hover",
+            borderRadius: 2,
+            p: 4,
+            textAlign: "center",
+          }}
         >
-            <Typography variant="body1" color="text.secondary">
+          <Typography variant="body1" color="text.secondary">
             No games found on {selectedDate}.
-            </Typography>
-            <Button size="small" sx={{ mt: 1 }} onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>
-                Back to Today
-            </Button>
+          </Typography>
+          <Button
+            size="small"
+            sx={{ mt: 1 }}
+            onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
+          >
+            Back to Today
+          </Button>
         </Box>
       ) : (
         <GamesHorizontalList title={`Games on ${selectedDate}`}>
