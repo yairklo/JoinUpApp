@@ -6,23 +6,15 @@ import JoinGameButton from "@/components/JoinGameButton";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import { currentUser } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
-import GameParticipantsList from "@/components/GameParticipantsList";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 
 // MUI Imports
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid"; // Using Grid2 for 'size' prop support
+import Grid from "@mui/material/Grid"; 
 import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemAvatar from "@mui/material/ListItemAvatar";
-import ListItemText from "@mui/material/ListItemText";
-import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; name?: string; avatar?: string; role?: string };
@@ -117,7 +109,7 @@ export default async function GameDetails(props: {
           </Box>
         </Box>
 
-        {/* Main Grid Layout - Corrected usage with 'size' prop */}
+        {/* Main Grid Layout */}
         <Grid container spacing={3}>
           
           {/* Left Column: Participants & Team Builder */}
