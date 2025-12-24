@@ -4,13 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 
-// MUI Imports
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
-// Custom Components
 import GameHeaderCard from "@/components/GameHeaderCard";
 import LeaveGameButton from "@/components/LeaveGameButton"; 
 import GamesHorizontalList from "@/components/GamesHorizontalList";
@@ -81,8 +79,8 @@ export default function MyJoinedGames() {
 
   if (!isLoaded || loading) {
     return (
-      <Box display="flex" justifyContent="center" p={4}>
-        <CircularProgress size={30} sx={{ color: 'white' }} />
+      <Box display="flex" justifyContent="center" p={2}>
+        <CircularProgress size={24} />
       </Box>
     );
   }
@@ -93,10 +91,8 @@ export default function MyJoinedGames() {
 
   return (
     <Box>
-      {/* Passed isOnColoredBackground={true} because this component 
-          overlaps the blue Hero section in the main layout.
-      */}
-      <GamesHorizontalList title="Your Upcoming Games" isOnColoredBackground={true}>
+      {/* Shortened title and removed isOnColoredBackground since it's now on the main background */}
+      <GamesHorizontalList title="My Games">
         {games.map((g) => {
           const title = `${g.fieldName} • ${g.fieldLocation}`;
           
