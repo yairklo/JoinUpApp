@@ -52,7 +52,6 @@ export default function MyJoinedGames() {
         const allGames: Game[] = await res.json();
         const now = new Date();
 
-        // מסננים: רק משחקים שהמשתמש רשום אליהם ושעדיין לא עברו
         const myUpcoming = allGames
           .filter((g) => (g.participants || []).some((p) => p.id === userId))
           .filter((g) => {
@@ -82,8 +81,8 @@ export default function MyJoinedGames() {
 
   if (!isLoaded || loading) {
     return (
-      <Box display="flex" justifyContent="center" p={2}>
-        <CircularProgress size={24} />
+      <Box display="flex" justifyContent="center" p={4}>
+        <CircularProgress size={30} sx={{ color: 'white' }} />
       </Box>
     );
   }
@@ -94,8 +93,10 @@ export default function MyJoinedGames() {
 
   return (
     <Box>
-       {/* כאן השינוי הגדול: שימוש ברשימה האופקית החדשה */}
-      <GamesHorizontalList title="Your Upcoming Games">
+      {/* Passed isOnColoredBackground={true} because this component 
+          overlaps the blue Hero section in the main layout.
+      */}
+      <GamesHorizontalList title="Your Upcoming Games" isOnColoredBackground={true}>
         {games.map((g) => {
           const title = `${g.fieldName} • ${g.fieldLocation}`;
           
@@ -108,7 +109,6 @@ export default function MyJoinedGames() {
               currentPlayers={g.currentPlayers}
               maxPlayers={g.maxPlayers}
             >
-              {/* כפתור עזיבה עם עדכון מיידי של הרשימה */}
               <LeaveGameButton 
                 gameId={g.id} 
                 onLeft={() => {
