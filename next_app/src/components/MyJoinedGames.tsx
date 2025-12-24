@@ -1,20 +1,19 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 
 // MUI Imports
 import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
-import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 // Custom Components
 import GameHeaderCard from "@/components/GameHeaderCard";
-import JoinGameButton from "@/components/JoinGameButton";
-import LeaveGameButton from "@/components/LeaveGameButton";
+import LeaveGameButton from "@/components/LeaveGameButton"; 
+import GamesHorizontalList from "@/components/GamesHorizontalList";
 
 type Game = {
   id: string;
@@ -32,22 +31,29 @@ type Game = {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 export default function MyJoinedGames() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const userId = user?.id || "";
   const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!isLoaded) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
     let ignore = false;
-    async function run() {
-      setLoading(true);
+    async function fetchMyGames() {
       try {
         const res = await fetch(`${API_BASE}/api/games`, { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to fetch games");
-        const all: Game[] = await res.json();
+        
+        const allGames: Game[] = await res.json();
         const now = new Date();
-        const mine = all
+
+        // מסננים: רק משחקים שהמשתמש רשום אליהם ושעדיין לא עברו
+        const myUpcoming = allGames
           .filter((g) => (g.participants || []).some((p) => p.id === userId))
           .filter((g) => {
             const start = new Date(`${g.date}T${g.time}:00`);
@@ -59,32 +65,38 @@ export default function MyJoinedGames() {
               new Date(`${a.date}T${a.time}:00`).getTime() -
               new Date(`${b.date}T${b.time}:00`).getTime()
           );
-        if (!ignore) setGames(mine);
-      } catch {
-        if (!ignore) setGames([]);
+
+        if (!ignore) setGames(myUpcoming);
+      } catch (error) {
+        console.error("Failed to load my games", error);
       } finally {
         if (!ignore) setLoading(false);
       }
     }
-    run();
+
+    fetchMyGames();
     return () => {
       ignore = true;
     };
-  }, [userId]);
+  }, [userId, isLoaded]);
 
-  if (!userId) return null;
-  if (loading) return <Box display="flex" justifyContent="center" p={2}><CircularProgress /></Box>;
-  if (games.length === 0) return null;
+  if (!isLoaded || loading) {
+    return (
+      <Box display="flex" justifyContent="center" p={2}>
+        <CircularProgress size={24} />
+      </Box>
+    );
+  }
+
+  if (games.length === 0) {
+    return null; 
+  }
 
   return (
-    <Box mb={4}>
-      <Typography variant="h5" component="h2" fontWeight="bold" gutterBottom>
-        Your Upcoming Games
-      </Typography>
-      
-      <Stack spacing={2}>
+    <Box>
+       {/* כאן השינוי הגדול: שימוש ברשימה האופקית החדשה */}
+      <GamesHorizontalList title="Your Upcoming Games">
         {games.map((g) => {
-          const joined = true; // Since this component filters for joined games
           const title = `${g.fieldName} • ${g.fieldLocation}`;
           
           return (
@@ -96,11 +108,13 @@ export default function MyJoinedGames() {
               currentPlayers={g.currentPlayers}
               maxPlayers={g.maxPlayers}
             >
-              {joined ? (
-                <LeaveGameButton gameId={g.id} />
-              ) : (
-                <JoinGameButton gameId={g.id} />
-              )}
+              {/* כפתור עזיבה עם עדכון מיידי של הרשימה */}
+              <LeaveGameButton 
+                gameId={g.id} 
+                onLeft={() => {
+                  setGames(prev => prev.filter(game => game.id !== g.id));
+                }} 
+              />
               
               <Link href={`/games/${g.id}`} passHref legacyBehavior>
                 <Button 
@@ -116,7 +130,7 @@ export default function MyJoinedGames() {
             </GameHeaderCard>
           );
         })}
-      </Stack>
+      </GamesHorizontalList>
     </Box>
   );
 }
