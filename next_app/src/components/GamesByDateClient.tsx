@@ -1,11 +1,21 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { useUser, useAuth } from "@clerk/nextjs";
+import Link from "next/link";
+
+// MUI Imports
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
+import Stack from "@mui/material/Stack";
+import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+
+// Custom Components
 import GamesDateNav from "@/components/GamesDateNav";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
-import Link from "next/link";
-import { useUser, useAuth } from "@clerk/nextjs";
 
 type Game = {
   id: string;
@@ -62,14 +72,12 @@ export default function GamesByDateClient({
         });
         if (!res.ok) throw new Error("Failed to fetch games");
         const data: Game[] = await res.json();
-        // Only keep ongoing/future games
         const now = new Date();
         const filtered = data.filter((g) => {
           const start = new Date(`${g.date}T${g.time}:00`);
           const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
           return end >= now;
         });
-        // Sort ascending by start
         filtered.sort(
           (a, b) =>
             new Date(`${a.date}T${a.time}:00`).getTime() -
@@ -89,24 +97,29 @@ export default function GamesByDateClient({
   }, [selectedDate, fieldId]);
 
   return (
-    <div>
-      <div className="mb-3">
+    <Box>
+      <Box mb={3}>
         <GamesDateNav
           selectedDate={selectedDate}
           fieldId={fieldId}
           onSelectDate={(d) => setSelectedDate(d)}
         />
-      </div>
+      </Box>
 
       {loading ? (
-        <div className="text-muted">Loading...</div>
+        <Box display="flex" justifyContent="center" p={4}>
+            <CircularProgress />
+        </Box>
       ) : games.length === 0 ? (
-        <div className="text-gray-600">No games found.</div>
+        <Typography variant="body1" color="text.secondary" align="center" py={4}>
+            No games found for this date.
+        </Typography>
       ) : (
-        <div className="space-y-3">
+        <Stack spacing={2}>
           {(groups[selectedDate] || []).map((g) => {
             const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
             const title = `${g.fieldName} • ${g.fieldLocation}`;
+            
             return (
               <GameHeaderCard
                 key={g.id}
@@ -121,16 +134,23 @@ export default function GamesByDateClient({
                 ) : (
                   <JoinGameButton gameId={g.id} />
                 )}
-                <Link href={`/games/${g.id}`} className="btn btn-secondary btn-sm ms-2">
-                  Details
+                
+                <Link href={`/games/${g.id}`} passHref legacyBehavior>
+                    <Button 
+                        component="a"
+                        variant="text" 
+                        color="primary" 
+                        size="small" 
+                        endIcon={<ArrowForwardIcon />}
+                    >
+                        Details
+                    </Button>
                 </Link>
               </GameHeaderCard>
             );
           })}
-        </div>
+        </Stack>
       )}
-    </div>
+    </Box>
   );
 }
-
-
