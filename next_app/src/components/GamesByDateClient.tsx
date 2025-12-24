@@ -62,14 +62,10 @@ export default function GamesByDateClient({
         if (fieldId) qs.set("fieldId", fieldId);
 
         const token = await getToken({ template: undefined }).catch(() => "");
-        const isGuest = !token;
-        const url = isGuest
-          ? `${API_BASE}/api/games/public?${qs.toString()}`
-          : `${API_BASE}/api/games/search?${qs.toString()}`;
-
+        const url = `${API_BASE}/api/games/search?${qs.toString()}`;
         const res = await fetch(url, {
           cache: "no-store",
-          headers: isGuest ? {} : { Authorization: `Bearer ${token}` },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 
         if (!res.ok) throw new Error("Failed to fetch games");
