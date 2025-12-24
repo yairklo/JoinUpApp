@@ -14,7 +14,7 @@ function mapGameForClient(game) {
   const mi = String(start.getMinutes()).padStart(2, '0');
   const date = `${yyyy}-${mm}-${dd}`;
   const time = `${hh}:${mi}`;
-  const allParts = game.participants || [];
+  const allParts = Array.isArray(game?.participants) ? game.participants : [];
   const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
   const waitlisted = allParts.filter(p => p.status === 'WAITLISTED');
   const totalSignups = allParts.length;
@@ -43,11 +43,18 @@ function mapGameForClient(game) {
       avatar: r.user?.imageUrl || null,
       role: r.role
     }));
-  const teams = (game.teams || []).map(t => ({
-    id: t.id,
-    name: t.name,
-    color: t.color
-  }));
+  const teams = (game?.teams ? game.teams : []).map(t => {
+    const playerIds = allParts
+      .filter(p => p && p.teamId === t.id)
+      .map(p => p.userId)
+      .filter(Boolean);
+    return {
+      id: t.id,
+      name: t.name,
+      color: t.color,
+      playerIds: playerIds || []
+    };
+  });
   return {
     id: game.id,
     fieldId: game.fieldId,
@@ -74,11 +81,11 @@ function mapGameForClient(game) {
     overbooked,
     description: game.description || '',
     isOpenToJoin: game.isOpenToJoin,
-    participants,
-    waitlistParticipants,
+    participants: participants || [],
+    waitlistParticipants: waitlistParticipants || [],
     organizerId: game.organizerId,
-    managers,
-    teams
+    managers: managers || [],
+    teams: teams || []
   };
 }
 
@@ -504,7 +511,7 @@ router.get('/:id', async (req, res) => {
   try {
     const game = await prisma.game.findUnique({
       where: { id: req.params.id },
-      include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
+      include: { field: true, participants: { include: { user: true, team: true } }, roles: { include: { user: true } }, teams: true }
     });
 
     if (!game) {
