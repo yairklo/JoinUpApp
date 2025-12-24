@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
@@ -17,12 +16,17 @@ import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import Avatar from "@/components/Avatar";
 import Link from "next/link";
+import CircularProgress from "@mui/material/CircularProgress";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 import GameParticipantsList from "@/components/GameParticipantsList";
 import TeamBuilderDialog, { Team } from "@/components/TeamBuilderDialog";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; name?: string; avatar?: string; role?: string };
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 interface WrapperProps {
   gameId: string;
@@ -31,6 +35,7 @@ interface WrapperProps {
   initialManagers: Manager[];
   maxPlayers: number;
   currentUserId: string;
+  initialTeams?: Team[];
   lotteryData?: {
     enabled: boolean;
     pending: boolean;
@@ -48,24 +53,49 @@ export default function TeamBuilderWrapper({
   initialManagers,
   maxPlayers,
   currentUserId,
+  initialTeams = [],
   lotteryData,
   waitlistParticipants = [],
 }: WrapperProps) {
+  const { getToken } = useAuth();
+  const router = useRouter();
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [savedTeams, setSavedTeams] = useState<Team[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const isOrganizer = currentUserId === organizerId;
   const isManager = initialManagers.some((m) => m.id === currentUserId);
   const canManage = isOrganizer || isManager;
 
-  const handleSaveTeams = (teams: Team[]) => {
-    setSavedTeams(teams);
-    console.log("Teams Saved:", teams);
+  const handleSaveTeams = async (teams: Team[]) => {
+    setSaving(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/games/${gameId}/teams`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ teams }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save teams");
+      }
+
+      router.refresh();
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error("Error saving teams:", error);
+      alert("Failed to save teams. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <Grid size={{ xs: 12, md: 7 }}>
-      
+    <>
       {canManage && (
          <Box mb={2} display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="h6" fontWeight="bold">
@@ -73,12 +103,13 @@ export default function TeamBuilderWrapper({
             </Typography>
             <Button 
                 variant="contained" 
-                startIcon={<GroupsIcon />} 
+                startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <GroupsIcon />} 
                 onClick={() => setIsDialogOpen(true)}
                 size="small"
+                disabled={saving}
                 sx={{ borderRadius: 2, textTransform: 'none' }}
             >
-                Manage Teams
+                {saving ? "Saving..." : "Manage Teams"}
             </Button>
          </Box>
       )}
@@ -88,7 +119,7 @@ export default function TeamBuilderWrapper({
             open={isDialogOpen}
             onClose={() => setIsDialogOpen(false)}
             participants={participants}
-            initialTeams={savedTeams}
+            initialTeams={initialTeams}
             onSave={handleSaveTeams}
         />
       )}
@@ -113,6 +144,7 @@ export default function TeamBuilderWrapper({
         organizerId={organizerId}
         initialManagers={initialManagers}
         maxPlayers={maxPlayers}
+        teams={initialTeams} 
       />
 
       {lotteryData?.enabled &&
@@ -150,6 +182,6 @@ export default function TeamBuilderWrapper({
             </Card>
           </Box>
       )}
-    </Grid>
+    </>
   );
 }

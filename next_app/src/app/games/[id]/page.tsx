@@ -10,7 +10,7 @@ import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 
 // MUI Imports
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid"; 
+import Grid from "@mui/material/Grid"; // Regular Grid import
 import Card from "@mui/material/Card";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
@@ -18,6 +18,7 @@ import Alert from "@mui/material/Alert";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; name?: string; avatar?: string; role?: string };
+type Team = { id: string; name: string; color: string; playerIds: string[] };
 
 type Game = {
   id: string;
@@ -42,6 +43,7 @@ type Game = {
   waitlistParticipants?: Participant[];
   organizerId: string;
   managers: Manager[];
+  teams: Team[];
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -113,22 +115,25 @@ export default async function GameDetails(props: {
         <Grid container spacing={3}>
           
           {/* Left Column: Participants & Team Builder */}
-          <TeamBuilderWrapper 
-            gameId={game.id}
-            participants={game.participants}
-            organizerId={game.organizerId}
-            initialManagers={game.managers || []}
-            maxPlayers={game.maxPlayers}
-            currentUserId={userId}
-            lotteryData={{
-                enabled: !!game.lotteryEnabled,
-                pending: !!game.lotteryPending,
-                overbooked: !!game.overbooked,
-                at: game.lotteryAt || null,
-                signups: game.totalSignups || 0
-            }}
-            waitlistParticipants={game.waitlistParticipants || []}
-          />
+          <Grid size={{ xs: 12, md: 7 }}>
+             <TeamBuilderWrapper 
+                gameId={game.id}
+                participants={game.participants}
+                organizerId={game.organizerId}
+                initialManagers={game.managers || []}
+                maxPlayers={game.maxPlayers}
+                currentUserId={userId}
+                initialTeams={game.teams || []}
+                lotteryData={{
+                    enabled: !!game.lotteryEnabled,
+                    pending: !!game.lotteryPending,
+                    overbooked: !!game.overbooked,
+                    at: game.lotteryAt || null,
+                    signups: game.totalSignups || 0
+                }}
+                waitlistParticipants={game.waitlistParticipants || []}
+              />
+          </Grid>
 
           {/* Right Column: Chat */}
           {joined ? (
