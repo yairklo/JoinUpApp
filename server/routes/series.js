@@ -154,12 +154,33 @@ router.delete('/:seriesId', authenticateToken, async (req, res) => {
     }
 
     const now = new Date();
-    await prisma.$transaction([
-      prisma.game.deleteMany({ where: { seriesId, start: { gte: now } } }),
-      prisma.game.updateMany({ where: { seriesId, start: { lt: now } }, data: { seriesId: null } }),
-      prisma.seriesParticipant.deleteMany({ where: { seriesId } }),
-      prisma.gameSeries.delete({ where: { id: seriesId } }),
-    ]);
+    // Collect future game ids
+    const futureGames = await prisma.game.findMany({
+      where: { seriesId, start: { gte: now } },
+      select: { id: true }
+    });
+    const futureGameIds = futureGames.map(g => g.id);
+
+    // Delete in safe order to satisfy FKs:
+    // 1) participants (due to FK to team and game)
+    // 2) roles (FK to game)
+    // 3) teams (FK to game)
+    // 4) games (future only)
+    // 5) detach series from past games
+    // 6) remove subscribers
+    // 7) delete the series row
+    const ops = [];
+    if (futureGameIds.length) {
+      ops.push(prisma.participation.deleteMany({ where: { gameId: { in: futureGameIds } } }));
+      ops.push(prisma.gameRole.deleteMany({ where: { gameId: { in: futureGameIds } } }));
+      ops.push(prisma.team.deleteMany({ where: { gameId: { in: futureGameIds } } }));
+      ops.push(prisma.game.deleteMany({ where: { id: { in: futureGameIds } } }));
+    }
+    ops.push(prisma.game.updateMany({ where: { seriesId, start: { lt: now } }, data: { seriesId: null } }));
+    ops.push(prisma.seriesParticipant.deleteMany({ where: { seriesId } }));
+    ops.push(prisma.gameSeries.delete({ where: { id: seriesId } }));
+
+    await prisma.$transaction(ops);
 
     return res.json({ ok: true });
   } catch (e) {
