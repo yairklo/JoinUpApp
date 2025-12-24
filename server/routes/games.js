@@ -27,7 +27,8 @@ function mapGameForClient(game) {
   const participants = confirmed.map(p => ({
     id: p.userId,
     name: p.user?.name || null,
-    avatar: p.user?.imageUrl || null
+    avatar: p.user?.imageUrl || null,
+    teamId: p.teamId || null
   }));
   const waitlistParticipants = waitlisted.map(p => ({
     id: p.userId,
@@ -42,6 +43,11 @@ function mapGameForClient(game) {
       avatar: r.user?.imageUrl || null,
       role: r.role
     }));
+  const teams = (game.teams || []).map(t => ({
+    id: t.id,
+    name: t.name,
+    color: t.color
+  }));
   return {
     id: game.id,
     fieldId: game.fieldId,
@@ -71,7 +77,8 @@ function mapGameForClient(game) {
     participants,
     waitlistParticipants,
     organizerId: game.organizerId,
-    managers
+    managers,
+    teams
   };
 }
 
@@ -497,7 +504,7 @@ router.get('/:id', async (req, res) => {
   try {
     const game = await prisma.game.findUnique({
       where: { id: req.params.id },
-      include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } } }
+      include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
     });
 
     if (!game) {
@@ -508,6 +515,75 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('Get game error:', error);
     res.status(500).json({ error: 'Failed to get game' });
+  }
+});
+
+// PUT /api/games/:id/teams - set teams and assignments (Organizer or Manager)
+router.put('/:id/teams', authenticateToken, async (req, res) => {
+  const gameId = req.params.id;
+  const { teams } = req.body || {};
+  if (!Array.isArray(teams)) {
+    return res.status(400).json({ error: 'Invalid payload: teams must be an array' });
+  }
+
+  try {
+    // Permission: organizer or manager
+    const level = await getRoleLevel(gameId, req.user.id);
+    if (level < ROLE_LEVEL.MANAGER) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    // Validate game exists
+    const game = await prisma.game.findUnique({ where: { id: gameId }, select: { id: true } });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+
+    // Build transactional steps
+    const tx = [];
+
+    // 1) Reset teamId for all participants of this game
+    tx.push(prisma.participation.updateMany({ where: { gameId }, data: { teamId: null } }));
+
+    // 2) Delete existing teams
+    tx.push(prisma.team.deleteMany({ where: { gameId } }));
+
+    // 3) Create teams and 4) Assign players
+    // We need sequential logic to get new team IDs; run a sub-transaction after the first two ops.
+    await prisma.$transaction(tx);
+
+    const createdTeams = [];
+    for (const t of teams) {
+      const name = String(t.name || '').trim();
+      const color = String(t.color || '').trim();
+      if (!name || !color) continue;
+      const created = await prisma.team.create({
+        data: { gameId, name, color }
+      });
+      createdTeams.push({ ...created, playerIds: Array.isArray(t.playerIds) ? t.playerIds : [] });
+    }
+
+    // Assign players to teams
+    for (const ct of createdTeams) {
+      if (!ct.playerIds || ct.playerIds.length === 0) continue;
+      await prisma.participation.updateMany({
+        where: { gameId, userId: { in: ct.playerIds } },
+        data: { teamId: ct.id }
+      });
+    }
+
+    // Return updated game with teams and participants
+    const updated = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: {
+        field: true,
+        participants: { include: { user: true } },
+        roles: { include: { user: true } },
+        teams: true
+      }
+    });
+    return res.json(mapGameForClient(updated));
+  } catch (e) {
+    console.error('Update teams error:', e);
+    return res.status(500).json({ error: 'Failed to update teams' });
   }
 });
 

@@ -86,16 +86,19 @@ model Game {
   organizer    User            @relation("OrganizerGames", fields: [organizerId], references: [id])
   participants Participation[]
   roles        GameRole[]
+  teams        Team[]
 }
 
 model Participation {
   id        String   @id @default(cuid())
   gameId    String
   userId    String
+  teamId    String?
   status    ParticipationStatus @default(CONFIRMED)
   createdAt DateTime @default(now())
   game      Game     @relation(fields: [gameId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
+  team      Team?    @relation(fields: [teamId], references: [id])
 
   @@unique([gameId, userId])
 }
@@ -188,6 +191,18 @@ model GameRole {
   user      User          @relation(fields: [userId], references: [id])
 
   @@unique([gameId, userId])
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  gameId    String
+  name      String
+  color     String   // hex color
+  createdAt DateTime @default(now())
+  game      Game     @relation(fields: [gameId], references: [id])
+  players   Participation[]
+
+  @@index([gameId])
 }
 
 enum FieldType {
