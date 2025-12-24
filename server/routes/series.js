@@ -138,6 +138,36 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete a series:
+// - Delete all future games for this series (>= now)
+// - Detach past games (set seriesId=null) to keep history
+// - Remove subscribers
+// - Delete the series record
+router.delete('/:seriesId', authenticateToken, async (req, res) => {
+  try {
+    const { seriesId } = req.params;
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+    const isAdmin = !!req.user?.isAdmin;
+    if (series.organizerId !== req.user.id && !isAdmin) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.game.deleteMany({ where: { seriesId, start: { gte: now } } }),
+      prisma.game.updateMany({ where: { seriesId, start: { lt: now } }, data: { seriesId: null } }),
+      prisma.seriesParticipant.deleteMany({ where: { seriesId } }),
+      prisma.gameSeries.delete({ where: { id: seriesId } }),
+    ]);
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('Series delete error:', e);
+    return res.status(500).json({ error: 'Failed to delete series' });
+  }
+});
+
 module.exports = router;
 
 

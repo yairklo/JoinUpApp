@@ -57,6 +57,7 @@ function mapGameForClient(game) {
   });
   return {
     id: game.id,
+    seriesId: game.seriesId || null,
     fieldId: game.fieldId,
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
