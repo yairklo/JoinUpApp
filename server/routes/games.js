@@ -273,6 +273,134 @@ router.delete('/:id/roles/:userId', authenticateToken, async (req, res) => {
   }
 });
 
+// Convert a standalone game into a recurring series and generate future instances
+router.post('/:id/recurrence', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    const { copyParticipants } = req.body || {};
+
+    const existing = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { field: true, participants: true, roles: true }
+    });
+    if (!existing) return res.status(404).json({ error: 'Game not found' });
+    if (existing.seriesId) return res.status(400).json({ error: 'Game is already part of a series' });
+
+    // Auth: organizer or admin
+    const level = await getRoleLevel(gameId, req.user.id);
+    const isAdmin = !!req.user?.isAdmin;
+    if (level < ROLE_LEVEL.ORGANIZER && !isAdmin) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    const start = new Date(existing.start);
+    const hh = String(start.getHours()).padStart(2, '0');
+    const mi = String(start.getMinutes()).padStart(2, '0');
+    const time = `${hh}:${mi}`;
+
+    // Create series
+    const series = await prisma.gameSeries.create({
+      data: {
+        organizerId: existing.organizerId,
+        fieldId: existing.fieldId || null,
+        fieldName: existing.field?.name || '',
+        fieldLocation: existing.field?.location || '',
+        price: existing.field?.price ?? 0,
+        maxPlayers: existing.maxPlayers,
+        dayOfWeek: start.getDay(),
+        time,
+        duration: Number(existing.duration),
+        isActive: true,
+      },
+    });
+
+    // Optionally copy current participants into SeriesParticipant (as regulars)
+    if (copyParticipants) {
+      const uniqueUserIds = Array.from(new Set((existing.participants || []).map(p => p.userId).filter(Boolean)));
+      const upserts = uniqueUserIds.map(uid =>
+        prisma.seriesParticipant.upsert({
+          where: { seriesId_userId: { seriesId: series.id, userId: uid } },
+          update: {},
+          create: { seriesId: series.id, userId: uid }
+        })
+      );
+      if (upserts.length) await prisma.$transaction(upserts);
+    }
+
+    // Link existing game to the series
+    const updated = await prisma.game.update({
+      where: { id: gameId },
+      data: { seriesId: series.id },
+      include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
+    });
+
+    // Fetch subscribers for generation
+    const subs = await prisma.seriesParticipant.findMany({
+      where: { seriesId: series.id },
+      select: { userId: true }
+    });
+    const subscriberIds = Array.from(new Set((subs || []).map(s => s.userId).filter(Boolean)));
+
+    // Generate next 4 weekly games AFTER the existing one
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    const createOps = [];
+    for (let i = 1; i <= 4; i++) {
+      const occStart = new Date(start.getTime() + i * oneWeekMs);
+      // Build participants: organizer + series subscribers within capacity
+      const maxCap = Number(existing.maxPlayers);
+      const participantsCreate = [];
+      // Organizer first (use existing.organizerId)
+      participantsCreate.push({
+        userId: existing.organizerId,
+        status: existing.organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
+      });
+      const alreadyConfirmed = existing.organizerInLottery ? 0 : 1;
+      let remainingSlots = Math.max(0, maxCap - alreadyConfirmed);
+      for (const uid of subscriberIds) {
+        if (uid === existing.organizerId) continue;
+        if (remainingSlots > 0) {
+          participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
+          remainingSlots -= 1;
+        } else {
+          participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+        }
+      }
+
+      createOps.push(
+        prisma.game.create({
+          data: {
+            fieldId: existing.fieldId,
+            seriesId: series.id,
+            start: occStart,
+            duration: existing.duration,
+            maxPlayers: existing.maxPlayers,
+            isOpenToJoin: existing.isOpenToJoin,
+            isFriendsOnly: existing.isFriendsOnly,
+            lotteryEnabled: existing.lotteryEnabled,
+            ...(existing.lotteryEnabled && existing.lotteryAt ? { lotteryAt: new Date(existing.lotteryAt) } : {}),
+            organizerInLottery: existing.organizerInLottery,
+            description: existing.description || '',
+            organizerId: existing.organizerId,
+            participants: { create: participantsCreate },
+            roles: { create: { userId: existing.organizerId, role: 'ORGANIZER' } }
+          },
+          include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
+        })
+      );
+    }
+
+    const createdGames = await prisma.$transaction(createOps);
+    return res.json({
+      game: mapGameForClient(updated),
+      created: createdGames.map(mapGameForClient),
+      seriesId: series.id
+    });
+  } catch (e) {
+    console.error('Convert to series error:', e);
+    return res.status(500).json({ error: 'Failed to convert game to series' });
+  }
+});
+
 // Get all games
 router.get('/', attachOptionalUser, async (req, res) => {
   try {
@@ -391,6 +519,7 @@ router.post('/', authenticateToken, async (req, res) => {
       lotteryAt,
       organizerInLottery,
       description,
+      recurrence,
       customLat,
       customLng,
       customLocation
@@ -466,7 +595,92 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const start = new Date(`${date}T${time}:00`);
 
-    // optional basic conflict check
+    // Recurrence handling
+    const isRecurring = !!(recurrence && recurrence.isRecurring);
+    if (isRecurring) {
+      const frequency = String(recurrence?.frequency || 'WEEKLY').toUpperCase();
+      if (frequency !== 'WEEKLY') {
+        return res.status(400).json({ error: 'Only WEEKLY recurrence is supported at this time' });
+      }
+
+      // Create series template
+      const series = await prisma.gameSeries.create({
+        data: {
+          organizerId: req.user.id,
+          fieldId: useFieldId || null,
+          fieldName: field.name,
+          fieldLocation: field.location,
+          price: field.price ?? 0,
+          maxPlayers: Number(maxPlayers),
+          dayOfWeek: start.getDay(),
+          time: String(time),
+          duration: Number(isNaN(Number(duration)) ? 1 : Number(duration)),
+          isActive: true,
+        },
+      });
+
+      // Fetch series subscribers
+      const subs = await prisma.seriesParticipant.findMany({
+        where: { seriesId: series.id },
+        select: { userId: true }
+      });
+      const subscriberIds = Array.from(new Set((subs || []).map(s => s.userId).filter(Boolean)));
+
+      // Generate 4 weekly instances including the base date
+      const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+      const createOps = [];
+      for (let i = 0; i < 4; i++) {
+        const occStart = new Date(start.getTime() + i * oneWeekMs);
+        // Build participants: organizer + series subscribers with capacity respected
+        const maxCap = Number(maxPlayers);
+        const participantsCreate = [];
+        // Organizer first
+        participantsCreate.push({
+          userId: req.user.id,
+          status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
+        });
+        // Remaining slots for confirmed
+        const alreadyConfirmed = organizerInLottery ? 0 : 1;
+        let remainingSlots = Math.max(0, maxCap - alreadyConfirmed);
+        for (const uid of subscriberIds) {
+          if (uid === req.user.id) continue; // avoid duplicate organizer
+          if (remainingSlots > 0) {
+            participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
+            remainingSlots -= 1;
+          } else {
+            participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+          }
+        }
+        createOps.push(
+          prisma.game.create({
+            data: {
+              fieldId: useFieldId,
+              seriesId: series.id,
+              start: occStart,
+              duration: duration || 1,
+              maxPlayers: Number(maxPlayers),
+              isOpenToJoin: isOpenToJoin !== false,
+              isFriendsOnly: !!isFriendsOnly,
+              lotteryEnabled: !!lotteryEnabled,
+              ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
+              organizerInLottery: !!organizerInLottery,
+              description: description || '',
+              organizerId: req.user.id,
+              participants: { create: participantsCreate },
+              roles: {
+                create: { userId: req.user.id, role: 'ORGANIZER' }
+              }
+            },
+            include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
+          })
+        );
+      }
+
+      const createdGames = await prisma.$transaction(createOps);
+      return res.status(201).json(mapGameForClient(createdGames[0]));
+    }
+
+    // Single instance flow (original behavior) with basic conflict check
     const conflict = await prisma.game.findFirst({ where: { fieldId: useFieldId, start } });
     if (conflict) {
       return res.status(400).json({ error: 'Time slot is already booked' });
@@ -496,7 +710,7 @@ router.post('/', authenticateToken, async (req, res) => {
           create: { userId: req.user.id, role: 'ORGANIZER' }
         }
       },
-      include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } } }
+      include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
     });
 
     res.status(201).json(mapGameForClient(created));

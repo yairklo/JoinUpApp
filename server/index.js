@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth');
 const fieldsRoutes = require('./routes/fields');
 const gamesRoutes = require('./routes/games');
 const usersRoutes = require('./routes/users');
+const seriesRoutes = require('./routes/series');
 const messagesRoutes = require('./routes/messages');
 
 const app = express();
@@ -63,6 +64,7 @@ async function initializeDataFiles() {
 app.use('/api/auth', authRoutes);
 app.use('/api/fields', fieldsRoutes);
 app.use('/api/games', gamesRoutes);
+app.use('/api/series', seriesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/messages', messagesRoutes);
 
