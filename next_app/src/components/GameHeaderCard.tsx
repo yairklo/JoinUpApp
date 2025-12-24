@@ -1,6 +1,5 @@
 "use client";
 
-// MUI Imports
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
@@ -9,7 +8,6 @@ import Stack from "@mui/material/Stack";
 import LinearProgress from "@mui/material/LinearProgress";
 import Chip from "@mui/material/Chip";
 
-// Icons
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PeopleIcon from '@mui/icons-material/People';
 
@@ -40,7 +38,6 @@ export default function GameHeaderCard({
 
   const end = formatEndTime(time, durationHours);
   
-  // חישוב אחוז תפוסה לבר ההתקדמות
   const occupancyPercentage = Math.min((currentPlayers / maxPlayers) * 100, 100);
   const isFull = currentPlayers >= maxPlayers;
 
@@ -50,12 +47,11 @@ export default function GameHeaderCard({
       sx={{ 
         mb: 3, 
         borderRadius: 3, 
-        overflow: 'visible' // כדי שהצל יראה טוב
+        overflow: 'visible' 
       }}
     >
       <CardContent sx={{ p: 3 }}>
         
-        {/* שורה עליונה: זמן וסטטוס תפוסה */}
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ color: 'text.secondary', bgcolor: 'action.hover', px: 1, py: 0.5, borderRadius: 1 }}>
                 <AccessTimeIcon fontSize="small" />
@@ -74,12 +70,10 @@ export default function GameHeaderCard({
             />
         </Box>
 
-        {/* כותרת המשחק / שם המגרש */}
         <Typography variant="h5" component="h2" fontWeight="bold" gutterBottom sx={{ mt: 1 }}>
           {title || "Untitled Game"}
         </Typography>
 
-        {/* בר התקדמות ויזואלי */}
         <Box sx={{ mt: 2, mb: 3 }}>
             <Box display="flex" justifyContent="space-between" mb={0.5}>
                 <Typography variant="caption" color="text.secondary">Occupancy</Typography>
@@ -95,7 +89,6 @@ export default function GameHeaderCard({
             />
         </Box>
 
-        {/* כפתורי פעולה (Children) - כאן נכנסים הכפתורים של הצטרף/עזוב */}
         <Stack direction="row" spacing={2} mt="auto">
           {children}
         </Stack>
