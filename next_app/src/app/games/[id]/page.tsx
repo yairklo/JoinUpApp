@@ -6,11 +6,11 @@ import JoinGameButton from "@/components/JoinGameButton";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import { currentUser } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
-import GameParticipantsList from "@/components/GameParticipantsList"; // Import the new component
+import GameParticipantsList from "@/components/GameParticipantsList";
 
 // MUI Imports
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid"; // Using Grid2 for 'size' prop support
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
@@ -47,7 +47,6 @@ type Game = {
   totalSignups?: number;
   waitlistCount?: number;
   waitlistParticipants?: Participant[];
-  // New backend fields
   organizerId: string;
   managers: Manager[];
 };
@@ -117,11 +116,11 @@ export default async function GameDetails(props: {
           </Box>
         </Box>
 
-        {/* Main Grid Layout */}
+        {/* Main Grid Layout - Corrected usage with 'size' prop */}
         <Grid container spacing={3}>
           
-          {/* Left Column: Participants (Client Component) */}
-          <Grid item xs={12} md={7}>
+          {/* Left Column: Participants */}
+          <Grid size={{ xs: 12, md: 7 }}>
             
             {/* 1. Lottery Warning Banner */}
             {game.lotteryEnabled && game.lotteryPending && game.overbooked && (
@@ -150,7 +149,7 @@ export default async function GameDetails(props: {
                 maxPlayers={game.maxPlayers}
             />
 
-            {/* 3. Waitlist Section (Static for now) */}
+            {/* 3. Waitlist Section */}
             {game.lotteryEnabled &&
               game.lotteryPending &&
               game.overbooked &&
@@ -206,9 +205,9 @@ export default async function GameDetails(props: {
               )}
           </Grid>
 
-          {/* Right Column: Chat (visible only to participants) */}
+          {/* Right Column: Chat */}
           {joined ? (
-            <Grid item xs={12} md={5}>
+            <Grid size={{ xs: 12, md: 5 }}>
               <Card elevation={2} sx={{ height: "100%", minHeight: 400 }}>
                 <Box p={2} height="100%">
                   <Typography variant="h6" gutterBottom>
