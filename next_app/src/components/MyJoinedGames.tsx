@@ -1,10 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
+
+// MUI Imports
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
+import Stack from "@mui/material/Stack";
+import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+
+// Custom Components
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
-import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
 
 type Game = {
   id: string;
@@ -63,16 +73,20 @@ export default function MyJoinedGames() {
   }, [userId]);
 
   if (!userId) return null;
-  if (loading) return null;
+  if (loading) return <Box display="flex" justifyContent="center" p={2}><CircularProgress /></Box>;
   if (games.length === 0) return null;
 
   return (
-    <section className="mb-3">
-      <h2 className="h5 mb-2">Your Upcoming Games</h2>
-      <div className="space-y-2">
+    <Box mb={4}>
+      <Typography variant="h5" component="h2" fontWeight="bold" gutterBottom>
+        Your Upcoming Games
+      </Typography>
+      
+      <Stack spacing={2}>
         {games.map((g) => {
-          const joined = true;
+          const joined = true; // Since this component filters for joined games
           const title = `${g.fieldName} • ${g.fieldLocation}`;
+          
           return (
             <GameHeaderCard
               key={g.id}
@@ -87,15 +101,22 @@ export default function MyJoinedGames() {
               ) : (
                 <JoinGameButton gameId={g.id} />
               )}
-              <Link href={`/games/${g.id}`} className="btn btn-secondary btn-sm ms-2">
-                Details
+              
+              <Link href={`/games/${g.id}`} passHref legacyBehavior>
+                <Button 
+                  component="a"
+                  variant="text" 
+                  color="primary" 
+                  size="small" 
+                  endIcon={<ArrowForwardIcon />}
+                >
+                  Details
+                </Button>
               </Link>
             </GameHeaderCard>
           );
         })}
-      </div>
-    </section>
+      </Stack>
+    </Box>
   );
 }
-
-

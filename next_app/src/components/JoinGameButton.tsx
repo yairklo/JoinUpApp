@@ -3,6 +3,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
+// MUI Imports
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import AddIcon from "@mui/icons-material/Add";
+import LoginIcon from "@mui/icons-material/Login";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 export default function JoinGameButton({ gameId, onJoined }: { gameId: string; onJoined?: () => void }) {
@@ -27,7 +35,7 @@ export default function JoinGameButton({ gameId, onJoined }: { gameId: string; o
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to join");
       }
-      // Soft-refresh the current route so server components refetch and counts update
+      
       router.refresh();
       if (onJoined) onJoined();
     } catch (e: unknown) {
@@ -38,20 +46,32 @@ export default function JoinGameButton({ gameId, onJoined }: { gameId: string; o
   }
 
   return (
-    <div className="inline-flex flex-col items-end">
+    <Box display="flex" flexDirection="column" alignItems="flex-end">
       <SignedOut>
         <SignInButton mode="modal">
-          <button className="btn btn-primary btn-sm">Sign in to join</button>
+          <Button variant="contained" color="primary" size="small" startIcon={<LoginIcon />}>
+            Sign in to join
+          </Button>
         </SignInButton>
       </SignedOut>
+      
       <SignedIn>
-        <button onClick={join} disabled={loading} className="btn btn-primary btn-sm disabled:opacity-50">
+        <Button 
+          onClick={join} 
+          disabled={loading} 
+          variant="contained" 
+          color="primary" 
+          size="small"
+          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
+        >
           {loading ? "Joining..." : "Join"}
-        </button>
-        {error && <div className="text-red-600 text-xs mt-1">{error}</div>}
+        </Button>
+        {error && (
+          <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+            {error}
+          </Typography>
+        )}
       </SignedIn>
-    </div>
+    </Box>
   );
 }
-
-

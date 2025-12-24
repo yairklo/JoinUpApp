@@ -2,6 +2,14 @@
 import { useState } from "react";
 import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
+// MUI Imports
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import ExitToAppIcon from "@mui/icons-material/ExitToApp";
+import LoginIcon from "@mui/icons-material/Login";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 export default function LeaveGameButton({ gameId, onLeft }: { gameId: string; onLeft?: () => void }) {
@@ -34,20 +42,32 @@ export default function LeaveGameButton({ gameId, onLeft }: { gameId: string; on
   }
 
   return (
-    <div className="inline-flex flex-col items-end">
+    <Box display="flex" flexDirection="column" alignItems="flex-end">
       <SignedOut>
         <SignInButton mode="modal">
-          <button className="btn btn-primary btn-sm">Sign in</button>
+          <Button variant="outlined" color="primary" size="small" startIcon={<LoginIcon />}>
+            Sign in
+          </Button>
         </SignInButton>
       </SignedOut>
+      
       <SignedIn>
-        <button onClick={leave} disabled={loading} className="btn btn-danger btn-sm disabled:opacity-50">
+        <Button 
+          onClick={leave} 
+          disabled={loading} 
+          variant="outlined" 
+          color="error" 
+          size="small"
+          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ExitToAppIcon />}
+        >
           {loading ? "Leaving..." : "Leave game"}
-        </button>
-        {error && <div className="text-red-600 text-xs mt-1">{error}</div>}
+        </Button>
+        {error && (
+          <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+            {error}
+          </Typography>
+        )}
       </SignedIn>
-    </div>
+    </Box>
   );
 }
-
-
