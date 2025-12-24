@@ -237,7 +237,7 @@ function NewGamePageInner() {
       const created = await res.json();
       setSuccess("Game created");
       // redirect to home after creation (main page flow)
-      router.push(`/home`);
+      router.push(`/`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
