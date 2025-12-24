@@ -217,17 +217,18 @@ export default async function GameDetails(props: {
             </Card>
           </Grid>
 
-          {/* Right Column: Chat */}
-          <Grid size={{ xs: 12, md: 5 }}>
-            <Card elevation={2} sx={{ height: '100%', minHeight: 400 }}>
-                {/* כאן נטפל בצ'אט בשלב הבא, כרגע זה עטוף יפה */}
-                <Box p={2} height="100%">
-                    <Typography variant="h6" gutterBottom>Chat</Typography>
-                    <Divider sx={{ mb: 2 }} />
-                    <Chat roomId={game.id} />
-                </Box>
-            </Card>
-          </Grid>
+          {/* Right Column: Chat (visible only to participants) */}
+          {joined ? (
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Card elevation={2} sx={{ height: '100%', minHeight: 400 }}>
+                  <Box p={2} height="100%">
+                      <Typography variant="h6" gutterBottom>Chat</Typography>
+                      <Divider sx={{ mb: 2 }} />
+                      <Chat roomId={game.id} />
+                  </Box>
+              </Card>
+            </Grid>
+          ) : null}
 
         </Grid>
       </Container>
