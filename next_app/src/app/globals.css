@@ -4,145 +4,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* HSL design tokens for Tailwind */
+/* Keep existing variables for Tailwind compatibility */
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
-
   --card: 0 0% 100%;
   --card-foreground: 222.2 84% 4.9%;
-
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;
-
   --primary: 221.2 83% 53%;
   --primary-foreground: 210 40% 98%;
-
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222.2 47.4% 11.2%;
-
   --muted: 210 40% 96.1%;
   --muted-foreground: 215 16% 46%;
-
   --accent: 210 40% 96.1%;
   --accent-foreground: 222.2 47.4% 11.2%;
-
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
-
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
   --ring: 221.2 83% 53%;
-
   --radius: 0.8rem;
-}
-
-.dark {
-  --background: 224 71% 4%;
-  --foreground: 213 31% 91%;
-
-  --card: 224 71% 4%;
-  --card-foreground: 213 31% 91%;
-
-  --popover: 224 71% 4%;
-  --popover-foreground: 213 31% 91%;
-
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-
-  --secondary: 215 27.9% 16.9%;
-  --secondary-foreground: 210 40% 98%;
-
-  --muted: 215 27.9% 16.9%;
-  --muted-foreground: 217.9 10.6% 64.9%;
-
-  --accent: 215 27.9% 16.9%;
-  --accent-foreground: 210 40% 98%;
-
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 215 27.9% 16.9%;
-  --input: 215 27.9% 16.9%;
-  --ring: 217.2 91.2% 59.8%;
 }
 
 @layer base {
   * {
-    /* Tailwind v4 may not have the border-border utility; use CSS var directly */
     border-color: hsl(var(--border));
   }
-  html,
-  body,
-  :root {
-    height: 100%;
-  }
-  body {
-    @apply bg-background text-foreground antialiased;
-  }
 }
 
-/* Utility classes consistent with previous CSS */
-.container-prose {
-  @apply container mx-auto px-4;
-}
-.card {
-  @apply bg-card text-card-foreground rounded-2xl border shadow-sm;
-}
-.card-hover {
-  @apply transition hover:shadow-md;
-}
-.btn {
-  @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:pointer-events-none;
-}
-.btn-primary {
-  @apply bg-primary text-primary-foreground hover:opacity-90;
-}
-.btn-secondary {
-  @apply bg-secondary text-secondary-foreground hover:opacity-90;
-}
-.badge {
-  @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium bg-secondary text-secondary-foreground;
-}
-.input {
-  @apply h-10 w-full rounded-lg border bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+/* --- NEW MODERN STYLES --- */
+
+body {
+  /* Modern gradient background */
+  background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  color: #1e293b; 
 }
 
-/* Ensure images don’t blow out layout */
-img,
-video,
-canvas,
-svg {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Avatar helpers */
-.avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 999px;
-  display: inline-grid;
-  place-items: center;
-  font-weight: 700;
-  color: #fff;
-  overflow: hidden;
-}
-.avatar-sm {
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  overflow: hidden;
-  display: inline-grid;
-  place-items: center;
-  font-weight: 700;
-}
-.avatar > img,
-.avatar-sm > img {
-  width: 100%;
+/* Ensure Next.js root div takes full height */
+html, body, #__next {
   height: 100%;
-  object-fit: cover;
-  display: block;
 }
-
-/* End of globals */
