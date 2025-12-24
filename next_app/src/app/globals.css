@@ -34,16 +34,12 @@
   }
 }
 
-/* --- NEW MODERN STYLES --- */
-
+/* --- UPDATED BODY STYLES --- */
+/* The background gradient is now managed by src/theme/theme.ts */
 body {
-  /* Modern gradient background */
-  background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
-  background-attachment: fixed;
   min-height: 100vh;
   margin: 0;
   padding: 0;
-  color: #1e293b; 
 }
 
 /* Ensure Next.js root div takes full height */

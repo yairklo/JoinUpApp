@@ -1,86 +1,107 @@
-// src/theme/theme.ts
 "use client";
-import { createTheme } from "@mui/material/styles";
+import { createTheme, ThemeOptions } from "@mui/material/styles";
 
-// 1. הגדרת פלטת צבעים מודרנית
-const theme = createTheme({
+// Common component overrides (Buttons, Cards, etc.)
+const componentOverrides: ThemeOptions["components"] = {
+  MuiButton: {
+    styleOverrides: {
+      root: {
+        borderRadius: 12,
+        textTransform: "none",
+        fontWeight: 600,
+      },
+    },
+  },
+  MuiCard: {
+    styleOverrides: {
+      root: {
+        borderRadius: 16,
+      },
+    },
+  },
+};
+
+// Common typography
+const typographyOptions: ThemeOptions["typography"] = {
+  fontFamily: "inherit",
+  h1: { fontWeight: 700 },
+  h2: { fontWeight: 700 },
+  h3: { fontWeight: 700 },
+  button: { fontWeight: 600 },
+};
+
+// --- LIGHT THEME ---
+const lightTheme = createTheme({
   palette: {
-    mode: "light", // הכנה ל-Dark Mode
+    mode: "light",
     primary: {
-      main: "#6366f1", // Indigo - צבע מודרני ונעים (במקום הכחול ברירת מחדל)
-      light: "#818cf8",
-      dark: "#4f46e5",
+      main: "#6366f1",
       contrastText: "#ffffff",
     },
     secondary: {
-      main: "#10b981", // Emerald - ירוק רענן לפעולות חיוביות (כמו Join)
-      light: "#34d399",
-      dark: "#059669",
+      main: "#10b981",
     },
     background: {
-      default: "#f8fafc", // רקע אפור-כחלחל בהיר מאוד (לא לבן משעמם)
+      default: "#f8fafc",
       paper: "#ffffff",
     },
     text: {
-      primary: "#1e293b", // שחור-כחול כהה (יותר נעים לקריאה משחור מוחלט)
+      primary: "#1e293b",
       secondary: "#64748b",
     },
   },
-  
-  // 2. עיצוב גלובלי לרכיבים (Components)
+  typography: typographyOptions,
   components: {
-    MuiButton: {
+    ...componentOverrides,
+    // Define the Light Mode Gradient here
+    MuiCssBaseline: {
       styleOverrides: {
-        root: {
-          borderRadius: 12, // כפתורים עגולים יותר
-          textTransform: "none", // ביטול ה-CAPSLOCK המעצבן של MUI
-          fontWeight: 600,
-          padding: "10px 24px",
-          boxShadow: "none",
-          "&:hover": {
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)", // צללית עדינה בהובר
-          },
-        },
-        containedPrimary: {
-           background: "linear-gradient(45deg, #6366f1 30%, #818cf8 90%)", // גרדיאנט לכפתורים ראשיים
+        body: {
+          backgroundImage: "linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)",
+          backgroundAttachment: "fixed",
+          backgroundRepeat: "no-repeat",
         },
       },
     },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16, // כרטיסים עגולים
-          boxShadow: "0 4px 20px rgba(0,0,0,0.05)", // צללית רכה ומודרנית (במקום הצל הגס של ברירת המחדל)
-          border: "1px solid rgba(255, 255, 255, 0.3)", // אפקט עדין
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        rounded: {
-          borderRadius: 16,
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            borderRadius: 12, // שדות קלט עגולים
-          },
-        },
-      },
-    },
-  },
-  
-  // 3. טיפוגרפיה (אופציונלי - אפשר לשנות פונט בהמשך)
-  typography: {
-    fontFamily: "inherit", // יורש מהגדרות ה-CSS הגלובליות שלך
-    h1: { fontWeight: 700 },
-    h2: { fontWeight: 700 },
-    h3: { fontWeight: 700 },
-    button: { fontWeight: 600 },
   },
 });
 
-export default theme;
+// --- DARK THEME ---
+const darkTheme = createTheme({
+  palette: {
+    mode: "dark",
+    primary: {
+      main: "#818cf8",
+      contrastText: "#0f172a",
+    },
+    secondary: {
+      main: "#34d399",
+    },
+    background: {
+      default: "#0f172a", // Fallback color
+      paper: "#1e293b",
+    },
+    text: {
+      primary: "#f8fafc",
+      secondary: "#94a3b8",
+    },
+  },
+  typography: typographyOptions,
+  components: {
+    ...componentOverrides,
+    // Define the Dark Mode Gradient here
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundImage: "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
+          backgroundAttachment: "fixed",
+          backgroundRepeat: "no-repeat",
+        },
+      },
+    },
+  },
+});
+
+export const getAppTheme = (mode: "light" | "dark") => {
+  return mode === "light" ? lightTheme : darkTheme;
+};

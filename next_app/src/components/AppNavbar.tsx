@@ -1,37 +1,103 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useState, useEffect, useContext } from "react";
 import Link from "next/link";
-import Navbar from "react-bootstrap/Navbar";
-import Container from "react-bootstrap/Container";
-import Nav from "react-bootstrap/Nav";
-import AuthButtons from "@/components/AuthButtons";
 import { ClerkLoaded, SignedIn } from "@clerk/nextjs";
+
+// MUI Imports
+import AppBar from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import Container from "@mui/material/Container";
+import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+
+// Icons
+import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
+import Brightness4Icon from "@mui/icons-material/Brightness4"; // Moon
+import Brightness7Icon from "@mui/icons-material/Brightness7"; // Sun
+import PersonIcon from "@mui/icons-material/Person";
+
+// Internal Components & Context
+import AuthButtons from "@/components/AuthButtons";
+import { ColorModeContext } from "@/components/theme/themeRegistry";
 
 export default function AppNavbar() {
   const [mounted, setMounted] = useState(false);
+  const { mode, toggleColorMode } = useContext(ColorModeContext);
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
   return (
-    <Navbar className="bg-body-tertiary" sticky="top">
-      <Container>
-        <Navbar.Brand as={Link} href="/" style={{ fontWeight: 800 }}>
-          ⚽ JoinUp
-        </Navbar.Brand>
-        <Nav className="me-auto" />
-        <div className="d-flex align-items-center gap-3">
-          {mounted ? (
-            <ClerkLoaded>
-              <SignedIn>
-                <Link href="/profile" className="nav-link p-0">My Profile</Link>
-              </SignedIn>
-            </ClerkLoaded>
-          ) : null}
-          <AuthButtons />
-        </div>
+    <AppBar 
+      position="sticky" 
+      color="inherit" 
+      elevation={1} 
+      sx={{ 
+        bgcolor: "background.paper",
+        borderBottom: 1,
+        borderColor: "divider"
+      }}
+    >
+      <Container maxWidth="lg">
+        <Toolbar disableGutters sx={{ justifyContent: "space-between" }}>
+          
+          {/* Logo Section */}
+          <Link href="/" passHref style={{ textDecoration: "none", color: "inherit" }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer" }}>
+              <SportsSoccerIcon color="primary" />
+              <Typography 
+                variant="h6" 
+                component="div" 
+                sx={{ 
+                  fontWeight: 800, 
+                  letterSpacing: "-0.5px",
+                  color: "text.primary"
+                }}
+              >
+                JoinUp
+              </Typography>
+            </Stack>
+          </Link>
+
+          {/* Right Side Actions */}
+          <Stack direction="row" alignItems="center" spacing={1}>
+            
+            {/* Theme Toggle Button */}
+            <IconButton onClick={toggleColorMode} color="inherit">
+              {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
+
+            {/* User Profile Link */}
+            {mounted && (
+              <ClerkLoaded>
+                <SignedIn>
+                  <Link href="/profile" passHref style={{ textDecoration: 'none' }}>
+                     <Button 
+                        variant="text" 
+                        color="inherit" 
+                        startIcon={<PersonIcon />}
+                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                     >
+                        My Profile
+                     </Button>
+                  </Link>
+                </SignedIn>
+              </ClerkLoaded>
+            )}
+
+            {/* Auth Buttons (Login/Signup) */}
+            <Box ml={1}>
+                <AuthButtons />
+            </Box>
+
+          </Stack>
+        </Toolbar>
       </Container>
-    </Navbar>
+    </AppBar>
   );
 }
-
-
