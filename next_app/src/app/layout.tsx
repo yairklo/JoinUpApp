@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "bootstrap/dist/css/bootstrap.min.css";
+
+// 1. החזרנו את בוטסטראפ כדי שקומפוננטות ישנות לא ישברו
+import "bootstrap/dist/css/bootstrap.min.css"; 
 import "./globals.css";
-import { ClerkProvider, SignedIn, UserButton } from "@clerk/nextjs";
-import AuthButtons from "@/components/AuthButtons";
+
+import { ClerkProvider } from "@clerk/nextjs";
 import AppNavbar from "@/components/AppNavbar";
-import Link from "next/link";
-import { ThemeProvider } from "@/components/theme/theme-provider";
+import ThemeRegistry from "@/components/theme/themeRegistry";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,17 +31,21 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en" className="light" suppressHydrationWarning>
+      <html lang="en">
         <head>
           <link rel="icon" href="/favicon.svg" />
         </head>
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} data-nextjs-scroll-behavior="true" data-nextjs-router="true" suppressHydrationWarning>
-          <ThemeProvider>
-          <AppNavbar />
-          <main className="container" style={{paddingBlock:"1.25rem"}}>
-            {children}
-          </main>
-          </ThemeProvider>
+        <body className={`${geistSans.variable} ${geistMono.variable}`}>
+          {/* ThemeRegistry דואג שקומפוננטות MUI יראו טוב */}
+          <ThemeRegistry>
+            {/* AppNavbar עדיין מסתמך על Bootstrap ולכן חייב את ה-CSS למעלה */}
+            <AppNavbar />
+            
+            {/* הורדתי את ה-container של בוטסטראפ כדי לאפשר רוחב מלא לדפים החדשים */}
+            <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+              {children}
+            </main>
+          </ThemeRegistry>
         </body>
       </html>
     </ClerkProvider>
