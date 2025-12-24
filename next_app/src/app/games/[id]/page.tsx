@@ -6,22 +6,15 @@ import JoinGameButton from "@/components/JoinGameButton";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import { currentUser } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
-import GameParticipantsList from "@/components/GameParticipantsList";
+import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 
 // MUI Imports
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid"; // Using Grid2 for 'size' prop support
+import Grid from "@mui/material/Grid"; 
 import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemAvatar from "@mui/material/ListItemAvatar";
-import ListItemText from "@mui/material/ListItemText";
-import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; name?: string; avatar?: string; role?: string };
@@ -116,94 +109,26 @@ export default async function GameDetails(props: {
           </Box>
         </Box>
 
-        {/* Main Grid Layout - Corrected usage with 'size' prop */}
+        {/* Main Grid Layout */}
         <Grid container spacing={3}>
           
-          {/* Left Column: Participants */}
-          <Grid size={{ xs: 12, md: 7 }}>
-            
-            {/* 1. Lottery Warning Banner */}
-            {game.lotteryEnabled && game.lotteryPending && game.overbooked && (
-              <Alert severity="warning" icon={<AccessTimeIcon />} sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" fontWeight="bold">
-                  Lottery Pending
-                </Typography>
-                <Typography variant="body2">
-                  Draw at:{" "}
-                  {game.lotteryAt
-                    ? new Date(game.lotteryAt).toLocaleString()
-                    : "—"}
-                </Typography>
-                <Typography variant="caption">
-                  Registered: {game.totalSignups ?? 0} (Max: {game.maxPlayers})
-                </Typography>
-              </Alert>
-            )}
-
-            {/* 2. Interactive Participants List */}
-            <GameParticipantsList 
-                gameId={game.id}
-                participants={game.participants}
-                organizerId={game.organizerId}
-                initialManagers={game.managers || []}
-                maxPlayers={game.maxPlayers}
-            />
-
-            {/* 3. Waitlist Section */}
-            {game.lotteryEnabled &&
-              game.lotteryPending &&
-              game.overbooked &&
-              (game.waitlistParticipants?.length || 0) > 0 && (
-                <Box mt={3}>
-                    <Card elevation={2} sx={{ bgcolor: 'warning.50' }}>
-                        <CardContent>
-                          <Typography
-                            variant="subtitle1"
-                            fontWeight="bold"
-                            gutterBottom
-                            color="warning.dark"
-                          >
-                            Waitlist / Lottery Pool
-                          </Typography>
-                          <List disablePadding>
-                            {(game.waitlistParticipants || []).map((p) => (
-                              <Link
-                                key={p.id}
-                                href={`/users/${p.id}`}
-                                passHref
-                                legacyBehavior
-                              >
-                                <ListItemButton
-                                  component="a"
-                                  sx={{ borderRadius: 2 }}
-                                >
-                                  <ListItemAvatar>
-                                    <Avatar
-                                      src={p.avatar}
-                                      alt={p.name || p.id}
-                                      name={p.name || p.id}
-                                      size="sm"
-                                    />
-                                  </ListItemAvatar>
-                                  <ListItemText
-                                    primary={p.name || p.id}
-                                    secondary="Waiting for lottery"
-                                  />
-                                  <Chip
-                                    label="Waitlist"
-                                    size="small"
-                                    color="warning"
-                                    variant="outlined"
-                                  />
-                                </ListItemButton>
-                              </Link>
-                            ))}
-                          </List>
-                        </CardContent>
-                    </Card>
-                </Box>
-              )}
-          </Grid>
+          {/* Left Column: Participants & Team Builder */}
+          <TeamBuilderWrapper 
+            gameId={game.id}
+            participants={game.participants}
+            organizerId={game.organizerId}
+            initialManagers={game.managers || []}
+            maxPlayers={game.maxPlayers}
+            currentUserId={userId}
+            lotteryData={{
+                enabled: !!game.lotteryEnabled,
+                pending: !!game.lotteryPending,
+                overbooked: !!game.overbooked,
+                at: game.lotteryAt || null,
+                signups: game.totalSignups || 0
+            }}
+            waitlistParticipants={game.waitlistParticipants || []}
+          />
 
           {/* Right Column: Chat */}
           {joined ? (
