@@ -27,6 +27,7 @@ model User {
   gameRoles      GameRole[]
   positions      UserPosition[]
   sports         UserSport[]
+  seriesSubscriptions SeriesParticipant[]
 }
 
 model Field {
