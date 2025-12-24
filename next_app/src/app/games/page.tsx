@@ -11,62 +11,13 @@ import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import MyJoinedGames from "@/components/MyJoinedGames";
 import GamesByDateClient from "@/components/GamesByDateClient";
 
-type Game = {
-  id: string;
-  fieldId: string;
-  fieldName: string;
-  fieldLocation: string;
-  date: string;
-  time: string;
-  duration?: number;
-  maxPlayers: number;
-  currentPlayers: number;
-  description: string;
-  isOpenToJoin: boolean;
-  participants?: Array<{ id: string; name?: string | null }>;
-};
-
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-
-async function fetchGames(
-  searchParams: Record<string, string | string[] | undefined>
-): Promise<Game[]> {
-  const base = `${API_BASE}/api/games`;
-  const qs = new URLSearchParams();
-  if (searchParams.fieldId && typeof searchParams.fieldId === "string") {
-    qs.set("fieldId", searchParams.fieldId);
-  }
-  const url = qs.toString() ? `${base}/search?${qs}` : base;
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return [];
-    const data: Game[] = await res.json();
-
-    const now = new Date();
-    const futureOrActive = data.filter((g) => {
-      const start = new Date(`${g.date}T${g.time}:00`);
-      const durationHours = g.duration ?? 1;
-      const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
-      return end >= now;
-    });
-
-    futureOrActive.sort(
-      (a, b) =>
-        new Date(`${a.date}T${a.time}:00`).getTime() -
-        new Date(`${b.date}T${b.time}:00`).getTime()
-    );
-    return futureOrActive;
-  } catch (e) {
-    return [];
-  }
-}
 
 export default async function GamesPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const searchParams = await props.searchParams;
   const user = await currentUser();
-  const userId = user?.id || "";
 
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -78,13 +29,14 @@ export default async function GamesPage(props: {
 
   return (
     <main>
+      {/* Hero Section - Just Title & Subtitle */}
       <Box
         sx={{
           bgcolor: "primary.main",
           color: "primary.contrastText",
           pt: 6,
           pb: 8,
-          mb: -4,
+          mb: 4, // Added margin bottom to separate from content
           borderRadius: { xs: 0, md: "0 0 32px 32px" },
           boxShadow: 3,
         }}
@@ -101,10 +53,13 @@ export default async function GamesPage(props: {
 
       <Container maxWidth="md">
         <Stack spacing={4}>
-          <Box sx={{ position: "relative", zIndex: 2 }}>
+          
+          {/* My Games - Now in the main flow (Clean background) */}
+          <Box>
             <MyJoinedGames />
           </Box>
 
+          {/* Create Game Button */}
           <Box>
             <Link href="/games/new" passHref legacyBehavior>
               <Button
@@ -134,6 +89,7 @@ export default async function GamesPage(props: {
             </Link>
           </Box>
 
+          {/* All Games List */}
           <Box>
             <GamesByDateClient
               initialDate={initialDate}
