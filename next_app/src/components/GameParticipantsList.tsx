@@ -62,6 +62,7 @@ export default function GameParticipantsList({
 
   const openMenu = (event: React.MouseEvent<HTMLElement>, user: Participant) => {
     event.preventDefault(); // Prevent navigation if wrapped in Link
+    event.stopPropagation(); // Prevent parent ListItem onClick
     setAnchorEl(event.currentTarget);
     setSelectedUser(user);
   };
@@ -185,6 +186,7 @@ export default function GameParticipantsList({
                 <ListItem
                   key={p.id}
                   disablePadding
+                  onClick={() => router.push(`/users/${p.id}`)}
                   secondaryAction={
                     showMenu && (
                       <IconButton
