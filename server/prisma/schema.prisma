@@ -240,16 +240,19 @@ model GameSeries {
   fieldLocation  String
   price          Int      @default(0)
   maxPlayers     Int
-  /// 0-6 (Sunday=0 per JS Date.getDay())
-  dayOfWeek      Int
+  /// 0-6 (Sunday=0 per JS Date.getDay()) - only for WEEKLY
+  dayOfWeek      Int?
   /// "HH:MM"
   time           String
   /// hours (can be fractional)
   duration       Float
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
+  /// Recurrence type: weekly auto vs. custom dates
+  type           RecurrenceType @default(WEEKLY)
 
   games          Game[]
+  subscribers    SeriesParticipant[]
 }
 
 model SeriesParticipant {
@@ -262,4 +265,9 @@ model SeriesParticipant {
   user       User       @relation(fields: [userId], references: [id])
 
   @@unique([seriesId, userId])
+}
+
+enum RecurrenceType {
+  WEEKLY
+  CUSTOM
 }

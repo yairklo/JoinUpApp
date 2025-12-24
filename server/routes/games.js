@@ -595,15 +595,13 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const start = new Date(`${date}T${time}:00`);
 
-    // Recurrence handling
-    const isRecurring = !!(recurrence && recurrence.isRecurring);
+    // Recurrence handling (flexible: WEEKLY or CUSTOM)
+    const isRecurring = !!recurrence && (recurrence.type || recurrence.isRecurring);
     if (isRecurring) {
-      const frequency = String(recurrence?.frequency || 'WEEKLY').toUpperCase();
-      if (frequency !== 'WEEKLY') {
-        return res.status(400).json({ error: 'Only WEEKLY recurrence is supported at this time' });
-      }
+      const type = String(recurrence?.type || 'WEEKLY').toUpperCase();
 
       // Create series template
+      const weekly = type === 'WEEKLY';
       const series = await prisma.gameSeries.create({
         data: {
           organizerId: req.user.id,
@@ -612,10 +610,11 @@ router.post('/', authenticateToken, async (req, res) => {
           fieldLocation: field.location,
           price: field.price ?? 0,
           maxPlayers: Number(maxPlayers),
-          dayOfWeek: start.getDay(),
-          time: String(time),
+          dayOfWeek: weekly ? (Number.isInteger(recurrence?.dayOfWeek) ? Number(recurrence.dayOfWeek) : start.getDay()) : null,
+          time: String(recurrence?.time || time),
           duration: Number(isNaN(Number(duration)) ? 1 : Number(duration)),
           isActive: true,
+          type: weekly ? 'WEEKLY' : 'CUSTOM',
         },
       });
 
@@ -626,54 +625,100 @@ router.post('/', authenticateToken, async (req, res) => {
       });
       const subscriberIds = Array.from(new Set((subs || []).map(s => s.userId).filter(Boolean)));
 
-      // Generate 4 weekly instances including the base date
-      const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
       const createOps = [];
-      for (let i = 0; i < 4; i++) {
-        const occStart = new Date(start.getTime() + i * oneWeekMs);
-        // Build participants: organizer + series subscribers with capacity respected
-        const maxCap = Number(maxPlayers);
-        const participantsCreate = [];
-        // Organizer first
-        participantsCreate.push({
-          userId: req.user.id,
-          status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
-        });
-        // Remaining slots for confirmed
-        const alreadyConfirmed = organizerInLottery ? 0 : 1;
-        let remainingSlots = Math.max(0, maxCap - alreadyConfirmed);
-        for (const uid of subscriberIds) {
-          if (uid === req.user.id) continue; // avoid duplicate organizer
-          if (remainingSlots > 0) {
-            participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
-            remainingSlots -= 1;
-          } else {
-            participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+      if (weekly) {
+        // Generate 4 weekly instances including the base date
+        const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+        for (let i = 0; i < 4; i++) {
+          const occStart = new Date(start.getTime() + i * oneWeekMs);
+          // participants with capacity respected
+          const maxCap = Number(maxPlayers);
+          const participantsCreate = [];
+          participantsCreate.push({
+            userId: req.user.id,
+            status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
+          });
+          const alreadyConfirmed = organizerInLottery ? 0 : 1;
+          let remainingSlots = Math.max(0, maxCap - alreadyConfirmed);
+          for (const uid of subscriberIds) {
+            if (uid === req.user.id) continue;
+            if (remainingSlots > 0) {
+              participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
+              remainingSlots -= 1;
+            } else {
+              participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+            }
           }
+          createOps.push(
+            prisma.game.create({
+              data: {
+                fieldId: useFieldId,
+                seriesId: series.id,
+                start: occStart,
+                duration: duration || 1,
+                maxPlayers: Number(maxPlayers),
+                isOpenToJoin: isOpenToJoin !== false,
+                isFriendsOnly: !!isFriendsOnly,
+                lotteryEnabled: !!lotteryEnabled,
+                ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
+                organizerInLottery: !!organizerInLottery,
+                description: description || '',
+                organizerId: req.user.id,
+                participants: { create: participantsCreate },
+                roles: { create: { userId: req.user.id, role: 'ORGANIZER' } }
+              },
+              include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
+            })
+          );
         }
-        createOps.push(
-          prisma.game.create({
-            data: {
-              fieldId: useFieldId,
-              seriesId: series.id,
-              start: occStart,
-              duration: duration || 1,
-              maxPlayers: Number(maxPlayers),
-              isOpenToJoin: isOpenToJoin !== false,
-              isFriendsOnly: !!isFriendsOnly,
-              lotteryEnabled: !!lotteryEnabled,
-              ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
-              organizerInLottery: !!organizerInLottery,
-              description: description || '',
-              organizerId: req.user.id,
-              participants: { create: participantsCreate },
-              roles: {
-                create: { userId: req.user.id, role: 'ORGANIZER' }
-              }
-            },
-            include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
-          })
-        );
+      } else {
+        // CUSTOM: create per provided dates
+        const dateStrs = Array.isArray(recurrence?.dates) ? recurrence.dates : [];
+        if (!dateStrs.length) {
+          return res.status(400).json({ error: 'CUSTOM recurrence requires dates[]' });
+        }
+        for (const ds of dateStrs) {
+          const occStart = new Date(String(ds));
+          if (isNaN(occStart.getTime())) continue;
+          const maxCap = Number(maxPlayers);
+          const participantsCreate = [];
+          participantsCreate.push({
+            userId: req.user.id,
+            status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
+          });
+          const alreadyConfirmed = organizerInLottery ? 0 : 1;
+          let remainingSlots = Math.max(0, maxCap - alreadyConfirmed);
+          for (const uid of subscriberIds) {
+            if (uid === req.user.id) continue;
+            if (remainingSlots > 0) {
+              participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
+              remainingSlots -= 1;
+            } else {
+              participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+            }
+          }
+          createOps.push(
+            prisma.game.create({
+              data: {
+                fieldId: useFieldId,
+                seriesId: series.id,
+                start: occStart,
+                duration: duration || 1,
+                maxPlayers: Number(maxPlayers),
+                isOpenToJoin: isOpenToJoin !== false,
+                isFriendsOnly: !!isFriendsOnly,
+                lotteryEnabled: !!lotteryEnabled,
+                ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
+                organizerInLottery: !!organizerInLottery,
+                description: description || '',
+                organizerId: req.user.id,
+                participants: { create: participantsCreate },
+                roles: { create: { userId: req.user.id, role: 'ORGANIZER' } }
+              },
+              include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
+            })
+          );
+        }
       }
 
       const createdGames = await prisma.$transaction(createOps);
