@@ -205,7 +205,7 @@ function NewGamePageInner() {
       
       const created = await res.json();
       setSuccess("Game created!");
-      router.push(`/games?fieldId=${created.fieldId}`);
+      router.push(`/games`);
 
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
