@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import Button from "@mui/material/Button";
@@ -40,24 +40,18 @@ export default function GamesByDateClient({
 }) {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(true); // Start as true to avoid flickering
+  const [loading, setLoading] = useState(true);
+  
   const { user, isLoaded: isUserLoaded } = useUser();
   const { getToken, isLoaded: isAuthLoaded } = useAuth();
   
   const userId = user?.id || "";
   const isLoaded = isUserLoaded && isAuthLoaded;
 
-  const groups = useMemo(() => {
-    return games.reduce<Record<string, Game[]>>((acc, g) => {
-      (acc[g.date] ||= []).push(g);
-      return acc;
-    }, {});
-  }, [games]);
-
   useEffect(() => {
     let ignore = false;
 
-    // Wait for Clerk to fully initialize
+    // Wait for auth to be ready
     if (!isLoaded) return;
 
     async function fetchGames() {
@@ -70,20 +64,18 @@ export default function GamesByDateClient({
         let token = "";
         let endpoint = "/api/games/public";
 
-        // Only attempt to get token if user exists
+        // Try to get token if user exists
         if (user) {
           try {
             token = await getToken() || "";
-            // If we have a user (and potential token), use the personalized search endpoint
             endpoint = "/api/games/search";
           } catch (e) {
             console.error("Error fetching token:", e);
-            // Fallback to public if token fails, though unusual for logged in user
           }
         }
 
         const url = `${API_BASE}${endpoint}?${qs.toString()}`;
-        console.log(`Fetching games from: ${url} (User: ${user ? 'Yes' : 'No'})`);
+        console.log(`fetching from: ${url}`);
 
         const res = await fetch(url, {
           cache: "no-store",
@@ -93,18 +85,21 @@ export default function GamesByDateClient({
         if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
         
         const data: Game[] = await res.json();
-        console.log(`Games received: ${data.length}`);
+        console.log(`RAW games from server: ${data.length}`);
 
-        // Client-side filtering for past games
+        // Filter out past games based on current time
+        // Note: If you want to see ALL games for debugging, comment out the filter logic below
         const now = new Date();
         const filtered = data.filter((g) => {
-          // Construct date strictly to avoid timezone issues if possible, 
-          // though local browser time vs server string is usually the intended behavior here.
+          // Construct a valid Date object
           const start = new Date(`${g.date}T${g.time}:00`);
           const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
           return end >= now;
         });
 
+        console.log(`Games after 'future' filter: ${filtered.length}`);
+
+        // Sort by time
         filtered.sort(
           (a, b) =>
             new Date(`${a.date}T${a.time}:00`).getTime() -
@@ -127,8 +122,6 @@ export default function GamesByDateClient({
     };
   }, [selectedDate, fieldId, isLoaded, user, getToken]);
 
-  const currentDayGames = groups[selectedDate] || [];
-
   return (
     <Box>
       <Box display="flex" alignItems="center" gap={1} mb={1} px={1}>
@@ -146,7 +139,6 @@ export default function GamesByDateClient({
         />
       </Box>
 
-      {/* Show loader only if we are actually fetching, or if auth is initializing */}
       {(loading || !isLoaded) ? (
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress size={30} />
@@ -172,8 +164,9 @@ export default function GamesByDateClient({
           </Button>
         </Box>
       ) : (
+        // Simplified Rendering: Just map the games directly
         <GamesHorizontalList title={`Games on ${selectedDate}`}>
-          {currentDayGames.map((g) => {
+          {games.map((g) => {
             const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
             const title = `${g.fieldName} • ${g.fieldLocation}`;
 
