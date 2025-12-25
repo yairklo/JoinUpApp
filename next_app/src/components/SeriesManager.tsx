@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // MUI
 import Box from "@mui/material/Box";
@@ -28,13 +29,14 @@ import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import AddIcon from "@mui/icons-material/Add";
 import EditCalendarIcon from "@mui/icons-material/EditCalendar";
 import UpdateIcon from "@mui/icons-material/Update";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 interface SeriesManagerProps {
   gameId: string;
   seriesId: string | null;
-  canManage: boolean; // Changed from isOrganizer
+  canManage: boolean;
   gameData: {
     time: string;
     date: string;
@@ -196,6 +198,20 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
                 label={<Typography variant="caption">Auto-Join Future</Typography>}
             />
         </Stack>
+
+        <Box mt={2} display="flex" gap={1}>
+            <Button
+                component={Link}
+                href={`/series/${seriesId}`}
+                size="small"
+                variant="text"
+                endIcon={<ArrowForwardIcon />}
+                fullWidth={!canManage}
+                sx={{ justifyContent: canManage ? "flex-start" : "center" }}
+            >
+                View Full Series Page
+            </Button>
+        </Box>
         
         {canManage && (
             <Button 
@@ -203,7 +219,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
                 size="small" 
                 variant="outlined" 
                 fullWidth 
-                sx={{ mt: 2 }}
+                sx={{ mt: 1 }}
                 onClick={handleOpen}
             >
                 Manage Series Settings
@@ -257,7 +273,6 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
     );
   }
 
-  // Only render create button if user can manage
   if (!canManage) return null;
 
   return (
