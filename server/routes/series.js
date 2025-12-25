@@ -5,6 +5,74 @@ const prisma = new PrismaClient();
 
 const router = express.Router();
 
+// Public: series details (organizer, subscribers, upcoming games)
+router.get('/:seriesId', async (req, res) => {
+  try {
+    const { seriesId } = req.params;
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+
+    const [organizer, subscribers, upcoming] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: series.organizerId },
+        select: { id: true, name: true, imageUrl: true }
+      }),
+      prisma.seriesParticipant.findMany({
+        where: { seriesId },
+        include: { user: { select: { id: true, name: true, imageUrl: true } } }
+      }),
+      (async () => {
+        const now = new Date();
+        return prisma.game.findMany({
+          where: { seriesId, start: { gte: now } },
+          orderBy: { start: 'asc' },
+          take: 10,
+          include: { participants: true }
+        });
+      })()
+    ]);
+
+    const upcomingGames = (upcoming || []).map(g => {
+      const confirmed = (g.participants || []).filter(p => p.status === 'CONFIRMED').length;
+      return {
+        id: g.id,
+        date: new Date(g.start).toISOString(),
+        currentPlayers: confirmed,
+        maxPlayers: g.maxPlayers
+      };
+    });
+
+    const payload = {
+      id: series.id,
+      name: `${series.fieldName} • ${series.time}`,
+      fieldName: series.fieldName,
+      fieldLocation: series.fieldLocation,
+      time: series.time,
+      dayOfWeek: series.dayOfWeek ?? null,
+      type: series.type,
+      organizer: {
+        id: organizer?.id || series.organizerId,
+        name: organizer?.name || '',
+        avatar: organizer?.imageUrl || ''
+      },
+      subscribers: (subscribers || []).map(s => ({
+        userId: s.userId,
+        user: {
+          id: s.user?.id || s.userId,
+          name: s.user?.name || '',
+          avatar: s.user?.imageUrl || ''
+        }
+      })),
+      upcomingGames
+    };
+
+    return res.json(payload);
+  } catch (e) {
+    console.error('Series details error:', e);
+    return res.status(500).json({ error: 'Failed to fetch series' });
+  }
+});
+
 // Subscribe to a series (become a regular)
 router.post('/:seriesId/subscribe', authenticateToken, async (req, res) => {
   try {
