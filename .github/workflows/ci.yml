@@ -37,7 +37,7 @@ jobs:
           cache-dependency-path: next_app/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci || npm install
 
       - name: Run linter
         continue-on-error: true # Do not fail the workflow on lint errors; still prints annotations

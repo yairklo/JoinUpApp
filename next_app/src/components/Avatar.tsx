@@ -1,13 +1,14 @@
 "use client";
-import Image from "react-bootstrap/Image";
+
+import MuiAvatar from "@mui/material/Avatar";
 
 type AvatarSize = "xs" | "sm" | "md" | "lg";
 
 const sizePx: Record<AvatarSize, number> = {
-  xs: 12,  // chat – קטן מאוד
-  sm: 20,  // רשימות קצרות (friends/participants)
-  md: 32,  // כותרות משתמש
-  lg: 40,  // אווטאר פרופיל
+  xs: 24,
+  sm: 32,
+  md: 40,
+  lg: 56,
 };
 
 function getInitials(name: string): string {
@@ -15,6 +16,19 @@ function getInitials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function stringToColor(string: string) {
+  let hash = 0;
+  for (let i = 0; i < string.length; i++) {
+    hash = string.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  let color = '#';
+  for (let i = 0; i < 3; i++) {
+    const value = (hash >> (i * 8)) & 0xff;
+    color += `00${value.toString(16)}`.slice(-2);
+  }
+  return color;
 }
 
 export default function Avatar({
@@ -32,19 +46,21 @@ export default function Avatar({
 }) {
   const px = sizePx[size] ?? sizePx.sm;
   const initials = getInitials(name || alt || "");
-
-  const url =
-    (src && src.trim().length > 0 ? src : `https://placehold.co/${px}x${px}?text=${encodeURIComponent(initials)}`);
+  const displayName = name || alt || "";
 
   return (
-    <Image
-      src={url}
+    <MuiAvatar
+      src={src || undefined}
       alt={alt}
-      roundedCircle
       className={className}
-      style={{ width: px, height: px, objectFit: "cover" }}
-    />
+      sx={{
+        width: px,
+        height: px,
+        fontSize: px / 2.2,
+        bgcolor: src ? 'transparent' : stringToColor(displayName),
+      }}
+    >
+      {initials}
+    </MuiAvatar>
   );
 }
-
-
