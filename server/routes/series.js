@@ -18,7 +18,7 @@ router.get('/:seriesId', async (req, res) => {
         where: { id: seriesId },
         select: { id: true, seriesId: true }
       });
-      if (maybe?maybeGame && maybeGame.seriesId) {
+      if (maybeGame && maybeGame.seriesId) {
         series = await prisma.gameSeries.findUnique({ where: { id: maybeGame.seriesId } });
         if (series) {
           console.warn('[GET /api/series/:id] Requested ID was a gameId; resolved seriesId =', maybeGame.seriesId);
