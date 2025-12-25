@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
@@ -21,72 +21,58 @@ import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 import CircularProgress from "@mui/material/CircularProgress";
-import Divider from "@mui/material/Divider";
 
 // Icons
-import UpdateIcon from "@mui/icons-material/Update";
 import EventRepeatIcon from "@mui/icons-material/EventRepeat";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import AddIcon from "@mui/icons-material/Add";
 import EditCalendarIcon from "@mui/icons-material/EditCalendar";
+import UpdateIcon from "@mui/icons-material/Update";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 interface SeriesManagerProps {
   gameId: string;
-  seriesId: string | null; // אם null, זה משחק בודד
-  isOrganizer: boolean;
-  // נתונים בסיסיים של המשחק הנוכחי לשמש כברירת מחדל ליצירה
+  seriesId: string | null;
+  canManage: boolean; // Changed from isOrganizer
   gameData: {
     time: string;
-    date: string; // YYYY-MM-DD
+    date: string;
   };
 }
 
-export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData }: SeriesManagerProps) {
+export default function SeriesManager({ gameId, seriesId, canManage, gameData }: SeriesManagerProps) {
   const { getToken } = useAuth();
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [tabValue, setTabValue] = useState(0); // 0 = WEEKLY, 1 = CUSTOM
-
-  // State for Creating/Editing
+  const [tabValue, setTabValue] = useState(0); 
   const [customDates, setCustomDates] = useState<string[]>([]);
   const [tempDate, setTempDate] = useState("");
   
-  // State for Series Subscription
-  const [isSubscribed, setIsSubscribed] = useState(false); // היינו צריכים לקבל את זה מהפרופס, אבל ל-MVP ננהל כאן
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
 
-  // State for Editing Existing Series
   const [editData, setEditData] = useState({
     time: gameData.time,
     updateFuture: true,
   });
 
-  // --- Handlers ---
-
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
-  // 1. הפיכת משחק לסדרה (Convert)
   const handleMakeRecurring = async () => {
     setLoading(true);
     try {
       const token = await getToken();
-      
       const type = tabValue === 0 ? "WEEKLY" : "CUSTOM";
       
-      // Payload based on backend requirements
       const payload = {
         type,
-        // אם זה שבועי - הבקאנד לוקח את היום מהמשחק המקורי
-        // אם זה קסטום - שולחים רשימת תאריכים
         dates: type === "CUSTOM" ? customDates : undefined,
       };
 
-      // קריאה לנקודת הקצה שיצרנו (Convert)
       const res = await fetch(`${API_BASE}/api/games/${gameId}/recurrence`, {
         method: "POST",
         headers: {
@@ -108,7 +94,6 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
     }
   };
 
-  // 2. עדכון סדרה קיימת
   const handleUpdateSeries = async () => {
     if (!seriesId) return;
     setLoading(true);
@@ -139,7 +124,6 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
     }
   };
 
-  // 3. מחיקת סדרה
   const handleDeleteSeries = async () => {
     if (!seriesId || !confirm("WARNING: This will delete the series and ALL future games linked to it. Are you sure?")) return;
     
@@ -150,13 +134,12 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
             method: "DELETE",
             headers: { Authorization: `Bearer ${token}` }
         });
-        router.push("/"); // חזרה לדף הבית כי המשחק (אולי) נמחק אם היה עתידי
+        router.push("/");
     } catch (err) {
         console.error(err);
     }
   };
 
-  // 4. ניהול מנוי (Subscribe)
   const handleToggleSubscribe = async () => {
     if (!seriesId) return;
     setSubLoading(true);
@@ -178,7 +161,6 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
     }
   };
 
-  // --- Logic for Custom Dates ---
   const addCustomDate = () => {
     if (!tempDate) return;
     if (customDates.includes(tempDate)) return;
@@ -190,10 +172,6 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
     setCustomDates(customDates.filter(d => d !== dateToRemove));
   };
 
-
-  // --- RENDER ---
-
-  // מצב א': המשחק הוא חלק מסדרה (יש seriesId)
   if (seriesId) {
     return (
       <Box mt={2} p={2} border="1px dashed" borderColor="primary.main" borderRadius={2} bgcolor="primary.50">
@@ -219,7 +197,7 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
             />
         </Stack>
         
-        {isOrganizer && (
+        {canManage && (
             <Button 
                 startIcon={<EditCalendarIcon />} 
                 size="small" 
@@ -232,7 +210,6 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
             </Button>
         )}
 
-        {/* Dialog: Edit Existing Series */}
         <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
             <DialogTitle>Series Settings</DialogTitle>
             <DialogContent>
@@ -280,8 +257,8 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
     );
   }
 
-  // מצב ב': משחק בודד (אין seriesId) - רק המארגן רואה
-  if (!isOrganizer) return null;
+  // Only render create button if user can manage
+  if (!canManage) return null;
 
   return (
     <>
@@ -296,7 +273,6 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
         Make Recurring / Series
       </Button>
 
-      {/* Dialog: Create Series from Game */}
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
         <DialogTitle>Convert to Series</DialogTitle>
         <DialogContent>
@@ -306,7 +282,6 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
             </Tabs>
 
             {tabValue === 0 ? (
-                // WEEKLY TAB
                 <Box>
                     <Alert severity="success" sx={{ mb: 2 }}>
                         This will create games automatically <b>every week</b> at <b>{gameData.time}</b>.
@@ -318,7 +293,6 @@ export default function SeriesManager({ gameId, seriesId, isOrganizer, gameData 
                     </Typography>
                 </Box>
             ) : (
-                // CUSTOM TAB
                 <Box>
                      <Alert severity="info" sx={{ mb: 2 }}>
                         Select specific dates to create a bulk series.
