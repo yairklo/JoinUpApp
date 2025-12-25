@@ -8,6 +8,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import SeriesManager from "@/components/SeriesManager";
+import GameTimeEditor from "@/components/GameTimeEditor";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -114,6 +115,12 @@ export default async function GameDetails(props: {
               fieldName={game.fieldName}
               lat={game.fieldLat ?? null}
               lng={game.fieldLng ?? null}
+            />
+
+            <GameTimeEditor 
+              gameId={game.id}
+              initialTime={game.time}
+              canManage={canManageSeries}
             />
 
             <Divider sx={{ my: 2 }} />
