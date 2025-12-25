@@ -86,7 +86,15 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
 
       if (!res.ok) throw new Error("Failed to create series");
 
-      router.refresh();
+      const data = await res.json();
+      const newSeriesId = data.seriesId || data.series?.id;
+
+      if (newSeriesId) {
+        router.push(`/series/${newSeriesId}`);
+      } else {
+        router.refresh();
+      }
+
       handleClose();
     } catch (error) {
       console.error(error);
