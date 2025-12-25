@@ -40,10 +40,12 @@ export default function GamesByDateClient({
 }) {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(false);
-  const { user, isLoaded } = useUser(); // Added isLoaded to wait for auth check
-  const { getToken } = useAuth();
+  const [loading, setLoading] = useState(true); // Start as true to avoid flickering
+  const { user, isLoaded: isUserLoaded } = useUser();
+  const { getToken, isLoaded: isAuthLoaded } = useAuth();
+  
   const userId = user?.id || "";
+  const isLoaded = isUserLoaded && isAuthLoaded;
 
   const groups = useMemo(() => {
     return games.reduce<Record<string, Game[]>>((acc, g) => {
@@ -54,36 +56,50 @@ export default function GamesByDateClient({
 
   useEffect(() => {
     let ignore = false;
-    
-    // Wait until Clerk determines if user is logged in or not
+
+    // Wait for Clerk to fully initialize
     if (!isLoaded) return;
 
-    async function run() {
+    async function fetchGames() {
       setLoading(true);
       try {
         const qs = new URLSearchParams();
-        qs.set("date", selectedDate);
+        if (selectedDate) qs.set("date", selectedDate);
         if (fieldId) qs.set("fieldId", fieldId);
 
-        // Try to get token
-        const token = await getToken({ template: undefined }).catch(() => "");
-        
-        // Critical Logic Fix:
-        // If we have a token, use /search (personalized).
-        // If NO token, use /public (guaranteed access for guests).
-        const endpoint = token ? "/api/games/search" : "/api/games/public";
+        let token = "";
+        let endpoint = "/api/games/public";
+
+        // Only attempt to get token if user exists
+        if (user) {
+          try {
+            token = await getToken() || "";
+            // If we have a user (and potential token), use the personalized search endpoint
+            endpoint = "/api/games/search";
+          } catch (e) {
+            console.error("Error fetching token:", e);
+            // Fallback to public if token fails, though unusual for logged in user
+          }
+        }
+
         const url = `${API_BASE}${endpoint}?${qs.toString()}`;
+        console.log(`Fetching games from: ${url} (User: ${user ? 'Yes' : 'No'})`);
 
         const res = await fetch(url, {
           cache: "no-store",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 
-        if (!res.ok) throw new Error("Failed to fetch games");
+        if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+        
         const data: Game[] = await res.json();
+        console.log(`Games received: ${data.length}`);
 
+        // Client-side filtering for past games
         const now = new Date();
         const filtered = data.filter((g) => {
+          // Construct date strictly to avoid timezone issues if possible, 
+          // though local browser time vs server string is usually the intended behavior here.
           const start = new Date(`${g.date}T${g.time}:00`);
           const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
           return end >= now;
@@ -103,11 +119,13 @@ export default function GamesByDateClient({
         if (!ignore) setLoading(false);
       }
     }
-    run();
+
+    fetchGames();
+
     return () => {
       ignore = true;
     };
-  }, [selectedDate, fieldId, isLoaded, getToken]); // Added dependencies
+  }, [selectedDate, fieldId, isLoaded, user, getToken]);
 
   const currentDayGames = groups[selectedDate] || [];
 
@@ -128,7 +146,8 @@ export default function GamesByDateClient({
         />
       </Box>
 
-      {loading ? (
+      {/* Show loader only if we are actually fetching, or if auth is initializing */}
+      {(loading || !isLoaded) ? (
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress size={30} />
         </Box>
