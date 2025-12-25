@@ -85,6 +85,10 @@ export default async function GameDetails(props: {
       ? game.totalSignups ?? game.currentPlayers
       : game.currentPlayers) || 0;
 
+  const isOrganizer = game.organizerId === userId;
+  const isManager = (game.managers || []).some((m) => m.id === userId);
+  const canManageSeries = isOrganizer || isManager;
+
   return (
     <main>
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -117,7 +121,7 @@ export default async function GameDetails(props: {
             <SeriesManager 
               gameId={game.id}
               seriesId={game.seriesId}
-              isOrganizer={game.organizerId === userId}
+              canManage={canManageSeries}
               gameData={{
                   time: game.time,
                   date: game.date
