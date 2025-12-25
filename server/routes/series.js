@@ -8,8 +8,24 @@ const router = express.Router();
 // Public: series details (organizer, subscribers, upcoming games)
 router.get('/:seriesId', async (req, res) => {
   try {
+    console.log('[GET /api/series/:id] Fetching series ID:', req.params?.seriesId, 'url=', req.originalUrl);
     const { seriesId } = req.params;
-    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    let series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+
+    // Fallback: if not found, client may have sent a gameId instead of seriesId.
+    if (!series) {
+      const maybeGame = await prisma.game.findUnique({
+        where: { id: seriesId },
+        select: { id: true, seriesId: true }
+      });
+      if (maybe?maybeGame && maybeGame.seriesId) {
+        series = await prisma.gameSeries.findUnique({ where: { id: maybeGame.seriesId } });
+        if (series) {
+          console.warn('[GET /api/series/:id] Requested ID was a gameId; resolved seriesId =', maybeGame.seriesId);
+        }
+      }
+    }
+
     if (!series) return res.status(404).json({ error: 'Series not found' });
 
     const [organizer, subscribers, upcoming] = await Promise.all([
