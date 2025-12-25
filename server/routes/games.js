@@ -402,6 +402,62 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
   }
 });
 
+// PATCH /api/games/:id - partial update (e.g., update time for a single game)
+router.patch('/:id', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    const { time, date } = req.body || {};
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { field: true, participants: { include: { user: true, team: true } }, roles: { include: { user: true } }, teams: true }
+    });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+
+    // Only organizer or manager+ can change game time
+    const level = await getRoleLevel(gameId, req.user.id);
+    const isOrganizer = game.organizerId === req.user.id;
+    if (!isOrganizer && level < ROLE_LEVEL.MANAGER) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    const updates = {};
+    if (typeof time === 'string' && /^\d{2}:\d{2}$/.test(time)) {
+      const [hhStr, mmStr] = time.split(':');
+      const hh = parseInt(hhStr, 10);
+      const mm = parseInt(mmStr, 10);
+      if (Number.isInteger(hh) && Number.isInteger(mm)) {
+        const newStart = new Date(game.start);
+        newStart.setHours(hh, mm, 0, 0);
+        updates['start'] = newStart;
+      }
+    }
+    if (typeof date === 'string') {
+      const d = new Date(date);
+      if (!Number.isNaN(d.getTime())) {
+        const newStart = new Date(game.start);
+        newStart.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+        updates['start'] = newStart;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    const updated = await prisma.game.update({
+      where: { id: gameId },
+      data: updates,
+      include: { field: true, participants: { include: { user: true, team: true } }, roles: { include: { user: true } }, teams: true }
+    });
+
+    return res.json(mapGameForClient(updated));
+  } catch (e) {
+    console.error('Patch game error:', e);
+    return res.status(500).json({ error: 'Failed to update game' });
+  }
+});
+
 // Get all games
 router.get('/', attachOptionalUser, async (req, res) => {
   try {
