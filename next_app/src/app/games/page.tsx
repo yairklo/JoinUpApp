@@ -10,6 +10,9 @@ import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 
 import MyJoinedGames from "@/components/MyJoinedGames";
 import GamesByDateClient from "@/components/GamesByDateClient";
+import Section from "@/components/ui/Section";
+import MySeriesSection from "@/components/MySeriesSection";
+import FriendsActivitySection from "@/components/FriendsActivitySection";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -52,9 +55,9 @@ export default async function GamesPage(props: {
       </Box>
 
       <Container maxWidth="md">
-        <Stack spacing={4}>
+        <Stack spacing={6}>
           
-          {/* My Games - Now in the main flow (Clean background) */}
+          {/* My Games - Quick Access (Existing component) */}
           <Box>
             <MyJoinedGames />
           </Box>
@@ -89,15 +92,21 @@ export default async function GamesPage(props: {
             </Link>
           </Box>
 
-          {/* All Games List */}
-          <Box>
+          {/* Section 2: My Series */}
+          <MySeriesSection />
+
+          {/* Section 3: Friends Activity */}
+          <FriendsActivitySection />
+
+          {/* Section 1: Upcoming Games List (Existing logic) */}
+          <Section title="Upcoming Games">
             <GamesByDateClient
               initialDate={initialDate}
               fieldId={
                 typeof searchParams.fieldId === "string" ? searchParams.fieldId : undefined
               }
             />
-          </Box>
+          </Section>
         </Stack>
       </Container>
     </main>
