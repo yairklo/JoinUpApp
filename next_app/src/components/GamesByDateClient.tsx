@@ -54,7 +54,7 @@ export default function GamesByDateClient({
 
   useEffect(() => {
     let ignore = false;
-    
+
     // Wait until Clerk determines if user is logged in or not
     if (!isLoaded) return;
 
@@ -67,7 +67,7 @@ export default function GamesByDateClient({
 
         // Try to get token
         const token = await getToken({ template: undefined }).catch(() => "");
-        
+
         // Critical Logic Fix:
         // If we have a token, use /search (personalized).
         // If NO token, use /public (guaranteed access for guests).
@@ -113,9 +113,9 @@ export default function GamesByDateClient({
 
   return (
     <Box>
-      <Box display="flex" alignItems="center" gap={1} mb={1} px={1}>
-        <CalendarTodayIcon color="primary" />
-        <Typography variant="h6" fontWeight="bold">
+      <Box display="flex" alignItems="center" gap={1} mb={0.5} px={1}>
+        <CalendarTodayIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+        <Typography variant="subtitle2" color="text.secondary" fontWeight="600" textTransform="uppercase" letterSpacing={1}>
           Browse by Date
         </Typography>
       </Box>
