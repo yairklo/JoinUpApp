@@ -10,7 +10,6 @@ import CloseIcon from "@mui/icons-material/Close";
 import Slide from "@mui/material/Slide";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid2";
 import { TransitionProps } from "@mui/material/transitions";
 
 const Transition = React.forwardRef(function Transition(
@@ -68,13 +67,13 @@ export default function FullPageList<T>({
                             </Typography>
                         </Box>
                     ) : (
-                        <Grid container spacing={2}>
+                        <Box display="flex" flexWrap="wrap" gap={2}>
                             {items.map((item, index) => (
-                                <Grid size={{ xs: 12, sm: 6 }} key={index}>
+                                <Box key={index} sx={{ width: { xs: "100%", sm: "calc(50% - 8px)" } }}>
                                     {renderItem(item)}
-                                </Grid>
+                                </Box>
                             ))}
-                        </Grid>
+                        </Box>
                     )}
                 </Container>
             </Box>
