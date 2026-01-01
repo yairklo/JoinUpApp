@@ -12,6 +12,7 @@ import MyJoinedGames from "@/components/MyJoinedGames";
 import GamesByDateClient from "@/components/GamesByDateClient";
 import GamesByFriendsClient from "@/components/GamesByFriendsClient";
 import GamesByCityClient from "@/components/GamesByCityClient";
+import SeriesSectionClient from "@/components/SeriesSectionClient";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -89,6 +90,11 @@ export default async function GamesPage(props: {
                 Create New Game
               </Button>
             </Link>
+          </Box>
+
+          {/* Series List */}
+          <Box>
+            <SeriesSectionClient />
           </Box>
 
           {/* All Games List */}

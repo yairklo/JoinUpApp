@@ -5,6 +5,47 @@ const prisma = new PrismaClient();
 
 const router = express.Router();
 
+// List all active series
+router.get('/active', async (req, res) => {
+  try {
+    const seriesList = await prisma.gameSeries.findMany({
+      where: { isActive: true },
+      include: {
+        _count: { select: { subscribers: true } },
+      }
+    });
+
+    const organizers = await prisma.user.findMany({
+      where: { id: { in: seriesList.map(s => s.organizerId) } },
+      select: { id: true, name: true, imageUrl: true }
+    });
+
+    const results = seriesList.map(s => {
+      const org = organizers.find(u => u.id === s.organizerId);
+      return {
+        id: s.id,
+        name: `${s.fieldName} • ${s.time}`,
+        fieldName: s.fieldName,
+        fieldLocation: s.fieldLocation,
+        time: s.time,
+        dayOfWeek: s.dayOfWeek,
+        type: s.type,
+        organizer: {
+          id: org?.id || s.organizerId,
+          name: org?.name || '',
+          avatar: org?.imageUrl || ''
+        },
+        subscriberCount: s._count.subscribers
+      };
+    });
+
+    res.json(results);
+  } catch (e) {
+    console.error('List active series error:', e);
+    res.status(500).json({ error: 'Failed to list active series' });
+  }
+});
+
 // Public: series details (organizer, subscribers, upcoming games)
 router.get('/:seriesId', async (req, res) => {
   try {
