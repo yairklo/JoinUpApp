@@ -108,7 +108,7 @@ export default async function GamesPage(props: {
 
           {/* Games by City */}
           <Box>
-            <GamesByCityClient city="Tel Aviv" />
+            <GamesByCityClient />
           </Box>
         </Stack>
       </Container>
