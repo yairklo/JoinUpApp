@@ -148,6 +148,76 @@ router.get('/public', async (req, res) => {
   }
 });
 
+// Games with friends
+router.get('/friends', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // Find friends
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        friendshipsA: { select: { userBId: true } },
+        friendshipsB: { select: { userAId: true } },
+      }
+    });
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const friendIds = [
+      ...(user.friendshipsA || []).map(f => f.userBId),
+      ...(user.friendshipsB || []).map(f => f.userAId)
+    ];
+
+    if (friendIds.length === 0) {
+      return res.json([]);
+    }
+
+    const visibility = buildVisibilityWhere(userId);
+    const now = new Date(); // Future games
+    const games = await prisma.game.findMany({
+      where: {
+        AND: [
+          visibility,
+          { start: { gte: now } },
+          { participants: { some: { userId: { in: friendIds } } } }
+        ]
+      },
+      include: { field: true, participants: { include: { user: true } } },
+      orderBy: { start: 'asc' }
+    });
+    res.json(games.map(mapGameForClient));
+  } catch (error) {
+    console.error('Friends games error:', error);
+    res.status(500).json({ error: 'Failed to find games with friends' });
+  }
+});
+
+// Games by city (future)
+router.get('/city', attachOptionalUser, async (req, res) => {
+  try {
+    const { city } = req.query;
+    if (!city) return res.json([]);
+
+    const visibility = buildVisibilityWhere(req.user?.id);
+    const now = new Date();
+    const games = await prisma.game.findMany({
+      where: {
+        AND: [
+          visibility,
+          { start: { gte: now } },
+          { field: { city: { equals: String(city), mode: 'insensitive' } } }
+        ]
+      },
+      include: { field: true, participants: { include: { user: true } } },
+      orderBy: { start: 'asc' }
+    });
+    res.json(games.map(mapGameForClient));
+  } catch (error) {
+    console.error('City games error:', error);
+    res.status(500).json({ error: 'Failed to get games by city' });
+  }
+});
+
 // --- Game roles (managers) ---
 const ROLE_LEVEL = { NONE: 0, MODERATOR: 1, MANAGER: 2, ORGANIZER: 3 };
 function roleToLevel(role) {
@@ -199,7 +269,7 @@ router.post('/:id/roles', authenticateToken, async (req, res) => {
     if (!isParticipant) return res.status(400).json({ error: 'Target user is not a participant' });
 
     // Prevent assigning organizer role via this endpoint, and enforce hierarchy
-    const requestedRole = (role && ['MANAGER','MODERATOR'].includes(String(role))) ? String(role).toUpperCase() : 'MANAGER';
+    const requestedRole = (role && ['MANAGER', 'MODERATOR'].includes(String(role))) ? String(role).toUpperCase() : 'MANAGER';
     const requestedLevel = roleToLevel(requestedRole);
 
     // Target current level
