@@ -10,6 +10,8 @@ import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 
 import MyJoinedGames from "@/components/MyJoinedGames";
 import GamesByDateClient from "@/components/GamesByDateClient";
+import GamesByFriendsClient from "@/components/GamesByFriendsClient";
+import GamesByCityClient from "@/components/GamesByCityClient";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -53,7 +55,7 @@ export default async function GamesPage(props: {
 
       <Container maxWidth="md">
         <Stack spacing={4}>
-          
+
           {/* My Games - Now in the main flow (Clean background) */}
           <Box>
             <MyJoinedGames />
@@ -97,6 +99,16 @@ export default async function GamesPage(props: {
                 typeof searchParams.fieldId === "string" ? searchParams.fieldId : undefined
               }
             />
+          </Box>
+
+          {/* Games with Friends */}
+          <Box>
+            <GamesByFriendsClient />
+          </Box>
+
+          {/* Games by City */}
+          <Box>
+            <GamesByCityClient city="Tel Aviv" />
           </Box>
         </Stack>
       </Container>
