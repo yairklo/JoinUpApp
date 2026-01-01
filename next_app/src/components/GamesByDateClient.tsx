@@ -15,6 +15,7 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
+import FullPageList from "@/components/FullPageList";
 
 type Game = {
   id: string;
@@ -40,6 +41,7 @@ export default function GamesByDateClient({
 }) {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [games, setGames] = useState<Game[]>([]);
+  const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { user, isLoaded } = useUser(); // Added isLoaded to wait for auth check
   const { getToken } = useAuth();
@@ -153,7 +155,10 @@ export default function GamesByDateClient({
           </Button>
         </Box>
       ) : (
-        <GamesHorizontalList title={`Games on ${selectedDate}`}>
+        <GamesHorizontalList
+          title={`Games on ${selectedDate}`}
+          onSeeAll={() => setIsSeeAllOpen(true)}
+        >
           {currentDayGames.map((g) => {
             const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
             const title = `${g.fieldName} • ${g.fieldLocation}`;
@@ -189,6 +194,46 @@ export default function GamesByDateClient({
           })}
         </GamesHorizontalList>
       )}
+
+      {/* Full Screen Overlay for See All */}
+      <FullPageList
+        open={isSeeAllOpen}
+        onClose={() => setIsSeeAllOpen(false)}
+        title={`Games on ${selectedDate}`}
+        items={games}
+        renderItem={(g) => {
+          const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
+          const title = `${g.fieldName} • ${g.fieldLocation}`;
+          return (
+            <GameHeaderCard
+              key={g.id}
+              time={g.time}
+              durationHours={g.duration ?? 1}
+              title={title}
+              currentPlayers={g.currentPlayers}
+              maxPlayers={g.maxPlayers}
+            >
+              {joined ? (
+                <LeaveGameButton gameId={g.id} />
+              ) : (
+                <JoinGameButton gameId={g.id} />
+              )}
+
+              <Link href={`/games/${g.id}`} passHref legacyBehavior>
+                <Button
+                  component="a"
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  endIcon={<ArrowForwardIcon />}
+                >
+                  Details
+                </Button>
+              </Link>
+            </GameHeaderCard>
+          );
+        }}
+      />
     </Box>
   );
 }
