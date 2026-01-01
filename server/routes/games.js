@@ -90,6 +90,17 @@ function mapGameForClient(game) {
   };
 }
 
+// Deduplicate games by seriesId, keeping the first occurrence (nearest upcoming)
+function deduplicateSeriesGames(games) {
+  const seenSeries = new Set();
+  return games.filter(g => {
+    if (!g.seriesId) return true;
+    if (seenSeries.has(g.seriesId)) return false;
+    seenSeries.add(g.seriesId);
+    return true;
+  });
+}
+
 const router = express.Router();
 
 // Build visibility where-clause depending on viewerId
@@ -141,7 +152,9 @@ router.get('/public', async (req, res) => {
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
-    res.json(games.map(mapGameForClient));
+
+    const deduped = deduplicateSeriesGames(games);
+    res.json(deduped.map(mapGameForClient));
   } catch (error) {
     console.error('Public games error:', error);
     res.status(500).json({ error: 'Failed to get public games' });
@@ -185,7 +198,9 @@ router.get('/friends', authenticateToken, async (req, res) => {
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
-    res.json(games.map(mapGameForClient));
+
+    const deduped = deduplicateSeriesGames(games);
+    res.json(deduped.map(mapGameForClient));
   } catch (error) {
     console.error('Friends games error:', error);
     res.status(500).json({ error: 'Failed to find games with friends' });
@@ -211,7 +226,9 @@ router.get('/city', attachOptionalUser, async (req, res) => {
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
-    res.json(games.map(mapGameForClient));
+
+    const deduped = deduplicateSeriesGames(games);
+    res.json(deduped.map(mapGameForClient));
   } catch (error) {
     console.error('City games error:', error);
     res.status(500).json({ error: 'Failed to get games by city' });
@@ -563,7 +580,9 @@ router.get('/search', attachOptionalUser, async (req, res) => {
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
-    res.json(games.map(mapGameForClient));
+
+    const deduped = deduplicateSeriesGames(games);
+    res.json(deduped.map(mapGameForClient));
   } catch (error) {
     console.error('Search games error:', error);
     res.status(500).json({ error: 'Failed to search games' });
