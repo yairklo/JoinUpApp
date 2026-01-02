@@ -12,25 +12,30 @@ export default function GamesHorizontalList({
   children,
   isOnColoredBackground = false, // New prop to handle dark backgrounds
   onSeeAll,
+  customHeaderAction,
 }: {
   title: string;
   children: React.ReactNode;
   isOnColoredBackground?: boolean;
   onSeeAll?: () => void;
+  customHeaderAction?: React.ReactNode;
 }) {
   return (
     <Box sx={{ mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} px={1}>
-        <Typography
-          variant="h5" // Slightly larger for better hierarchy
-          fontWeight="800"
-          sx={{
-            color: isOnColoredBackground ? 'common.white' : 'text.primary',
-            textShadow: isOnColoredBackground ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
-          }}
-        >
-          {title}
-        </Typography>
+        <Box display="flex" alignItems="center">
+          <Typography
+            variant="h5" // Slightly larger for better hierarchy
+            fontWeight="800"
+            sx={{
+              color: isOnColoredBackground ? 'common.white' : 'text.primary',
+              textShadow: isOnColoredBackground ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+            }}
+          >
+            {title}
+          </Typography>
+          {customHeaderAction}
+        </Box>
 
         {onSeeAll && (
           <Button
