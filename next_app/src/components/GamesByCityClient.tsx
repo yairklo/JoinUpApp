@@ -7,11 +7,19 @@ import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import IconButton from "@mui/material/IconButton";
+import SearchIcon from "@mui/icons-material/Search";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import InputAdornment from "@mui/material/InputAdornment";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
+import Dialog from "@mui/material/Dialog";
 import FullPageList from "@/components/FullPageList";
 
 type Game = {
@@ -34,71 +42,55 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
     const [displayedCity, setDisplayedCity] = useState(initialCity || "");
     const [loading, setLoading] = useState(true);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [tempCity, setTempCity] = useState("");
+
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
     const userId = user?.id || "";
 
+    // 1. Fetch User City if not provided initially
     useEffect(() => {
+        if (!isLoaded || initialCity) return; // If we have prop, use it (and it's already set in state)
+        if (!user) return;
+
         let ignore = false;
-
-        // Logic:
-        // 1. If city is provided as prop, use it.
-        // 2. If not, wait for user to load, then fetch user profile to find their city.
-        // 3. Keep loading state until we know the city or determine we can't find one.
-
-        async function run() {
-            setLoading(true);
+        async function fetchUserCity() {
             try {
-                let cityToUse = initialCity;
-                const token = await getToken({ template: undefined }).catch(() => "");
-
-                // If no city provided and user is logged in, fetch profile
-                if (!cityToUse && userId && token) {
-                    try {
-                        const resUser = await fetch(`${API_BASE}/api/users/${userId}`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
-                        if (resUser.ok) {
-                            const userData = await resUser.json();
-                            if (userData.city) {
-                                cityToUse = userData.city;
-                            }
-                        }
-                    } catch (err) {
-                        console.error("Failed to fetch user profile for city preference", err);
+                const token = await getToken();
+                const res = await fetch(`${API_BASE}/api/users/${user?.id}`, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.city && !ignore) {
+                        setDisplayedCity(data.city);
+                    } else if (!ignore) {
+                        // Fallback if user has no city
+                        setDisplayedCity("Tel Aviv");
                     }
                 }
+            } catch (e) {
+                console.error("Error fetching user city", e);
+                if (!ignore) setDisplayedCity("Tel Aviv");
+            }
+        }
+        fetchUserCity();
+        return () => { ignore = true; };
+    }, [isLoaded, user, initialCity, getToken]);
 
-                // Final fallback if still no city found
-                if (!cityToUse) {
-                    // If we couldn't find a city, we might decide to hide the section or default to Tel Aviv.
-                    // Given the user request implies they have a city stored, we try to use it.
-                    // If we still don't have one, we can either return empty or default.
-                    // Let's default to "Tel Aviv" if really nothing is found, purely as a fallback 
-                    // so the UI isn't empty, but ideally the user has set it.
-                    // However, to respect "I don't want him to assume Tel Aviv implicitly", 
-                    // we should only fetch if we have a city. 
-                    // But if we return nothing, the user might think it's broken.
-                    // Let's try to fetch for "Tel Aviv" only if we really can't find anything else 
-                    // essentially as a "Featured City" fallback, but maybe we should just hide it?
-                    // Re-reading: "I want him to find MY city stored in the player's info".
-                    // So if they don't have one, maybe they shouldn't see this section?
-                    // Let's fallback to nothing if no city is found.
-                    if (ignore) return;
-                    // setGames([]); 
-                    // setLoading(false);
-                    // return;
 
-                    // Actually, let's keep the fallback for now as a "Nearby" default, 
-                    // but visually it will show "Games in Tel Aviv" so they know.
-                    cityToUse = "Tel Aviv";
-                }
+    // 2. Fetch Games whenever displayedCity changes
+    useEffect(() => {
+        if (!displayedCity) return;
 
-                if (ignore) return;
-                setDisplayedCity(cityToUse);
-
+        let ignore = false;
+        async function fetchGames() {
+            setLoading(true);
+            try {
+                const token = await getToken({ template: undefined }).catch(() => "");
                 const qs = new URLSearchParams();
-                qs.set("city", cityToUse);
+                qs.set("city", displayedCity);
 
                 const res = await fetch(`${API_BASE}/api/games/city?${qs.toString()}`, {
                     cache: "no-store",
@@ -123,16 +115,31 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
             }
         }
 
-        if (isLoaded) {
-            run();
+        fetchGames();
+        return () => { ignore = true; };
+    }, [displayedCity, getToken]);
+
+    const handleEditClick = () => {
+        setTempCity(displayedCity);
+        setIsEditing(true);
+    };
+
+    const handleSaveClick = () => {
+        if (tempCity.trim()) {
+            setDisplayedCity(tempCity.trim());
         }
+        setIsEditing(false);
+    };
 
-        return () => {
-            ignore = true;
-        };
-    }, [initialCity, isLoaded, userId, getToken]);
+    const handleCancelClick = () => {
+        setIsEditing(false);
+    };
 
-    if (loading) {
+    // Custom Header for the List to include Edit functionality
+
+
+
+    if (loading && games.length === 0) {
         return (
             <Box display="flex" justifyContent="center" p={2}>
                 <CircularProgress size={20} />
@@ -140,48 +147,79 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
         );
     }
 
-    if (games.length === 0) return null;
+    // Even if empty, we might want to show the header so they can change city? 
+    // But current design returns null if empty. 
+    // Let's allow returning empty list if we are editing or have a city, 
+    // so user effectively sees "No games in X" but can change X.
+    // For now, let's keep it simple: if no games found, we still show the component 
+    // BUT we need to handle "No games" UI. 
+    // To minimize UI disruption, if games is empty, we render the header and a message.
 
     return (
         <>
             <GamesHorizontalList
                 title={`Games in ${displayedCity}`}
                 onSeeAll={() => setIsSeeAllOpen(true)}
+                customHeaderAction={
+                    <IconButton size="small" onClick={handleEditClick} sx={{ ml: 1, opacity: 0.8 }} title="Search City">
+                        <SearchIcon fontSize="small" />
+                    </IconButton>
+                }
             >
-                {games.map((g) => {
-                    const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
-                    const title = `${g.fieldName} • ${g.fieldLocation}`;
-
-                    return (
-                        <GameHeaderCard
-                            key={g.id}
-                            time={g.time}
-                            durationHours={g.duration ?? 1}
-                            title={title}
-                            currentPlayers={g.currentPlayers}
-                            maxPlayers={g.maxPlayers}
-                        >
-                            {joined ? (
-                                <LeaveGameButton gameId={g.id} />
-                            ) : (
-                                <JoinGameButton gameId={g.id} />
-                            )}
-
-                            <Link href={`/games/${g.id}`} passHref legacyBehavior>
-                                <Button
-                                    component="a"
-                                    variant="text"
-                                    color="primary"
-                                    size="small"
-                                    endIcon={<ArrowForwardIcon />}
-                                >
-                                    Details
-                                </Button>
-                            </Link>
-                        </GameHeaderCard>
-                    );
-                })}
+                {/* LIST CONTENT */}
+                {games.length === 0 ? (
+                    <Box p={2} width="100%">
+                        <Typography variant="body2" color="text.secondary">
+                            No games found in {displayedCity}.
+                            <Button size="small" onClick={handleEditClick} startIcon={<SearchIcon />}>Search Another City</Button>
+                        </Typography>
+                    </Box>
+                ) : (
+                    games.map((g) => {
+                        const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
+                        const title = `${g.fieldName} • ${g.fieldLocation}`;
+                        return (
+                            <GameHeaderCard
+                                key={g.id}
+                                time={g.time}
+                                durationHours={g.duration ?? 1}
+                                title={title}
+                                currentPlayers={g.currentPlayers}
+                                maxPlayers={g.maxPlayers}
+                            >
+                                {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} />}
+                                <Link href={`/games/${g.id}`} passHref legacyBehavior>
+                                    <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>Details</Button>
+                                </Link>
+                            </GameHeaderCard>
+                        )
+                    })
+                )}
             </GamesHorizontalList>
+
+            <Dialog open={isEditing} onClose={handleCancelClick}>
+                <Box p={3} minWidth={300}>
+                    <Typography variant="h6" mb={2} display="flex" alignItems="center" gap={1}>
+                        <SearchIcon color="action" />
+                        Search City
+                    </Typography>
+                    <TextField
+                        label="City Name"
+                        value={tempCity}
+                        onChange={(e) => setTempCity(e.target.value)}
+                        fullWidth
+                        autoFocus
+                        placeholder="e.g. Tel Aviv"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveClick();
+                        }}
+                    />
+                    <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
+                        <Button onClick={handleCancelClick}>Cancel</Button>
+                        <Button variant="contained" onClick={handleSaveClick}>Search</Button>
+                    </Box>
+                </Box>
+            </Dialog>
 
             <FullPageList
                 open={isSeeAllOpen}
@@ -200,27 +238,17 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                             currentPlayers={g.currentPlayers}
                             maxPlayers={g.maxPlayers}
                         >
-                            {joined ? (
-                                <LeaveGameButton gameId={g.id} />
-                            ) : (
-                                <JoinGameButton gameId={g.id} />
-                            )}
-
+                            {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} />}
                             <Link href={`/games/${g.id}`} passHref legacyBehavior>
-                                <Button
-                                    component="a"
-                                    variant="text"
-                                    color="primary"
-                                    size="small"
-                                    endIcon={<ArrowForwardIcon />}
-                                >
-                                    Details
-                                </Button>
+                                <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>Details</Button>
                             </Link>
                         </GameHeaderCard>
-                    );
+                    )
                 }}
             />
         </>
     );
 }
+
+// Wait, I need to make sure I import Dialog.
+
