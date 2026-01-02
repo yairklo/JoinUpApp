@@ -8,7 +8,7 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import IconButton from "@mui/material/IconButton";
-import EditIcon from "@mui/icons-material/Edit";
+import SearchIcon from "@mui/icons-material/Search";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -136,45 +136,7 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
     };
 
     // Custom Header for the List to include Edit functionality
-    const renderHeader = () => {
-        if (isEditing) {
-            return (
-                <Box display="flex" alignItems="center" gap={1} mb={2}>
-                    <TextField
-                        size="small"
-                        value={tempCity}
-                        onChange={(e) => setTempCity(e.target.value)}
-                        placeholder="Enter city..."
-                        autoFocus
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveClick();
-                            if (e.key === 'Escape') handleCancelClick();
-                        }}
-                        InputProps={{
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <IconButton size="small" onClick={handleSaveClick} color="primary">
-                                        <CheckIcon fontSize="small" />
-                                    </IconButton>
-                                    <IconButton size="small" onClick={handleCancelClick} color="default">
-                                        <CloseIcon fontSize="small" />
-                                    </IconButton>
-                                </InputAdornment>
-                            )
-                        }}
-                    />
-                </Box>
-            );
-        }
-        return (
-            <Box display="flex" alignItems="center" gap={1}>
-                Games in {displayedCity}
-                <IconButton size="small" onClick={handleEditClick} sx={{ color: 'text.secondary', opacity: 0.7 }}>
-                    <EditIcon fontSize="small" />
-                </IconButton>
-            </Box>
-        );
-    };
+
 
 
     if (loading && games.length === 0) {
@@ -196,34 +158,11 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
     return (
         <>
             <GamesHorizontalList
-                // We pass a React Node as title? No, title is string in GamesHorizontalList interface normally.
-                // We need to check GamesHorizontalList definition. 
-                // It expects `title: string`. 
-                // We should modify GamesHorizontalList to accept ReactNode OR just perform a trick.
-                // Trick: We can wrap our entire logic, OR duplicate GamesHorizontalList structure here.
-                // Better: Update GamesHorizontalList to accept ReactNode for title.
-                // Assuming I can't easily change that interface right this second without checking,
-                // I will pass the string title and inject the edit button via a custom child? No.
-                // Let's check GamesHorizontalList.tsx via memory... it uses `title: string`.
-                // I will simply pass the city string and handle the edit button OUTSIDE or BELOW?
-                // Actually, passing a pure string title "Games in Tel Aviv" is what it expects.
-                // If I want the edit button IN the header, I should update GamesHorizontalList.
-                // Let's update `GamesHorizontalList` to accept `titleContent` (ReactNode) or `action` (ReactNode).
-                // Or I can render my own header and pass `title=""` (hacky).
-
-                // DECISION: I will render the header manually ABOVE the list if existing component is rigid,
-                // OR better, I'll update GamesHorizontalList to support an `action` prop in the header.
-
-                // Let's look at `GamesByCityClient.tsx` imports... I can modify `GamesHorizontalList`.
-                // For now, I'll use a hack to pass a component as title if TypeScript allows (often ReactNode is compatible if prop type is lax, but it was typed as string).
-                // If strict string, I'll pass "Games in " + displayedCity, and put the edit button in the generated "See all" area or modify the component.
-
-                // Let's modify GamesHorizontalList to accept `title: React.ReactNode`.
                 title={`Games in ${displayedCity}`}
                 onSeeAll={() => setIsSeeAllOpen(true)}
-                customHeaderAction={ // Need to add this prop to GamesHorizontalList
-                    <IconButton size="small" onClick={handleEditClick} sx={{ ml: 1 }}>
-                        <EditIcon fontSize="small" />
+                customHeaderAction={
+                    <IconButton size="small" onClick={handleEditClick} sx={{ ml: 1, opacity: 0.8 }} title="Search City">
+                        <SearchIcon fontSize="small" />
                     </IconButton>
                 }
             >
@@ -232,12 +171,11 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                     <Box p={2} width="100%">
                         <Typography variant="body2" color="text.secondary">
                             No games found in {displayedCity}.
-                            <Button size="small" onClick={handleEditClick}>Change City</Button>
+                            <Button size="small" onClick={handleEditClick} startIcon={<SearchIcon />}>Search Another City</Button>
                         </Typography>
                     </Box>
                 ) : (
                     games.map((g) => {
-                        // ... (existing mapping logic)
                         const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
                         const title = `${g.fieldName} • ${g.fieldLocation}`;
                         return (
@@ -249,7 +187,6 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                                 currentPlayers={g.currentPlayers}
                                 maxPlayers={g.maxPlayers}
                             >
-                                {/* ... Buttons ... */}
                                 {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} />}
                                 <Link href={`/games/${g.id}`} passHref legacyBehavior>
                                     <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>Details</Button>
@@ -260,25 +197,26 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                 )}
             </GamesHorizontalList>
 
-            {/* EDIT DIALOG (Small dialog for editing city to avoid UI clutter in header) */}
-            {/* actually, I like the inline edit idea. 
-                If I can't easily push the inline edit input into the Header via props, 
-                I'll use a Dialog for the edit action triggered by the pencil icon. 
-                It is cleaner than replacing the header text with an input field inside an opaque child component.
-            */}
             <Dialog open={isEditing} onClose={handleCancelClick}>
-                <Box p={3}>
-                    <Typography variant="h6" mb={2}>Change City</Typography>
+                <Box p={3} minWidth={300}>
+                    <Typography variant="h6" mb={2} display="flex" alignItems="center" gap={1}>
+                        <SearchIcon color="action" />
+                        Search City
+                    </Typography>
                     <TextField
                         label="City Name"
                         value={tempCity}
                         onChange={(e) => setTempCity(e.target.value)}
                         fullWidth
                         autoFocus
+                        placeholder="e.g. Tel Aviv"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveClick();
+                        }}
                     />
                     <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
                         <Button onClick={handleCancelClick}>Cancel</Button>
-                        <Button variant="contained" onClick={handleSaveClick}>Save</Button>
+                        <Button variant="contained" onClick={handleSaveClick}>Search</Button>
                     </Box>
                 </Box>
             </Dialog>
@@ -289,7 +227,6 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                 title={`Games in ${displayedCity}`}
                 items={games}
                 renderItem={(g) => {
-                    // ... reuse render logic
                     const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
                     const title = `${g.fieldName} • ${g.fieldLocation}`;
                     return (
