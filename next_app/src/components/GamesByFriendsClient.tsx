@@ -12,6 +12,7 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
+import FullPageList from "@/components/FullPageList";
 
 type Game = {
     id: string;
@@ -30,7 +31,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 export default function GamesByFriendsClient() {
     const [games, setGames] = useState<Game[]>([]);
-    const [loading, setLoading] = useState(true); // Start loading true to avoid flash of null
+    const [loading, setLoading] = useState(true);
+    const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
     const userId = user?.id || "";
@@ -95,40 +97,82 @@ export default function GamesByFriendsClient() {
     if (games.length === 0) return null;
 
     return (
-        <GamesHorizontalList title="Friends are Playing">
-            {games.map((g) => {
-                const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
-                const title = `${g.fieldName} • ${g.fieldLocation}`;
+        <>
+            <GamesHorizontalList
+                title="Friends are Playing"
+                onSeeAll={() => setIsSeeAllOpen(true)}
+            >
+                {games.map((g) => {
+                    const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
+                    const title = `${g.fieldName} • ${g.fieldLocation}`;
 
-                return (
-                    <GameHeaderCard
-                        key={g.id}
-                        time={g.time}
-                        durationHours={g.duration ?? 1}
-                        title={title}
-                        currentPlayers={g.currentPlayers}
-                        maxPlayers={g.maxPlayers}
-                    >
-                        {joined ? (
-                            <LeaveGameButton gameId={g.id} />
-                        ) : (
-                            <JoinGameButton gameId={g.id} />
-                        )}
+                    return (
+                        <GameHeaderCard
+                            key={g.id}
+                            time={g.time}
+                            durationHours={g.duration ?? 1}
+                            title={title}
+                            currentPlayers={g.currentPlayers}
+                            maxPlayers={g.maxPlayers}
+                        >
+                            {joined ? (
+                                <LeaveGameButton gameId={g.id} />
+                            ) : (
+                                <JoinGameButton gameId={g.id} />
+                            )}
 
-                        <Link href={`/games/${g.id}`} passHref legacyBehavior>
-                            <Button
-                                component="a"
-                                variant="text"
-                                color="primary"
-                                size="small"
-                                endIcon={<ArrowForwardIcon />}
-                            >
-                                Details
-                            </Button>
-                        </Link>
-                    </GameHeaderCard>
-                );
-            })}
-        </GamesHorizontalList>
+                            <Link href={`/games/${g.id}`} style={{ textDecoration: 'none' }}>
+                                <Button
+                                    variant="text"
+                                    color="primary"
+                                    size="small"
+                                    endIcon={<ArrowForwardIcon />}
+                                >
+                                    Details
+                                </Button>
+                            </Link>
+                        </GameHeaderCard>
+                    );
+                })}
+            </GamesHorizontalList>
+
+            <FullPageList
+                open={isSeeAllOpen}
+                onClose={() => setIsSeeAllOpen(false)}
+                title="Friends are Playing"
+                items={games}
+                renderItem={(g) => {
+                    const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
+                    const title = `${g.fieldName} • ${g.fieldLocation}`;
+                    return (
+                        <GameHeaderCard
+                            key={g.id}
+                            time={g.time}
+                            durationHours={g.duration ?? 1}
+                            title={title}
+                            currentPlayers={g.currentPlayers}
+                            maxPlayers={g.maxPlayers}
+                        >
+                            {joined ? (
+                                <LeaveGameButton gameId={g.id} />
+                            ) : (
+                                <JoinGameButton gameId={g.id} />
+                            )}
+
+                            <Link href={`/games/${g.id}`} style={{ textDecoration: 'none' }}>
+                                <Button
+                                    variant="text"
+                                    color="primary"
+                                    size="small"
+                                    endIcon={<ArrowForwardIcon />}
+                                >
+                                    Details
+                                </Button>
+                            </Link>
+                        </GameHeaderCard>
+                    );
+                }}
+            />
+        </>
     );
 }

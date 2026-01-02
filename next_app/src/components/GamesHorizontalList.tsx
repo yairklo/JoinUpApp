@@ -11,38 +11,43 @@ export default function GamesHorizontalList({
   title,
   children,
   isOnColoredBackground = false, // New prop to handle dark backgrounds
+  onSeeAll,
 }: {
   title: string;
   children: React.ReactNode;
   isOnColoredBackground?: boolean;
+  onSeeAll?: () => void;
 }) {
   return (
     <Box sx={{ mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} px={1}>
-        <Typography 
-            variant="h5" // Slightly larger for better hierarchy
-            fontWeight="800"
-            sx={{ 
-                color: isOnColoredBackground ? 'common.white' : 'text.primary',
-                textShadow: isOnColoredBackground ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
-            }}
+        <Typography
+          variant="h5" // Slightly larger for better hierarchy
+          fontWeight="800"
+          sx={{
+            color: isOnColoredBackground ? 'common.white' : 'text.primary',
+            textShadow: isOnColoredBackground ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+          }}
         >
           {title}
         </Typography>
-        
-        <Button 
-            size="small" 
-            endIcon={<ArrowForwardIcon fontSize="small" />} 
-            sx={{ 
-                color: isOnColoredBackground ? 'rgba(255,255,255,0.9)' : 'text.secondary',
-                '&:hover': {
-                    color: isOnColoredBackground ? 'common.white' : 'primary.main',
-                    bgcolor: isOnColoredBackground ? 'rgba(255,255,255,0.1)' : 'transparent'
-                }
+
+        {onSeeAll && (
+          <Button
+            size="small"
+            onClick={onSeeAll}
+            endIcon={<ArrowForwardIcon fontSize="small" />}
+            sx={{
+              color: isOnColoredBackground ? 'rgba(255,255,255,0.9)' : 'text.secondary',
+              '&:hover': {
+                color: isOnColoredBackground ? 'common.white' : 'primary.main',
+                bgcolor: isOnColoredBackground ? 'rgba(255,255,255,0.1)' : 'transparent'
+              }
             }}
-        >
-          See all
-        </Button>
+          >
+            See all
+          </Button>
+        )}
       </Box>
 
       <Stack

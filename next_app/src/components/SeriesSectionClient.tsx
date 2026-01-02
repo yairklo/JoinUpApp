@@ -10,6 +10,7 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 import SeriesHeaderCard from "@/components/SeriesHeaderCard";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
+import FullPageList from "@/components/FullPageList";
 
 type Series = {
     id: string;
@@ -25,6 +26,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 export default function SeriesSectionClient() {
     const [seriesList, setSeriesList] = useState<Series[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
     const { getToken } = useAuth();
 
     useEffect(() => {
@@ -66,30 +68,65 @@ export default function SeriesSectionClient() {
     if (seriesList.length === 0) return null;
 
     return (
-        <GamesHorizontalList title="Join a Series">
-            {seriesList.map((s) => (
-                <SeriesHeaderCard
-                    key={s.id}
-                    name={s.name}
-                    fieldName={s.fieldName}
-                    time={s.time}
-                    dayOfWeek={s.dayOfWeek}
-                    subscriberCount={s.subscriberCount}
-                >
-                    <Link href={`/series/${s.id}`} passHref legacyBehavior>
-                        <Button
-                            component="a"
-                            variant="outlined"
-                            color="secondary"
-                            size="small"
-                            fullWidth
-                            endIcon={<ArrowForwardIcon />}
-                        >
-                            View Series
-                        </Button>
-                    </Link>
-                </SeriesHeaderCard>
-            ))}
-        </GamesHorizontalList>
+        <>
+            <GamesHorizontalList
+                title="Join a Series"
+                onSeeAll={() => setIsSeeAllOpen(true)}
+            >
+                {seriesList.map((s) => (
+                    <SeriesHeaderCard
+                        key={s.id}
+                        name={s.name}
+                        fieldName={s.fieldName}
+                        time={s.time}
+                        dayOfWeek={s.dayOfWeek}
+                        subscriberCount={s.subscriberCount}
+                    >
+                        <Link href={`/series/${s.id}`} passHref legacyBehavior>
+                            <Button
+                                component="a"
+                                variant="outlined"
+                                color="secondary"
+                                size="small"
+                                fullWidth
+                                endIcon={<ArrowForwardIcon />}
+                            >
+                                View Series
+                            </Button>
+                        </Link>
+                    </SeriesHeaderCard>
+                ))}
+            </GamesHorizontalList>
+
+            <FullPageList
+                open={isSeeAllOpen}
+                onClose={() => setIsSeeAllOpen(false)}
+                title="Join a Series"
+                items={seriesList}
+                renderItem={(s) => (
+                    <SeriesHeaderCard
+                        key={s.id}
+                        name={s.name}
+                        fieldName={s.fieldName}
+                        time={s.time}
+                        dayOfWeek={s.dayOfWeek}
+                        subscriberCount={s.subscriberCount}
+                    >
+                        <Link href={`/series/${s.id}`} passHref legacyBehavior>
+                            <Button
+                                component="a"
+                                variant="outlined"
+                                color="secondary"
+                                size="small"
+                                fullWidth
+                                endIcon={<ArrowForwardIcon />}
+                            >
+                                View Series
+                            </Button>
+                        </Link>
+                    </SeriesHeaderCard>
+                )}
+            />
+        </>
     );
 }
