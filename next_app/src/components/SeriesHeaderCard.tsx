@@ -47,7 +47,7 @@ export default function SeriesHeaderCard({
                 minWidth: { xs: 280, sm: 300 },
                 maxWidth: { xs: 280, sm: 320 },
                 flexShrink: 0,
-                height: 360,
+                height: 380,
                 display: "flex",
                 flexDirection: "column",
                 borderRadius: 4,
@@ -60,7 +60,7 @@ export default function SeriesHeaderCard({
                     transform: "translateY(-4px)",
                     boxShadow: 8,
                     "& .reveal-media": {
-                        height: 140,
+                        height: 120,
                     },
                     "& .reveal-content": {
                         maxHeight: 200,
