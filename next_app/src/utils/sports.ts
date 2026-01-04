@@ -11,3 +11,4 @@ export const SPORT_MAPPING: Record<string, string> = {
 };
 
 export type SportType = keyof typeof SPORT_IMAGES;
+export type SportFilter = SportType | "ALL";

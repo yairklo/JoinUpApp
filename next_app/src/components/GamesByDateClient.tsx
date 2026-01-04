@@ -33,12 +33,16 @@ type Game = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
+import { SportFilter } from "@/utils/sports";
+
 export default function GamesByDateClient({
   initialDate,
   fieldId,
+  sportFilter = "ALL",
 }: {
   initialDate: string;
   fieldId?: string;
+  sportFilter?: SportFilter;
 }) {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [games, setGames] = useState<Game[]>([]);
@@ -112,7 +116,16 @@ export default function GamesByDateClient({
     };
   }, [selectedDate, fieldId, isLoaded, getToken]); // Added dependencies
 
-  const currentDayGames = groups[selectedDate] || [];
+  const currentDayGames = (groups[selectedDate] || []).filter((g) => {
+    if (sportFilter === "ALL") return true;
+    return g.sport === sportFilter;
+  });
+
+  // Calculate filtered games for see all view
+  const allFilteredGames = games.filter((g) => {
+    if (sportFilter === "ALL") return true;
+    return g.sport === sportFilter;
+  });
 
   return (
     <Box>
@@ -135,7 +148,7 @@ export default function GamesByDateClient({
         <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress size={30} />
         </Box>
-      ) : games.length === 0 ? (
+      ) : currentDayGames.length === 0 ? (
         <Box
           sx={{
             bgcolor: "action.hover",
@@ -202,7 +215,7 @@ export default function GamesByDateClient({
         open={isSeeAllOpen}
         onClose={() => setIsSeeAllOpen(false)}
         title={`משחקים בתאריך ${selectedDate}`}
-        items={games}
+        items={allFilteredGames}
         renderItem={(g) => {
           const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
           const title = `${g.fieldName} • ${g.fieldLocation}`;
