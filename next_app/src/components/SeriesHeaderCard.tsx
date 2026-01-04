@@ -11,6 +11,8 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import LoopIcon from "@mui/icons-material/Loop";
 import GroupIcon from "@mui/icons-material/Group";
+import CardMedia from "@mui/material/CardMedia";
+import { SPORT_IMAGES, SportType } from "@/utils/sports";
 
 // Helper map for day of week if needed
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -21,6 +23,8 @@ export default function SeriesHeaderCard({
     time,
     dayOfWeek,
     subscriberCount,
+
+    sport,
     children,
 }: {
     name: string;
@@ -28,9 +32,13 @@ export default function SeriesHeaderCard({
     time: string;
     dayOfWeek?: number | null;
     subscriberCount: number;
+    sport?: string;
     children?: React.ReactNode;
 }) {
     const dayName = typeof dayOfWeek === 'number' ? DAYS[dayOfWeek] : 'Weekly';
+    const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
+        ? SPORT_IMAGES[sport as SportType]
+        : SPORT_IMAGES.SOCCER;
 
     return (
         <Card
@@ -54,7 +62,14 @@ export default function SeriesHeaderCard({
                 },
             }}
         >
-            <CardContent sx={{ p: 2.5, flexGrow: 1, display: "flex", flexDirection: "column" }}>
+            <CardMedia
+                component="img"
+                height="100"
+                image={imageSrc}
+                alt={name}
+                sx={{ filter: "brightness(0.8)" }}
+            />
+            <CardContent sx={{ p: 2, flexGrow: 1, display: "flex", flexDirection: "column" }}>
                 {/* Top Badge Row */}
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
                     <Chip

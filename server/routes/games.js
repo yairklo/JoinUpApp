@@ -401,6 +401,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
         time,
         duration: Number(existing.duration),
         isActive: true,
+        sport: existing.sport,
       },
     });
 
@@ -762,6 +763,7 @@ router.post('/', authenticateToken, async (req, res) => {
           duration: Number(isNaN(Number(duration)) ? 1 : Number(duration)),
           isActive: true,
           type: weekly ? 'WEEKLY' : 'CUSTOM',
+          sport: sport || 'SOCCER',
         },
       });
 

@@ -35,7 +35,8 @@ router.get('/active', async (req, res) => {
           name: org?.name || '',
           avatar: org?.imageUrl || ''
         },
-        subscriberCount: s._count.subscribers
+        subscriberCount: s._count.subscribers,
+        sport: s.sport
       };
     });
 
@@ -104,7 +105,9 @@ router.get('/:seriesId', async (req, res) => {
       fieldLocation: series.fieldLocation,
       time: series.time,
       dayOfWeek: series.dayOfWeek ?? null,
+      dayOfWeek: series.dayOfWeek ?? null,
       type: series.type,
+      sport: series.sport,
       organizer: {
         id: organizer?.id || series.organizerId,
         name: organizer?.name || '',

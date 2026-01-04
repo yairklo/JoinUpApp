@@ -19,6 +19,7 @@ type Series = {
     time: string;
     dayOfWeek?: number;
     subscriberCount: number;
+    sport?: string;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -81,6 +82,7 @@ export default function SeriesSectionClient() {
                         time={s.time}
                         dayOfWeek={s.dayOfWeek}
                         subscriberCount={s.subscriberCount}
+                        sport={s.sport}
                     >
                         <Link href={`/series/${s.id}`} passHref legacyBehavior>
                             <Button
@@ -111,6 +113,7 @@ export default function SeriesSectionClient() {
                         time={s.time}
                         dayOfWeek={s.dayOfWeek}
                         subscriberCount={s.subscriberCount}
+                        sport={s.sport}
                     >
                         <Link href={`/series/${s.id}`} passHref legacyBehavior>
                             <Button
