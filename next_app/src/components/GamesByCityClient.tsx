@@ -9,6 +9,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import IconButton from "@mui/material/IconButton";
 import SearchIcon from "@mui/icons-material/Search";
+import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -48,6 +49,20 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
     const userId = user?.id || "";
+
+    const [availableCities, setAvailableCities] = useState<string[]>([]);
+
+    useEffect(() => {
+        // Fetch available cities for autocomplete
+        fetch(`${API_BASE}/api/fields/cities`)
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setAvailableCities(data);
+                }
+            })
+            .catch(err => console.error("Failed to load cities", err));
+    }, []);
 
     // 1. Fetch User City if not provided initially
     useEffect(() => {
@@ -197,26 +212,32 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                 )}
             </GamesHorizontalList>
 
-            <Dialog open={isEditing} onClose={handleCancelClick}>
-                <Box p={3} minWidth={300}>
+            <Dialog open={isEditing} onClose={handleCancelClick} fullWidth maxWidth="xs">
+                <Box p={3}>
                     <Typography variant="h6" mb={2} display="flex" alignItems="center" gap={1}>
                         <SearchIcon color="action" />
                         Search City
                     </Typography>
-                    <TextField
-                        label="City Name"
-                        value={tempCity}
-                        onChange={(e) => setTempCity(e.target.value)}
-                        fullWidth
-                        autoFocus
-                        placeholder="e.g. Tel Aviv"
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveClick();
+                    <Autocomplete
+                        options={availableCities}
+                        value={availableCities.includes(tempCity) ? tempCity : null}
+                        onChange={(event, newValue) => {
+                            setTempCity(newValue || "");
                         }}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="City Name"
+                                placeholder="Choose a city..."
+                                autoFocus
+                            />
+                        )}
+                        noOptionsText="No cities found"
+                        fullWidth
                     />
                     <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
                         <Button onClick={handleCancelClick}>Cancel</Button>
-                        <Button variant="contained" onClick={handleSaveClick}>Search</Button>
+                        <Button variant="contained" onClick={handleSaveClick} disabled={!tempCity}>Search</Button>
                     </Box>
                 </Box>
             </Dialog>
