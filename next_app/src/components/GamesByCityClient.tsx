@@ -173,10 +173,10 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
     return (
         <>
             <GamesHorizontalList
-                title={`Games in ${displayedCity}`}
+                title={`משחקים ב${displayedCity}`}
                 onSeeAll={() => setIsSeeAllOpen(true)}
                 customHeaderAction={
-                    <IconButton size="small" onClick={handleEditClick} sx={{ ml: 1, opacity: 0.8 }} title="Search City">
+                    <IconButton size="small" onClick={handleEditClick} sx={{ ml: 1, opacity: 0.8 }} title="חפש עיר">
                         <SearchIcon fontSize="small" />
                     </IconButton>
                 }
@@ -185,8 +185,8 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                 {games.length === 0 ? (
                     <Box p={2} width="100%">
                         <Typography variant="body2" color="text.secondary">
-                            No games found in {displayedCity}.
-                            <Button size="small" onClick={handleEditClick} startIcon={<SearchIcon />}>Search Another City</Button>
+                            לא נמצאו משחקים ב{displayedCity}.
+                            <Button size="small" onClick={handleEditClick} startIcon={<SearchIcon />}>חפש עיר אחרת</Button>
                         </Typography>
                     </Box>
                 ) : (
@@ -216,7 +216,7 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                 <Box p={3}>
                     <Typography variant="h6" mb={2} display="flex" alignItems="center" gap={1}>
                         <SearchIcon color="action" />
-                        Search City
+                        חפש עיר
                     </Typography>
                     <Autocomplete
                         options={availableCities}
@@ -227,17 +227,17 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                         renderInput={(params) => (
                             <TextField
                                 {...params}
-                                label="City Name"
-                                placeholder="Choose a city..."
+                                label="שם העיר"
+                                placeholder="בחר עיר..."
                                 autoFocus
                             />
                         )}
-                        noOptionsText="No cities found"
+                        noOptionsText="לא נמצאו ערים"
                         fullWidth
                     />
                     <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
-                        <Button onClick={handleCancelClick}>Cancel</Button>
-                        <Button variant="contained" onClick={handleSaveClick} disabled={!tempCity}>Search</Button>
+                        <Button onClick={handleCancelClick}>ביטול</Button>
+                        <Button variant="contained" onClick={handleSaveClick} disabled={!tempCity}>חפש</Button>
                     </Box>
                 </Box>
             </Dialog>
@@ -245,7 +245,7 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
             <FullPageList
                 open={isSeeAllOpen}
                 onClose={() => setIsSeeAllOpen(false)}
-                title={`Games in ${displayedCity}`}
+                title={`משחקים ב${displayedCity}`}
                 items={games}
                 renderItem={(g) => {
                     const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
