@@ -99,7 +99,7 @@ export default function GamesByFriendsClient() {
     return (
         <>
             <GamesHorizontalList
-                title="Friends are Playing"
+                title="משחקים עם חברים"
                 onSeeAll={() => setIsSeeAllOpen(true)}
             >
                 {games.map((g) => {
@@ -139,7 +139,7 @@ export default function GamesByFriendsClient() {
             <FullPageList
                 open={isSeeAllOpen}
                 onClose={() => setIsSeeAllOpen(false)}
-                title="Friends are Playing"
+                title="משחקים עם חברים"
                 items={games}
                 renderItem={(g) => {
                     const joined = !!userId && (g.participants || []).some((p) => p.id === userId);

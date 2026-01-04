@@ -118,7 +118,7 @@ export default function GamesByDateClient({
       <Box display="flex" alignItems="center" gap={1} mb={0.5} px={1}>
         <CalendarTodayIcon sx={{ fontSize: 18, color: "text.secondary" }} />
         <Typography variant="subtitle2" color="text.secondary" fontWeight="600" textTransform="uppercase" letterSpacing={1}>
-          Browse by Date
+          חפש לפי תאריך
         </Typography>
       </Box>
 
@@ -144,19 +144,19 @@ export default function GamesByDateClient({
           }}
         >
           <Typography variant="body1" color="text.secondary">
-            No games found on {selectedDate}.
+            לא נמצאו משחקים בתאריך {selectedDate}.
           </Typography>
           <Button
             size="small"
             sx={{ mt: 1 }}
             onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
           >
-            Back to Today
+            חזור להיום
           </Button>
         </Box>
       ) : (
         <GamesHorizontalList
-          title={`Games on ${selectedDate}`}
+          title={`משחקים בתאריך ${selectedDate}`}
           onSeeAll={() => setIsSeeAllOpen(true)}
         >
           {currentDayGames.map((g) => {
@@ -186,7 +186,7 @@ export default function GamesByDateClient({
                     size="small"
                     endIcon={<ArrowForwardIcon />}
                   >
-                    Details
+                    פרטים
                   </Button>
                 </Link>
               </GameHeaderCard>
@@ -199,7 +199,7 @@ export default function GamesByDateClient({
       <FullPageList
         open={isSeeAllOpen}
         onClose={() => setIsSeeAllOpen(false)}
-        title={`Games on ${selectedDate}`}
+        title={`משחקים בתאריך ${selectedDate}`}
         items={games}
         renderItem={(g) => {
           const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
@@ -227,7 +227,7 @@ export default function GamesByDateClient({
                   size="small"
                   endIcon={<ArrowForwardIcon />}
                 >
-                  Details
+                  פרטים
                 </Button>
               </Link>
             </GameHeaderCard>

@@ -70,7 +70,7 @@ export default function SeriesSectionClient() {
     return (
         <>
             <GamesHorizontalList
-                title="Join a Series"
+                title="הצטרף לסדרה"
                 onSeeAll={() => setIsSeeAllOpen(true)}
             >
                 {seriesList.map((s) => (
@@ -101,7 +101,7 @@ export default function SeriesSectionClient() {
             <FullPageList
                 open={isSeeAllOpen}
                 onClose={() => setIsSeeAllOpen(false)}
-                title="Join a Series"
+                title="הצטרף לסדרה"
                 items={seriesList}
                 renderItem={(s) => (
                     <SeriesHeaderCard

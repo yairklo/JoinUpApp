@@ -13,6 +13,7 @@ import GamesByDateClient from "@/components/GamesByDateClient";
 import GamesByFriendsClient from "@/components/GamesByFriendsClient";
 import GamesByCityClient from "@/components/GamesByCityClient";
 import SeriesSectionClient from "@/components/SeriesSectionClient";
+import HomeHero from "@/components/HomeHero";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -32,69 +33,29 @@ export default async function GamesPage(props: {
 
   return (
     <main>
-      {/* Hero Section - Just Title & Subtitle */}
-      <Box
-        sx={{
-          bgcolor: "primary.main",
-          color: "primary.contrastText",
-          pt: 6,
-          pb: 8,
-          mb: 4, // Added margin bottom to separate from content
-          borderRadius: { xs: 0, md: "0 0 32px 32px" },
-          boxShadow: 3,
-        }}
-      >
-        <Container maxWidth="md">
-          <Typography variant="h3" component="h1" fontWeight="800" gutterBottom>
-            Active Games
-          </Typography>
-          <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-            Find your next match or start a new one.
-          </Typography>
-        </Container>
-      </Box>
+      <HomeHero />
 
       <Container maxWidth="md">
-        <Stack spacing={4}>
+        <Stack spacing={4} id="games-feed" sx={{ scrollMarginTop: "20px" }}>
 
-          {/* My Games - Now in the main flow (Clean background) */}
+          {/* My Games */}
           <Box>
             <MyJoinedGames />
-          </Box>
-
-          {/* Create Game Button */}
-          <Box>
-            <Link href="/games/new" passHref legacyBehavior>
-              <Button
-                component="a"
-                variant="contained"
-                size="large"
-                fullWidth
-                startIcon={<AddCircleOutlineIcon sx={{ fontSize: 32 }} />}
-                sx={{
-                  py: 2.5,
-                  borderRadius: 4,
-                  fontSize: "1.2rem",
-                  fontWeight: "bold",
-                  textTransform: "none",
-                  boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
-                  background: "linear-gradient(45deg, #2e7d32 30%, #66bb6a 90%)",
-                  "&:hover": {
-                    background: "linear-gradient(45deg, #1b5e20 30%, #43a047 90%)",
-                    boxShadow: "0 12px 24px rgba(0,0,0,0.2)",
-                    transform: "translateY(-2px)",
-                  },
-                  transition: "all 0.3s cubic-bezier(.25,.8,.25,1)",
-                }}
-              >
-                Create New Game
-              </Button>
-            </Link>
           </Box>
 
           {/* Series List */}
           <Box>
             <SeriesSectionClient />
+          </Box>
+
+          {/* Games by City */}
+          <Box>
+            <GamesByCityClient />
+          </Box>
+
+          {/* Games with Friends */}
+          <Box>
+            <GamesByFriendsClient />
           </Box>
 
           {/* All Games List */}
@@ -107,15 +68,6 @@ export default async function GamesPage(props: {
             />
           </Box>
 
-          {/* Games with Friends */}
-          <Box>
-            <GamesByFriendsClient />
-          </Box>
-
-          {/* Games by City */}
-          <Box>
-            <GamesByCityClient />
-          </Box>
         </Stack>
       </Container>
     </main>
