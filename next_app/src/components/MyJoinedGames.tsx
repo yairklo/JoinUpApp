@@ -10,7 +10,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
-import LeaveGameButton from "@/components/LeaveGameButton"; 
+import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 
 type Game = {
@@ -24,6 +24,7 @@ type Game = {
   maxPlayers: number;
   currentPlayers: number;
   participants?: Array<{ id: string; name?: string | null }>;
+  sport?: string;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -46,7 +47,7 @@ export default function MyJoinedGames() {
       try {
         const res = await fetch(`${API_BASE}/api/games`, { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to fetch games");
-        
+
         const allGames: Game[] = await res.json();
         const now = new Date();
 
@@ -86,16 +87,16 @@ export default function MyJoinedGames() {
   }
 
   if (games.length === 0) {
-    return null; 
+    return null;
   }
 
   return (
     <Box>
       {/* Shortened title and removed isOnColoredBackground since it's now on the main background */}
-      <GamesHorizontalList title="My Games">
+      <GamesHorizontalList title="המשחקים שלי">
         {games.map((g) => {
           const title = `${g.fieldName} • ${g.fieldLocation}`;
-          
+
           return (
             <GameHeaderCard
               key={g.id}
@@ -104,23 +105,24 @@ export default function MyJoinedGames() {
               title={title}
               currentPlayers={g.currentPlayers}
               maxPlayers={g.maxPlayers}
+              sport={g.sport}
             >
-              <LeaveGameButton 
-                gameId={g.id} 
+              <LeaveGameButton
+                gameId={g.id}
                 onLeft={() => {
                   setGames(prev => prev.filter(game => game.id !== g.id));
-                }} 
+                }}
               />
-              
+
               <Link href={`/games/${g.id}`} passHref legacyBehavior>
-                <Button 
+                <Button
                   component="a"
-                  variant="text" 
-                  color="primary" 
-                  size="small" 
+                  variant="text"
+                  color="primary"
+                  size="small"
                   endIcon={<ArrowForwardIcon />}
                 >
-                  Details
+                  פרטים
                 </Button>
               </Link>
             </GameHeaderCard>

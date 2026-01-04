@@ -34,6 +34,7 @@ type Game = {
     maxPlayers: number;
     currentPlayers: number;
     participants?: Array<{ id: string; name?: string | null }>;
+    sport?: string;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -201,10 +202,11 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                                 title={title}
                                 currentPlayers={g.currentPlayers}
                                 maxPlayers={g.maxPlayers}
+                                sport={g.sport}
                             >
                                 {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} />}
                                 <Link href={`/games/${g.id}`} passHref legacyBehavior>
-                                    <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>Details</Button>
+                                    <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
                                 </Link>
                             </GameHeaderCard>
                         )
@@ -258,10 +260,11 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                             title={title}
                             currentPlayers={g.currentPlayers}
                             maxPlayers={g.maxPlayers}
+                            sport={g.sport}
                         >
                             {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} />}
                             <Link href={`/games/${g.id}`} passHref legacyBehavior>
-                                <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>Details</Button>
+                                <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
                             </Link>
                         </GameHeaderCard>
                     )
