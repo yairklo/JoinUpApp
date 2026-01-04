@@ -86,7 +86,9 @@ function mapGameForClient(game) {
     waitlistParticipants: waitlistParticipants || [],
     organizerId: game.organizerId,
     managers: managers || [],
-    teams: teams || []
+    managers: managers || [],
+    teams: teams || [],
+    sport: game.sport
   };
 }
 
@@ -399,6 +401,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
         time,
         duration: Number(existing.duration),
         isActive: true,
+        sport: existing.sport,
       },
     });
 
@@ -668,10 +671,9 @@ router.post('/', authenticateToken, async (req, res) => {
       recurrence,
       customLat,
       customLng,
-      customLocation
+      customLocation,
+      sport
     } = req.body;
-
-    // Accept numeric strings as well
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
     const hasFieldId = !!fieldId;
@@ -761,6 +763,7 @@ router.post('/', authenticateToken, async (req, res) => {
           duration: Number(isNaN(Number(duration)) ? 1 : Number(duration)),
           isActive: true,
           type: weekly ? 'WEEKLY' : 'CUSTOM',
+          sport: sport || 'SOCCER',
         },
       });
 
@@ -856,10 +859,10 @@ router.post('/', authenticateToken, async (req, res) => {
                 lotteryEnabled: !!lotteryEnabled,
                 ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
                 organizerInLottery: !!organizerInLottery,
-                description: description || '',
                 organizerId: req.user.id,
                 participants: { create: participantsCreate },
-                roles: { create: { userId: req.user.id, role: 'ORGANIZER' } }
+                roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
+                sport: sport || 'SOCCER'
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -899,7 +902,8 @@ router.post('/', authenticateToken, async (req, res) => {
         },
         roles: {
           create: { userId: req.user.id, role: 'ORGANIZER' }
-        }
+        },
+        sport: sport || 'SOCCER'
       },
       include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
     });

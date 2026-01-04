@@ -11,12 +11,16 @@ import Chip from "@mui/material/Chip";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import PeopleIcon from "@mui/icons-material/People";
 
+import CardMedia from "@mui/material/CardMedia";
+import { SPORT_IMAGES, SportType } from "@/utils/sports";
+
 export default function GameHeaderCard({
   time,
   title,
   currentPlayers,
   maxPlayers,
   durationHours,
+  sport,
   children,
 }: {
   time: string;
@@ -24,6 +28,7 @@ export default function GameHeaderCard({
   currentPlayers: number;
   maxPlayers: number;
   durationHours?: number;
+  sport?: string; // loosely typed string to match API, or strict SportType
   children?: React.ReactNode;
 }) {
   function formatEndTime(startTime: string, hours: number | undefined): string {
@@ -40,6 +45,11 @@ export default function GameHeaderCard({
   const occupancyPercentage = Math.min((currentPlayers / maxPlayers) * 100, 100);
   const isFull = currentPlayers >= maxPlayers;
 
+  // Resolve image
+  const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
+    ? SPORT_IMAGES[sport as SportType]
+    : SPORT_IMAGES.SOCCER;
+
   return (
     <Card
       elevation={3}
@@ -51,13 +61,20 @@ export default function GameHeaderCard({
         display: "flex",
         flexDirection: "column",
         borderRadius: 4,
-        overflow: "visible",
+        overflow: "hidden", // Ensure image clip
         transition: "transform 0.2s",
         "&:hover": {
           transform: "translateY(-4px)",
         },
       }}
     >
+      <CardMedia
+        component="img"
+        height="120"
+        image={imageSrc}
+        alt={title}
+        sx={{ filter: "brightness(0.9)" }}
+      />
       <CardContent sx={{ p: 2.5, flexGrow: 1, display: "flex", flexDirection: "column" }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
           <Stack
@@ -104,20 +121,20 @@ export default function GameHeaderCard({
             WebkitLineClamp: 2,
           }}
         >
-          {title || "Untitled Game"}
+          {title || "משחק ללא שם"}
         </Typography>
 
         <Box sx={{ mt: "auto", mb: 2 }}>
           <Box display="flex" justifyContent="space-between" mb={0.5}>
             <Typography variant="caption" color="text.secondary" fontSize={10}>
-              Occupancy
+              תפוסה
             </Typography>
             <Typography
               variant="caption"
               color={isFull ? "error.main" : "text.secondary"}
               fontSize={10}
             >
-              {isFull ? "Full" : `${maxPlayers - currentPlayers} spots left`}
+              {isFull ? "מלא" : `נשארו ${maxPlayers - currentPlayers} מקומות`}
             </Typography>
           </Box>
           <LinearProgress

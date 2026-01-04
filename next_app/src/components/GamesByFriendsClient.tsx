@@ -25,6 +25,7 @@ type Game = {
     maxPlayers: number;
     currentPlayers: number;
     participants?: Array<{ id: string; name?: string | null }>;
+    sport?: string;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -114,6 +115,7 @@ export default function GamesByFriendsClient() {
                             title={title}
                             currentPlayers={g.currentPlayers}
                             maxPlayers={g.maxPlayers}
+                            sport={g.sport}
                         >
                             {joined ? (
                                 <LeaveGameButton gameId={g.id} />
@@ -128,7 +130,7 @@ export default function GamesByFriendsClient() {
                                     size="small"
                                     endIcon={<ArrowForwardIcon />}
                                 >
-                                    Details
+                                    פרטים
                                 </Button>
                             </Link>
                         </GameHeaderCard>
@@ -152,6 +154,7 @@ export default function GamesByFriendsClient() {
                             title={title}
                             currentPlayers={g.currentPlayers}
                             maxPlayers={g.maxPlayers}
+                            sport={g.sport}
                         >
                             {joined ? (
                                 <LeaveGameButton gameId={g.id} />
@@ -166,7 +169,7 @@ export default function GamesByFriendsClient() {
                                     size="small"
                                     endIcon={<ArrowForwardIcon />}
                                 >
-                                    Details
+                                    פרטים
                                 </Button>
                             </Link>
                         </GameHeaderCard>

@@ -39,7 +39,9 @@ model Field {
   rating       Float           @default(0)
   image        String?
   available    Boolean         @default(true)
+
   type         FieldType
+  supportedSports SportType[] @default([SOCCER])
   lat          Float?
   lng          Float?
   createdAt    DateTime        @default(now())
@@ -83,6 +85,7 @@ model Game {
   customLng    Float?
   customLocation String?
   organizerId  String
+  sport        SportType       @default(SOCCER)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   field        Field           @relation(fields: [fieldId], references: [id])
@@ -248,6 +251,7 @@ model GameSeries {
   /// hours (can be fractional)
   duration       Float
   isActive       Boolean  @default(true)
+  sport          SportType @default(SOCCER)
   createdAt      DateTime @default(now())
   /// Recurrence type: weekly auto vs. custom dates
   type           RecurrenceType @default(WEEKLY)
@@ -271,4 +275,10 @@ model SeriesParticipant {
 enum RecurrenceType {
   WEEKLY
   CUSTOM
+}
+
+enum SportType {
+  SOCCER
+  BASKETBALL
+  TENNIS
 }
