@@ -47,27 +47,40 @@ export default function SeriesHeaderCard({
                 minWidth: { xs: 280, sm: 300 },
                 maxWidth: { xs: 280, sm: 320 },
                 flexShrink: 0,
-                height: "100%",
+                height: 380,
                 display: "flex",
                 flexDirection: "column",
                 borderRadius: 4,
-                overflow: "visible",
-                transition: "transform 0.2s",
+                overflow: "hidden",
+                transition: "transform 0.2s, box-shadow 0.2s",
                 border: "1px solid",
                 borderColor: "primary.light",
                 bgcolor: "rgba(255, 255, 255, 0.95)",
                 "&:hover": {
                     transform: "translateY(-4px)",
-                    boxShadow: 6,
+                    boxShadow: 8,
+                    "& .reveal-media": {
+                        height: 120,
+                    },
+                    "& .reveal-content": {
+                        maxHeight: 200,
+                        opacity: 1,
+                        mt: 2
+                    }
                 },
             }}
         >
             <CardMedia
+                className="reveal-media"
                 component="img"
-                height="100"
+                height="220"
                 image={imageSrc}
                 alt={name}
-                sx={{ filter: "brightness(0.8)" }}
+                sx={{
+                    filter: "brightness(0.9)",
+                    transition: "height 0.3s ease",
+                    objectPosition: "center top"
+                }}
             />
             <CardContent sx={{ p: 2, flexGrow: 1, display: "flex", flexDirection: "column" }}>
                 {/* Top Badge Row */}
@@ -114,19 +127,30 @@ export default function SeriesHeaderCard({
                 </Typography>
 
                 {/* Bottom Info */}
-                <Box sx={{ mt: "auto", mb: 2 }}>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ bgcolor: "action.hover", p: 1, borderRadius: 2 }}>
-                        <CalendarMonthIcon color="action" fontSize="small" />
-                        <Typography variant="body2" fontWeight="500">
-                            {dayName} @ {time}
-                        </Typography>
+                {/* Bottom Info & Actions - REVEAL ON HOVER */}
+                <Box
+                    className="reveal-content"
+                    sx={{
+                        maxHeight: 0,
+                        opacity: 0,
+                        overflow: "hidden",
+                        transition: "all 0.4s ease",
+                        mt: 0
+                    }}
+                >
+                    <Box sx={{ mt: "auto", mb: 2 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ bgcolor: "action.hover", p: 1, borderRadius: 2 }}>
+                            <CalendarMonthIcon color="action" fontSize="small" />
+                            <Typography variant="body2" fontWeight="500">
+                                {dayName} @ {time}
+                            </Typography>
+                        </Stack>
+                    </Box>
+
+                    <Stack direction="row" spacing={1} mt={0}>
+                        {children}
                     </Stack>
                 </Box>
-
-                {/* Actions */}
-                <Stack direction="row" spacing={1} mt={0}>
-                    {children}
-                </Stack>
             </CardContent>
         </Card>
     );
