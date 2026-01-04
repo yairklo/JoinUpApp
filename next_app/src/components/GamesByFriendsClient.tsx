@@ -30,7 +30,9 @@ type Game = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export default function GamesByFriendsClient() {
+import { SportFilter } from "@/utils/sports";
+
+export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
     const [games, setGames] = useState<Game[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
@@ -86,6 +88,11 @@ export default function GamesByFriendsClient() {
         };
     }, [isLoaded, user, getToken]);
 
+    const filteredGames = games.filter((g) => {
+        if (sportFilter === "ALL") return true;
+        return g.sport === sportFilter;
+    });
+
     // If loading, show spinner. If no games, render nothing.
     if (loading) {
         return (
@@ -95,7 +102,7 @@ export default function GamesByFriendsClient() {
         );
     }
 
-    if (games.length === 0) return null;
+    if (filteredGames.length === 0) return null;
 
     return (
         <>
@@ -103,7 +110,7 @@ export default function GamesByFriendsClient() {
                 title="משחקים עם חברים"
                 onSeeAll={() => setIsSeeAllOpen(true)}
             >
-                {games.map((g) => {
+                {filteredGames.map((g) => {
                     const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
                     const title = `${g.fieldName} • ${g.fieldLocation}`;
 
@@ -142,7 +149,7 @@ export default function GamesByFriendsClient() {
                 open={isSeeAllOpen}
                 onClose={() => setIsSeeAllOpen(false)}
                 title="משחקים עם חברים"
-                items={games}
+                items={filteredGames}
                 renderItem={(g) => {
                     const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
                     const title = `${g.fieldName} • ${g.fieldLocation}`;

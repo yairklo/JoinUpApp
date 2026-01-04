@@ -39,7 +39,9 @@ type Game = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export default function GamesByCityClient({ city: initialCity }: { city?: string }) {
+import { SportFilter } from "@/utils/sports";
+
+export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
     const [games, setGames] = useState<Game[]>([]);
     const [displayedCity, setDisplayedCity] = useState(initialCity || "");
     const [loading, setLoading] = useState(true);
@@ -151,9 +153,10 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
         setIsEditing(false);
     };
 
-    // Custom Header for the List to include Edit functionality
-
-
+    const filteredGames = games.filter((g) => {
+        if (sportFilter === "ALL") return true;
+        return g.sport === sportFilter;
+    });
 
     if (loading && games.length === 0) {
         return (
@@ -183,15 +186,15 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                 }
             >
                 {/* LIST CONTENT */}
-                {games.length === 0 ? (
+                {filteredGames.length === 0 ? (
                     <Box p={2} width="100%">
                         <Typography variant="body2" color="text.secondary">
-                            לא נמצאו משחקים ב{displayedCity}.
+                            לא נמצאו משחקים ב{displayedCity}{sportFilter !== "ALL" ? ` עבור ${sportFilter}` : ""}.
                             <Button size="small" onClick={handleEditClick} startIcon={<SearchIcon />}>חפש עיר אחרת</Button>
                         </Typography>
                     </Box>
                 ) : (
-                    games.map((g) => {
+                    filteredGames.map((g) => {
                         const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
                         const title = `${g.fieldName} • ${g.fieldLocation}`;
                         return (
@@ -248,7 +251,7 @@ export default function GamesByCityClient({ city: initialCity }: { city?: string
                 open={isSeeAllOpen}
                 onClose={() => setIsSeeAllOpen(false)}
                 title={`משחקים ב${displayedCity}`}
-                items={games}
+                items={filteredGames}
                 renderItem={(g) => {
                     const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
                     const title = `${g.fieldName} • ${g.fieldLocation}`;

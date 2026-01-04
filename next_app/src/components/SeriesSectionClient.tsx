@@ -24,7 +24,9 @@ type Series = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export default function SeriesSectionClient() {
+import { SportFilter } from "@/utils/sports";
+
+export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
     const [seriesList, setSeriesList] = useState<Series[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
@@ -61,12 +63,17 @@ export default function SeriesSectionClient() {
         };
     }, [getToken]);
 
+    const filteredSeries = seriesList.filter((s) => {
+        if (sportFilter === "ALL") return true;
+        return s.sport === sportFilter;
+    });
+
     if (loading) {
         /* Optional: loading state or just return null to not jump layout */
         return null;
     }
 
-    if (seriesList.length === 0) return null;
+    if (filteredSeries.length === 0) return null;
 
     return (
         <>
@@ -74,7 +81,7 @@ export default function SeriesSectionClient() {
                 title="הצטרף לסדרה"
                 onSeeAll={() => setIsSeeAllOpen(true)}
             >
-                {seriesList.map((s) => (
+                {filteredSeries.map((s) => (
                     <SeriesHeaderCard
                         key={s.id}
                         name={s.name}
@@ -104,7 +111,7 @@ export default function SeriesSectionClient() {
                 open={isSeeAllOpen}
                 onClose={() => setIsSeeAllOpen(false)}
                 title="הצטרף לסדרה"
-                items={seriesList}
+                items={filteredSeries}
                 renderItem={(s) => (
                     <SeriesHeaderCard
                         key={s.id}

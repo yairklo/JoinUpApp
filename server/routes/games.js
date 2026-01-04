@@ -194,7 +194,8 @@ router.get('/friends', authenticateToken, async (req, res) => {
         AND: [
           visibility,
           { start: { gte: now } },
-          { participants: { some: { userId: { in: friendIds } } } }
+          { participants: { some: { userId: { in: friendIds } } } },
+          { participants: { none: { userId: userId } } }
         ]
       },
       include: { field: true, participants: { include: { user: true } } },

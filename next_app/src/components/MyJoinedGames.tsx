@@ -29,7 +29,9 @@ type Game = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export default function MyJoinedGames() {
+import { SportFilter } from "@/utils/sports";
+
+export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
   const { user, isLoaded } = useUser();
   const userId = user?.id || "";
   const [games, setGames] = useState<Game[]>([]);
@@ -78,6 +80,11 @@ export default function MyJoinedGames() {
     };
   }, [userId, isLoaded]);
 
+  const filteredGames = games.filter((g) => {
+    if (sportFilter === "ALL") return true;
+    return g.sport === sportFilter;
+  });
+
   if (!isLoaded || loading) {
     return (
       <Box display="flex" justifyContent="center" p={2}>
@@ -86,7 +93,7 @@ export default function MyJoinedGames() {
     );
   }
 
-  if (games.length === 0) {
+  if (filteredGames.length === 0) {
     return null;
   }
 
@@ -94,7 +101,7 @@ export default function MyJoinedGames() {
     <Box>
       {/* Shortened title and removed isOnColoredBackground since it's now on the main background */}
       <GamesHorizontalList title="המשחקים שלי">
-        {games.map((g) => {
+        {filteredGames.map((g) => {
           const title = `${g.fieldName} • ${g.fieldLocation}`;
 
           return (
