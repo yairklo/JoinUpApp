@@ -57,23 +57,37 @@ export default function GameHeaderCard({
         minWidth: { xs: 280, sm: 300 },
         maxWidth: { xs: 280, sm: 320 },
         flexShrink: 0,
-        height: "100%",
+        height: 360,
         display: "flex",
         flexDirection: "column",
         borderRadius: 4,
-        overflow: "hidden", // Ensure image clip
-        transition: "transform 0.2s",
+        overflow: "hidden",
+        transition: "transform 0.2s, box-shadow 0.2s",
         "&:hover": {
           transform: "translateY(-4px)",
+          boxShadow: 8,
+          "& .reveal-media": {
+            height: 140,
+          },
+          "& .reveal-content": {
+            maxHeight: 200,
+            opacity: 1,
+            mt: 2
+          }
         },
       }}
     >
       <CardMedia
+        className="reveal-media"
         component="img"
-        height="120"
+        height="220"
         image={imageSrc}
         alt={title}
-        sx={{ filter: "brightness(0.9)" }}
+        sx={{
+          filter: "brightness(0.9)",
+          transition: "height 0.3s ease",
+          objectPosition: "center top"
+        }}
       />
       <CardContent sx={{ p: 2.5, flexGrow: 1, display: "flex", flexDirection: "column" }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
@@ -124,30 +138,41 @@ export default function GameHeaderCard({
           {title || "משחק ללא שם"}
         </Typography>
 
-        <Box sx={{ mt: "auto", mb: 2 }}>
-          <Box display="flex" justifyContent="space-between" mb={0.5}>
-            <Typography variant="caption" color="text.secondary" fontSize={10}>
-              תפוסה
-            </Typography>
-            <Typography
-              variant="caption"
-              color={isFull ? "error.main" : "text.secondary"}
-              fontSize={10}
-            >
-              {isFull ? "מלא" : `נשארו ${maxPlayers - currentPlayers} מקומות`}
-            </Typography>
+        <Box
+          className="reveal-content"
+          sx={{
+            maxHeight: 0,
+            opacity: 0,
+            overflow: "hidden",
+            transition: "all 0.4s ease",
+            mt: 0 // animate margin too
+          }}
+        >
+          <Box sx={{ mt: "auto", mb: 2 }}>
+            <Box display="flex" justifyContent="space-between" mb={0.5}>
+              <Typography variant="caption" color="text.secondary" fontSize={10}>
+                תפוסה
+              </Typography>
+              <Typography
+                variant="caption"
+                color={isFull ? "error.main" : "text.secondary"}
+                fontSize={10}
+              >
+                {isFull ? "מלא" : `נשארו ${maxPlayers - currentPlayers} מקומות`}
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={occupancyPercentage}
+              color={isFull ? "error" : "primary"}
+              sx={{ height: 6, borderRadius: 4 }}
+            />
           </Box>
-          <LinearProgress
-            variant="determinate"
-            value={occupancyPercentage}
-            color={isFull ? "error" : "primary"}
-            sx={{ height: 6, borderRadius: 4 }}
-          />
-        </Box>
 
-        <Stack direction="row" spacing={1} mt={0}>
-          {children}
-        </Stack>
+          <Stack direction="row" spacing={1} mt={0}>
+            {children}
+          </Stack>
+        </Box>
       </CardContent>
     </Card>
   );
