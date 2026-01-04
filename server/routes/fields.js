@@ -35,6 +35,36 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get list of unique cities
+router.get('/cities', async (req, res) => {
+  try {
+    const { q } = req.query;
+    // Filter out null/empty cities, and only available fields?
+    // User wants "all cities that are saved to us".
+    // It's better to verify distinct cities from Fields table.
+    const where = {
+      city: { not: null },
+      // available: true // Optional: only cities with available fields?
+    };
+    if (q) {
+      where.city = { ...where.city, contains: String(q), mode: 'insensitive' };
+    }
+
+    const fields = await prisma.field.findMany({
+      where,
+      select: { city: true },
+      distinct: ['city'],
+      orderBy: { city: 'asc' }
+    });
+
+    const cities = fields.map(f => f.city).filter(Boolean);
+    res.json(cities);
+  } catch (error) {
+    console.error('Get cities error:', error);
+    res.status(500).json({ error: 'Failed to get cities' });
+  }
+});
+
 // Search fields
 router.get('/search', async (req, res) => {
   try {
@@ -80,7 +110,7 @@ router.get('/search', async (req, res) => {
 router.get('/type/:type', async (req, res) => {
   try {
     const { type } = req.params;
-    
+
     if (!['open', 'closed'].includes(type)) {
       return res.status(400).json({ error: 'Type must be "open" or "closed"' });
     }
@@ -111,7 +141,7 @@ router.get('/type/:type', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const field = await prisma.field.findUnique({ where: { id: req.params.id }, include: { _count: { select: { favorites: true } } } });
-    
+
     if (!field) {
       return res.status(404).json({ error: 'Field not found' });
     }
