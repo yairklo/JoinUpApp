@@ -75,7 +75,7 @@ export default function HomeHero() {
                 </Typography>
 
                 <Stack spacing={2} width="100%" maxWidth="300px" mx="auto">
-                    {/* Create Game Button - Green */}
+                    {/* Create Game Button - Neon Volt (High Contrast) */}
                     <Link href="/games/new" passHref legacyBehavior>
                         <Button
                             component="a"
@@ -84,17 +84,19 @@ export default function HomeHero() {
                             sx={{
                                 borderRadius: "50px",
                                 py: 1.5,
-                                bgcolor: "#2e7d32", // Adjust to match image green
-                                backgroundImage: "linear-gradient(45deg, #43a047, #2e7d32)",
+                                bgcolor: "#C6FF00", // Neon Volt from Dark Theme
+                                color: "#000000",
                                 fontSize: "1.1rem",
-                                fontWeight: "bold",
+                                fontWeight: "800",
                                 textTransform: "none",
                                 display: "flex",
                                 justifyContent: "center",
                                 gap: 1,
                                 direction: "rtl",
+                                boxShadow: "0px 4px 15px rgba(198, 255, 0, 0.3)",
                                 "&:hover": {
-                                    bgcolor: "#1b5e20",
+                                    bgcolor: "#b2e600",
+                                    boxShadow: "0px 6px 20px rgba(198, 255, 0, 0.5)",
                                 }
                             }}
                         >
@@ -102,7 +104,7 @@ export default function HomeHero() {
                         </Button>
                     </Link>
 
-                    {/* Join Game Button - Outlined/Transparent */}
+                    {/* Join Game Button - Outlined White */}
                     <Button
                         variant="outlined"
                         size="large"
@@ -110,9 +112,9 @@ export default function HomeHero() {
                         sx={{
                             borderRadius: "50px",
                             py: 1.5,
-                            borderColor: "rgba(255,255,255,0.8)",
+                            borderColor: "rgba(255,255,255,0.9)",
                             color: "white",
-                            borderWidth: "1px",
+                            borderWidth: "2px",
                             fontSize: "1.1rem",
                             fontWeight: "bold",
                             textTransform: "none",
@@ -122,9 +124,9 @@ export default function HomeHero() {
                             direction: "rtl",
                             backdropFilter: "blur(4px)",
                             "&:hover": {
-                                borderColor: "white",
-                                bgcolor: "rgba(255,255,255,0.1)",
-                                borderWidth: "1px",
+                                borderColor: "#ffffff",
+                                bgcolor: "rgba(255,255,255,0.15)",
+                                borderWidth: "2px",
                             }
                         }}
                     >
