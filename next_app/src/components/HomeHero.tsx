@@ -21,7 +21,7 @@ export default function HomeHero() {
             sx={{
                 position: "relative",
                 bgcolor: "#0047AB", // Fallback blue
-                backgroundImage: "url(/hero_bg.jpg)",
+                backgroundImage: "url(/hero_bg_v2.jpg)",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 minHeight: "500px", // Adjust based on image aspect
