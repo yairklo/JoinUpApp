@@ -25,6 +25,7 @@ type Game = {
   currentPlayers: number;
   participants?: Array<{ id: string; name?: string | null }>;
   sport?: string;
+  seriesId?: string | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -66,7 +67,16 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
               new Date(`${b.date}T${b.time}:00`).getTime()
           );
 
-        if (!ignore) setGames(myUpcoming);
+        // Deduplicate by seriesId, keeping the first occurrence (nearest upcoming)
+        const uniqueSeries = new Set<string>();
+        const dedupedGames = myUpcoming.filter((g) => {
+          if (!g.seriesId) return true;
+          if (uniqueSeries.has(g.seriesId)) return false;
+          uniqueSeries.add(g.seriesId);
+          return true;
+        });
+
+        if (!ignore) setGames(dedupedGames);
       } catch (error) {
         console.error("Failed to load my games", error);
       } finally {
