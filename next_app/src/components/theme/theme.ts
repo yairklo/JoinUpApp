@@ -1,101 +1,128 @@
 "use client";
 import { createTheme, ThemeOptions } from "@mui/material/styles";
+import { Inter } from "next/font/google";
 
-// Common component overrides (Buttons, Cards, etc.)
-const componentOverrides: ThemeOptions["components"] = {
-  MuiButton: {
-    styleOverrides: {
-      root: {
-        borderRadius: 12,
-        textTransform: "none",
-        fontWeight: 600,
-      },
-    },
-  },
-  MuiCard: {
-    styleOverrides: {
-      root: {
-        borderRadius: 16,
-      },
-    },
-  },
-};
+const inter = Inter({
+  weight: ["300", "400", "500", "600", "700"],
+  subsets: ["latin"],
+  display: "swap",
+});
 
 // Common typography
 const typographyOptions: ThemeOptions["typography"] = {
-  fontFamily: "inherit",
+  fontFamily: inter.style.fontFamily,
   h1: { fontWeight: 700 },
   h2: { fontWeight: 700 },
   h3: { fontWeight: 700 },
-  button: { fontWeight: 600 },
+  button: { fontWeight: 600, textTransform: "none" },
 };
 
-// --- LIGHT THEME ---
+// Common component styling
+const commonComponents: ThemeOptions["components"] = {
+  MuiButton: {
+    styleOverrides: {
+      root: {
+        borderRadius: 50, // Pill-shaped as requested
+        fontWeight: 600,
+        textTransform: "none",
+        padding: "10px 24px", // Ensure good clickable area without changing "size" drastically
+      },
+      containedPrimary: {
+        boxShadow: "none",
+        "&:hover": {
+          boxShadow: "0px 4px 12px rgba(0,0,0,0.2)",
+        },
+      },
+    },
+  },
+  MuiTypography: {
+    styleOverrides: {
+      root: {
+        // ensuring text colors are respected if not overridden
+      }
+    }
+  }
+};
+
+// --- LIGHT THEME (Cyber Pop) ---
 const lightTheme = createTheme({
   palette: {
     mode: "light",
     primary: {
-      main: "#6366f1",
+      main: "#2979FF", // Electric Blue
       contrastText: "#ffffff",
     },
     secondary: {
-      main: "#10b981",
+      main: "#7C4DFF", // Deep Purple
     },
     background: {
-      default: "#f8fafc",
-      paper: "#ffffff",
+      default: "#F8F5FF", // Very Pale Lavender
+      paper: "#FFFFFF",   // Pure white
     },
     text: {
-      primary: "#1e293b",
-      secondary: "#64748b",
+      primary: "#1A1B2E", // Dark Purple-Grey
+      secondary: "#474966", // Slightly lighter for contrast
     },
   },
   typography: typographyOptions,
   components: {
-    ...componentOverrides,
-    // Define the Light Mode Gradient here
+    ...commonComponents,
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+          boxShadow: "0px 8px 24px rgba(149, 157, 165, 0.1)", // Soft shadows
+          border: "none",
+        },
+      },
+    },
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundImage: "linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)",
-          backgroundAttachment: "fixed",
-          backgroundRepeat: "no-repeat",
+          backgroundColor: "#F8F5FF",
         },
       },
     },
   },
 });
 
-// --- DARK THEME ---
+// --- DARK THEME (Stealth Sport) ---
 const darkTheme = createTheme({
   palette: {
     mode: "dark",
     primary: {
-      main: "#818cf8",
-      contrastText: "#0f172a",
+      main: "#C6FF00", // Neon Volt/Yellow
+      contrastText: "#000000",
     },
     secondary: {
-      main: "#34d399",
+      main: "#2979FF", // Electric Blue accent
     },
     background: {
-      default: "#0f172a", // Fallback color
-      paper: "#1e293b",
+      default: "#0F172A", // Deep Midnight Blue
+      paper: "#1E293B",   // Lighter Navy
     },
     text: {
-      primary: "#f8fafc",
-      secondary: "#94a3b8",
+      primary: "#F8FAFC", // White-Blue
+      secondary: "#94A3B8", // Slate
     },
   },
   typography: typographyOptions,
   components: {
-    ...componentOverrides,
-    // Define the Dark Mode Gradient here
+    ...commonComponents,
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+          backgroundColor: "#1E293B",
+          border: "1px solid #334155", // Subtle border
+          boxShadow: "none",
+        },
+      },
+    },
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundImage: "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
-          backgroundAttachment: "fixed",
-          backgroundRepeat: "no-repeat",
+          backgroundColor: "#0F172A",
         },
       },
     },
