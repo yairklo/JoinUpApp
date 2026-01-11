@@ -163,6 +163,31 @@ router.get('/public', async (req, res) => {
   }
 });
 
+// My games (authenticated user's upcoming games)
+router.get('/my', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const now = new Date();
+
+    const games = await prisma.game.findMany({
+      where: {
+        AND: [
+          { start: { gte: now } },
+          { participants: { some: { userId } } }
+        ]
+      },
+      include: { field: true, participants: { include: { user: true } } },
+      orderBy: { start: 'asc' }
+    });
+
+    const deduped = deduplicateSeriesGames(games);
+    res.json(deduped.map(mapGameForClient));
+  } catch (error) {
+    console.error('My games error:', error);
+    res.status(500).json({ error: 'Failed to fetch my games' });
+  }
+});
+
 // Games with friends
 router.get('/friends', authenticateToken, async (req, res) => {
   try {
