@@ -26,6 +26,7 @@ type Game = {
     currentPlayers: number;
     participants?: Array<{ id: string; name?: string | null }>;
     sport?: string;
+    registrationOpensAt?: string | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -127,7 +128,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                             {joined ? (
                                 <LeaveGameButton gameId={g.id} />
                             ) : (
-                                <JoinGameButton gameId={g.id} />
+                                <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />
                             )}
 
                             <Link href={`/games/${g.id}`} style={{ textDecoration: 'none' }}>
@@ -166,7 +167,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                             {joined ? (
                                 <LeaveGameButton gameId={g.id} />
                             ) : (
-                                <JoinGameButton gameId={g.id} />
+                                <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />
                             )}
 
                             <Link href={`/games/${g.id}`} style={{ textDecoration: 'none' }}>
