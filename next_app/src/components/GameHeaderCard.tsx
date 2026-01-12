@@ -16,6 +16,7 @@ import { SPORT_IMAGES, SportType } from "@/utils/sports";
 
 export default function GameHeaderCard({
   time,
+  date,
   title,
   currentPlayers,
   maxPlayers,
@@ -24,6 +25,7 @@ export default function GameHeaderCard({
   children,
 }: {
   time: string;
+  date?: string;
   title: string;
   currentPlayers: number;
   maxPlayers: number;
@@ -105,7 +107,7 @@ export default function GameHeaderCard({
           >
             <AccessTimeIcon sx={{ fontSize: 16 }} />
             <Typography variant="caption" fontWeight="bold">
-              {time} – {end}
+              {date ? `${date} • ` : ""}{time} – {end}
             </Typography>
           </Stack>
 
