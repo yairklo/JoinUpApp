@@ -1,8 +1,9 @@
 const express = require('express');
 const dataManager = require('../utils/dataManager');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient, SportType } = require('@prisma/client');
 const prisma = new PrismaClient();
+
 
 function mapGameForClient(game) {
   if (!game) return game;
@@ -567,7 +568,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
     }
 
     if (typeof sport === 'string') {
-      const validSports = ["SOCCER", "BASKETBALL", "TENNIS", "VOLLEYBALL", "RUNNING", "OTHER"];
+      const validSports = Object.values(SportType);
       const s = sport.toUpperCase();
       if (validSports.includes(s)) {
         updates['sport'] = s;
