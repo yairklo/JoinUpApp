@@ -8,7 +8,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import SeriesManager from "@/components/SeriesManager";
-import GameTimeEditor from "@/components/GameTimeEditor";
+import GameDetailsEditor from "@/components/GameDetailsEditor";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -120,7 +120,7 @@ export default async function GameDetails(props: {
               lng={game.fieldLng ?? null}
             />
 
-            <GameTimeEditor
+            <GameDetailsEditor
               gameId={game.id}
               initialTime={game.time}
               initialDate={game.date}
