@@ -13,13 +13,26 @@ import LoginIcon from "@mui/icons-material/Login";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export default function JoinGameButton({ gameId, onJoined }: { gameId: string; onJoined?: () => void }) {
+export default function JoinGameButton({
+  gameId,
+  onJoined,
+  registrationOpensAt
+}: {
+  gameId: string;
+  onJoined?: () => void;
+  registrationOpensAt?: string | null;
+}) {
   const { getToken } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const now = new Date();
+  const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
+  const isRegistrationClosed = openDate && now < openDate;
+
   async function join() {
+    if (isRegistrationClosed) return;
     setError(null);
     setLoading(true);
     try {
@@ -35,7 +48,7 @@ export default function JoinGameButton({ gameId, onJoined }: { gameId: string; o
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to join");
       }
-      
+
       router.refresh();
       if (onJoined) onJoined();
     } catch (e: unknown) {
@@ -54,18 +67,23 @@ export default function JoinGameButton({ gameId, onJoined }: { gameId: string; o
           </Button>
         </SignInButton>
       </SignedOut>
-      
+
       <SignedIn>
-        <Button 
-          onClick={join} 
-          disabled={loading} 
-          variant="contained" 
-          color="primary" 
+        <Button
+          onClick={join}
+          disabled={loading || !!isRegistrationClosed}
+          variant="contained"
+          color={isRegistrationClosed ? "inherit" : "primary"}
           size="small"
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
         >
-          {loading ? "Joining..." : "Join"}
+          {loading ? "Joining..." : (isRegistrationClosed ? `Opens at ${openDate?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : "Join")}
         </Button>
+        {isRegistrationClosed && openDate && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+            {openDate.toLocaleDateString()}
+          </Typography>
+        )}
         {error && (
           <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
             {error}

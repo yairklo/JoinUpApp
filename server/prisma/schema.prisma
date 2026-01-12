@@ -255,6 +255,7 @@ model GameSeries {
   createdAt      DateTime @default(now())
   /// Recurrence type: weekly auto vs. custom dates
   type           RecurrenceType @default(WEEKLY)
+  autoOpenRegistrationHours Float?
 
   games          Game[]
   subscribers    SeriesParticipant[]

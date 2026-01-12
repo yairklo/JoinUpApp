@@ -76,9 +76,9 @@ app.get('/api/health', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Something went wrong!',
-    message: err.message 
+    message: err.message
   });
 });
 
@@ -316,6 +316,11 @@ async function runWeeklySeriesGeneration() {
           }
         }
 
+        let regOpen = null;
+        if (typeof s.autoOpenRegistrationHours === 'number') {
+          regOpen = new Date(nextStart.getTime() - s.autoOpenRegistrationHours * 3600000);
+        }
+
         createOps.push(
           prisma.game.create({
             data: {
@@ -331,7 +336,9 @@ async function runWeeklySeriesGeneration() {
               description: '',
               organizerId: s.organizerId,
               participants: { create: participantsCreate },
-              roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } }
+              roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } },
+              sport: s.sport || 'SOCCER',
+              registrationOpensAt: regOpen
             }
           })
         );
@@ -354,7 +361,7 @@ async function runWeeklySeriesGeneration() {
 // Run every 24 hours
 setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
 // Kick once on boot (non-blocking)
-runWeeklySeriesGeneration().catch(() => {});
+runWeeklySeriesGeneration().catch(() => { });
 
 // Start server (HTTP + Socket.IO)
 server.listen(PORT, async () => {

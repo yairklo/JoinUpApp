@@ -89,7 +89,8 @@ function mapGameForClient(game) {
     managers: managers || [],
     managers: managers || [],
     teams: teams || [],
-    sport: game.sport
+    sport: game.sport,
+    registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null
   };
 }
 
@@ -794,6 +795,13 @@ router.post('/', authenticateToken, async (req, res) => {
 
       // Create series template
       const weekly = type === 'WEEKLY';
+
+      let autoOpenRegistrationHours = null;
+      if (registrationOpensAt) {
+        const diffMs = start.getTime() - new Date(registrationOpensAt).getTime();
+        autoOpenRegistrationHours = diffMs / (1000 * 60 * 60);
+      }
+
       const series = await prisma.gameSeries.create({
         data: {
           organizerId: req.user.id,
@@ -808,6 +816,7 @@ router.post('/', authenticateToken, async (req, res) => {
           isActive: true,
           type: weekly ? 'WEEKLY' : 'CUSTOM',
           sport: sport || 'SOCCER',
+          autoOpenRegistrationHours
         },
       });
 
@@ -842,6 +851,13 @@ router.post('/', authenticateToken, async (req, res) => {
               participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
             }
           }
+
+
+          let instanceRegOpen = null;
+          if (typeof autoOpenRegistrationHours === 'number') {
+            instanceRegOpen = new Date(occStart.getTime() - autoOpenRegistrationHours * 3600000);
+          }
+
           createOps.push(
             prisma.game.create({
               data: {
@@ -858,7 +874,9 @@ router.post('/', authenticateToken, async (req, res) => {
                 description: description || '',
                 organizerId: req.user.id,
                 participants: { create: participantsCreate },
-                roles: { create: { userId: req.user.id, role: 'ORGANIZER' } }
+                roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
+                sport: sport || 'SOCCER',
+                registrationOpensAt: instanceRegOpen
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
