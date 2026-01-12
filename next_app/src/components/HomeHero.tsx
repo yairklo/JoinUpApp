@@ -71,7 +71,7 @@ export default function HomeHero() {
                         textShadow: "0px 2px 5px rgba(0,0,0,0.3)"
                     }}
                 >
-                    אפליקציית הספורט של ישראל
+                    קהילת הספורט של ישראל
                 </Typography>
 
                 <Stack spacing={2} width="100%" maxWidth="300px" mx="auto">
