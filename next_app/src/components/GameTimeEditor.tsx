@@ -21,16 +21,14 @@ import Grid from "@mui/material/Grid";
 import EditIcon from "@mui/icons-material/Edit";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 
+import { SPORT_MAPPING } from "@/utils/sports";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export const SPORTS = [
-  { value: "SOCCER", label: "כדורגל" },
-  { value: "BASKETBALL", label: "כדורסל" },
-  { value: "TENNIS", label: "טניס" },
-  { value: "VOLLEYBALL", label: "כדורעף" },
-  { value: "RUNNING", label: "ריצה" },
-  { value: "OTHER", label: "אחר" },
-];
+export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 interface GameDetailsEditorProps {
   gameId: string;
