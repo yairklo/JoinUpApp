@@ -89,7 +89,8 @@ function mapGameForClient(game) {
     managers: managers || [],
     managers: managers || [],
     teams: teams || [],
-    sport: game.sport
+    sport: game.sport,
+    registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null
   };
 }
 
@@ -523,7 +524,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-    const { time, date, maxPlayers, sport } = req.body || {};
+    const { time, date, maxPlayers, sport, registrationOpensAt } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -573,6 +574,10 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       if (validSports.includes(s)) {
         updates['sport'] = s;
       }
+    }
+
+    if (registrationOpensAt !== undefined) {
+      updates['registrationOpensAt'] = registrationOpensAt ? new Date(registrationOpensAt) : null;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -713,10 +718,10 @@ router.post('/', authenticateToken, async (req, res) => {
       organizerInLottery,
       description,
       recurrence,
-      customLat,
       customLng,
       customLocation,
-      sport
+      sport,
+      registrationOpensAt
     } = req.body;
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
@@ -794,6 +799,13 @@ router.post('/', authenticateToken, async (req, res) => {
 
       // Create series template
       const weekly = type === 'WEEKLY';
+
+      let autoOpenRegistrationHours = null;
+      if (registrationOpensAt) {
+        const diffMs = start.getTime() - new Date(registrationOpensAt).getTime();
+        autoOpenRegistrationHours = diffMs / (1000 * 60 * 60);
+      }
+
       const series = await prisma.gameSeries.create({
         data: {
           organizerId: req.user.id,
@@ -808,6 +820,7 @@ router.post('/', authenticateToken, async (req, res) => {
           isActive: true,
           type: weekly ? 'WEEKLY' : 'CUSTOM',
           sport: sport || 'SOCCER',
+          autoOpenRegistrationHours
         },
       });
 
@@ -842,6 +855,13 @@ router.post('/', authenticateToken, async (req, res) => {
               participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
             }
           }
+
+
+          let instanceRegOpen = null;
+          if (typeof autoOpenRegistrationHours === 'number') {
+            instanceRegOpen = new Date(occStart.getTime() - autoOpenRegistrationHours * 3600000);
+          }
+
           createOps.push(
             prisma.game.create({
               data: {
@@ -858,7 +878,9 @@ router.post('/', authenticateToken, async (req, res) => {
                 description: description || '',
                 organizerId: req.user.id,
                 participants: { create: participantsCreate },
-                roles: { create: { userId: req.user.id, role: 'ORGANIZER' } }
+                roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
+                sport: sport || 'SOCCER',
+                registrationOpensAt: instanceRegOpen
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -906,7 +928,8 @@ router.post('/', authenticateToken, async (req, res) => {
                 organizerId: req.user.id,
                 participants: { create: participantsCreate },
                 roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
-                sport: sport || 'SOCCER'
+                sport: sport || 'SOCCER',
+                registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -947,7 +970,8 @@ router.post('/', authenticateToken, async (req, res) => {
         roles: {
           create: { userId: req.user.id, role: 'ORGANIZER' }
         },
-        sport: sport || 'SOCCER'
+        sport: sport || 'SOCCER',
+        registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null
       },
       include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
     });
@@ -1059,6 +1083,10 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
     }
     if (!game.isOpenToJoin) {
       return res.status(400).json({ error: 'Game is not open for joining' });
+    }
+
+    if (game.registrationOpensAt && new Date() < new Date(game.registrationOpensAt)) {
+      return res.status(400).json({ error: 'Registration is not yet open' });
     }
 
     // If lottery is enabled and hasn't executed yet, allow waitlist joins beyond capacity until lottery time
@@ -1216,4 +1244,4 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

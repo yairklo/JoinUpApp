@@ -35,6 +35,7 @@ type Game = {
     currentPlayers: number;
     participants?: Array<{ id: string; name?: string | null }>;
     sport?: string;
+    registrationOpensAt?: string | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -207,7 +208,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                 maxPlayers={g.maxPlayers}
                                 sport={g.sport}
                             >
-                                {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} />}
+                                {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
                                 <Link href={`/games/${g.id}`} passHref legacyBehavior>
                                     <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
                                 </Link>
@@ -265,7 +266,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                             maxPlayers={g.maxPlayers}
                             sport={g.sport}
                         >
-                            {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} />}
+                            {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
                             <Link href={`/games/${g.id}`} passHref legacyBehavior>
                                 <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
                             </Link>

@@ -2,6 +2,7 @@ import Avatar from "@/components/Avatar";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import SeriesSubscribeButton from "@/components/SeriesSubscribeButton";
+import SeriesSettingsEditor from "@/components/SeriesSettingsEditor";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -34,6 +35,7 @@ type SeriesDetails = {
     time: string;
     dayOfWeek: number | null;
     type: 'WEEKLY' | 'CUSTOM';
+    autoOpenRegistrationHours: number | null;
     organizer: { id: string; name: string | null; avatar: string | null };
     subscribers: {
         userId: string;
@@ -71,6 +73,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
     }
 
     const isSubscribed = user ? series.subscribers.some(s => s.userId === user.id) : false;
+    const isOrganizer = user?.id === series.organizer.id;
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const dayName = series.dayOfWeek !== null ? days[series.dayOfWeek] : "Custom Dates";
 
@@ -107,7 +110,14 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                             </Stack>
                         </Box>
 
-                        <Box sx={{ mt: 2 }}>
+                        <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
+                            {isOrganizer && (
+                                <SeriesSettingsEditor
+                                    seriesId={series.id}
+                                    initialAutoOpenHours={series.autoOpenRegistrationHours}
+                                    canManage={true}
+                                />
+                            )}
                             <SeriesSubscribeButton
                                 seriesId={series.id}
                                 initialSubscribed={isSubscribed}

@@ -49,6 +49,7 @@ type Game = {
   managers: Manager[];
   teams: Team[];
   sport?: string;
+  registrationOpensAt?: string | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -108,7 +109,10 @@ export default async function GameDetails(props: {
             {joined ? (
               <LeaveGameButton gameId={game.id} />
             ) : (
-              <JoinGameButton gameId={game.id} />
+              <JoinGameButton
+                gameId={game.id}
+                registrationOpensAt={game.registrationOpensAt}
+              />
             )}
           </GameHeaderCard>
 
@@ -126,6 +130,7 @@ export default async function GameDetails(props: {
               initialDate={game.date}
               initialMaxPlayers={game.maxPlayers}
               initialSport={game.sport}
+              initialRegistrationOpensAt={game.registrationOpensAt}
               canManage={canManageSeries}
             />
 

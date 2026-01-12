@@ -81,6 +81,9 @@ function NewGamePageInner() {
     organizerInLottery: false,
     lotteryDate: "",
     lotteryTime: "",
+    futureRegistration: false,
+    futureRegDate: "",
+    futureRegTime: "",
   });
 
   const MapWithNoSSR = useMemo(
@@ -170,12 +173,22 @@ function NewGamePageInner() {
       const token = await getToken({ template: undefined }).catch(() => "");
       const fieldIdToUse = selectedField?.id || "";
 
+      const startIso = `${form.date}T${form.time}:00`;
+      const startTs = new Date(startIso).getTime();
+
       // Logic Validation
       if (form.lotteryEnabled) {
         if (!form.lotteryDate || !form.lotteryTime) throw new Error("Please select lottery date and time");
-        const startTs = new Date(`${form.date}T${form.time}:00`).getTime();
         const lotteryTs = new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).getTime();
         if (lotteryTs >= startTs) throw new Error("Lottery time must be before game start");
+      }
+
+      let registrationOpensAt: string | undefined = undefined;
+      if (form.futureRegistration) {
+        if (!form.futureRegDate || !form.futureRegTime) throw new Error("אנא בחר תאריך ושעה לפתיחת הרישום");
+        const openTs = new Date(`${form.futureRegDate}T${form.futureRegTime}:00`).getTime();
+        if (openTs >= startTs) throw new Error("זמן פתיחת הרישום חייב להיות לפני תחילת המשחק");
+        registrationOpensAt = `${form.futureRegDate}T${form.futureRegTime}:00`;
       }
 
       const res = await fetch(`${API_BASE}/api/games`, {
@@ -202,6 +215,7 @@ function NewGamePageInner() {
 
           isOpenToJoin: !form.isFriendsOnly,
           lotteryAt: form.lotteryEnabled ? `${form.lotteryDate}T${form.lotteryTime}:00` : undefined,
+          registrationOpensAt
         }),
       });
 
@@ -489,6 +503,47 @@ function NewGamePageInner() {
                           </Grid>
                         </Grid>
                       </Paper>
+
+                    </Collapse>
+
+                    <FormControlLabel
+                      control={<Switch checked={form.futureRegistration} onChange={(e) => update("futureRegistration", e.target.checked)} />}
+                      label="פתיחת רישום עתידית"
+                      sx={{ flexDirection: 'row-reverse' }}
+                    />
+
+                    {/* Future Registration Settings */}
+                    <Collapse in={form.futureRegistration}>
+                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.light', borderColor: 'info.main' }}>
+                        <Typography variant="subtitle2" fontWeight="bold" color="info.contrastText" mb={2} align="right">
+                          מועד פתיחת הרשמה
+                        </Typography>
+                        <Grid container spacing={2} direction="row-reverse">
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                              label="תאריך פתיחה"
+                              type="date"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={form.futureRegDate}
+                              // slotProps={{ htmlInput: { min: todayStr } }} // Optional: restrict to future dates
+                              onChange={(e) => update("futureRegDate", e.target.value)}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                              label="שעת פתיחה"
+                              type="time"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={form.futureRegTime}
+                              onChange={(e) => update("futureRegTime", e.target.value)}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Paper>
                     </Collapse>
                   </Stack>
                 </Collapse>
@@ -509,10 +564,11 @@ function NewGamePageInner() {
 
             </Stack>
           </Paper>
-        </form>
+        </form >
 
         {/* --- MAP DIALOG --- */}
-        <Dialog open={showMap} onClose={() => setShowMap(false)} fullWidth maxWidth="lg">
+        < Dialog open={showMap} onClose={() => setShowMap(false)
+        } fullWidth maxWidth="lg" >
           <DialogTitle align="right">בחר מיקום מגרש</DialogTitle>
           <DialogContent sx={{ p: 0, height: '60vh' }}>
             <MapWithNoSSR
@@ -537,10 +593,10 @@ function NewGamePageInner() {
           <DialogActions>
             <Button onClick={() => setShowMap(false)}>סיום</Button>
           </DialogActions>
-        </Dialog>
+        </Dialog >
 
-      </SignedIn>
-    </Container>
+      </SignedIn >
+    </Container >
   );
 }
 

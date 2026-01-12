@@ -86,6 +86,7 @@ model Game {
   customLocation String?
   organizerId  String
   sport        SportType       @default(SOCCER)
+  registrationOpensAt DateTime?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   field        Field           @relation(fields: [fieldId], references: [id])
@@ -255,6 +256,7 @@ model GameSeries {
   createdAt      DateTime @default(now())
   /// Recurrence type: weekly auto vs. custom dates
   type           RecurrenceType @default(WEEKLY)
+  autoOpenRegistrationHours Float?
 
   games          Game[]
   subscribers    SeriesParticipant[]

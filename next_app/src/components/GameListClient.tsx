@@ -22,6 +22,7 @@ type Game = {
   lotteryPending?: boolean;
   overbooked?: boolean;
   totalSignups?: number;
+  registrationOpensAt?: string | null;
 };
 
 export default function GameListClient({ games }: { games: Game[] }) {
@@ -63,7 +64,7 @@ export default function GameListClient({ games }: { games: Game[] }) {
                 >
                   View details
                 </Link>
-                {g.isOpenToJoin && !joined ? <JoinGameButton gameId={g.id} /> : null}
+                {g.isOpenToJoin && !joined ? <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} /> : null}
               </div>
             </div>
 
