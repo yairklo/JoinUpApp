@@ -16,6 +16,11 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Grid from "@mui/material/Grid";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Collapse from "@mui/material/Collapse";
+import Typography from "@mui/material/Typography";
+import Paper from "@mui/material/Paper";
 
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
@@ -36,6 +41,7 @@ interface GameDetailsEditorProps {
   initialDate: string;
   initialMaxPlayers: number;
   initialSport?: string;
+  initialRegistrationOpensAt?: string | null;
   canManage: boolean;
 }
 
@@ -45,6 +51,7 @@ export default function GameDetailsEditor({
   initialDate,
   initialMaxPlayers,
   initialSport = "SOCCER",
+  initialRegistrationOpensAt,
   canManage
 }: GameDetailsEditorProps) {
   const { getToken } = useAuth();
@@ -58,11 +65,26 @@ export default function GameDetailsEditor({
   const [maxPlayers, setMaxPlayers] = useState(initialMaxPlayers);
   const [sport, setSport] = useState(initialSport);
 
+  // Future Registration State
+  const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
+  const [regDate, setRegDate] = useState(initialRegistrationOpensAt ? initialRegistrationOpensAt.split('T')[0] : "");
+  const [regTime, setRegTime] = useState(initialRegistrationOpensAt ? initialRegistrationOpensAt.split('T')[1]?.substring(0, 5) : "");
+
   const handleOpen = () => {
     setTime(initialTime);
     setDate(initialDate);
     setMaxPlayers(initialMaxPlayers);
     setSport(initialSport || "SOCCER");
+
+    setFutureRegEnabled(!!initialRegistrationOpensAt);
+    if (initialRegistrationOpensAt) {
+      setRegDate(initialRegistrationOpensAt.split('T')[0]);
+      setRegTime(initialRegistrationOpensAt.split('T')[1]?.substring(0, 5) || "");
+    } else {
+      setRegDate("");
+      setRegTime("");
+    }
+
     setOpen(true);
   };
 
@@ -72,6 +94,14 @@ export default function GameDetailsEditor({
     setLoading(true);
     try {
       const token = await getToken();
+
+      let registrationOpensAt = null;
+      if (futureRegEnabled) {
+        if (regDate && regTime) {
+          registrationOpensAt = `${regDate}T${regTime}:00`;
+        }
+      }
+
       const res = await fetch(`${API_BASE}/api/games/${gameId}`, {
         method: "PATCH",
         headers: {
@@ -82,7 +112,8 @@ export default function GameDetailsEditor({
           time,
           date,
           maxPlayers,
-          sport
+          sport,
+          registrationOpensAt: futureRegEnabled ? registrationOpensAt : null
         }),
       });
 
@@ -169,6 +200,42 @@ export default function GameDetailsEditor({
                   ))}
                 </TextField>
               </Grid>
+
+              {/* Future Registration Section */}
+              <Grid size={{ xs: 12 }} mt={2}>
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  <FormControlLabel
+                    control={<Switch checked={futureRegEnabled} onChange={(e) => setFutureRegEnabled(e.target.checked)} />}
+                    label="פתיחת רישום עתידית"
+                    sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                  />
+                  <Collapse in={futureRegEnabled}>
+                    <Grid container spacing={2} mt={1}>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="תאריך פתיחה"
+                          type="date"
+                          fullWidth
+                          value={regDate}
+                          onChange={(e) => setRegDate(e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="שעה"
+                          type="time"
+                          fullWidth
+                          value={regTime}
+                          onChange={(e) => setRegTime(e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Collapse>
+                </Paper>
+              </Grid>
+
             </Grid>
           </Box>
         </DialogContent>

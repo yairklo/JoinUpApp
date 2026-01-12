@@ -108,6 +108,7 @@ router.get('/:seriesId', async (req, res) => {
       dayOfWeek: series.dayOfWeek ?? null,
       type: series.type,
       sport: series.sport,
+      autoOpenRegistrationHours: series.autoOpenRegistrationHours,
       organizer: {
         id: organizer?.id || series.organizerId,
         name: organizer?.name || '',
@@ -197,6 +198,7 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       price,
       maxPlayers,
       dayOfWeek,
+      autoOpenRegistrationHours,
       updateFutureGames = true,
     } = req.body || {};
 
@@ -220,6 +222,9 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     if (typeof fieldLocation === 'string') data.fieldLocation = fieldLocation;
     if (typeof price !== 'undefined' && !Number.isNaN(Number(price))) data.price = Number(price);
     if (typeof maxPlayers !== 'undefined' && !Number.isNaN(Number(maxPlayers))) data.maxPlayers = Number(maxPlayers);
+    if (typeof autoOpenRegistrationHours !== 'undefined') {
+      data.autoOpenRegistrationHours = autoOpenRegistrationHours === null ? null : Number(autoOpenRegistrationHours);
+    }
     // dayOfWeek intentionally blocked when updating existing weekly series (see above)
 
     const updatedSeries = await prisma.gameSeries.update({
@@ -249,6 +254,16 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
           const newStart = new Date(g.start);
           newStart.setHours(hh, mm, 0, 0);
           gd.start = newStart;
+        }
+      }
+
+      if (typeof autoOpenRegistrationHours !== 'undefined') {
+        const hours = data.autoOpenRegistrationHours; // already processed above
+        if (hours === null) {
+          gd.registrationOpensAt = null;
+        } else {
+          const baseStart = gd.start || g.start; // Use new start if changed, else existing
+          gd.registrationOpensAt = new Date(baseStart.getTime() - hours * 3600000);
         }
       }
       if (Object.keys(gd).length) {

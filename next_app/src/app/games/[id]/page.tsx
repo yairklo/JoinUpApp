@@ -130,6 +130,7 @@ export default async function GameDetails(props: {
               initialDate={game.date}
               initialMaxPlayers={game.maxPlayers}
               initialSport={game.sport}
+              initialRegistrationOpensAt={game.registrationOpensAt}
               canManage={canManageSeries}
             />
 

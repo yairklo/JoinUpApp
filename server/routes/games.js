@@ -524,7 +524,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-    const { time, date, maxPlayers, sport } = req.body || {};
+    const { time, date, maxPlayers, sport, registrationOpensAt } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -574,6 +574,10 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       if (validSports.includes(s)) {
         updates['sport'] = s;
       }
+    }
+
+    if (registrationOpensAt !== undefined) {
+      updates['registrationOpensAt'] = registrationOpensAt ? new Date(registrationOpensAt) : null;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -1240,4 +1244,4 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;
