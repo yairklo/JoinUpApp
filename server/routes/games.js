@@ -522,7 +522,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-    const { time, date } = req.body || {};
+    const { time, date, maxPlayers, sport } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -551,9 +551,26 @@ router.patch('/:id', authenticateToken, async (req, res) => {
     if (typeof date === 'string') {
       const d = new Date(date);
       if (!Number.isNaN(d.getTime())) {
-        const newStart = new Date(game.start);
+        const newStart = new Date(updates['start'] || game.start);
         newStart.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
         updates['start'] = newStart;
+      }
+    }
+
+    if (maxPlayers !== undefined) {
+      const mp = parseInt(maxPlayers, 10);
+      if (!isNaN(mp) && mp > 0) {
+        updates['maxPlayers'] = mp;
+        // If reducing capacity below current signups, we might need to handle waitlist logic here
+        // For now this is a simple update
+      }
+    }
+
+    if (typeof sport === 'string') {
+      const validSports = ["SOCCER", "BASKETBALL", "TENNIS", "VOLLEYBALL", "RUNNING", "OTHER"];
+      const s = sport.toUpperCase();
+      if (validSports.includes(s)) {
+        updates['sport'] = s;
       }
     }
 

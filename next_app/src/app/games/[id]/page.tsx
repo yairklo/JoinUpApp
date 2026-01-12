@@ -48,6 +48,7 @@ type Game = {
   organizerId: string;
   managers: Manager[];
   teams: Team[];
+  sport?: string;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -97,10 +98,12 @@ export default async function GameDetails(props: {
         <Box mb={4}>
           <GameHeaderCard
             time={game.time}
+            date={game.date}
             durationHours={game.duration ?? 1}
             title={game.fieldName}
             currentPlayers={headerCount}
             maxPlayers={game.maxPlayers}
+            sport={game.sport}
           >
             {joined ? (
               <LeaveGameButton gameId={game.id} />
@@ -117,21 +120,24 @@ export default async function GameDetails(props: {
               lng={game.fieldLng ?? null}
             />
 
-            <GameTimeEditor 
+            <GameTimeEditor
               gameId={game.id}
               initialTime={game.time}
+              initialDate={game.date}
+              initialMaxPlayers={game.maxPlayers}
+              initialSport={game.sport}
               canManage={canManageSeries}
             />
 
             <Divider sx={{ my: 2 }} />
 
-            <SeriesManager 
+            <SeriesManager
               gameId={game.id}
               seriesId={game.seriesId}
               canManage={canManageSeries}
               gameData={{
-                  time: game.time,
-                  date: game.date
+                time: game.time,
+                date: game.date
               }}
             />
           </Box>
@@ -139,26 +145,26 @@ export default async function GameDetails(props: {
 
         {/* Main Grid Layout */}
         <Grid container spacing={3}>
-          
+
           {/* Left Column: Participants & Team Builder */}
           <Grid size={{ xs: 12, md: 7 }}>
-             <TeamBuilderWrapper 
-                gameId={game.id}
-                participants={game.participants}
-                organizerId={game.organizerId}
-                initialManagers={game.managers || []}
-                maxPlayers={game.maxPlayers}
-                currentUserId={userId}
-                initialTeams={game.teams || []}
-                lotteryData={{
-                    enabled: !!game.lotteryEnabled,
-                    pending: !!game.lotteryPending,
-                    overbooked: !!game.overbooked,
-                    at: game.lotteryAt || null,
-                    signups: game.totalSignups || 0
-                }}
-                waitlistParticipants={game.waitlistParticipants || []}
-              />
+            <TeamBuilderWrapper
+              gameId={game.id}
+              participants={game.participants}
+              organizerId={game.organizerId}
+              initialManagers={game.managers || []}
+              maxPlayers={game.maxPlayers}
+              currentUserId={userId}
+              initialTeams={game.teams || []}
+              lotteryData={{
+                enabled: !!game.lotteryEnabled,
+                pending: !!game.lotteryPending,
+                overbooked: !!game.overbooked,
+                at: game.lotteryAt || null,
+                signups: game.totalSignups || 0
+              }}
+              waitlistParticipants={game.waitlistParticipants || []}
+            />
           </Grid>
 
           {/* Right Column: Chat */}
