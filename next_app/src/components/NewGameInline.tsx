@@ -350,8 +350,9 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                       onChange={(e) => update("description", e.target.value)}
                     />
 
+
                     {/* Toggles */}
-                    <Stack direction="row" spacing={3} alignItems="center">
+                    <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
                       <FormControlLabel
                         control={<Switch checked={form.isFriendsOnly} onChange={(e) => update("isFriendsOnly", e.target.checked)} />}
                         label="Friends Only (Private)"
@@ -359,6 +360,10 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                       <FormControlLabel
                         control={<Switch checked={form.lotteryEnabled} onChange={(e) => update("lotteryEnabled", e.target.checked)} />}
                         label="Enable Lottery"
+                      />
+                      <FormControlLabel
+                        control={<Switch checked={form.futureRegistration} onChange={(e) => update("futureRegistration", e.target.checked)} />}
+                        label="Future Registration"
                       />
                     </Stack>
 
@@ -401,47 +406,40 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                       </Paper>
                     </Collapse>
 
-                    {/* Future Registration Toggle */}
-                    <Box mt={2} borderTop={1} borderColor="divider" pt={2}>
-                      <FormControlLabel
-                        control={<Switch checked={form.futureRegistration} onChange={(e) => update("futureRegistration", e.target.checked)} />}
-                        label="Open Registration in Future"
-                      />
-
-                      <Collapse in={form.futureRegistration}>
-                        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.light', borderColor: 'info.main', mt: 1 }}>
-                          <Stack spacing={2}>
-                            <Typography variant="caption" fontWeight="bold" color="info.contrastText">
-                              REGISTRATION OPENS AT
-                            </Typography>
-                            <Grid container spacing={2}>
-                              <Grid size={6}>
-                                <TextField
-                                  label="Open Date"
-                                  type="date"
-                                  fullWidth
-                                  size="small"
-                                  InputLabelProps={{ shrink: true }}
-                                  value={form.futureRegDate}
-                                  onChange={(e) => update("futureRegDate", e.target.value)}
-                                />
-                              </Grid>
-                              <Grid size={6}>
-                                <TextField
-                                  label="Open Time"
-                                  type="time"
-                                  fullWidth
-                                  size="small"
-                                  InputLabelProps={{ shrink: true }}
-                                  value={form.futureRegTime}
-                                  onChange={(e) => update("futureRegTime", e.target.value)}
-                                />
-                              </Grid>
+                    {/* Future Registration Details */}
+                    <Collapse in={form.futureRegistration}>
+                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.light', borderColor: 'info.main', mt: 2 }}>
+                        <Stack spacing={2}>
+                          <Typography variant="caption" fontWeight="bold" color="info.contrastText">
+                            REGISTRATION OPENS AT
+                          </Typography>
+                          <Grid container spacing={2}>
+                            <Grid size={6}>
+                              <TextField
+                                label="Open Date"
+                                type="date"
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                value={form.futureRegDate}
+                                onChange={(e) => update("futureRegDate", e.target.value)}
+                              />
                             </Grid>
-                          </Stack>
-                        </Paper>
-                      </Collapse>
-                    </Box>
+                            <Grid size={6}>
+                              <TextField
+                                label="Open Time"
+                                type="time"
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                value={form.futureRegTime}
+                                onChange={(e) => update("futureRegTime", e.target.value)}
+                              />
+                            </Grid>
+                          </Grid>
+                        </Stack>
+                      </Paper>
+                    </Collapse>
 
                   </Stack>
                 </Collapse>
