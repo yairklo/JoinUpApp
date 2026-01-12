@@ -714,10 +714,10 @@ router.post('/', authenticateToken, async (req, res) => {
       organizerInLottery,
       description,
       recurrence,
-      customLat,
       customLng,
       customLocation,
-      sport
+      sport,
+      registrationOpensAt
     } = req.body;
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
@@ -924,7 +924,8 @@ router.post('/', authenticateToken, async (req, res) => {
                 organizerId: req.user.id,
                 participants: { create: participantsCreate },
                 roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
-                sport: sport || 'SOCCER'
+                sport: sport || 'SOCCER',
+                registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -965,7 +966,8 @@ router.post('/', authenticateToken, async (req, res) => {
         roles: {
           create: { userId: req.user.id, role: 'ORGANIZER' }
         },
-        sport: sport || 'SOCCER'
+        sport: sport || 'SOCCER',
+        registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null
       },
       include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
     });
@@ -1077,6 +1079,10 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
     }
     if (!game.isOpenToJoin) {
       return res.status(400).json({ error: 'Game is not open for joining' });
+    }
+
+    if (game.registrationOpensAt && new Date() < new Date(game.registrationOpensAt)) {
+      return res.status(400).json({ error: 'Registration is not yet open' });
     }
 
     // If lottery is enabled and hasn't executed yet, allow waitlist joins beyond capacity until lottery time

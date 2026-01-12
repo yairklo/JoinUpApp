@@ -86,6 +86,7 @@ model Game {
   customLocation String?
   organizerId  String
   sport        SportType       @default(SOCCER)
+  registrationOpensAt DateTime?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   field        Field           @relation(fields: [fieldId], references: [id])
