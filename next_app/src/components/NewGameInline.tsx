@@ -57,6 +57,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
   const [form, setForm] = useState({
     date: "",
     time: "",
+    title: "",
     duration: 1,
     maxPlayers: 10,
     description: "",
@@ -156,6 +157,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
             ? { newField: { name: newField.name.trim(), location: newField.location.trim(), type: newField.type } }
             : {}),
           isOpenToJoin: !form.isFriendsOnly,
+          title: form.title || null,
           lotteryAt: form.lotteryEnabled ? `${form.lotteryDate}T${form.lotteryTime}:00` : undefined,
         }),
       });
@@ -281,6 +283,16 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
 
               {/* --- SECTION 2: BASIC DETAILS --- */}
               <Grid container spacing={2}>
+                <Grid size={{ xs: 12 }}>
+                  <TextField
+                    label="Game Title (Optional)"
+                    placeholder="e.g. Friday Night Soccer"
+                    size="small"
+                    fullWidth
+                    value={form.title}
+                    onChange={(e) => update("title", e.target.value)}
+                  />
+                </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     label="Date"

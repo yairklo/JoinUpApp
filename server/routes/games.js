@@ -58,6 +58,7 @@ function mapGameForClient(game) {
   });
   return {
     id: game.id,
+    title: game.title || null,
     seriesId: game.seriesId || null,
     fieldId: game.fieldId,
     fieldName: game.field?.name || '',
@@ -419,6 +420,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
     // Create series
     const series = await prisma.gameSeries.create({
       data: {
+        title: existing.title,
         organizerId: existing.organizerId,
         fieldId: existing.fieldId || null,
         fieldName: existing.field?.name || '',
@@ -488,6 +490,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
       createOps.push(
         prisma.game.create({
           data: {
+            title: existing.title,
             fieldId: existing.fieldId,
             seriesId: series.id,
             start: occStart,
@@ -524,7 +527,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-    const { time, date, maxPlayers, sport, registrationOpensAt } = req.body || {};
+    const { time, date, maxPlayers, sport, registrationOpensAt, title } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -578,6 +581,10 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 
     if (registrationOpensAt !== undefined) {
       updates['registrationOpensAt'] = registrationOpensAt ? new Date(registrationOpensAt) : null;
+    }
+
+    if (typeof title !== 'undefined') {
+      updates['title'] = title;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -721,7 +728,8 @@ router.post('/', authenticateToken, async (req, res) => {
       customLng,
       customLocation,
       sport,
-      registrationOpensAt
+      registrationOpensAt,
+      title
     } = req.body;
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
@@ -808,6 +816,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
       const series = await prisma.gameSeries.create({
         data: {
+          title,
           organizerId: req.user.id,
           fieldId: useFieldId || null,
           fieldName: field.name,
@@ -865,6 +874,7 @@ router.post('/', authenticateToken, async (req, res) => {
           createOps.push(
             prisma.game.create({
               data: {
+                title,
                 fieldId: useFieldId,
                 seriesId: series.id,
                 start: occStart,
@@ -915,6 +925,7 @@ router.post('/', authenticateToken, async (req, res) => {
           createOps.push(
             prisma.game.create({
               data: {
+                title,
                 fieldId: useFieldId,
                 seriesId: series.id,
                 start: occStart,
@@ -949,6 +960,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const created = await prisma.game.create({
       data: {
+        title,
         fieldId: useFieldId,
         start,
         duration: duration || 1,

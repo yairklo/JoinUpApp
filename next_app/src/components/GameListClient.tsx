@@ -23,6 +23,7 @@ type Game = {
   overbooked?: boolean;
   totalSignups?: number;
   registrationOpensAt?: string | null;
+  title?: string | null;
 };
 
 export default function GameListClient({ games }: { games: Game[] }) {
@@ -51,8 +52,10 @@ export default function GameListClient({ games }: { games: Game[] }) {
 
               {/* Middle: field name + address */}
               <div className="flex-1 min-w-0">
-                <div className="truncate text-sm font-medium">{g.fieldName}</div>
-                <div className="truncate text-xs text-[rgb(var(--fg)/0.7)]">{g.fieldLocation}</div>
+                <div className="truncate text-sm font-medium">{g.title || g.fieldName}</div>
+                <div className="truncate text-xs text-[rgb(var(--fg)/0.7)]">
+                  {g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation}
+                </div>
               </div>
 
               {/* Right: Actions */}

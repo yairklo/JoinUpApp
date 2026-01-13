@@ -73,6 +73,7 @@ function NewGamePageInner() {
     sport: "SOCCER" as SportType,
     date: "",
     time: "",
+    title: "",
     duration: 1,
     maxPlayers: 10,
     description: "",
@@ -214,6 +215,7 @@ function NewGamePageInner() {
           ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
 
           isOpenToJoin: !form.isFriendsOnly,
+          title: form.title || null,
           lotteryAt: form.lotteryEnabled ? `${form.lotteryDate}T${form.lotteryTime}:00` : undefined,
           registrationOpensAt
         }),
@@ -383,6 +385,17 @@ function NewGamePageInner() {
 
               {/* --- 2. GAME DETAILS --- */}
               <Grid container spacing={2} direction="row-reverse">
+                <Grid size={{ xs: 12 }}>
+                  <TextField
+                    label="כותרת המשחק (אופציונלי)"
+                    placeholder="למשל: כדורגל שישי"
+                    size="small"
+                    fullWidth
+                    value={form.title}
+                    onChange={(e) => update("title", e.target.value)}
+                    dir="rtl"
+                  />
+                </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     label="תאריך"

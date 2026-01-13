@@ -50,6 +50,7 @@ type Game = {
   teams: Team[];
   sport?: string;
   registrationOpensAt?: string | null;
+  title?: string | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -101,7 +102,8 @@ export default async function GameDetails(props: {
             time={game.time}
             date={game.date}
             durationHours={game.duration ?? 1}
-            title={game.fieldName}
+            title={game.title || game.fieldName}
+            subtitle={game.title ? `${game.fieldName} • ${game.fieldLocation}` : game.fieldLocation}
             currentPlayers={headerCount}
             maxPlayers={game.maxPlayers}
             sport={game.sport}
@@ -131,6 +133,7 @@ export default async function GameDetails(props: {
               initialMaxPlayers={game.maxPlayers}
               initialSport={game.sport}
               initialRegistrationOpensAt={game.registrationOpensAt}
+              initialTitle={game.title}
               canManage={canManageSeries}
             />
 

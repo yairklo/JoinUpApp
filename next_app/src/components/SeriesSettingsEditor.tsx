@@ -25,12 +25,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 interface SeriesSettingsEditorProps {
     seriesId: string;
     initialAutoOpenHours?: number | null;
+    initialTitle?: string | null;
     canManage: boolean;
 }
 
 export default function SeriesSettingsEditor({
     seriesId,
     initialAutoOpenHours,
+    initialTitle,
     canManage
 }: SeriesSettingsEditorProps) {
     const { getToken } = useAuth();
@@ -39,11 +41,13 @@ export default function SeriesSettingsEditor({
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [hours, setHours] = useState<string>(initialAutoOpenHours ? String(initialAutoOpenHours) : "");
+    const [title, setTitle] = useState(initialTitle || "");
 
     if (!canManage) return null;
 
     const handleOpen = () => {
         setHours(initialAutoOpenHours ? String(initialAutoOpenHours) : "");
+        setTitle(initialTitle || "");
         setOpen(true);
     };
 
@@ -55,7 +59,8 @@ export default function SeriesSettingsEditor({
             const token = await getToken();
 
             const payload = {
-                autoOpenRegistrationHours: hours === "" ? null : Number(hours)
+                autoOpenRegistrationHours: hours === "" ? null : Number(hours),
+                title: title || ""
             };
 
             const res = await fetch(`${API_BASE}/api/series/${seriesId}`, {
@@ -102,6 +107,15 @@ export default function SeriesSettingsEditor({
                     </Alert>
 
                     <Grid container spacing={2}>
+                        <Grid size={{ xs: 12 }}>
+                            <TextField
+                                label="שם הסדרה (אופציונלי)"
+                                fullWidth
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="למשל: ימי שני בערב"
+                            />
+                        </Grid>
                         <Grid size={{ xs: 12 }}>
                             <TextField
                                 label="שעות לפתיחת רישום לפני המשחק"
