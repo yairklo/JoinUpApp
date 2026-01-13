@@ -1,5 +1,10 @@
--- CreateEnum
-CREATE TYPE "public"."SportType" AS ENUM ('SOCCER', 'BASKETBALL', 'TENNIS');
+-- CreateEnum safely (Only if not exists)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SportType') THEN
+        CREATE TYPE "public"."SportType" AS ENUM ('SOCCER', 'BASKETBALL', 'TENNIS');
+    END IF;
+END$$;
 
 -- DropForeignKey
 ALTER TABLE "public"."SeriesParticipant" DROP CONSTRAINT "SeriesParticipant_seriesId_fkey";
