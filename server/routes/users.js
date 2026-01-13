@@ -3,6 +3,18 @@ const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../utils/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Get all available sports
+router.get('/sports', async (req, res) => {
+  try {
+    const sports = await prisma.sport.findMany();
+    res.json(sports);
+  } catch (e) {
+    console.error('Get sports error:', e);
+    res.status(500).json({ error: 'Failed to fetch sports' });
+  }
+});
+
 // List users (public basic listing)
 router.get('/', async (req, res) => {
   try {
@@ -64,7 +76,12 @@ function mapUserPublic(u) {
     imageUrl: u.imageUrl,
     city: u.city,
     birthYear: u.birthYear,
-    sports: (u.sports || []).map(us => ({ id: us.sport.id, name: us.sport.name })),
+    age: u.age,
+    sports: (u.sports || []).map(us => ({
+      id: us.sport.id,
+      name: us.sport.name,
+      position: us.positionDescription
+    })),
     positions: (u.positions || []).map(up => ({ id: up.position.id, name: up.position.name, sportId: up.position.sportId }))
   };
 }
@@ -112,7 +129,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (req.params.id !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { name, email, phone, imageUrl, city, birthYear, sportIds, positionIds } = req.body;
+    const { name, email, phone, imageUrl, city, birthYear, age, sportIds, sportsData, positionIds } = req.body;
     const data = {
       ...(typeof name !== 'undefined' ? { name } : {}),
       ...(typeof email !== 'undefined' ? { email } : {}),
@@ -120,12 +137,25 @@ router.put('/:id', authenticateToken, async (req, res) => {
       ...(typeof imageUrl !== 'undefined' ? { imageUrl } : {}),
       ...(typeof city !== 'undefined' ? { city } : {}),
       ...(typeof birthYear !== 'undefined' ? { birthYear: Number(birthYear) } : {}),
+      ...(typeof age !== 'undefined' ? { age: Number(age) } : {}),
     };
 
     const updated = await prisma.user.update({ where: { id: req.user.id }, data });
 
-    // Optional: replace sports
-    if (Array.isArray(sportIds)) {
+    // Update sports with positions
+    if (Array.isArray(sportsData)) {
+      await prisma.userSport.deleteMany({ where: { userId: req.user.id } });
+      if (sportsData.length > 0) {
+        await prisma.userSport.createMany({
+          data: sportsData.map((s) => ({
+            userId: req.user.id,
+            sportId: String(s.sportId),
+            positionDescription: s.position || null
+          }))
+        });
+      }
+    } else if (Array.isArray(sportIds)) {
+      // Legacy support or simple list
       await prisma.userSport.deleteMany({ where: { userId: req.user.id } });
       await prisma.userSport.createMany({ data: sportIds.map((sid) => ({ userId: req.user.id, sportId: String(sid) })) });
     }
@@ -188,10 +218,10 @@ router.post('/requests', authenticateToken, async (req, res) => {
     }
     // already friends?
     const [a, b] = orderPair(requesterId, receiverId);
-    const existingFriend = await prisma.friendship.findFirst({ where: { OR: [ { userAId: a, userBId: b }, { userAId: b, userBId: a } ] } });
+    const existingFriend = await prisma.friendship.findFirst({ where: { OR: [{ userAId: a, userBId: b }, { userAId: b, userBId: a }] } });
     if (existingFriend) return res.status(400).json({ error: 'Already friends' });
     // existing request either way
-    const existingReq = await prisma.friendRequest.findFirst({ where: { OR: [ { requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId } ] } });
+    const existingReq = await prisma.friendRequest.findFirst({ where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] } });
     if (existingReq) return res.status(400).json({ error: 'Request already exists' });
     try {
       const fr = await prisma.friendRequest.create({ data: { requesterId, receiverId } });

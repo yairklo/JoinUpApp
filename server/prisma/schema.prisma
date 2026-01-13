@@ -15,6 +15,7 @@ model User {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   birthYear      Int?
+  age            Int?
   city           String?
   phone          String?
   favoriteFields FavoriteField[]
@@ -177,6 +178,7 @@ model UserSport {
   sportId String
   sport   Sport  @relation(fields: [sportId], references: [id])
   user    User   @relation(fields: [userId], references: [id])
+  positionDescription String?
 
   @@unique([userId, sportId])
 }
