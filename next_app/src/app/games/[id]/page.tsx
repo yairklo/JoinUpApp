@@ -51,6 +51,7 @@ type Game = {
   sport?: string;
   registrationOpensAt?: string | null;
   title?: string | null;
+  friendsOnlyUntil?: string | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -133,6 +134,7 @@ export default async function GameDetails(props: {
               initialMaxPlayers={game.maxPlayers}
               initialSport={game.sport}
               initialRegistrationOpensAt={game.registrationOpensAt}
+              initialFriendsOnlyUntil={game.friendsOnlyUntil}
               initialTitle={game.title}
               canManage={canManageSeries}
             />
