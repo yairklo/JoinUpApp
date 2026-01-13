@@ -152,19 +152,25 @@ router.get('/public', async (req, res) => {
   try {
     const { fieldId, date, isOpenToJoin } = req.query;
     const where = {
-      OR: [
-        { isFriendsOnly: false },
-        { friendsOnlyUntil: { lte: new Date() } }
+      AND: [
+        {
+          OR: [
+            { isFriendsOnly: false },
+            { friendsOnlyUntil: { lte: new Date() } }
+          ]
+        }
       ]
     };
-    if (fieldId) where.fieldId = String(fieldId);
-    if (typeof isOpenToJoin !== 'undefined') where.isOpenToJoin = String(isOpenToJoin) === 'true';
+
+    if (fieldId) where.AND.push({ fieldId: String(fieldId) });
+    if (typeof isOpenToJoin !== 'undefined') where.AND.push({ isOpenToJoin: String(isOpenToJoin) === 'true' });
     if (date) {
       const d = new Date(String(date));
       const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
       const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-      where.start = { gte: startOfDay, lte: endOfDay };
+      where.AND.push({ start: { gte: startOfDay, lte: endOfDay } });
     }
+
     const games = await prisma.game.findMany({
       where,
       include: { field: true, participants: { include: { user: true } } },
@@ -189,7 +195,12 @@ router.get('/my', authenticateToken, async (req, res) => {
       where: {
         AND: [
           { start: { gte: now } },
-          { participants: { some: { userId } } }
+          {
+            OR: [
+              { participants: { some: { userId } } },
+              { organizerId: userId }
+            ]
+          }
         ]
       },
       include: { field: true, participants: { include: { user: true } } },
