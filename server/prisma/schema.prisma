@@ -60,6 +60,7 @@ model Field {
 
 model Game {
   id           String          @id @default(cuid())
+  title        String?
   fieldId      String
   /// Optional reference to a recurring series
   seriesId     String?
@@ -239,6 +240,7 @@ enum GameRoleType {
 
 model GameSeries {
   id             String   @id @default(cuid())
+  title          String?
   organizerId    String
   fieldId        String?
   fieldName      String

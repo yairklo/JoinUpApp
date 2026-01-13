@@ -36,6 +36,7 @@ type Game = {
     participants?: Array<{ id: string; name?: string | null }>;
     sport?: string;
     registrationOpensAt?: string | null;
+    title?: string | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -197,13 +198,15 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 ) : (
                     filteredGames.map((g) => {
                         const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
-                        const title = `${g.fieldName} • ${g.fieldLocation}`;
+                        const mainTitle = g.title || g.fieldName;
+                        const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
                         return (
                             <GameHeaderCard
                                 key={g.id}
                                 time={g.time}
                                 durationHours={g.duration ?? 1}
-                                title={title}
+                                title={mainTitle}
+                                subtitle={subtitle}
                                 currentPlayers={g.currentPlayers}
                                 maxPlayers={g.maxPlayers}
                                 sport={g.sport}
@@ -255,13 +258,15 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 items={filteredGames}
                 renderItem={(g) => {
                     const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
-                    const title = `${g.fieldName} • ${g.fieldLocation}`;
+                    const mainTitle = g.title || g.fieldName;
+                    const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
                     return (
                         <GameHeaderCard
                             key={g.id}
                             time={g.time}
                             durationHours={g.duration ?? 1}
-                            title={title}
+                            title={mainTitle}
+                            subtitle={subtitle}
                             currentPlayers={g.currentPlayers}
                             maxPlayers={g.maxPlayers}
                             sport={g.sport}

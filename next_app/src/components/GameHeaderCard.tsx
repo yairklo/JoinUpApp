@@ -18,6 +18,7 @@ export default function GameHeaderCard({
   time,
   date,
   title,
+  subtitle,
   currentPlayers,
   maxPlayers,
   durationHours,
@@ -27,6 +28,7 @@ export default function GameHeaderCard({
   time: string;
   date?: string;
   title: string;
+  subtitle?: string;
   currentPlayers: number;
   maxPlayers: number;
   durationHours?: number;
@@ -121,24 +123,39 @@ export default function GameHeaderCard({
           />
         </Box>
 
-        <Typography
-          variant="h6"
-          component="h3"
-          fontWeight="bold"
-          sx={{
-            mt: 0.5,
-            mb: 1,
-            lineHeight: 1.2,
-            fontSize: "1.1rem",
-            minHeight: "2.4em",
-            display: "-webkit-box",
-            overflow: "hidden",
-            WebkitBoxOrient: "vertical",
-            WebkitLineClamp: 2,
-          }}
-        >
-          {title || "משחק ללא שם"}
-        </Typography>
+        <Box sx={{ mb: 1, flexGrow: 1 }}>
+          <Typography
+            variant="h6"
+            component="h3"
+            fontWeight="bold"
+            sx={{
+              lineHeight: 1.2,
+              fontSize: "1.1rem",
+              display: "-webkit-box",
+              overflow: "hidden",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 2,
+            }}
+          >
+            {title || "משחק ללא שם"}
+          </Typography>
+          {subtitle && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                mt: 0.5,
+                fontSize: "0.85rem",
+                display: "-webkit-box",
+                overflow: "hidden",
+                WebkitBoxOrient: "vertical",
+                WebkitLineClamp: 1,
+              }}
+            >
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
 
         <Box
           className="reveal-content"

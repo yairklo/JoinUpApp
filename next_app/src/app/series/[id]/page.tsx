@@ -30,6 +30,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 type SeriesDetails = {
     id: string;
+    title?: string | null;
     fieldName: string;
     fieldLocation: string;
     time: string;
@@ -96,9 +97,14 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                 />
                             </Box>
                             <Typography variant="h4" fontWeight="bold">
-                                {series.fieldName}
+                                {series.title || series.fieldName}
                             </Typography>
                             <Stack direction="row" spacing={2} sx={{ mt: 1, color: 'text.secondary' }}>
+                                {series.title && (
+                                    <Box display="flex" alignItems="center" gap={0.5}>
+                                        <Typography variant="body2">{series.fieldName}</Typography>
+                                    </Box>
+                                )}
                                 <Box display="flex" alignItems="center" gap={0.5}>
                                     <AccessTimeIcon fontSize="small" />
                                     <Typography variant="body2">{dayName} at {series.time}</Typography>
@@ -115,6 +121,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                 <SeriesSettingsEditor
                                     seriesId={series.id}
                                     initialAutoOpenHours={series.autoOpenRegistrationHours}
+                                    initialTitle={series.title}
                                     canManage={true}
                                 />
                             )}

@@ -24,7 +24,8 @@ router.get('/active', async (req, res) => {
       const org = organizers.find(u => u.id === s.organizerId);
       return {
         id: s.id,
-        name: `${s.fieldName} • ${s.time}`,
+        title: s.title || null,
+        name: s.title || `${s.fieldName} • ${s.time}`,
         fieldName: s.fieldName,
         fieldLocation: s.fieldLocation,
         time: s.time,
@@ -100,7 +101,8 @@ router.get('/:seriesId', async (req, res) => {
 
     const payload = {
       id: series.id,
-      name: `${series.fieldName} • ${series.time}`,
+      title: series.title || null,
+      name: series.title || `${series.fieldName} • ${series.time}`,
       fieldName: series.fieldName,
       fieldLocation: series.fieldLocation,
       time: series.time,
@@ -191,6 +193,7 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
   try {
     const { seriesId } = req.params;
     const {
+      title,
       time,
       fieldId,
       fieldName,
@@ -216,6 +219,7 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     }
 
     const data = {};
+    if (typeof title === 'string') data.title = title;
     if (typeof time === 'string') data.time = String(time);
     if (typeof fieldId !== 'undefined') data.fieldId = fieldId || null;
     if (typeof fieldName === 'string') data.fieldName = fieldName;
@@ -245,6 +249,7 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     const updates = [];
     for (const g of futureGames) {
       const gd = {};
+      if (typeof title === 'string') gd.title = title;
       if (typeof maxPlayers !== 'undefined' && !Number.isNaN(Number(maxPlayers))) gd.maxPlayers = Number(maxPlayers);
       if (typeof fieldId !== 'undefined') gd.fieldId = fieldId || g.fieldId;
       // Time change for WEEKLY: update only the time portion (HH:MM)

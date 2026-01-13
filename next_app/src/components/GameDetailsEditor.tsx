@@ -42,6 +42,7 @@ interface GameDetailsEditorProps {
   initialMaxPlayers: number;
   initialSport?: string;
   initialRegistrationOpensAt?: string | null;
+  initialTitle?: string | null;
   canManage: boolean;
 }
 
@@ -52,6 +53,7 @@ export default function GameDetailsEditor({
   initialMaxPlayers,
   initialSport = "SOCCER",
   initialRegistrationOpensAt,
+  initialTitle,
   canManage
 }: GameDetailsEditorProps) {
   const { getToken } = useAuth();
@@ -64,6 +66,7 @@ export default function GameDetailsEditor({
   const [date, setDate] = useState(initialDate);
   const [maxPlayers, setMaxPlayers] = useState(initialMaxPlayers);
   const [sport, setSport] = useState(initialSport);
+  const [title, setTitle] = useState(initialTitle || "");
 
   // Future Registration State
   const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
@@ -75,6 +78,7 @@ export default function GameDetailsEditor({
     setDate(initialDate);
     setMaxPlayers(initialMaxPlayers);
     setSport(initialSport || "SOCCER");
+    setTitle(initialTitle || "");
 
     setFutureRegEnabled(!!initialRegistrationOpensAt);
     if (initialRegistrationOpensAt) {
@@ -113,6 +117,7 @@ export default function GameDetailsEditor({
           date,
           maxPlayers,
           sport,
+          title,
           registrationOpensAt: futureRegEnabled ? registrationOpensAt : null
         }),
       });
@@ -155,6 +160,15 @@ export default function GameDetailsEditor({
           </Alert>
           <Box py={1}>
             <Grid container spacing={2}>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  label="כותרת המשחק (אופציונלי)"
+                  fullWidth
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="למשל: כדורגל שישי בצהריים"
+                />
+              </Grid>
               <Grid size={{ xs: 6 }}>
                 <TextField
                   label="תאריך"
