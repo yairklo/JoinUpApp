@@ -64,6 +64,7 @@ function mapGameForClient(game) {
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
     isFriendsOnly: !!game.isFriendsOnly,
+    friendsOnlyUntil: game.friendsOnlyUntil ? new Date(game.friendsOnlyUntil).toISOString() : null,
     lotteryEnabled: !!game.lotteryEnabled,
     lotteryAt: lotteryAtIso,
     organizerInLottery: !!game.organizerInLottery,
@@ -111,29 +112,26 @@ const router = express.Router();
 // Build visibility where-clause depending on viewerId
 function buildVisibilityWhere(viewerId) {
   if (!viewerId) {
-    return { isFriendsOnly: false };
+    return {
+      OR: [
+        { isFriendsOnly: false },
+        { friendsOnlyUntil: { lte: new Date() } }
+      ]
+    };
   }
   return {
     OR: [
       { isFriendsOnly: false },
+      { friendsOnlyUntil: { lte: new Date() } },
+      { organizerId: viewerId },
+      { participants: { some: { userId: viewerId } } },
       {
-        AND: [
-          { isFriendsOnly: true },
-          {
-            OR: [
-              { organizerId: viewerId },
-              { participants: { some: { userId: viewerId } } },
-              {
-                organizer: {
-                  OR: [
-                    { friendshipsA: { some: { userBId: viewerId } } },
-                    { friendshipsB: { some: { userAId: viewerId } } },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
+        organizer: {
+          OR: [
+            { friendshipsA: { some: { userBId: viewerId } } },
+            { friendshipsB: { some: { userAId: viewerId } } },
+          ],
+        },
       },
     ],
   };
@@ -143,15 +141,26 @@ function buildVisibilityWhere(viewerId) {
 router.get('/public', async (req, res) => {
   try {
     const { fieldId, date, isOpenToJoin } = req.query;
-    const where = { isFriendsOnly: false };
-    if (fieldId) where.fieldId = String(fieldId);
-    if (typeof isOpenToJoin !== 'undefined') where.isOpenToJoin = String(isOpenToJoin) === 'true';
+    const where = {
+      AND: [
+        {
+          OR: [
+            { isFriendsOnly: false },
+            { friendsOnlyUntil: { lte: new Date() } }
+          ]
+        }
+      ]
+    };
+
+    if (fieldId) where.AND.push({ fieldId: String(fieldId) });
+    if (typeof isOpenToJoin !== 'undefined') where.AND.push({ isOpenToJoin: String(isOpenToJoin) === 'true' });
     if (date) {
       const d = new Date(String(date));
       const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
       const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-      where.start = { gte: startOfDay, lte: endOfDay };
+      where.AND.push({ start: { gte: startOfDay, lte: endOfDay } });
     }
+
     const games = await prisma.game.findMany({
       where,
       include: { field: true, participants: { include: { user: true } } },
@@ -176,7 +185,12 @@ router.get('/my', authenticateToken, async (req, res) => {
       where: {
         AND: [
           { start: { gte: now } },
-          { participants: { some: { userId } } }
+          {
+            OR: [
+              { participants: { some: { userId } } },
+              { organizerId: userId }
+            ]
+          }
         ]
       },
       include: { field: true, participants: { include: { user: true } } },
@@ -527,7 +541,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-    const { time, date, maxPlayers, sport, registrationOpensAt, title } = req.body || {};
+    const { time, date, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -585,6 +599,14 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 
     if (typeof title !== 'undefined') {
       updates['title'] = title;
+    }
+
+    if (friendsOnlyUntil !== undefined) {
+      updates['friendsOnlyUntil'] = friendsOnlyUntil ? new Date(friendsOnlyUntil) : null;
+    }
+
+    if (typeof isFriendsOnly === 'boolean') {
+      updates['isFriendsOnly'] = isFriendsOnly;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -729,7 +751,8 @@ router.post('/', authenticateToken, async (req, res) => {
       customLocation,
       sport,
       registrationOpensAt,
-      title
+      title,
+      friendsOnlyUntil
     } = req.body;
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
@@ -890,7 +913,8 @@ router.post('/', authenticateToken, async (req, res) => {
                 participants: { create: participantsCreate },
                 roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
                 sport: sport || 'SOCCER',
-                registrationOpensAt: instanceRegOpen
+                registrationOpensAt: instanceRegOpen,
+                friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -940,7 +964,8 @@ router.post('/', authenticateToken, async (req, res) => {
                 participants: { create: participantsCreate },
                 roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
                 sport: sport || 'SOCCER',
-                registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null
+                registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
+                friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -983,7 +1008,8 @@ router.post('/', authenticateToken, async (req, res) => {
           create: { userId: req.user.id, role: 'ORGANIZER' }
         },
         sport: sport || 'SOCCER',
-        registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null
+        registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
+        friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null
       },
       include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
     });

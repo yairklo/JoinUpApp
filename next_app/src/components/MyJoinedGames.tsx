@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
@@ -35,6 +35,7 @@ import { SportFilter } from "@/utils/sports";
 
 export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
   const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
   const userId = user?.id || "";
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,24 +50,15 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
     let ignore = false;
     async function fetchMyGames() {
       try {
-        const res = await fetch(`${API_BASE}/api/games`, { cache: "no-store" });
+        const token = await getToken();
+        const res = await fetch(`${API_BASE}/api/games/my`, {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error("Failed to fetch games");
 
-        const allGames: Game[] = await res.json();
-        const now = new Date();
-
-        const myUpcoming = allGames
-          .filter((g) => (g.participants || []).some((p) => p.id === userId))
-          .filter((g) => {
-            const start = new Date(`${g.date}T${g.time}:00`);
-            const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
-            return end >= now;
-          })
-          .sort(
-            (a, b) =>
-              new Date(`${a.date}T${a.time}:00`).getTime() -
-              new Date(`${b.date}T${b.time}:00`).getTime()
-          );
+        const myGames: Game[] = await res.json();
+        const myUpcoming = myGames
 
         // Deduplicate by seriesId, keeping the first occurrence (nearest upcoming)
         const uniqueSeries = new Set<string>();

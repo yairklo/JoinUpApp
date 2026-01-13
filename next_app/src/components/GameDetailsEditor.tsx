@@ -35,6 +35,24 @@ export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
   label,
 }));
 
+// Helper functions to get local date/time parts from ISO string
+function getIsoDatePart(iso: string | null | undefined) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getIsoTimePart(iso: string | null | undefined) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 interface GameDetailsEditorProps {
   gameId: string;
   initialTime: string;
@@ -42,6 +60,8 @@ interface GameDetailsEditorProps {
   initialMaxPlayers: number;
   initialSport?: string;
   initialRegistrationOpensAt?: string | null;
+  initialFriendsOnlyUntil?: string | null;
+  initialIsFriendsOnly: boolean;
   initialTitle?: string | null;
   canManage: boolean;
 }
@@ -53,6 +73,8 @@ export default function GameDetailsEditor({
   initialMaxPlayers,
   initialSport = "SOCCER",
   initialRegistrationOpensAt,
+  initialFriendsOnlyUntil,
+  initialIsFriendsOnly,
   initialTitle,
   canManage
 }: GameDetailsEditorProps) {
@@ -67,11 +89,17 @@ export default function GameDetailsEditor({
   const [maxPlayers, setMaxPlayers] = useState(initialMaxPlayers);
   const [sport, setSport] = useState(initialSport);
   const [title, setTitle] = useState(initialTitle || "");
+  const [isFriendsOnly, setIsFriendsOnly] = useState(initialIsFriendsOnly);
 
   // Future Registration State
   const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
-  const [regDate, setRegDate] = useState(initialRegistrationOpensAt ? initialRegistrationOpensAt.split('T')[0] : "");
-  const [regTime, setRegTime] = useState(initialRegistrationOpensAt ? initialRegistrationOpensAt.split('T')[1]?.substring(0, 5) : "");
+  const [regDate, setRegDate] = useState(getIsoDatePart(initialRegistrationOpensAt));
+  const [regTime, setRegTime] = useState(getIsoTimePart(initialRegistrationOpensAt));
+
+  // Public Later State
+  const [makePublicLater, setMakePublicLater] = useState(!!initialFriendsOnlyUntil);
+  const [publicDate, setPublicDate] = useState(getIsoDatePart(initialFriendsOnlyUntil));
+  const [publicTime, setPublicTime] = useState(getIsoTimePart(initialFriendsOnlyUntil));
 
   const handleOpen = () => {
     setTime(initialTime);
@@ -79,14 +107,23 @@ export default function GameDetailsEditor({
     setMaxPlayers(initialMaxPlayers);
     setSport(initialSport || "SOCCER");
     setTitle(initialTitle || "");
+    setIsFriendsOnly(initialIsFriendsOnly);
 
     setFutureRegEnabled(!!initialRegistrationOpensAt);
     if (initialRegistrationOpensAt) {
-      setRegDate(initialRegistrationOpensAt.split('T')[0]);
-      setRegTime(initialRegistrationOpensAt.split('T')[1]?.substring(0, 5) || "");
+      setRegDate(getIsoDatePart(initialRegistrationOpensAt));
+      setRegTime(getIsoTimePart(initialRegistrationOpensAt));
     } else {
-      setRegDate("");
       setRegTime("");
+    }
+
+    setMakePublicLater(!!initialFriendsOnlyUntil);
+    if (initialFriendsOnlyUntil) {
+      setPublicDate(getIsoDatePart(initialFriendsOnlyUntil));
+      setPublicTime(getIsoTimePart(initialFriendsOnlyUntil));
+    } else {
+      setPublicDate("");
+      setPublicTime("");
     }
 
     setOpen(true);
@@ -102,7 +139,14 @@ export default function GameDetailsEditor({
       let registrationOpensAt = null;
       if (futureRegEnabled) {
         if (regDate && regTime) {
-          registrationOpensAt = `${regDate}T${regTime}:00`;
+          registrationOpensAt = new Date(`${regDate}T${regTime}:00`).toISOString();
+        }
+      }
+
+      let friendsOnlyUntil = null;
+      if (makePublicLater) {
+        if (publicDate && publicTime) {
+          friendsOnlyUntil = new Date(`${publicDate}T${publicTime}:00`).toISOString();
         }
       }
 
@@ -118,7 +162,9 @@ export default function GameDetailsEditor({
           maxPlayers,
           sport,
           title,
-          registrationOpensAt: futureRegEnabled ? registrationOpensAt : null
+          isFriendsOnly,
+          registrationOpensAt: futureRegEnabled ? registrationOpensAt : null,
+          friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null
         }),
       });
 
@@ -249,6 +295,54 @@ export default function GameDetailsEditor({
                   </Collapse>
                 </Paper>
               </Grid>
+
+              {/* Friends Only / Private Section */}
+              <Grid size={{ xs: 12 }} mt={2}>
+                <Paper variant="outlined" sx={{ p: 2, borderColor: isFriendsOnly ? 'primary.main' : 'divider' }}>
+                  <FormControlLabel
+                    control={<Switch checked={isFriendsOnly} onChange={(e) => setIsFriendsOnly(e.target.checked)} />}
+                    label="משחק פרטי (לחברים בלבד)"
+                    sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                  />
+
+                  <Collapse in={isFriendsOnly}>
+                    <Box mt={2} p={2} bgcolor="grey.50" borderRadius={1} border={1} borderColor="divider">
+                      <FormControlLabel
+                        control={<Switch checked={makePublicLater} onChange={(e) => setMakePublicLater(e.target.checked)} />}
+                        label="פתח לציבור במועד מאוחר יותר"
+                        sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                      />
+                      <Collapse in={makePublicLater}>
+                        <Grid container spacing={2} mt={1}>
+                          <Grid size={{ xs: 6 }}>
+                            <TextField
+                              label="תאריך פתיחה לציבור"
+                              type="date"
+                              fullWidth
+                              value={publicDate}
+                              onChange={(e) => setPublicDate(e.target.value)}
+                              InputLabelProps={{ shrink: true }}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 6 }}>
+                            <TextField
+                              label="שעת פתיחה"
+                              type="time"
+                              fullWidth
+                              value={publicTime}
+                              onChange={(e) => setPublicTime(e.target.value)}
+                              InputLabelProps={{ shrink: true }}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Collapse>
+                    </Box>
+                  </Collapse>
+                </Paper>
+              </Grid>
+
+              {/* Make Public Later Section */}
+
 
             </Grid>
           </Box>
