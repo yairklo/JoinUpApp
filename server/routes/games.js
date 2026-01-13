@@ -123,25 +123,15 @@ function buildVisibilityWhere(viewerId) {
     OR: [
       { isFriendsOnly: false },
       { friendsOnlyUntil: { lte: new Date() } },
+      { organizerId: viewerId },
+      { participants: { some: { userId: viewerId } } },
       {
-        AND: [
-          { isFriendsOnly: true },
-          { OR: [{ friendsOnlyUntil: null }, { friendsOnlyUntil: { gt: new Date() } }] },
-          {
-            OR: [
-              { organizerId: viewerId },
-              { participants: { some: { userId: viewerId } } },
-              {
-                organizer: {
-                  OR: [
-                    { friendshipsA: { some: { userBId: viewerId } } },
-                    { friendshipsB: { some: { userAId: viewerId } } },
-                  ],
-                },
-              },
-            ],
-          },
-        ],
+        organizer: {
+          OR: [
+            { friendshipsA: { some: { userBId: viewerId } } },
+            { friendshipsB: { some: { userAId: viewerId } } },
+          ],
+        },
       },
     ],
   };
