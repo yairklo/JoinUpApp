@@ -192,7 +192,7 @@ function NewGamePageInner() {
         if (!form.futureRegDate || !form.futureRegTime) throw new Error("אנא בחר תאריך ושעה לפתיחת הרישום");
         const openTs = new Date(`${form.futureRegDate}T${form.futureRegTime}:00`).getTime();
         if (openTs >= startTs) throw new Error("זמן פתיחת הרישום חייב להיות לפני תחילת המשחק");
-        registrationOpensAt = `${form.futureRegDate}T${form.futureRegTime}:00`;
+        registrationOpensAt = new Date(`${form.futureRegDate}T${form.futureRegTime}:00`).toISOString();
       }
 
       let friendsOnlyUntil: string | undefined = undefined;
@@ -200,7 +200,7 @@ function NewGamePageInner() {
         if (!form.publicDate || !form.publicTime) throw new Error("אנא בחר תאריך ושעה לפתיחת המשחק לציבור");
         const publicTs = new Date(`${form.publicDate}T${form.publicTime}:00`).getTime();
         if (publicTs >= startTs) throw new Error("המשחק חייב להיפתח לציבור לפני שהמשחק מתחיל");
-        friendsOnlyUntil = `${form.publicDate}T${form.publicTime}:00`;
+        friendsOnlyUntil = new Date(`${form.publicDate}T${form.publicTime}:00`).toISOString();
       }
 
       const res = await fetch(`${API_BASE}/api/games`, {
@@ -226,7 +226,7 @@ function NewGamePageInner() {
           ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
 
           title: form.title || null,
-          lotteryAt: form.lotteryEnabled ? `${form.lotteryDate}T${form.lotteryTime}:00` : undefined,
+          lotteryAt: form.lotteryEnabled ? new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).toISOString() : undefined,
           registrationOpensAt,
           friendsOnlyUntil
         }),

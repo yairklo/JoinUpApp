@@ -35,6 +35,24 @@ export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
   label,
 }));
 
+// Helper functions to get local date/time parts from ISO string
+function getIsoDatePart(iso: string | null | undefined) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getIsoTimePart(iso: string | null | undefined) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 interface GameDetailsEditorProps {
   gameId: string;
   initialTime: string;
@@ -75,13 +93,13 @@ export default function GameDetailsEditor({
 
   // Future Registration State
   const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
-  const [regDate, setRegDate] = useState(initialRegistrationOpensAt ? initialRegistrationOpensAt.split('T')[0] : "");
-  const [regTime, setRegTime] = useState(initialRegistrationOpensAt ? initialRegistrationOpensAt.split('T')[1]?.substring(0, 5) : "");
+  const [regDate, setRegDate] = useState(getIsoDatePart(initialRegistrationOpensAt));
+  const [regTime, setRegTime] = useState(getIsoTimePart(initialRegistrationOpensAt));
 
   // Public Later State
   const [makePublicLater, setMakePublicLater] = useState(!!initialFriendsOnlyUntil);
-  const [publicDate, setPublicDate] = useState(initialFriendsOnlyUntil ? initialFriendsOnlyUntil.split('T')[0] : "");
-  const [publicTime, setPublicTime] = useState(initialFriendsOnlyUntil ? initialFriendsOnlyUntil.split('T')[1]?.substring(0, 5) : "");
+  const [publicDate, setPublicDate] = useState(getIsoDatePart(initialFriendsOnlyUntil));
+  const [publicTime, setPublicTime] = useState(getIsoTimePart(initialFriendsOnlyUntil));
 
   const handleOpen = () => {
     setTime(initialTime);
@@ -93,16 +111,16 @@ export default function GameDetailsEditor({
 
     setFutureRegEnabled(!!initialRegistrationOpensAt);
     if (initialRegistrationOpensAt) {
-      setRegDate(initialRegistrationOpensAt.split('T')[0]);
-      setRegTime(initialRegistrationOpensAt.split('T')[1]?.substring(0, 5) || "");
+      setRegDate(getIsoDatePart(initialRegistrationOpensAt));
+      setRegTime(getIsoTimePart(initialRegistrationOpensAt));
     } else {
       setRegTime("");
     }
 
     setMakePublicLater(!!initialFriendsOnlyUntil);
     if (initialFriendsOnlyUntil) {
-      setPublicDate(initialFriendsOnlyUntil.split('T')[0]);
-      setPublicTime(initialFriendsOnlyUntil.split('T')[1]?.substring(0, 5) || "");
+      setPublicDate(getIsoDatePart(initialFriendsOnlyUntil));
+      setPublicTime(getIsoTimePart(initialFriendsOnlyUntil));
     } else {
       setPublicDate("");
       setPublicTime("");
@@ -121,14 +139,14 @@ export default function GameDetailsEditor({
       let registrationOpensAt = null;
       if (futureRegEnabled) {
         if (regDate && regTime) {
-          registrationOpensAt = `${regDate}T${regTime}:00`;
+          registrationOpensAt = new Date(`${regDate}T${regTime}:00`).toISOString();
         }
       }
 
       let friendsOnlyUntil = null;
       if (makePublicLater) {
         if (publicDate && publicTime) {
-          friendsOnlyUntil = `${publicDate}T${publicTime}:00`;
+          friendsOnlyUntil = new Date(`${publicDate}T${publicTime}:00`).toISOString();
         }
       }
 
