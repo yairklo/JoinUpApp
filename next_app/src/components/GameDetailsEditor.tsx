@@ -42,6 +42,7 @@ interface GameDetailsEditorProps {
   initialMaxPlayers: number;
   initialSport?: string;
   initialRegistrationOpensAt?: string | null;
+  initialFriendsOnlyUntil?: string | null;
   initialTitle?: string | null;
   canManage: boolean;
 }
@@ -53,6 +54,7 @@ export default function GameDetailsEditor({
   initialMaxPlayers,
   initialSport = "SOCCER",
   initialRegistrationOpensAt,
+  initialFriendsOnlyUntil,
   initialTitle,
   canManage
 }: GameDetailsEditorProps) {
@@ -73,6 +75,11 @@ export default function GameDetailsEditor({
   const [regDate, setRegDate] = useState(initialRegistrationOpensAt ? initialRegistrationOpensAt.split('T')[0] : "");
   const [regTime, setRegTime] = useState(initialRegistrationOpensAt ? initialRegistrationOpensAt.split('T')[1]?.substring(0, 5) : "");
 
+  // Public Later State
+  const [makePublicLater, setMakePublicLater] = useState(!!initialFriendsOnlyUntil);
+  const [publicDate, setPublicDate] = useState(initialFriendsOnlyUntil ? initialFriendsOnlyUntil.split('T')[0] : "");
+  const [publicTime, setPublicTime] = useState(initialFriendsOnlyUntil ? initialFriendsOnlyUntil.split('T')[1]?.substring(0, 5) : "");
+
   const handleOpen = () => {
     setTime(initialTime);
     setDate(initialDate);
@@ -85,8 +92,16 @@ export default function GameDetailsEditor({
       setRegDate(initialRegistrationOpensAt.split('T')[0]);
       setRegTime(initialRegistrationOpensAt.split('T')[1]?.substring(0, 5) || "");
     } else {
-      setRegDate("");
       setRegTime("");
+    }
+
+    setMakePublicLater(!!initialFriendsOnlyUntil);
+    if (initialFriendsOnlyUntil) {
+      setPublicDate(initialFriendsOnlyUntil.split('T')[0]);
+      setPublicTime(initialFriendsOnlyUntil.split('T')[1]?.substring(0, 5) || "");
+    } else {
+      setPublicDate("");
+      setPublicTime("");
     }
 
     setOpen(true);
@@ -106,6 +121,13 @@ export default function GameDetailsEditor({
         }
       }
 
+      let friendsOnlyUntil = null;
+      if (makePublicLater) {
+        if (publicDate && publicTime) {
+          friendsOnlyUntil = `${publicDate}T${publicTime}:00`;
+        }
+      }
+
       const res = await fetch(`${API_BASE}/api/games/${gameId}`, {
         method: "PATCH",
         headers: {
@@ -118,7 +140,8 @@ export default function GameDetailsEditor({
           maxPlayers,
           sport,
           title,
-          registrationOpensAt: futureRegEnabled ? registrationOpensAt : null
+          registrationOpensAt: futureRegEnabled ? registrationOpensAt : null,
+          friendsOnlyUntil: makePublicLater ? friendsOnlyUntil : null
         }),
       });
 
@@ -242,6 +265,41 @@ export default function GameDetailsEditor({
                           fullWidth
                           value={regTime}
                           onChange={(e) => setRegTime(e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Collapse>
+                </Paper>
+              </Grid>
+
+              {/* Make Public Later Section */}
+              <Grid size={{ xs: 12 }} mt={2}>
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  <FormControlLabel
+                    control={<Switch checked={makePublicLater} onChange={(e) => setMakePublicLater(e.target.checked)} />}
+                    label="פתח לציבור במועד מאוחר יותר"
+                    sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                  />
+                  <Collapse in={makePublicLater}>
+                    <Grid container spacing={2} mt={1}>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="תאריך פתיחה לציבור"
+                          type="date"
+                          fullWidth
+                          value={publicDate}
+                          onChange={(e) => setPublicDate(e.target.value)}
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 6 }}>
+                        <TextField
+                          label="שעת פתיחה"
+                          type="time"
+                          fullWidth
+                          value={publicTime}
+                          onChange={(e) => setPublicTime(e.target.value)}
                           InputLabelProps={{ shrink: true }}
                         />
                       </Grid>

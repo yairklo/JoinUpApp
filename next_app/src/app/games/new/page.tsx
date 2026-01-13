@@ -85,6 +85,9 @@ function NewGamePageInner() {
     futureRegistration: false,
     futureRegDate: "",
     futureRegTime: "",
+    makePublicLater: false,
+    publicDate: "",
+    publicTime: "",
   });
 
   const MapWithNoSSR = useMemo(
@@ -192,6 +195,14 @@ function NewGamePageInner() {
         registrationOpensAt = `${form.futureRegDate}T${form.futureRegTime}:00`;
       }
 
+      let friendsOnlyUntil: string | undefined = undefined;
+      if (form.isFriendsOnly && form.makePublicLater) {
+        if (!form.publicDate || !form.publicTime) throw new Error("אנא בחר תאריך ושעה לפתיחת המשחק לציבור");
+        const publicTs = new Date(`${form.publicDate}T${form.publicTime}:00`).getTime();
+        if (publicTs >= startTs) throw new Error("המשחק חייב להיפתח לציבור לפני שהמשחק מתחיל");
+        friendsOnlyUntil = `${form.publicDate}T${form.publicTime}:00`;
+      }
+
       const res = await fetch(`${API_BASE}/api/games`, {
         method: "POST",
         headers: {
@@ -214,10 +225,10 @@ function NewGamePageInner() {
           // Custom Map Point
           ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
 
-          isOpenToJoin: !form.isFriendsOnly,
           title: form.title || null,
           lotteryAt: form.lotteryEnabled ? `${form.lotteryDate}T${form.lotteryTime}:00` : undefined,
-          registrationOpensAt
+          registrationOpensAt,
+          friendsOnlyUntil
         }),
       });
 
@@ -470,6 +481,48 @@ function NewGamePageInner() {
                         label="לחברים בלבד (פרטי)"
                         sx={{ flexDirection: 'row-reverse', ml: 2 }}
                       />
+
+                      {/* Public Later Settings */}
+                      <Collapse in={form.isFriendsOnly} style={{ width: '100%' }}>
+                        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50', borderColor: 'grey.300', mb: 2 }}>
+                          <FormControlLabel
+                            control={<Switch checked={form.makePublicLater} onChange={(e) => update("makePublicLater", e.target.checked)} />}
+                            label="פתח לציבור במועד מאוחר יותר"
+                            sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0, mb: form.makePublicLater ? 2 : 0 }}
+                          />
+
+                          <Collapse in={form.makePublicLater}>
+                            <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" mb={2} align="right">
+                              מועד הפיכת המשחק לציבורי
+                            </Typography>
+                            <Grid container spacing={2} direction="row-reverse">
+                              <Grid size={{ xs: 12, sm: 6 }}>
+                                <TextField
+                                  label="תאריך פתיחה לציבור"
+                                  type="date"
+                                  fullWidth
+                                  size="small"
+                                  InputLabelProps={{ shrink: true }}
+                                  value={form.publicDate}
+                                  onChange={(e) => update("publicDate", e.target.value)}
+                                />
+                              </Grid>
+                              <Grid size={{ xs: 12, sm: 6 }}>
+                                <TextField
+                                  label="שעת פתיחה לציבור"
+                                  type="time"
+                                  fullWidth
+                                  size="small"
+                                  InputLabelProps={{ shrink: true }}
+                                  value={form.publicTime}
+                                  onChange={(e) => update("publicTime", e.target.value)}
+                                />
+                              </Grid>
+                            </Grid>
+                          </Collapse>
+                        </Paper>
+                      </Collapse>
+
                       <FormControlLabel
                         control={<Switch checked={form.lotteryEnabled} onChange={(e) => update("lotteryEnabled", e.target.checked)} />}
                         label="אפשר הגרלה"
