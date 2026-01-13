@@ -551,7 +551,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-    const { time, date, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil } = req.body || {};
+    const { time, date, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -613,6 +613,10 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 
     if (friendsOnlyUntil !== undefined) {
       updates['friendsOnlyUntil'] = friendsOnlyUntil ? new Date(friendsOnlyUntil) : null;
+    }
+
+    if (typeof isFriendsOnly === 'boolean') {
+      updates['isFriendsOnly'] = isFriendsOnly;
     }
 
     if (Object.keys(updates).length === 0) {

@@ -43,6 +43,7 @@ interface GameDetailsEditorProps {
   initialSport?: string;
   initialRegistrationOpensAt?: string | null;
   initialFriendsOnlyUntil?: string | null;
+  initialIsFriendsOnly: boolean;
   initialTitle?: string | null;
   canManage: boolean;
 }
@@ -55,6 +56,7 @@ export default function GameDetailsEditor({
   initialSport = "SOCCER",
   initialRegistrationOpensAt,
   initialFriendsOnlyUntil,
+  initialIsFriendsOnly,
   initialTitle,
   canManage
 }: GameDetailsEditorProps) {
@@ -69,6 +71,7 @@ export default function GameDetailsEditor({
   const [maxPlayers, setMaxPlayers] = useState(initialMaxPlayers);
   const [sport, setSport] = useState(initialSport);
   const [title, setTitle] = useState(initialTitle || "");
+  const [isFriendsOnly, setIsFriendsOnly] = useState(initialIsFriendsOnly);
 
   // Future Registration State
   const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
@@ -86,6 +89,7 @@ export default function GameDetailsEditor({
     setMaxPlayers(initialMaxPlayers);
     setSport(initialSport || "SOCCER");
     setTitle(initialTitle || "");
+    setIsFriendsOnly(initialIsFriendsOnly);
 
     setFutureRegEnabled(!!initialRegistrationOpensAt);
     if (initialRegistrationOpensAt) {
@@ -140,8 +144,9 @@ export default function GameDetailsEditor({
           maxPlayers,
           sport,
           title,
+          isFriendsOnly,
           registrationOpensAt: futureRegEnabled ? registrationOpensAt : null,
-          friendsOnlyUntil: makePublicLater ? friendsOnlyUntil : null
+          friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null
         }),
       });
 
@@ -273,40 +278,53 @@ export default function GameDetailsEditor({
                 </Paper>
               </Grid>
 
-              {/* Make Public Later Section */}
+              {/* Friends Only / Private Section */}
               <Grid size={{ xs: 12 }} mt={2}>
-                <Paper variant="outlined" sx={{ p: 2 }}>
+                <Paper variant="outlined" sx={{ p: 2, borderColor: isFriendsOnly ? 'primary.main' : 'divider' }}>
                   <FormControlLabel
-                    control={<Switch checked={makePublicLater} onChange={(e) => setMakePublicLater(e.target.checked)} />}
-                    label="פתח לציבור במועד מאוחר יותר"
+                    control={<Switch checked={isFriendsOnly} onChange={(e) => setIsFriendsOnly(e.target.checked)} />}
+                    label="משחק פרטי (לחברים בלבד)"
                     sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
                   />
-                  <Collapse in={makePublicLater}>
-                    <Grid container spacing={2} mt={1}>
-                      <Grid size={{ xs: 6 }}>
-                        <TextField
-                          label="תאריך פתיחה לציבור"
-                          type="date"
-                          fullWidth
-                          value={publicDate}
-                          onChange={(e) => setPublicDate(e.target.value)}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <TextField
-                          label="שעת פתיחה"
-                          type="time"
-                          fullWidth
-                          value={publicTime}
-                          onChange={(e) => setPublicTime(e.target.value)}
-                          InputLabelProps={{ shrink: true }}
-                        />
-                      </Grid>
-                    </Grid>
+
+                  <Collapse in={isFriendsOnly}>
+                    <Box mt={2} p={2} bgcolor="grey.50" borderRadius={1} border={1} borderColor="divider">
+                      <FormControlLabel
+                        control={<Switch checked={makePublicLater} onChange={(e) => setMakePublicLater(e.target.checked)} />}
+                        label="פתח לציבור במועד מאוחר יותר"
+                        sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                      />
+                      <Collapse in={makePublicLater}>
+                        <Grid container spacing={2} mt={1}>
+                          <Grid size={{ xs: 6 }}>
+                            <TextField
+                              label="תאריך פתיחה לציבור"
+                              type="date"
+                              fullWidth
+                              value={publicDate}
+                              onChange={(e) => setPublicDate(e.target.value)}
+                              InputLabelProps={{ shrink: true }}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 6 }}>
+                            <TextField
+                              label="שעת פתיחה"
+                              type="time"
+                              fullWidth
+                              value={publicTime}
+                              onChange={(e) => setPublicTime(e.target.value)}
+                              InputLabelProps={{ shrink: true }}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Collapse>
+                    </Box>
                   </Collapse>
                 </Paper>
               </Grid>
+
+              {/* Make Public Later Section */}
+
 
             </Grid>
           </Box>
