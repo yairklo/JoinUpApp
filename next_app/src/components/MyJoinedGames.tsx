@@ -27,6 +27,7 @@ type Game = {
   sport?: string;
   seriesId?: string | null;
   title?: string | null;
+  teamSize?: number | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -119,6 +120,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
               currentPlayers={g.currentPlayers}
               maxPlayers={g.maxPlayers}
               sport={g.sport}
+              teamSize={g.teamSize}
             >
               <LeaveGameButton
                 gameId={g.id}

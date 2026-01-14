@@ -88,6 +88,7 @@ function NewGamePageInner() {
     makePublicLater: false,
     publicDate: "",
     publicTime: "",
+    teamSize: null as number | null,
   });
 
   const MapWithNoSSR = useMemo(
@@ -448,6 +449,16 @@ function NewGamePageInner() {
                     size="small"
                     value={form.maxPlayers}
                     onChange={(e) => update("maxPlayers", Number(e.target.value))}
+                  />
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3 }}>
+                  <TextField
+                    label='גודל קבוצה (למשל 5 ל "5X5")'
+                    type="number"
+                    fullWidth
+                    size="small"
+                    value={form.teamSize || ""}
+                    onChange={(e) => update("teamSize", e.target.value ? Number(e.target.value) : null)}
                   />
                 </Grid>
               </Grid>

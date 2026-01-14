@@ -77,6 +77,7 @@ function mapGameForClient(game) {
     time,
     duration: game.duration,
     maxPlayers: game.maxPlayers,
+    teamSize: game.teamSize || null,
     currentPlayers: confirmedCount,
     totalSignups,
     confirmedCount,
@@ -541,7 +542,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-    const { time, date, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly } = req.body || {};
+    const { time, date, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly, teamSize } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -582,6 +583,15 @@ router.patch('/:id', authenticateToken, async (req, res) => {
         updates['maxPlayers'] = mp;
         // If reducing capacity below current signups, we might need to handle waitlist logic here
         // For now this is a simple update
+      }
+    }
+
+    if (teamSize !== undefined) {
+      const ts = parseInt(teamSize, 10);
+      if (!isNaN(ts) && ts > 0) {
+        updates['teamSize'] = ts;
+      } else if (teamSize === null) {
+        updates['teamSize'] = null;
       }
     }
 
@@ -752,7 +762,8 @@ router.post('/', authenticateToken, async (req, res) => {
       sport,
       registrationOpensAt,
       title,
-      friendsOnlyUntil
+      friendsOnlyUntil,
+      teamSize
     } = req.body;
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
@@ -914,7 +925,10 @@ router.post('/', authenticateToken, async (req, res) => {
                 roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
                 sport: sport || 'SOCCER',
                 registrationOpensAt: instanceRegOpen,
-                friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null
+                sport: sport || 'SOCCER',
+                registrationOpensAt: instanceRegOpen,
+                friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null,
+                teamSize: teamSize ? parseInt(teamSize) : null
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -965,7 +979,9 @@ router.post('/', authenticateToken, async (req, res) => {
                 roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
                 sport: sport || 'SOCCER',
                 registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
-                friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null
+                registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
+                friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null,
+                teamSize: teamSize ? parseInt(teamSize) : null
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -990,6 +1006,7 @@ router.post('/', authenticateToken, async (req, res) => {
         start,
         duration: duration || 1,
         maxPlayers: Number(maxPlayers),
+        teamSize: teamSize ? parseInt(teamSize) : null,
         isOpenToJoin: isOpenToJoin !== false,
         isFriendsOnly: !!isFriendsOnly,
         lotteryEnabled: !!lotteryEnabled,
