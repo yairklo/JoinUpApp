@@ -4,9 +4,20 @@ const { authenticateToken } = require('../utils/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Get all available sports
+// Shared constants
+const { SPORT_KEYS } = require('../utils/sports');
+
+// Get all available sports (and seed if missing)
 router.get('/sports', async (req, res) => {
   try {
+    const count = await prisma.sport.count();
+    if (count === 0) {
+      console.log('Seeding initial sports...');
+      for (const name of SPORT_KEYS) {
+        // Create with ID = Name for simplicity, though CUID is default
+        await prisma.sport.create({ data: { id: name, name } });
+      }
+    }
     const sports = await prisma.sport.findMany();
     res.json(sports);
   } catch (e) {

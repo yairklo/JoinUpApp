@@ -100,7 +100,7 @@ export default function ProfilePage() {
     fetch(`${API_BASE}/api/users/${userId}`).then(r => r.json()).then(setProfile).catch(() => { });
     fetch(`${API_BASE}/api/users`).then(r => r.json()).then(setAllUsers).catch(() => { });
     fetch(`${API_BASE}/api/users/${userId}/friends`).then(r => r.json()).then(setFriends).catch(() => { });
-    fetch(`${API_BASE}/api/users/sports`).then(r => r.json()).then(setAvailableSports).catch(() => { });
+    fetch(`${API_BASE}/api/users/${userId}/friends`).then(r => r.json()).then(setFriends).catch(() => { });
     (async () => {
       try {
         const token = await getToken({ template: undefined }).catch(() => "");
@@ -291,9 +291,8 @@ export default function ProfilePage() {
                         <Typography variant="subtitle2" gutterBottom>Sports & Positions</Typography>
                         <Stack spacing={2}>
                           {form.sportsData.map((s, idx) => {
-                            const sportName = availableSports.find(as => as.id === s.sportId)?.name || s.sportId;
-                            // Try to map to Hebrew if possible
-                            const hebrewName = Object.keys(SPORT_MAPPING).find(k => k === sportName) ? SPORT_MAPPING[sportName] : sportName;
+                            // Using simplified logic assuming s.sportId is the key (or even if it is ID, we show it if not in mapping)
+                            const hebrewName = SPORT_MAPPING[s.sportId] || s.sportId;
 
                             return (
                               <Box key={s.sportId} display="flex" gap={1} alignItems="center">
@@ -327,11 +326,11 @@ export default function ProfilePage() {
                                 label="Add Sport"
                                 onChange={(e) => setNewSportId(e.target.value)}
                               >
-                                {availableSports
-                                  .filter(as => !form.sportsData.some(fs => fs.sportId === as.id))
-                                  .map(as => (
-                                    <MenuItem key={as.id} value={as.id}>
-                                      {SPORT_MAPPING[as.name] || as.name}
+                                {Object.keys(SPORT_MAPPING)
+                                  .filter(key => !form.sportsData.some(fs => fs.sportId === key))
+                                  .map(key => (
+                                    <MenuItem key={key} value={key}>
+                                      {SPORT_MAPPING[key]}
                                     </MenuItem>
                                   ))}
                               </Select>
