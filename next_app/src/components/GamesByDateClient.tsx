@@ -32,6 +32,7 @@ type Game = {
   registrationOpensAt?: string | null;
   title?: string | null;
   teamSize?: number | null;
+  price?: number | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -193,6 +194,7 @@ export default function GamesByDateClient({
                 maxPlayers={g.maxPlayers}
                 sport={g.sport}
                 teamSize={g.teamSize}
+                price={g.price}
               >
                 {joined ? (
                   <LeaveGameButton gameId={g.id} />

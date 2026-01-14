@@ -24,6 +24,7 @@ export default function GameHeaderCard({
   durationHours,
   sport,
   teamSize,
+  price,
   children,
 }: {
   time: string;
@@ -35,6 +36,7 @@ export default function GameHeaderCard({
   durationHours?: number;
   sport?: string; // loosely typed string to match API, or strict SportType
   teamSize?: number | null;
+  price?: number | null;
   children?: React.ReactNode;
 }) {
   function formatEndTime(startTime: string, hours: number | undefined): string {
@@ -116,6 +118,21 @@ export default function GameHeaderCard({
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center">
+            {price && (
+              <Chip
+                label={`${price}₪`}
+                size="small"
+                variant="outlined"
+                sx={{
+                  fontWeight: "bold",
+                  height: 24,
+                  fontSize: "0.75rem",
+                  bgcolor: "background.paper",
+                  borderColor: "success.light",
+                  color: "success.main"
+                }}
+              />
+            )}
             {teamSize && (
               <Chip
                 label={`${teamSize}X${teamSize}`}

@@ -38,6 +38,7 @@ type Game = {
     registrationOpensAt?: string | null;
     title?: string | null;
     teamSize?: number | null;
+    price?: number | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -213,6 +214,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                 maxPlayers={g.maxPlayers}
                                 sport={g.sport}
                                 teamSize={g.teamSize}
+                                price={g.price}
                             >
                                 {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
                                 <Link href={`/games/${g.id}`} passHref legacyBehavior>
@@ -275,6 +277,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                             maxPlayers={g.maxPlayers}
                             sport={g.sport}
                             teamSize={g.teamSize}
+                            price={g.price}
                         >
                             {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
                             <Link href={`/games/${g.id}`} passHref legacyBehavior>

@@ -49,10 +49,10 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [tabValue, setTabValue] = useState(0); 
+  const [tabValue, setTabValue] = useState(0);
   const [customDates, setCustomDates] = useState<string[]>([]);
   const [tempDate, setTempDate] = useState("");
-  
+
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subLoading, setSubLoading] = useState(false);
 
@@ -69,7 +69,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
     try {
       const token = await getToken();
       const type = tabValue === 0 ? "WEEKLY" : "CUSTOM";
-      
+
       const payload = {
         type,
         dates: type === "CUSTOM" ? customDates : undefined,
@@ -112,41 +112,41 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
       const res = await fetch(`${API_BASE}/api/series/${seriesId}`, {
         method: "PATCH",
         headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-            time: editData.time,
-            updateFutureGames: editData.updateFuture
+          time: editData.time,
+          updateFutureGames: editData.updateFuture
         })
       });
 
       if (!res.ok) throw new Error("Failed to update");
-      
+
       alert("Series updated successfully!");
       router.refresh();
       handleClose();
     } catch (err) {
-        console.error(err);
-        alert("Update failed");
+      console.error(err);
+      alert("Update failed");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
   const handleDeleteSeries = async () => {
     if (!seriesId || !confirm("WARNING: This will delete the series and ALL future games linked to it. Are you sure?")) return;
-    
+
     setLoading(true);
     try {
-        const token = await getToken();
-        await fetch(`${API_BASE}/api/series/${seriesId}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        router.push("/");
+      const token = await getToken();
+      await fetch(`${API_BASE}/api/series/${seriesId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      router.push("/");
     } catch (err) {
-        console.error(err);
+      console.error(err);
     }
   };
 
@@ -154,20 +154,20 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
     if (!seriesId) return;
     setSubLoading(true);
     try {
-        const token = await getToken();
-        const method = isSubscribed ? "DELETE" : "POST";
-        
-        await fetch(`${API_BASE}/api/series/${seriesId}/subscribe`, {
-            method,
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        setIsSubscribed(!isSubscribed);
-        router.refresh();
+      const token = await getToken();
+      const method = isSubscribed ? "DELETE" : "POST";
+
+      await fetch(`${API_BASE}/api/series/${seriesId}/subscribe`, {
+        method,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setIsSubscribed(!isSubscribed);
+      router.refresh();
     } catch (err) {
-        console.error(err);
+      console.error(err);
     } finally {
-        setSubLoading(false);
+      setSubLoading(false);
     }
   };
 
@@ -186,96 +186,96 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
     return (
       <Box mt={2} p={2} border="1px dashed" borderColor="primary.main" borderRadius={2} bgcolor="primary.50">
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
-            <Box display="flex" alignItems="center" gap={1}>
-                <EventRepeatIcon color="primary" />
-                <Box>
-                    <Typography variant="subtitle2" fontWeight="bold">Recurring Game</Typography>
-                    <Typography variant="caption" color="text.secondary">Part of a series</Typography>
-                </Box>
+          <Box display="flex" alignItems="center" gap={1}>
+            <EventRepeatIcon color="primary" />
+            <Box>
+              <Typography variant="subtitle2" fontWeight="bold">משחק חוזר (סדרה)</Typography>
+              <Typography variant="caption" color="text.secondary">חלק מסדרה קבועה</Typography>
             </Box>
+          </Box>
 
-            <FormControlLabel
-                control={
-                    <Switch 
-                        size="small" 
-                        checked={isSubscribed} 
-                        onChange={handleToggleSubscribe} 
-                        disabled={subLoading}
-                    />
-                }
-                label={<Typography variant="caption">Auto-Join Future</Typography>}
-            />
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={isSubscribed}
+                onChange={handleToggleSubscribe}
+                disabled={subLoading}
+              />
+            }
+            label={<Typography variant="caption">הרשמה קבועה</Typography>}
+          />
         </Stack>
 
         <Box mt={2} display="flex" gap={1}>
-            <Button
-                component={Link}
-                href={`/series/${seriesId}`}
-                size="small"
-                variant="text"
-                endIcon={<ArrowForwardIcon />}
-                fullWidth={!canManage}
-                sx={{ justifyContent: canManage ? "flex-start" : "center" }}
-            >
-                View Full Series Page
-            </Button>
+          <Button
+            component={Link}
+            href={`/series/${seriesId}`}
+            size="small"
+            variant="text"
+            endIcon={<ArrowForwardIcon />}
+            fullWidth={!canManage}
+            sx={{ justifyContent: canManage ? "flex-start" : "center" }}
+          >
+            View Full Series Page
+          </Button>
         </Box>
-        
+
         {canManage && (
-            <Button 
-                startIcon={<EditCalendarIcon />} 
-                size="small" 
-                variant="outlined" 
-                fullWidth 
-                sx={{ mt: 1 }}
-                onClick={handleOpen}
-            >
-                Manage Series Settings
-            </Button>
+          <Button
+            startIcon={<EditCalendarIcon />}
+            size="small"
+            variant="outlined"
+            fullWidth
+            sx={{ mt: 1 }}
+            onClick={handleOpen}
+          >
+            Manage Series Settings
+          </Button>
         )}
 
         <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
-            <DialogTitle>Series Settings</DialogTitle>
-            <DialogContent>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                    Changes here will apply to all future games in this series.
-                </Alert>
-                
-                <TextField
-                    label="Default Time"
-                    type="time"
-                    fullWidth
-                    margin="normal"
-                    value={editData.time}
-                    onChange={(e) => setEditData({ ...editData, time: e.target.value })}
+          <DialogTitle>הגדרות סדרה</DialogTitle>
+          <DialogContent>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              השינויים יחולו על כל המשחקים העתידיים בסדרה זו.
+            </Alert>
+
+            <TextField
+              label="שעה קבועה"
+              type="time"
+              fullWidth
+              margin="normal"
+              value={editData.time}
+              onChange={(e) => setEditData({ ...editData, time: e.target.value })}
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editData.updateFuture}
+                  onChange={(e) => setEditData({ ...editData, updateFuture: e.target.checked })}
                 />
-                
-                <FormControlLabel
-                    control={
-                        <Switch 
-                            checked={editData.updateFuture} 
-                            onChange={(e) => setEditData({ ...editData, updateFuture: e.target.checked })} 
-                        />
-                    }
-                    label="Update existing future games"
-                />
-                
-                <Box mt={4}>
-                    <Button 
-                        color="error" 
-                        startIcon={<DeleteForeverIcon />} 
-                        onClick={handleDeleteSeries}
-                    >
-                        Delete Series & Future Games
-                    </Button>
-                </Box>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={handleClose}>Cancel</Button>
-                <Button variant="contained" onClick={handleUpdateSeries} disabled={loading}>
-                    {loading ? "Saving..." : "Save Changes"}
-                </Button>
-            </DialogActions>
+              }
+              label="עדכן גם משחקים עתידיים קיימים"
+            />
+
+            <Box mt={4}>
+              <Button
+                color="error"
+                startIcon={<DeleteForeverIcon />}
+                onClick={handleDeleteSeries}
+              >
+                מחק סדרה ומשחקים עתידיים
+              </Button>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClose}>ביטול</Button>
+            <Button variant="contained" onClick={handleUpdateSeries} disabled={loading}>
+              {loading ? "שומר..." : "שמור שינויים"}
+            </Button>
+          </DialogActions>
         </Dialog>
       </Box>
     );
@@ -297,65 +297,65 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
       </Button>
 
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-        <DialogTitle>Convert to Series</DialogTitle>
+        <DialogTitle>הפוך לסדרה</DialogTitle>
         <DialogContent>
-            <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 2 }}>
-                <Tab label="Weekly Auto" />
-                <Tab label="Custom Dates" />
-            </Tabs>
+          <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 2 }}>
+            <Tab label="אוטומטי שבועי" />
+            <Tab label="תאריכים מותאמים" />
+          </Tabs>
 
-            {tabValue === 0 ? (
-                <Box>
-                    <Alert severity="success" sx={{ mb: 2 }}>
-                        This will create games automatically <b>every week</b> at <b>{gameData.time}</b>.
-                    </Alert>
-                    <Typography variant="body2">
-                        • The system will generate the next 4 games immediately.<br/>
-                        • Current players will be auto-registered if they subscribe.<br/>
-                        • You can cancel or edit anytime.
-                    </Typography>
-                </Box>
-            ) : (
-                <Box>
-                     <Alert severity="info" sx={{ mb: 2 }}>
-                        Select specific dates to create a bulk series.
-                    </Alert>
-                    
-                    <Stack direction="row" spacing={1} alignItems="center" mb={2}>
-                        <TextField 
-                            type="datetime-local" 
-                            size="small" 
-                            fullWidth
-                            value={tempDate}
-                            onChange={(e) => setTempDate(e.target.value)}
-                        />
-                        <Button variant="contained" onClick={addCustomDate} disabled={!tempDate}>
-                            <AddIcon />
-                        </Button>
-                    </Stack>
+          {tabValue === 0 ? (
+            <Box>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                פעולה זו תיצור משחקים אוטומטית <b>כל שבוע</b> בשעה <b>{gameData.time}</b>.
+              </Alert>
+              <Typography variant="body2">
+                • המערכת תיצור את 4 המשחקים הבאים מיד.<br />
+                • שחקנים נוכחיים ירשמו אוטומטית אם הם מנויים לסדרה.<br />
+                • ניתן לבטל או לערוך בכל עת.
+              </Typography>
+            </Box>
+          ) : (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                בחר תאריכים ספציפיים ליצירת סדרה מרוכזת.
+              </Alert>
 
-                    <Box display="flex" flexWrap="wrap" gap={1}>
-                        {customDates.map((date) => (
-                            <Chip 
-                                key={date} 
-                                label={new Date(date).toLocaleString()} 
-                                onDelete={() => removeCustomDate(date)} 
-                            />
-                        ))}
-                        {customDates.length === 0 && <Typography variant="caption" color="text.secondary">No dates added yet</Typography>}
-                    </Box>
-                </Box>
-            )}
+              <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+                <TextField
+                  type="datetime-local"
+                  size="small"
+                  fullWidth
+                  value={tempDate}
+                  onChange={(e) => setTempDate(e.target.value)}
+                />
+                <Button variant="contained" onClick={addCustomDate} disabled={!tempDate}>
+                  <AddIcon />
+                </Button>
+              </Stack>
+
+              <Box display="flex" flexWrap="wrap" gap={1}>
+                {customDates.map((date) => (
+                  <Chip
+                    key={date}
+                    label={new Date(date).toLocaleString()}
+                    onDelete={() => removeCustomDate(date)}
+                  />
+                ))}
+                {customDates.length === 0 && <Typography variant="caption" color="text.secondary">לא נבחרו תאריכים</Typography>}
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
-            <Button onClick={handleClose}>Cancel</Button>
-            <Button 
-                variant="contained" 
-                onClick={handleMakeRecurring} 
-                disabled={loading || (tabValue === 1 && customDates.length === 0)}
-            >
-                {loading ? <CircularProgress size={24} /> : "Create Series"}
-            </Button>
+          <Button onClick={handleClose}>ביטול</Button>
+          <Button
+            variant="contained"
+            onClick={handleMakeRecurring}
+            disabled={loading || (tabValue === 1 && customDates.length === 0)}
+          >
+            {loading ? <CircularProgress size={24} /> : "צור סדרה"}
+          </Button>
         </DialogActions>
       </Dialog>
     </>

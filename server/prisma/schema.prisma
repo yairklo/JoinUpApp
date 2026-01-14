@@ -68,6 +68,7 @@ model Game {
   duration     Int             @default(1)
   maxPlayers   Int
   teamSize     Int?
+  price        Int?
   isOpenToJoin Boolean         @default(true)
   // Visible only to organizer's friends and participants when true
   isFriendsOnly Boolean        @default(false)

@@ -89,6 +89,7 @@ function NewGamePageInner() {
     publicDate: "",
     publicTime: "",
     teamSize: null as number | null,
+    price: null as number | null,
   });
 
   const MapWithNoSSR = useMemo(
@@ -459,6 +460,16 @@ function NewGamePageInner() {
                     size="small"
                     value={form.teamSize || ""}
                     onChange={(e) => update("teamSize", e.target.value ? Number(e.target.value) : null)}
+                  />
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3 }}>
+                  <TextField
+                    label="מחיר (₪)"
+                    type="number"
+                    fullWidth
+                    size="small"
+                    value={form.price || ""}
+                    onChange={(e) => update("price", e.target.value ? Number(e.target.value) : null)}
                   />
                 </Grid>
               </Grid>
