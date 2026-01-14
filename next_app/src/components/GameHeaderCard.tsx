@@ -23,6 +23,7 @@ export default function GameHeaderCard({
   maxPlayers,
   durationHours,
   sport,
+  teamSize,
   children,
 }: {
   time: string;
@@ -33,6 +34,7 @@ export default function GameHeaderCard({
   maxPlayers: number;
   durationHours?: number;
   sport?: string; // loosely typed string to match API, or strict SportType
+  teamSize?: number | null;
   children?: React.ReactNode;
 }) {
   function formatEndTime(startTime: string, hours: number | undefined): string {
@@ -113,14 +115,24 @@ export default function GameHeaderCard({
             </Typography>
           </Stack>
 
-          <Chip
-            icon={<PeopleIcon sx={{ fontSize: "16px !important" }} />}
-            label={`${currentPlayers}/${maxPlayers}`}
-            size="small"
-            color={isFull ? "error" : "default"}
-            variant={isFull ? "filled" : "outlined"}
-            sx={{ fontWeight: "bold", height: 24, fontSize: "0.75rem" }}
-          />
+          <Stack direction="row" spacing={1} alignItems="center">
+            {teamSize && (
+              <Chip
+                label={`${teamSize}X${teamSize}`}
+                size="small"
+                variant="outlined"
+                sx={{ fontWeight: "bold", height: 24, fontSize: "0.75rem", bgcolor: "background.paper" }}
+              />
+            )}
+            <Chip
+              icon={<PeopleIcon sx={{ fontSize: "16px !important" }} />}
+              label={`${currentPlayers}/${maxPlayers}`}
+              size="small"
+              color={isFull ? "error" : "default"}
+              variant={isFull ? "filled" : "outlined"}
+              sx={{ fontWeight: "bold", height: 24, fontSize: "0.75rem" }}
+            />
+          </Stack>
         </Box>
 
         <Box sx={{ mb: 1, flexGrow: 1 }}>
@@ -193,6 +205,6 @@ export default function GameHeaderCard({
           </Stack>
         </Box>
       </CardContent>
-    </Card>
+    </Card >
   );
 }

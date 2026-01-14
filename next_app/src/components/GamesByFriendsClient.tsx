@@ -28,6 +28,7 @@ type Game = {
     sport?: string;
     registrationOpensAt?: string | null;
     title?: string | null;
+    teamSize?: number | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -128,6 +129,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                             currentPlayers={g.currentPlayers}
                             maxPlayers={g.maxPlayers}
                             sport={g.sport}
+                            teamSize={g.teamSize}
                         >
                             {joined ? (
                                 <LeaveGameButton gameId={g.id} />
@@ -170,6 +172,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                             currentPlayers={g.currentPlayers}
                             maxPlayers={g.maxPlayers}
                             sport={g.sport}
+                            teamSize={g.teamSize}
                         >
                             {joined ? (
                                 <LeaveGameButton gameId={g.id} />

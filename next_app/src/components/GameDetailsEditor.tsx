@@ -63,6 +63,7 @@ interface GameDetailsEditorProps {
   initialFriendsOnlyUntil?: string | null;
   initialIsFriendsOnly: boolean;
   initialTitle?: string | null;
+  initialTeamSize?: number | null;
   canManage: boolean;
 }
 
@@ -76,6 +77,7 @@ export default function GameDetailsEditor({
   initialFriendsOnlyUntil,
   initialIsFriendsOnly,
   initialTitle,
+  initialTeamSize,
   canManage
 }: GameDetailsEditorProps) {
   const { getToken } = useAuth();
@@ -89,6 +91,7 @@ export default function GameDetailsEditor({
   const [maxPlayers, setMaxPlayers] = useState(initialMaxPlayers);
   const [sport, setSport] = useState(initialSport);
   const [title, setTitle] = useState(initialTitle || "");
+  const [teamSize, setTeamSize] = useState<number | null>(initialTeamSize ?? null);
   const [isFriendsOnly, setIsFriendsOnly] = useState(initialIsFriendsOnly);
 
   // Future Registration State
@@ -107,6 +110,7 @@ export default function GameDetailsEditor({
     setMaxPlayers(initialMaxPlayers);
     setSport(initialSport || "SOCCER");
     setTitle(initialTitle || "");
+    setTeamSize(initialTeamSize ?? null);
     setIsFriendsOnly(initialIsFriendsOnly);
 
     setFutureRegEnabled(!!initialRegistrationOpensAt);
@@ -162,6 +166,7 @@ export default function GameDetailsEditor({
           maxPlayers,
           sport,
           title,
+          teamSize: teamSize,
           isFriendsOnly,
           registrationOpensAt: futureRegEnabled ? registrationOpensAt : null,
           friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null
@@ -243,6 +248,15 @@ export default function GameDetailsEditor({
                   value={maxPlayers}
                   onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
                   InputProps={{ inputProps: { min: 2 } }}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  label='גודל קבוצה (למשל 5 ל "5X5")'
+                  type="number"
+                  fullWidth
+                  value={teamSize || ""}
+                  onChange={(e) => setTeamSize(e.target.value ? parseInt(e.target.value) : null)}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
