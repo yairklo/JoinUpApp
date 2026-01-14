@@ -377,7 +377,7 @@ function NewGamePageInner() {
                               </li>
                             );
                           }}
-                          renderInput={(params) => <TextField {...params} label="חפש מגרש" placeholder="הקלד לחיפוש או הוסף חדש..." dir="rtl" />}
+                          renderInput={(params) => <TextField {...params} label=" חפש מגרש" placeholder="הקלד לחיפוש או הוסף חדש..." dir="rtl" />}
                         />
                       )}
                     </Grid>
