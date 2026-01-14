@@ -2,6 +2,13 @@
 import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import CheckIcon from "@mui/icons-material/Check";
+import ErrorIcon from "@mui/icons-material/Error";
+import Tooltip from "@mui/material/Tooltip";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 export default function AddFriendButton({ receiverId }: { receiverId: string }) {
@@ -36,15 +43,35 @@ export default function AddFriendButton({ receiverId }: { receiverId: string }) 
     }
   };
 
-  if (sent) return <span className="text-xs text-green-700">Request sent</span>;
+  if (sent) {
+    return (
+      <Button
+        size="small"
+        variant="text"
+        color="success"
+        startIcon={<CheckIcon />}
+        disabled
+      >
+        Request Sent
+      </Button>
+    );
+  }
 
   return (
-    <div className="flex items-center gap-2">
-      {error && <span className="text-xs text-red-600">{error}</span>}
-      <button onClick={send} disabled={loading} className="text-xs rounded bg-blue-600 text-white px-3 py-1 disabled:opacity-50">
-        {loading ? 'Sending...' : 'Add friend'}
-      </button>
-    </div>
+    <>
+      <Tooltip title={error || ""}>
+        <Button
+          onClick={send}
+          disabled={loading}
+          size="small"
+          variant="contained"
+          color={error ? "error" : "primary"}
+          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonAddIcon />}
+        >
+          {loading ? "Sending..." : "Add Friend"}
+        </Button>
+      </Tooltip>
+    </>
   );
 }
 

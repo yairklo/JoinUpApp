@@ -3,6 +3,33 @@ const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../utils/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Shared constants
+const { SPORT_KEYS } = require('../utils/sports');
+
+// Helper to ensure sports exist
+async function ensureSportsSeeded() {
+  const count = await prisma.sport.count();
+  if (count === 0) {
+    console.log('Seeding initial sports...');
+    for (const name of SPORT_KEYS) {
+      await prisma.sport.create({ data: { id: name, name } });
+    }
+  }
+}
+
+// Get all available sports (and seed if missing)
+router.get('/sports', async (req, res) => {
+  try {
+    await ensureSportsSeeded();
+    const sports = await prisma.sport.findMany();
+    res.json(sports);
+  } catch (e) {
+    console.error('Get sports error:', e);
+    res.status(500).json({ error: 'Failed to fetch sports' });
+  }
+});
+
 // List users (public basic listing)
 router.get('/', async (req, res) => {
   try {
@@ -63,8 +90,17 @@ function mapUserPublic(u) {
     phone: u.phone,
     imageUrl: u.imageUrl,
     city: u.city,
-    birthYear: u.birthYear,
-    sports: (u.sports || []).map(us => ({ id: us.sport.id, name: us.sport.name })),
+    birthDate: u.birthDate,
+    age: u.birthDate ? (() => {
+      const diff = Date.now() - new Date(u.birthDate).getTime();
+      const ageDt = new Date(diff);
+      return Math.abs(ageDt.getUTCFullYear() - 1970);
+    })() : null,
+    sports: (u.sports || []).map(us => ({
+      id: us.sport.id,
+      name: us.sport.name,
+      position: us.positionDescription
+    })),
     positions: (u.positions || []).map(up => ({ id: up.position.id, name: up.position.name, sportId: up.position.sportId }))
   };
 }
@@ -112,20 +148,33 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (req.params.id !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { name, email, phone, imageUrl, city, birthYear, sportIds, positionIds } = req.body;
+    const { name, email, phone, imageUrl, city, birthDate, sportIds, sportsData, positionIds } = req.body;
     const data = {
       ...(typeof name !== 'undefined' ? { name } : {}),
       ...(typeof email !== 'undefined' ? { email } : {}),
       ...(typeof phone !== 'undefined' ? { phone } : {}),
       ...(typeof imageUrl !== 'undefined' ? { imageUrl } : {}),
       ...(typeof city !== 'undefined' ? { city } : {}),
-      ...(typeof birthYear !== 'undefined' ? { birthYear: Number(birthYear) } : {}),
+      ...(typeof birthDate !== 'undefined' ? { birthDate: birthDate ? new Date(birthDate) : null } : {}),
     };
 
     const updated = await prisma.user.update({ where: { id: req.user.id }, data });
 
-    // Optional: replace sports
-    if (Array.isArray(sportIds)) {
+    // Update sports with positions
+    if (Array.isArray(sportsData)) {
+      await ensureSportsSeeded();
+      await prisma.userSport.deleteMany({ where: { userId: req.user.id } });
+      if (sportsData.length > 0) {
+        await prisma.userSport.createMany({
+          data: sportsData.map((s) => ({
+            userId: req.user.id,
+            sportId: String(s.sportId),
+            positionDescription: s.position || null
+          }))
+        });
+      }
+    } else if (Array.isArray(sportIds)) {
+      // Legacy support or simple list
       await prisma.userSport.deleteMany({ where: { userId: req.user.id } });
       await prisma.userSport.createMany({ data: sportIds.map((sid) => ({ userId: req.user.id, sportId: String(sid) })) });
     }
@@ -188,10 +237,10 @@ router.post('/requests', authenticateToken, async (req, res) => {
     }
     // already friends?
     const [a, b] = orderPair(requesterId, receiverId);
-    const existingFriend = await prisma.friendship.findFirst({ where: { OR: [ { userAId: a, userBId: b }, { userAId: b, userBId: a } ] } });
+    const existingFriend = await prisma.friendship.findFirst({ where: { OR: [{ userAId: a, userBId: b }, { userAId: b, userBId: a }] } });
     if (existingFriend) return res.status(400).json({ error: 'Already friends' });
     // existing request either way
-    const existingReq = await prisma.friendRequest.findFirst({ where: { OR: [ { requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId } ] } });
+    const existingReq = await prisma.friendRequest.findFirst({ where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] } });
     if (existingReq) return res.status(400).json({ error: 'Request already exists' });
     try {
       const fr = await prisma.friendRequest.create({ data: { requesterId, receiverId } });

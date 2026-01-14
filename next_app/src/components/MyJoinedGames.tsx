@@ -112,6 +112,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
             <GameHeaderCard
               key={g.id}
               time={g.time}
+              date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
               durationHours={g.duration ?? 1}
               title={mainTitle}
               subtitle={subtitle}
