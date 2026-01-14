@@ -78,6 +78,7 @@ function mapGameForClient(game) {
     duration: game.duration,
     maxPlayers: game.maxPlayers,
     teamSize: game.teamSize || null,
+    price: game.price || null,
     currentPlayers: confirmedCount,
     totalSignups,
     confirmedCount,
