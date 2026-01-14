@@ -928,7 +928,8 @@ router.post('/', authenticateToken, async (req, res) => {
                 sport: sport || 'SOCCER',
                 registrationOpensAt: instanceRegOpen,
                 friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null,
-                teamSize: teamSize ? parseInt(teamSize) : null
+                teamSize: teamSize ? parseInt(teamSize) : null,
+                price: price ? parseInt(price) : null
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -979,9 +980,9 @@ router.post('/', authenticateToken, async (req, res) => {
                 roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
                 sport: sport || 'SOCCER',
                 registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
-                registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
                 friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null,
-                teamSize: teamSize ? parseInt(teamSize) : null
+                teamSize: teamSize ? parseInt(teamSize) : null,
+                price: price ? parseInt(price) : null
               },
               include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
             })
@@ -1007,6 +1008,7 @@ router.post('/', authenticateToken, async (req, res) => {
         duration: duration || 1,
         maxPlayers: Number(maxPlayers),
         teamSize: teamSize ? parseInt(teamSize) : null,
+        price: price ? parseInt(price) : null,
         isOpenToJoin: isOpenToJoin !== false,
         isFriendsOnly: !!isFriendsOnly,
         lotteryEnabled: !!lotteryEnabled,

@@ -64,6 +64,7 @@ interface GameDetailsEditorProps {
   initialIsFriendsOnly: boolean;
   initialTitle?: string | null;
   initialTeamSize?: number | null;
+  initialPrice?: number | null;
   canManage: boolean;
 }
 
@@ -78,6 +79,7 @@ export default function GameDetailsEditor({
   initialIsFriendsOnly,
   initialTitle,
   initialTeamSize,
+  initialPrice,
   canManage
 }: GameDetailsEditorProps) {
   const { getToken } = useAuth();
@@ -92,6 +94,7 @@ export default function GameDetailsEditor({
   const [sport, setSport] = useState(initialSport);
   const [title, setTitle] = useState(initialTitle || "");
   const [teamSize, setTeamSize] = useState<number | null>(initialTeamSize ?? null);
+  const [price, setPrice] = useState<number | null>(initialPrice ?? null);
   const [isFriendsOnly, setIsFriendsOnly] = useState(initialIsFriendsOnly);
 
   // Future Registration State
@@ -111,6 +114,7 @@ export default function GameDetailsEditor({
     setSport(initialSport || "SOCCER");
     setTitle(initialTitle || "");
     setTeamSize(initialTeamSize ?? null);
+    setPrice(initialPrice ?? null);
     setIsFriendsOnly(initialIsFriendsOnly);
 
     setFutureRegEnabled(!!initialRegistrationOpensAt);
@@ -167,6 +171,7 @@ export default function GameDetailsEditor({
           sport,
           title,
           teamSize: teamSize,
+          price: price,
           isFriendsOnly,
           registrationOpensAt: futureRegEnabled ? registrationOpensAt : null,
           friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null
@@ -257,6 +262,15 @@ export default function GameDetailsEditor({
                   fullWidth
                   value={teamSize || ""}
                   onChange={(e) => setTeamSize(e.target.value ? parseInt(e.target.value) : null)}
+                />
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  label="מחיר (₪)"
+                  type="number"
+                  fullWidth
+                  value={price || ""}
+                  onChange={(e) => setPrice(e.target.value ? parseInt(e.target.value) : null)}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>

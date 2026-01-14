@@ -54,6 +54,7 @@ type Game = {
   friendsOnlyUntil?: string | null;
   isFriendsOnly?: boolean;
   teamSize?: number | null;
+  price?: number | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -111,6 +112,7 @@ export default async function GameDetails(props: {
             maxPlayers={game.maxPlayers}
             sport={game.sport}
             teamSize={game.teamSize}
+            price={game.price}
           >
             {joined ? (
               <LeaveGameButton gameId={game.id} />
@@ -141,6 +143,7 @@ export default async function GameDetails(props: {
               initialIsFriendsOnly={!!game.isFriendsOnly}
               initialTitle={game.title}
               initialTeamSize={game.teamSize}
+              initialPrice={game.price}
               canManage={canManageSeries}
             />
 
