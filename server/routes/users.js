@@ -7,17 +7,21 @@ const prisma = new PrismaClient();
 // Shared constants
 const { SPORT_KEYS } = require('../utils/sports');
 
+// Helper to ensure sports exist
+async function ensureSportsSeeded() {
+  const count = await prisma.sport.count();
+  if (count === 0) {
+    console.log('Seeding initial sports...');
+    for (const name of SPORT_KEYS) {
+      await prisma.sport.create({ data: { id: name, name } });
+    }
+  }
+}
+
 // Get all available sports (and seed if missing)
 router.get('/sports', async (req, res) => {
   try {
-    const count = await prisma.sport.count();
-    if (count === 0) {
-      console.log('Seeding initial sports...');
-      for (const name of SPORT_KEYS) {
-        // Create with ID = Name for simplicity, though CUID is default
-        await prisma.sport.create({ data: { id: name, name } });
-      }
-    }
+    await ensureSportsSeeded();
     const sports = await prisma.sport.findMany();
     res.json(sports);
   } catch (e) {
@@ -158,6 +162,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     // Update sports with positions
     if (Array.isArray(sportsData)) {
+      await ensureSportsSeeded();
       await prisma.userSport.deleteMany({ where: { userId: req.user.id } });
       if (sportsData.length > 0) {
         await prisma.userSport.createMany({
