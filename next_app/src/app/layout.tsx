@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 // 1. החזרנו את בוטסטראפ כדי שקומפוננטות ישנות לא ישברו
-import "bootstrap/dist/css/bootstrap.min.css"; 
+import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 
 import { ClerkProvider } from "@clerk/nextjs";
 import AppNavbar from "@/components/AppNavbar";
 import ThemeRegistry from "@/components/theme/themeRegistry";
+import NotificationAsker from "@/components/NotificationAsker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,11 +41,12 @@ export default function RootLayout({
           <ThemeRegistry>
             {/* AppNavbar עדיין מסתמך על Bootstrap ולכן חייב את ה-CSS למעלה */}
             <AppNavbar />
-            
+
             {/* הורדתי את ה-container של בוטסטראפ כדי לאפשר רוחב מלא לדפים החדשים */}
             <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
               {children}
             </main>
+            <NotificationAsker />
           </ThemeRegistry>
         </body>
       </html>
