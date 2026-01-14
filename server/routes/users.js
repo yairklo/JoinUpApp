@@ -75,8 +75,12 @@ function mapUserPublic(u) {
     phone: u.phone,
     imageUrl: u.imageUrl,
     city: u.city,
-    birthYear: u.birthYear,
-    age: u.age,
+    birthDate: u.birthDate,
+    age: u.birthDate ? (() => {
+      const diff = Date.now() - new Date(u.birthDate).getTime();
+      const ageDt = new Date(diff);
+      return Math.abs(ageDt.getUTCFullYear() - 1970);
+    })() : null,
     sports: (u.sports || []).map(us => ({
       id: us.sport.id,
       name: us.sport.name,
@@ -129,15 +133,14 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (req.params.id !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { name, email, phone, imageUrl, city, birthYear, age, sportIds, sportsData, positionIds } = req.body;
+    const { name, email, phone, imageUrl, city, birthDate, sportIds, sportsData, positionIds } = req.body;
     const data = {
       ...(typeof name !== 'undefined' ? { name } : {}),
       ...(typeof email !== 'undefined' ? { email } : {}),
       ...(typeof phone !== 'undefined' ? { phone } : {}),
       ...(typeof imageUrl !== 'undefined' ? { imageUrl } : {}),
       ...(typeof city !== 'undefined' ? { city } : {}),
-      ...(typeof birthYear !== 'undefined' ? { birthYear: Number(birthYear) } : {}),
-      ...(typeof age !== 'undefined' ? { age: Number(age) } : {}),
+      ...(typeof birthDate !== 'undefined' ? { birthDate: birthDate ? new Date(birthDate) : null } : {}),
     };
 
     const updated = await prisma.user.update({ where: { id: req.user.id }, data });

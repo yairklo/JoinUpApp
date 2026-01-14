@@ -51,12 +51,20 @@ type PublicUser = {
   imageUrl?: string | null;
   city?: string | null;
   birthYear?: number | null;
+  age?: number | null;
+  birthDate?: string | null;
   sports?: { id: string; name: string; position?: string | null }[];
   positions?: { id: string; name: string; sportId: string }[];
-  age?: number | null;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
+
+function calculateAge(birthDate?: string | null) {
+  if (!birthDate) return null;
+  const diff = Date.now() - new Date(birthDate).getTime();
+  const ageDt = new Date(diff);
+  return Math.abs(ageDt.getUTCFullYear() - 1970);
+}
 
 export default function ProfilePage() {
   const { user } = useUser();
@@ -77,8 +85,7 @@ export default function ProfilePage() {
     phone: "",
     imageUrl: "",
     city: "",
-    birthYear: "",
-    age: "",
+    birthDate: "",
     sportsData: [] as { sportId: string; position: string; }[]
   });
   const [newSportId, setNewSportId] = useState("");
@@ -108,8 +115,7 @@ export default function ProfilePage() {
       phone: profile.phone || "",
       imageUrl: profile.imageUrl || "",
       city: profile.city || "",
-      birthYear: profile.birthYear ? String(profile.birthYear) : "",
-      age: profile.age ? String(profile.age) : "",
+      birthDate: profile.birthDate ? profile.birthDate.split('T')[0] : "",
       sportsData: (profile.sports || []).map(s => ({ sportId: s.id, position: s.position || "" })),
     });
   }, [profile]);
@@ -125,7 +131,7 @@ export default function ProfilePage() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ ...form, birthYear: form.birthYear ? Number(form.birthYear) : null }),
+        body: JSON.stringify({ ...form, birthDate: form.birthDate ? new Date(form.birthDate).toISOString() : null }),
       });
       if (!res.ok) throw new Error("Save failed");
       const updated = await res.json();
@@ -240,15 +246,9 @@ export default function ProfilePage() {
                         <Typography variant="body1">{profile.phone || '-'}</Typography>
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <Typography variant="caption" color="text.secondary">Birth Year</Typography>
-                        <Typography variant="body1">{profile.birthYear || '-'}</Typography>
+                        <Typography variant="caption" color="text.secondary">Age</Typography>
+                        <Typography variant="body1">{calculateAge(profile.birthDate) || '-'}</Typography>
                       </Grid>
-                      {profile.age && (
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                          <Typography variant="caption" color="text.secondary">Age</Typography>
-                          <Typography variant="body1">{profile.age}</Typography>
-                        </Grid>
-                      )}
                       <Grid size={12}>
                         <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Sports</Typography>
                         {(profile.sports && profile.sports.length > 0) ? (
@@ -336,10 +336,15 @@ export default function ProfilePage() {
                       </Grid>
 
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="Birth Year" type="number" value={form.birthYear} onChange={(e) => setForm({ ...form, birthYear: e.target.value })} size="small" />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="Age" type="number" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value })} size="small" />
+                        <TextField
+                          fullWidth
+                          label="Birth Date"
+                          type="date"
+                          value={form.birthDate}
+                          onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
+                          size="small"
+                          InputLabelProps={{ shrink: true }}
+                        />
                       </Grid>
                       <Grid size={12}>
                         <TextField fullWidth label="Avatar URL" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} size="small" helperText="Paste a link to an image" />
