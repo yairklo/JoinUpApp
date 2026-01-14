@@ -258,7 +258,10 @@ export default function ProfilePage() {
                         <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Sports</Typography>
                         {(profile.sports && profile.sports.length > 0) ? (
                           <Stack direction="row" spacing={1}>
-                            {profile.sports.map(s => <Chip key={s.id} label={s.position ? `${s.name} (${s.position})` : s.name} size="small" />)}
+                            {profile.sports.map(s => {
+                              const hebrewName = SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name;
+                              return <Chip key={s.id} label={s.position ? `${hebrewName} (${s.position})` : hebrewName} size="small" />;
+                            })}
                           </Stack>
                         ) : <Typography variant="body2">-</Typography>}
                       </Grid>
