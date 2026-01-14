@@ -15,7 +15,7 @@ import CardMedia from "@mui/material/CardMedia";
 import { SPORT_IMAGES, SportType } from "@/utils/sports";
 
 // Helper map for day of week if needed
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
 export default function SeriesHeaderCard({
     name,
@@ -35,7 +35,7 @@ export default function SeriesHeaderCard({
     sport?: string;
     children?: React.ReactNode;
 }) {
-    const dayName = typeof dayOfWeek === 'number' ? DAYS[dayOfWeek] : 'Weekly';
+    const dayName = typeof dayOfWeek === 'number' ? DAYS[dayOfWeek] : 'שבועי';
     const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
         ? SPORT_IMAGES[sport as SportType]
         : SPORT_IMAGES.SOCCER;
@@ -87,7 +87,7 @@ export default function SeriesHeaderCard({
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
                     <Chip
                         icon={<LoopIcon sx={{ fontSize: "16px !important" }} />}
-                        label="Series"
+                        label="סדרה"
                         size="small"
                         color="secondary"
                         variant="filled"
@@ -97,7 +97,7 @@ export default function SeriesHeaderCard({
                     <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "text.secondary" }}>
                         <GroupIcon sx={{ fontSize: 16 }} />
                         <Typography variant="caption" fontWeight="bold">
-                            {subscriberCount} regulars
+                            {subscriberCount} קבועים
                         </Typography>
                     </Stack>
                 </Box>
@@ -142,7 +142,7 @@ export default function SeriesHeaderCard({
                         <Stack direction="row" spacing={1} alignItems="center" sx={{ bgcolor: "action.hover", p: 1, borderRadius: 2 }}>
                             <CalendarMonthIcon color="action" fontSize="small" />
                             <Typography variant="body2" fontWeight="500">
-                                {dayName} @ {time}
+                                {dayName} בשעה {time}
                             </Typography>
                         </Stack>
                     </Box>
