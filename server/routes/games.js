@@ -763,7 +763,9 @@ router.post('/', authenticateToken, async (req, res) => {
       registrationOpensAt,
       title,
       friendsOnlyUntil,
-      teamSize
+      teamSize,
+      price,
+      customLat
     } = req.body;
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
