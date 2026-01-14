@@ -22,6 +22,10 @@ import ListItemText from "@mui/material/ListItemText";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
 
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
@@ -34,12 +38,11 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 
 // MUI Form
-import Select from "@mui/material/Select";
-import InputLabel from "@mui/material/InputLabel";
-import FormControl from "@mui/material/FormControl";
-import MenuItem from "@mui/material/MenuItem";
+
 
 // Custom Components
+import { SPORT_MAPPING } from "@/utils/sports";
+
 import Avatar from "@/components/Avatar";
 import AddFriendButton from "@/components/AddFriendButton";
 
@@ -65,6 +68,7 @@ function calculateAge(birthDate?: string | null) {
   const ageDt = new Date(diff);
   return Math.abs(ageDt.getUTCFullYear() - 1970);
 }
+
 
 export default function ProfilePage() {
   const { user } = useUser();
@@ -106,6 +110,7 @@ export default function ProfilePage() {
       } catch { }
     })();
   }, [userId]);
+
 
   useEffect(() => {
     if (!profile) return;
@@ -286,23 +291,27 @@ export default function ProfilePage() {
                         <Typography variant="subtitle2" gutterBottom>Sports & Positions</Typography>
                         <Stack spacing={2}>
                           {form.sportsData.map((s, idx) => {
-                            const spName = availableSports.find(as => as.id === s.sportId)?.name || "Unknown";
+                            const sportName = availableSports.find(as => as.id === s.sportId)?.name || s.sportId;
+                            // Try to map to Hebrew if possible
+                            const hebrewName = Object.keys(SPORT_MAPPING).find(k => k === sportName) ? SPORT_MAPPING[sportName] : sportName;
+
                             return (
                               <Box key={s.sportId} display="flex" gap={1} alignItems="center">
-                                <Chip label={spName} />
+                                <Chip label={hebrewName} />
                                 <TextField
-                                  label="Position / Role"
+                                  label="Position"
                                   size="small"
                                   value={s.position}
                                   onChange={(e) => {
-                                    const copy = [...form.sportsData];
-                                    copy[idx].position = e.target.value;
-                                    setForm({ ...form, sportsData: copy });
+                                    const newData = [...form.sportsData];
+                                    newData[idx].position = e.target.value;
+                                    setForm({ ...form, sportsData: newData });
                                   }}
-                                  fullWidth
+                                  sx={{ flexGrow: 1 }}
                                 />
-                                <IconButton color="error" onClick={() => {
-                                  setForm({ ...form, sportsData: form.sportsData.filter((_, i) => i !== idx) });
+                                <IconButton size="small" color="error" onClick={() => {
+                                  const newData = form.sportsData.filter(x => x.sportId !== s.sportId);
+                                  setForm({ ...form, sportsData: newData });
                                 }}>
                                   <DeleteIcon />
                                 </IconButton>
@@ -311,24 +320,35 @@ export default function ProfilePage() {
                           })}
 
                           <Box display="flex" gap={1}>
-                            <FormControl size="small" fullWidth>
+                            <FormControl size="small" sx={{ minWidth: 150, flexGrow: 1 }}>
                               <InputLabel>Add Sport</InputLabel>
                               <Select
                                 value={newSportId}
                                 label="Add Sport"
                                 onChange={(e) => setNewSportId(e.target.value)}
                               >
-                                {availableSports.filter(as => !form.sportsData.some(fs => fs.sportId === as.id)).map(as => (
-                                  <MenuItem key={as.id} value={as.id}>{as.name}</MenuItem>
-                                ))}
+                                {availableSports
+                                  .filter(as => !form.sportsData.some(fs => fs.sportId === as.id))
+                                  .map(as => (
+                                    <MenuItem key={as.id} value={as.id}>
+                                      {SPORT_MAPPING[as.name] || as.name}
+                                    </MenuItem>
+                                  ))}
                               </Select>
                             </FormControl>
-                            <Button variant="outlined" startIcon={<AddCircleOutlineIcon />} onClick={() => {
-                              if (newSportId) {
-                                setForm({ ...form, sportsData: [...form.sportsData, { sportId: newSportId, position: "" }] });
-                                setNewSportId("");
-                              }
-                            }}>
+                            <Button
+                              variant="outlined"
+                              onClick={() => {
+                                if (newSportId) {
+                                  setForm({
+                                    ...form,
+                                    sportsData: [...form.sportsData, { sportId: newSportId, position: "" }]
+                                  });
+                                  setNewSportId("");
+                                }
+                              }}
+                              disabled={!newSportId}
+                            >
                               Add
                             </Button>
                           </Box>
