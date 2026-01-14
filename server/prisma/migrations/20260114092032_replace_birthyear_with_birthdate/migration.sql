@@ -1,11 +1,6 @@
-/*
-  Warnings:
+-- AlterTable: User
 
-  - You are about to drop the column `age` on the `User` table. All the data in the column will be lost.
-  - You are about to drop the column `birthYear` on the `User` table. All the data in the column will be lost.
+ALTER TABLE "public"."User" DROP COLUMN IF EXISTS "age";
+ALTER TABLE "public"."User" DROP COLUMN IF EXISTS "birthYear";
 
-*/
--- AlterTable
-ALTER TABLE "public"."User" DROP COLUMN "age",
-DROP COLUMN "birthYear",
-ADD COLUMN     "birthDate" TIMESTAMP(3);
+ALTER TABLE "public"."User" ADD COLUMN IF NOT EXISTS "birthDate" TIMESTAMP(3);

@@ -184,6 +184,7 @@ export default function GamesByDateClient({
               <GameHeaderCard
                 key={g.id}
                 time={g.time}
+                date={g.date}
                 durationHours={g.duration ?? 1}
                 title={mainTitle}
                 subtitle={subtitle}
@@ -228,6 +229,7 @@ export default function GamesByDateClient({
             <GameHeaderCard
               key={g.id}
               time={g.time}
+              date={g.date}
               durationHours={g.duration ?? 1}
               title={mainTitle}
               subtitle={subtitle}
