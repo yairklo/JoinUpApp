@@ -23,4 +23,6 @@ export type ChatMessage = {
     replyTo?: ReplyInfo;
     reactions?: Record<string, Reaction>;
     status?: MessageStatus;
+    isEdited?: boolean;
+    isDeleted?: boolean;
 };

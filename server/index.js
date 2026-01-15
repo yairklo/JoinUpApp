@@ -121,26 +121,15 @@ io.on('connection', (socket) => {
       }
     }
 
-    const msg = {
-      id: Date.now(),
-      text: String(text),
-      senderId: String(socket.id),
-      senderName: senderName,
-      ts: new Date().toISOString(),
-      roomId: roomId ? String(roomId) : undefined,
-      userId: userId ? String(userId) : undefined,
-      replyTo: replyTo || undefined,
-      status: initialStatus
-    };
-
+    let savedMsg = null;
     // Persist if DB configured and room message
-    if (msg.roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
+    if (roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
       try {
-        await prisma.message.create({
+        savedMsg = await prisma.message.create({
           data: {
-            roomId: msg.roomId,
-            text: msg.senderName ? `${msg.senderName}: ${msg.text}` : msg.text,
-            userId: msg.userId || null,
+            roomId: String(roomId),
+            text: senderName ? `${senderName}: ${text}` : String(text),
+            userId: userId ? String(userId) : null,
             replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
             status: initialStatus
           },
@@ -149,6 +138,19 @@ io.on('connection', (socket) => {
         console.error('socket persist error:', e.message);
       }
     }
+
+    const msg = {
+      id: savedMsg ? savedMsg.id : Date.now(),
+      text: String(text),
+      senderId: String(socket.id),
+      senderName: senderName,
+      ts: savedMsg ? savedMsg.createdAt.toISOString() : new Date().toISOString(),
+      roomId: roomId ? String(roomId) : undefined,
+      userId: userId ? String(userId) : undefined,
+      replyTo: replyTo || undefined,
+      status: initialStatus
+    };
+
     if (msg.roomId) {
       io.to(msg.roomId).emit('message', msg);
     } else {
@@ -252,6 +254,64 @@ io.on('connection', (socket) => {
 
     } catch (e) {
       console.error('markAsRead error:', e);
+    }
+  });
+
+  socket.on('editMessage', async ({ messageId, text, roomId }) => {
+    if (!messageId || !text) return;
+    try {
+      // Check if message exists before updating to avoid P2025
+      const exists = await prisma.message.findUnique({ where: { id: String(messageId) } });
+      if (!exists) {
+        console.warn(`editMessage: Message ${messageId} not found.`);
+        return;
+      }
+
+      await prisma.message.update({
+        where: { id: String(messageId) },
+        data: {
+          text: String(text),
+          isEdited: true
+        }
+      });
+
+      const payload = { id: messageId, text, isEdited: true, roomId: roomId ? String(roomId) : undefined };
+      if (roomId) {
+        io.to(String(roomId)).emit('messageUpdated', payload);
+      } else {
+        io.emit('messageUpdated', payload);
+      }
+    } catch (e) {
+      console.error('editMessage error:', e);
+    }
+  });
+
+  socket.on('deleteMessage', async ({ messageId, roomId }) => {
+    if (!messageId) return;
+    try {
+      // Check if message exists before updating to avoid P2025
+      const exists = await prisma.message.findUnique({ where: { id: String(messageId) } });
+      if (!exists) {
+        console.warn(`deleteMessage: Message ${messageId} not found.`);
+        return;
+      }
+
+      await prisma.message.update({
+        where: { id: String(messageId) },
+        data: {
+          isDeleted: true,
+          text: ""
+        }
+      });
+
+      const payload = { id: messageId, roomId: roomId ? String(roomId) : undefined };
+      if (roomId) {
+        io.to(String(roomId)).emit('messageDeleted', payload);
+      } else {
+        io.emit('messageDeleted', payload);
+      }
+    } catch (e) {
+      console.error('deleteMessage error:', e);
     }
   });
 });

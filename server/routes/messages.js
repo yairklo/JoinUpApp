@@ -47,7 +47,9 @@ router.get('/', async (req, res) => {
           senderName: "User" // Placeholder as we don't join User table here
         } : undefined,
         reactions: reactions,
-        status: m.status
+        status: m.status,
+        isEdited: m.isEdited,
+        isDeleted: m.isDeleted
       };
     });
 
