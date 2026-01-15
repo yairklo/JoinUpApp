@@ -14,9 +14,43 @@ router.get('/', async (req, res) => {
     const items = await prisma.message.findMany({
       where: { roomId: String(roomId) },
       orderBy: { createdAt: 'asc' },
-      take
+      take,
+      include: {
+        replyTo: { select: { id: true, text: true, userId: true } },
+        reactions: true
+      }
     });
-    res.json(items.map(m => ({ id: m.id, text: m.text, roomId: m.roomId, userId: m.userId || null, ts: m.createdAt })));
+
+    const mappedItems = items.map(m => {
+      // Aggregate reactions
+      const reactions = {};
+      if (m.reactions) {
+        for (const r of m.reactions) {
+          if (!reactions[r.emoji]) {
+            reactions[r.emoji] = { emoji: r.emoji, count: 0, userIds: [] };
+          }
+          reactions[r.emoji].count += 1;
+          reactions[r.emoji].userIds.push(r.userId);
+        }
+      }
+
+      return {
+        id: m.id,
+        text: m.text,
+        roomId: m.roomId,
+        userId: m.userId || null,
+        ts: m.createdAt,
+        replyTo: m.replyTo ? {
+          id: m.replyTo.id,
+          text: m.replyTo.text,
+          userId: m.replyTo.userId,
+          senderName: "User" // Placeholder as we don't join User table here
+        } : undefined,
+        reactions: reactions
+      };
+    });
+
+    res.json(mappedItems);
   } catch (e) {
     console.error('Get messages error:', e);
     res.status(500).json({ error: 'Failed to get messages' });

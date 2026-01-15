@@ -109,7 +109,7 @@ io.on('connection', (socket) => {
     if (roomId) socket.join(String(roomId));
   });
 
-  socket.on('message', async ({ text, roomId, userId, senderName }) => {
+  socket.on('message', async ({ text, roomId, userId, senderName, replyTo }) => {
     if (!text) return;
     const msg = {
       id: Date.now(),
@@ -119,15 +119,17 @@ io.on('connection', (socket) => {
       ts: new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
       userId: userId ? String(userId) : undefined,
+      replyTo: replyTo || undefined
     };
     // Persist if DB configured and room message
-    if (msg.roomId && process.env.DB_HOST || process.env.DATABASE_URL) {
+    if (msg.roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
       try {
         await prisma.message.create({
           data: {
             roomId: msg.roomId,
             text: msg.senderName ? `${msg.senderName}: ${msg.text}` : msg.text,
             userId: msg.userId || null,
+            replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined
           },
         });
       } catch (e) {
@@ -138,6 +140,57 @@ io.on('connection', (socket) => {
       io.to(msg.roomId).emit('message', msg);
     } else {
       io.emit('message', msg);
+    }
+  });
+
+  socket.on('addReaction', async ({ messageId, emoji, userId, roomId }) => {
+    if (!messageId || !emoji || !userId) return;
+    try {
+      // Toggle reaction
+      const existing = await prisma.reaction.findUnique({
+        where: {
+          userId_messageId_emoji: {
+            userId: String(userId),
+            messageId: String(messageId),
+            emoji
+          }
+        }
+      });
+
+      if (existing) {
+        await prisma.reaction.delete({ where: { id: existing.id } });
+      } else {
+        await prisma.reaction.create({
+          data: {
+            userId: String(userId),
+            messageId: String(messageId),
+            emoji
+          }
+        });
+      }
+
+      // Aggregate reactions for this message
+      const allReactions = await prisma.reaction.findMany({
+        where: { messageId: String(messageId) }
+      });
+
+      const reactions = {};
+      for (const r of allReactions) {
+        if (!reactions[r.emoji]) {
+          reactions[r.emoji] = { emoji: r.emoji, count: 0, userIds: [] };
+        }
+        reactions[r.emoji].count += 1;
+        reactions[r.emoji].userIds.push(r.userId);
+      }
+
+      const payload = { messageId, reactions, roomId: roomId ? String(roomId) : undefined };
+      if (roomId) {
+        io.to(String(roomId)).emit('messageReaction', payload);
+      } else {
+        io.emit('messageReaction', payload);
+      }
+    } catch (e) {
+      console.error('addReaction error:', e);
     }
   });
 
