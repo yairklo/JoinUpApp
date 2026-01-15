@@ -50,6 +50,7 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, replyToMessage, typingUsers]);
 
+  // Socket Connection Logic
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
 
@@ -104,6 +105,7 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
     };
   }, [roomId]);
 
+  // History Fetch
   useEffect(() => {
     if (!roomId) return;
     fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`)
@@ -124,6 +126,7 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
       .catch(() => { });
   }, [roomId, API_BASE]);
 
+  // User details resolution
   useEffect(() => {
     const missing = Array.from(
       new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))
@@ -184,6 +187,16 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
     ([senderId, isTyping]) => isTyping && senderId !== mySocketId
   );
 
+  const getDayString = (date: Date, isRTL: boolean) => {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return isRTL ? "היום" : "Today";
+    if (date.toDateString() === yesterday.toDateString()) return isRTL ? "אתמול" : "Yesterday";
+    return date.toLocaleDateString(isRTL ? 'he-IL' : 'en-US');
+  };
+
   if (!mounted) return null;
 
   return (
@@ -200,6 +213,7 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         bgcolor: "background.paper"
       }}
     >
+      {/* Header */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
         <Typography variant="h6" fontWeight="bold">
           {isRTL ? "חדר צ'אט" : "Chat Room"}
@@ -209,6 +223,7 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         </Typography>
       </Box>
 
+      {/* Messages List */}
       <Box
         sx={{
           flex: 1,
@@ -216,7 +231,6 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
           p: 2,
           display: "flex",
           flexDirection: "column",
-          gap: 1.5,
           bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'
         }}
       >
@@ -226,34 +240,62 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
           </Box>
         )}
 
-        {messages.map((m) => {
+        {messages.map((m, index) => {
           const isMine = m.userId && user?.id ? m.userId === user.id : false;
+
+          const prevMsg = messages[index - 1];
+          const nextMsg = messages[index + 1];
+
+          const currentDate = new Date(m.ts);
+          const prevDate = prevMsg ? new Date(prevMsg.ts) : null;
+
+          const showDateSeparator = !prevDate || currentDate.toDateString() !== prevDate.toDateString();
+
+          const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
+          const isNextSameSender = nextMsg && nextMsg.userId === m.userId;
+
+          const isFirstInGroup = !isPrevSameSender;
+          const isLastInGroup = !isNextSameSender;
+          const showAvatar = isLastInGroup;
+          const showName = isFirstInGroup;
+
           const avatarUrl = m.userId ? avatarByUserId[m.userId] : undefined;
-          const timeStr = new Date(m.ts).toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" });
-          const displayName =
-            (m.userId && nameByUserId[m.userId]) ||
-            (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") ||
-            m.senderName ||
-            m.userId ||
-            "Unknown";
+          const timeStr = currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" });
+          const displayName = (m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown";
 
           return (
-            <MessageBubble
-              key={m.id}
-              message={m}
-              isMine={isMine}
-              isRTL={isRTL}
-              onReply={handleReply}
-              onReact={handleReact}
-              avatarUrl={avatarUrl}
-              displayName={displayName}
-              timeStr={timeStr}
-            />
+            <div key={m.id}>
+              {showDateSeparator && (
+                <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
+                  <Box sx={{ bgcolor: "action.disabledBackground", px: 2, py: 0.5, borderRadius: 4 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                      {getDayString(currentDate, isRTL)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              <MessageBubble
+                message={m}
+                isMine={isMine}
+                isRTL={isRTL}
+                onReply={handleReply}
+                onReact={handleReact}
+                avatarUrl={avatarUrl}
+                displayName={displayName}
+                timeStr={timeStr}
+                showAvatar={showAvatar}
+                showName={!isMine && showName}
+                isFirstInGroup={isFirstInGroup}
+                isLastInGroup={isLastInGroup}
+                currentUserId={user?.id}
+              />
+            </div>
           );
         })}
 
         {otherUserTyping && (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1, mt: 1 }}>
             <CircularProgress size={10} color="inherit" />
             <Typography variant="caption" color="text.secondary">
               {isRTL ? "מישהו מקליד..." : "Someone is typing..."}
@@ -264,26 +306,31 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         <div ref={messagesEndRef} />
       </Box>
 
+      {/* Reply Preview */}
       {replyToMessage && (
-        <Box sx={{
-          p: 1,
-          px: 2,
-          bgcolor: "action.hover",
-          borderTop: 1,
-          borderColor: "divider",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between"
-        }}>
-          <Box sx={{
+        <Box
+          sx={{
+            p: 1,
+            px: 2,
+            bgcolor: "action.hover",
+            borderTop: 1,
+            borderColor: "divider",
             display: "flex",
-            flexDirection: "column",
-            borderLeft: isRTL ? 0 : "3px solid",
-            borderRight: isRTL ? "3px solid" : 0,
-            borderColor: "primary.main",
-            pl: isRTL ? 0 : 1,
-            pr: isRTL ? 1 : 0
-          }}>
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              borderLeft: isRTL ? 0 : "3px solid",
+              borderRight: isRTL ? "3px solid" : 0,
+              borderColor: "primary.main",
+              pl: isRTL ? 0 : 1,
+              pr: isRTL ? 1 : 0
+            }}
+          >
             <Typography variant="caption" color="primary" fontWeight="bold">
               {isRTL ? "מגיב ל:" : "Replying to:"} {nameByUserId[replyToMessage.userId || ""] || replyToMessage.senderName || "User"}
             </Typography>
@@ -297,6 +344,7 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         </Box>
       )}
 
+      {/* Input Area */}
       <Box sx={{ p: 2, borderTop: 1, borderColor: "divider", bgcolor: "background.paper" }}>
         <Stack direction="row" spacing={1} alignItems="flex-end">
           <TextField

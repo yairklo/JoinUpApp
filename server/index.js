@@ -147,19 +147,27 @@ io.on('connection', (socket) => {
     if (!messageId || !emoji || !userId) return;
     try {
       // Toggle reaction
-      const existing = await prisma.reaction.findUnique({
+      // Check for ANY existing reaction by this user on this message
+      const existing = await prisma.reaction.findFirst({
         where: {
-          userId_messageId_emoji: {
-            userId: String(userId),
-            messageId: String(messageId),
-            emoji
-          }
+          userId: String(userId),
+          messageId: String(messageId)
         }
       });
 
       if (existing) {
-        await prisma.reaction.delete({ where: { id: existing.id } });
+        if (existing.emoji === emoji) {
+          // Scenario A: Same emoji -> Toggle Off (Delete)
+          await prisma.reaction.delete({ where: { id: existing.id } });
+        } else {
+          // Scenario B: Different emoji -> Replace (Update)
+          await prisma.reaction.update({
+            where: { id: existing.id },
+            data: { emoji }
+          });
+        }
       } else {
+        // Scenario C: No existing reaction -> Create
         await prisma.reaction.create({
           data: {
             userId: String(userId),

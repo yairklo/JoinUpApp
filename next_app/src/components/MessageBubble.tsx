@@ -24,6 +24,11 @@ interface MessageBubbleProps {
     avatarUrl?: string | null;
     displayName: string;
     timeStr: string;
+    showAvatar: boolean;
+    showName: boolean;
+    isFirstInGroup: boolean;
+    isLastInGroup: boolean;
+    currentUserId?: string | null;
 }
 
 const COMMON_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
@@ -36,8 +41,14 @@ export default function MessageBubble({
     onReact,
     avatarUrl,
     displayName,
-    timeStr
+    timeStr,
+    showAvatar,
+    showName,
+    isFirstInGroup,
+    isLastInGroup,
+    currentUserId
 }: MessageBubbleProps) {
+
     const [hover, setHover] = useState(false);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -56,6 +67,10 @@ export default function MessageBubble({
 
     const quoteBorderSide = isRTL ? "borderRight" : "borderLeft";
 
+    // Dynamic Border Radius Logic
+    const radiusTop = isFirstInGroup ? 2 : 0.5;
+    const sharpCorner = isLastInGroup ? 0 : 0.5;
+
     return (
         <Box
             onMouseEnter={() => setHover(true)}
@@ -68,65 +83,77 @@ export default function MessageBubble({
                 maxWidth: "100%",
                 alignSelf: isMine ? "flex-end" : "flex-start",
                 position: "relative",
-                mb: 2
+                mb: isLastInGroup ? 2 : 0.5
             }}
         >
-            <Avatar
-                src={avatarUrl || undefined}
-                alt={displayName}
-                sx={{ width: 32, height: 32, bgcolor: isMine ? "primary.dark" : "secondary.main" }}
-            >
-                {!avatarUrl && <SmartToyIcon fontSize="small" />}
-            </Avatar>
+            {/* Avatar Placeholder */}
+            <Box sx={{ width: 32, display: "flex", alignItems: "flex-end" }}>
+                {showAvatar && (
+                    <Avatar
+                        src={avatarUrl || undefined}
+                        alt={displayName}
+                        sx={{ width: 32, height: 32, bgcolor: isMine ? "primary.dark" : "secondary.main" }}
+                    >
+                        {!avatarUrl && <SmartToyIcon fontSize="small" />}
+                    </Avatar>
+                )}
+            </Box>
 
             <Box sx={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start", maxWidth: "70%" }}>
-                <Typography variant="caption" sx={{ ml: 1, mr: 1, color: "text.secondary", fontSize: "0.7rem" }}>
-                    {displayName} • {timeStr}
-                </Typography>
+                {showName && (
+                    <Typography variant="caption" sx={{ ml: 1, mr: 1, color: "text.secondary", fontSize: "0.7rem", mb: 0.2 }}>
+                        {displayName} • {timeStr}
+                    </Typography>
+                )}
 
                 <Paper
-                    elevation={1}
+                    elevation={isLastInGroup ? 1 : 0}
+                    variant={isLastInGroup ? "elevation" : "outlined"}
                     sx={{
                         p: 1.5,
-                        borderRadius: 2,
-                        borderBottomRightRadius: isMine ? (isRTL ? 2 : 0) : (isRTL ? 0 : 2),
-                        borderBottomLeftRadius: isMine ? (isRTL ? 0 : 2) : (isRTL ? 2 : 0),
                         bgcolor: isMine ? "primary.main" : "background.paper",
                         color: isMine ? "primary.contrastText" : "text.primary",
                         position: "relative",
-                        minWidth: "120px"
+                        minWidth: "120px",
+                        borderRadius: 2,
+                        borderTopRightRadius: isMine ? radiusTop : 2,
+                        borderTopLeftRadius: isMine ? 2 : radiusTop,
+                        borderBottomRightRadius: isMine ? (isRTL ? 2 : sharpCorner) : (isRTL ? sharpCorner : 2),
+                        borderBottomLeftRadius: isMine ? (isRTL ? sharpCorner : 2) : (isRTL ? 2 : sharpCorner),
                     }}
                 >
+                    {/* Reply / Quote Section */}
                     {message.replyTo && (
                         <Box
                             sx={{
-                                bgcolor: "rgba(0,0,0,0.1)",
-                                p: 0.5,
+                                bgcolor: isMine ? "rgba(0, 0, 0, 0.2)" : "action.hover",
+                                p: 1,
                                 mb: 1,
                                 borderRadius: 1,
                                 [quoteBorderSide]: "4px solid",
-                                borderColor: "secondary.main",
-                                fontSize: "0.8rem"
+                                borderColor: isMine ? "rgba(255,255,255,0.7)" : "primary.main",
+                                fontSize: "0.85rem"
                             }}
                         >
-                            <Typography variant="caption" fontWeight="bold" display="block">
+                            <Typography variant="caption" fontWeight="bold" display="block" sx={{ color: isMine ? "inherit" : "primary.main" }}>
                                 {message.replyTo.senderName}
                             </Typography>
-                            <Typography variant="caption" noWrap sx={{ display: "block", maxWidth: 150 }}>
+                            <Typography variant="caption" noWrap sx={{ display: "block", maxWidth: 150, opacity: 0.9 }}>
                                 {message.replyTo.text}
                             </Typography>
                         </Box>
                     )}
 
-                    <Typography variant="body2" dir="auto" sx={{ textAlign: isRTL ? "right" : "left" }}>
+                    <Typography variant="body2" dir="auto" sx={{ textAlign: isRTL ? "right" : "left", lineHeight: 1.4 }}>
                         {message.text}
                     </Typography>
 
+                    {/* Reactions Display */}
                     {message.reactions && Object.keys(message.reactions).length > 0 && (
                         <Box
                             sx={{
                                 position: "absolute",
-                                bottom: -15,
+                                bottom: -12,
                                 [isMine ? (isRTL ? "left" : "right") : (isRTL ? "right" : "left")]: 0,
                                 display: "flex",
                                 gap: 0.5,
@@ -136,18 +163,36 @@ export default function MessageBubble({
                                 px: 0.5,
                                 py: 0.2,
                                 zIndex: 10
-                            }}
-                        >
-                            {Object.values(message.reactions).map((r, idx) => (
-                                <Typography key={idx} variant="caption" sx={{ fontSize: "0.8rem", color: "text.primary" }}>
-                                    {r.emoji}{r.count > 1 ? r.count : ""}
-                                </Typography>
-                            ))}
+                            }}>
+                            {Object.values(message.reactions).map((r, idx) => {
+                                const iReacted = currentUserId ? r.userIds.includes(currentUserId) : false;
+                                return (
+                                    <Box
+                                        key={idx}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onReact(message.id, r.emoji);
+                                        }}
+                                        sx={{
+                                            cursor: "pointer",
+                                            fontSize: "0.85rem",
+                                            color: "text.primary",
+                                            px: 0.5,
+                                            borderRadius: 4,
+                                            bgcolor: iReacted ? "action.selected" : "transparent",
+                                            "&:hover": { bgcolor: "action.hover" }
+                                        }}
+                                    >
+                                        {r.emoji} {r.count > 1 ? <span style={{ fontSize: '0.7em', fontWeight: 'bold' }}>{r.count}</span> : ""}
+                                    </Box>
+                                );
+                            })}
                         </Box>
                     )}
                 </Paper>
             </Box>
 
+            {/* Hover Action Buttons */}
             <Stack
                 direction={isRTL ? "row-reverse" : "row"}
                 spacing={0}
@@ -165,6 +210,7 @@ export default function MessageBubble({
                 </IconButton>
             </Stack>
 
+            {/* Emoji Menu */}
             <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
