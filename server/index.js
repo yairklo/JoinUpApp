@@ -14,6 +14,8 @@ const gamesRoutes = require('./routes/games');
 const usersRoutes = require('./routes/users');
 const seriesRoutes = require('./routes/series');
 const messagesRoutes = require('./routes/messages');
+const { clerkClient } = require('./utils/auth');
+const { checkChatPermission } = require('./utils/chatAuth');
 
 const app = express();
 const server = http.createServer(app);
@@ -105,9 +107,43 @@ const io = new Server(server, {
   },
 });
 
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token ||
+      (socket.handshake.headers?.authorization && socket.handshake.headers.authorization.startsWith('Bearer ')
+        ? socket.handshake.headers.authorization.split(' ')[1]
+        : null);
+
+    if (token) {
+      try {
+        const claims = await clerkClient.verifyToken(token);
+        socket.userId = claims.sub;
+      } catch (e) {
+        console.error("Socket token verification failed:", e.message);
+      }
+    }
+    next();
+  } catch (err) {
+    next();
+  }
+});
+
 io.on('connection', (socket) => {
-  socket.on('joinRoom', (roomId) => {
-    if (roomId) socket.join(String(roomId));
+  socket.on('joinRoom', async (roomId) => {
+    if (!roomId) return;
+
+    // Require Auth
+    if (!socket.userId) {
+      socket.emit('error', 'Unauthorized: Please login');
+      return;
+    }
+
+    const allowed = await checkChatPermission(socket.userId, roomId);
+    if (allowed) {
+      socket.join(String(roomId));
+    } else {
+      socket.emit('error', 'Unauthorized access to room');
+    }
   });
 
   // 1. User Setup: Join personal room for notifications

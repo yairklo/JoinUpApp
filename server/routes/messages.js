@@ -1,15 +1,23 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../utils/auth');
+const { checkChatPermission } = require('../utils/chatAuth');
 
 const prisma = new PrismaClient();
 const router = express.Router();
 
 // GET /api/messages?roomId=abc&limit=100
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const { roomId, limit } = req.query;
     if (!roomId) return res.status(400).json({ error: 'roomId is required' });
+
+    // Security Check
+    const isAllowed = await checkChatPermission(req.user.id, roomId);
+    if (!isAllowed) {
+      return res.status(403).json({ error: 'Access denied: You are not a participant of this chat' });
+    }
+
     const take = Math.min(Number(limit) || 100, 500);
     const items = await prisma.message.findMany({
       where: { chatRoomId: String(roomId) },

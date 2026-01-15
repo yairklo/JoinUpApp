@@ -100,29 +100,43 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
     useEffect(() => {
         if (!userId) return;
 
-        const API_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-        const socket = io(API_URL, { path: "/api/socket", transports: ["websocket"], withCredentials: true });
+        let socket: any = null;
 
-        socket.on("connect", () => {
-            // Register this user to their personal notification room
-            socket.emit("setup", { id: userId });
-        });
+        const initSocket = async () => {
+            try {
+                const token = await getToken();
+                const API_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "";
 
-        socket.on("notification", (payload) => {
-            // When a new message notification arrives
-            if (payload.type === 'message') {
-                setTotalUnread((prev) => prev + 1);
+                socket = io(API_URL, {
+                    path: "/api/socket",
+                    transports: ["websocket"],
+                    withCredentials: true,
+                    auth: { token }
+                });
 
-                // Optionally: You could also refetch the full chat list here 
-                // to update the specific chat's last message text
-                // fetchChats(); 
+                socket.on("connect", () => {
+                    // Register this user to their personal notification room
+                    socket.emit("setup", { id: userId });
+                });
+
+                socket.on("notification", (payload: any) => {
+                    // When a new message notification arrives
+                    if (payload.type === 'message') {
+                        setTotalUnread((prev) => prev + 1);
+                        fetchChats();
+                    }
+                });
+            } catch (e) {
+                console.error("Socket init failed", e);
             }
-        });
+        };
+
+        initSocket();
 
         return () => {
-            socket.disconnect();
+            if (socket) socket.disconnect();
         };
-    }, [userId]);
+    }, [userId, getToken]);
 
     // Load chats on mount to get initial badge count
     useEffect(() => {

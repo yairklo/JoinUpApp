@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 import {
   Box,
   Paper,
@@ -32,6 +32,7 @@ type ChatProps = {
 export default function Chat({ roomId = "global", language = "he" }: ChatProps) {
   const isRTL = language === "he";
   const { user } = useUser();
+  const { getToken } = useAuth();
   const theme = useTheme();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -114,58 +115,79 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
   // --- Socket Logic ---
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-    if (base) fetch(`${base.replace(/\/$/, "")}/api/health`).catch(() => { });
-    else fetch("/api/socket").catch(() => { });
+    let socket: Socket | null = null;
 
-    const socket = io(base, { path: "/api/socket", transports: ["websocket"], withCredentials: true });
-    socketRef.current = socket;
+    const initSocket = async () => {
+      const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
+      if (base) fetch(`${base.replace(/\/$/, "")}/api/health`).catch(() => { });
+      else fetch("/api/socket").catch(() => { });
 
-    socket.on("connect", () => {
-      setMySocketId(socket.id ?? "");
-      socket.emit("joinRoom", roomId);
-      socket.emit("markAsRead", { roomId, userId: user?.id });
-    });
+      try {
+        const token = await getToken();
+        socket = io(base, {
+          path: "/api/socket",
+          transports: ["websocket"],
+          withCredentials: true,
+          auth: { token }
+        });
+        socketRef.current = socket;
 
-    socket.on("message", (msg: ChatMessage) => {
-      if (!msg.roomId || msg.roomId === roomId) {
-        setMessages((prev) => [...prev, msg]);
-        if (msg.userId !== user?.id) socket.emit("markAsRead", { roomId, userId: user?.id });
+        socket.on("connect", () => {
+          setMySocketId(socket?.id ?? "");
+          socket?.emit("joinRoom", roomId);
+          socket?.emit("markAsRead", { roomId, userId: user?.id });
+        });
+
+        socket.on("message", (msg: ChatMessage) => {
+          if (!msg.roomId || msg.roomId === roomId) {
+            setMessages((prev) => [...prev, msg]);
+            if (msg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
+          }
+        });
+
+        socket.on("messageUpdated", (payload: { id: string | number, text: string, isEdited: boolean, roomId?: string }) => {
+          if (!payload.roomId || payload.roomId === roomId) {
+            setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, text: payload.text, isEdited: payload.isEdited } : m));
+          }
+        });
+
+        socket.on("messageDeleted", (payload: { id: string | number, roomId?: string }) => {
+          if (!payload.roomId || payload.roomId === roomId) {
+            setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, isDeleted: true, text: "" } : m));
+          }
+        });
+
+        socket.on("typing", (payload) => {
+          if (!payload.roomId || payload.roomId === roomId) {
+            setTypingUsers((prev) => ({ ...prev, [payload.senderId]: payload.isTyping }));
+          }
+        });
+
+        socket.on("messageReaction", (payload: { messageId: string | number; reactions: Record<string, Reaction>; roomId?: string }) => {
+          if (!payload.roomId || payload.roomId === roomId) {
+            setMessages((prev) => prev.map(m => (String(m.id) === String(payload.messageId)) ? { ...m, reactions: payload.reactions } : m));
+          }
+        });
+
+        socket.on("messageStatusUpdate", (payload: { roomId: string, status: MessageStatus, userId?: string }) => {
+          if (payload.roomId === roomId) {
+            setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read') ? { ...m, status: payload.status } : m));
+          }
+        });
+
+        socket.on("error", (err: any) => {
+          console.error("Socket error", err);
+        });
+
+      } catch (e) {
+        console.error("Socket connection failed", e);
       }
-    });
+    };
 
-    socket.on("messageUpdated", (payload: { id: string | number, text: string, isEdited: boolean, roomId?: string }) => {
-      if (!payload.roomId || payload.roomId === roomId) {
-        setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, text: payload.text, isEdited: payload.isEdited } : m));
-      }
-    });
+    if (user?.id) initSocket();
 
-    socket.on("messageDeleted", (payload: { id: string | number, roomId?: string }) => {
-      if (!payload.roomId || payload.roomId === roomId) {
-        setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, isDeleted: true, text: "" } : m));
-      }
-    });
-
-    socket.on("typing", (payload) => {
-      if (!payload.roomId || payload.roomId === roomId) {
-        setTypingUsers((prev) => ({ ...prev, [payload.senderId]: payload.isTyping }));
-      }
-    });
-
-    socket.on("messageReaction", (payload: { messageId: string | number; reactions: Record<string, Reaction>; roomId?: string }) => {
-      if (!payload.roomId || payload.roomId === roomId) {
-        setMessages((prev) => prev.map(m => (String(m.id) === String(payload.messageId)) ? { ...m, reactions: payload.reactions } : m));
-      }
-    });
-
-    socket.on("messageStatusUpdate", (payload: { roomId: string, status: MessageStatus, userId?: string }) => {
-      if (payload.roomId === roomId) {
-        setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read') ? { ...m, status: payload.status } : m));
-      }
-    });
-
-    return () => { socket.disconnect(); };
-  }, [roomId, user?.id]);
+    return () => { if (socket) socket.disconnect(); };
+  }, [roomId, user?.id, getToken]);
 
   useEffect(() => {
     if (!roomId) return;

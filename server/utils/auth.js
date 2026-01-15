@@ -62,5 +62,6 @@ module.exports = {
   attachOptionalUser,
   hashPassword,
   comparePassword,
-  generateToken
+  generateToken,
+  clerkClient // Exported for use in socket middleware
 };
