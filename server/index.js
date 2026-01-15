@@ -14,7 +14,7 @@ const gamesRoutes = require('./routes/games');
 const usersRoutes = require('./routes/users');
 const seriesRoutes = require('./routes/series');
 const messagesRoutes = require('./routes/messages');
-const { clerkClient } = require('./utils/auth');
+const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission } = require('./utils/chatAuth');
 
 const app = express();
@@ -116,7 +116,9 @@ io.use(async (socket, next) => {
 
     if (token) {
       try {
-        const claims = await clerkClient.verifyToken(token);
+        const claims = await verifyToken(token, {
+          secretKey: process.env.CLERK_SECRET_KEY
+        });
         socket.userId = claims.sub;
       } catch (e) {
         console.error("Socket token verification failed:", e.message);
@@ -124,6 +126,7 @@ io.use(async (socket, next) => {
     }
     next();
   } catch (err) {
+    console.error("Auth Middleware Error:", err);
     next();
   }
 });
