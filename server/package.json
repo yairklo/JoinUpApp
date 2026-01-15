@@ -19,6 +19,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@clerk/backend": "^2.29.2",
     "@clerk/express": "^1.7.23",
     "@prisma/client": "^6.14.0",
     "bcryptjs": "^2.4.3",

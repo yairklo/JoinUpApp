@@ -1189,6 +1189,14 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         const confirmedCountPre = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
         const status = confirmedCountPre < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
         await prisma.participation.create({ data: { gameId: game.id, userId: req.user.id, status } });
+
+        // Add to Chat
+        try {
+          await prisma.chatParticipant.create({ data: { userId: req.user.id, chatId: game.id } });
+        } catch (e) {
+          // Ignore if chat room doesn't exist or already participant
+        }
+
         const updated = await prisma.game.findUnique({
           where: { id: game.id },
           include: { field: true, participants: { include: { user: true } } }
@@ -1218,6 +1226,13 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       data: { gameId: game.id, userId: req.user.id, status: 'CONFIRMED' }
     });
 
+    // Add to Chat
+    try {
+      await prisma.chatParticipant.create({ data: { userId: req.user.id, chatId: game.id } });
+    } catch (e) {
+      // Ignore
+    }
+
     const updated = await prisma.game.findUnique({
       where: { id: game.id },
       include: { field: true, participants: { include: { user: true } } }
@@ -1240,6 +1255,13 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
     const del = await prisma.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
     if (del.count === 0) {
       return res.status(400).json({ error: 'You are not a participant in this game' });
+    }
+
+    // Remove from Chat
+    try {
+      await prisma.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
+    } catch (e) {
+      // Ignore
     }
 
     const remaining = await prisma.participation.findMany({ where: { gameId: game.id } });
