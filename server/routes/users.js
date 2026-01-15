@@ -389,26 +389,35 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
     // Filter out nulls and add to allChats
     allChats.push(...privateChats.filter(chat => chat !== null));
 
-    // 3. Fetch Last Message for each chat (OPTIMIZED)
+    // 3. Fetch Last Message AND Unread Count (Optimized)
     const chatsWithMessages = await Promise.all(allChats.map(async (chat) => {
-      const lastMsg = await prisma.message.findFirst({
-        where: { roomId: chat.id },
-        orderBy: { createdAt: 'desc' },
-        take: 1
-      });
-
-      if (lastMsg) {
-        return {
-          ...chat,
-          lastMessage: {
-            text: lastMsg.text,
-            createdAt: lastMsg.createdAt,
-            senderId: lastMsg.userId,
-            status: lastMsg.status
+      const [lastMsg, unreadCount] = await Promise.all([
+        // A. Get Last Message
+        prisma.message.findFirst({
+          where: { roomId: chat.id },
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }),
+        // B. Count Unread Messages (Targeting the current user)
+        prisma.message.count({
+          where: {
+            roomId: chat.id,
+            userId: { not: userId }, // Messages sent by others
+            status: { not: 'read' }  // That are not read yet
           }
-        };
-      }
-      return chat;
+        })
+      ]);
+
+      return {
+        ...chat,
+        unreadCount, // <--- New Field
+        lastMessage: lastMsg ? {
+          text: lastMsg.text,
+          createdAt: lastMsg.createdAt,
+          senderId: lastMsg.userId,
+          status: lastMsg.status
+        } : null
+      };
     }));
 
     // 4. Sort

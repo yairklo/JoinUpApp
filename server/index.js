@@ -109,6 +109,14 @@ io.on('connection', (socket) => {
     if (roomId) socket.join(String(roomId));
   });
 
+  // 1. User Setup: Join personal room for notifications
+  socket.on('setup', (userData) => {
+    if (userData?.id) {
+      socket.join(String(userData.id));
+      console.log(`User ${userData.id} joined their notification room`);
+    }
+  });
+
   socket.on('message', async ({ text, roomId, userId, senderName, replyTo }) => {
     if (!text) return;
 
@@ -155,6 +163,43 @@ io.on('connection', (socket) => {
       io.to(msg.roomId).emit('message', msg);
     } else {
       io.emit('message', msg);
+    }
+
+    // Send Notifications to recipients
+    if (userId && roomId) {
+      try {
+        let recipientIds = [];
+
+        // Case 1: Private Chat (roomId format: "private_ID1_ID2")
+        if (String(roomId).startsWith('private_')) {
+          const parts = String(roomId).replace('private_', '').split('_');
+          const otherId = parts.find(id => id !== String(userId));
+          if (otherId) recipientIds.push(otherId);
+        }
+        // Case 2: Group Chat (roomId is a gameId)
+        else {
+          const participations = await prisma.participation.findMany({
+            where: {
+              gameId: String(roomId),
+              status: 'CONFIRMED',
+              userId: { not: String(userId) }
+            },
+            select: { userId: true }
+          });
+          recipientIds = participations.map(p => p.userId);
+        }
+
+        recipientIds.forEach(recipientId => {
+          io.to(recipientId).emit('notification', {
+            type: 'message',
+            roomId: roomId,
+            senderId: userId,
+            text: text
+          });
+        });
+      } catch (err) {
+        console.error("Notification error:", err);
+      }
     }
   });
 

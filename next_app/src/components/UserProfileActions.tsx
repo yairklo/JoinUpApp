@@ -15,6 +15,7 @@ import IconButton from "@mui/material/IconButton";
 import ChatIcon from "@mui/icons-material/Chat";
 import CloseIcon from "@mui/icons-material/Close";
 import Chat from "./Chat";
+import { getPrivateChatRoomId } from "@/utils/chatUtils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -182,7 +183,7 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
                     <Box sx={{ flex: 1, display: 'flex' }}>
                         {user && (
                             <Chat
-                                roomId={`private_${[user.id, targetUserId].sort().join('_')}`}
+                                roomId={getPrivateChatRoomId(user.id, targetUserId)}
                             />
                         )}
                     </Box>

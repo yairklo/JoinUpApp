@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, forwardRef } from "react";
+import React, { useState, useEffect, forwardRef } from "react";
 import {
     Box,
     List,
@@ -25,13 +25,15 @@ import ChatIcon from "@mui/icons-material/Chat";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { TransitionProps } from "@mui/material/transitions";
 import { formatDistanceToNow } from "date-fns";
+import { io } from "socket.io-client"; // Import socket
 
-// Type definitions based on your API response
+// Updated Interface with unreadCount
 interface ChatPreview {
     id: string;
     type: 'group' | 'private';
     name: string;
     image: string | null;
+    unreadCount: number; // New field
     lastMessage: {
         text: string;
         createdAt: string;
@@ -46,7 +48,6 @@ interface ChatListProps {
     onChatSelect: (chatId: string) => void;
 }
 
-// Transition animation for mobile full-screen dialog
 const Transition = forwardRef(function Transition(
     props: TransitionProps & { children: React.ReactElement },
     ref: React.Ref<unknown>,
@@ -59,10 +60,14 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
     const [loading, setLoading] = useState(false);
     const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
 
+    // State for total unread badge
+    const [totalUnread, setTotalUnread] = useState(0);
+
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
     const open = Boolean(anchorEl);
 
+    // Initial Fetch
     const fetchChats = async () => {
         if (!userId) return;
         try {
@@ -73,6 +78,10 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
             if (res.ok) {
                 const data = await res.json();
                 setChats(data);
+
+                // Calculate total unread
+                const total = data.reduce((acc: number, chat: ChatPreview) => acc + (chat.unreadCount || 0), 0);
+                setTotalUnread(total);
             }
         } catch (error) {
             console.error("Failed to load chats", error);
@@ -81,9 +90,42 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
         }
     };
 
+    // Socket Listener for Notifications
+    useEffect(() => {
+        if (!userId) return;
+
+        const API_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "";
+        const socket = io(API_URL, { path: "/api/socket", transports: ["websocket"], withCredentials: true });
+
+        socket.on("connect", () => {
+            // Register this user to their personal notification room
+            socket.emit("setup", { id: userId });
+        });
+
+        socket.on("notification", (payload) => {
+            // When a new message notification arrives
+            if (payload.type === 'message') {
+                setTotalUnread((prev) => prev + 1);
+
+                // Optionally: You could also refetch the full chat list here 
+                // to update the specific chat's last message text
+                // fetchChats(); 
+            }
+        });
+
+        return () => {
+            socket.disconnect();
+        };
+    }, [userId]);
+
+    // Load chats on mount to get initial badge count
+    useEffect(() => {
+        fetchChats();
+    }, [userId]);
+
     const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
         setAnchorEl(event.currentTarget);
-        fetchChats(); // Refresh list on open to get latest messages
+        fetchChats();
     };
 
     const handleClose = () => {
@@ -91,14 +133,20 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
     };
 
     const handleSelect = (chatId: string) => {
+        // Optimistic update: decrease unread count when opening a chat
+        // (Actual server update happens inside the Chat component via markAsRead)
+        const chat = chats.find(c => c.id === chatId);
+        if (chat && chat.unreadCount > 0) {
+            setTotalUnread(prev => Math.max(0, prev - chat.unreadCount));
+        }
+
         onChatSelect(chatId);
         handleClose();
     };
 
-    // Shared content list for both Mobile and Desktop views
     const listContent = (
         <List sx={{ width: '100%', bgcolor: 'background.paper', p: 0 }}>
-            {loading ? (
+            {loading && chats.length === 0 ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                     <CircularProgress />
                 </Box>
@@ -116,14 +164,21 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
                         <ListItem key={chat.id} disablePadding divider>
                             <ListItemButton onClick={() => handleSelect(chat.id)} alignItems="flex-start">
                                 <ListItemAvatar>
-                                    <Avatar src={chat.image || undefined} alt={chat.name}>
-                                        {chat.name.charAt(0)}
-                                    </Avatar>
+                                    <Badge badgeContent={chat.unreadCount} color="error" overlap="circular">
+                                        <Avatar src={chat.image || undefined} alt={chat.name}>
+                                            {chat.name.charAt(0)}
+                                        </Avatar>
+                                    </Badge>
                                 </ListItemAvatar>
                                 <ListItemText
                                     primary={
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <Typography variant="subtitle2" fontWeight="bold" noWrap sx={{ maxWidth: '70%' }}>
+                                            <Typography
+                                                variant="subtitle2"
+                                                fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
+                                                noWrap
+                                                sx={{ maxWidth: '70%' }}
+                                            >
                                                 {chat.name}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 1 }}>
@@ -134,7 +189,8 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
                                     secondary={
                                         <Typography
                                             variant="body2"
-                                            color="text.secondary"
+                                            color={chat.unreadCount > 0 ? "text.primary" : "text.secondary"}
+                                            fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
                                             noWrap
                                             sx={{ display: 'block', maxWidth: '90%' }}
                                         >
@@ -152,15 +208,13 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
 
     return (
         <>
-            {/* Toggle Button */}
             <IconButton color="inherit" onClick={handleOpen}>
-                <Badge badgeContent={0} color="error">
+                <Badge badgeContent={totalUnread} color="error">
                     <ChatIcon />
                 </Badge>
             </IconButton>
 
             {isMobile ? (
-                // Mobile View: Full Screen Dialog
                 <Dialog
                     fullScreen
                     open={open}
@@ -180,7 +234,6 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
                     {listContent}
                 </Dialog>
             ) : (
-                // Desktop View: Popover
                 <Popover
                     open={open}
                     anchorEl={anchorEl}
