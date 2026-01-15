@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     if (!roomId) return res.status(400).json({ error: 'roomId is required' });
     const take = Math.min(Number(limit) || 100, 500);
     const items = await prisma.message.findMany({
-      where: { roomId: String(roomId) },
+      where: { chatRoomId: String(roomId) },
       orderBy: { createdAt: 'asc' },
       take,
       include: {
@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
       return {
         id: m.id,
         text: m.text,
-        roomId: m.roomId,
+        roomId: m.chatRoomId, // Map back to roomId for client compatibility
         userId: m.userId || null,
         ts: m.createdAt,
         replyTo: m.replyTo ? {
@@ -65,8 +65,8 @@ router.post('/', async (req, res) => {
   try {
     const { roomId, text, userId } = req.body || {};
     if (!roomId || !text) return res.status(400).json({ error: 'roomId and text are required' });
-    const saved = await prisma.message.create({ data: { roomId: String(roomId), text: String(text), userId: userId ? String(userId) : null } });
-    res.status(201).json({ id: saved.id, roomId: saved.roomId, text: saved.text, userId: saved.userId, ts: saved.createdAt });
+    const saved = await prisma.message.create({ data: { chatRoomId: String(roomId), text: String(text), userId: userId ? String(userId) : null } });
+    res.status(201).json({ id: saved.id, roomId: saved.chatRoomId, text: saved.text, userId: saved.userId, ts: saved.createdAt });
   } catch (e) {
     console.error('Create message error:', e);
     res.status(500).json({ error: 'Failed to create message' });
