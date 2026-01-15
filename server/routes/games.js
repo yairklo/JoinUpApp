@@ -1036,6 +1036,22 @@ router.post('/', authenticateToken, async (req, res) => {
       include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
     });
 
+    // Create ChatRoom immediately
+    try {
+      await prisma.chatRoom.create({
+        data: {
+          id: created.id,
+          type: 'GROUP',
+          participants: {
+            create: { userId: req.user.id }
+          }
+        }
+      });
+    } catch (chatError) {
+      console.error('Failed to create chat room for game:', chatError);
+      // We don't fail the request, but logging is important
+    }
+
     res.status(201).json(mapGameForClient(created));
   } catch (error) {
     console.error('Create game error:', error);
