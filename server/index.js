@@ -254,6 +254,51 @@ io.on('connection', (socket) => {
       console.error('markAsRead error:', e);
     }
   });
+
+  socket.on('editMessage', async ({ messageId, text, roomId }) => {
+    if (!messageId || !text) return;
+    try {
+      await prisma.message.update({
+        where: { id: String(messageId) },
+        data: {
+          text: String(text),
+          isEdited: true
+        }
+      });
+
+      const payload = { id: messageId, text, isEdited: true, roomId: roomId ? String(roomId) : undefined };
+      if (roomId) {
+        io.to(String(roomId)).emit('messageUpdated', payload);
+      } else {
+        io.emit('messageUpdated', payload);
+      }
+    } catch (e) {
+      console.error('editMessage error:', e);
+    }
+  });
+
+  socket.on('deleteMessage', async ({ messageId, roomId }) => {
+    if (!messageId) return;
+    try {
+      await prisma.message.update({
+        where: { id: String(messageId) },
+        data: {
+          isDeleted: true,
+          // Optional: clear text as well for privacy, but 'isDeleted' flag handles the UI
+          text: ""
+        }
+      });
+
+      const payload = { id: messageId, roomId: roomId ? String(roomId) : undefined };
+      if (roomId) {
+        io.to(String(roomId)).emit('messageDeleted', payload);
+      } else {
+        io.emit('messageDeleted', payload);
+      }
+    } catch (e) {
+      console.error('deleteMessage error:', e);
+    }
+  });
 });
 
 // --- Lottery scheduler ---

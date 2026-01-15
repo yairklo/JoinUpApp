@@ -128,6 +128,8 @@ model Message {
   text      String
   status    MessageStatus @default(sent)
   createdAt DateTime @default(now())
+  isEdited  Boolean  @default(false)
+  isDeleted Boolean  @default(false)
   // New: Reply Relation
   replyToId String?
   replyTo   Message? @relation("ReplyTo", fields: [replyToId], references: [id])
