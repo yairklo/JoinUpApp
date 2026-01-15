@@ -191,10 +191,24 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
 
   useEffect(() => {
     if (!roomId) return;
-    fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`)
-      .then((r) => r.json())
-      .then((arr: Array<any>) => {
-        const mapped: ChatMessage[] = arr.map((m) => ({
+
+    const fetchMessages = async () => {
+      try {
+        const token = await getToken();
+        // Use standard backend route with query parameter
+        const res = await fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          console.error("Failed to fetch messages:", res.status);
+          return;
+        }
+
+        const arr = await res.json();
+        const mapped: ChatMessage[] = arr.map((m: any) => ({
           id: m.id ?? Date.parse(m.ts),
           text: m.text,
           senderId: m.userId || "",
@@ -213,9 +227,13 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         prevMessagesLengthRef.current = mapped.length;
 
         setTimeout(scrollToBottom, 100);
-      })
-      .catch(() => { });
-  }, [roomId, API_BASE, scrollToBottom]);
+      } catch (err) {
+        console.error("Fetch messages error:", err);
+      }
+    };
+
+    fetchMessages();
+  }, [roomId, API_BASE, scrollToBottom, getToken]);
 
   useEffect(() => {
     const missing = Array.from(new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))).filter(id => !(id in avatarByUserId));
