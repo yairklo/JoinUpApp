@@ -28,9 +28,12 @@ type ChatMessage = {
 
 type ChatProps = {
   roomId?: string;
+  language?: "en" | "he";
 };
 
-export default function Chat({ roomId = "global" }: ChatProps) {
+export default function Chat({ roomId = "global", language = "he" }: ChatProps) {
+  const isRTL = language === "he";
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [mySocketId, setMySocketId] = useState<string>("");
@@ -50,11 +53,11 @@ export default function Chat({ roomId = "global" }: ChatProps) {
     setMounted(true);
   }, []);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUsers]);
 
+  // Socket setup
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
 
@@ -161,6 +164,7 @@ export default function Chat({ roomId = "global" }: ChatProps) {
   return (
     <Paper
       elevation={3}
+      dir={isRTL ? "rtl" : "ltr"}
       sx={{
         width: "100%",
         height: "600px",
@@ -174,10 +178,10 @@ export default function Chat({ roomId = "global" }: ChatProps) {
       {/* Header */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
         <Typography variant="h6" fontWeight="bold">
-          Chat Room
+          {isRTL ? "חדר צ'אט" : "Chat Room"}
         </Typography>
         <Typography variant="caption" sx={{ opacity: 0.8 }}>
-          {roomId === "global" ? "Global Chat" : roomId}
+          {roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : roomId}
         </Typography>
       </Box>
 
@@ -193,19 +197,13 @@ export default function Chat({ roomId = "global" }: ChatProps) {
           bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'
         }}
       >
-        {messages.length === 0 && (
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 4, opacity: 0.5 }}>
-            <Typography variant="body2">No messages yet. Start the conversation!</Typography>
-          </Box>
-        )}
-
         {messages.map((m) => {
           const isMine = m.userId && user?.id ? m.userId === user.id : false;
           const avatarUrl = m.userId ? avatarByUserId[m.userId] : undefined;
-          const timeStr = new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          const timeStr = new Date(m.ts).toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" });
           const displayName =
             (m.userId && nameByUserId[m.userId]) ||
-            (isMine ? (user?.fullName || "Me") : "") ||
+            (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") ||
             m.senderName ||
             m.userId ||
             "Unknown";
@@ -219,6 +217,7 @@ export default function Chat({ roomId = "global" }: ChatProps) {
                 alignItems: "flex-end",
                 gap: 1,
                 maxWidth: "100%",
+                alignSelf: isMine ? "flex-end" : "flex-start"
               }}
             >
               <Avatar
@@ -238,25 +237,30 @@ export default function Chat({ roomId = "global" }: ChatProps) {
                   sx={{
                     p: 1.5,
                     borderRadius: 2,
-                    borderBottomRightRadius: isMine ? 0 : 2,
-                    borderBottomLeftRadius: isMine ? 2 : 0,
+                    borderBottomRightRadius: isMine ? (isRTL ? 2 : 0) : (isRTL ? 0 : 2),
+                    borderBottomLeftRadius: isMine ? (isRTL ? 0 : 2) : (isRTL ? 2 : 0),
                     bgcolor: isMine ? "primary.main" : "background.paper",
                     color: isMine ? "primary.contrastText" : "text.primary",
-                    wordBreak: "break-word"
+                    wordBreak: "break-word",
+                    textAlign: isRTL ? "right" : "left"
                   }}
                 >
-                  <Typography variant="body2">{m.text}</Typography>
+                  {/* dir="auto" fixes the direction of punctuation marks like in "?What" */}
+                  <Typography variant="body2" dir="auto">
+                    {m.text}
+                  </Typography>
                 </Paper>
               </Box>
             </Box>
           );
         })}
 
-        {/* Typing Indicator */}
         {otherUserTyping && (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1 }}>
             <CircularProgress size={10} color="inherit" />
-            <Typography variant="caption" color="text.secondary">Someone is typing...</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {isRTL ? "מישהו מקליד..." : "Someone is typing..."}
+            </Typography>
           </Box>
         )}
 
@@ -271,7 +275,7 @@ export default function Chat({ roomId = "global" }: ChatProps) {
             multiline
             maxRows={3}
             variant="outlined"
-            placeholder="Type a message..."
+            placeholder={isRTL ? "כתוב הודעה..." : "Type a message..."}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -288,7 +292,10 @@ export default function Chat({ roomId = "global" }: ChatProps) {
             color="primary"
             onClick={sendMessage}
             disabled={!inputValue.trim()}
-            sx={{ mb: 0.5 }}
+            sx={{
+              mb: 0.5,
+              transform: isRTL ? "scaleX(-1)" : "none"
+            }}
           >
             <SendIcon />
           </IconButton>
