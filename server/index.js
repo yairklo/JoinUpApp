@@ -67,6 +67,7 @@ app.use('/api/games', gamesRoutes);
 app.use('/api/series', seriesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/chats', require('./routes/chats'));
 
 // Health check
 app.get('/api/health', (req, res) => {

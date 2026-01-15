@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -8,24 +9,18 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import CheckIcon from "@mui/icons-material/Check";
 import Box from "@mui/material/Box";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import IconButton from "@mui/material/IconButton";
 import ChatIcon from "@mui/icons-material/Chat";
-import CloseIcon from "@mui/icons-material/Close";
-import Chat from "./Chat";
-import { getPrivateChatRoomId } from "@/utils/chatUtils";
-
+// Remove Chat and ChatIcon if not used elsewhere, but ChatIcon is used in button.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 export default function UserProfileActions({ targetUserId }: { targetUserId: string }) {
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
+    const router = useRouter();
 
     const [status, setStatus] = useState<'FRIEND' | 'REQUESTED' | 'NONE' | 'SELF' | 'LOADING'>('LOADING');
     const [loading, setLoading] = useState(false);
-    const [chatOpen, setChatOpen] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -113,12 +108,40 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
         }
     };
 
+    const handleMessage = async () => {
+        if (!user) return;
+        setActionLoading(true);
+        try {
+            const token = await getToken();
+            const res = await fetch(`${API_BASE}/api/chats/private`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ targetUserId })
+            });
+
+            if (res.ok) {
+                const { chatId } = await res.json();
+                router.push(`/chat/${chatId}`);
+            } else {
+                console.error("Failed to start chat");
+            }
+        } catch (e) {
+            console.error("Error starting chat:", e);
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     if (status === 'SELF' || !isLoaded) return null;
     if (status === 'LOADING') return <CircularProgress size={20} />;
 
     return (
         <>
             <Box display="flex" gap={2} justifyContent="center" flexWrap="wrap">
+                {/* Friend Buttons ... */}
                 {status === 'FRIEND' ? (
                     <Button
                         variant="outlined"
@@ -130,6 +153,7 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
                         Remove Friend
                     </Button>
                 ) : status === 'REQUESTED' ? (
+                    // ...
                     <Button
                         variant="text"
                         color="success"
@@ -139,6 +163,7 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
                         Request Sent
                     </Button>
                 ) : (
+                    // ...
                     <Button
                         variant="contained"
                         color="primary"
@@ -153,48 +178,14 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
                 <Button
                     variant="outlined"
                     color="primary"
-                    startIcon={<ChatIcon />}
-                    onClick={() => setChatOpen(true)}
+                    startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <ChatIcon />}
+                    onClick={handleMessage}
+                    disabled={actionLoading}
                 >
                     Message
                 </Button>
             </Box>
-
-            {/* --- FIX IS HERE IN THE DIALOG --- */}
-            <Dialog
-                open={chatOpen}
-                onClose={() => setChatOpen(false)}
-                maxWidth="sm"
-                fullWidth
-                PaperProps={{
-                    sx: { height: '80vh', maxHeight: 800 }
-                }}
-            >
-                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-                    Chat
-                    <IconButton onClick={() => setChatOpen(false)} size="small">
-                        <CloseIcon />
-                    </IconButton>
-                </DialogTitle>
-
-                <DialogContent dividers sx={{ p: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    <Box sx={{
-                        flex: 1,
-                        display: 'flex',
-                        '& > *': {
-                            height: '100% !important',
-                            boxShadow: 'none !important',
-                            borderRadius: '0 !important'
-                        }
-                    }}>
-                        {user && (
-                            <Chat
-                                roomId={getPrivateChatRoomId(user.id, targetUserId)}
-                            />
-                        )}
-                    </Box>
-                </DialogContent>
-            </Dialog>
+            {/* Removed Dialog */}
         </>
     );
 }

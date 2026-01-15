@@ -322,95 +322,55 @@ router.delete('/:id/friends/:friendId', authenticateToken, async (req, res) => {
   }
 });
 
-// List all chats for a user (Groups + Private)
+// List all chats for a user (Groups + Private, Relational)
 router.get('/:id/chats', authenticateToken, async (req, res) => {
   try {
     const userId = req.params.id;
     if (userId !== req.user.id) return res.status(403).json({ error: 'Access denied' });
 
-    const allChats = [];
-
-    // 1. Group Chats (Games)
-    const participations = await prisma.participation.findMany({
-      where: { userId, status: 'CONFIRMED' },
-      include: { game: true }
-    });
-
-    for (const p of participations) {
-      allChats.push({
-        id: p.game.id, // roomId for games is typically the game ID
-        type: 'group',
-        name: p.game.title || 'Game Chat', // Use game title
-        image: null, // Could use sport icon
-        participants: [], // Optional
-        lastMessage: null
-      });
-    }
-
-    // 2. Private Chats (Scan messages table for 'private_' rooms involving this user)
-    // Identify rooms where user is sender OR recipient (implied by roomId)
-    const distinctRooms = await prisma.message.findMany({
-      where: {
-        roomId: { startsWith: 'private_' },
-        OR: [
-          { roomId: { contains: `_${userId}` } }, // ID is at end or middle
-          // Note: using 'contains' is imperfect but sufficient for MVP with CUIDs.
-          // Better: roomId.split('_').includes(userId) in JS after fetch, but distinct helps reduce load.
-        ]
-      },
-      distinct: ['roomId'],
-      select: { roomId: true }
-    });
-
-    const relevantPrivateRooms = distinctRooms
-      .filter(r => r.roomId.includes(userId)) // Double check
-      .map(r => r.roomId);
-
-    // Fetch private chats details in parallel
-    const privateChats = await Promise.all(relevantPrivateRooms.map(async (roomId) => {
-      const parts = roomId.replace('private_', '').split('_');
-      const otherId = parts.find(id => id !== userId);
-
-      if (otherId) {
-        const otherUser = await prisma.user.findUnique({ where: { id: otherId } });
-        return {
-          id: roomId,
-          type: 'private',
-          name: otherUser ? (otherUser.name || 'Unknown User') : 'Unknown',
-          image: otherUser ? otherUser.imageUrl : null,
-          participants: [otherId],
-          lastMessage: null,
-          otherUserId: otherId
-        };
-      }
-      return null;
-    }));
-
-    // Filter out nulls and add to allChats
-    allChats.push(...privateChats.filter(chat => chat !== null));
-
-    // 3. Fetch Last Message AND Unread Count (Optimized)
-    const chatsWithMessages = await Promise.all(allChats.map(async (chat) => {
-      const [lastMsg, unreadCount] = await Promise.all([
-        // A. Get Last Message
-        prisma.message.findFirst({
-          where: { roomId: chat.id },
-          orderBy: { createdAt: 'desc' },
-          take: 1
-        }),
-        // B. Count Unread Messages (Targeting the current user)
-        prisma.message.count({
-          where: {
-            roomId: chat.id,
-            userId: { not: userId }, // Messages sent by others
-            status: { not: 'read' }  // That are not read yet
+    // Fetch all chat participations for the user
+    const participations = await prisma.chatParticipant.findMany({
+      where: { userId },
+      include: {
+        chat: {
+          include: {
+            participants: {
+              include: { user: true }
+            },
+            messages: {
+              take: 1,
+              orderBy: { createdAt: 'desc' }
+            }
           }
-        })
-      ]);
+        }
+      }
+    });
+
+    const parsedChats = await Promise.all(participations.map(async (p) => {
+      const chat = p.chat;
+      // For private chats, the "other" user is the name/image
+      // For group chats, we might use a group name (not yet fully implemented in ChatRoom model except 'type')
+      const otherParticipant = chat.participants.find(part => part.userId !== userId)?.user;
+
+      const lastMsg = chat.messages[0];
+
+      // Count unread messages
+      const unreadCount = await prisma.message.count({
+        where: {
+          chatRoomId: chat.id,
+          userId: { not: userId },
+          status: { not: 'read' }
+        }
+      });
 
       return {
-        ...chat,
-        unreadCount, // <--- New Field
+        id: chat.id,
+        type: chat.type.toLowerCase(), // 'private' or 'group'
+        // If it's a private chat, use the other user's name. If group, use generic or future title field
+        name: chat.type === 'PRIVATE' ? (otherParticipant?.name || 'Unknown') : 'Group Chat',
+        image: chat.type === 'PRIVATE' ? (otherParticipant?.imageUrl || null) : null,
+        otherUserId: chat.type === 'PRIVATE' ? otherParticipant?.id : undefined,
+        unreadCount,
         lastMessage: lastMsg ? {
           text: lastMsg.text,
           createdAt: lastMsg.createdAt,
@@ -420,14 +380,14 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
       };
     }));
 
-    // 4. Sort
-    chatsWithMessages.sort((a, b) => {
+    // Sort by last message time
+    parsedChats.sort((a, b) => {
       const timeA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
       const timeB = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
       return timeB - timeA;
     });
 
-    res.json(chatsWithMessages);
+    res.json(parsedChats);
   } catch (e) {
     console.error('Get chats error:', e);
     res.status(500).json({ error: 'Failed to get chats' });
