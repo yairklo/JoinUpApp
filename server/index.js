@@ -136,7 +136,7 @@ io.on('connection', (socket) => {
       try {
         savedMsg = await prisma.message.create({
           data: {
-            roomId: String(roomId),
+            chatRoomId: String(roomId),
             text: senderName ? `${senderName}: ${text}` : String(text),
             userId: userId ? String(userId) : null,
             replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
@@ -281,7 +281,7 @@ io.on('connection', (socket) => {
       // 1. Update in DB: Mark all messages in this room NOT sent by me as 'read'
       await prisma.message.updateMany({
         where: {
-          roomId: String(roomId),
+          chatRoomId: String(roomId),
           userId: { not: String(userId) }, // Don't mark my own messages as read by me
           status: { not: 'read' } // Only update if not already read
         },
