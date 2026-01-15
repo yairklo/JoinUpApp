@@ -20,4 +20,5 @@ export type ChatMessage = {
     roomId?: string;
     replyTo?: ReplyInfo;
     reactions?: Record<string, Reaction>;
+    status?: MessageStatus;
 };

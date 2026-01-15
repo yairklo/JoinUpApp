@@ -46,7 +46,8 @@ router.get('/', async (req, res) => {
           userId: m.replyTo.userId,
           senderName: "User" // Placeholder as we don't join User table here
         } : undefined,
-        reactions: reactions
+        reactions: reactions,
+        status: m.status
       };
     });
 

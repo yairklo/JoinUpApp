@@ -13,6 +13,8 @@ import {
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ReplyIcon from "@mui/icons-material/Reply";
 import AddReactionIcon from "@mui/icons-material/AddReaction";
+import DoneIcon from "@mui/icons-material/Done";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { ChatMessage } from "./types";
 
 interface MessageBubbleProps {
@@ -66,10 +68,24 @@ export default function MessageBubble({
     };
 
     const quoteBorderSide = isRTL ? "borderRight" : "borderLeft";
-
-    // Dynamic Border Radius Logic
     const radiusTop = isFirstInGroup ? 2 : 0.5;
     const sharpCorner = isLastInGroup ? 0 : 0.5;
+
+    // Status Icon Logic
+    const renderStatusIcon = () => {
+        if (!isMine) return null; // Only show status for my messages
+
+        const status = message.status || "sent"; // Default to sent
+        const iconSize = { fontSize: 14 };
+
+        if (status === "read") {
+            return <DoneAllIcon sx={{ ...iconSize, color: "#4fc3f7" }} />; // Blue double tick
+        }
+        if (status === "delivered") {
+            return <DoneAllIcon sx={{ ...iconSize, color: "text.secondary" }} />; // Grey double tick
+        }
+        return <DoneIcon sx={{ ...iconSize, color: "text.secondary" }} />; // Grey single tick
+    };
 
     return (
         <Box
@@ -86,7 +102,6 @@ export default function MessageBubble({
                 mb: isLastInGroup ? 2 : 0.5
             }}
         >
-            {/* Avatar Placeholder */}
             <Box sx={{ width: 32, display: "flex", alignItems: "flex-end" }}>
                 {showAvatar && (
                     <Avatar
@@ -122,7 +137,6 @@ export default function MessageBubble({
                         borderBottomLeftRadius: isMine ? (isRTL ? sharpCorner : 2) : (isRTL ? 2 : sharpCorner),
                     }}
                 >
-                    {/* Reply / Quote Section */}
                     {message.replyTo && (
                         <Box
                             sx={{
@@ -148,7 +162,27 @@ export default function MessageBubble({
                         {message.text}
                     </Typography>
 
-                    {/* Reactions Display */}
+                    {/* Metadata Row: Time + Status Icon */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "flex-end",
+                            mt: 0.5,
+                            gap: 0.5,
+                            opacity: 0.8
+                        }}
+                    >
+                        {/* We duplicate time here inside the bubble if we want WhatsApp style, 
+                or keep it outside. For compact design, often it's inside. 
+                Based on previous code, time was outside. 
+                I will add status icon INSIDE at bottom corner. */}
+                        <Typography variant="caption" sx={{ fontSize: "0.65rem", lineHeight: 1 }}>
+                            {/* Optional: Render time inside bubble here if desired, otherwise just icon */}
+                        </Typography>
+                        {renderStatusIcon()}
+                    </Box>
+
                     {message.reactions && Object.keys(message.reactions).length > 0 && (
                         <Box
                             sx={{
@@ -192,7 +226,6 @@ export default function MessageBubble({
                 </Paper>
             </Box>
 
-            {/* Hover Action Buttons */}
             <Stack
                 direction={isRTL ? "row-reverse" : "row"}
                 spacing={0}
@@ -210,7 +243,6 @@ export default function MessageBubble({
                 </IconButton>
             </Stack>
 
-            {/* Emoji Menu */}
             <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}

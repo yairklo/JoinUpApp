@@ -111,6 +111,16 @@ io.on('connection', (socket) => {
 
   socket.on('message', async ({ text, roomId, userId, senderName, replyTo }) => {
     if (!text) return;
+
+    // Check active users in room to determine initial status
+    let initialStatus = 'sent';
+    if (roomId) {
+      const clients = io.sockets.adapter.rooms.get(String(roomId));
+      if (clients && clients.size > 1) {
+        initialStatus = 'delivered';
+      }
+    }
+
     const msg = {
       id: Date.now(),
       text: String(text),
@@ -119,8 +129,10 @@ io.on('connection', (socket) => {
       ts: new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
       userId: userId ? String(userId) : undefined,
-      replyTo: replyTo || undefined
+      replyTo: replyTo || undefined,
+      status: initialStatus
     };
+
     // Persist if DB configured and room message
     if (msg.roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
       try {
@@ -129,7 +141,8 @@ io.on('connection', (socket) => {
             roomId: msg.roomId,
             text: msg.senderName ? `${msg.senderName}: ${msg.text}` : msg.text,
             userId: msg.userId || null,
-            replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined
+            replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
+            status: initialStatus
           },
         });
       } catch (e) {
@@ -210,6 +223,35 @@ io.on('connection', (socket) => {
       socket.to(String(rid)).emit('typing', event);
     } else {
       socket.broadcast.emit('typing', event);
+    }
+  });
+
+  socket.on('markAsRead', async ({ roomId, userId }) => {
+    if (!roomId || !userId) return;
+
+    try {
+      // 1. Update in DB: Mark all messages in this room NOT sent by me as 'read'
+      await prisma.message.updateMany({
+        where: {
+          roomId: String(roomId),
+          userId: { not: String(userId) }, // Don't mark my own messages as read by me
+          status: { not: 'read' } // Only update if not already read
+        },
+        data: {
+          status: 'read'
+        }
+      });
+
+      // 2. Notify everyone in the room that messages are read
+      // This will turn the grey ticks to blue ticks for the sender
+      io.to(String(roomId)).emit('messageStatusUpdate', {
+        roomId: String(roomId),
+        status: 'read',
+        readByUserId: String(userId)
+      });
+
+    } catch (e) {
+      console.error('markAsRead error:', e);
     }
   });
 });

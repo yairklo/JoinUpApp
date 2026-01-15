@@ -16,7 +16,7 @@ import {
 import SendIcon from "@mui/icons-material/Send";
 import CloseIcon from "@mui/icons-material/Close";
 import MessageBubble from "./MessageBubble";
-import { ChatMessage, Reaction } from "./types";
+import { ChatMessage, Reaction, MessageStatus } from "./types";
 
 type ChatProps = {
   roomId?: string;
@@ -50,7 +50,6 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, replyToMessage, typingUsers]);
 
-  // Socket Connection Logic
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
 
@@ -70,11 +69,17 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
     socket.on("connect", () => {
       setMySocketId(socket.id ?? "");
       socket.emit("joinRoom", roomId);
+      // Mark existing messages as read when joining
+      socket.emit("markAsRead", { roomId, userId: user?.id });
     });
 
     const handleMessage = (msg: ChatMessage & { roomId?: string }) => {
       if (!msg.roomId || msg.roomId === roomId) {
         setMessages((prev) => [...prev, msg]);
+        // If chat is open, mark new message as read immediately
+        if (msg.userId !== user?.id) {
+          socket.emit("markAsRead", { roomId, userId: user?.id });
+        }
       }
     };
     socket.on("message", handleMessage);
@@ -97,15 +102,29 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
     };
     socket.on("messageReaction", handleMessageReaction);
 
+    // New: Handle Status Updates (Read Receipts)
+    const handleStatusUpdate = (payload: { roomId: string, status: MessageStatus, userId?: string }) => {
+      if (payload.roomId === roomId) {
+        setMessages(prev => prev.map(m => {
+          // Update status of my messages that are not yet read
+          if (m.userId === user?.id && m.status !== 'read') {
+            return { ...m, status: payload.status };
+          }
+          return m;
+        }));
+      }
+    };
+    socket.on("messageStatusUpdate", handleStatusUpdate);
+
     return () => {
       socket.off("message", handleMessage);
       socket.off("typing", handleTyping);
       socket.off("messageReaction", handleMessageReaction);
+      socket.off("messageStatusUpdate", handleStatusUpdate);
       socket.disconnect();
     };
-  }, [roomId]);
+  }, [roomId, user?.id]);
 
-  // History Fetch
   useEffect(() => {
     if (!roomId) return;
     fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`)
@@ -119,14 +138,14 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
           roomId,
           userId: m.userId,
           replyTo: m.replyTo,
-          reactions: m.reactions
+          reactions: m.reactions,
+          status: m.status || "sent"
         }));
         setMessages(mapped);
       })
       .catch(() => { });
   }, [roomId, API_BASE]);
 
-  // User details resolution
   useEffect(() => {
     const missing = Array.from(
       new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))
@@ -159,7 +178,8 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         id: replyToMessage.id,
         text: replyToMessage.text,
         senderName: nameByUserId[replyToMessage.userId || ""] || replyToMessage.senderName || "User"
-      } : undefined
+      } : undefined,
+      status: "sent"
     };
 
     socketRef.current.emit("message", payload);
@@ -213,7 +233,6 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         bgcolor: "background.paper"
       }}
     >
-      {/* Header */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
         <Typography variant="h6" fontWeight="bold">
           {isRTL ? "חדר צ'אט" : "Chat Room"}
@@ -223,7 +242,6 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         </Typography>
       </Box>
 
-      {/* Messages List */}
       <Box
         sx={{
           flex: 1,
@@ -306,7 +324,6 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         <div ref={messagesEndRef} />
       </Box>
 
-      {/* Reply Preview */}
       {replyToMessage && (
         <Box
           sx={{
@@ -344,7 +361,6 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         </Box>
       )}
 
-      {/* Input Area */}
       <Box sx={{ p: 2, borderTop: 1, borderColor: "divider", bgcolor: "background.paper" }}>
         <Stack direction="row" spacing={1} alignItems="flex-end">
           <TextField
