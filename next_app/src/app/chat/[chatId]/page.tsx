@@ -2,15 +2,17 @@ import Chat from "@/components/Chat";
 import { Box } from "@mui/material";
 
 interface PageProps {
-    params: {
+    params: Promise<{
         chatId: string;
-    };
+    }>;
 }
 
-export default function ChatPage({ params }: PageProps) {
+export default async function ChatPage({ params }: PageProps) {
+    const { chatId } = await params;
+
     return (
-        <Box sx={{ height: "calc(100vh - 70px)", p: 2 }}>
-            <Chat roomId={params.chatId} />
+        <Box sx={{ height: "calc(100vh - 70px)", p: 0 }}>
+            <Chat roomId={chatId} />
         </Box>
     );
 }
