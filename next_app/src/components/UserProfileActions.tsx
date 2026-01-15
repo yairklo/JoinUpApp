@@ -68,10 +68,6 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
                     return;
                 }
             }
-
-            // Check incoming requests (optional, maybe we can accept here? for now treat as NONE or special)
-            // If they sent us a request, we technically aren't friends yet.
-
             setStatus('NONE');
         } catch (e) {
             console.error(e);
@@ -164,6 +160,7 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
                 </Button>
             </Box>
 
+            {/* --- FIX IS HERE IN THE DIALOG --- */}
             <Dialog
                 open={chatOpen}
                 onClose={() => setChatOpen(false)}
@@ -173,14 +170,23 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
                     sx: { height: '80vh', maxHeight: 800 }
                 }}
             >
-                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
                     Chat
                     <IconButton onClick={() => setChatOpen(false)} size="small">
                         <CloseIcon />
                     </IconButton>
                 </DialogTitle>
-                <DialogContent dividers sx={{ p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    <Box sx={{ flex: 1, display: 'flex' }}>
+
+                <DialogContent dividers sx={{ p: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{
+                        flex: 1,
+                        display: 'flex',
+                        '& > *': {
+                            height: '100% !important',
+                            boxShadow: 'none !important',
+                            borderRadius: '0 !important'
+                        }
+                    }}>
                         {user && (
                             <Chat
                                 roomId={getPrivateChatRoomId(user.id, targetUserId)}
