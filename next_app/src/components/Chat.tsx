@@ -3,45 +3,60 @@
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useUser } from "@clerk/nextjs";
-import Toast from "react-bootstrap/Toast";
-import ToastContainer from "react-bootstrap/ToastContainer";
-import Avatar from "@/components/Avatar";
-
-type ChatMessage = {
-  id: number;
-  text: string;
-  senderId: string;
-  senderName?: string;
-  ts: string;
-  userId?: string;
-};
+import {
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  IconButton,
+  Stack,
+  CircularProgress,
+  useTheme
+} from "@mui/material";
+import SendIcon from "@mui/icons-material/Send";
+import CloseIcon from "@mui/icons-material/Close";
+import MessageBubble from "./MessageBubble";
+import { ChatMessage, Reaction, MessageStatus } from "./types";
 
 type ChatProps = {
   roomId?: string;
+  language?: "en" | "he";
 };
 
-export default function Chat({ roomId = "global" }: ChatProps) {
+export default function Chat({ roomId = "global", language = "he" }: ChatProps) {
+  const isRTL = language === "he";
+  const { user } = useUser();
+  const theme = useTheme();
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [mySocketId, setMySocketId] = useState<string>("");
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+  const [mySocketId, setMySocketId] = useState<string>("");
+  const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
+
   const socketRef = useRef<Socket | null>(null);
-  const { user } = useUser();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
   const [avatarByUserId, setAvatarByUserId] = useState<Record<string, string | null>>({});
   const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
-    // Determine socket base (Render URL in prod, same-origin in dev)
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, replyToMessage, typingUsers]);
+
+  useEffect(() => {
     const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-    // Warm up the socket endpoint (Next dev uses /api/socket, external uses /api/health)
+
     if (base) {
-      fetch(`${base.replace(/\/$/, "")}/api/health`).catch(() => {});
+      fetch(`${base.replace(/\/$/, "")}/api/health`).catch(() => { });
     } else {
-      fetch("/api/socket").catch(() => {});
+      fetch("/api/socket").catch(() => { });
     }
 
     const socket = io(base, {
@@ -54,11 +69,17 @@ export default function Chat({ roomId = "global" }: ChatProps) {
     socket.on("connect", () => {
       setMySocketId(socket.id ?? "");
       socket.emit("joinRoom", roomId);
+      // Mark existing messages as read when joining
+      socket.emit("markAsRead", { roomId, userId: user?.id });
     });
 
     const handleMessage = (msg: ChatMessage & { roomId?: string }) => {
       if (!msg.roomId || msg.roomId === roomId) {
         setMessages((prev) => [...prev, msg]);
+        // If chat is open, mark new message as read immediately
+        if (msg.userId !== user?.id) {
+          socket.emit("markAsRead", { roomId, userId: user?.id });
+        }
       }
     };
     socket.on("message", handleMessage);
@@ -70,111 +91,309 @@ export default function Chat({ roomId = "global" }: ChatProps) {
     };
     socket.on("typing", handleTyping);
 
+    const handleMessageReaction = (payload: { messageId: string | number; reactions: Record<string, Reaction>; roomId?: string }) => {
+      if (!payload.roomId || payload.roomId === roomId) {
+        setMessages((prev) => prev.map(m =>
+          (m.id === payload.messageId || String(m.id) === String(payload.messageId))
+            ? { ...m, reactions: payload.reactions }
+            : m
+        ));
+      }
+    };
+    socket.on("messageReaction", handleMessageReaction);
+
+    // New: Handle Status Updates (Read Receipts)
+    const handleStatusUpdate = (payload: { roomId: string, status: MessageStatus, userId?: string }) => {
+      if (payload.roomId === roomId) {
+        setMessages(prev => prev.map(m => {
+          // Update status of my messages that are not yet read
+          if (m.userId === user?.id && m.status !== 'read') {
+            return { ...m, status: payload.status };
+          }
+          return m;
+        }));
+      }
+    };
+    socket.on("messageStatusUpdate", handleStatusUpdate);
+
     return () => {
       socket.off("message", handleMessage);
       socket.off("typing", handleTyping);
+      socket.off("messageReaction", handleMessageReaction);
+      socket.off("messageStatusUpdate", handleStatusUpdate);
       socket.disconnect();
     };
-  }, [roomId]);
+  }, [roomId, user?.id]);
 
-  // fetch history
   useEffect(() => {
     if (!roomId) return;
-    fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`).then(r => r.json()).then((arr: Array<{ id?: number; text: string; userId?: string; ts: string }>) => {
-      const mapped = arr.map((m) => ({ id: m.id ?? Date.parse(m.ts), text: m.text, senderId: m.userId || "", ts: m.ts, roomId, userId: m.userId }));
-      setMessages(mapped);
-    }).catch(() => {});
-  }, [roomId]);
+    fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`)
+      .then((r) => r.json())
+      .then((arr: Array<any>) => {
+        const mapped: ChatMessage[] = arr.map((m) => ({
+          id: m.id ?? Date.parse(m.ts),
+          text: m.text,
+          senderId: m.userId || "",
+          ts: m.ts,
+          roomId,
+          userId: m.userId,
+          replyTo: m.replyTo,
+          reactions: m.reactions,
+          status: m.status || "sent"
+        }));
+        setMessages(mapped);
+      })
+      .catch(() => { });
+  }, [roomId, API_BASE]);
 
-  // resolve avatars for userIds in messages
   useEffect(() => {
-    const missing = Array.from(new Set(messages.map(m => m.userId).filter((id): id is string => !!id))).filter(id => !(id in avatarByUserId));
+    const missing = Array.from(
+      new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))
+    ).filter((id) => !(id in avatarByUserId));
+
     if (missing.length === 0) return;
+
     missing.forEach((uid) => {
-      fetch(`${API_BASE}/api/users/${uid}`).then(r => r.json()).then((u) => {
-        setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
-        if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
-      }).catch(() => {
-        setAvatarByUserId((prev) => ({ ...prev, [uid]: null }));
-      });
+      fetch(`${API_BASE}/api/users/${uid}`)
+        .then((r) => r.json())
+        .then((u) => {
+          setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
+          if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
+        })
+        .catch(() => {
+          setAvatarByUserId((prev) => ({ ...prev, [uid]: null }));
+        });
     });
-  }, [messages]);
+  }, [messages, API_BASE, avatarByUserId]);
 
   const sendMessage = () => {
     const trimmed = inputValue.trim();
     if (!trimmed || !socketRef.current) return;
-    socketRef.current.emit("message", { text: trimmed, roomId, userId: user?.id });
+
+    const payload: Partial<ChatMessage> & { roomId: string, userId: string } = {
+      text: trimmed,
+      roomId,
+      userId: user?.id || "anon",
+      replyTo: replyToMessage ? {
+        id: replyToMessage.id,
+        text: replyToMessage.text,
+        senderName: nameByUserId[replyToMessage.userId || ""] || replyToMessage.senderName || "User"
+      } : undefined,
+      status: "sent"
+    };
+
+    socketRef.current.emit("message", payload);
     setInputValue("");
+    setReplyToMessage(null);
     socketRef.current.emit("typing", { isTyping: false, roomId });
   };
 
-  const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-    if (e.key === "Enter") {
+  const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleReply = (msg: ChatMessage) => {
+    setReplyToMessage(msg);
+  };
+
+  const handleReact = (messageId: string | number, emoji: string) => {
+    socketRef.current?.emit("addReaction", { messageId, emoji, userId: user?.id, roomId });
   };
 
   const otherUserTyping = Object.entries(typingUsers).some(
     ([senderId, isTyping]) => isTyping && senderId !== mySocketId
   );
 
+  const getDayString = (date: Date, isRTL: boolean) => {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return isRTL ? "היום" : "Today";
+    if (date.toDateString() === yesterday.toDateString()) return isRTL ? "אתמול" : "Yesterday";
+    return date.toLocaleDateString(isRTL ? 'he-IL' : 'en-US');
+  };
+
   if (!mounted) return null;
 
   return (
-    <div className="w-full" suppressHydrationWarning>
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Chat</h2>
-      </div>
-      <div className="mb-3 h-80 overflow-y-auto rounded border p-3 bg-white" role="log" aria-live="polite">
-        <ToastContainer className="position-static w-100">
-          {messages.map((m) => {
-            const isMine = m.userId && user?.id ? m.userId === user.id : false;
-            const avatarUrl = m.userId ? avatarByUserId[m.userId] : undefined;
-            const timeStr = new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-            const displayName =
-              (m.userId && nameByUserId[m.userId]) ||
-              (m.userId && user?.id && m.userId === user.id ? (user.fullName || user.firstName || "Me") : "") ||
-              m.senderName ||
-              m.userId ||
-              "Unknown";
-            return (
-              <Toast
-                key={m.id}
-                bg={isMine ? "success" : "secondary"}
-                className={`mb-2 ${isMine ? "ms-auto" : ""}`}
-                style={{ maxWidth: "75%" }}
-              >
-                <Toast.Header closeButton={false}>
-                  {/* avatar */}
-                  <span className="me-2"><Avatar src={avatarUrl || undefined} alt={displayName} name={displayName} size="xs" /></span>
-                  <strong className="me-auto">{displayName}</strong>
-                  <small className="text-muted">{timeStr}</small>
-                </Toast.Header>
-                <Toast.Body>{m.text}</Toast.Body>
-              </Toast>
-            );
-          })}
-        </ToastContainer>
-        {messages.length === 0 ? (
-          <div className="text-gray-500 text-sm mt-2">No messages yet <span aria-hidden>👋</span></div>
-        ) : null}
-        {otherUserTyping ? <div className="text-xs text-gray-500 mt-1">Someone is typing...</div> : null}
-      </div>
-      <div className="flex gap-2" suppressHydrationWarning>
-        <textarea
-          className="flex-1 rounded border px-3 py-2 outline-none focus:ring resize-none"
-          placeholder="Type a message"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-          onInput={() => socketRef.current?.emit("typing", { isTyping: true, roomId })}
-          onBlur={() => socketRef.current?.emit("typing", { isTyping: false, roomId })}
-          rows={1}
-        />
-        <button className="btn btn-primary btn-sm" onClick={sendMessage}>Send</button>
-      </div>
-    </div>
+    <Paper
+      elevation={3}
+      dir={isRTL ? "rtl" : "ltr"}
+      sx={{
+        width: "100%",
+        height: "600px",
+        display: "flex",
+        flexDirection: "column",
+        borderRadius: 2,
+        overflow: "hidden",
+        bgcolor: "background.paper"
+      }}
+    >
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
+        <Typography variant="h6" fontWeight="bold">
+          {isRTL ? "חדר צ'אט" : "Chat Room"}
+        </Typography>
+        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+          {roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : roomId}
+        </Typography>
+      </Box>
+
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: "auto",
+          p: 2,
+          display: "flex",
+          flexDirection: "column",
+          bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'
+        }}
+      >
+        {messages.length === 0 && (
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 4, opacity: 0.5 }}>
+            <Typography variant="body2">No messages yet. Start the conversation!</Typography>
+          </Box>
+        )}
+
+        {messages.map((m, index) => {
+          const isMine = m.userId && user?.id ? m.userId === user.id : false;
+
+          const prevMsg = messages[index - 1];
+          const nextMsg = messages[index + 1];
+
+          const currentDate = new Date(m.ts);
+          const prevDate = prevMsg ? new Date(prevMsg.ts) : null;
+
+          const showDateSeparator = !prevDate || currentDate.toDateString() !== prevDate.toDateString();
+
+          const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
+          const isNextSameSender = nextMsg && nextMsg.userId === m.userId;
+
+          const isFirstInGroup = !isPrevSameSender;
+          const isLastInGroup = !isNextSameSender;
+          const showAvatar = isLastInGroup;
+          const showName = isFirstInGroup;
+
+          const avatarUrl = m.userId ? avatarByUserId[m.userId] : undefined;
+          const timeStr = currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" });
+          const displayName = (m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown";
+
+          return (
+            <div key={m.id}>
+              {showDateSeparator && (
+                <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
+                  <Box sx={{ bgcolor: "action.disabledBackground", px: 2, py: 0.5, borderRadius: 4 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                      {getDayString(currentDate, isRTL)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              <MessageBubble
+                message={m}
+                isMine={isMine}
+                isRTL={isRTL}
+                onReply={handleReply}
+                onReact={handleReact}
+                avatarUrl={avatarUrl}
+                displayName={displayName}
+                timeStr={timeStr}
+                showAvatar={showAvatar}
+                showName={!isMine && showName}
+                isFirstInGroup={isFirstInGroup}
+                isLastInGroup={isLastInGroup}
+                currentUserId={user?.id}
+              />
+            </div>
+          );
+        })}
+
+        {otherUserTyping && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1, mt: 1 }}>
+            <CircularProgress size={10} color="inherit" />
+            <Typography variant="caption" color="text.secondary">
+              {isRTL ? "מישהו מקליד..." : "Someone is typing..."}
+            </Typography>
+          </Box>
+        )}
+
+        <div ref={messagesEndRef} />
+      </Box>
+
+      {replyToMessage && (
+        <Box
+          sx={{
+            p: 1,
+            px: 2,
+            bgcolor: "action.hover",
+            borderTop: 1,
+            borderColor: "divider",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              borderLeft: isRTL ? 0 : "3px solid",
+              borderRight: isRTL ? "3px solid" : 0,
+              borderColor: "primary.main",
+              pl: isRTL ? 0 : 1,
+              pr: isRTL ? 1 : 0
+            }}
+          >
+            <Typography variant="caption" color="primary" fontWeight="bold">
+              {isRTL ? "מגיב ל:" : "Replying to:"} {nameByUserId[replyToMessage.userId || ""] || replyToMessage.senderName || "User"}
+            </Typography>
+            <Typography variant="caption" noWrap sx={{ maxWidth: 300 }}>
+              {replyToMessage.text}
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setReplyToMessage(null)}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      )}
+
+      <Box sx={{ p: 2, borderTop: 1, borderColor: "divider", bgcolor: "background.paper" }}>
+        <Stack direction="row" spacing={1} alignItems="flex-end">
+          <TextField
+            fullWidth
+            multiline
+            maxRows={3}
+            variant="outlined"
+            placeholder={isRTL ? "כתוב הודעה..." : "Type a message..."}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onInput={() => socketRef.current?.emit("typing", { isTyping: true, roomId })}
+            onBlur={() => socketRef.current?.emit("typing", { isTyping: false, roomId })}
+            size="small"
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 3,
+              }
+            }}
+          />
+          <IconButton
+            color="primary"
+            onClick={sendMessage}
+            disabled={!inputValue.trim()}
+            sx={{
+              mb: 0.5,
+              transform: isRTL ? "scaleX(-1)" : "none"
+            }}
+          >
+            <SendIcon />
+          </IconButton>
+        </Stack>
+      </Box>
+    </Paper>
   );
 }
-

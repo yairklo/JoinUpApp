@@ -115,12 +115,37 @@ model Participation {
   @@unique([gameId, userId])
 }
 
+enum MessageStatus {
+  sent
+  delivered
+  read
+}
+
 model Message {
   id        String   @id @default(cuid())
   roomId    String
   userId    String?
   text      String
+  status    MessageStatus @default(sent)
   createdAt DateTime @default(now())
+  // New: Reply Relation
+  replyToId String?
+  replyTo   Message? @relation("ReplyTo", fields: [replyToId], references: [id])
+  replies   Message[] @relation("ReplyTo")
+
+  // New: Reactions Relation
+  reactions Reaction[]
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  emoji     String
+  userId    String
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, messageId, emoji])
 }
 
 model FavoriteField {

@@ -109,8 +109,18 @@ io.on('connection', (socket) => {
     if (roomId) socket.join(String(roomId));
   });
 
-  socket.on('message', async ({ text, roomId, userId, senderName }) => {
+  socket.on('message', async ({ text, roomId, userId, senderName, replyTo }) => {
     if (!text) return;
+
+    // Check active users in room to determine initial status
+    let initialStatus = 'sent';
+    if (roomId) {
+      const clients = io.sockets.adapter.rooms.get(String(roomId));
+      if (clients && clients.size > 1) {
+        initialStatus = 'delivered';
+      }
+    }
+
     const msg = {
       id: Date.now(),
       text: String(text),
@@ -119,15 +129,20 @@ io.on('connection', (socket) => {
       ts: new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
       userId: userId ? String(userId) : undefined,
+      replyTo: replyTo || undefined,
+      status: initialStatus
     };
+
     // Persist if DB configured and room message
-    if (msg.roomId && process.env.DB_HOST || process.env.DATABASE_URL) {
+    if (msg.roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
       try {
         await prisma.message.create({
           data: {
             roomId: msg.roomId,
             text: msg.senderName ? `${msg.senderName}: ${msg.text}` : msg.text,
             userId: msg.userId || null,
+            replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
+            status: initialStatus
           },
         });
       } catch (e) {
@@ -141,6 +156,65 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('addReaction', async ({ messageId, emoji, userId, roomId }) => {
+    if (!messageId || !emoji || !userId) return;
+    try {
+      // Toggle reaction
+      // Check for ANY existing reaction by this user on this message
+      const existing = await prisma.reaction.findFirst({
+        where: {
+          userId: String(userId),
+          messageId: String(messageId)
+        }
+      });
+
+      if (existing) {
+        if (existing.emoji === emoji) {
+          // Scenario A: Same emoji -> Toggle Off (Delete)
+          await prisma.reaction.delete({ where: { id: existing.id } });
+        } else {
+          // Scenario B: Different emoji -> Replace (Update)
+          await prisma.reaction.update({
+            where: { id: existing.id },
+            data: { emoji }
+          });
+        }
+      } else {
+        // Scenario C: No existing reaction -> Create
+        await prisma.reaction.create({
+          data: {
+            userId: String(userId),
+            messageId: String(messageId),
+            emoji
+          }
+        });
+      }
+
+      // Aggregate reactions for this message
+      const allReactions = await prisma.reaction.findMany({
+        where: { messageId: String(messageId) }
+      });
+
+      const reactions = {};
+      for (const r of allReactions) {
+        if (!reactions[r.emoji]) {
+          reactions[r.emoji] = { emoji: r.emoji, count: 0, userIds: [] };
+        }
+        reactions[r.emoji].count += 1;
+        reactions[r.emoji].userIds.push(r.userId);
+      }
+
+      const payload = { messageId, reactions, roomId: roomId ? String(roomId) : undefined };
+      if (roomId) {
+        io.to(String(roomId)).emit('messageReaction', payload);
+      } else {
+        io.emit('messageReaction', payload);
+      }
+    } catch (e) {
+      console.error('addReaction error:', e);
+    }
+  });
+
   socket.on('typing', (data) => {
     const isTyping = typeof data === 'object' ? !!data.isTyping : !!data;
     const rid = typeof data === 'object' ? data.roomId : undefined;
@@ -149,6 +223,35 @@ io.on('connection', (socket) => {
       socket.to(String(rid)).emit('typing', event);
     } else {
       socket.broadcast.emit('typing', event);
+    }
+  });
+
+  socket.on('markAsRead', async ({ roomId, userId }) => {
+    if (!roomId || !userId) return;
+
+    try {
+      // 1. Update in DB: Mark all messages in this room NOT sent by me as 'read'
+      await prisma.message.updateMany({
+        where: {
+          roomId: String(roomId),
+          userId: { not: String(userId) }, // Don't mark my own messages as read by me
+          status: { not: 'read' } // Only update if not already read
+        },
+        data: {
+          status: 'read'
+        }
+      });
+
+      // 2. Notify everyone in the room that messages are read
+      // This will turn the grey ticks to blue ticks for the sender
+      io.to(String(roomId)).emit('messageStatusUpdate', {
+        roomId: String(roomId),
+        status: 'read',
+        readByUserId: String(userId)
+      });
+
+    } catch (e) {
+      console.error('markAsRead error:', e);
     }
   });
 });
