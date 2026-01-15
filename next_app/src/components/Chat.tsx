@@ -9,22 +9,14 @@ import {
   Typography,
   TextField,
   IconButton,
-  Avatar,
   Stack,
   CircularProgress,
   useTheme
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
-import SmartToyIcon from "@mui/icons-material/SmartToy";
-
-type ChatMessage = {
-  id: number;
-  text: string;
-  senderId: string;
-  senderName?: string;
-  ts: string;
-  userId?: string;
-};
+import CloseIcon from "@mui/icons-material/Close";
+import MessageBubble from "./MessageBubble";
+import { ChatMessage, Reaction } from "./types";
 
 type ChatProps = {
   roomId?: string;
@@ -33,16 +25,17 @@ type ChatProps = {
 
 export default function Chat({ roomId = "global", language = "he" }: ChatProps) {
   const isRTL = language === "he";
+  const { user } = useUser();
+  const theme = useTheme();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [mySocketId, setMySocketId] = useState<string>("");
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+  const [mySocketId, setMySocketId] = useState<string>("");
+  const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
+
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const { user } = useUser();
-  const theme = useTheme();
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
   const [avatarByUserId, setAvatarByUserId] = useState<Record<string, string | null>>({});
@@ -55,9 +48,8 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, typingUsers]);
+  }, [messages, replyToMessage, typingUsers]);
 
-  // Socket setup
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
 
@@ -93,33 +85,45 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
     };
     socket.on("typing", handleTyping);
 
+    const handleMessageReaction = (payload: { messageId: string | number; reactions: Record<string, Reaction>; roomId?: string }) => {
+      if (!payload.roomId || payload.roomId === roomId) {
+        setMessages((prev) => prev.map(m =>
+          (m.id === payload.messageId || String(m.id) === String(payload.messageId))
+            ? { ...m, reactions: payload.reactions }
+            : m
+        ));
+      }
+    };
+    socket.on("messageReaction", handleMessageReaction);
+
     return () => {
       socket.off("message", handleMessage);
       socket.off("typing", handleTyping);
+      socket.off("messageReaction", handleMessageReaction);
       socket.disconnect();
     };
   }, [roomId]);
 
-  // Fetch history
   useEffect(() => {
     if (!roomId) return;
     fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`)
       .then((r) => r.json())
-      .then((arr: Array<{ id?: number; text: string; userId?: string; ts: string }>) => {
-        const mapped = arr.map((m) => ({
+      .then((arr: Array<any>) => {
+        const mapped: ChatMessage[] = arr.map((m) => ({
           id: m.id ?? Date.parse(m.ts),
           text: m.text,
           senderId: m.userId || "",
           ts: m.ts,
           roomId,
           userId: m.userId,
+          replyTo: m.replyTo,
+          reactions: m.reactions
         }));
         setMessages(mapped);
       })
       .catch(() => { });
   }, [roomId, API_BASE]);
 
-  // Resolve avatars
   useEffect(() => {
     const missing = Array.from(
       new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))
@@ -143,8 +147,21 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
   const sendMessage = () => {
     const trimmed = inputValue.trim();
     if (!trimmed || !socketRef.current) return;
-    socketRef.current.emit("message", { text: trimmed, roomId, userId: user?.id });
+
+    const payload: Partial<ChatMessage> & { roomId: string, userId: string } = {
+      text: trimmed,
+      roomId,
+      userId: user?.id || "anon",
+      replyTo: replyToMessage ? {
+        id: replyToMessage.id,
+        text: replyToMessage.text,
+        senderName: nameByUserId[replyToMessage.userId || ""] || replyToMessage.senderName || "User"
+      } : undefined
+    };
+
+    socketRef.current.emit("message", payload);
     setInputValue("");
+    setReplyToMessage(null);
     socketRef.current.emit("typing", { isTyping: false, roomId });
   };
 
@@ -153,6 +170,14 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleReply = (msg: ChatMessage) => {
+    setReplyToMessage(msg);
+  };
+
+  const handleReact = (messageId: string | number, emoji: string) => {
+    socketRef.current?.emit("addReaction", { messageId, emoji, userId: user?.id, roomId });
   };
 
   const otherUserTyping = Object.entries(typingUsers).some(
@@ -175,7 +200,6 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         bgcolor: "background.paper"
       }}
     >
-      {/* Header */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
         <Typography variant="h6" fontWeight="bold">
           {isRTL ? "חדר צ'אט" : "Chat Room"}
@@ -185,7 +209,6 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         </Typography>
       </Box>
 
-      {/* Messages Area */}
       <Box
         sx={{
           flex: 1,
@@ -197,6 +220,12 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
           bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'
         }}
       >
+        {messages.length === 0 && (
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 4, opacity: 0.5 }}>
+            <Typography variant="body2">No messages yet. Start the conversation!</Typography>
+          </Box>
+        )}
+
         {messages.map((m) => {
           const isMine = m.userId && user?.id ? m.userId === user.id : false;
           const avatarUrl = m.userId ? avatarByUserId[m.userId] : undefined;
@@ -209,49 +238,17 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
             "Unknown";
 
           return (
-            <Box
+            <MessageBubble
               key={m.id}
-              sx={{
-                display: "flex",
-                flexDirection: isMine ? "row-reverse" : "row",
-                alignItems: "flex-end",
-                gap: 1,
-                maxWidth: "100%",
-                alignSelf: isMine ? "flex-end" : "flex-start"
-              }}
-            >
-              <Avatar
-                src={avatarUrl || undefined}
-                alt={displayName}
-                sx={{ width: 32, height: 32, bgcolor: isMine ? "primary.dark" : "secondary.main" }}
-              >
-                {!avatarUrl && <SmartToyIcon fontSize="small" />}
-              </Avatar>
-
-              <Box sx={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start", maxWidth: "70%" }}>
-                <Typography variant="caption" sx={{ ml: 1, mr: 1, color: "text.secondary", fontSize: "0.7rem" }}>
-                  {displayName} • {timeStr}
-                </Typography>
-                <Paper
-                  elevation={1}
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    borderBottomRightRadius: isMine ? (isRTL ? 2 : 0) : (isRTL ? 0 : 2),
-                    borderBottomLeftRadius: isMine ? (isRTL ? 0 : 2) : (isRTL ? 2 : 0),
-                    bgcolor: isMine ? "primary.main" : "background.paper",
-                    color: isMine ? "primary.contrastText" : "text.primary",
-                    wordBreak: "break-word",
-                    textAlign: isRTL ? "right" : "left"
-                  }}
-                >
-                  {/* dir="auto" fixes the direction of punctuation marks like in "?What" */}
-                  <Typography variant="body2" dir="auto">
-                    {m.text}
-                  </Typography>
-                </Paper>
-              </Box>
-            </Box>
+              message={m}
+              isMine={isMine}
+              isRTL={isRTL}
+              onReply={handleReply}
+              onReact={handleReact}
+              avatarUrl={avatarUrl}
+              displayName={displayName}
+              timeStr={timeStr}
+            />
           );
         })}
 
@@ -267,7 +264,39 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
         <div ref={messagesEndRef} />
       </Box>
 
-      {/* Input Area */}
+      {replyToMessage && (
+        <Box sx={{
+          p: 1,
+          px: 2,
+          bgcolor: "action.hover",
+          borderTop: 1,
+          borderColor: "divider",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between"
+        }}>
+          <Box sx={{
+            display: "flex",
+            flexDirection: "column",
+            borderLeft: isRTL ? 0 : "3px solid",
+            borderRight: isRTL ? "3px solid" : 0,
+            borderColor: "primary.main",
+            pl: isRTL ? 0 : 1,
+            pr: isRTL ? 1 : 0
+          }}>
+            <Typography variant="caption" color="primary" fontWeight="bold">
+              {isRTL ? "מגיב ל:" : "Replying to:"} {nameByUserId[replyToMessage.userId || ""] || replyToMessage.senderName || "User"}
+            </Typography>
+            <Typography variant="caption" noWrap sx={{ maxWidth: 300 }}>
+              {replyToMessage.text}
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setReplyToMessage(null)}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      )}
+
       <Box sx={{ p: 2, borderTop: 1, borderColor: "divider", bgcolor: "background.paper" }}>
         <Stack direction="row" spacing={1} alignItems="flex-end">
           <TextField
