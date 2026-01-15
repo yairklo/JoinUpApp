@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useContext } from "react";
 import Link from "next/link";
-import { ClerkLoaded, SignedIn } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { ClerkLoaded, SignedIn, useUser } from "@clerk/nextjs";
 
 // MUI Imports
 import AppBar from "@mui/material/AppBar";
@@ -23,21 +24,24 @@ import PersonIcon from "@mui/icons-material/Person";
 // Internal Components & Context
 import AuthButtons from "@/components/AuthButtons";
 import { ColorModeContext } from "@/components/theme/themeRegistry";
+import ChatList from "@/components/ChatList";
 
 export default function AppNavbar() {
   const [mounted, setMounted] = useState(false);
   const { mode, toggleColorMode } = useContext(ColorModeContext);
+  const { user } = useUser();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   return (
-    <AppBar 
-      position="sticky" 
-      color="inherit" 
-      elevation={1} 
-      sx={{ 
+    <AppBar
+      position="sticky"
+      color="inherit"
+      elevation={1}
+      sx={{
         bgcolor: "background.paper",
         borderBottom: 1,
         borderColor: "divider"
@@ -45,16 +49,16 @@ export default function AppNavbar() {
     >
       <Container maxWidth="lg">
         <Toolbar disableGutters sx={{ justifyContent: "space-between" }}>
-          
+
           {/* Logo Section */}
           <Link href="/" passHref style={{ textDecoration: "none", color: "inherit" }}>
             <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer" }}>
               <SportsSoccerIcon color="primary" />
-              <Typography 
-                variant="h6" 
-                component="div" 
-                sx={{ 
-                  fontWeight: 800, 
+              <Typography
+                variant="h6"
+                component="div"
+                sx={{
+                  fontWeight: 800,
                   letterSpacing: "-0.5px",
                   color: "text.primary"
                 }}
@@ -66,33 +70,42 @@ export default function AppNavbar() {
 
           {/* Right Side Actions */}
           <Stack direction="row" alignItems="center" spacing={1}>
-            
+
             {/* Theme Toggle Button */}
             <IconButton onClick={toggleColorMode} color="inherit">
               {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
 
-            {/* User Profile Link */}
+            {/* Authenticated Actions (Chat + Profile) */}
             {mounted && (
               <ClerkLoaded>
                 <SignedIn>
+                  {/* Chat List Dropdown */}
+                  {user && (
+                    <ChatList
+                      userId={user.id}
+                      onChatSelect={(chatId) => router.push(`/chat/${chatId}`)}
+                    />
+                  )}
+
+                  {/* User Profile Link */}
                   <Link href="/profile" passHref style={{ textDecoration: 'none' }}>
-                     <Button 
-                        variant="text" 
-                        color="inherit" 
-                        startIcon={<PersonIcon />}
-                        sx={{ textTransform: 'none', fontWeight: 600 }}
-                     >
-                        My Profile
-                     </Button>
+                    <Button
+                      variant="text"
+                      color="inherit"
+                      startIcon={<PersonIcon />}
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                      My Profile
+                    </Button>
                   </Link>
                 </SignedIn>
               </ClerkLoaded>
             )}
 
-            {/* Auth Buttons (Login/Signup) */}
+            {/* Auth Buttons (Login/Signup - usually hidden if SignedIn handled by AuthButtons logic) */}
             <Box ml={1}>
-                <AuthButtons />
+              <AuthButtons />
             </Box>
 
           </Stack>

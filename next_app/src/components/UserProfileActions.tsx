@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -8,15 +9,18 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import CheckIcon from "@mui/icons-material/Check";
 import Box from "@mui/material/Box";
-
+import ChatIcon from "@mui/icons-material/Chat";
+// Remove Chat and ChatIcon if not used elsewhere, but ChatIcon is used in button.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 export default function UserProfileActions({ targetUserId }: { targetUserId: string }) {
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
+    const router = useRouter();
 
     const [status, setStatus] = useState<'FRIEND' | 'REQUESTED' | 'NONE' | 'SELF' | 'LOADING'>('LOADING');
     const [loading, setLoading] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -59,10 +63,6 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
                     return;
                 }
             }
-
-            // Check incoming requests (optional, maybe we can accept here? for now treat as NONE or special)
-            // If they sent us a request, we technically aren't friends yet.
-
             setStatus('NONE');
         } catch (e) {
             console.error(e);
@@ -108,45 +108,84 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
         }
     };
 
+    const handleMessage = async () => {
+        if (!user) return;
+        setActionLoading(true);
+        try {
+            const token = await getToken();
+            const res = await fetch(`${API_BASE}/api/chats/private`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ targetUserId })
+            });
+
+            if (res.ok) {
+                const { chatId } = await res.json();
+                router.push(`/chat/${chatId}`);
+            } else {
+                console.error("Failed to start chat");
+            }
+        } catch (e) {
+            console.error("Error starting chat:", e);
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     if (status === 'SELF' || !isLoaded) return null;
     if (status === 'LOADING') return <CircularProgress size={20} />;
 
-    if (status === 'FRIEND') {
-        return (
-            <Button
-                variant="outlined"
-                color="error"
-                startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonRemoveIcon />}
-                onClick={removeFriend}
-                disabled={loading}
-            >
-                Remove Friend
-            </Button>
-        );
-    }
-
-    if (status === 'REQUESTED') {
-        return (
-            <Button
-                variant="text"
-                color="success"
-                startIcon={<CheckIcon />}
-                disabled
-            >
-                Request Sent
-            </Button>
-        );
-    }
-
     return (
-        <Button
-            variant="contained"
-            color="primary"
-            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonAddIcon />}
-            onClick={addFriend}
-            disabled={loading}
-        >
-            Add Friend
-        </Button>
+        <>
+            <Box display="flex" gap={2} justifyContent="center" flexWrap="wrap">
+                {/* Friend Buttons ... */}
+                {status === 'FRIEND' ? (
+                    <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonRemoveIcon />}
+                        onClick={removeFriend}
+                        disabled={loading}
+                    >
+                        Remove Friend
+                    </Button>
+                ) : status === 'REQUESTED' ? (
+                    // ...
+                    <Button
+                        variant="text"
+                        color="success"
+                        startIcon={<CheckIcon />}
+                        disabled
+                    >
+                        Request Sent
+                    </Button>
+                ) : (
+                    // ...
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonAddIcon />}
+                        onClick={addFriend}
+                        disabled={loading}
+                    >
+                        Add Friend
+                    </Button>
+                )}
+
+                <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <ChatIcon />}
+                    onClick={handleMessage}
+                    disabled={actionLoading}
+                >
+                    Message
+                </Button>
+            </Box>
+            {/* Removed Dialog */}
+        </>
     );
 }

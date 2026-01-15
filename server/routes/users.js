@@ -322,4 +322,76 @@ router.delete('/:id/friends/:friendId', authenticateToken, async (req, res) => {
   }
 });
 
+// List all chats for a user (Groups + Private, Relational)
+router.get('/:id/chats', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    if (userId !== req.user.id) return res.status(403).json({ error: 'Access denied' });
+
+    // Fetch all chat participations for the user
+    const participations = await prisma.chatParticipant.findMany({
+      where: { userId },
+      include: {
+        chat: {
+          include: {
+            participants: {
+              include: { user: true }
+            },
+            messages: {
+              take: 1,
+              orderBy: { createdAt: 'desc' }
+            }
+          }
+        }
+      }
+    });
+
+    const parsedChats = await Promise.all(participations.map(async (p) => {
+      const chat = p.chat;
+      // For private chats, the "other" user is the name/image
+      // For group chats, we might use a group name (not yet fully implemented in ChatRoom model except 'type')
+      const otherParticipant = chat.participants.find(part => part.userId !== userId)?.user;
+
+      const lastMsg = chat.messages[0];
+
+      // Count unread messages
+      const unreadCount = await prisma.message.count({
+        where: {
+          chatRoomId: chat.id,
+          userId: { not: userId },
+          status: { not: 'read' }
+        }
+      });
+
+      return {
+        id: chat.id,
+        type: chat.type.toLowerCase(), // 'private' or 'group'
+        // If it's a private chat, use the other user's name. If group, use generic or future title field
+        name: chat.type === 'PRIVATE' ? (otherParticipant?.name || 'Unknown') : 'Group Chat',
+        image: chat.type === 'PRIVATE' ? (otherParticipant?.imageUrl || null) : null,
+        otherUserId: chat.type === 'PRIVATE' ? otherParticipant?.id : undefined,
+        unreadCount,
+        lastMessage: lastMsg ? {
+          text: lastMsg.text,
+          createdAt: lastMsg.createdAt,
+          senderId: lastMsg.userId,
+          status: lastMsg.status
+        } : null
+      };
+    }));
+
+    // Sort by last message time
+    parsedChats.sort((a, b) => {
+      const timeA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const timeB = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    res.json(parsedChats);
+  } catch (e) {
+    console.error('Get chats error:', e);
+    res.status(500).json({ error: 'Failed to get chats' });
+  }
+});
+
 module.exports = router; 

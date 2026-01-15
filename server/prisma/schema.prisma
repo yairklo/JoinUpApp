@@ -28,6 +28,7 @@ model User {
   positions      UserPosition[]
   sports         UserSport[]
   seriesSubscriptions SeriesParticipant[]
+  chatParticipations ChatParticipant[]
 }
 
 model Field {
@@ -115,6 +116,29 @@ model Participation {
   @@unique([gameId, userId])
 }
 
+// ... (Fields, Game, Participation models remain unchanged)
+
+model ChatRoom {
+  id           String            @id @default(cuid())
+  type         String            @default("PRIVATE") // "PRIVATE" or "GROUP"
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  messages     Message[]
+  participants ChatParticipant[]
+}
+
+model ChatParticipant {
+  id        String   @id @default(cuid())
+  userId    String
+  chatId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chat      ChatRoom @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+  lastReadAt DateTime?
+  
+  @@unique([userId, chatId])
+}
+
 enum MessageStatus {
   sent
   delivered
@@ -123,7 +147,8 @@ enum MessageStatus {
 
 model Message {
   id        String   @id @default(cuid())
-  roomId    String
+  chatRoomId String
+  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
   userId    String?
   text      String
   status    MessageStatus @default(sent)
