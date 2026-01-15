@@ -8,6 +8,13 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import CheckIcon from "@mui/icons-material/Check";
 import Box from "@mui/material/Box";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import IconButton from "@mui/material/IconButton";
+import ChatIcon from "@mui/icons-material/Chat";
+import CloseIcon from "@mui/icons-material/Close";
+import Chat from "./Chat";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -17,6 +24,7 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
 
     const [status, setStatus] = useState<'FRIEND' | 'REQUESTED' | 'NONE' | 'SELF' | 'LOADING'>('LOADING');
     const [loading, setLoading] = useState(false);
+    const [chatOpen, setChatOpen] = useState(false);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -111,42 +119,75 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
     if (status === 'SELF' || !isLoaded) return null;
     if (status === 'LOADING') return <CircularProgress size={20} />;
 
-    if (status === 'FRIEND') {
-        return (
-            <Button
-                variant="outlined"
-                color="error"
-                startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonRemoveIcon />}
-                onClick={removeFriend}
-                disabled={loading}
-            >
-                Remove Friend
-            </Button>
-        );
-    }
-
-    if (status === 'REQUESTED') {
-        return (
-            <Button
-                variant="text"
-                color="success"
-                startIcon={<CheckIcon />}
-                disabled
-            >
-                Request Sent
-            </Button>
-        );
-    }
-
     return (
-        <Button
-            variant="contained"
-            color="primary"
-            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonAddIcon />}
-            onClick={addFriend}
-            disabled={loading}
-        >
-            Add Friend
-        </Button>
+        <>
+            <Box display="flex" gap={2} justifyContent="center" flexWrap="wrap">
+                {status === 'FRIEND' ? (
+                    <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonRemoveIcon />}
+                        onClick={removeFriend}
+                        disabled={loading}
+                    >
+                        Remove Friend
+                    </Button>
+                ) : status === 'REQUESTED' ? (
+                    <Button
+                        variant="text"
+                        color="success"
+                        startIcon={<CheckIcon />}
+                        disabled
+                    >
+                        Request Sent
+                    </Button>
+                ) : (
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonAddIcon />}
+                        onClick={addFriend}
+                        disabled={loading}
+                    >
+                        Add Friend
+                    </Button>
+                )}
+
+                <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<ChatIcon />}
+                    onClick={() => setChatOpen(true)}
+                >
+                    Message
+                </Button>
+            </Box>
+
+            <Dialog
+                open={chatOpen}
+                onClose={() => setChatOpen(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{
+                    sx: { height: '80vh', maxHeight: 800 }
+                }}
+            >
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    Chat
+                    <IconButton onClick={() => setChatOpen(false)} size="small">
+                        <CloseIcon />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent dividers sx={{ p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ flex: 1, display: 'flex' }}>
+                        {user && (
+                            <Chat
+                                roomId={`private_${[user.id, targetUserId].sort().join('_')}`}
+                            />
+                        )}
+                    </Box>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
