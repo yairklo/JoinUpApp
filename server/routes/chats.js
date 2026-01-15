@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const prisma = require('../prisma/client');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const authenticateToken = require('../middleware/auth'); // Ensure you have this middleware
 
 // POST /api/chats/private - Get or Create a Private Chat
