@@ -1,5 +1,7 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
+
 import React, { useState, useEffect, forwardRef } from "react";
 import {
     Box,
@@ -59,6 +61,7 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
     const [chats, setChats] = useState<ChatPreview[]>([]);
     const [loading, setLoading] = useState(false);
     const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+    const { getToken } = useAuth();
 
     // State for total unread badge
     const [totalUnread, setTotalUnread] = useState(0);
@@ -72,8 +75,11 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
         if (!userId) return;
         try {
             setLoading(true);
+            const token = await getToken();
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-            const res = await fetch(`${API_URL}/api/users/${userId}/chats`);
+            const res = await fetch(`${API_URL}/api/users/${userId}/chats`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
 
             if (res.ok) {
                 const data = await res.json();
