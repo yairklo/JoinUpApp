@@ -293,7 +293,8 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
   if (!mounted) return null;
 
   return (
-    <Paper elevation={3} dir={isRTL ? "rtl" : "ltr"} sx={{ width: "100%", height: "600px", display: "flex", flexDirection: "column", borderRadius: 2, overflow: "hidden", bgcolor: "background.paper" }}>
+    // FIX: Changed height to 100% to fill parent container
+    <Paper elevation={0} dir={isRTL ? "rtl" : "ltr"} sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", bgcolor: "background.paper" }}>
       <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
         <Typography variant="h6" fontWeight="bold">{isRTL ? "חדר צ'אט" : "Chat Room"}</Typography>
         <Typography variant="caption" sx={{ opacity: 0.8 }}>{roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : roomId}</Typography>

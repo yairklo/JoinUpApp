@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-
+import { useRouter } from "next/navigation"; // Added for routing
 import React, { useState, useEffect, forwardRef } from "react";
 import {
     Box,
@@ -21,21 +21,25 @@ import {
     useMediaQuery,
     useTheme,
     Badge,
-    CircularProgress
+    CircularProgress,
+    Tabs, // Added
+    Tab   // Added
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import PersonIcon from "@mui/icons-material/Person"; // Icon for Private
+import SportsSoccerIcon from "@mui/icons-material/SportsSoccer"; // Icon for Games
 import { TransitionProps } from "@mui/material/transitions";
 import { formatDistanceToNow } from "date-fns";
-import { io } from "socket.io-client"; // Import socket
+import { io } from "socket.io-client";
 
-// Updated Interface with unreadCount
+// Interface
 interface ChatPreview {
     id: string;
     type: 'group' | 'private';
     name: string;
     image: string | null;
-    unreadCount: number; // New field
+    unreadCount: number;
     lastMessage: {
         text: string;
         createdAt: string;
@@ -61,7 +65,10 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
     const [chats, setChats] = useState<ChatPreview[]>([]);
     const [loading, setLoading] = useState(false);
     const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+    const [tabValue, setTabValue] = useState(0); // 0 = Players (Private), 1 = Games (Group)
+
     const { getToken } = useAuth();
+    const router = useRouter(); // Hook for navigation
 
     // State for total unread badge
     const [totalUnread, setTotalUnread] = useState(0);
@@ -96,7 +103,7 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
         }
     };
 
-    // Socket Listener for Notifications
+    // Socket Listener
     useEffect(() => {
         if (!userId) return;
 
@@ -115,12 +122,10 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
                 });
 
                 socket.on("connect", () => {
-                    // Register this user to their personal notification room
                     socket.emit("setup", { id: userId });
                 });
 
                 socket.on("notification", (payload: any) => {
-                    // When a new message notification arrives
                     if (payload.type === 'message') {
                         setTotalUnread((prev) => prev + 1);
                         fetchChats();
@@ -138,7 +143,7 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
         };
     }, [userId, getToken]);
 
-    // Load chats on mount to get initial badge count
+    // Load chats on mount
     useEffect(() => {
         fetchChats();
     }, [userId]);
@@ -152,78 +157,107 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
         setAnchorEl(null);
     };
 
-    const handleSelect = (chatId: string) => {
-        // Optimistic update: decrease unread count when opening a chat
-        // (Actual server update happens inside the Chat component via markAsRead)
-        const chat = chats.find(c => c.id === chatId);
-        if (chat && chat.unreadCount > 0) {
-            setTotalUnread(prev => Math.max(0, prev - chat.unreadCount));
-        }
-
-        onChatSelect(chatId);
-        handleClose();
+    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+        setTabValue(newValue);
     };
 
-    const listContent = (
-        <List sx={{ width: '100%', bgcolor: 'background.paper', p: 0 }}>
-            {loading && chats.length === 0 ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress />
-                </Box>
-            ) : chats.length === 0 ? (
-                <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-                    <Typography>No active chats</Typography>
-                </Box>
-            ) : (
-                chats.map((chat) => {
-                    const timeDisplay = chat.lastMessage
-                        ? formatDistanceToNow(new Date(chat.lastMessage.createdAt), { addSuffix: true })
-                        : "";
+    const handleSelect = (chat: ChatPreview) => {
+        // Optimistic update
+        if (chat.unreadCount > 0) {
+            setTotalUnread(prev => Math.max(0, prev - chat.unreadCount));
+            // Update local state to remove badge immediately
+            setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
+        }
 
-                    return (
-                        <ListItem key={chat.id} disablePadding divider>
-                            <ListItemButton onClick={() => handleSelect(chat.id)} alignItems="flex-start">
-                                <ListItemAvatar>
-                                    <Badge badgeContent={chat.unreadCount} color="error" overlap="circular">
-                                        <Avatar src={chat.image || undefined} alt={chat.name}>
-                                            {chat.name.charAt(0)}
-                                        </Avatar>
-                                    </Badge>
-                                </ListItemAvatar>
-                                <ListItemText
-                                    primary={
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        handleClose();
+
+        // LOGIC CHANGE: Redirect based on type
+        if (chat.type === 'group') {
+            // If it's a game, go to the game page
+            router.push(`/games/${chat.id}`);
+        } else {
+            // If it's a private chat, open chat window
+            onChatSelect(chat.id);
+        }
+    };
+
+    // Filter chats based on Tab
+    const filteredChats = chats.filter(chat =>
+        tabValue === 0 ? chat.type === 'private' : chat.type === 'group'
+    );
+
+    const listContent = (
+        <Box sx={{ width: '100%', bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* TABS HEADER */}
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth" aria-label="chat tabs">
+                    <Tab icon={<PersonIcon />} iconPosition="start" label="שחקנים" />
+                    <Tab icon={<SportsSoccerIcon />} iconPosition="start" label="משחקים" />
+                </Tabs>
+            </Box>
+
+            <List sx={{ p: 0, overflowY: 'auto', flex: 1 }}>
+                {loading && chats.length === 0 ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                        <CircularProgress />
+                    </Box>
+                ) : filteredChats.length === 0 ? (
+                    <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary', mt: 4 }}>
+                        <Typography>
+                            {tabValue === 0 ? "אין צ'אטים פעילים עם שחקנים" : "לא נרשמת לאף משחק"}
+                        </Typography>
+                    </Box>
+                ) : (
+                    filteredChats.map((chat) => {
+                        const timeDisplay = chat.lastMessage
+                            ? formatDistanceToNow(new Date(chat.lastMessage.createdAt), { addSuffix: true })
+                            : "";
+
+                        return (
+                            <ListItem key={chat.id} disablePadding divider>
+                                <ListItemButton onClick={() => handleSelect(chat)} alignItems="flex-start">
+                                    <ListItemAvatar>
+                                        <Badge badgeContent={chat.unreadCount} color="error" overlap="circular">
+                                            <Avatar src={chat.image || undefined} alt={chat.name}>
+                                                {chat.name.charAt(0)}
+                                            </Avatar>
+                                        </Badge>
+                                    </ListItemAvatar>
+                                    <ListItemText
+                                        primary={
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <Typography
+                                                    variant="subtitle2"
+                                                    fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
+                                                    noWrap
+                                                    sx={{ maxWidth: '70%' }}
+                                                >
+                                                    {chat.name}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 1 }}>
+                                                    {timeDisplay}
+                                                </Typography>
+                                            </Box>
+                                        }
+                                        secondary={
                                             <Typography
-                                                variant="subtitle2"
+                                                variant="body2"
+                                                color={chat.unreadCount > 0 ? "text.primary" : "text.secondary"}
                                                 fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
                                                 noWrap
-                                                sx={{ maxWidth: '70%' }}
+                                                sx={{ display: 'block', maxWidth: '90%' }}
                                             >
-                                                {chat.name}
+                                                {chat.lastMessage ? chat.lastMessage.text : "התחל שיחה חדשה"}
                                             </Typography>
-                                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 1 }}>
-                                                {timeDisplay}
-                                            </Typography>
-                                        </Box>
-                                    }
-                                    secondary={
-                                        <Typography
-                                            variant="body2"
-                                            color={chat.unreadCount > 0 ? "text.primary" : "text.secondary"}
-                                            fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
-                                            noWrap
-                                            sx={{ display: 'block', maxWidth: '90%' }}
-                                        >
-                                            {chat.lastMessage ? chat.lastMessage.text : "Start a new conversation"}
-                                        </Typography>
-                                    }
-                                />
-                            </ListItemButton>
-                        </ListItem>
-                    );
-                })
-            )}
-        </List>
+                                        }
+                                    />
+                                </ListItemButton>
+                            </ListItem>
+                        );
+                    })
+                )}
+            </List>
+        </Box>
     );
 
     return (
@@ -247,7 +281,7 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
                                 <ArrowBackIcon />
                             </IconButton>
                             <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-                                My Chats
+                                הצ'אטים שלי
                             </Typography>
                         </Toolbar>
                     </AppBar>
@@ -267,15 +301,11 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
                         horizontal: 'center',
                     }}
                     PaperProps={{
-                        sx: { width: 360, maxHeight: 500, display: 'flex', flexDirection: 'column' }
+                        sx: { width: 400, height: 500, display: 'flex', flexDirection: 'column' }
                     }}
                 >
-                    <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', bgcolor: 'primary.main', color: 'primary.contrastText' }}>
-                        <Typography variant="h6">My Chats</Typography>
-                    </Box>
-                    <Box sx={{ overflowY: 'auto', flex: 1 }}>
-                        {listContent}
-                    </Box>
+                    {/* Header removed from here because tabs serve as header */}
+                    {listContent}
                 </Popover>
             )}
         </>
