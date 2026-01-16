@@ -76,31 +76,30 @@ export default function HomeHero() {
 
                 <Stack spacing={2} width="100%" maxWidth="300px" mx="auto">
                     {/* Create Game Button - Green */}
-                    <Link href="/games/new" passHref legacyBehavior>
-                        <Button
-                            component="a"
-                            variant="contained"
-                            size="large"
-                            sx={{
-                                borderRadius: "50px",
-                                py: 1.5,
-                                bgcolor: "#2e7d32", // Adjust to match image green
-                                backgroundImage: "linear-gradient(45deg, #43a047, #2e7d32)",
-                                fontSize: "1.1rem",
-                                fontWeight: "bold",
-                                textTransform: "none",
-                                display: "flex",
-                                justifyContent: "center",
-                                gap: 1,
-                                direction: "rtl",
-                                "&:hover": {
-                                    bgcolor: "#1b5e20",
-                                }
-                            }}
-                        >
-                            צור משחק <Add />
-                        </Button>
-                    </Link>
+                    <Button
+                        component={Link}
+                        href="/games/new"
+                        variant="contained"
+                        size="large"
+                        sx={{
+                            borderRadius: "50px",
+                            py: 1.5,
+                            bgcolor: "#2e7d32", // Adjust to match image green
+                            backgroundImage: "linear-gradient(45deg, #43a047, #2e7d32)",
+                            fontSize: "1.1rem",
+                            fontWeight: "bold",
+                            textTransform: "none",
+                            display: "flex",
+                            justifyContent: "center",
+                            gap: 1,
+                            direction: "rtl",
+                            "&:hover": {
+                                bgcolor: "#1b5e20",
+                            }
+                        }}
+                    >
+                        צור משחק <Add />
+                    </Button>
 
                     {/* Join Game Button - Outlined/Transparent */}
                     <Button
