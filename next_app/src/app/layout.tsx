@@ -1,7 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-// 1. החזרנו את בוטסטראפ כדי שקומפוננטות ישנות לא ישברו
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 
@@ -23,9 +22,31 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#1976d2",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export const metadata: Metadata = {
   title: "JoinUp",
-  description: "JoinUp - find and join pickup games",
+  description: "Social Sports Application",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icons/favicon.ico" },
+      { url: "/icons/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/favicon-96x96.png", sizes: "96x96", type: "image/png" }
+    ],
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "JoinUp",
+  },
 };
 
 export default function RootLayout({
