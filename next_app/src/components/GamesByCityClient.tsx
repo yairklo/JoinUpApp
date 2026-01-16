@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -55,6 +56,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
 
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
+    const router = useRouter();
     const userId = user?.id || "";
 
     const [availableCities, setAvailableCities] = useState<string[]>([]);
@@ -217,7 +219,36 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                 price={g.price}
                                 isJoined={joined}
                             >
-                                {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
+                                {joined ? (
+                                    <LeaveGameButton
+                                        gameId={g.id}
+                                        onLeft={() => {
+                                            setGames(prev => prev.map(game => {
+                                                if (game.id !== g.id) return game;
+                                                return {
+                                                    ...game,
+                                                    currentPlayers: Math.max(0, game.currentPlayers - 1),
+                                                    participants: (game.participants || []).filter(p => p.id !== userId)
+                                                };
+                                            }));
+                                        }}
+                                    />
+                                ) : (
+                                    <JoinGameButton
+                                        gameId={g.id}
+                                        registrationOpensAt={g.registrationOpensAt}
+                                        onJoined={() => {
+                                            setGames(prev => prev.map(game => {
+                                                if (game.id !== g.id) return game;
+                                                return {
+                                                    ...game,
+                                                    currentPlayers: game.currentPlayers + 1,
+                                                    participants: [...(game.participants || []), { id: userId, name: user?.fullName || "Me" }]
+                                                };
+                                            }));
+                                        }}
+                                    />
+                                )}
                                 <Button component={Link} href={`/games/${g.id}`} variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
                             </GameHeaderCard>
                         )
@@ -279,7 +310,36 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                             price={g.price}
                             isJoined={joined}
                         >
-                            {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
+                            {joined ? (
+                                <LeaveGameButton
+                                    gameId={g.id}
+                                    onLeft={() => {
+                                        setGames(prev => prev.map(game => {
+                                            if (game.id !== g.id) return game;
+                                            return {
+                                                ...game,
+                                                currentPlayers: Math.max(0, game.currentPlayers - 1),
+                                                participants: (game.participants || []).filter(p => p.id !== userId)
+                                            };
+                                        }));
+                                    }}
+                                />
+                            ) : (
+                                <JoinGameButton
+                                    gameId={g.id}
+                                    registrationOpensAt={g.registrationOpensAt}
+                                    onJoined={() => {
+                                        setGames(prev => prev.map(game => {
+                                            if (game.id !== g.id) return game;
+                                            return {
+                                                ...game,
+                                                currentPlayers: game.currentPlayers + 1,
+                                                participants: [...(game.participants || []), { id: userId, name: user?.fullName || "Me" }]
+                                            };
+                                        }));
+                                    }}
+                                />
+                            )}
                             <Link href={`/games/${g.id}`} passHref legacyBehavior>
                                 <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
                             </Link>

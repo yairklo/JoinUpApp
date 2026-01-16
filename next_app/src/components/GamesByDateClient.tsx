@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
@@ -54,6 +55,7 @@ export default function GamesByDateClient({
   const [loading, setLoading] = useState(false);
   const { user, isLoaded } = useUser(); // Added isLoaded to wait for auth check
   const { getToken } = useAuth();
+  const router = useRouter();
   const userId = user?.id || "";
 
   const groups = useMemo(() => {
@@ -198,9 +200,37 @@ export default function GamesByDateClient({
                 isJoined={joined}
               >
                 {joined ? (
-                  <LeaveGameButton gameId={g.id} />
+                  <LeaveGameButton
+                    gameId={g.id}
+                    onLeft={() => {
+                      setGames(prev => prev.map(game => {
+                        if (game.id !== g.id) return game;
+                        return {
+                          ...game,
+                          currentPlayers: Math.max(0, game.currentPlayers - 1),
+                          participants: (game.participants || []).filter(p => p.id !== userId)
+                        };
+                      }));
+                      router.refresh();
+                    }}
+                  />
                 ) : (
-                  <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />
+                  <JoinGameButton
+                    gameId={g.id}
+                    registrationOpensAt={g.registrationOpensAt}
+                    onJoined={() => {
+                      setGames(prev => prev.map(game => {
+                        if (game.id !== g.id) return game;
+                        // Optimistically add user. real data comes on re-fetch or refresh but this updates UI instantly
+                        return {
+                          ...game,
+                          currentPlayers: game.currentPlayers + 1,
+                          participants: [...(game.participants || []), { id: userId, name: user?.fullName || "Me" }]
+                        };
+                      }));
+                      router.refresh();
+                    }}
+                  />
                 )}
 
                 <Link href={`/games/${g.id}`} passHref legacyBehavior>
@@ -244,9 +274,36 @@ export default function GamesByDateClient({
               teamSize={g.teamSize}
             >
               {joined ? (
-                <LeaveGameButton gameId={g.id} />
+                <LeaveGameButton
+                  gameId={g.id}
+                  onLeft={() => {
+                    setGames(prev => prev.map(game => {
+                      if (game.id !== g.id) return game;
+                      return {
+                        ...game,
+                        currentPlayers: Math.max(0, game.currentPlayers - 1),
+                        participants: (game.participants || []).filter(p => p.id !== userId)
+                      };
+                    }));
+                    router.refresh();
+                  }}
+                />
               ) : (
-                <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />
+                <JoinGameButton
+                  gameId={g.id}
+                  registrationOpensAt={g.registrationOpensAt}
+                  onJoined={() => {
+                    setGames(prev => prev.map(game => {
+                      if (game.id !== g.id) return game;
+                      return {
+                        ...game,
+                        currentPlayers: game.currentPlayers + 1,
+                        participants: [...(game.participants || []), { id: userId, name: user?.fullName || "Me" }]
+                      };
+                    }));
+                    router.refresh();
+                  }}
+                />
               )}
 
               <Button
