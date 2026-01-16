@@ -1,8 +1,9 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-
-import React, { useState, useEffect, forwardRef } from "react";
+import { useRouter } from "next/navigation";
+import { useChat } from "@/context/ChatContext";
+import React, { useState, useEffect } from "react";
 import {
     Box,
     List,
@@ -12,30 +13,26 @@ import {
     ListItemText,
     Avatar,
     Typography,
-    Popover,
-    Dialog,
-    AppBar,
-    Toolbar,
     IconButton,
-    Slide,
     useMediaQuery,
     useTheme,
     Badge,
-    CircularProgress
+    CircularProgress,
+    Tabs,
+    Tab
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { TransitionProps } from "@mui/material/transitions";
+import PersonIcon from "@mui/icons-material/Person";
+import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import { formatDistanceToNow } from "date-fns";
-import { io } from "socket.io-client"; // Import socket
+import { io } from "socket.io-client";
 
-// Updated Interface with unreadCount
 interface ChatPreview {
     id: string;
     type: 'group' | 'private';
     name: string;
     image: string | null;
-    unreadCount: number; // New field
+    unreadCount: number;
     lastMessage: {
         text: string;
         createdAt: string;
@@ -48,27 +45,23 @@ interface ChatPreview {
 interface ChatListProps {
     userId: string;
     onChatSelect: (chatId: string) => void;
+    isWidget?: boolean;
 }
 
-const Transition = forwardRef(function Transition(
-    props: TransitionProps & { children: React.ReactElement },
-    ref: React.Ref<unknown>,
-) {
-    return <Slide direction="up" ref={ref} {...props} />;
-});
-
-export default function ChatList({ userId, onChatSelect }: ChatListProps) {
+export default function ChatList({ userId, onChatSelect, isWidget = false }: ChatListProps) {
     const [chats, setChats] = useState<ChatPreview[]>([]);
     const [loading, setLoading] = useState(false);
-    const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+    const [tabValue, setTabValue] = useState(0);
+
     const { getToken } = useAuth();
+    const router = useRouter();
+    const { openChat, isWidgetOpen, closeChat, goBackToList, openWidget } = useChat();
 
     // State for total unread badge
     const [totalUnread, setTotalUnread] = useState(0);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    const open = Boolean(anchorEl);
 
     // Initial Fetch
     const fetchChats = async () => {
@@ -96,7 +89,7 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
         }
     };
 
-    // Socket Listener for Notifications
+    // Socket Listener
     useEffect(() => {
         if (!userId) return;
 
@@ -115,12 +108,10 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
                 });
 
                 socket.on("connect", () => {
-                    // Register this user to their personal notification room
                     socket.emit("setup", { id: userId });
                 });
 
                 socket.on("notification", (payload: any) => {
-                    // When a new message notification arrives
                     if (payload.type === 'message') {
                         setTotalUnread((prev) => prev + 1);
                         fetchChats();
@@ -138,146 +129,134 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
         };
     }, [userId, getToken]);
 
-    // Load chats on mount to get initial badge count
+    // Load chats on mount
     useEffect(() => {
         fetchChats();
     }, [userId]);
 
-    const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
-        setAnchorEl(event.currentTarget);
-        fetchChats();
+    const handleNavbarClick = () => {
+        if (isMobile) {
+            // Mobile: Go to dedicated page
+            router.push('/chats');
+        } else {
+            // Desktop: Toggle floating widget
+            if (isWidgetOpen) {
+                closeChat();
+            } else {
+                openWidget();
+            }
+        }
     };
 
-    const handleClose = () => {
-        setAnchorEl(null);
+    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+        setTabValue(newValue);
     };
 
-    const handleSelect = (chatId: string) => {
-        // Optimistic update: decrease unread count when opening a chat
-        // (Actual server update happens inside the Chat component via markAsRead)
-        const chat = chats.find(c => c.id === chatId);
-        if (chat && chat.unreadCount > 0) {
+    const handleSelect = (chat: ChatPreview) => {
+        // Optimistic update
+        if (chat.unreadCount > 0) {
             setTotalUnread(prev => Math.max(0, prev - chat.unreadCount));
+            // Update local state to remove badge immediately
+            setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
         }
 
-        onChatSelect(chatId);
-        handleClose();
+        // LOGIC CHANGE: Redirect based on type
+        if (chat.type === 'group' || isMobile) {
+            // If it's a game OR we are on mobile, use full page navigation
+            const route = chat.type === 'group' ? `/games/${chat.id}` : `/chat/${chat.id}`;
+            router.push(route);
+        } else {
+            // If it's a private chat on desktop, open chat window widget
+            openChat(chat.id, { name: chat.name, image: chat.image });
+        }
     };
 
-    const listContent = (
-        <List sx={{ width: '100%', bgcolor: 'background.paper', p: 0 }}>
-            {loading && chats.length === 0 ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress />
-                </Box>
-            ) : chats.length === 0 ? (
-                <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
-                    <Typography>No active chats</Typography>
-                </Box>
-            ) : (
-                chats.map((chat) => {
-                    const timeDisplay = chat.lastMessage
-                        ? formatDistanceToNow(new Date(chat.lastMessage.createdAt), { addSuffix: true })
-                        : "";
-
-                    return (
-                        <ListItem key={chat.id} disablePadding divider>
-                            <ListItemButton onClick={() => handleSelect(chat.id)} alignItems="flex-start">
-                                <ListItemAvatar>
-                                    <Badge badgeContent={chat.unreadCount} color="error" overlap="circular">
-                                        <Avatar src={chat.image || undefined} alt={chat.name}>
-                                            {chat.name.charAt(0)}
-                                        </Avatar>
-                                    </Badge>
-                                </ListItemAvatar>
-                                <ListItemText
-                                    primary={
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <Typography
-                                                variant="subtitle2"
-                                                fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
-                                                noWrap
-                                                sx={{ maxWidth: '70%' }}
-                                            >
-                                                {chat.name}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 1 }}>
-                                                {timeDisplay}
-                                            </Typography>
-                                        </Box>
-                                    }
-                                    secondary={
-                                        <Typography
-                                            variant="body2"
-                                            color={chat.unreadCount > 0 ? "text.primary" : "text.secondary"}
-                                            fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
-                                            noWrap
-                                            sx={{ display: 'block', maxWidth: '90%' }}
-                                        >
-                                            {chat.lastMessage ? chat.lastMessage.text : "Start a new conversation"}
-                                        </Typography>
-                                    }
-                                />
-                            </ListItemButton>
-                        </ListItem>
-                    );
-                })
-            )}
-        </List>
+    // Filter chats based on Tab
+    const filteredChats = chats.filter(chat =>
+        tabValue === 0 ? chat.type === 'private' : chat.type === 'group'
     );
 
-    return (
-        <>
-            <IconButton color="inherit" onClick={handleOpen}>
-                <Badge badgeContent={totalUnread} color="error">
-                    <ChatIcon />
-                </Badge>
-            </IconButton>
+    const listContent = (
+        <Box sx={{ width: '100%', bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* TABS HEADER */}
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth" aria-label="chat tabs">
+                    <Tab icon={<PersonIcon />} iconPosition="start" label="שחקנים" />
+                    <Tab icon={<SportsSoccerIcon />} iconPosition="start" label="משחקים" />
+                </Tabs>
+            </Box>
 
-            {isMobile ? (
-                <Dialog
-                    fullScreen
-                    open={open}
-                    onClose={handleClose}
-                    TransitionComponent={Transition}
-                >
-                    <AppBar sx={{ position: 'relative' }}>
-                        <Toolbar>
-                            <IconButton edge="start" color="inherit" onClick={handleClose} aria-label="close">
-                                <ArrowBackIcon />
-                            </IconButton>
-                            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-                                My Chats
-                            </Typography>
-                        </Toolbar>
-                    </AppBar>
-                    {listContent}
-                </Dialog>
-            ) : (
-                <Popover
-                    open={open}
-                    anchorEl={anchorEl}
-                    onClose={handleClose}
-                    anchorOrigin={{
-                        vertical: 'bottom',
-                        horizontal: 'center',
-                    }}
-                    transformOrigin={{
-                        vertical: 'top',
-                        horizontal: 'center',
-                    }}
-                    PaperProps={{
-                        sx: { width: 360, maxHeight: 500, display: 'flex', flexDirection: 'column' }
-                    }}
-                >
-                    <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', bgcolor: 'primary.main', color: 'primary.contrastText' }}>
-                        <Typography variant="h6">My Chats</Typography>
+            <List sx={{ p: 0, overflowY: 'auto', flex: 1 }}>
+                {loading && chats.length === 0 ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                        <CircularProgress />
                     </Box>
-                    <Box sx={{ overflowY: 'auto', flex: 1 }}>
-                        {listContent}
+                ) : filteredChats.length === 0 ? (
+                    <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary', mt: 4 }}>
+                        <Typography>
+                            {tabValue === 0 ? "אין צ'אטים פעילים עם שחקנים" : "לא נרשמת לאף משחק"}
+                        </Typography>
                     </Box>
-                </Popover>
-            )}
-        </>
+                ) : (
+                    filteredChats.map((chat) => {
+                        const timeDisplay = chat.lastMessage
+                            ? formatDistanceToNow(new Date(chat.lastMessage.createdAt), { addSuffix: true })
+                            : "";
+
+                        return (
+                            <ListItem key={chat.id} disablePadding divider>
+                                <ListItemButton onClick={() => handleSelect(chat)} alignItems="flex-start">
+                                    <ListItemAvatar>
+                                        <Badge badgeContent={chat.unreadCount} color="error" overlap="circular">
+                                            <Avatar src={chat.image || undefined} alt={chat.name}>
+                                                {chat.name.charAt(0)}
+                                            </Avatar>
+                                        </Badge>
+                                    </ListItemAvatar>
+                                    <ListItemText
+                                        primary={
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <Typography
+                                                    variant="subtitle2"
+                                                    fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
+                                                    noWrap
+                                                    sx={{ maxWidth: '70%' }}
+                                                >
+                                                    {chat.name}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 1 }}>
+                                                    {timeDisplay}
+                                                </Typography>
+                                            </Box>
+                                        }
+                                        secondary={
+                                            <Typography
+                                                variant="body2"
+                                                color={chat.unreadCount > 0 ? "text.primary" : "text.secondary"}
+                                                fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
+                                                noWrap
+                                                sx={{ display: 'block', maxWidth: '90%' }}
+                                            >
+                                                {chat.lastMessage ? chat.lastMessage.text : "התחל שיחה חדשה"}
+                                            </Typography>
+                                        }
+                                    />
+                                </ListItemButton>
+                            </ListItem>
+                        );
+                    })
+                )}
+            </List>
+        </Box>
+    );
+
+    if (isWidget) return listContent;
+
+    return (
+        <IconButton color="inherit" onClick={handleNavbarClick}>
+            <Badge badgeContent={totalUnread} color="error">
+                <ChatIcon />
+            </Badge>
+        </IconButton>
     );
 }

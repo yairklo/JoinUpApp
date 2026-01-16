@@ -100,7 +100,11 @@ export default async function UserPublicPage(props: {
                             )}
 
                             <Box mt={2}>
-                                <UserProfileActions targetUserId={id} />
+                                <UserProfileActions
+                                    targetUserId={id}
+                                    targetUserName={u.name || "Unknown User"}
+                                    targetUserImage={u.imageUrl}
+                                />
                             </Box>
                         </Box>
 
