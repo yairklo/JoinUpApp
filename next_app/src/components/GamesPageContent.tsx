@@ -20,6 +20,8 @@ const FILTERS: { label: string; value: SportFilter }[] = [
     { label: SPORT_MAPPING.TENNIS, value: "TENNIS" },
 ];
 
+import { GameUpdateProvider } from "@/context/GameUpdateContext";
+
 export default function GamesPageContent({
     initialDate,
     fieldId,
@@ -30,53 +32,55 @@ export default function GamesPageContent({
     const [sportFilter, setSportFilter] = useState<SportFilter>("ALL");
 
     return (
-        <Container maxWidth="md">
-            <Stack spacing={4} id="games-feed" sx={{ scrollMarginTop: "20px" }}>
+        <GameUpdateProvider>
+            <Container maxWidth="md">
+                <Stack spacing={4} id="games-feed" sx={{ scrollMarginTop: "20px" }}>
 
-                {/* Filter Section */}
-                <Box display="flex" gap={1} flexWrap="wrap" sx={{ mb: -2 }}>
-                    {FILTERS.map((f) => (
-                        <Chip
-                            key={f.value}
-                            label={f.label}
-                            clickable
-                            color={sportFilter === f.value ? "primary" : "default"}
-                            onClick={() => setSportFilter(f.value)}
-                            variant={sportFilter === f.value ? "filled" : "outlined"}
+                    {/* Filter Section */}
+                    <Box display="flex" gap={1} flexWrap="wrap" sx={{ mb: -2 }}>
+                        {FILTERS.map((f) => (
+                            <Chip
+                                key={f.value}
+                                label={f.label}
+                                clickable
+                                color={sportFilter === f.value ? "primary" : "default"}
+                                onClick={() => setSportFilter(f.value)}
+                                variant={sportFilter === f.value ? "filled" : "outlined"}
+                            />
+                        ))}
+                    </Box>
+
+                    {/* My Games */}
+                    <Box>
+                        <MyJoinedGames sportFilter={sportFilter} />
+                    </Box>
+
+                    {/* Series List */}
+                    <Box>
+                        <SeriesSectionClient sportFilter={sportFilter} />
+                    </Box>
+
+                    {/* Games by City */}
+                    <Box>
+                        <GamesByCityClient sportFilter={sportFilter} />
+                    </Box>
+
+                    {/* Games with Friends */}
+                    <Box>
+                        <GamesByFriendsClient sportFilter={sportFilter} />
+                    </Box>
+
+                    {/* All Games List */}
+                    <Box>
+                        <GamesByDateClient
+                            initialDate={initialDate}
+                            fieldId={fieldId}
+                            sportFilter={sportFilter}
                         />
-                    ))}
-                </Box>
+                    </Box>
 
-                {/* My Games */}
-                <Box>
-                    <MyJoinedGames sportFilter={sportFilter} />
-                </Box>
-
-                {/* Series List */}
-                <Box>
-                    <SeriesSectionClient sportFilter={sportFilter} />
-                </Box>
-
-                {/* Games by City */}
-                <Box>
-                    <GamesByCityClient sportFilter={sportFilter} />
-                </Box>
-
-                {/* Games with Friends */}
-                <Box>
-                    <GamesByFriendsClient sportFilter={sportFilter} />
-                </Box>
-
-                {/* All Games List */}
-                <Box>
-                    <GamesByDateClient
-                        initialDate={initialDate}
-                        fieldId={fieldId}
-                        sportFilter={sportFilter}
-                    />
-                </Box>
-
-            </Stack>
-        </Container>
+                </Stack>
+            </Container>
+        </GameUpdateProvider>
     );
 }
