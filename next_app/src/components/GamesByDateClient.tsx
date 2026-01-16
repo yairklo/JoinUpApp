@@ -195,6 +195,7 @@ export default function GamesByDateClient({
                 sport={g.sport}
                 teamSize={g.teamSize}
                 price={g.price}
+                isJoined={joined}
               >
                 {joined ? (
                   <LeaveGameButton gameId={g.id} />

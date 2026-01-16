@@ -123,6 +123,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
               sport={g.sport}
               teamSize={g.teamSize}
               price={g.price}
+              isJoined={true}
             >
               <LeaveGameButton
                 gameId={g.id}

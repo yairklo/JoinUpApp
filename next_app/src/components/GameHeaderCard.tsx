@@ -38,6 +38,7 @@ export default function GameHeaderCard({
   teamSize?: number | null;
   price?: number | null;
   children?: React.ReactNode;
+  isJoined?: boolean;
 }) {
   function formatEndTime(startTime: string, hours: number | undefined): string {
     const dur = typeof hours === "number" && Number.isFinite(hours) ? hours : 1;
@@ -71,6 +72,9 @@ export default function GameHeaderCard({
         borderRadius: 4,
         overflow: "hidden",
         transition: "transform 0.2s, box-shadow 0.2s",
+        border: isJoined ? "2px solid" : "none",
+        borderColor: isJoined ? "success.main" : "transparent",
+        backgroundColor: isJoined ? "success.50" : "background.paper",
         "&:hover": {
           transform: "translateY(-4px)",
           boxShadow: 8,
