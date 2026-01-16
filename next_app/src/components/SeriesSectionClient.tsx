@@ -20,6 +20,7 @@ type Series = {
     dayOfWeek?: number;
     subscriberCount: number;
     sport?: string;
+    isSubscribed?: boolean;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -90,6 +91,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                         dayOfWeek={s.dayOfWeek}
                         subscriberCount={s.subscriberCount}
                         sport={s.sport}
+                        isSubscribed={s.isSubscribed}
                     >
                         <Button
                             component={Link}
@@ -120,6 +122,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                         dayOfWeek={s.dayOfWeek}
                         subscriberCount={s.subscriberCount}
                         sport={s.sport}
+                        isSubscribed={s.isSubscribed}
                     >
                         <Link href={`/series/${s.id}`} passHref legacyBehavior>
                             <Button

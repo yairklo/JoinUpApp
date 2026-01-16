@@ -26,6 +26,7 @@ export default function SeriesHeaderCard({
 
     sport,
     children,
+    isSubscribed,
 }: {
     name: string;
     fieldName: string;
@@ -34,6 +35,7 @@ export default function SeriesHeaderCard({
     subscriberCount: number;
     sport?: string;
     children?: React.ReactNode;
+    isSubscribed?: boolean;
 }) {
     const dayName = typeof dayOfWeek === 'number' ? DAYS[dayOfWeek] : 'שבועי';
     const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
@@ -82,7 +84,13 @@ export default function SeriesHeaderCard({
                     objectPosition: "center top"
                 }}
             />
-            <CardContent sx={{ p: 2, flexGrow: 1, display: "flex", flexDirection: "column" }}>
+            <CardContent sx={{
+                p: 2,
+                flexGrow: 1,
+                display: "flex",
+                flexDirection: "column",
+                bgcolor: isSubscribed ? "#e8f5e9" : "inherit"
+            }}>
                 {/* Top Badge Row */}
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
                     <Chip

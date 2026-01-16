@@ -215,6 +215,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                 sport={g.sport}
                                 teamSize={g.teamSize}
                                 price={g.price}
+                                isJoined={joined}
                             >
                                 {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
                                 <Button component={Link} href={`/games/${g.id}`} variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
@@ -276,6 +277,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                             sport={g.sport}
                             teamSize={g.teamSize}
                             price={g.price}
+                            isJoined={joined}
                         >
                             {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
                             <Link href={`/games/${g.id}`} passHref legacyBehavior>
