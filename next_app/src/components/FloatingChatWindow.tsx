@@ -26,7 +26,7 @@ export default function FloatingChatWindow() {
             sx={{
                 position: "fixed",
                 bottom: 0,
-                zIndex: 1300,
+                zIndex: 2000,
                 width: isMobile ? "100%" : 340,
                 left: isMobile ? 0 : 20,
                 borderTopLeftRadius: 8,

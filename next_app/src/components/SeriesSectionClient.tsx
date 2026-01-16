@@ -91,18 +91,17 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                         subscriberCount={s.subscriberCount}
                         sport={s.sport}
                     >
-                        <Link href={`/series/${s.id}`} passHref legacyBehavior>
-                            <Button
-                                component="a"
-                                variant="outlined"
-                                color="secondary"
-                                size="small"
-                                fullWidth
-                                endIcon={<ArrowForwardIcon />}
-                            >
-                                View Series
-                            </Button>
-                        </Link>
+                        <Button
+                            component={Link}
+                            href={`/series/${s.id}`}
+                            variant="outlined"
+                            color="secondary"
+                            size="small"
+                            fullWidth
+                            endIcon={<ArrowForwardIcon />}
+                        >
+                            View Series
+                        </Button>
                     </SeriesHeaderCard>
                 ))}
             </GamesHorizontalList>
