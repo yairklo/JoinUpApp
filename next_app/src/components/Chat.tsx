@@ -27,9 +27,10 @@ import { ChatMessage, Reaction, MessageStatus } from "./types";
 type ChatProps = {
   roomId?: string;
   language?: "en" | "he";
+  isWidget?: boolean;
 };
 
-export default function Chat({ roomId = "global", language = "he" }: ChatProps) {
+export default function Chat({ roomId = "global", language = "he", isWidget = false }: ChatProps) {
   const isRTL = language === "he";
   const { user } = useUser();
   const { getToken } = useAuth();
@@ -294,11 +295,13 @@ export default function Chat({ roomId = "global", language = "he" }: ChatProps) 
 
   return (
     // FIX: Changed height to 100% to fill parent container
-    <Paper elevation={0} dir={isRTL ? "rtl" : "ltr"} sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", bgcolor: "background.paper" }}>
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
-        <Typography variant="h6" fontWeight="bold">{isRTL ? "חדר צ'אט" : "Chat Room"}</Typography>
-        <Typography variant="caption" sx={{ opacity: 0.8 }}>{roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : roomId}</Typography>
-      </Box>
+    <Paper elevation={isWidget ? 0 : 3} dir={isRTL ? "rtl" : "ltr"} sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", borderRadius: isWidget ? 0 : 2, overflow: "hidden", bgcolor: "background.paper" }}>
+      {!isWidget && (
+        <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
+          <Typography variant="h6" fontWeight="bold">{isRTL ? "חדר צ'אט" : "Chat Room"}</Typography>
+          <Typography variant="caption" sx={{ opacity: 0.8 }}>{roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : roomId}</Typography>
+        </Box>
+      )}
 
       <Box sx={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <Box

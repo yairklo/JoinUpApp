@@ -10,6 +10,9 @@ import AppNavbar from "@/components/AppNavbar";
 import ThemeRegistry from "@/components/theme/themeRegistry";
 import NotificationAsker from "@/components/NotificationAsker";
 
+import { ChatProvider } from "@/context/ChatContext";
+import FloatingChatWindow from "@/components/FloatingChatWindow";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -39,14 +42,18 @@ export default function RootLayout({
         <body className={`${geistSans.variable} ${geistMono.variable}`}>
           {/* ThemeRegistry דואג שקומפוננטות MUI יראו טוב */}
           <ThemeRegistry>
-            {/* AppNavbar עדיין מסתמך על Bootstrap ולכן חייב את ה-CSS למעלה */}
-            <AppNavbar />
+            <ChatProvider>
+              {/* AppNavbar עדיין מסתמך על Bootstrap ולכן חייב את ה-CSS למעלה */}
+              <AppNavbar />
 
-            {/* הורדתי את ה-container של בוטסטראפ כדי לאפשר רוחב מלא לדפים החדשים */}
-            <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-              {children}
-            </main>
-            <NotificationAsker />
+              {/* הורדתי את ה-container של בוטסטראפ כדי לאפשר רוחב מלא לדפים החדשים */}
+              <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+                {children}
+              </main>
+
+              <FloatingChatWindow />
+              <NotificationAsker />
+            </ChatProvider>
           </ThemeRegistry>
         </body>
       </html>

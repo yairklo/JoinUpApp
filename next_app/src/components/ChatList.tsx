@@ -2,6 +2,7 @@
 
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation"; // Added for routing
+import { useChat } from "@/context/ChatContext";
 import React, { useState, useEffect, forwardRef } from "react";
 import {
     Box,
@@ -69,6 +70,7 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
 
     const { getToken } = useAuth();
     const router = useRouter(); // Hook for navigation
+    const { openChat } = useChat();
 
     // State for total unread badge
     const [totalUnread, setTotalUnread] = useState(0);
@@ -176,8 +178,8 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
             // If it's a game, go to the game page
             router.push(`/games/${chat.id}`);
         } else {
-            // If it's a private chat, open chat window
-            onChatSelect(chat.id);
+            // If it's a private chat, open chat window widget
+            openChat(chat.id);
         }
     };
 
