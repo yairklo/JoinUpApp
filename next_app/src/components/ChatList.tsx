@@ -55,7 +55,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
 
     const { getToken } = useAuth();
     const router = useRouter();
-    const { openChat, isWidgetOpen, closeChat, goBackToList } = useChat();
+    const { openChat, isWidgetOpen, closeChat, goBackToList, openWidget } = useChat();
 
     // State for total unread badge
     const [totalUnread, setTotalUnread] = useState(0);
@@ -135,13 +135,16 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
     }, [userId]);
 
     const handleNavbarClick = () => {
-        if (isWidgetOpen) {
-            closeChat();
+        if (isMobile) {
+            // Mobile: Go to dedicated page
+            router.push('/chats');
         } else {
-            // For now, toggle widget for everyone. 
-            // Mobile handling for "full page list" is pending a /chats page, 
-            // but user request was to fix desktop widget mainly.
-            goBackToList();
+            // Desktop: Toggle floating widget
+            if (isWidgetOpen) {
+                closeChat();
+            } else {
+                openWidget();
+            }
         }
     };
 
