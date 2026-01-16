@@ -1,19 +1,42 @@
-import { currentUser } from "@clerk/nextjs/server";
+"use client";
+
+import { useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { Box, Typography, CircularProgress } from "@mui/material";
 import ChatList from "@/components/ChatList";
-import { Box, Typography } from "@mui/material";
 
-export default async function ChatsIndexPage() {
-    const user = await currentUser();
+export default function ChatsIndexPage() {
+    const { user, isLoaded, isSignedIn } = useUser();
+    const router = useRouter();
 
-    if (!user) return <Typography>Please log in</Typography>;
+    useEffect(() => {
+        if (isLoaded && !isSignedIn) {
+            router.push("/sign-in");
+        }
+    }, [isLoaded, isSignedIn, router]);
+
+    if (!isLoaded) {
+        return (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (!user) return null;
 
     return (
-        <Box sx={{ height: "calc(100vh - 70px)", p: 2, bgcolor: "background.paper" }}>
-            <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>הצ'אטים שלי</Typography>
-            {/* Reuse the component in "content mode" */}
-            {/* We pass an empty function for onChatSelect because inside ChatList, 
-            navigation logic is already handled internally via router.push or openChat */}
-            <ChatList userId={user.id} onChatSelect={() => { }} isWidget={true} />
+        <Box sx={{ height: "calc(100vh - 70px)", p: 0, bgcolor: "background.paper" }}>
+            <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
+                <Typography variant="h6" fontWeight="bold">My Chats</Typography>
+            </Box>
+
+            <ChatList
+                userId={user.id}
+                onChatSelect={() => { }} // This is now valid because we are in a Client Component
+                isWidget={true}
+            />
         </Box>
     );
 }
