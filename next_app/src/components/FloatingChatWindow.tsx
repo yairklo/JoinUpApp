@@ -1,31 +1,24 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Paper, Box, Typography, IconButton, Collapse, useTheme, useMediaQuery } from "@mui/material";
+import { Paper, Box, Typography, IconButton, Collapse, useTheme, useMediaQuery, Avatar } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import RemoveIcon from "@mui/icons-material/Remove";
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import Chat from "./Chat";
+import ChatList from "./ChatList";
 import { useChat } from "@/context/ChatContext";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 
 export default function FloatingChatWindow() {
-    const { activeChatId, isMinimized, closeChat, minimizeChat, maximizeChat } = useChat();
+    const { activeChatId, isWidgetOpen, isMinimized, headerInfo, closeChat, minimizeChat, maximizeChat, goBackToList } = useChat();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    const { getToken } = useAuth();
-    const [chatName, setChatName] = useState("Chat");
+    const { user } = useUser();
 
-    // Fetch chat name if available (optional enhancement)
-    useEffect(() => {
-        if (!activeChatId) return;
-        // We could fetch chat details here to set the title, 
-        // but for now we'll just show the ID or a generic title.
-        // If you want to show the name, you'd need an API call or context data.
-        setChatName("Chat");
-    }, [activeChatId]);
-
-    if (!activeChatId) return null;
+    if (isMobile) return null; // Disable widget on mobile
+    if (!isWidgetOpen || !user) return null;
 
     return (
         <Paper
@@ -57,10 +50,20 @@ export default function FloatingChatWindow() {
                 }}
                 onClick={isMinimized ? maximizeChat : minimizeChat}
             >
-                <Typography variant="subtitle2" fontWeight="bold">
-                    {/* Future: Display actual Chat Name */}
-                    {chatName}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {activeChatId && (
+                        <IconButton onClick={(e) => { e.stopPropagation(); goBackToList(); }} size="small" sx={{ color: 'inherit' }}>
+                            <ArrowForwardIcon fontSize="small" />
+                        </IconButton>
+                    )}
+                    {activeChatId && headerInfo?.image && (
+                        <Avatar src={headerInfo.image} sx={{ width: 24, height: 24 }} />
+                    )}
+                    <Typography variant="subtitle2" fontWeight="bold">
+                        {activeChatId ? (headerInfo?.name || "Chat") : "הודעות"}
+                    </Typography>
+                </Box>
+
                 <Box onClick={(e) => e.stopPropagation()}>
                     {isMinimized ? (
                         <IconButton size="small" sx={{ color: "inherit" }} onClick={maximizeChat}>
@@ -80,7 +83,11 @@ export default function FloatingChatWindow() {
             {/* Content */}
             <Collapse in={!isMinimized}>
                 <Box sx={{ height: 450, width: "100%" }}>
-                    <Chat roomId={activeChatId} isWidget={true} />
+                    {activeChatId ? (
+                        <Chat roomId={activeChatId} isWidget={true} />
+                    ) : (
+                        <ChatList userId={user.id} onChatSelect={() => { }} isWidget={true} />
+                    )}
                 </Box>
             </Collapse>
         </Paper>

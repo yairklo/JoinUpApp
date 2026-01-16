@@ -53,6 +53,7 @@ interface ChatPreview {
 interface ChatListProps {
     userId: string;
     onChatSelect: (chatId: string) => void;
+    isWidget?: boolean;
 }
 
 const Transition = forwardRef(function Transition(
@@ -62,7 +63,7 @@ const Transition = forwardRef(function Transition(
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export default function ChatList({ userId, onChatSelect }: ChatListProps) {
+export default function ChatList({ userId, onChatSelect, isWidget = false }: ChatListProps) {
     const [chats, setChats] = useState<ChatPreview[]>([]);
     const [loading, setLoading] = useState(false);
     const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
@@ -174,12 +175,13 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
         handleClose();
 
         // LOGIC CHANGE: Redirect based on type
-        if (chat.type === 'group') {
-            // If it's a game, go to the game page
-            router.push(`/games/${chat.id}`);
+        if (chat.type === 'group' || isMobile) {
+            // If it's a game OR we are on mobile, use full page navigation
+            const route = chat.type === 'group' ? `/games/${chat.id}` : `/chat/${chat.id}`;
+            router.push(route);
         } else {
-            // If it's a private chat, open chat window widget
-            openChat(chat.id);
+            // If it's a private chat on desktop, open chat window widget
+            openChat(chat.id, { name: chat.name, image: chat.image });
         }
     };
 
@@ -261,6 +263,8 @@ export default function ChatList({ userId, onChatSelect }: ChatListProps) {
             </List>
         </Box>
     );
+
+    if (isWidget) return listContent;
 
     return (
         <>
