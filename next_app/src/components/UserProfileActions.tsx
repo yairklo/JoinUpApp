@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useChat } from "@/context/ChatContext";
 
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -10,13 +11,25 @@ import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import CheckIcon from "@mui/icons-material/Check";
 import Box from "@mui/material/Box";
 import ChatIcon from "@mui/icons-material/Chat";
-// Remove Chat and ChatIcon if not used elsewhere, but ChatIcon is used in button.
+import { useTheme, useMediaQuery } from "@mui/material";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export default function UserProfileActions({ targetUserId }: { targetUserId: string }) {
+export default function UserProfileActions({
+    targetUserId,
+    targetUserName = "User",
+    targetUserImage
+}: {
+    targetUserId: string;
+    targetUserName?: string;
+    targetUserImage?: string | null;
+}) {
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
     const router = useRouter();
+    const { openChat } = useChat();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
     const [status, setStatus] = useState<'FRIEND' | 'REQUESTED' | 'NONE' | 'SELF' | 'LOADING'>('LOADING');
     const [loading, setLoading] = useState(false);
@@ -124,7 +137,12 @@ export default function UserProfileActions({ targetUserId }: { targetUserId: str
 
             if (res.ok) {
                 const { chatId } = await res.json();
-                router.push(`/chat/${chatId}`);
+
+                if (isMobile) {
+                    router.push(`/chat/${chatId}`);
+                } else {
+                    openChat(chatId, { name: targetUserName, image: targetUserImage });
+                }
             } else {
                 console.error("Failed to start chat");
             }
