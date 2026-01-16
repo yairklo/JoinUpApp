@@ -1,9 +1,9 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation"; // Added for routing
+import { useRouter } from "next/navigation";
 import { useChat } from "@/context/ChatContext";
-import React, { useState, useEffect, forwardRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Box,
     List,
@@ -13,28 +13,20 @@ import {
     ListItemText,
     Avatar,
     Typography,
-    Popover,
-    Dialog,
-    AppBar,
-    Toolbar,
     IconButton,
-    Slide,
     useMediaQuery,
     useTheme,
     Badge,
     CircularProgress,
-    Tabs, // Added
-    Tab   // Added
+    Tabs,
+    Tab
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import PersonIcon from "@mui/icons-material/Person"; // Icon for Private
-import SportsSoccerIcon from "@mui/icons-material/SportsSoccer"; // Icon for Games
-import { TransitionProps } from "@mui/material/transitions";
+import PersonIcon from "@mui/icons-material/Person";
+import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import { formatDistanceToNow } from "date-fns";
 import { io } from "socket.io-client";
 
-// Interface
 interface ChatPreview {
     id: string;
     type: 'group' | 'private';
@@ -56,29 +48,20 @@ interface ChatListProps {
     isWidget?: boolean;
 }
 
-const Transition = forwardRef(function Transition(
-    props: TransitionProps & { children: React.ReactElement },
-    ref: React.Ref<unknown>,
-) {
-    return <Slide direction="up" ref={ref} {...props} />;
-});
-
 export default function ChatList({ userId, onChatSelect, isWidget = false }: ChatListProps) {
     const [chats, setChats] = useState<ChatPreview[]>([]);
     const [loading, setLoading] = useState(false);
-    const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
-    const [tabValue, setTabValue] = useState(0); // 0 = Players (Private), 1 = Games (Group)
+    const [tabValue, setTabValue] = useState(0);
 
     const { getToken } = useAuth();
-    const router = useRouter(); // Hook for navigation
-    const { openChat } = useChat();
+    const router = useRouter();
+    const { openChat, isWidgetOpen, closeChat, goBackToList } = useChat();
 
     // State for total unread badge
     const [totalUnread, setTotalUnread] = useState(0);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    const open = Boolean(anchorEl);
 
     // Initial Fetch
     const fetchChats = async () => {
@@ -151,13 +134,15 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
         fetchChats();
     }, [userId]);
 
-    const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
-        setAnchorEl(event.currentTarget);
-        fetchChats();
-    };
-
-    const handleClose = () => {
-        setAnchorEl(null);
+    const handleNavbarClick = () => {
+        if (isWidgetOpen) {
+            closeChat();
+        } else {
+            // For now, toggle widget for everyone. 
+            // Mobile handling for "full page list" is pending a /chats page, 
+            // but user request was to fix desktop widget mainly.
+            goBackToList();
+        }
     };
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -171,8 +156,6 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
             // Update local state to remove badge immediately
             setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
         }
-
-        handleClose();
 
         // LOGIC CHANGE: Redirect based on type
         if (chat.type === 'group' || isMobile) {
@@ -267,53 +250,10 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
     if (isWidget) return listContent;
 
     return (
-        <>
-            <IconButton color="inherit" onClick={handleOpen}>
-                <Badge badgeContent={totalUnread} color="error">
-                    <ChatIcon />
-                </Badge>
-            </IconButton>
-
-            {isMobile ? (
-                <Dialog
-                    fullScreen
-                    open={open}
-                    onClose={handleClose}
-                    TransitionComponent={Transition}
-                >
-                    <AppBar sx={{ position: 'relative' }}>
-                        <Toolbar>
-                            <IconButton edge="start" color="inherit" onClick={handleClose} aria-label="close">
-                                <ArrowBackIcon />
-                            </IconButton>
-                            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-                                הצ'אטים שלי
-                            </Typography>
-                        </Toolbar>
-                    </AppBar>
-                    {listContent}
-                </Dialog>
-            ) : (
-                <Popover
-                    open={open}
-                    anchorEl={anchorEl}
-                    onClose={handleClose}
-                    anchorOrigin={{
-                        vertical: 'bottom',
-                        horizontal: 'center',
-                    }}
-                    transformOrigin={{
-                        vertical: 'top',
-                        horizontal: 'center',
-                    }}
-                    PaperProps={{
-                        sx: { width: 400, height: 500, display: 'flex', flexDirection: 'column' }
-                    }}
-                >
-                    {/* Header removed from here because tabs serve as header */}
-                    {listContent}
-                </Popover>
-            )}
-        </>
+        <IconButton color="inherit" onClick={handleNavbarClick}>
+            <Badge badgeContent={totalUnread} color="error">
+                <ChatIcon />
+            </Badge>
+        </IconButton>
     );
 }
