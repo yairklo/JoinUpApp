@@ -26,6 +26,7 @@ export default function GameHeaderCard({
   teamSize,
   price,
   children,
+  isJoined,
 }: {
   time: string;
   date?: string;

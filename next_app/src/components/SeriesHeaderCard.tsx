@@ -26,6 +26,7 @@ export default function SeriesHeaderCard({
 
     sport,
     children,
+    isSubscribed,
 }: {
     name: string;
     fieldName: string;
@@ -34,6 +35,7 @@ export default function SeriesHeaderCard({
     subscriberCount: number;
     sport?: string;
     children?: React.ReactNode;
+    isSubscribed?: boolean;
 }) {
     const dayName = typeof dayOfWeek === 'number' ? DAYS[dayOfWeek] : 'שבועי';
     const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
@@ -53,9 +55,9 @@ export default function SeriesHeaderCard({
                 borderRadius: 4,
                 overflow: "hidden",
                 transition: "transform 0.2s, box-shadow 0.2s",
-                border: "1px solid",
-                borderColor: "primary.light",
-                bgcolor: "rgba(255, 255, 255, 0.95)",
+                border: isSubscribed ? "2px solid" : "1px solid",
+                borderColor: isSubscribed ? "success.main" : "primary.light",
+                bgcolor: isSubscribed ? "success.50" : "rgba(255, 255, 255, 0.95)",
                 "&:hover": {
                     transform: "translateY(-4px)",
                     boxShadow: 8,
