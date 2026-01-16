@@ -55,9 +55,9 @@ export default function SeriesHeaderCard({
                 borderRadius: 4,
                 overflow: "hidden",
                 transition: "transform 0.2s, box-shadow 0.2s",
-                border: isSubscribed ? "2px solid" : "1px solid",
-                borderColor: isSubscribed ? "success.main" : "primary.light",
-                bgcolor: isSubscribed ? "success.50" : "rgba(255, 255, 255, 0.95)",
+                border: "1px solid",
+                borderColor: "primary.light",
+                bgcolor: "rgba(255, 255, 255, 0.95)",
                 "&:hover": {
                     transform: "translateY(-4px)",
                     boxShadow: 8,
@@ -84,7 +84,13 @@ export default function SeriesHeaderCard({
                     objectPosition: "center top"
                 }}
             />
-            <CardContent sx={{ p: 2, flexGrow: 1, display: "flex", flexDirection: "column" }}>
+            <CardContent sx={{
+                p: 2,
+                flexGrow: 1,
+                display: "flex",
+                flexDirection: "column",
+                bgcolor: isSubscribed ? "#e8f5e9" : "inherit"
+            }}>
                 {/* Top Badge Row */}
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
                     <Chip

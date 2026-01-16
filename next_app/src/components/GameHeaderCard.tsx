@@ -73,9 +73,8 @@ export default function GameHeaderCard({
         borderRadius: 4,
         overflow: "hidden",
         transition: "transform 0.2s, box-shadow 0.2s",
-        border: isJoined ? "2px solid" : "none",
-        borderColor: isJoined ? "success.main" : "transparent",
-        backgroundColor: isJoined ? "success.50" : "background.paper",
+        border: "none",
+        backgroundColor: "background.paper",
         "&:hover": {
           transform: "translateY(-4px)",
           boxShadow: 8,
@@ -102,7 +101,14 @@ export default function GameHeaderCard({
           objectPosition: "center top"
         }}
       />
-      <CardContent sx={{ p: 2.5, flexGrow: 1, display: "flex", flexDirection: "column" }}>
+      <CardContent sx={{
+        p: 2.5,
+        flexGrow: 1,
+        display: "flex",
+        flexDirection: "column",
+        bgcolor: isJoined ? "#e8f5e9" : "inherit", // Green layout for joined
+        color: isJoined ? "success.dark" : "inherit"
+      }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
           <Stack
             direction="row"
