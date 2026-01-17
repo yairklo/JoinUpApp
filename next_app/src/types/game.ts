@@ -3,6 +3,7 @@ export type Game = {
     fieldId: string;
     fieldName: string;
     fieldLocation: string;
+    city?: string | null;
     date: string;
     time: string;
     duration?: number;

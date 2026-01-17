@@ -38,7 +38,7 @@ export default function GamesByDateClient({
   sportFilter?: SportFilter;
 }) {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
-  const { games, setGames } = useSyncedGames([]); // Use hook
+  const { games, setGames } = useSyncedGames([], (game) => game.date === selectedDate);
   const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { user, isLoaded } = useUser(); // Added isLoaded to wait for auth check

@@ -62,6 +62,27 @@ async function initializeDataFiles() {
   }
 }
 
+// --- Socket.IO on backend (for production) ---
+const socketAllowedOrigin =
+  process.env.SOCKET_CORS_ORIGIN ||
+  process.env.FRONTEND_ORIGIN ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
+  (corsOrigins.length ? corsOrigins : '*');
+
+const io = new Server(server, {
+  path: '/api/socket',
+  cors: {
+    origin: Array.isArray(socketAllowedOrigin) ? socketAllowedOrigin : (socketAllowedOrigin || '*'),
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
+
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/fields', fieldsRoutes);
@@ -90,22 +111,7 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// --- Socket.IO on backend (for production) ---
-const socketAllowedOrigin =
-  process.env.SOCKET_CORS_ORIGIN ||
-  process.env.FRONTEND_ORIGIN ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
-  (corsOrigins.length ? corsOrigins : '*');
 
-const io = new Server(server, {
-  path: '/api/socket',
-  cors: {
-    // allow array or string; if array provided by env, use it as-is
-    origin: Array.isArray(socketAllowedOrigin) ? socketAllowedOrigin : (socketAllowedOrigin || '*'),
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-});
 
 io.use(async (socket, next) => {
   try {
@@ -131,7 +137,28 @@ io.use(async (socket, next) => {
   }
 });
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
+  // 1. Auto-join User & City User Rooms
+  if (socket.userId) {
+    try {
+      const user = await prisma.user.findUnique({ where: { id: socket.userId } });
+      if (user) {
+        // Join personal room for private notifications
+        socket.join(`user_${user.id}`);
+        console.log(`User ${user.id} joined room: user_${user.id}`);
+
+        // Join city room for local game updates
+        if (user.city) {
+          const cityRoom = `city_${user.city}`;
+          socket.join(cityRoom);
+          console.log(`User ${user.id} joined room: ${cityRoom}`);
+        }
+      }
+    } catch (e) {
+      console.error("Socket auto-join error:", e);
+    }
+  }
+
   socket.on('joinRoom', async (roomId) => {
     if (!roomId) return;
 

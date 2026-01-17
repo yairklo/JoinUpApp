@@ -34,7 +34,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 import { SportFilter } from "@/utils/sports";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
-    const { games, setGames } = useSyncedGames([]);
+    const { games, setGames } = useSyncedGames([], (game) => {
+        // Filter incoming games by city
+        if (!displayedCity) return false;
+        return game.city === displayedCity || game.fieldLocation?.includes(displayedCity);
+    });
     const [displayedCity, setDisplayedCity] = useState(initialCity || "");
     const [loading, setLoading] = useState(true);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
