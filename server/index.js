@@ -137,10 +137,17 @@ io.use(async (socket, next) => {
   }
 });
 
+// Basic in-memory presence tracking
+const connectedUsers = new Set();
+
 io.on('connection', async (socket) => {
-  // 1. Auto-join User & City User Rooms
+  // 1. Auto-join User & City User Rooms & Presence
   if (socket.userId) {
     try {
+      connectedUsers.add(socket.userId);
+      // Notify anyone listening to this user's presence
+      io.to(`presence_listener_${socket.userId}`).emit('presence:update', { userId: socket.userId, isOnline: true });
+
       const user = await prisma.user.findUnique({ where: { id: socket.userId } });
       if (user) {
         // Join personal room for private notifications
@@ -158,6 +165,33 @@ io.on('connection', async (socket) => {
       console.error("Socket auto-join error:", e);
     }
   }
+
+  socket.on('disconnect', () => {
+    // Check if user has other connections? 
+    // For simplicity in this scale: if specific socket disconnects, check if user still has connected sockets
+    // io.sockets.adapter.rooms.get(`user_${socket.userId}`) might be empty now?
+    // Actually, socket.io rooms are accurate.
+    // If `user_${socket.userId}` room is empty, user is offline.
+    if (socket.userId) {
+      // Allow a small delay to handle page refreshes without flickering?
+      // For now, immediate.
+      const room = io.sockets.adapter.rooms.get(`user_${socket.userId}`);
+      if (!room || room.size === 0) {
+        connectedUsers.delete(socket.userId);
+        io.to(`presence_listener_${socket.userId}`).emit('presence:update', { userId: socket.userId, isOnline: false });
+      }
+    }
+  });
+
+  socket.on('subscribePresence', (targetUserId) => {
+    if (!targetUserId) return;
+    socket.join(`presence_listener_${targetUserId}`);
+    // Emit initial status
+    // Check if target user has any active sockets in their "user_ID" room
+    const room = io.sockets.adapter.rooms.get(`user_${targetUserId}`);
+    const isOnline = !!(room && room.size > 0);
+    socket.emit('presence:update', { userId: targetUserId, isOnline });
+  });
 
   socket.on('joinRoom', async (roomId) => {
     if (!roomId) return;

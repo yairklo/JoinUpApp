@@ -39,7 +39,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
+
+  const isPrivate = roomId.startsWith("private_");
+  const otherUserId = isPrivate
+    ? roomId.replace("private_", "").split("_").find(id => id !== user?.id)
+    : null;
   const [mySocketId, setMySocketId] = useState<string>("");
 
   const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
@@ -138,6 +144,38 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           setMySocketId(socket?.id ?? "");
           socket?.emit("joinRoom", roomId);
           socket?.emit("markAsRead", { roomId, userId: user?.id });
+
+          if (otherUserId) {
+            socket?.emit('subscribePresence', otherUserId);
+          }
+        });
+
+        // Presence updates
+        socket.on('presence:update', ({ userId: uid, isOnline }) => {
+          if (uid === otherUserId) {
+            setIsOtherUserOnline(isOnline);
+          }
+        });
+
+        // Typing updates
+        socket.on('typing:start', ({ chatId, userName, senderId }) => {
+          if (chatId === roomId && senderId !== user?.id) {
+            setTypingUsers(prev => {
+              const next = new Set(prev);
+              next.add(userName || "Someone");
+              return next;
+            });
+          }
+        });
+
+        socket.on('typing:stop', ({ chatId, userName, senderId }) => {
+          if (chatId === roomId && senderId !== user?.id) {
+            setTypingUsers(prev => {
+              const next = new Set(prev);
+              next.delete(userName || "Someone");
+              return next;
+            });
+          }
         });
 
         socket.on("message", (msg: ChatMessage) => {
@@ -301,9 +339,23 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
           <Typography variant="h6" fontWeight="bold">{isRTL ? "חדר צ'אט" : "Chat Room"}</Typography>
           <Typography variant="caption" sx={{ opacity: 0.8 }}>
-            {roomId === "global"
-              ? (isRTL ? "צ'אט כללי" : "Global Chat")
-              : (chatName || (isRTL ? "צ'אט המשחק" : "Game Chat"))}
+            {typingUsers.size > 0 ? (
+              <span style={{ fontStyle: 'italic', fontWeight: 'bold' }}>
+                {isRTL ? "מקליד/ה..." : `${Array.from(typingUsers)[0]} is typing...`}
+              </span>
+            ) : (
+              isPrivate ? (
+                isOtherUserOnline ? (
+                  <span style={{ color: '#90ee90' }}>● {isRTL ? "מחובר/ת" : "Online"}</span>
+                ) : (
+                  <span>{isRTL ? "לא מחובר/ת" : "Offline"}</span>
+                )
+              ) : (
+                roomId === "global"
+                  ? (isRTL ? "צ'אט כללי" : "Global Chat")
+                  : (chatName || (isRTL ? "צ'אט המשחק" : "Game Chat"))
+              )
+            )}
           </Typography>
         </Box>
       )}
