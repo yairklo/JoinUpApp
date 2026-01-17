@@ -16,7 +16,9 @@ import Typography from "@mui/material/Typography";
 import InputAdornment from "@mui/material/InputAdornment";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
-import { useGameUpdate, useGameUpdateListener } from "@/context/GameUpdateContext";
+import { useSyncedGames } from "@/hooks/useSyncedGames";
+import { Game } from "@/types/game";
+import { useGameUpdate } from "@/context/GameUpdateContext";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
@@ -25,30 +27,14 @@ import GamesHorizontalList from "@/components/GamesHorizontalList";
 import Dialog from "@mui/material/Dialog";
 import FullPageList from "@/components/FullPageList";
 
-type Game = {
-    id: string;
-    fieldId: string;
-    fieldName: string;
-    fieldLocation: string;
-    date: string;
-    time: string;
-    duration?: number;
-    maxPlayers: number;
-    currentPlayers: number;
-    participants?: Array<{ id: string; name?: string | null }>;
-    sport?: string;
-    registrationOpensAt?: string | null;
-    title?: string | null;
-    teamSize?: number | null;
-    price?: number | null;
-};
+// Type definition moved to src/types/game.ts
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 import { SportFilter } from "@/utils/sports";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
-    const [games, setGames] = useState<Game[]>([]);
+    const { games, setGames } = useSyncedGames([]);
     const [displayedCity, setDisplayedCity] = useState(initialCity || "");
     const [loading, setLoading] = useState(true);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
@@ -64,27 +50,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
 
     const { notifyGameUpdate } = useGameUpdate();
 
-    useGameUpdateListener(({ gameId, action, userId: updateUserId }) => {
-        setGames(prev => prev.map(game => {
-            if (game.id !== gameId) return game;
-
-            if (action === 'join') {
-                if (game.participants?.some(p => p.id === updateUserId)) return game;
-                return {
-                    ...game,
-                    currentPlayers: game.currentPlayers + 1,
-                    participants: [...(game.participants || []), { id: updateUserId, name: "User" }]
-                };
-            } else { // LEAVE
-                if (!game.participants?.some(p => p.id === updateUserId)) return game;
-                return {
-                    ...game,
-                    currentPlayers: Math.max(0, game.currentPlayers - 1),
-                    participants: (game.participants || []).filter(p => p.id !== updateUserId)
-                };
-            }
-        }));
-    });
+    // useGameUpdateListener is handled by useSyncedGames
 
     useEffect(() => {
         // Fetch available cities for autocomplete
@@ -248,14 +214,8 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                     <LeaveGameButton
                                         gameId={g.id}
                                         onLeft={() => {
-                                            setGames(prev => prev.map(game => {
-                                                if (game.id !== g.id) return game;
-                                                return {
-                                                    ...game,
-                                                    currentPlayers: Math.max(0, game.currentPlayers - 1),
-                                                    participants: (game.participants || []).filter(p => p.id !== userId)
-                                                };
-                                            }));
+                                            notifyGameUpdate(g.id, 'leave', userId);
+                                            router.refresh();
                                         }}
                                     />
                                 ) : (
@@ -263,14 +223,8 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                         gameId={g.id}
                                         registrationOpensAt={g.registrationOpensAt}
                                         onJoined={() => {
-                                            setGames(prev => prev.map(game => {
-                                                if (game.id !== g.id) return game;
-                                                return {
-                                                    ...game,
-                                                    currentPlayers: game.currentPlayers + 1,
-                                                    participants: [...(game.participants || []), { id: userId, name: user?.fullName || "Me" }]
-                                                };
-                                            }));
+                                            notifyGameUpdate(g.id, 'join', userId);
+                                            router.refresh();
                                         }}
                                     />
                                 )}
@@ -340,14 +294,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                     gameId={g.id}
                                     onLeft={() => {
                                         notifyGameUpdate(g.id, 'leave', userId);
-                                        setGames(prev => prev.map(game => {
-                                            if (game.id !== g.id) return game;
-                                            return {
-                                                ...game,
-                                                currentPlayers: Math.max(0, game.currentPlayers - 1),
-                                                participants: (game.participants || []).filter(p => p.id !== userId)
-                                            };
-                                        }));
+                                        router.refresh();
                                     }}
                                 />
                             ) : (
@@ -356,14 +303,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                     registrationOpensAt={g.registrationOpensAt}
                                     onJoined={() => {
                                         notifyGameUpdate(g.id, 'join', userId);
-                                        setGames(prev => prev.map(game => {
-                                            if (game.id !== g.id) return game;
-                                            return {
-                                                ...game,
-                                                currentPlayers: game.currentPlayers + 1,
-                                                participants: [...(game.participants || []), { id: userId, name: user?.fullName || "Me" }]
-                                            };
-                                        }));
+                                        router.refresh();
                                     }}
                                 />
                             )}

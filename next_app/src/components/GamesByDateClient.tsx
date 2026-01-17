@@ -1,4 +1,3 @@
-```typescript
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,7 +11,9 @@ import CircularProgress from "@mui/material/CircularProgress";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 
-import { useGameUpdate, useGameUpdateListener } from "@/context/GameUpdateContext";
+import { useSyncedGames } from "@/hooks/useSyncedGames";
+import { Game } from "@/types/game";
+import { useGameUpdate } from "@/context/GameUpdateContext";
 
 import GamesDateNav from "@/components/GamesDateNav";
 import GameHeaderCard from "@/components/GameHeaderCard";
@@ -21,23 +22,7 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import FullPageList from "@/components/FullPageList";
 
-type Game = {
-  id: string;
-  fieldId: string;
-  fieldName: string;
-  fieldLocation: string;
-  date: string;
-  time: string;
-  duration?: number;
-  maxPlayers: number;
-  currentPlayers: number;
-  participants?: Array<{ id: string; name?: string | null }>;
-  sport?: string;
-  registrationOpensAt?: string | null;
-  title?: string | null;
-  teamSize?: number | null;
-  price?: number | null;
-};
+// Type definition moved to src/types/game.ts
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -53,7 +38,7 @@ export default function GamesByDateClient({
   sportFilter?: SportFilter;
 }) {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
-  const [games, setGames] = useState<Game[]>([]);
+  const { games, setGames } = useSyncedGames([]); // Use hook
   const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { user, isLoaded } = useUser(); // Added isLoaded to wait for auth check
@@ -63,28 +48,7 @@ export default function GamesByDateClient({
 
   const { notifyGameUpdate } = useGameUpdate();
 
-  // Listen for external updates
-  useGameUpdateListener(({ gameId, action, userId: updateUserId }) => {
-      setGames(prev => prev.map(game => {
-          if (game.id !== gameId) return game;
-          
-          if (action === 'join') {
-              if (game.participants?.some(p => p.id === updateUserId)) return game;
-              return {
-                  ...game,
-                  currentPlayers: game.currentPlayers + 1,
-                  participants: [...(game.participants || []), { id: updateUserId, name: "User" }] 
-              };
-          } else { // LEAVE
-              if (!game.participants?.some(p => p.id === updateUserId)) return game;
-               return {
-                  ...game,
-                  currentPlayers: Math.max(0, game.currentPlayers - 1),
-                  participants: (game.participants || []).filter(p => p.id !== updateUserId)
-              };
-          }
-      }));
-  });
+  // useGameUpdateListener is now handled inside useSyncedGames
 
   const groups = useMemo(() => {
     return games.reduce<Record<string, Game[]>>((acc, g) => {
@@ -113,11 +77,13 @@ export default function GamesByDateClient({
         // If we have a token, use /search (personalized).
         // If NO token, use /public (guaranteed access for guests).
         const endpoint = token ? "/api/games/search" : "/api/games/public";
-        const url = `${ API_BASE }${ endpoint }?${ qs.toString() } `;
+        // Fixed URL construction avoiding unintentional spaces
+        const url = `${API_BASE}${endpoint}?${qs.toString()}`;
 
         const res = await fetch(url, {
           cache: "no-store",
-          headers: token ? { Authorization: `Bearer ${ token } ` } : {},
+          // Fixed Authorization header formatting
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 
         if (!res.ok) throw new Error("Failed to fetch games");
@@ -125,15 +91,15 @@ export default function GamesByDateClient({
 
         const now = new Date();
         const filtered = data.filter((g) => {
-          const start = new Date(`${ g.date }T${ g.time }:00`);
+          const start = new Date(`${g.date}T${g.time}:00`);
           const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
           return end >= now;
         });
 
         filtered.sort(
           (a, b) =>
-            new Date(`${ a.date }T${ a.time }:00`).getTime() -
-            new Date(`${ b.date }T${ b.time }:00`).getTime()
+            new Date(`${a.date}T${a.time}:00`).getTime() -
+            new Date(`${b.date}T${b.time}:00`).getTime()
         );
 
         if (!ignore) setGames(filtered);
@@ -204,13 +170,13 @@ export default function GamesByDateClient({
         </Box>
       ) : (
         <GamesHorizontalList
-          title={`משחקים בתאריך ${ selectedDate } `}
+          title={`משחקים בתאריך ${selectedDate}`}
           onSeeAll={() => setIsSeeAllOpen(true)}
         >
           {currentDayGames.map((g) => {
             const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
             const mainTitle = g.title || g.fieldName;
-            const subtitle = g.title ? `${ g.fieldName } • ${ g.fieldLocation } ` : g.fieldLocation;
+            const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
 
             return (
               <GameHeaderCard
@@ -231,14 +197,7 @@ export default function GamesByDateClient({
                   <LeaveGameButton
                     gameId={g.id}
                     onLeft={() => {
-                      setGames(prev => prev.map(game => {
-                        if (game.id !== g.id) return game;
-                        return {
-                          ...game,
-                          currentPlayers: Math.max(0, game.currentPlayers - 1),
-                          participants: (game.participants || []).filter(p => p.id !== userId)
-                        };
-                      }));
+                      notifyGameUpdate(g.id, 'leave', userId);
                       router.refresh();
                     }}
                   />
@@ -247,21 +206,14 @@ export default function GamesByDateClient({
                     gameId={g.id}
                     registrationOpensAt={g.registrationOpensAt}
                     onJoined={() => {
-                      setGames(prev => prev.map(game => {
-                        if (game.id !== g.id) return game;
-                        // Optimistically add user. real data comes on re-fetch or refresh but this updates UI instantly
-                        return {
-                          ...game,
-                          currentPlayers: game.currentPlayers + 1,
-                          participants: [...(game.participants || []), { id: userId, name: user?.fullName || "Me" }]
-                        };
-                      }));
+                      notifyGameUpdate(g.id, 'join', userId);
                       router.refresh();
                     }}
                   />
                 )}
 
-                <Link href={`/ games / ${ g.id } `} passHref legacyBehavior>
+                {/* Fixed Link Href */}
+                <Link href={`/games/${g.id}`} passHref legacyBehavior>
                   <Button
                     component="a"
                     variant="text"
@@ -282,12 +234,12 @@ export default function GamesByDateClient({
       <FullPageList
         open={isSeeAllOpen}
         onClose={() => setIsSeeAllOpen(false)}
-        title={`משחקים בתאריך ${ selectedDate } `}
+        title={`משחקים בתאריך ${selectedDate}`}
         items={allFilteredGames}
         renderItem={(g) => {
           const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
           const mainTitle = g.title || g.fieldName;
-          const subtitle = g.title ? `${ g.fieldName } • ${ g.fieldLocation } ` : g.fieldLocation;
+          const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
           return (
             <GameHeaderCard
               key={g.id}
@@ -305,40 +257,25 @@ export default function GamesByDateClient({
                 <LeaveGameButton
                   gameId={g.id}
                   onLeft={() => {
-                        notifyGameUpdate(g.id, 'leave', userId);
-                        setGames(prev => prev.map(game => {
-                            if (game.id !== g.id) return game;
-                            return {
-                                ...game,
-                                currentPlayers: Math.max(0, game.currentPlayers - 1),
-                                participants: (game.participants || []).filter(p => p.id !== userId)
-                            };
-                        }));
-                        router.refresh();
-                    }}
-                  />
-                ) : (
-                  <JoinGameButton
-                    gameId={g.id}
-                    registrationOpensAt={g.registrationOpensAt}
-                    onJoined={() => {
-                        notifyGameUpdate(g.id, 'join', userId);
-                        setGames(prev => prev.map(game => {
-                            if (game.id !== g.id) return game;
-                            return {
-                                ...game,
-                                currentPlayers: game.currentPlayers + 1,
-                                participants: [...(game.participants || []), { id: userId, name: user?.fullName || "Me" }]
-                            };
-                        }));
-                        router.refresh();
-                    }}
-                  />
+                    notifyGameUpdate(g.id, 'leave', userId);
+                    router.refresh();
+                  }}
+                />
+              ) : (
+                <JoinGameButton
+                  gameId={g.id}
+                  registrationOpensAt={g.registrationOpensAt}
+                  onJoined={() => {
+                    notifyGameUpdate(g.id, 'join', userId);
+                    router.refresh();
+                  }}
+                />
               )}
 
               <Button
                 component={Link}
-                href={`/ games / ${ g.id } `}
+                // Fixed Link Href
+                href={`/games/${g.id}`}
                 variant="text"
                 color="primary"
                 size="small"

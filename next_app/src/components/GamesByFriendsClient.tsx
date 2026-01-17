@@ -3,10 +3,15 @@
 import { useEffect, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+
+import { useSyncedGames } from "@/hooks/useSyncedGames";
+import { Game } from "@/types/game";
+import { useGameUpdate } from "@/context/GameUpdateContext";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
@@ -14,35 +19,24 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import FullPageList from "@/components/FullPageList";
 
-type Game = {
-    id: string;
-    fieldId: string;
-    fieldName: string;
-    fieldLocation: string;
-    date: string;
-    time: string;
-    duration?: number;
-    maxPlayers: number;
-    currentPlayers: number;
-    participants?: Array<{ id: string; name?: string | null }>;
-    sport?: string;
-    registrationOpensAt?: string | null;
-    title?: string | null;
-    teamSize?: number | null;
-    price?: number | null;
-};
+// Type definition moved to src/types/game.ts
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 import { SportFilter } from "@/utils/sports";
 
 export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
-    const [games, setGames] = useState<Game[]>([]);
+    const { games, setGames } = useSyncedGames([]);
     const [loading, setLoading] = useState(true);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
+    const router = useRouter(); // Added router
     const userId = user?.id || "";
+
+    const { notifyGameUpdate } = useGameUpdate();
+
+    // useGameUpdateListener is handled by useSyncedGames
 
     useEffect(() => {
         let ignore = false;
@@ -132,15 +126,30 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                             sport={g.sport}
                             teamSize={g.teamSize}
                             price={g.price}
+                            isJoined={joined}
                         >
                             {joined ? (
-                                <LeaveGameButton gameId={g.id} />
+                                <LeaveGameButton
+                                    gameId={g.id}
+                                    onLeft={() => {
+                                        notifyGameUpdate(g.id, 'leave', userId);
+                                        router.refresh();
+                                    }}
+                                />
                             ) : (
-                                <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />
+                                <JoinGameButton
+                                    gameId={g.id}
+                                    registrationOpensAt={g.registrationOpensAt}
+                                    onJoined={() => {
+                                        notifyGameUpdate(g.id, 'join', userId);
+                                        router.refresh();
+                                    }}
+                                />
                             )}
 
-                            <Link href={`/games/${g.id}`} style={{ textDecoration: 'none' }}>
+                            <Link href={`/games/${g.id}`} passHref legacyBehavior>
                                 <Button
+                                    component="a"
                                     variant="text"
                                     color="primary"
                                     size="small"
@@ -176,15 +185,30 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                             sport={g.sport}
                             teamSize={g.teamSize}
                             price={g.price}
+                            isJoined={joined}
                         >
                             {joined ? (
-                                <LeaveGameButton gameId={g.id} />
+                                <LeaveGameButton
+                                    gameId={g.id}
+                                    onLeft={() => {
+                                        notifyGameUpdate(g.id, 'leave', userId);
+                                        router.refresh();
+                                    }}
+                                />
                             ) : (
-                                <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />
+                                <JoinGameButton
+                                    gameId={g.id}
+                                    registrationOpensAt={g.registrationOpensAt}
+                                    onJoined={() => {
+                                        notifyGameUpdate(g.id, 'join', userId);
+                                        router.refresh();
+                                    }}
+                                />
                             )}
 
-                            <Link href={`/games/${g.id}`} style={{ textDecoration: 'none' }}>
+                            <Link href={`/games/${g.id}`} passHref legacyBehavior>
                                 <Button
+                                    component="a"
                                     variant="text"
                                     color="primary"
                                     size="small"

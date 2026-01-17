@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser, useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
@@ -13,34 +14,24 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 
-type Game = {
-  id: string;
-  fieldId: string;
-  fieldName: string;
-  fieldLocation: string;
-  date: string;
-  time: string;
-  duration?: number;
-  maxPlayers: number;
-  currentPlayers: number;
-  participants?: Array<{ id: string; name?: string | null }>;
-  sport?: string;
-  seriesId?: string | null;
-  title?: string | null;
-  teamSize?: number | null;
-  price?: number | null;
-};
+import { useSyncedGames } from "@/hooks/useSyncedGames";
+import { Game } from "@/types/game";
+import { useGameUpdate } from "@/context/GameUpdateContext";
+import { SportFilter } from "@/utils/sports";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-
-import { SportFilter } from "@/utils/sports";
 
 export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
   const userId = user?.id || "";
-  const [games, setGames] = useState<Game[]>([]);
+  const { games, setGames } = useSyncedGames([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  const { notifyGameUpdate } = useGameUpdate();
+
+  // useGameUpdateListener is handled by useSyncedGames
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -60,7 +51,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
         if (!res.ok) throw new Error("Failed to fetch games");
 
         const myGames: Game[] = await res.json();
-        const myUpcoming = myGames
+        const myUpcoming = myGames;
 
         // Deduplicate by seriesId, keeping the first occurrence (nearest upcoming)
         const uniqueSeries = new Set<string>();
@@ -83,9 +74,14 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
     return () => {
       ignore = true;
     };
-  }, [userId, isLoaded]);
+  }, [userId, isLoaded, getToken, setGames]);
 
-  const filteredGames = games.filter((g) => {
+  // Derive the list: only show games where I am still a participant
+  const joinedGames = games.filter((g) => {
+    return g.participants?.some((p) => p.id === userId);
+  });
+
+  const filteredGames = joinedGames.filter((g) => {
     if (sportFilter === "ALL") return true;
     return g.sport === sportFilter;
   });
@@ -104,7 +100,6 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
 
   return (
     <Box>
-      {/* Shortened title and removed isOnColoredBackground since it's now on the main background */}
       <GamesHorizontalList title="המשחקים שלי">
         {filteredGames.map((g) => {
           const mainTitle = g.title || g.fieldName;
@@ -128,7 +123,8 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
               <LeaveGameButton
                 gameId={g.id}
                 onLeft={() => {
-                  setGames(prev => prev.filter(game => game.id !== g.id));
+                  notifyGameUpdate(g.id, 'leave', userId);
+                  router.refresh();
                 }}
               />
 
