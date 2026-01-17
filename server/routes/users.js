@@ -346,10 +346,23 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
       }
     });
 
+    // Pre-fetch Games for Group Chats
+    const groupChatIds = participations
+      .filter(p => p.chat.type.toUpperCase() === 'GROUP')
+      .map(p => p.chatId);
+
+    const gameMap = {};
+    if (groupChatIds.length > 0) {
+      const games = await prisma.game.findMany({
+        where: { id: { in: groupChatIds } },
+        select: { id: true, title: true, fieldName: true }
+      });
+      games.forEach(g => { gameMap[g.id] = g; });
+    }
+
     const parsedChats = await Promise.all(participations.map(async (p) => {
       const chat = p.chat;
       // For private chats, the "other" user is the name/image
-      // For group chats, we might use a group name (not yet fully implemented in ChatRoom model except 'type')
       const otherParticipant = chat.participants.find(part => part.userId !== userId)?.user;
 
       const lastMsg = chat.messages[0];
@@ -363,11 +376,22 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
         }
       });
 
+      // Determine Chat Name
+      let chatName = 'Group Chat';
+      if (chat.type === 'PRIVATE') {
+        chatName = otherParticipant?.name || 'Unknown';
+      } else {
+        // GROUP: Use Game Title if available
+        const g = gameMap[chat.id];
+        if (g) {
+          chatName = g.title || g.fieldName || 'Game Chat';
+        }
+      }
+
       return {
         id: chat.id,
         type: chat.type.toLowerCase(), // 'private' or 'group'
-        // If it's a private chat, use the other user's name. If group, use generic or future title field
-        name: chat.type === 'PRIVATE' ? (otherParticipant?.name || 'Unknown') : 'Group Chat',
+        name: chatName,
         image: chat.type === 'PRIVATE' ? (otherParticipant?.imageUrl || null) : null,
         otherUserId: chat.type === 'PRIVATE' ? otherParticipant?.id : undefined,
         unreadCount,
@@ -379,30 +403,6 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
         } : null
       };
     }));
-
-    // Enhancement: Fetch Game Titles for Group Chats
-    const groupChatIds = parsedChats.filter(c => c.type === 'group').map(c => c.id);
-    if (groupChatIds.length > 0) {
-      try {
-        const games = await prisma.game.findMany({
-          where: { id: { in: groupChatIds } },
-          select: { id: true, title: true, fieldName: true }
-        });
-        const gameMap = {};
-        games.forEach(g => { gameMap[g.id] = g; });
-
-        parsedChats.forEach(chat => {
-          if (chat.type === 'group') {
-            const g = gameMap[chat.id];
-            if (g) {
-              chat.name = g.title || g.fieldName || 'Game Chat';
-            }
-          }
-        });
-      } catch (err) {
-        console.error("Error fetching game titles for chats:", err);
-      }
-    }
 
     // Sort by last message time
     parsedChats.sort((a, b) => {
