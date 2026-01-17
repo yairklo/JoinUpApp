@@ -194,7 +194,7 @@ export default async function GameDetails(props: {
                     Chat
                   </Typography>
                   <Box sx={{ height: 1, borderTop: 1, borderColor: 'divider', pt: 2 }}>
-                    <Chat roomId={game.id} />
+                    <Chat roomId={game.id} chatName={game.title || "Game Chat"} />
                   </Box>
                 </Box>
               </Card>

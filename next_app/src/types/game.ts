@@ -3,6 +3,7 @@ export type Game = {
     fieldId: string;
     fieldName: string;
     fieldLocation: string;
+    city?: string | null;
     date: string;
     time: string;
     duration?: number;
@@ -15,4 +16,5 @@ export type Game = {
     title?: string | null;
     teamSize?: number | null;
     price?: number | null;
+    organizerId?: string;
 };

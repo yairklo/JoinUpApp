@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,12 +26,18 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 import { SportFilter } from "@/utils/sports";
 
 export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
-    const { games, setGames } = useSyncedGames([]);
+    const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
+
+    const predicate = useCallback((game: Game) => {
+        return friendIds.has(game.organizerId || "");
+    }, [friendIds]);
+
+    const { games, setGames } = useSyncedGames([], predicate);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
-    const router = useRouter(); // Added router
+    const router = useRouter();
     const userId = user?.id || "";
 
     const { notifyGameUpdate } = useGameUpdate();
@@ -57,22 +63,35 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                     return;
                 }
 
-                const res = await fetch(`${API_BASE}/api/games/friends`, {
-                    cache: "no-store",
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+                // Parallel fetch: Games and Friends
+                const [gamesRes, friendsRes] = await Promise.all([
+                    fetch(`${API_BASE}/api/games/friends`, {
+                        cache: "no-store",
+                        headers: { Authorization: `Bearer ${token}` },
+                    }),
+                    fetch(`${API_BASE}/api/users/${user?.id}/friends`, {
+                        cache: "no-store",
+                        headers: { Authorization: `Bearer ${token}` },
+                    })
+                ]);
 
-                if (!res.ok) throw new Error("Failed to fetch friends games");
-                const data: Game[] = await res.json();
+                if (!gamesRes.ok) throw new Error("Failed to fetch friends games");
+
+                const gamesData: Game[] = await gamesRes.json();
+
+                if (friendsRes.ok) {
+                    const friendsData: any[] = await friendsRes.json();
+                    if (!ignore) setFriendIds(new Set(friendsData.map(f => f.id)));
+                }
 
                 // Sort by date/time
-                data.sort(
+                gamesData.sort(
                     (a, b) =>
                         new Date(`${a.date}T${a.time}:00`).getTime() -
                         new Date(`${b.date}T${b.time}:00`).getTime()
                 );
 
-                if (!ignore) setGames(data);
+                if (!ignore) setGames(gamesData);
             } catch (err) {
                 console.error("Error loading friends games:", err);
                 if (!ignore) setGames([]);
@@ -84,7 +103,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
         return () => {
             ignore = true;
         };
-    }, [isLoaded, user, getToken]);
+    }, [isLoaded, user, getToken, setGames]);
 
     const filteredGames = games.filter((g) => {
         if (sportFilter === "ALL") return true;

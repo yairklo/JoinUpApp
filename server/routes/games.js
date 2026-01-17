@@ -94,6 +94,7 @@ function mapGameForClient(game) {
     managers: managers || [],
     teams: teams || [],
     sport: game.sport,
+    city: game.field?.city || null,
     registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null
   };
 }
@@ -1052,7 +1053,34 @@ router.post('/', authenticateToken, async (req, res) => {
       // We don't fail the request, but logging is important
     }
 
-    res.status(201).json(mapGameForClient(created));
+    const gamePayload = mapGameForClient(created);
+
+    // Socket Notifications (Targeted Delta Update)
+    if (req.io) {
+      // 1. Notify City
+      if (created.field?.city) {
+        req.io.to(`city_${created.field.city}`).emit('game:created', gamePayload);
+      }
+
+      // 2. Notify Friends
+      try {
+        const userWithFriends = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          include: { friendshipsA: true, friendshipsB: true }
+        });
+        const friendIds = [
+          ...(userWithFriends?.friendshipsA || []).map(f => f.userBId),
+          ...(userWithFriends?.friendshipsB || []).map(f => f.userAId)
+        ];
+        friendIds.forEach(fid => {
+          req.io.to(`user_${fid}`).emit('game:created', gamePayload);
+        });
+      } catch (e) {
+        console.error("Error notifying friends", e);
+      }
+    }
+
+    res.status(201).json(gamePayload);
   } catch (error) {
     console.error('Create game error:', error);
     res.status(500).json({ error: 'Failed to create game' });
