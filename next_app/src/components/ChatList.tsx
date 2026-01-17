@@ -50,6 +50,7 @@ interface ChatListProps {
 
 export default function ChatList({ userId, onChatSelect, isWidget = false }: ChatListProps) {
     const [chats, setChats] = useState<ChatPreview[]>([]);
+    const [typingStatus, setTypingStatus] = useState<Record<string, string>>({}); // Mapping: chatId -> "John is typing..."
     const [loading, setLoading] = useState(false);
     const [tabValue, setTabValue] = useState(0);
 
@@ -59,6 +60,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
 
     // State for total unread badge
     const [totalUnread, setTotalUnread] = useState(0);
+    const [socketInstance, setSocketInstance] = useState<any>(null);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -81,6 +83,12 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
                 // Calculate total unread
                 const total = data.reduce((acc: number, chat: ChatPreview) => acc + (chat.unreadCount || 0), 0);
                 setTotalUnread(total);
+
+                // Join rooms if socket is ready
+                if (socketInstance) {
+                    const chatIds = data.map((c: ChatPreview) => c.id);
+                    socketInstance.emit('joinChats', chatIds);
+                }
             }
         } catch (error) {
             console.error("Failed to load chats", error);
@@ -89,7 +97,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
         }
     };
 
-    // Socket Listener
+    // Socket Initialization
     useEffect(() => {
         if (!userId) return;
 
@@ -109,14 +117,81 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
 
                 socket.on("connect", () => {
                     socket.emit("setup", { id: userId });
+                    // If chats are already loaded, join them
+                    setSocketInstance(socket);
                 });
 
                 socket.on("notification", (payload: any) => {
                     if (payload.type === 'message') {
-                        setTotalUnread((prev) => prev + 1);
-                        fetchChats();
+                        // Fallback/Legacy or external notification
+                        // We might rely on message:received for list updates, 
+                        // but this handles notifications from chats we aren't listening to yet?
+                        // fetchChats(); // Optimization: Rely on message:received
                     }
                 });
+
+                // --- Real-time Updates ---
+
+                const handleTyping = ({ chatId, userName }: { chatId: string, userName: string }) => {
+                    if (!chatId || !userName) return;
+                    setTypingStatus(prev => ({ ...prev, [chatId]: `${userName} is typing...` }));
+
+                    // Safety clear
+                    setTimeout(() => {
+                        setTypingStatus(prev => {
+                            const newState = { ...prev };
+                            delete newState[chatId];
+                            return newState;
+                        });
+                    }, 3000);
+                };
+
+                const handleStopTyping = ({ chatId }: { chatId: string }) => {
+                    setTypingStatus(prev => {
+                        const newState = { ...prev };
+                        delete newState[chatId];
+                        return newState;
+                    });
+                };
+
+                const handleNewMessage = (newMessage: any) => {
+                    setChats(prevChats => {
+                        const chatIndex = prevChats.findIndex(c => c.id === newMessage.chatId);
+
+                        if (chatIndex === -1) {
+                            // New chat we don't know about? Fetch all safe choice
+                            fetchChats();
+                            return prevChats;
+                        }
+
+                        const updatedChat = {
+                            ...prevChats[chatIndex],
+                            lastMessage: {
+                                text: newMessage.content || newMessage.text,
+                                createdAt: newMessage.ts || new Date().toISOString(),
+                                senderId: newMessage.senderId,
+                                status: newMessage.status
+                            },
+                            unreadCount: (newMessage.senderId !== userId)
+                                ? (prevChats[chatIndex].unreadCount || 0) + 1
+                                : prevChats[chatIndex].unreadCount
+                        };
+
+                        // Update total unread if needed
+                        if (newMessage.senderId !== userId) {
+                            setTotalUnread(prev => prev + 1);
+                        }
+
+                        // Reorder
+                        const otherChats = prevChats.filter(c => c.id !== newMessage.chatId);
+                        return [updatedChat, ...otherChats];
+                    });
+                };
+
+                socket.on("typing:start", handleTyping);
+                socket.on("typing:stop", handleStopTyping);
+                socket.on("message:received", handleNewMessage);
+
             } catch (e) {
                 console.error("Socket init failed", e);
             }
@@ -129,6 +204,14 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
         };
     }, [userId, getToken]);
 
+    // Join rooms when socket AND chats are ready
+    useEffect(() => {
+        if (socketInstance && chats.length > 0) {
+            const chatIds = chats.map(c => c.id);
+            socketInstance.emit('joinChats', chatIds);
+        }
+    }, [socketInstance, chats.length]); // Intentionally minimal deps
+
     // Load chats on mount
     useEffect(() => {
         fetchChats();
@@ -136,10 +219,8 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
 
     const handleNavbarClick = () => {
         if (isMobile) {
-            // Mobile: Go to dedicated page
             router.push('/chats');
         } else {
-            // Desktop: Toggle floating widget
             if (isWidgetOpen) {
                 closeChat();
             } else {
@@ -156,29 +237,23 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
         // Optimistic update
         if (chat.unreadCount > 0) {
             setTotalUnread(prev => Math.max(0, prev - chat.unreadCount));
-            // Update local state to remove badge immediately
             setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
         }
 
-        // LOGIC CHANGE: Redirect based on type
         if (chat.type === 'group' || isMobile) {
-            // If it's a game OR we are on mobile, use full page navigation
             const route = chat.type === 'group' ? `/games/${chat.id}` : `/chat/${chat.id}`;
             router.push(route);
         } else {
-            // If it's a private chat on desktop, open chat window widget
             openChat(chat.id, { name: chat.name, image: chat.image });
         }
     };
 
-    // Filter chats based on Tab
     const filteredChats = chats.filter(chat =>
         tabValue === 0 ? chat.type === 'private' : chat.type === 'group'
     );
 
     const listContent = (
         <Box sx={{ width: '100%', bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* TABS HEADER */}
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth" aria-label="chat tabs">
                     <Tab icon={<PersonIcon />} iconPosition="start" label="שחקנים" />
@@ -202,6 +277,8 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
                         const timeDisplay = chat.lastMessage
                             ? formatDistanceToNow(new Date(chat.lastMessage.createdAt), { addSuffix: true })
                             : "";
+
+                        const isTyping = typingStatus[chat.id];
 
                         return (
                             <ListItem key={chat.id} disablePadding divider>
@@ -232,12 +309,13 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
                                         secondary={
                                             <Typography
                                                 variant="body2"
-                                                color={chat.unreadCount > 0 ? "text.primary" : "text.secondary"}
+                                                color={isTyping ? "primary" : (chat.unreadCount > 0 ? "text.primary" : "text.secondary")}
                                                 fontWeight={chat.unreadCount > 0 ? "bold" : "normal"}
+                                                fontStyle={isTyping ? "italic" : "normal"}
                                                 noWrap
                                                 sx={{ display: 'block', maxWidth: '90%' }}
                                             >
-                                                {chat.lastMessage ? chat.lastMessage.text : "התחל שיחה חדשה"}
+                                                {isTyping ? isTyping : (chat.lastMessage ? chat.lastMessage.text : "התחל שיחה חדשה")}
                                             </Typography>
                                         }
                                     />

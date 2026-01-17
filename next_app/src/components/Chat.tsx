@@ -394,8 +394,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            onInput={() => socketRef.current?.emit("typing", { isTyping: true, roomId })}
-            onBlur={() => socketRef.current?.emit("typing", { isTyping: false, roomId })}
+            onInput={() => socketRef.current?.emit("typing", { isTyping: true, roomId, userName: user?.fullName })}
+            onBlur={() => socketRef.current?.emit("typing", { isTyping: false, roomId, userName: user?.fullName })}
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
           />
           <IconButton color="primary" onClick={handleSendMessage} disabled={!inputValue.trim()} sx={{ mb: 0.5, transform: isRTL ? "scaleX(-1)" : "none" }}>
