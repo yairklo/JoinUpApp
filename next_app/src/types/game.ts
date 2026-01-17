@@ -16,4 +16,5 @@ export type Game = {
     title?: string | null;
     teamSize?: number | null;
     price?: number | null;
+    organizerId?: string;
 };

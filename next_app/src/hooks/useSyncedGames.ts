@@ -16,7 +16,8 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
     // Handle new game creation (delta updates)
     const handleGameCreated = useCallback(({ game }: { game: Game }) => {
         const predicate = predicateRef.current;
-        if (!predicate || !predicate(game)) return;
+        // If predicate exists, must match. If no predicate, accept all (default allowed)
+        if (predicate && !predicate(game)) return;
 
         setGames((prev) => {
             // Deduplication

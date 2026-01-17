@@ -380,6 +380,30 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
       };
     }));
 
+    // Enhancement: Fetch Game Titles for Group Chats
+    const groupChatIds = parsedChats.filter(c => c.type === 'group').map(c => c.id);
+    if (groupChatIds.length > 0) {
+      try {
+        const games = await prisma.game.findMany({
+          where: { id: { in: groupChatIds } },
+          select: { id: true, title: true, fieldName: true }
+        });
+        const gameMap = {};
+        games.forEach(g => { gameMap[g.id] = g; });
+
+        parsedChats.forEach(chat => {
+          if (chat.type === 'group') {
+            const g = gameMap[chat.id];
+            if (g) {
+              chat.name = g.title || g.fieldName || 'Game Chat';
+            }
+          }
+        });
+      } catch (err) {
+        console.error("Error fetching game titles for chats:", err);
+      }
+    }
+
     // Sort by last message time
     parsedChats.sort((a, b) => {
       const timeA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
