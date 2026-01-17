@@ -161,6 +161,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         socket.on('typing:start', ({ chatId, userName, senderId }) => {
           if (chatId === roomId && senderId !== user?.id) {
             setTypingUsers(prev => {
+              if (prev.has(userName || "Someone")) return prev;
               const next = new Set(prev);
               next.add(userName || "Someone");
               return next;
@@ -171,6 +172,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         socket.on('typing:stop', ({ chatId, userName, senderId }) => {
           if (chatId === roomId && senderId !== user?.id) {
             setTypingUsers(prev => {
+              if (!prev.has(userName || "Someone")) return prev;
               const next = new Set(prev);
               next.delete(userName || "Someone");
               return next;
@@ -321,7 +323,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   };
   const handleReply = (msg: ChatMessage) => { setReplyToMessage(msg); setEditingMessage(null); };
   const handleReact = (messageId: string | number, emoji: string) => { socketRef.current?.emit("addReaction", { messageId, emoji, userId: user?.id, roomId }); };
-  const otherUserTyping = Object.entries(typingUsers).some(([senderId, isTyping]) => isTyping && senderId !== mySocketId);
+  const otherUserTyping = typingUsers.size > 0;
 
   const getDayString = (date: Date, isRTL: boolean) => {
     const today = new Date(); const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
