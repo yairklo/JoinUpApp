@@ -46,21 +46,21 @@ export default function LeaveGameButton({ gameId, onLeft }: { gameId: string; on
       <SignedOut>
         <SignInButton mode="modal">
           <Button variant="outlined" color="primary" size="small" startIcon={<LoginIcon />}>
-            Sign in
+            התחבר
           </Button>
         </SignInButton>
       </SignedOut>
-      
+
       <SignedIn>
-        <Button 
-          onClick={leave} 
-          disabled={loading} 
-          variant="outlined" 
-          color="error" 
+        <Button
+          onClick={leave}
+          disabled={loading}
+          variant="outlined"
+          color="error"
           size="small"
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ExitToAppIcon />}
         >
-          {loading ? "Leaving..." : "Leave game"}
+          {loading ? "יוצא..." : "צא מהמשחק"}
         </Button>
         {error && (
           <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>

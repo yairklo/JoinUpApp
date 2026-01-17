@@ -51,7 +51,6 @@ export default function JoinGameButton({
         throw new Error(body.error || "Failed to join");
       }
 
-      router.refresh();
       if (onJoined) onJoined();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to join");
@@ -76,7 +75,7 @@ export default function JoinGameButton({
       <SignedOut>
         <SignInButton mode="modal">
           <Button variant="contained" color="primary" size="small" startIcon={<LoginIcon />}>
-            Sign in to join
+            התחבר כדי להצטרף
           </Button>
         </SignInButton>
       </SignedOut>
@@ -111,7 +110,7 @@ export default function JoinGameButton({
             size="small"
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
           >
-            {loading ? "Joining..." : "Join"}
+            {loading ? "מצטרף..." : "הצטרף"}
           </Button>
         )}
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -15,6 +16,9 @@ import Typography from "@mui/material/Typography";
 import InputAdornment from "@mui/material/InputAdornment";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
+import { useSyncedGames } from "@/hooks/useSyncedGames";
+import { Game } from "@/types/game";
+import { useGameUpdate } from "@/context/GameUpdateContext";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
@@ -23,30 +27,14 @@ import GamesHorizontalList from "@/components/GamesHorizontalList";
 import Dialog from "@mui/material/Dialog";
 import FullPageList from "@/components/FullPageList";
 
-type Game = {
-    id: string;
-    fieldId: string;
-    fieldName: string;
-    fieldLocation: string;
-    date: string;
-    time: string;
-    duration?: number;
-    maxPlayers: number;
-    currentPlayers: number;
-    participants?: Array<{ id: string; name?: string | null }>;
-    sport?: string;
-    registrationOpensAt?: string | null;
-    title?: string | null;
-    teamSize?: number | null;
-    price?: number | null;
-};
+// Type definition moved to src/types/game.ts
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 import { SportFilter } from "@/utils/sports";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
-    const [games, setGames] = useState<Game[]>([]);
+    const { games, setGames } = useSyncedGames([]);
     const [displayedCity, setDisplayedCity] = useState(initialCity || "");
     const [loading, setLoading] = useState(true);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
@@ -55,9 +43,14 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
 
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
+    const router = useRouter();
     const userId = user?.id || "";
 
     const [availableCities, setAvailableCities] = useState<string[]>([]);
+
+    const { notifyGameUpdate } = useGameUpdate();
+
+    // useGameUpdateListener is handled by useSyncedGames
 
     useEffect(() => {
         // Fetch available cities for autocomplete
@@ -217,7 +210,24 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                 price={g.price}
                                 isJoined={joined}
                             >
-                                {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
+                                {joined ? (
+                                    <LeaveGameButton
+                                        gameId={g.id}
+                                        onLeft={() => {
+                                            notifyGameUpdate(g.id, 'leave', userId);
+                                            router.refresh();
+                                        }}
+                                    />
+                                ) : (
+                                    <JoinGameButton
+                                        gameId={g.id}
+                                        registrationOpensAt={g.registrationOpensAt}
+                                        onJoined={() => {
+                                            notifyGameUpdate(g.id, 'join', userId);
+                                            router.refresh();
+                                        }}
+                                    />
+                                )}
                                 <Button component={Link} href={`/games/${g.id}`} variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
                             </GameHeaderCard>
                         )
@@ -279,7 +289,24 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                             price={g.price}
                             isJoined={joined}
                         >
-                            {joined ? <LeaveGameButton gameId={g.id} /> : <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />}
+                            {joined ? (
+                                <LeaveGameButton
+                                    gameId={g.id}
+                                    onLeft={() => {
+                                        notifyGameUpdate(g.id, 'leave', userId);
+                                        router.refresh();
+                                    }}
+                                />
+                            ) : (
+                                <JoinGameButton
+                                    gameId={g.id}
+                                    registrationOpensAt={g.registrationOpensAt}
+                                    onJoined={() => {
+                                        notifyGameUpdate(g.id, 'join', userId);
+                                        router.refresh();
+                                    }}
+                                />
+                            )}
                             <Link href={`/games/${g.id}`} passHref legacyBehavior>
                                 <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
                             </Link>

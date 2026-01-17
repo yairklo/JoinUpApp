@@ -3,12 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+
+import { useSyncedGames } from "@/hooks/useSyncedGames";
+import { Game } from "@/types/game";
+import { useGameUpdate } from "@/context/GameUpdateContext";
 
 import GamesDateNav from "@/components/GamesDateNav";
 import GameHeaderCard from "@/components/GameHeaderCard";
@@ -17,23 +22,7 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import FullPageList from "@/components/FullPageList";
 
-type Game = {
-  id: string;
-  fieldId: string;
-  fieldName: string;
-  fieldLocation: string;
-  date: string;
-  time: string;
-  duration?: number;
-  maxPlayers: number;
-  currentPlayers: number;
-  participants?: Array<{ id: string; name?: string | null }>;
-  sport?: string;
-  registrationOpensAt?: string | null;
-  title?: string | null;
-  teamSize?: number | null;
-  price?: number | null;
-};
+// Type definition moved to src/types/game.ts
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -49,12 +38,17 @@ export default function GamesByDateClient({
   sportFilter?: SportFilter;
 }) {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
-  const [games, setGames] = useState<Game[]>([]);
+  const { games, setGames } = useSyncedGames([]); // Use hook
   const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { user, isLoaded } = useUser(); // Added isLoaded to wait for auth check
   const { getToken } = useAuth();
+  const router = useRouter();
   const userId = user?.id || "";
+
+  const { notifyGameUpdate } = useGameUpdate();
+
+  // useGameUpdateListener is now handled inside useSyncedGames
 
   const groups = useMemo(() => {
     return games.reduce<Record<string, Game[]>>((acc, g) => {
@@ -83,10 +77,12 @@ export default function GamesByDateClient({
         // If we have a token, use /search (personalized).
         // If NO token, use /public (guaranteed access for guests).
         const endpoint = token ? "/api/games/search" : "/api/games/public";
+        // Fixed URL construction avoiding unintentional spaces
         const url = `${API_BASE}${endpoint}?${qs.toString()}`;
 
         const res = await fetch(url, {
           cache: "no-store",
+          // Fixed Authorization header formatting
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 
@@ -198,11 +194,25 @@ export default function GamesByDateClient({
                 isJoined={joined}
               >
                 {joined ? (
-                  <LeaveGameButton gameId={g.id} />
+                  <LeaveGameButton
+                    gameId={g.id}
+                    onLeft={() => {
+                      notifyGameUpdate(g.id, 'leave', userId);
+                      router.refresh();
+                    }}
+                  />
                 ) : (
-                  <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />
+                  <JoinGameButton
+                    gameId={g.id}
+                    registrationOpensAt={g.registrationOpensAt}
+                    onJoined={() => {
+                      notifyGameUpdate(g.id, 'join', userId);
+                      router.refresh();
+                    }}
+                  />
                 )}
 
+                {/* Fixed Link Href */}
                 <Link href={`/games/${g.id}`} passHref legacyBehavior>
                   <Button
                     component="a"
@@ -244,13 +254,27 @@ export default function GamesByDateClient({
               teamSize={g.teamSize}
             >
               {joined ? (
-                <LeaveGameButton gameId={g.id} />
+                <LeaveGameButton
+                  gameId={g.id}
+                  onLeft={() => {
+                    notifyGameUpdate(g.id, 'leave', userId);
+                    router.refresh();
+                  }}
+                />
               ) : (
-                <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} />
+                <JoinGameButton
+                  gameId={g.id}
+                  registrationOpensAt={g.registrationOpensAt}
+                  onJoined={() => {
+                    notifyGameUpdate(g.id, 'join', userId);
+                    router.refresh();
+                  }}
+                />
               )}
 
               <Button
                 component={Link}
+                // Fixed Link Href
                 href={`/games/${g.id}`}
                 variant="text"
                 color="primary"
