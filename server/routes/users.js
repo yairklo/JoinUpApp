@@ -355,9 +355,13 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
     if (groupChatIds.length > 0) {
       const games = await prisma.game.findMany({
         where: { id: { in: groupChatIds } },
-        select: { id: true, title: true, fieldName: true }
+        select: {
+          id: true,
+          title: true,
+          field: { select: { name: true } }
+        }
       });
-      games.forEach(g => { gameMap[g.id] = g; });
+      games.forEach(g => { gameMap[g.id] = { ...g, fieldName: g.field?.name }; });
     }
 
     const parsedChats = await Promise.all(participations.map(async (p) => {
