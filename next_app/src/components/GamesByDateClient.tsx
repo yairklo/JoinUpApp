@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,7 +38,14 @@ export default function GamesByDateClient({
   sportFilter?: SportFilter;
 }) {
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
-  const { games, setGames } = useSyncedGames([], (game) => game.date === selectedDate);
+  const predicate = useCallback((game: Game) => {
+    // Robust date comparison: YYYY-MM-DD
+    const gameDate = new Date(game.date).toISOString().split('T')[0];
+    const targetDate = new Date(selectedDate).toISOString().split('T')[0];
+    return gameDate === targetDate;
+  }, [selectedDate]);
+
+  const { games, setGames } = useSyncedGames([], predicate);
   const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { user, isLoaded } = useUser(); // Added isLoaded to wait for auth check

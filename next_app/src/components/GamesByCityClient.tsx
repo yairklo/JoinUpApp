@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -34,16 +34,19 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 import { SportFilter } from "@/utils/sports";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
-    const { games, setGames } = useSyncedGames([], (game) => {
-        // Filter incoming games by city
-        if (!displayedCity) return false;
-        return game.city === displayedCity || game.fieldLocation?.includes(displayedCity);
-    });
     const [displayedCity, setDisplayedCity] = useState(initialCity || "");
     const [loading, setLoading] = useState(true);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [tempCity, setTempCity] = useState("");
+
+    const predicate = useCallback((game: Game) => {
+        // Filter incoming games by city
+        if (!displayedCity) return false;
+        return game.city === displayedCity || game.fieldLocation?.includes(displayedCity);
+    }, [displayedCity]);
+
+    const { games, setGames } = useSyncedGames([], predicate);
 
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useGameUpdateListener, useGameCreatedListener } from "@/context/GameUpdateContext";
 import { Game } from "@/types/game";
@@ -14,11 +14,12 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
     });
 
     // Handle new game creation (delta updates)
-    useGameCreatedListener(({ game }) => {
+    const handleGameCreated = useCallback(({ game }: { game: Game }) => {
         const predicate = predicateRef.current;
         if (!predicate || !predicate(game)) return;
 
         setGames((prev) => {
+            // Deduplication
             if (prev.some((g) => g.id === game.id)) return prev;
 
             const newGames = [...prev, game];
@@ -30,7 +31,9 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
             });
             return newGames;
         });
-    });
+    }, []);
+
+    useGameCreatedListener(handleGameCreated);
 
     useGameUpdateListener(({ gameId, action, userId }) => {
         setGames((prev) =>
