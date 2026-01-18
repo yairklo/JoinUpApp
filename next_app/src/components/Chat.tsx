@@ -58,7 +58,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [unreadNewMessages, setUnreadNewMessages] = useState(0);
 
-  const socketRef = useRef<Socket | null>(null);
+  const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isUserAtBottomRef = useRef(true);
@@ -158,11 +158,9 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   // New Effect: Subscribe to presence only when ID is available, without resetting socket
   useEffect(() => {
-    if (!socketRef.current || !otherUserId) return;
-    socketRef.current.emit('subscribePresence', otherUserId);
-  }, [otherUserId]);
-
-
+    if (!socketInstance || !otherUserId) return;
+    socketInstance.emit('subscribePresence', otherUserId);
+  }, [socketInstance, otherUserId]);
 
   // --- Socket Logic ---
 
@@ -170,29 +168,15 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     let socket: Socket | null = null;
 
     const initSocket = async () => {
-      const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-      if (base) fetch(`${base.replace(/\/$/, "")}/api/health`).catch(() => { });
-      else fetch("/api/socket").catch(() => { });
-
       try {
         const token = await getToken();
-        socket = io(base, {
+        socket = io(API_BASE, {
           path: "/api/socket",
           transports: ["websocket"],
           withCredentials: true,
           auth: { token }
         });
-        socketRef.current = socket;
-
-        socket.on("connect", () => {
-          setMySocketId(socket?.id ?? "");
-          socket?.emit("joinRoom", roomId);
-          socket?.emit("markAsRead", { roomId, userId: user?.id });
-
-          if (otherUserId) {
-            socket?.emit('subscribePresence', otherUserId);
-          }
-        });
+        setSocketInstance(socket);
 
         // Presence updates
         socket.on('presence:update', ({ userId: uid, isOnline }) => {
@@ -203,11 +187,9 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
         // Typing updates
         socket.on('typing:start', ({ chatId, userName, senderId }) => {
-          // Check room match and ensure we don't show typing for ourselves (using name is safer if IDs differ)
           if (chatId === roomId && userName !== user?.fullName) {
             const name = userName || "Someone";
 
-            // Clear existing timeout
             if (typingTimeoutsRef.current[senderId]) {
               clearTimeout(typingTimeoutsRef.current[senderId]);
             }
@@ -218,7 +200,6 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
               return next;
             });
 
-            // Set auto-clear timeout (3 seconds)
             typingTimeoutsRef.current[senderId] = setTimeout(() => {
               setTypingUsers(prev => {
                 const next = new Set(prev);
@@ -248,16 +229,6 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           if (!msg.roomId || msg.roomId === roomId) {
             setMessages((prev) => [...prev, msg]);
             if (msg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
-
-            // If the message is from someone else, ensure their typing indicator is cleared immediately
-            if (msg.userId !== user?.id) {
-              // We might not have the name easily here, but we can infer or just clear by ID if we mapped differently.
-              // Since we map by Name in setTypingUsers, it's harder. 
-              // Relying on the sender emitting 'typing:stop' or the auto-clear timeout is cleaner.
-              // However, strictly complying:
-              // We can't easily map ID -> Name here without lookup. 
-              // Let's rely on the robust timeout and the fact that clients usually emit stop before sending.
-            }
           }
         });
 
@@ -272,8 +243,6 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, isDeleted: true, text: "" } : m));
           }
         });
-
-
 
         socket.on("messageReaction", (payload: { messageId: string | number; reactions: Record<string, Reaction>; roomId?: string }) => {
           if (!payload.roomId || payload.roomId === roomId) {
@@ -299,7 +268,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     if (user?.id) initSocket();
 
     return () => { if (socket) socket.disconnect(); };
-  }, [roomId, user?.id, getToken]);
+  }, [roomId, user?.id, getToken, otherUserId, API_BASE]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -364,10 +333,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   const handleSendMessage = () => {
     const trimmed = inputValue.trim();
-    if (!trimmed || !socketRef.current) return;
+    if (!trimmed || !socketInstance) return;
 
     if (editingMessage) {
-      socketRef.current.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
+      socketInstance.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
       setEditingMessage(null);
     } else {
       const payload: Partial<ChatMessage> & { roomId: string, userId: string } = {
@@ -381,22 +350,22 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         } : undefined,
         status: "sent"
       };
-      socketRef.current.emit("message", payload);
+      socketInstance.emit("message", payload);
     }
 
     setInputValue("");
     setReplyToMessage(null);
-    socketRef.current.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
+    socketInstance.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
   };
 
   const handleEdit = (msg: ChatMessage) => { setEditingMessage(msg); setInputValue(msg.text); setReplyToMessage(null); };
-  const handleDelete = (messageId: string | number) => { socketRef.current?.emit("deleteMessage", { messageId, roomId }); };
+  const handleDelete = (messageId: string | number) => { socketInstance?.emit("deleteMessage", { messageId, roomId }); };
   const cancelAction = () => { setReplyToMessage(null); setEditingMessage(null); setInputValue(""); };
   const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
   };
   const handleReply = (msg: ChatMessage) => { setReplyToMessage(msg); setEditingMessage(null); };
-  const handleReact = (messageId: string | number, emoji: string) => { socketRef.current?.emit("addReaction", { messageId, emoji, userId: user?.id, roomId }); };
+  const handleReact = (messageId: string | number, emoji: string) => { socketInstance?.emit("addReaction", { messageId, emoji, userId: user?.id, roomId }); };
   const otherUserTyping = typingUsers.size > 0;
 
   const getDayString = (date: Date, isRTL: boolean) => {
@@ -556,8 +525,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            onInput={() => socketRef.current?.emit("typing", { isTyping: true, roomId, userName: user?.fullName })}
-            onBlur={() => socketRef.current?.emit("typing", { isTyping: false, roomId, userName: user?.fullName })}
+            onInput={() => socketInstance?.emit("typing", { isTyping: true, roomId, userName: user?.fullName })}
+            onBlur={() => socketInstance?.emit("typing", { isTyping: false, roomId, userName: user?.fullName })}
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
           />
           <IconButton color="primary" onClick={handleSendMessage} disabled={!inputValue.trim()} sx={{ mb: 0.5, transform: isRTL ? "scaleX(-1)" : "none" }}>
