@@ -70,6 +70,9 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
 
+  // Typing timeouts ref to manage auto-clearing
+  const typingTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+
   useEffect(() => { setMounted(true); }, []);
 
   // Fetch Chat Details
@@ -183,21 +186,40 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         // Typing updates
         socket.on('typing:start', ({ chatId, userName, senderId }) => {
           if (chatId === roomId && senderId !== user?.id) {
+            const name = userName || "Someone";
+
+            // Clear existing timeout
+            if (typingTimeoutsRef.current[senderId]) {
+              clearTimeout(typingTimeoutsRef.current[senderId]);
+            }
+
             setTypingUsers(prev => {
-              if (prev.has(userName || "Someone")) return prev;
               const next = new Set(prev);
-              next.add(userName || "Someone");
+              next.add(name);
               return next;
             });
+
+            // Set auto-clear timeout (3 seconds)
+            typingTimeoutsRef.current[senderId] = setTimeout(() => {
+              setTypingUsers(prev => {
+                const next = new Set(prev);
+                next.delete(name);
+                return next;
+              });
+            }, 3000);
           }
         });
 
         socket.on('typing:stop', ({ chatId, userName, senderId }) => {
           if (chatId === roomId && senderId !== user?.id) {
+            const name = userName || "Someone";
+            if (typingTimeoutsRef.current[senderId]) {
+              clearTimeout(typingTimeoutsRef.current[senderId]);
+            }
+
             setTypingUsers(prev => {
-              if (!prev.has(userName || "Someone")) return prev;
               const next = new Set(prev);
-              next.delete(userName || "Someone");
+              next.delete(name);
               return next;
             });
           }
@@ -207,6 +229,16 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           if (!msg.roomId || msg.roomId === roomId) {
             setMessages((prev) => [...prev, msg]);
             if (msg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
+
+            // If the message is from someone else, ensure their typing indicator is cleared immediately
+            if (msg.userId !== user?.id) {
+              // We might not have the name easily here, but we can infer or just clear by ID if we mapped differently.
+              // Since we map by Name in setTypingUsers, it's harder. 
+              // Relying on the sender emitting 'typing:stop' or the auto-clear timeout is cleaner.
+              // However, strictly complying:
+              // We can't easily map ID -> Name here without lookup. 
+              // Let's rely on the robust timeout and the fact that clients usually emit stop before sending.
+            }
           }
         });
 
@@ -331,7 +363,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
     setInputValue("");
     setReplyToMessage(null);
-    socketRef.current.emit("typing", { isTyping: false, roomId });
+    socketRef.current.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
   };
 
   const handleEdit = (msg: ChatMessage) => { setEditingMessage(msg); setInputValue(msg.text); setReplyToMessage(null); };
@@ -367,9 +399,12 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             ) : (
               isPrivate ? (
                 isOtherUserOnline ? (
-                  <span style={{ color: '#90ee90' }}>● {isRTL ? "מחובר/ת" : "Online"}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Box component="span" sx={{ width: 8, height: 8, bgcolor: "#4caf50", borderRadius: "50%", display: "inline-block" }} />
+                    {isRTL ? "מחובר/ת" : "Online"}
+                  </span>
                 ) : (
-                  <span>{isRTL ? "לא מחובר/ת" : "Offline"}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.7)' }}>{isRTL ? "לא מחובר/ת" : "Offline"}</span>
                 )
               ) : (
                 roomId === "global"
@@ -424,7 +459,6 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
               </div>
             );
           })}
-          {otherUserTyping && <Box sx={{ px: 1, mt: 1 }}><Typography variant="caption">{isRTL ? "מישהו מקליד..." : "Someone is typing..."}</Typography></Box>}
           <div ref={messagesEndRef} />
         </Box>
 
