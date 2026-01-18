@@ -34,7 +34,7 @@ interface ChatListProps {
 }
 
 export default function ChatList({ userId, onChatSelect, isWidget = false }: ChatListProps) {
-    const [typingStatus, setTypingStatus] = useState<Record<string, string>>({}); // Mapping: chatId -> "John is typing..."
+    const [typingStatus, setTypingStatus] = useState<Record<string, string>>({});
     const [tabValue, setTabValue] = useState(0);
 
     const { getToken } = useAuth();
@@ -49,7 +49,6 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-    // To debounce prefetch
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Initial Fetch via Context
@@ -57,7 +56,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
         loadChats();
     }, [loadChats]);
 
-    // Socket Initialization for List Updates (Message Received -> Reorder)
+    // Socket Initialization for List Updates
     useEffect(() => {
         if (!userId) return;
 
@@ -102,7 +101,6 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
                 };
 
                 const handleNewMessage = (newMessage: any) => {
-                    // Delegate update to context
                     updateChatList(newMessage);
                 };
 
@@ -128,7 +126,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
             const chatIds = chats.map(c => c.id);
             socketInstance.emit('joinChats', chatIds);
         }
-    }, [socketInstance, chats.map(c => c.id).join(",")]); // Compare IDs
+    }, [socketInstance, chats.length]); // Optimized dependency
 
     const handleNavbarClick = () => {
         if (isMobile) {

@@ -1,9 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { ChatMessage } from "@/components/types";
-import { io } from "socket.io-client";
 
 export interface HeaderInfo {
     name: string;
@@ -43,7 +42,7 @@ interface ChatContextProps {
     goBackToList: () => void;
     loadChats: () => Promise<void>;
     loadMessages: (chatId: string) => Promise<ChatMessage[]>;
-    updateChatList: (newMessage: any) => void; // For socket updates
+    updateChatList: (newMessage: any) => void;
     markChatAsRead: (chatId: string) => void;
 }
 
@@ -64,11 +63,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const [loadingChats, setLoadingChats] = useState(false);
     const [totalUnread, setTotalUnread] = useState(0);
     const [messagesCache, setMessagesCache] = useState<Record<string, ChatMessage[]>>({});
-
-    // References for socket management to avoid re-renders or stale closures if we move socket here
-    // For this step, we'll keep socket in ChatList but expose an updater, 
-    // OR ideally move socket here. The user asked to "Move data management". 
-    // Let's implement data fetching first.
 
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -98,9 +92,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // 1. Load Chats
     const loadChats = useCallback(async () => {
         if (!user?.id) return;
-        // If we already have chats, maybe we don't need to full fetch, 
-        // but for now let's minimal fetch or check timestamp? 
-        // User request: "Fetches the chat list only if not already loaded"
+        // Optimization: If chats exist, don't block UI, but ideally we should re-validate in background.
+        // For now, consistent with requirements: fetch if empty.
         if (chats.length > 0) return;
 
         setLoadingChats(true);
@@ -125,10 +118,9 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
     // 2. Load Messages (Prefetch/Cache)
     const loadMessages = useCallback(async (chatId: string): Promise<ChatMessage[]> => {
-        // Validation
         if (!chatId || chatId === 'global') return [];
 
-        // Check Cache
+        // Check Cache - Instant Return
         if (messagesCache[chatId]) {
             return messagesCache[chatId];
         }
@@ -165,38 +157,74 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [messagesCache, getToken, API_BASE]);
 
-    // Helper to update chat list from external events (socket in ChatList)
+    // 3. Socket Update Handler (CRITICAL FIX: Updates Cache too)
     const updateChatList = useCallback((newMessage: any) => {
+        // A. Update the Chat List (Preview & Order)
         setChats(prevChats => {
-            const chatIndex = prevChats.findIndex(c => c.id === newMessage.chatId);
-            if (chatIndex === -1) return prevChats; // Or fetchChats?
+            const chatIndex = prevChats.findIndex(c => c.id === newMessage.chatId || c.id === newMessage.roomId);
+
+            // If chat doesn't exist in list yet, we might want to fetch chats again or add it dynamically.
+            // For now, we only update existing.
+            if (chatIndex === -1) return prevChats;
 
             const updatedChat = {
                 ...prevChats[chatIndex],
                 lastMessage: {
                     text: newMessage.content || newMessage.text,
                     createdAt: newMessage.ts || new Date().toISOString(),
-                    senderId: newMessage.senderId,
-                    status: newMessage.status
+                    senderId: newMessage.senderId || newMessage.userId,
+                    status: newMessage.status || 'sent'
                 },
-                unreadCount: (newMessage.senderId !== user?.id)
+                unreadCount: (newMessage.senderId !== user?.id && newMessage.userId !== user?.id)
                     ? (prevChats[chatIndex].unreadCount || 0) + 1
                     : prevChats[chatIndex].unreadCount
             };
 
-            if (newMessage.senderId !== user?.id) {
+            // Update Global Unread if needed
+            if (newMessage.senderId !== user?.id && newMessage.userId !== user?.id) {
                 setTotalUnread(prev => prev + 1);
             }
 
-            const otherChats = prevChats.filter(c => c.id !== newMessage.chatId);
+            // Move to top
+            const otherChats = prevChats.filter((_, i) => i !== chatIndex);
             return [updatedChat, ...otherChats];
         });
+
+        // B. Update Messages Cache (The Fix)
+        // If we have a cache for this chat, append the new message so when user opens it, it's there.
+        const roomId = newMessage.chatId || newMessage.roomId;
+        if (roomId) {
+            setMessagesCache(prevCache => {
+                const currentMessages = prevCache[roomId];
+                if (!currentMessages) return prevCache; // Not cached yet, loadMessages will handle it
+
+                // Avoid duplicates
+                if (currentMessages.some(m => m.id === newMessage.id)) return prevCache;
+
+                const newChatMessage: ChatMessage = {
+                    id: newMessage.id || Date.now(),
+                    text: newMessage.content || newMessage.text,
+                    senderId: newMessage.senderId || newMessage.userId,
+                    ts: newMessage.ts || new Date().toISOString(),
+                    roomId: roomId,
+                    userId: newMessage.userId || newMessage.senderId,
+                    status: newMessage.status || 'sent',
+                    reactions: {},
+                    isEdited: false,
+                    isDeleted: false
+                };
+
+                return {
+                    ...prevCache,
+                    [roomId]: [...currentMessages, newChatMessage]
+                };
+            });
+        }
     }, [user?.id]);
 
     const openChat = (chatId: string, info?: HeaderInfo) => {
         setActiveChatId(chatId);
         if (info) {
-            // Ensure ID is passed if available (fix for presence)
             setHeaderInfo(info);
             localStorage.setItem("chatHeaderInfo", JSON.stringify(info));
         } else {
@@ -240,7 +268,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem("activeChatId");
     };
 
-    // Helper to mark as read
     const markChatAsRead = useCallback((chatId: string) => {
         setChats(prev => prev.map(c => {
             if (c.id === chatId) {
