@@ -390,29 +390,32 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     <Paper elevation={isWidget ? 0 : 3} dir={isRTL ? "rtl" : "ltr"} sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", borderRadius: isWidget ? 0 : 2, overflow: "hidden", bgcolor: "background.paper" }}>
       {!isWidget && (
         <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
-          <Typography variant="h6" fontWeight="bold">{isRTL ? "חדר צ'אט" : "Chat Room"}</Typography>
-          <Typography variant="caption" sx={{ opacity: 0.8 }}>
-            {typingUsers.size > 0 ? (
-              <span style={{ fontStyle: 'italic', fontWeight: 'bold' }}>
-                {isRTL ? "מקליד/ה..." : `${Array.from(typingUsers)[0]} is typing...`}
-              </span>
-            ) : (
-              isPrivate ? (
-                isOtherUserOnline ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Box component="span" sx={{ width: 8, height: 8, bgcolor: "#4caf50", borderRadius: "50%", display: "inline-block" }} />
-                    {isRTL ? "מחובר/ת" : "Online"}
-                  </span>
-                ) : (
-                  <span style={{ color: 'rgba(255,255,255,0.7)' }}>{isRTL ? "לא מחובר/ת" : "Offline"}</span>
-                )
-              ) : (
-                roomId === "global"
-                  ? (isRTL ? "צ'אט כללי" : "Global Chat")
-                  : (chatName || (isRTL ? "צ'אט המשחק" : "Game Chat"))
-              )
-            )}
+          <Typography variant="h6" fontWeight="bold">
+            {roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : chatName}
           </Typography>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '20px' }}>
+            {typingUsers.size > 0 ? (
+              <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.9)', animation: 'pulse 1.5s infinite', '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } } }}>
+                {isRTL ? "מקליד/ה..." : `${Array.from(typingUsers)[0]} is typing...`}
+              </Typography>
+            ) : isPrivate ? (
+              <>
+                {isOtherUserOnline ? (
+                  <>
+                    <Box component="span" sx={{ width: 8, height: 8, bgcolor: '#4caf50', borderRadius: '50%', display: 'inline-block', mr: 1, ml: isRTL ? 1 : 0 }} />
+                    <Typography variant="caption" fontWeight="bold">
+                      {isRTL ? "מחובר/ת" : "Online"}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                    {isRTL ? "לא מחובר/ת" : "Offline"}
+                  </Typography>
+                )}
+              </>
+            ) : null}
+          </Box>
         </Box>
       )}
 
