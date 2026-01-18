@@ -55,6 +55,7 @@ type Game = {
   isFriendsOnly?: boolean;
   teamSize?: number | null;
   price?: number | null;
+  chatRoomId?: string;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -194,7 +195,7 @@ export default async function GameDetails(props: {
                     Chat
                   </Typography>
                   <Box sx={{ height: 1, borderTop: 1, borderColor: 'divider', pt: 2 }}>
-                    <Chat roomId={game.id} chatName={game.title || "Game Chat"} />
+                    <Chat roomId={game.chatRoomId || game.id} chatName={game.title || "Game Chat"} />
                   </Box>
                 </Box>
               </Card>

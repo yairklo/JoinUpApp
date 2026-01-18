@@ -95,7 +95,8 @@ function mapGameForClient(game) {
     teams: teams || [],
     sport: game.sport,
     city: game.field?.city || null,
-    registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null
+    registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null,
+    chatRoomId: game.id
   };
 }
 
@@ -1004,54 +1005,54 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Time slot is already booked' });
     }
 
-    const created = await prisma.game.create({
-      data: {
-        title,
-        fieldId: useFieldId,
-        start,
-        duration: duration || 1,
-        maxPlayers: Number(maxPlayers),
-        teamSize: teamSize ? parseInt(teamSize) : null,
-        price: price ? parseInt(price) : null,
-        isOpenToJoin: isOpenToJoin !== false,
-        isFriendsOnly: !!isFriendsOnly,
-        lotteryEnabled: !!lotteryEnabled,
-        ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
-        organizerInLottery: !!organizerInLottery,
-        description: description || '',
-        organizerId: req.user.id,
-        // Organizer: confirmed by default, or waitlisted if included in lottery
-        participants: {
-          create: {
-            userId: req.user.id,
-            status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
-          }
-        },
-        roles: {
-          create: { userId: req.user.id, role: 'ORGANIZER' }
-        },
-        sport: sport || 'SOCCER',
-        registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
-        friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null
-      },
-      include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
-    });
-
-    // Create ChatRoom immediately
-    try {
-      await prisma.chatRoom.create({
+    // Transactional creation of Game + ChatRoom
+    const created = await prisma.$transaction(async (tx) => {
+      const game = await tx.game.create({
         data: {
-          id: created.id,
+          title,
+          fieldId: useFieldId,
+          start,
+          duration: duration || 1,
+          maxPlayers: Number(maxPlayers),
+          teamSize: teamSize ? parseInt(teamSize) : null,
+          price: price ? parseInt(price) : null,
+          isOpenToJoin: isOpenToJoin !== false,
+          isFriendsOnly: !!isFriendsOnly,
+          lotteryEnabled: !!lotteryEnabled,
+          ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
+          organizerInLottery: !!organizerInLottery,
+          description: description || '',
+          organizerId: req.user.id,
+          // Organizer: confirmed by default, or waitlisted if included in lottery
+          participants: {
+            create: {
+              userId: req.user.id,
+              status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
+            }
+          },
+          roles: {
+            create: { userId: req.user.id, role: 'ORGANIZER' }
+          },
+          sport: sport || 'SOCCER',
+          registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
+          friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null
+        },
+        include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
+      });
+
+      // Create ChatRoom immediately within transaction
+      await tx.chatRoom.create({
+        data: {
+          id: game.id,
           type: 'GROUP',
           participants: {
             create: { userId: req.user.id }
           }
         }
       });
-    } catch (chatError) {
-      console.error('Failed to create chat room for game:', chatError);
-      // We don't fail the request, but logging is important
-    }
+
+      return game;
+    });
 
     const gamePayload = mapGameForClient(created);
 
@@ -1097,6 +1098,26 @@ router.get('/:id', async (req, res) => {
 
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
+    }
+
+    // SELF-HEALING: Ensure ChatRoom exists
+    const chatRoom = await prisma.chatRoom.findUnique({ where: { id: game.id } });
+    if (!chatRoom) {
+      console.log(`[Self-Healing] Creating missing ChatRoom for game ${game.id}`);
+      try {
+        await prisma.chatRoom.create({
+          data: {
+            id: game.id,
+            type: 'GROUP',
+            participants: {
+              create: { userId: game.organizerId }
+            }
+          }
+        });
+        // Note: We don't need to update Game.chatRoomId because we use game.id as the key (Implicit Relation)
+      } catch (e) {
+        console.error("Failed to self-heal chat room", e);
+      }
     }
 
     res.json(mapGameForClient(game));

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useUser, useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import {
   Box,
   Paper,
@@ -14,7 +15,8 @@ import {
   useTheme,
   Fab,
   Badge,
-  Zoom
+  Zoom,
+  Avatar
 } from "@mui/material";
 import { useChat } from "@/context/ChatContext";
 import SendIcon from "@mui/icons-material/Send";
@@ -22,6 +24,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
 import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MessageBubble from "./MessageBubble";
 import { ChatMessage, Reaction, MessageStatus } from "./types";
 
@@ -37,6 +40,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const { user } = useUser();
   const { getToken } = useAuth();
   const theme = useTheme();
+  const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -46,13 +50,16 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   const [chatDetails, setChatDetails] = useState<any>(null);
 
-  // Logic to determine other user for presence
-  // FIX: Case insensitive check to be safe
+  // Logic to determine other user and avatar
   const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
 
-  const otherUserId = isPrivate
-    ? chatDetails.participants?.find((p: any) => p.userId !== user?.id)?.userId
+  const otherParticipant = isPrivate
+    ? chatDetails?.participants?.find((p: any) => p.userId !== user?.id)
     : null;
+
+  const otherUserId = otherParticipant?.userId;
+  const otherUserAvatar = otherParticipant?.user?.imageUrl; // Assuming API returns included user
+  const effectiveChatName = chatName || (isPrivate ? otherParticipant?.user?.name : "Game Chat") || (roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : "Chat");
 
   const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
@@ -342,7 +349,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     const missing = Array.from(new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))).filter(id => !(id in avatarByUserId));
     if (missing.length === 0) return;
     missing.forEach((uid) => {
-      fetch(`${API_BASE}/api/users/${uid}`).then(r => r.json()).then((u) => {
+      fetch(`${API_BASE} /api/users / ${uid} `).then(r => r.json()).then((u) => {
         setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
         if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
       }).catch(() => setAvatarByUserId((prev) => ({ ...prev, [uid]: null })));
@@ -397,55 +404,73 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   return (
     <Paper elevation={isWidget ? 0 : 3} dir={isRTL ? "rtl" : "ltr"} sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", borderRadius: isWidget ? 0 : 2, overflow: "hidden", bgcolor: "background.paper" }}>
       {!isWidget && (
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
-          <Typography variant="h6" fontWeight="bold">
-            {roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : chatName}
-          </Typography>
+        <Box sx={{
+          p: 1.5,
+          borderBottom: 1,
+          borderColor: "divider",
+          bgcolor: "primary.main",
+          color: "primary.contrastText",
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5
+        }}>
+          {/* Back Button */}
+          <IconButton
+            onClick={() => router.back()}
+            sx={{ color: "inherit", p: 0.5 }}
+          >
+            <ArrowBackIcon sx={{ transform: isRTL ? "scaleX(-1)" : "none" }} />
+          </IconButton>
 
-          {/* Status Bar Container */}
-          <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '26px', mt: 0.5 }}>
+          {/* Avatar (Private Only usually, or Group Icon) */}
+          {roomId !== "global" && (
+            <Avatar
+              src={otherUserAvatar || undefined}
+              alt={effectiveChatName}
+            >
+              {effectiveChatName.charAt(0)}
+            </Avatar>
+          )}
 
-            {/* STATE 1: TYPING (Visible in ALL chats if someone is typing) */}
-            {typingUsers.size > 0 ? (
-              <Typography variant="caption" sx={{
-                color: 'secondary.main',
-                fontWeight: 'bold',
-                fontStyle: 'italic',
-                animation: 'pulse 1.5s infinite',
-                display: 'flex', alignItems: 'center', gap: 0.5,
-                '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } }
-              }}>
-                <span>✎</span>
-                {isRTL ? "מקליד/ה..." : `${Array.from(typingUsers)[0]} is typing...`}
-              </Typography>
-            ) : (
-              /* STATE 2: PRESENCE (Strictly for Private Chats) */
-              (isPrivate && otherUserId) ? (
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  {isOtherUserOnline ? (
-                    // ONLINE STATE
-                    <Box sx={{
-                      display: 'flex', alignItems: 'center',
-                      bgcolor: 'rgba(76, 175, 80, 0.1)',
-                      px: 1, py: 0.25, borderRadius: 4,
-                      border: '1px solid', borderColor: 'success.light'
-                    }}>
-                      <Box component="span" sx={{ width: 8, height: 8, bgcolor: 'success.main', borderRadius: '50%', mr: 1, ml: isRTL ? 1 : 0 }} />
-                      <Typography variant="caption" fontWeight="bold" color="success.main">
+          {/* Name & Status Column */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <Typography variant="subtitle1" fontWeight="bold" noWrap sx={{ lineHeight: 1.2 }}>
+              {effectiveChatName}
+            </Typography>
+
+            {/* Status Bar Container */}
+            <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '18px' }}>
+              {/* STATE 1: TYPING */}
+              {typingUsers.size > 0 ? (
+                <Typography variant="caption" sx={{
+                  color: 'secondary.light',
+                  fontWeight: 'bold',
+                  fontStyle: 'italic',
+                  animation: 'pulse 1.5s infinite',
+                  display: 'flex', alignItems: 'center', gap: 0.5,
+                  '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } }
+                }}>
+                  <span>✎</span>
+                  {isRTL ? "מקליד/ה..." : typingUsers.size === 1 ? `${Array.from(typingUsers)[0]} is typing...` : 'Typing...'}
+                </Typography>
+              ) : (
+                /* STATE 2: PRESENCE */
+                (isPrivate && otherUserId) ? (
+                  isOtherUserOnline ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Box sx={{ width: 8, height: 8, bgcolor: '#4caf50', borderRadius: '50%' }} />
+                      <Typography variant="caption" sx={{ color: '#81c784', fontWeight: 500 }}>
                         {isRTL ? "מחובר/ת" : "Online"}
                       </Typography>
                     </Box>
                   ) : (
-                    // OFFLINE STATE
-                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', display: 'flex', alignItems: 'center' }}>
-                      <Box component="span" sx={{ width: 6, height: 6, bgcolor: 'rgba(255,255,255,0.5)', borderRadius: '50%', mr: 1, ml: isRTL ? 1 : 0 }} />
-                      {isRTL ? "לא מחובר/ת" : "Offline"}
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                      {isRTL ? "נראה לאחרונה..." : "Offline"}
                     </Typography>
-                  )}
-                </Box>
-              ) : null
-              // NOTE: For Group chats (not private), we show nothing if no one is typing.
-            )}
+                  )
+                ) : null
+              )}
+            </Box>
           </Box>
         </Box>
       )}
