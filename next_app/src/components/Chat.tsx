@@ -46,10 +46,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const [chatDetails, setChatDetails] = useState<any>(null);
 
   // Logic to determine other user for presence
-  const otherUserId = chatDetails?.type === 'PRIVATE'
+  const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
+  const otherUserId = isPrivate
     ? chatDetails.participants?.find((p: any) => p.userId !== user?.id)?.userId
     : null;
-  const isPrivate = chatDetails?.type === 'PRIVATE';
   const [mySocketId, setMySocketId] = useState<string>("");
 
   const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
@@ -203,7 +203,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
         // Typing updates
         socket.on('typing:start', ({ chatId, userName, senderId }) => {
-          if (chatId === roomId && senderId !== user?.id) {
+          // Check room match and ensure we don't show typing for ourselves (using name is safer if IDs differ)
+          if (chatId === roomId && userName !== user?.fullName) {
             const name = userName || "Someone";
 
             // Clear existing timeout
@@ -229,7 +230,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         });
 
         socket.on('typing:stop', ({ chatId, userName, senderId }) => {
-          if (chatId === roomId && senderId !== user?.id) {
+          if (chatId === roomId && userName !== user?.fullName) {
             const name = userName || "Someone";
             if (typingTimeoutsRef.current[senderId]) {
               clearTimeout(typingTimeoutsRef.current[senderId]);
@@ -416,27 +417,48 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             {roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : chatName}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '20px' }}>
+          {/* Status Bar Container - Always Renders */}
+          <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '26px', mt: 0.5 }}>
+
+            {/* 1. Typing Indicator (Highest Priority) */}
             {typingUsers.size > 0 ? (
-              <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.9)', animation: 'pulse 1.5s infinite', '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } } }}>
+              <Typography variant="caption" sx={{
+                color: 'secondary.main',
+                fontWeight: 'bold',
+                fontStyle: 'italic',
+                animation: 'pulse 1.5s infinite',
+                display: 'flex', alignItems: 'center', gap: 0.5,
+                '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } }
+              }}>
+                <span>✎</span>
                 {isRTL ? "מקליד/ה..." : `${Array.from(typingUsers)[0]} is typing...`}
               </Typography>
-            ) : isPrivate ? (
-              <>
-                {isOtherUserOnline ? (
-                  <>
-                    <Box component="span" sx={{ width: 8, height: 8, bgcolor: '#4caf50', borderRadius: '50%', display: 'inline-block', mr: 1, ml: isRTL ? 1 : 0 }} />
-                    <Typography variant="caption" fontWeight="bold">
+            ) : (
+
+              /* 2. Online/Offline Status (Only if Private & Data Loaded) */
+              (isPrivate && otherUserId) ? (
+                isOtherUserOnline ? (
+                  <Box sx={{
+                    display: 'flex', alignItems: 'center',
+                    bgcolor: 'rgba(76, 175, 80, 0.1)',
+                    px: 1, py: 0.25, borderRadius: 4,
+                    border: '1px solid', borderColor: 'success.light'
+                  }}>
+                    <Box component="span" sx={{ width: 8, height: 8, bgcolor: 'success.main', borderRadius: '50%', mr: 1, ml: isRTL ? 1 : 0 }} />
+                    <Typography variant="caption" fontWeight="bold" color="success.main">
                       {isRTL ? "מחובר/ת" : "Online"}
                     </Typography>
-                  </>
+                  </Box>
                 ) : (
-                  <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', opacity: 0.8, display: 'flex', alignItems: 'center' }}>
                     {isRTL ? "לא מחובר/ת" : "Offline"}
                   </Typography>
-                )}
-              </>
-            ) : null}
+                )
+              ) : (
+                /* 3. Placeholder for Group/Loading to prevent collapse */
+                <Typography variant="caption" sx={{ visibility: 'hidden' }}>-</Typography>
+              )
+            )}
           </Box>
         </Box>
       )}
