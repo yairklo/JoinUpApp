@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useUser, useAuth } from "@clerk/nextjs";
 import {
@@ -37,10 +37,21 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const { getToken } = useAuth();
   const theme = useTheme();
 
+  const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
-  const [mySocketId, setMySocketId] = useState<string>("");
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
+
+  const [chatDetails, setChatDetails] = useState<any>(null);
+
+  // Logic to determine other user for presence
+  // FIX: Case insensitive check to be safe
+  const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
+
+  const otherUserId = isPrivate
+    ? chatDetails.participants?.find((p: any) => p.userId !== user?.id)?.userId
+    : null;
 
   const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
@@ -48,12 +59,14 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [unreadNewMessages, setUnreadNewMessages] = useState(0);
 
-  const socketRef = useRef<Socket | null>(null);
+  // FIX: Use State for socket to trigger re-renders on connection
+  const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isUserAtBottomRef = useRef(true);
 
-  // FIX: Track previous message length to differentiate updates from new messages
+  // Track previous message length to differentiate updates from new messages
   const prevMessagesLengthRef = useRef(0);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -61,7 +74,30 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({});
   const [mounted, setMounted] = useState(false);
 
+  // Typing timeouts ref to manage auto-clearing
+  const typingTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+
   useEffect(() => { setMounted(true); }, []);
+
+  // Fetch Chat Details
+  useEffect(() => {
+    if (!roomId || roomId === 'global') return;
+    const fetchDetails = async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_BASE}/api/chats/${roomId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setChatDetails(data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch chat details", e);
+      }
+    };
+    fetchDetails();
+  }, [roomId, API_BASE, getToken]);
 
   // --- Smart Scroll Logic ---
 
@@ -89,7 +125,14 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     }
   };
 
-  // FIX: This Effect now only runs scroll logic if a NEW message arrived
+  // Run scroll logic only if a NEW message arrived
+  useLayoutEffect(() => {
+    // Immediate scroll if loading finished and at bottom
+    if (!isLoading && messages.length > 0 && isUserAtBottomRef.current) {
+      scrollToBottom();
+    }
+  }, [messages, isLoading, scrollToBottom]);
+
   useEffect(() => {
     const currentLength = messages.length;
     const prevLength = prevMessagesLengthRef.current;
@@ -104,15 +147,23 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     const lastMessage = messages[messages.length - 1];
     const isMine = lastMessage?.userId === user?.id;
 
-    if (isMine || isUserAtBottomRef.current) {
-      scrollToBottom();
-    } else {
-      if (messages.length > 0) {
-        setShowScrollButton(true);
-        setUnreadNewMessages(prev => prev + 1);
+    if (!isLoading) {
+      if (isMine || isUserAtBottomRef.current) {
+        scrollToBottom();
+      } else {
+        if (messages.length > 0) {
+          setShowScrollButton(true);
+          setUnreadNewMessages(prev => prev + 1);
+        }
       }
     }
-  }, [messages, user?.id, scrollToBottom]);
+  }, [messages, user?.id, scrollToBottom, isLoading]);
+
+  // Subscribe to presence only when ID is available AND socket is connected
+  useEffect(() => {
+    if (!socketInstance || !otherUserId) return;
+    socketInstance.emit('subscribePresence', otherUserId);
+  }, [socketInstance, otherUserId]);
 
   // --- Socket Logic ---
 
@@ -120,24 +171,71 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     let socket: Socket | null = null;
 
     const initSocket = async () => {
-      const base = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-      if (base) fetch(`${base.replace(/\/$/, "")}/api/health`).catch(() => { });
-      else fetch("/api/socket").catch(() => { });
-
       try {
         const token = await getToken();
-        socket = io(base, {
+        socket = io(API_BASE, {
           path: "/api/socket",
           transports: ["websocket"],
           withCredentials: true,
           auth: { token }
         });
-        socketRef.current = socket;
 
+        // Save socket to State to trigger re-renders for dependency arrays
+        setSocketInstance(socket);
+
+        // Connection events
         socket.on("connect", () => {
-          setMySocketId(socket?.id ?? "");
           socket?.emit("joinRoom", roomId);
           socket?.emit("markAsRead", { roomId, userId: user?.id });
+        });
+
+        // Presence updates
+        socket.on('presence:update', ({ userId: uid, isOnline }) => {
+          if (uid === otherUserId) {
+            setIsOtherUserOnline(isOnline);
+          }
+        });
+
+        // Typing updates - FIXED LOGIC to use ID comparison
+        socket.on('typing:start', ({ chatId, userName, senderId }) => {
+          if (chatId === roomId && senderId !== user?.id) {
+            const name = userName || "Someone";
+
+            // Clear existing timeout if exists
+            if (typingTimeoutsRef.current[senderId]) {
+              clearTimeout(typingTimeoutsRef.current[senderId]);
+            }
+
+            setTypingUsers(prev => {
+              const next = new Set(prev);
+              next.add(name);
+              return next;
+            });
+
+            // Auto-clear after 3 seconds
+            typingTimeoutsRef.current[senderId] = setTimeout(() => {
+              setTypingUsers(prev => {
+                const next = new Set(prev);
+                next.delete(name);
+                return next;
+              });
+            }, 3000);
+          }
+        });
+
+        socket.on('typing:stop', ({ chatId, userName, senderId }) => {
+          if (chatId === roomId && senderId !== user?.id) {
+            const name = userName || "Someone";
+            if (typingTimeoutsRef.current[senderId]) {
+              clearTimeout(typingTimeoutsRef.current[senderId]);
+            }
+
+            setTypingUsers(prev => {
+              const next = new Set(prev);
+              next.delete(name);
+              return next;
+            });
+          }
         });
 
         socket.on("message", (msg: ChatMessage) => {
@@ -156,12 +254,6 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         socket.on("messageDeleted", (payload: { id: string | number, roomId?: string }) => {
           if (!payload.roomId || payload.roomId === roomId) {
             setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, isDeleted: true, text: "" } : m));
-          }
-        });
-
-        socket.on("typing", (payload) => {
-          if (!payload.roomId || payload.roomId === roomId) {
-            setTypingUsers((prev) => ({ ...prev, [payload.senderId]: payload.isTyping }));
           }
         });
 
@@ -189,12 +281,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     if (user?.id) initSocket();
 
     return () => { if (socket) socket.disconnect(); };
-  }, [roomId, user?.id, getToken]);
+  }, [roomId, user?.id, getToken, otherUserId, API_BASE]);
 
   useEffect(() => {
     if (!roomId) return;
 
     const fetchMessages = async () => {
+      setIsLoading(true);
       try {
         const token = await getToken();
         // Use standard backend route with query parameter
@@ -206,6 +299,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
         if (!res.ok) {
           console.error("Failed to fetch messages:", res.status);
+          setIsLoading(false);
           return;
         }
 
@@ -228,9 +322,11 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         // Initial load should create specific length reference
         prevMessagesLengthRef.current = mapped.length;
 
-        setTimeout(scrollToBottom, 100);
+        // Wait for rendering then unset loading to allow instant scroll
+        setIsLoading(false);
       } catch (err) {
         console.error("Fetch messages error:", err);
+        setIsLoading(false);
       }
     };
 
@@ -250,10 +346,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   const handleSendMessage = () => {
     const trimmed = inputValue.trim();
-    if (!trimmed || !socketRef.current) return;
+    if (!trimmed || !socketInstance) return;
 
     if (editingMessage) {
-      socketRef.current.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
+      socketInstance.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
       setEditingMessage(null);
     } else {
       const payload: Partial<ChatMessage> & { roomId: string, userId: string } = {
@@ -267,23 +363,22 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         } : undefined,
         status: "sent"
       };
-      socketRef.current.emit("message", payload);
+      socketInstance.emit("message", payload);
     }
 
     setInputValue("");
     setReplyToMessage(null);
-    socketRef.current.emit("typing", { isTyping: false, roomId });
+    socketInstance.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
   };
 
   const handleEdit = (msg: ChatMessage) => { setEditingMessage(msg); setInputValue(msg.text); setReplyToMessage(null); };
-  const handleDelete = (messageId: string | number) => { socketRef.current?.emit("deleteMessage", { messageId, roomId }); };
+  const handleDelete = (messageId: string | number) => { socketInstance?.emit("deleteMessage", { messageId, roomId }); };
   const cancelAction = () => { setReplyToMessage(null); setEditingMessage(null); setInputValue(""); };
   const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
   };
   const handleReply = (msg: ChatMessage) => { setReplyToMessage(msg); setEditingMessage(null); };
-  const handleReact = (messageId: string | number, emoji: string) => { socketRef.current?.emit("addReaction", { messageId, emoji, userId: user?.id, roomId }); };
-  const otherUserTyping = Object.entries(typingUsers).some(([senderId, isTyping]) => isTyping && senderId !== mySocketId);
+  const handleReact = (messageId: string | number, emoji: string) => { socketInstance?.emit("addReaction", { messageId, emoji, userId: user?.id, roomId }); };
 
   const getDayString = (date: Date, isRTL: boolean) => {
     const today = new Date(); const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
@@ -295,16 +390,58 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   if (!mounted) return null;
 
   return (
-    // FIX: Changed height to 100% to fill parent container
     <Paper elevation={isWidget ? 0 : 3} dir={isRTL ? "rtl" : "ltr"} sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", borderRadius: isWidget ? 0 : 2, overflow: "hidden", bgcolor: "background.paper" }}>
       {!isWidget && (
         <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
-          <Typography variant="h6" fontWeight="bold">{isRTL ? "חדר צ'אט" : "Chat Room"}</Typography>
-          <Typography variant="caption" sx={{ opacity: 0.8 }}>
-            {roomId === "global"
-              ? (isRTL ? "צ'אט כללי" : "Global Chat")
-              : (chatName || (isRTL ? "צ'אט המשחק" : "Game Chat"))}
+          <Typography variant="h6" fontWeight="bold">
+            {roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : chatName}
           </Typography>
+
+          {/* Status Bar Container */}
+          <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '26px', mt: 0.5 }}>
+
+            {/* STATE 1: TYPING (Visible in ALL chats if someone is typing) */}
+            {typingUsers.size > 0 ? (
+              <Typography variant="caption" sx={{
+                color: 'secondary.main',
+                fontWeight: 'bold',
+                fontStyle: 'italic',
+                animation: 'pulse 1.5s infinite',
+                display: 'flex', alignItems: 'center', gap: 0.5,
+                '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } }
+              }}>
+                <span>✎</span>
+                {isRTL ? "מקליד/ה..." : `${Array.from(typingUsers)[0]} is typing...`}
+              </Typography>
+            ) : (
+              /* STATE 2: PRESENCE (Strictly for Private Chats) */
+              (isPrivate && otherUserId) ? (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {isOtherUserOnline ? (
+                    // ONLINE STATE
+                    <Box sx={{
+                      display: 'flex', alignItems: 'center',
+                      bgcolor: 'rgba(76, 175, 80, 0.1)',
+                      px: 1, py: 0.25, borderRadius: 4,
+                      border: '1px solid', borderColor: 'success.light'
+                    }}>
+                      <Box component="span" sx={{ width: 8, height: 8, bgcolor: 'success.main', borderRadius: '50%', mr: 1, ml: isRTL ? 1 : 0 }} />
+                      <Typography variant="caption" fontWeight="bold" color="success.main">
+                        {isRTL ? "מחובר/ת" : "Online"}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    // OFFLINE STATE
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', display: 'flex', alignItems: 'center' }}>
+                      <Box component="span" sx={{ width: 6, height: 6, bgcolor: 'rgba(255,255,255,0.5)', borderRadius: '50%', mr: 1, ml: isRTL ? 1 : 0 }} />
+                      {isRTL ? "לא מחובר/ת" : "Offline"}
+                    </Typography>
+                  )}
+                </Box>
+              ) : null
+              // NOTE: For Group chats (not private), we show nothing if no one is typing.
+            )}
+          </Box>
         </Box>
       )}
 
@@ -314,45 +451,52 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           onScroll={handleScroll}
           sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50' }}
         >
-          {messages.map((m, index) => {
-            const isMine = m.userId === user?.id;
-            const prevMsg = messages[index - 1]; const nextMsg = messages[index + 1];
-            const currentDate = new Date(m.ts); const prevDate = prevMsg ? new Date(prevMsg.ts) : null;
-            const showDateSeparator = !prevDate || currentDate.toDateString() !== prevDate.toDateString();
-            const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
-            const isNextSameSender = nextMsg && nextMsg.userId === m.userId;
+          {isLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              {messages.map((m, index) => {
+                const isMine = m.userId === user?.id;
+                const prevMsg = messages[index - 1]; const nextMsg = messages[index + 1];
+                const currentDate = new Date(m.ts); const prevDate = prevMsg ? new Date(prevMsg.ts) : null;
+                const showDateSeparator = !prevDate || currentDate.toDateString() !== prevDate.toDateString();
+                const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
+                const isNextSameSender = nextMsg && nextMsg.userId === m.userId;
 
-            return (
-              <div key={m.id}>
-                {showDateSeparator && (
-                  <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
-                    <Box sx={{ bgcolor: "action.disabledBackground", px: 2, py: 0.5, borderRadius: 4 }}>
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold">{getDayString(currentDate, isRTL)}</Typography>
-                    </Box>
-                  </Box>
-                )}
-                <MessageBubble
-                  message={m}
-                  isMine={isMine}
-                  isRTL={isRTL}
-                  onReply={handleReply}
-                  onReact={handleReact}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  avatarUrl={m.userId ? avatarByUserId[m.userId] : undefined}
-                  displayName={(m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
-                  timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
-                  showAvatar={!isNextSameSender}
-                  showName={!isPrevSameSender && !isMine}
-                  isFirstInGroup={!isPrevSameSender}
-                  isLastInGroup={!isNextSameSender}
-                  currentUserId={user?.id}
-                />
-              </div>
-            );
-          })}
-          {otherUserTyping && <Box sx={{ px: 1, mt: 1 }}><Typography variant="caption">{isRTL ? "מישהו מקליד..." : "Someone is typing..."}</Typography></Box>}
-          <div ref={messagesEndRef} />
+                return (
+                  <div key={m.id}>
+                    {showDateSeparator && (
+                      <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
+                        <Box sx={{ bgcolor: "action.disabledBackground", px: 2, py: 0.5, borderRadius: 4 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight="bold">{getDayString(currentDate, isRTL)}</Typography>
+                        </Box>
+                      </Box>
+                    )}
+                    <MessageBubble
+                      message={m}
+                      isMine={isMine}
+                      isRTL={isRTL}
+                      onReply={handleReply}
+                      onReact={handleReact}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      avatarUrl={m.userId ? avatarByUserId[m.userId] : undefined}
+                      displayName={(m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
+                      timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
+                      showAvatar={!isNextSameSender}
+                      showName={!isPrevSameSender && !isMine}
+                      isFirstInGroup={!isPrevSameSender}
+                      isLastInGroup={!isNextSameSender}
+                      currentUserId={user?.id}
+                    />
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </>
+          )}
         </Box>
 
         <Zoom in={showScrollButton}>
@@ -394,8 +538,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            onInput={() => socketRef.current?.emit("typing", { isTyping: true, roomId })}
-            onBlur={() => socketRef.current?.emit("typing", { isTyping: false, roomId })}
+            onInput={() => socketInstance?.emit("typing", { isTyping: true, roomId, userName: user?.fullName })}
+            onBlur={() => socketInstance?.emit("typing", { isTyping: false, roomId, userName: user?.fullName })}
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
           />
           <IconButton color="primary" onClick={handleSendMessage} disabled={!inputValue.trim()} sx={{ mb: 0.5, transform: isRTL ? "scaleX(-1)" : "none" }}>
