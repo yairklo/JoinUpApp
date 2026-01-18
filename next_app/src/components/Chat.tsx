@@ -16,6 +16,7 @@ import {
   Badge,
   Zoom
 } from "@mui/material";
+import { useChat } from "@/context/ChatContext";
 import SendIcon from "@mui/icons-material/Send";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
@@ -283,55 +284,59 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     return () => { if (socket) socket.disconnect(); };
   }, [roomId, user?.id, getToken, otherUserId, API_BASE]);
 
+  const { messagesCache, loadMessages } = useChat();
+
   useEffect(() => {
     if (!roomId) return;
 
-    const fetchMessages = async () => {
+    // OPTIMIZATION: Check cache first
+    if (messagesCache[roomId]) {
+      setMessages(messagesCache[roomId]);
+      setIsLoading(false);
+      prevMessagesLengthRef.current = messagesCache[roomId].length;
+      // Proceed to fetch in background to ensure freshness? 
+      // The user said: "If Cached: Set messages immediately ... If Not Cached: Proceed with the fetch".
+      // Usually we want to update if there are new ones. 
+      // `loadMessages` does a fetch. 
+      // If we want stale-while-revalidate, we might need to modify `loadMessages` or just call it here anyway?
+      // User request: "If Not Cached: Proceed with the fetch". Implies if cached, don't fetch or fetch later?
+      // "Add Actions: ... loadMessages(chatId): Checks messagesCache[chatId]. If exists, return immediately. If not, fetch..."
+      // THIS is the key: `loadMessages` in context behaves differently than I implemented in previous step?
+      // In previous step (ChatContext), I implemented `loadMessages` to check cache and return if found.
+      // So simply calling `loadMessages` handles the caching logic!
+      // But `Chat.tsx` wants to "Set messages immediately" from cache.
+      // If `loadMessages` returns cache immediately (async/promise resolves fast), it's fine.
+      // But if we want to avoid the "tick" of promise resolution?
+      // "if (messagesCache[chatId]) return messagesCache[chatId]" inside `loadMessages` makes it almost instant (microtask).
+      // So I can just call `loadMessages`.
+    }
+
+    const initMessages = async () => {
+      // If not cached visually (to avoid flicker even if almost instant), set manual check
+      if (messagesCache[roomId]) {
+        setMessages(messagesCache[roomId]);
+        setIsLoading(false);
+        prevMessagesLengthRef.current = messagesCache[roomId].length;
+        // We might want to refresh though. The context `loadMessages` returns cache if present. 
+        // It does NOT refresh if present.
+        // This implies we rely on Socket for new messages.
+        return;
+      }
+
       setIsLoading(true);
       try {
-        const token = await getToken();
-        // Use standard backend route with query parameter
-        const res = await fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(roomId)}&limit=200`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!res.ok) {
-          console.error("Failed to fetch messages:", res.status);
-          setIsLoading(false);
-          return;
-        }
-
-        const arr = await res.json();
-        const mapped: ChatMessage[] = arr.map((m: any) => ({
-          id: m.id ?? Date.parse(m.ts),
-          text: m.text,
-          senderId: m.userId || "",
-          ts: m.ts,
-          roomId,
-          userId: m.userId,
-          replyTo: m.replyTo,
-          reactions: m.reactions,
-          status: m.status || "sent",
-          isEdited: m.isEdited,
-          isDeleted: m.isDeleted
-        }));
-        setMessages(mapped);
-
-        // Initial load should create specific length reference
-        prevMessagesLengthRef.current = mapped.length;
-
-        // Wait for rendering then unset loading to allow instant scroll
-        setIsLoading(false);
-      } catch (err) {
-        console.error("Fetch messages error:", err);
+        const msgs = await loadMessages(roomId);
+        setMessages(msgs);
+        prevMessagesLengthRef.current = msgs.length;
+      } catch (e) {
+        console.error("Failed to load messages", e);
+      } finally {
         setIsLoading(false);
       }
     };
 
-    fetchMessages();
-  }, [roomId, API_BASE, scrollToBottom, getToken]);
+    initMessages();
+  }, [roomId, loadMessages, messagesCache]);
 
   useEffect(() => {
     const missing = Array.from(new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))).filter(id => !(id in avatarByUserId));

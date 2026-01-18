@@ -2,8 +2,8 @@
 
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useChat } from "@/context/ChatContext";
-import React, { useState, useEffect } from "react";
+import { useChat, ChatPreview } from "@/context/ChatContext";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Box,
     List,
@@ -27,21 +27,6 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import { formatDistanceToNow } from "date-fns";
 import { io } from "socket.io-client";
 
-interface ChatPreview {
-    id: string;
-    type: 'group' | 'private';
-    name: string;
-    image: string | null;
-    unreadCount: number;
-    lastMessage: {
-        text: string;
-        createdAt: string;
-        senderId: string;
-        status: string;
-    } | null;
-    otherUserId?: string;
-}
-
 interface ChatListProps {
     userId: string;
     onChatSelect: (chatId: string) => void;
@@ -49,55 +34,29 @@ interface ChatListProps {
 }
 
 export default function ChatList({ userId, onChatSelect, isWidget = false }: ChatListProps) {
-    const [chats, setChats] = useState<ChatPreview[]>([]);
-    const [typingStatus, setTypingStatus] = useState<Record<string, string>>({}); // Mapping: chatId -> "John is typing..."
-    const [loading, setLoading] = useState(false);
+    const [typingStatus, setTypingStatus] = useState<Record<string, string>>({});
     const [tabValue, setTabValue] = useState(0);
 
     const { getToken } = useAuth();
     const router = useRouter();
-    const { openChat, isWidgetOpen, closeChat, goBackToList, openWidget } = useChat();
+    const {
+        openChat, isWidgetOpen, closeChat, openWidget,
+        chats, loadingChats, totalUnread, loadChats, updateChatList, markChatAsRead, loadMessages
+    } = useChat();
 
-    // State for total unread badge
-    const [totalUnread, setTotalUnread] = useState(0);
     const [socketInstance, setSocketInstance] = useState<any>(null);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-    // Initial Fetch
-    const fetchChats = async () => {
-        if (!userId) return;
-        try {
-            setLoading(true);
-            const token = await getToken();
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-            const res = await fetch(`${API_URL}/api/users/${userId}/chats`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-            if (res.ok) {
-                const data = await res.json();
-                setChats(data);
+    // Initial Fetch via Context
+    useEffect(() => {
+        loadChats();
+    }, [loadChats]);
 
-                // Calculate total unread
-                const total = data.reduce((acc: number, chat: ChatPreview) => acc + (chat.unreadCount || 0), 0);
-                setTotalUnread(total);
-
-                // Join rooms if socket is ready
-                if (socketInstance) {
-                    const chatIds = data.map((c: ChatPreview) => c.id);
-                    socketInstance.emit('joinChats', chatIds);
-                }
-            }
-        } catch (error) {
-            console.error("Failed to load chats", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Socket Initialization
+    // Socket Initialization for List Updates
     useEffect(() => {
         if (!userId) return;
 
@@ -117,26 +76,13 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
 
                 socket.on("connect", () => {
                     socket.emit("setup", { id: userId });
-                    // If chats are already loaded, join them
                     setSocketInstance(socket);
                 });
 
-                socket.on("notification", (payload: any) => {
-                    if (payload.type === 'message') {
-                        // Fallback/Legacy or external notification
-                        // We might rely on message:received for list updates, 
-                        // but this handles notifications from chats we aren't listening to yet?
-                        // fetchChats(); // Optimization: Rely on message:received
-                    }
-                });
-
-                // --- Real-time Updates ---
-
+                // Socket Event Handlers
                 const handleTyping = ({ chatId, userName }: { chatId: string, userName: string }) => {
                     if (!chatId || !userName) return;
                     setTypingStatus(prev => ({ ...prev, [chatId]: `${userName} is typing...` }));
-
-                    // Safety clear
                     setTimeout(() => {
                         setTypingStatus(prev => {
                             const newState = { ...prev };
@@ -155,37 +101,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
                 };
 
                 const handleNewMessage = (newMessage: any) => {
-                    setChats(prevChats => {
-                        const chatIndex = prevChats.findIndex(c => c.id === newMessage.chatId);
-
-                        if (chatIndex === -1) {
-                            // New chat we don't know about? Fetch all safe choice
-                            fetchChats();
-                            return prevChats;
-                        }
-
-                        const updatedChat = {
-                            ...prevChats[chatIndex],
-                            lastMessage: {
-                                text: newMessage.content || newMessage.text,
-                                createdAt: newMessage.ts || new Date().toISOString(),
-                                senderId: newMessage.senderId,
-                                status: newMessage.status
-                            },
-                            unreadCount: (newMessage.senderId !== userId)
-                                ? (prevChats[chatIndex].unreadCount || 0) + 1
-                                : prevChats[chatIndex].unreadCount
-                        };
-
-                        // Update total unread if needed
-                        if (newMessage.senderId !== userId) {
-                            setTotalUnread(prev => prev + 1);
-                        }
-
-                        // Reorder
-                        const otherChats = prevChats.filter(c => c.id !== newMessage.chatId);
-                        return [updatedChat, ...otherChats];
-                    });
+                    updateChatList(newMessage);
                 };
 
                 socket.on("typing:start", handleTyping);
@@ -202,7 +118,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
         return () => {
             if (socket) socket.disconnect();
         };
-    }, [userId, getToken]);
+    }, [userId, getToken, updateChatList]);
 
     // Join rooms when socket AND chats are ready
     useEffect(() => {
@@ -210,12 +126,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
             const chatIds = chats.map(c => c.id);
             socketInstance.emit('joinChats', chatIds);
         }
-    }, [socketInstance, chats.length]); // Intentionally minimal deps
-
-    // Load chats on mount
-    useEffect(() => {
-        fetchChats();
-    }, [userId]);
+    }, [socketInstance, chats.length]); // Optimized dependency
 
     const handleNavbarClick = () => {
         if (isMobile) {
@@ -234,17 +145,27 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
     };
 
     const handleSelect = (chat: ChatPreview) => {
-        // Optimistic update
-        if (chat.unreadCount > 0) {
-            setTotalUnread(prev => Math.max(0, prev - chat.unreadCount));
-            setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c));
-        }
+        markChatAsRead(chat.id);
 
         if (chat.type === 'group' || isMobile) {
             const route = chat.type === 'group' ? `/games/${chat.id}` : `/chat/${chat.id}`;
             router.push(route);
         } else {
             openChat(chat.id, { name: chat.name, image: chat.image });
+        }
+    };
+
+    // Prefetch on Hover (> 200ms)
+    const handleMouseEnter = (chatId: string) => {
+        hoverTimeoutRef.current = setTimeout(() => {
+            loadMessages(chatId);
+        }, 200);
+    };
+
+    const handleMouseLeave = () => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
         }
     };
 
@@ -262,7 +183,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
             </Box>
 
             <List sx={{ p: 0, overflowY: 'auto', flex: 1 }}>
-                {loading && chats.length === 0 ? (
+                {loadingChats && chats.length === 0 ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                         <CircularProgress />
                     </Box>
@@ -282,7 +203,12 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
 
                         return (
                             <ListItem key={chat.id} disablePadding divider>
-                                <ListItemButton onClick={() => handleSelect(chat)} alignItems="flex-start">
+                                <ListItemButton
+                                    onClick={() => handleSelect(chat)}
+                                    onMouseEnter={() => handleMouseEnter(chat.id)}
+                                    onMouseLeave={handleMouseLeave}
+                                    alignItems="flex-start"
+                                >
                                     <ListItemAvatar>
                                         <Badge badgeContent={chat.unreadCount} color="error" overlap="circular">
                                             <Avatar src={chat.image || undefined} alt={chat.name}>
