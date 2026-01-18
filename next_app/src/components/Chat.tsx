@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { io, Socket } from "socket.io-client";
 import { useUser, useAuth } from "@clerk/nextjs";
 import {
@@ -37,6 +37,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const { getToken } = useAuth();
   const theme = useTheme();
 
+  const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
@@ -122,6 +123,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   };
 
   // FIX: This Effect now only runs scroll logic if a NEW message arrived
+  useLayoutEffect(() => {
+    // Immediate scroll if loading finished and at bottom
+    if (!isLoading && messages.length > 0 && isUserAtBottomRef.current) {
+      scrollToBottom();
+    }
+  }, [messages, isLoading, scrollToBottom]);
+
   useEffect(() => {
     const currentLength = messages.length;
     const prevLength = prevMessagesLengthRef.current;
@@ -136,15 +144,25 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     const lastMessage = messages[messages.length - 1];
     const isMine = lastMessage?.userId === user?.id;
 
-    if (isMine || isUserAtBottomRef.current) {
-      scrollToBottom();
-    } else {
-      if (messages.length > 0) {
-        setShowScrollButton(true);
-        setUnreadNewMessages(prev => prev + 1);
+    if (!isLoading) {
+      if (isMine || isUserAtBottomRef.current) {
+        scrollToBottom();
+      } else {
+        if (messages.length > 0) {
+          setShowScrollButton(true);
+          setUnreadNewMessages(prev => prev + 1);
+        }
       }
     }
-  }, [messages, user?.id, scrollToBottom]);
+  }, [messages, user?.id, scrollToBottom, isLoading]);
+
+  // New Effect: Subscribe to presence only when ID is available, without resetting socket
+  useEffect(() => {
+    if (!socketRef.current || !otherUserId) return;
+    socketRef.current.emit('subscribePresence', otherUserId);
+  }, [otherUserId]);
+
+
 
   // --- Socket Logic ---
 
@@ -280,12 +298,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     if (user?.id) initSocket();
 
     return () => { if (socket) socket.disconnect(); };
-  }, [roomId, user?.id, getToken, otherUserId]);
+  }, [roomId, user?.id, getToken]);
 
   useEffect(() => {
     if (!roomId) return;
 
     const fetchMessages = async () => {
+      setIsLoading(true);
       try {
         const token = await getToken();
         // Use standard backend route with query parameter
@@ -297,6 +316,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
         if (!res.ok) {
           console.error("Failed to fetch messages:", res.status);
+          setIsLoading(false);
           return;
         }
 
@@ -319,9 +339,11 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         // Initial load should create specific length reference
         prevMessagesLengthRef.current = mapped.length;
 
-        setTimeout(scrollToBottom, 100);
+        // Wait for rendering then unset loading to allow instant scroll
+        setIsLoading(false);
       } catch (err) {
         console.error("Fetch messages error:", err);
+        setIsLoading(false);
       }
     };
 
@@ -425,44 +447,52 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           onScroll={handleScroll}
           sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50' }}
         >
-          {messages.map((m, index) => {
-            const isMine = m.userId === user?.id;
-            const prevMsg = messages[index - 1]; const nextMsg = messages[index + 1];
-            const currentDate = new Date(m.ts); const prevDate = prevMsg ? new Date(prevMsg.ts) : null;
-            const showDateSeparator = !prevDate || currentDate.toDateString() !== prevDate.toDateString();
-            const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
-            const isNextSameSender = nextMsg && nextMsg.userId === m.userId;
+          {isLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              {messages.map((m, index) => {
+                const isMine = m.userId === user?.id;
+                const prevMsg = messages[index - 1]; const nextMsg = messages[index + 1];
+                const currentDate = new Date(m.ts); const prevDate = prevMsg ? new Date(prevMsg.ts) : null;
+                const showDateSeparator = !prevDate || currentDate.toDateString() !== prevDate.toDateString();
+                const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
+                const isNextSameSender = nextMsg && nextMsg.userId === m.userId;
 
-            return (
-              <div key={m.id}>
-                {showDateSeparator && (
-                  <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
-                    <Box sx={{ bgcolor: "action.disabledBackground", px: 2, py: 0.5, borderRadius: 4 }}>
-                      <Typography variant="caption" color="text.secondary" fontWeight="bold">{getDayString(currentDate, isRTL)}</Typography>
-                    </Box>
-                  </Box>
-                )}
-                <MessageBubble
-                  message={m}
-                  isMine={isMine}
-                  isRTL={isRTL}
-                  onReply={handleReply}
-                  onReact={handleReact}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  avatarUrl={m.userId ? avatarByUserId[m.userId] : undefined}
-                  displayName={(m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
-                  timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
-                  showAvatar={!isNextSameSender}
-                  showName={!isPrevSameSender && !isMine}
-                  isFirstInGroup={!isPrevSameSender}
-                  isLastInGroup={!isNextSameSender}
-                  currentUserId={user?.id}
-                />
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
+                return (
+                  <div key={m.id}>
+                    {showDateSeparator && (
+                      <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
+                        <Box sx={{ bgcolor: "action.disabledBackground", px: 2, py: 0.5, borderRadius: 4 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight="bold">{getDayString(currentDate, isRTL)}</Typography>
+                        </Box>
+                      </Box>
+                    )}
+                    <MessageBubble
+                      message={m}
+                      isMine={isMine}
+                      isRTL={isRTL}
+                      onReply={handleReply}
+                      onReact={handleReact}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      avatarUrl={m.userId ? avatarByUserId[m.userId] : undefined}
+                      displayName={(m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
+                      timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
+                      showAvatar={!isNextSameSender}
+                      showName={!isPrevSameSender && !isMine}
+                      isFirstInGroup={!isPrevSameSender}
+                      isLastInGroup={!isNextSameSender}
+                      currentUserId={user?.id}
+                    />
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </>
+          )}
         </Box>
 
         <Zoom in={showScrollButton}>
