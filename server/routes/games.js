@@ -522,7 +522,8 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
             description: existing.description || '',
             organizerId: existing.organizerId,
             participants: { create: participantsCreate },
-            roles: { create: { userId: existing.organizerId, role: 'ORGANIZER' } }
+            roles: { create: { userId: existing.organizerId, role: 'ORGANIZER' } },
+            sport: existing.sport,
           },
           include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
         })
