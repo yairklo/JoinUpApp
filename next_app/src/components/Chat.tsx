@@ -46,11 +46,12 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const [chatDetails, setChatDetails] = useState<any>(null);
 
   // Logic to determine other user for presence
+  // FIX: Case insensitive check to be safe
   const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
+
   const otherUserId = isPrivate
     ? chatDetails.participants?.find((p: any) => p.userId !== user?.id)?.userId
     : null;
-  const [mySocketId, setMySocketId] = useState<string>("");
 
   const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
@@ -58,12 +59,14 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [unreadNewMessages, setUnreadNewMessages] = useState(0);
 
+  // FIX: Use State for socket to trigger re-renders on connection
   const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isUserAtBottomRef = useRef(true);
 
-  // FIX: Track previous message length to differentiate updates from new messages
+  // Track previous message length to differentiate updates from new messages
   const prevMessagesLengthRef = useRef(0);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -122,7 +125,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     }
   };
 
-  // FIX: This Effect now only runs scroll logic if a NEW message arrived
+  // Run scroll logic only if a NEW message arrived
   useLayoutEffect(() => {
     // Immediate scroll if loading finished and at bottom
     if (!isLoading && messages.length > 0 && isUserAtBottomRef.current) {
@@ -156,7 +159,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     }
   }, [messages, user?.id, scrollToBottom, isLoading]);
 
-  // New Effect: Subscribe to presence only when ID is available, without resetting socket
+  // Subscribe to presence only when ID is available AND socket is connected
   useEffect(() => {
     if (!socketInstance || !otherUserId) return;
     socketInstance.emit('subscribePresence', otherUserId);
@@ -176,7 +179,15 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           withCredentials: true,
           auth: { token }
         });
+
+        // Save socket to State to trigger re-renders for dependency arrays
         setSocketInstance(socket);
+
+        // Connection events
+        socket.on("connect", () => {
+          socket?.emit("joinRoom", roomId);
+          socket?.emit("markAsRead", { roomId, userId: user?.id });
+        });
 
         // Presence updates
         socket.on('presence:update', ({ userId: uid, isOnline }) => {
@@ -185,11 +196,12 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           }
         });
 
-        // Typing updates
+        // Typing updates - FIXED LOGIC to use ID comparison
         socket.on('typing:start', ({ chatId, userName, senderId }) => {
           if (chatId === roomId && senderId !== user?.id) {
             const name = userName || "Someone";
 
+            // Clear existing timeout if exists
             if (typingTimeoutsRef.current[senderId]) {
               clearTimeout(typingTimeoutsRef.current[senderId]);
             }
@@ -200,6 +212,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
               return next;
             });
 
+            // Auto-clear after 3 seconds
             typingTimeoutsRef.current[senderId] = setTimeout(() => {
               setTypingUsers(prev => {
                 const next = new Set(prev);
@@ -366,7 +379,6 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   };
   const handleReply = (msg: ChatMessage) => { setReplyToMessage(msg); setEditingMessage(null); };
   const handleReact = (messageId: string | number, emoji: string) => { socketInstance?.emit("addReaction", { messageId, emoji, userId: user?.id, roomId }); };
-  const otherUserTyping = typingUsers.size > 0;
 
   const getDayString = (date: Date, isRTL: boolean) => {
     const today = new Date(); const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
@@ -378,7 +390,6 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   if (!mounted) return null;
 
   return (
-    // FIX: Changed height to 100% to fill parent container
     <Paper elevation={isWidget ? 0 : 3} dir={isRTL ? "rtl" : "ltr"} sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", borderRadius: isWidget ? 0 : 2, overflow: "hidden", bgcolor: "background.paper" }}>
       {!isWidget && (
         <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
@@ -386,49 +397,49 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             {roomId === "global" ? (isRTL ? "צ'אט כללי" : "Global Chat") : chatName}
           </Typography>
 
-          {/* Status Bar - ALWAYS VISIBLE */}
+          {/* Status Bar Container */}
           <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '26px', mt: 0.5 }}>
 
-            {/* STATE 1: TYPING (Highest Priority) */}
+            {/* STATE 1: TYPING (Visible in ALL chats if someone is typing) */}
             {typingUsers.size > 0 ? (
               <Typography variant="caption" sx={{
                 color: 'secondary.main',
                 fontWeight: 'bold',
                 fontStyle: 'italic',
                 animation: 'pulse 1.5s infinite',
-                display: 'flex', alignItems: 'center', gap: 0.5
+                display: 'flex', alignItems: 'center', gap: 0.5,
+                '@keyframes pulse': { '0%': { opacity: 0.6 }, '50%': { opacity: 1 }, '100%': { opacity: 0.6 } }
               }}>
                 <span>✎</span>
                 {isRTL ? "מקליד/ה..." : `${Array.from(typingUsers)[0]} is typing...`}
               </Typography>
             ) : (
-              /* STATE 2: PRESENCE (Default) */
-              /* Show this block even if chatDetails is loading to prevent layout shift */
-              <Box sx={{
-                display: 'flex', alignItems: 'center',
-                opacity: (isPrivate && otherUserId) ? 1 : 0.5 // Dim if loading/unknown
-              }}>
-                {isOtherUserOnline ? (
-                  // ONLINE STATE
-                  <Box sx={{
-                    display: 'flex', alignItems: 'center',
-                    bgcolor: 'rgba(76, 175, 80, 0.1)',
-                    px: 1, py: 0.25, borderRadius: 4,
-                    border: '1px solid', borderColor: 'success.light'
-                  }}>
-                    <Box sx={{ width: 8, height: 8, bgcolor: 'success.main', borderRadius: '50%', mr: 1, ml: isRTL ? 1 : 0 }} />
-                    <Typography variant="caption" fontWeight="bold" color="success.main">
-                      {isRTL ? "מחובר/ת" : "Online"}
+              /* STATE 2: PRESENCE (Strictly for Private Chats) */
+              (isPrivate && otherUserId) ? (
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {isOtherUserOnline ? (
+                    // ONLINE STATE
+                    <Box sx={{
+                      display: 'flex', alignItems: 'center',
+                      bgcolor: 'rgba(76, 175, 80, 0.1)',
+                      px: 1, py: 0.25, borderRadius: 4,
+                      border: '1px solid', borderColor: 'success.light'
+                    }}>
+                      <Box component="span" sx={{ width: 8, height: 8, bgcolor: 'success.main', borderRadius: '50%', mr: 1, ml: isRTL ? 1 : 0 }} />
+                      <Typography variant="caption" fontWeight="bold" color="success.main">
+                        {isRTL ? "מחובר/ת" : "Online"}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    // OFFLINE STATE
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', display: 'flex', alignItems: 'center' }}>
+                      <Box component="span" sx={{ width: 6, height: 6, bgcolor: 'rgba(255,255,255,0.5)', borderRadius: '50%', mr: 1, ml: isRTL ? 1 : 0 }} />
+                      {isRTL ? "לא מחובר/ת" : "Offline"}
                     </Typography>
-                  </Box>
-                ) : (
-                  // OFFLINE STATE (Default fallback)
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
-                    <Box component="span" sx={{ width: 6, height: 6, bgcolor: 'text.disabled', borderRadius: '50%', mr: 1, ml: isRTL ? 1 : 0 }} />
-                    {isRTL ? "לא מחובר/ת" : "Offline"}
-                  </Typography>
-                )}
-              </Box>
+                  )}
+                </Box>
+              ) : null
+              // NOTE: For Group chats (not private), we show nothing if no one is typing.
             )}
           </Box>
         </Box>
