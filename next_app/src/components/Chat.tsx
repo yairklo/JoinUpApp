@@ -42,10 +42,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
 
-  const isPrivate = roomId.startsWith("private_");
-  const otherUserId = isPrivate
-    ? roomId.replace("private_", "").split("_").find(id => id !== user?.id)
+  const [chatDetails, setChatDetails] = useState<any>(null);
+
+  // Logic to determine other user for presence
+  const otherUserId = chatDetails?.type === 'PRIVATE'
+    ? chatDetails.participants?.find((p: any) => p.userId !== user?.id)?.userId
     : null;
+  const isPrivate = chatDetails?.type === 'PRIVATE';
   const [mySocketId, setMySocketId] = useState<string>("");
 
   const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
@@ -68,6 +71,26 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Fetch Chat Details
+  useEffect(() => {
+    if (!roomId || roomId === 'global') return;
+    const fetchDetails = async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_BASE}/api/chats/${roomId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setChatDetails(data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch chat details", e);
+      }
+    };
+    fetchDetails();
+  }, [roomId, API_BASE, getToken]);
 
   // --- Smart Scroll Logic ---
 
@@ -199,11 +222,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           }
         });
 
-        socket.on("typing", (payload) => {
-          if (!payload.roomId || payload.roomId === roomId) {
-            setTypingUsers((prev) => ({ ...prev, [payload.senderId]: payload.isTyping }));
-          }
-        });
+
 
         socket.on("messageReaction", (payload: { messageId: string | number; reactions: Record<string, Reaction>; roomId?: string }) => {
           if (!payload.roomId || payload.roomId === roomId) {
@@ -229,7 +248,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     if (user?.id) initSocket();
 
     return () => { if (socket) socket.disconnect(); };
-  }, [roomId, user?.id, getToken]);
+  }, [roomId, user?.id, getToken, otherUserId]);
 
   useEffect(() => {
     if (!roomId) return;
