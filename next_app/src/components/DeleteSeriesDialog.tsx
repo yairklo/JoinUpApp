@@ -133,20 +133,20 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth dir="rtl">
             <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
                 <DeleteForeverIcon />
-                Delete Series: {seriesName}
+                מחיקת סדרה: {seriesName}
             </DialogTitle>
             <DialogContent>
                 <Box mb={2}>
-                    <Alert severity="warning" icon={<WarningIcon />}>
-                        This action is permanent and cannot be undone.
+                    <Alert severity="warning" icon={<WarningIcon sx={{ ml: 1 }} />}>
+                        פעולה זו היא בלתי הפיכה ולא ניתן לבטל אותה.
                     </Alert>
                 </Box>
 
                 <Typography variant="body1" gutterBottom>
-                    How would you like to handle the <b>{games.length} upcoming games</b> linked to this series?
+                    נמצאו <b>{games.length} משחקים עתידיים</b> בסדרה זו. כיצד תרצה להמשיך?
                 </Typography>
 
                 <RadioGroup
@@ -157,33 +157,34 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
                         value="DELETE_ALL"
                         control={<Radio color="error" />}
                         label={
-                            <Box>
-                                <Typography variant="body2" fontWeight="bold">Delete Everything</Typography>
-                                <Typography variant="caption" color="text.secondary">Remove series and cancel all future games.</Typography>
+                            <Box sx={{ mr: 1 }}>
+                                <Typography variant="body2" fontWeight="bold">מחק הכל</Typography>
+                                <Typography variant="caption" color="text.secondary">מחק את הסדרה ובטל את כל המשחקים העתידיים.</Typography>
                             </Box>
                         }
-                        sx={{ mb: 1 }}
+                        sx={{ mb: 1, ml: 0 }}
                     />
                     <FormControlLabel
                         value="KEEP_GAMES"
                         control={<Radio color="primary" />}
                         label={
-                            <Box>
-                                <Typography variant="body2" fontWeight="bold">Keep Games</Typography>
-                                <Typography variant="caption" color="text.secondary">Delete the series grouping, but keep future games as standalone events.</Typography>
+                            <Box sx={{ mr: 1 }}>
+                                <Typography variant="body2" fontWeight="bold">שמור משחקים</Typography>
+                                <Typography variant="caption" color="text.secondary">מחק את הסדרה אך השאר את המשחקים העתידיים כאירועים נפרדים.</Typography>
                             </Box>
                         }
-                        sx={{ mb: 1 }}
+                        sx={{ mb: 1, ml: 0 }}
                     />
                     <FormControlLabel
                         value="SELECTIVE"
                         control={<Radio color="default" />}
                         label={
-                            <Box>
-                                <Typography variant="body2" fontWeight="bold">Select Games to Delete</Typography>
-                                <Typography variant="caption" color="text.secondary">Choose which games to cancel.</Typography>
+                            <Box sx={{ mr: 1 }}>
+                                <Typography variant="body2" fontWeight="bold">בחר משחקים למחיקה</Typography>
+                                <Typography variant="caption" color="text.secondary">בחר ידנית אילו משחקים לבטל.</Typography>
                             </Box>
                         }
+                        sx={{ ml: 0 }}
                     />
                 </RadioGroup>
 
@@ -194,15 +195,15 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
                         ) : (
                             <>
                                 <Box p={1} bgcolor="action.hover" display="flex" justifyContent="space-between" alignItems="center">
-                                    <Typography variant="caption" fontWeight="bold">Upcoming Games</Typography>
+                                    <Typography variant="caption" fontWeight="bold">משחקים עתידיים</Typography>
                                     <Button size="small" onClick={handleSelectAll} sx={{ fontSize: '0.7rem' }}>
-                                        {selectedGameIds.length === games.length ? "Deselect All" : "Select All"}
+                                        {selectedGameIds.length === games.length ? "נקה בחירה" : "בחר הכל"}
                                     </Button>
                                 </Box>
                                 <List dense disablePadding>
                                     {games.map(game => (
                                         <ListItem key={game.id} disablePadding>
-                                            <ListItemButton onClick={() => handleToggleGame(game.id)}>
+                                            <ListItemButton onClick={() => handleToggleGame(game.id)} sx={{ textAlign: 'right' }}>
                                                 <ListItemIcon sx={{ minWidth: 32 }}>
                                                     <Checkbox
                                                         edge="start"
@@ -214,13 +215,12 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
                                                     />
                                                 </ListItemIcon>
                                                 <ListItemText
-                                                    primary={new Date(game.date).toLocaleString()}
-                                                    secondary={game.fieldLocation || "No Location"}
+                                                    primary={new Date(game.date).toLocaleString('he-IL')}
                                                 />
                                             </ListItemButton>
                                         </ListItem>
                                     ))}
-                                    {games.length === 0 && <Box p={2}><Typography variant="caption">No upcoming games found.</Typography></Box>}
+                                    {games.length === 0 && <Box p={2}><Typography variant="caption">לא נמצאו משחקים עתידיים.</Typography></Box>}
                                 </List>
                             </>
                         )}
@@ -234,8 +234,8 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
                 )}
 
             </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose} disabled={loading}>Cancel</Button>
+            <DialogActions sx={{ justifyContent: 'space-between' }}>
+                <Button onClick={onClose} disabled={loading} color="inherit">ביטול</Button>
                 <Button
                     variant="contained"
                     color="error"
@@ -243,7 +243,7 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
                     disabled={loading || (strategy === 'SELECTIVE' && selectedGameIds.length === 0)}
                     startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <DeleteForeverIcon />}
                 >
-                    {loading ? "Deleting..." : "Confirm Deletion"}
+                    {loading ? "מוחק..." : "אשר מחיקה"}
                 </Button>
             </DialogActions>
         </Dialog>
