@@ -16,11 +16,15 @@ interface GameUpdateEvent {
 interface GameCreatedEvent {
     game: Game;
 }
+interface GameDeletedEvent {
+    gameIds: string[];
+}
 
 interface GameUpdateContextProps {
     notifyGameUpdate: (gameId: string, action: GameAction, userId: string) => void;
     subscribe: (callback: (event: GameUpdateEvent) => void) => () => void;
     subscribeToCreated: (callback: (event: GameCreatedEvent) => void) => () => void;
+    subscribeToDeleted: (callback: (event: GameDeletedEvent) => void) => () => void;
 }
 
 const GameUpdateContext = createContext<GameUpdateContextProps | undefined>(undefined);
@@ -28,6 +32,7 @@ const GameUpdateContext = createContext<GameUpdateContextProps | undefined>(unde
 export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
     const [listeners] = useState(() => new Set<(event: GameUpdateEvent) => void>());
     const [createdListeners] = useState(() => new Set<(event: GameCreatedEvent) => void>());
+    const [deletedListeners] = useState(() => new Set<(event: GameDeletedEvent) => void>());
 
     const { getToken } = useAuth();
     const socketRef = useRef<Socket | null>(null);
@@ -63,6 +68,12 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
                     createdListeners.forEach(cb => cb(event));
                 });
 
+                // Listen for game deletion
+                socket.on("game:deleted", (payload: { gameIds: string[] }) => {
+                    // console.log("GameUpdateContext: game:deleted received", payload.gameIds);
+                    deletedListeners.forEach(cb => cb(payload));
+                });
+
                 socket.on("error", (err) => {
                     console.error("GameSocket error", err);
                 });
@@ -77,7 +88,7 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             if (socket) socket.disconnect();
         };
-    }, [getToken, createdListeners]);
+    }, [getToken, createdListeners, deletedListeners]);
 
     const notifyGameUpdate = useCallback((gameId: string, action: GameAction, userId: string) => {
         const event: GameUpdateEvent = { gameId, action, userId };
@@ -98,8 +109,15 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
         };
     }, [createdListeners]);
 
+    const subscribeToDeleted = useCallback((callback: (event: GameDeletedEvent) => void) => {
+        deletedListeners.add(callback);
+        return () => {
+            deletedListeners.delete(callback);
+        };
+    }, [deletedListeners]);
+
     return (
-        <GameUpdateContext.Provider value={{ notifyGameUpdate, subscribe, subscribeToCreated }}>
+        <GameUpdateContext.Provider value={{ notifyGameUpdate, subscribe, subscribeToCreated, subscribeToDeleted }}>
             {children}
         </GameUpdateContext.Provider>
     );
@@ -131,4 +149,14 @@ export const useGameCreatedListener = (callback: (event: GameCreatedEvent) => vo
         const unsubscribe = subscribeToCreated(callback);
         return () => unsubscribe();
     }, [subscribeToCreated, callback]);
+};
+
+// Helper hook for deletion events
+export const useGameDeletedListener = (callback: (event: GameDeletedEvent) => void) => {
+    const { subscribeToDeleted } = useGameUpdate();
+
+    useEffect(() => {
+        const unsubscribe = subscribeToDeleted(callback);
+        return () => unsubscribe();
+    }, [subscribeToDeleted, callback]);
 };

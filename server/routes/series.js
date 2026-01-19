@@ -364,6 +364,13 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
 
     await prisma.$transaction(ops);
 
+    if (idsToDelete.length > 0) {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('game:deleted', { gameIds: idsToDelete });
+      }
+    }
+
     return res.json({ ok: true, deletedGames: idsToDelete.length, detachedGames: idsToDetach.length });
   } catch (e) {
     console.error('Series delete error:', e);

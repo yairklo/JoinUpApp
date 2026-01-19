@@ -1401,6 +1401,11 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       prisma.game.delete({ where: { id: gameId } })
     ]);
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('game:deleted', { gameIds: [gameId] });
+    }
+
     res.json({ message: 'Game deleted successfully' });
   } catch (error) {
     console.error('Delete game error:', error);
