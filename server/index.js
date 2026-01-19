@@ -671,6 +671,7 @@ async function runWeeklySeriesGeneration() {
               start: nextStart,
               duration: Math.round(Number(s.duration) || 1),
               maxPlayers: Number(s.maxPlayers),
+              price: s.price ?? 0,
               isOpenToJoin: true,
               isFriendsOnly: false,
               lotteryEnabled: false,
