@@ -1373,18 +1373,34 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete game (organizer only)
+// Delete game (organizer or admin)
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const game = await prisma.game.findUnique({ where: { id: req.params.id } });
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
     }
-    if (game.organizerId !== req.user.id) {
-      return res.status(403).json({ error: 'Only organizer can delete game' });
+
+    const isAdmin = !!req.user?.isAdmin;
+    if (game.organizerId !== req.user.id && !isAdmin) {
+      return res.status(403).json({ error: 'Only organizer or admin can delete game' });
     }
-    await prisma.participation.deleteMany({ where: { gameId: game.id } });
-    await prisma.game.delete({ where: { id: game.id } });
+
+    const gameId = game.id;
+
+    // Manual Cascade Delete (Transaction for safety)
+    // Note: We explicitly delete related records since we don't have onDelete: Cascade in all schema relations
+    await prisma.$transaction([
+      prisma.participation.deleteMany({ where: { gameId } }),
+      prisma.gameRole.deleteMany({ where: { gameId } }),
+      prisma.team.deleteMany({ where: { gameId } }),
+      // Chat cleanup (Implicit relation by ID)
+      prisma.chatParticipant.deleteMany({ where: { chatId: gameId } }),
+      prisma.chatRoom.deleteMany({ where: { id: gameId } }),
+      // Finally Game
+      prisma.game.delete({ where: { id: gameId } })
+    ]);
+
     res.json({ message: 'Game deleted successfully' });
   } catch (error) {
     console.error('Delete game error:', error);

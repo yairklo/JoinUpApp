@@ -30,6 +30,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditCalendarIcon from "@mui/icons-material/EditCalendar";
 import UpdateIcon from "@mui/icons-material/Update";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import DeleteSeriesDialog from "./DeleteSeriesDialog";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -48,6 +49,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [customDates, setCustomDates] = useState<string[]>([]);
@@ -134,20 +136,8 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
     }
   };
 
-  const handleDeleteSeries = async () => {
-    if (!seriesId || !confirm("WARNING: This will delete the series and ALL future games linked to it. Are you sure?")) return;
-
-    setLoading(true);
-    try {
-      const token = await getToken();
-      await fetch(`${API_BASE}/api/series/${seriesId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      router.push("/");
-    } catch (err) {
-      console.error(err);
-    }
+  const handleDeleteSeriesSuccess = () => {
+    router.push("/");
   };
 
   const handleToggleSubscribe = async () => {
@@ -264,7 +254,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
               <Button
                 color="error"
                 startIcon={<DeleteForeverIcon />}
-                onClick={handleDeleteSeries}
+                onClick={() => setDeleteDialogOpen(true)}
               >
                 מחק סדרה ומשחקים עתידיים
               </Button>
@@ -277,6 +267,14 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
             </Button>
           </DialogActions>
         </Dialog>
+
+        <DeleteSeriesDialog
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          seriesId={seriesId}
+          seriesName="Series"
+          onSuccess={handleDeleteSeriesSuccess}
+        />
       </Box>
     );
   }

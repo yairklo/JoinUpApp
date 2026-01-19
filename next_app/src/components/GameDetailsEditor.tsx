@@ -25,6 +25,7 @@ import Paper from "@mui/material/Paper";
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
 import { SPORT_MAPPING } from "@/utils/sports";
 
@@ -138,6 +139,24 @@ export default function GameDetailsEditor({
   };
 
   const handleClose = () => setOpen(false);
+
+  const handleDeleteGame = async () => {
+    if (!confirm("Are you sure you want to delete this game? This action cannot be undone.")) return;
+    setLoading(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/games/${gameId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to delete game");
+      router.push("/");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to delete game");
+      setLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -375,15 +394,25 @@ export default function GameDetailsEditor({
             </Grid>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ direction: "ltr" }}>
-          <Button onClick={handleClose} color="inherit">ביטול</Button>
+        <DialogActions sx={{ direction: "ltr", display: "flex", justifyContent: "space-between" }}>
           <Button
-            onClick={handleSave}
-            variant="contained"
+            color="error"
+            onClick={handleDeleteGame}
+            startIcon={<DeleteForeverIcon />}
             disabled={loading}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : "שמור שינויים"}
+            מחק משחק
           </Button>
+          <Box>
+            <Button onClick={handleClose} color="inherit" sx={{ mr: 1 }}>ביטול</Button>
+            <Button
+              onClick={handleSave}
+              variant="contained"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} color="inherit" /> : "שמור שינויים"}
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </>

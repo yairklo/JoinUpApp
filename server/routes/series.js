@@ -289,9 +289,13 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
 // - Detach past games (set seriesId=null) to keep history
 // - Remove subscribers
 // - Delete the series record
+// Delete a series with strategy
 router.delete('/:seriesId', authenticateToken, async (req, res) => {
   try {
     const { seriesId } = req.params;
+    const { strategy = 'DELETE_ALL', gameIdsToDelete = [] } = req.body || {};
+    // strategy: 'DELETE_ALL' | 'KEEP_GAMES' | 'SELECTIVE'
+
     const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
     if (!series) return res.status(404).json({ error: 'Series not found' });
     const isAdmin = !!req.user?.isAdmin;
@@ -300,35 +304,60 @@ router.delete('/:seriesId', authenticateToken, async (req, res) => {
     }
 
     const now = new Date();
-    // Collect future game ids
+
+    // Fetch future games to decide what to do
     const futureGames = await prisma.game.findMany({
       where: { seriesId, start: { gte: now } },
       select: { id: true }
     });
-    const futureGameIds = futureGames.map(g => g.id);
+    const futureIds = futureGames.map(g => g.id);
 
-    // Delete in safe order to satisfy FKs:
-    // 1) participants (due to FK to team and game)
-    // 2) roles (FK to game)
-    // 3) teams (FK to game)
-    // 4) games (future only)
-    // 5) detach series from past games
-    // 6) remove subscribers
-    // 7) delete the series row
-    const ops = [];
-    if (futureGameIds.length) {
-      ops.push(prisma.participation.deleteMany({ where: { gameId: { in: futureGameIds } } }));
-      ops.push(prisma.gameRole.deleteMany({ where: { gameId: { in: futureGameIds } } }));
-      ops.push(prisma.team.deleteMany({ where: { gameId: { in: futureGameIds } } }));
-      ops.push(prisma.game.deleteMany({ where: { id: { in: futureGameIds } } }));
+    let idsToDelete = [];
+    let idsToDetach = [];
+
+    if (strategy === 'DELETE_ALL') {
+      idsToDelete = futureIds;
+    } else if (strategy === 'KEEP_GAMES') {
+      idsToDetach = futureIds;
+    } else if (strategy === 'SELECTIVE') {
+      // Only delete explicit IDs, detach the rest of future
+      idsToDelete = futureIds.filter(id => gameIdsToDelete.includes(id));
+      idsToDetach = futureIds.filter(id => !gameIdsToDelete.includes(id));
+    } else {
+      // Fallback default
+      idsToDelete = futureIds;
     }
+
+    const ops = [];
+
+    // 1. Delete Targets
+    if (idsToDelete.length > 0) {
+      // Cascade delete dependencies manually
+      ops.push(prisma.participation.deleteMany({ where: { gameId: { in: idsToDelete } } }));
+      ops.push(prisma.gameRole.deleteMany({ where: { gameId: { in: idsToDelete } } }));
+      ops.push(prisma.team.deleteMany({ where: { gameId: { in: idsToDelete } } }));
+      // Chat cleanup
+      ops.push(prisma.chatParticipant.deleteMany({ where: { chatId: { in: idsToDelete } } }));
+      ops.push(prisma.chatRoom.deleteMany({ where: { id: { in: idsToDelete } } }));
+      // Games
+      ops.push(prisma.game.deleteMany({ where: { id: { in: idsToDelete } } }));
+    }
+
+    // 2. Detach Targets (Future)
+    if (idsToDetach.length > 0) {
+      ops.push(prisma.game.updateMany({ where: { id: { in: idsToDetach } }, data: { seriesId: null } }));
+    }
+
+    // 3. Detach Past Games (Always detach, never delete history automatically here)
     ops.push(prisma.game.updateMany({ where: { seriesId, start: { lt: now } }, data: { seriesId: null } }));
+
+    // 4. Series Cleanup
     ops.push(prisma.seriesParticipant.deleteMany({ where: { seriesId } }));
     ops.push(prisma.gameSeries.delete({ where: { id: seriesId } }));
 
     await prisma.$transaction(ops);
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, deletedGames: idsToDelete.length, detachedGames: idsToDetach.length });
   } catch (e) {
     console.error('Series delete error:', e);
     return res.status(500).json({ error: 'Failed to delete series' });
