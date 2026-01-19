@@ -220,6 +220,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                                 {joined ? (
                                     <LeaveGameButton
                                         gameId={g.id}
+                                        currentPlayers={g.currentPlayers}
                                         onLeft={() => {
                                             notifyGameUpdate(g.id, 'leave', userId);
                                             router.refresh();
@@ -299,6 +300,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                             {joined ? (
                                 <LeaveGameButton
                                     gameId={g.id}
+                                    currentPlayers={g.currentPlayers}
                                     onLeft={() => {
                                         notifyGameUpdate(g.id, 'leave', userId);
                                         router.refresh();

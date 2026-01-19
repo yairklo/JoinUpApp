@@ -122,6 +122,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
             >
               <LeaveGameButton
                 gameId={g.id}
+                currentPlayers={g.currentPlayers}
                 onLeft={() => {
                   notifyGameUpdate(g.id, 'leave', userId);
                   router.refresh();
