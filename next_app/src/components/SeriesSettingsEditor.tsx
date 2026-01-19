@@ -15,10 +15,15 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
+import Typography from "@mui/material/Typography";
 
 // Icons
 import SettingsIcon from "@mui/icons-material/Settings";
 import SaveIcon from "@mui/icons-material/Save";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+
+// Components
+import DeleteSeriesDialog from "./DeleteSeriesDialog";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -42,6 +47,7 @@ export default function SeriesSettingsEditor({
     const [loading, setLoading] = useState(false);
     const [hours, setHours] = useState<string>(initialAutoOpenHours ? String(initialAutoOpenHours) : "");
     const [title, setTitle] = useState(initialTitle || "");
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     if (!canManage) return null;
 
@@ -82,6 +88,11 @@ export default function SeriesSettingsEditor({
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleDeleteSuccess = () => {
+        setDeleteDialogOpen(false);
+        router.push('/');
     };
 
     return (
@@ -129,8 +140,24 @@ export default function SeriesSettingsEditor({
                             />
                         </Grid>
                     </Grid>
+
+                    <Box mt={4} pt={2} borderTop={1} borderColor="divider">
+                        <Typography variant="subtitle2" color="error" gutterBottom fontWeight="bold">
+                            אזור מסוכן
+                        </Typography>
+                        <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<DeleteForeverIcon />}
+                            onClick={() => setDeleteDialogOpen(true)}
+                            fullWidth
+                        >
+                            מחק סדרה ומשחקים עתידיים
+                        </Button>
+                    </Box>
+
                 </DialogContent>
-                <DialogActions sx={{ direction: "ltr" }}>
+                <DialogActions sx={{ direction: "ltr", justifyContent: 'space-between' }}>
                     <Button onClick={handleClose} color="inherit">ביטול</Button>
                     <Button
                         onClick={handleSave}
@@ -142,6 +169,14 @@ export default function SeriesSettingsEditor({
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <DeleteSeriesDialog
+                open={deleteDialogOpen}
+                onClose={() => setDeleteDialogOpen(false)}
+                seriesId={seriesId}
+                seriesName={title || initialTitle || "Series"}
+                onSuccess={handleDeleteSuccess}
+            />
         </>
     );
 }

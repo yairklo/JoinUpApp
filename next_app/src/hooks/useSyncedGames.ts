@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useGameUpdateListener, useGameCreatedListener } from "@/context/GameUpdateContext";
+import { useGameUpdateListener, useGameCreatedListener, useGameDeletedListener } from "@/context/GameUpdateContext";
 import { Game } from "@/types/game";
 
 export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (game: Game) => boolean) {
@@ -35,6 +35,10 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
     }, []);
 
     useGameCreatedListener(handleGameCreated);
+
+    useGameDeletedListener(({ gameIds }) => {
+        setGames((prev) => prev.filter(g => !gameIds.includes(g.id)));
+    });
 
     useGameUpdateListener(({ gameId, action, userId }) => {
         setGames((prev) =>

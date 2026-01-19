@@ -87,6 +87,20 @@ export default function FloatingChatWindow() {
                     }
                 });
 
+                socket.on("connect_error", async (err: any) => {
+                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
+                        try {
+                            const newToken = await getToken();
+                            if (newToken && socket) {
+                                socket.auth = { token: newToken };
+                                socket.connect();
+                            }
+                        } catch (e) {
+                            console.error("Token refresh failed", e);
+                        }
+                    }
+                });
+
                 // Presence
                 socket.on('presence:update', ({ userId: uid, isOnline }: { userId: string, isOnline: boolean }) => {
                     if (uid === otherUserId) {

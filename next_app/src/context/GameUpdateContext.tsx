@@ -16,11 +16,33 @@ interface GameUpdateEvent {
 interface GameCreatedEvent {
     game: Game;
 }
+interface GameDeletedEvent {
+    gameIds: string[];
+}
+
+// Types
+export interface SeriesPayload {
+    id: string;
+    name: string;
+    fieldName: string;
+    time: string;
+    dayOfWeek?: number;
+    subscriberCount: number;
+    sport?: string;
+    subscriberIds?: string[];
+}
+
+interface SeriesDeletedEvent {
+    seriesId: string;
+}
 
 interface GameUpdateContextProps {
     notifyGameUpdate: (gameId: string, action: GameAction, userId: string) => void;
     subscribe: (callback: (event: GameUpdateEvent) => void) => () => void;
     subscribeToCreated: (callback: (event: GameCreatedEvent) => void) => () => void;
+    subscribeToDeleted: (callback: (event: GameDeletedEvent) => void) => () => void;
+    subscribeToSeriesCreated: (callback: (series: SeriesPayload) => void) => () => void;
+    subscribeToSeriesDeleted: (callback: (event: SeriesDeletedEvent) => void) => () => void;
 }
 
 const GameUpdateContext = createContext<GameUpdateContextProps | undefined>(undefined);
@@ -28,6 +50,9 @@ const GameUpdateContext = createContext<GameUpdateContextProps | undefined>(unde
 export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
     const [listeners] = useState(() => new Set<(event: GameUpdateEvent) => void>());
     const [createdListeners] = useState(() => new Set<(event: GameCreatedEvent) => void>());
+    const [deletedListeners] = useState(() => new Set<(event: GameDeletedEvent) => void>());
+    const [seriesCreatedListeners] = useState(() => new Set<(series: SeriesPayload) => void>());
+    const [seriesDeletedListeners] = useState(() => new Set<(event: SeriesDeletedEvent) => void>());
 
     const { getToken } = useAuth();
     const socketRef = useRef<Socket | null>(null);
@@ -38,8 +63,6 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
 
         const initSocket = async () => {
             const base = process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
-            // Basic health check to ensure backend is ready (optional but good practice)
-            // fetch(`${base.replace(/\/$/, "")}/api/health`).catch(() => {});
 
             try {
                 const token = await getToken();
@@ -56,11 +79,37 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
                     // console.log("GameUpdateContext: Socket connected", socket?.id);
                 });
 
+                socket.on("connect_error", async (err: any) => {
+                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
+                        try {
+                            const newToken = await getToken();
+                            if (newToken && socket) {
+                                socket.auth = { token: newToken };
+                                socket.connect();
+                            }
+                        } catch (e) {
+                            console.error("Token refresh failed", e);
+                        }
+                    }
+                });
+
                 // Listen for game creation (Delta Update)
                 socket.on("game:created", (game: Game) => {
-                    // console.log("GameUpdateContext: game:created received", game.id);
                     const event: GameCreatedEvent = { game };
                     createdListeners.forEach(cb => cb(event));
+                });
+
+                // Listen for game deletion
+                socket.on("game:deleted", (payload: { gameIds: string[] }) => {
+                    deletedListeners.forEach(cb => cb(payload));
+                });
+
+                // Listen for series events
+                socket.on("series:created", (series: SeriesPayload) => {
+                    seriesCreatedListeners.forEach(cb => cb(series));
+                });
+                socket.on("series:deleted", (payload: SeriesDeletedEvent) => {
+                    seriesDeletedListeners.forEach(cb => cb(payload));
                 });
 
                 socket.on("error", (err) => {
@@ -77,7 +126,7 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             if (socket) socket.disconnect();
         };
-    }, [getToken, createdListeners]);
+    }, [getToken, createdListeners, deletedListeners, seriesCreatedListeners, seriesDeletedListeners]);
 
     const notifyGameUpdate = useCallback((gameId: string, action: GameAction, userId: string) => {
         const event: GameUpdateEvent = { gameId, action, userId };
@@ -98,8 +147,36 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
         };
     }, [createdListeners]);
 
+    const subscribeToDeleted = useCallback((callback: (event: GameDeletedEvent) => void) => {
+        deletedListeners.add(callback);
+        return () => {
+            deletedListeners.delete(callback);
+        };
+    }, [deletedListeners]);
+
+    const subscribeToSeriesCreated = useCallback((callback: (series: SeriesPayload) => void) => {
+        seriesCreatedListeners.add(callback);
+        return () => {
+            seriesCreatedListeners.delete(callback);
+        };
+    }, [seriesCreatedListeners]);
+
+    const subscribeToSeriesDeleted = useCallback((callback: (event: SeriesDeletedEvent) => void) => {
+        seriesDeletedListeners.add(callback);
+        return () => {
+            seriesDeletedListeners.delete(callback);
+        };
+    }, [seriesDeletedListeners]);
+
     return (
-        <GameUpdateContext.Provider value={{ notifyGameUpdate, subscribe, subscribeToCreated }}>
+        <GameUpdateContext.Provider value={{
+            notifyGameUpdate,
+            subscribe,
+            subscribeToCreated,
+            subscribeToDeleted,
+            subscribeToSeriesCreated,
+            subscribeToSeriesDeleted
+        }}>
             {children}
         </GameUpdateContext.Provider>
     );
@@ -131,4 +208,31 @@ export const useGameCreatedListener = (callback: (event: GameCreatedEvent) => vo
         const unsubscribe = subscribeToCreated(callback);
         return () => unsubscribe();
     }, [subscribeToCreated, callback]);
+};
+
+// Helper hook for deletion events
+export const useGameDeletedListener = (callback: (event: GameDeletedEvent) => void) => {
+    const { subscribeToDeleted } = useGameUpdate();
+
+    useEffect(() => {
+        const unsubscribe = subscribeToDeleted(callback);
+        return () => unsubscribe();
+    }, [subscribeToDeleted, callback]);
+};
+
+// Helper hooks for Series
+export const useSeriesCreatedListener = (callback: (series: SeriesPayload) => void) => {
+    const { subscribeToSeriesCreated } = useGameUpdate();
+    useEffect(() => {
+        const unsubscribe = subscribeToSeriesCreated(callback);
+        return () => unsubscribe();
+    }, [subscribeToSeriesCreated, callback]);
+};
+
+export const useSeriesDeletedListener = (callback: (event: SeriesDeletedEvent) => void) => {
+    const { subscribeToSeriesDeleted } = useGameUpdate();
+    useEffect(() => {
+        const unsubscribe = subscribeToSeriesDeleted(callback);
+        return () => unsubscribe();
+    }, [subscribeToSeriesDeleted, callback]);
 };

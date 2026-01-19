@@ -5,6 +5,100 @@ const prisma = new PrismaClient();
 
 const router = express.Router();
 
+function mapGameForClient(game) {
+  if (!game) return game;
+  const start = new Date(game.start);
+  const yyyy = start.getFullYear();
+  const mm = String(start.getMonth() + 1).padStart(2, '0');
+  const dd = String(start.getDate()).padStart(2, '0');
+  const hh = String(start.getHours()).padStart(2, '0');
+  const mi = String(start.getMinutes()).padStart(2, '0');
+  const date = `${yyyy}-${mm}-${dd}`;
+  const time = `${hh}:${mi}`;
+  const allParts = Array.isArray(game?.participants) ? game.participants : [];
+  const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
+  const waitlisted = allParts.filter(p => p.status === 'WAITLISTED');
+  const totalSignups = allParts.length;
+  const confirmedCount = confirmed.length;
+  const waitlistCount = waitlisted.length;
+  const now = new Date();
+  const lotteryAtIso = game.lotteryAt ? new Date(game.lotteryAt).toISOString() : null;
+  const lotteryPending = !!game.lotteryEnabled && !game.lotteryExecutedAt && !!game.lotteryAt && now < new Date(game.lotteryAt);
+  const overbooked = !!game.lotteryEnabled && !game.lotteryExecutedAt && totalSignups > game.maxPlayers;
+  const participants = confirmed.map(p => ({
+    id: p.userId,
+    name: p.user?.name || null,
+    avatar: p.user?.imageUrl || null,
+    teamId: p.teamId || null
+  }));
+  const waitlistParticipants = waitlisted.map(p => ({
+    id: p.userId,
+    name: p.user?.name || null,
+    avatar: p.user?.imageUrl || null
+  }));
+  const managers = (game.roles || [])
+    .filter(r => r.role !== 'ORGANIZER')
+    .map(r => ({
+      id: r.userId,
+      name: r.user?.name || null,
+      avatar: r.user?.imageUrl || null,
+      role: r.role
+    }));
+  const teams = (game?.teams ? game.teams : []).map(t => {
+    const playerIds = allParts
+      .filter(p => p && p.teamId === t.id)
+      .map(p => p.userId)
+      .filter(Boolean);
+    return {
+      id: t.id,
+      name: t.name,
+      color: t.color,
+      playerIds: playerIds || []
+    };
+  });
+  return {
+    id: game.id,
+    title: game.title || null,
+    seriesId: game.seriesId || null,
+    fieldId: game.fieldId,
+    fieldName: game.field?.name || '',
+    fieldLocation: game.field?.location || '',
+    isFriendsOnly: !!game.isFriendsOnly,
+    friendsOnlyUntil: game.friendsOnlyUntil ? new Date(game.friendsOnlyUntil).toISOString() : null,
+    lotteryEnabled: !!game.lotteryEnabled,
+    lotteryAt: lotteryAtIso,
+    organizerInLottery: !!game.organizerInLottery,
+    fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
+    fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
+    customLat: typeof game.customLat === 'number' ? game.customLat : null,
+    customLng: typeof game.customLng === 'number' ? game.customLng : null,
+    customLocation: game.customLocation || null,
+    date,
+    time,
+    duration: game.duration,
+    maxPlayers: game.maxPlayers,
+    teamSize: game.teamSize || null,
+    price: game.price || null,
+    currentPlayers: confirmedCount,
+    totalSignups,
+    confirmedCount,
+    waitlistCount,
+    lotteryPending,
+    overbooked,
+    description: game.description || '',
+    isOpenToJoin: game.isOpenToJoin,
+    participants: participants || [],
+    waitlistParticipants: waitlistParticipants || [],
+    organizerId: game.organizerId,
+    managers: managers || [],
+    teams: teams || [],
+    sport: game.sport,
+    city: game.field?.city || null,
+    registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null,
+    chatRoomId: game.id
+  };
+}
+
 // List all active series
 router.get('/active', async (req, res) => {
   try {
@@ -72,6 +166,18 @@ router.get('/:seriesId', async (req, res) => {
     // Use the actual series.id for all related queries
     seriesId = series.id;
 
+    const { includeAll } = req.query;
+    const gameQueryArgs = {
+      where: { seriesId, start: { gte: new Date() } },
+      orderBy: { start: 'asc' },
+      include: { participants: true }
+    };
+
+    // Only limit if not explicitly asked for all
+    if (includeAll !== 'true') {
+      gameQueryArgs.take = 10;
+    }
+
     const [organizer, subscribers, upcoming] = await Promise.all([
       prisma.user.findUnique({
         where: { id: series.organizerId },
@@ -81,12 +187,7 @@ router.get('/:seriesId', async (req, res) => {
         where: { seriesId },
         include: { user: { select: { id: true, name: true, imageUrl: true } } }
       }),
-      prisma.game.findMany({
-        where: { seriesId, start: { gte: new Date() } },
-        orderBy: { start: 'asc' },
-        take: 10,
-        include: { participants: true }
-      })
+      prisma.game.findMany(gameQueryArgs)
     ]);
 
     const upcomingGames = (upcoming || []).map(g => {
@@ -289,9 +390,13 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
 // - Detach past games (set seriesId=null) to keep history
 // - Remove subscribers
 // - Delete the series record
-router.delete('/:seriesId', authenticateToken, async (req, res) => {
+// Delete a series with strategy (POST to avoid body stripping in some envs)
+router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
   try {
     const { seriesId } = req.params;
+    const { strategy = 'DELETE_ALL', gameIdsToDelete = [] } = req.body || {};
+    // strategy: 'DELETE_ALL' | 'KEEP_GAMES' | 'SELECTIVE'
+
     const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
     if (!series) return res.status(404).json({ error: 'Series not found' });
     const isAdmin = !!req.user?.isAdmin;
@@ -300,35 +405,101 @@ router.delete('/:seriesId', authenticateToken, async (req, res) => {
     }
 
     const now = new Date();
-    // Collect future game ids
+
+    // Fetch future games to decide what to do
     const futureGames = await prisma.game.findMany({
       where: { seriesId, start: { gte: now } },
       select: { id: true }
     });
-    const futureGameIds = futureGames.map(g => g.id);
+    const futureIds = futureGames.map(g => g.id);
 
-    // Delete in safe order to satisfy FKs:
-    // 1) participants (due to FK to team and game)
-    // 2) roles (FK to game)
-    // 3) teams (FK to game)
-    // 4) games (future only)
-    // 5) detach series from past games
-    // 6) remove subscribers
-    // 7) delete the series row
-    const ops = [];
-    if (futureGameIds.length) {
-      ops.push(prisma.participation.deleteMany({ where: { gameId: { in: futureGameIds } } }));
-      ops.push(prisma.gameRole.deleteMany({ where: { gameId: { in: futureGameIds } } }));
-      ops.push(prisma.team.deleteMany({ where: { gameId: { in: futureGameIds } } }));
-      ops.push(prisma.game.deleteMany({ where: { id: { in: futureGameIds } } }));
+    let idsToDelete = [];
+    let idsToDetach = [];
+
+    if (strategy === 'DELETE_ALL') {
+      idsToDelete = futureIds;
+    } else if (strategy === 'KEEP_GAMES') {
+      idsToDetach = futureIds;
+    } else if (strategy === 'SELECTIVE') {
+      // Only delete explicit IDs, detach the rest of future
+      idsToDelete = futureIds.filter(id => gameIdsToDelete.includes(id));
+      idsToDetach = futureIds.filter(id => !gameIdsToDelete.includes(id));
+    } else {
+      // Fallback default
+      idsToDelete = futureIds;
     }
+
+    const ops = [];
+
+    // 1. Delete Targets
+    if (idsToDelete.length > 0) {
+      // Cascade delete dependencies manually
+      ops.push(prisma.participation.deleteMany({ where: { gameId: { in: idsToDelete } } }));
+      ops.push(prisma.gameRole.deleteMany({ where: { gameId: { in: idsToDelete } } }));
+      ops.push(prisma.team.deleteMany({ where: { gameId: { in: idsToDelete } } }));
+      // Chat cleanup
+      ops.push(prisma.chatParticipant.deleteMany({ where: { chatId: { in: idsToDelete } } }));
+      ops.push(prisma.chatRoom.deleteMany({ where: { id: { in: idsToDelete } } }));
+      // Games
+      ops.push(prisma.game.deleteMany({ where: { id: { in: idsToDelete } } }));
+    }
+
+    // 2. Detach Targets (Future)
+    if (idsToDetach.length > 0) {
+      ops.push(prisma.game.updateMany({ where: { id: { in: idsToDetach } }, data: { seriesId: null } }));
+    }
+
+    // 3. Detach Past Games (Always detach, never delete history automatically here)
     ops.push(prisma.game.updateMany({ where: { seriesId, start: { lt: now } }, data: { seriesId: null } }));
+
+    // 4. Series Cleanup
     ops.push(prisma.seriesParticipant.deleteMany({ where: { seriesId } }));
     ops.push(prisma.gameSeries.delete({ where: { id: seriesId } }));
 
     await prisma.$transaction(ops);
 
-    return res.json({ ok: true });
+    if (idsToDelete.length > 0) {
+      const io = req.io;
+      if (io) {
+        io.emit('game:deleted', { gameIds: idsToDelete });
+      }
+    }
+
+    // Always emit series deleted as the Series object itself is gone
+    const io = req.io;
+    if (io) {
+      io.emit('series:deleted', { seriesId });
+
+      // HEIR PROMOTION: Broadcast the upcoming detached games
+      if (idsToDetach.length > 0) {
+        try {
+          const heir = await prisma.game.findFirst({
+            where: {
+              id: { in: idsToDetach },
+              start: { gt: new Date() }
+            },
+            orderBy: { start: 'asc' },
+            include: {
+              field: true,
+              participants: {
+                include: { user: true }
+              },
+              teams: true,
+              roles: { include: { user: true } }
+            }
+          });
+
+          if (heir) {
+            const mapped = mapGameForClient(heir);
+            io.emit('game:created', mapped);
+          }
+        } catch (heirErr) {
+          console.error("Failed to promote heir game (series delete)", heirErr);
+        }
+      }
+    }
+
+    return res.json({ ok: true, deletedGames: idsToDelete.length, detachedGames: idsToDetach.length });
   } catch (e) {
     console.error('Series delete error:', e);
     return res.status(500).json({ error: 'Failed to delete series' });

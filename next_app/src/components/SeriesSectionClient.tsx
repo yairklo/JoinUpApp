@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
@@ -11,6 +11,7 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import SeriesHeaderCard from "@/components/SeriesHeaderCard";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import FullPageList from "@/components/FullPageList";
+import { useSeriesCreatedListener, useSeriesDeletedListener, SeriesPayload } from "@/context/GameUpdateContext";
 
 type Series = {
     id: string;
@@ -32,6 +33,33 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
     const [loading, setLoading] = useState(true);
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
     const { getToken } = useAuth();
+    const { user } = useUser();
+    const userId = user?.id;
+
+    useSeriesCreatedListener((series: SeriesPayload) => {
+        if (sportFilter !== "ALL" && series.sport !== sportFilter) return;
+
+        setSeriesList((prev) => {
+            if (prev.some((s) => s.id === series.id)) return prev;
+
+            const newSeries: Series = {
+                id: series.id,
+                name: series.name,
+                fieldName: series.fieldName,
+                time: series.time,
+                dayOfWeek: series.dayOfWeek,
+                subscriberCount: series.subscriberCount,
+                sport: series.sport,
+                isSubscribed: !!(userId && series.subscriberIds?.includes(userId))
+            };
+
+            return [...prev, newSeries];
+        });
+    });
+
+    useSeriesDeletedListener(({ seriesId }) => {
+        setSeriesList((prev) => prev.filter((s) => s.id !== seriesId));
+    });
 
     useEffect(() => {
         let ignore = false;
