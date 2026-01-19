@@ -96,7 +96,8 @@ function mapGameForClient(game) {
     sport: game.sport,
     city: game.field?.city || null,
     registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null,
-    chatRoomId: game.id
+    chatRoomId: game.id,
+    status: game.status
   };
 }
 
@@ -147,6 +148,7 @@ router.get('/public', async (req, res) => {
     const { fieldId, date, isOpenToJoin } = req.query;
     const where = {
       AND: [
+        { status: 'OPEN' },
         {
           OR: [
             { isFriendsOnly: false },
@@ -188,6 +190,7 @@ router.get('/my', authenticateToken, async (req, res) => {
     const games = await prisma.game.findMany({
       where: {
         AND: [
+          { status: 'OPEN' },
           { start: { gte: now } },
           {
             OR: [
@@ -206,6 +209,29 @@ router.get('/my', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('My games error:', error);
     res.status(500).json({ error: 'Failed to fetch my games' });
+  }
+});
+
+// My game history
+router.get('/my/history', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const games = await prisma.game.findMany({
+      where: {
+        OR: [
+          { participants: { some: { userId } } },
+          { organizerId: userId }
+        ],
+        status: 'COMPLETED'
+      },
+      include: { field: true, participants: { include: { user: true } } },
+      orderBy: { start: 'desc' },
+      take: 50
+    });
+    res.json(games.map(mapGameForClient));
+  } catch (error) {
+    console.error('My history error:', error);
+    res.status(500).json({ error: 'Failed to fetch history' });
   }
 });
 
@@ -1329,6 +1355,10 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
     const game = await prisma.game.findUnique({ where: { id: req.params.id } });
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
+    }
+
+    if (game.status === 'COMPLETED') {
+      return res.status(400).json({ error: 'Cannot leave a completed game' });
     }
 
     const participants = await prisma.participation.findMany({ where: { gameId: game.id } });
