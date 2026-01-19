@@ -72,6 +72,18 @@ router.get('/:seriesId', async (req, res) => {
     // Use the actual series.id for all related queries
     seriesId = series.id;
 
+    const { includeAll } = req.query;
+    const gameQueryArgs = {
+      where: { seriesId, start: { gte: new Date() } },
+      orderBy: { start: 'asc' },
+      include: { participants: true }
+    };
+
+    // Only limit if not explicitly asked for all
+    if (includeAll !== 'true') {
+      gameQueryArgs.take = 10;
+    }
+
     const [organizer, subscribers, upcoming] = await Promise.all([
       prisma.user.findUnique({
         where: { id: series.organizerId },
@@ -81,12 +93,7 @@ router.get('/:seriesId', async (req, res) => {
         where: { seriesId },
         include: { user: { select: { id: true, name: true, imageUrl: true } } }
       }),
-      prisma.game.findMany({
-        where: { seriesId, start: { gte: new Date() } },
-        orderBy: { start: 'asc' },
-        take: 10,
-        include: { participants: true }
-      })
+      prisma.game.findMany(gameQueryArgs)
     ]);
 
     const upcomingGames = (upcoming || []).map(g => {
@@ -289,8 +296,8 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
 // - Detach past games (set seriesId=null) to keep history
 // - Remove subscribers
 // - Delete the series record
-// Delete a series with strategy
-router.delete('/:seriesId', authenticateToken, async (req, res) => {
+// Delete a series with strategy (POST to avoid body stripping in some envs)
+router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
   try {
     const { seriesId } = req.params;
     const { strategy = 'DELETE_ALL', gameIdsToDelete = [] } = req.body || {};

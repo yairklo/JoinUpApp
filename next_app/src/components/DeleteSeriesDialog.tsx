@@ -66,7 +66,8 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
             // The current /api/series/:id returns limit 10. For full robust delete we might need a dedicated endpoint 
             // or just rely on the 10 for UI and trust the user knows. 
             // For now we use what we have.
-            const res = await fetch(`${API_BASE}/api/series/${seriesId}`, {
+            // Fetch ALL upcoming games to ensure user sees everything before deleting
+            const res = await fetch(`${API_BASE}/api/series/${seriesId}?includeAll=true`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -92,8 +93,9 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
                 gameIdsToDelete: strategy === 'SELECTIVE' ? selectedGameIds : undefined
             };
 
-            const res = await fetch(`${API_BASE}/api/series/${seriesId}`, {
-                method: 'DELETE',
+            // Use POST to ensure body is not stripped by proxies
+            const res = await fetch(`${API_BASE}/api/series/${seriesId}/delete`, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
