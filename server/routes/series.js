@@ -5,6 +5,100 @@ const prisma = new PrismaClient();
 
 const router = express.Router();
 
+function mapGameForClient(game) {
+  if (!game) return game;
+  const start = new Date(game.start);
+  const yyyy = start.getFullYear();
+  const mm = String(start.getMonth() + 1).padStart(2, '0');
+  const dd = String(start.getDate()).padStart(2, '0');
+  const hh = String(start.getHours()).padStart(2, '0');
+  const mi = String(start.getMinutes()).padStart(2, '0');
+  const date = `${yyyy}-${mm}-${dd}`;
+  const time = `${hh}:${mi}`;
+  const allParts = Array.isArray(game?.participants) ? game.participants : [];
+  const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
+  const waitlisted = allParts.filter(p => p.status === 'WAITLISTED');
+  const totalSignups = allParts.length;
+  const confirmedCount = confirmed.length;
+  const waitlistCount = waitlisted.length;
+  const now = new Date();
+  const lotteryAtIso = game.lotteryAt ? new Date(game.lotteryAt).toISOString() : null;
+  const lotteryPending = !!game.lotteryEnabled && !game.lotteryExecutedAt && !!game.lotteryAt && now < new Date(game.lotteryAt);
+  const overbooked = !!game.lotteryEnabled && !game.lotteryExecutedAt && totalSignups > game.maxPlayers;
+  const participants = confirmed.map(p => ({
+    id: p.userId,
+    name: p.user?.name || null,
+    avatar: p.user?.imageUrl || null,
+    teamId: p.teamId || null
+  }));
+  const waitlistParticipants = waitlisted.map(p => ({
+    id: p.userId,
+    name: p.user?.name || null,
+    avatar: p.user?.imageUrl || null
+  }));
+  const managers = (game.roles || [])
+    .filter(r => r.role !== 'ORGANIZER')
+    .map(r => ({
+      id: r.userId,
+      name: r.user?.name || null,
+      avatar: r.user?.imageUrl || null,
+      role: r.role
+    }));
+  const teams = (game?.teams ? game.teams : []).map(t => {
+    const playerIds = allParts
+      .filter(p => p && p.teamId === t.id)
+      .map(p => p.userId)
+      .filter(Boolean);
+    return {
+      id: t.id,
+      name: t.name,
+      color: t.color,
+      playerIds: playerIds || []
+    };
+  });
+  return {
+    id: game.id,
+    title: game.title || null,
+    seriesId: game.seriesId || null,
+    fieldId: game.fieldId,
+    fieldName: game.field?.name || '',
+    fieldLocation: game.field?.location || '',
+    isFriendsOnly: !!game.isFriendsOnly,
+    friendsOnlyUntil: game.friendsOnlyUntil ? new Date(game.friendsOnlyUntil).toISOString() : null,
+    lotteryEnabled: !!game.lotteryEnabled,
+    lotteryAt: lotteryAtIso,
+    organizerInLottery: !!game.organizerInLottery,
+    fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
+    fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
+    customLat: typeof game.customLat === 'number' ? game.customLat : null,
+    customLng: typeof game.customLng === 'number' ? game.customLng : null,
+    customLocation: game.customLocation || null,
+    date,
+    time,
+    duration: game.duration,
+    maxPlayers: game.maxPlayers,
+    teamSize: game.teamSize || null,
+    price: game.price || null,
+    currentPlayers: confirmedCount,
+    totalSignups,
+    confirmedCount,
+    waitlistCount,
+    lotteryPending,
+    overbooked,
+    description: game.description || '',
+    isOpenToJoin: game.isOpenToJoin,
+    participants: participants || [],
+    waitlistParticipants: waitlistParticipants || [],
+    organizerId: game.organizerId,
+    managers: managers || [],
+    teams: teams || [],
+    sport: game.sport,
+    city: game.field?.city || null,
+    registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null,
+    chatRoomId: game.id
+  };
+}
+
 // List all active series
 router.get('/active', async (req, res) => {
   try {
@@ -375,6 +469,34 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
     const io = req.io;
     if (io) {
       io.emit('series:deleted', { seriesId });
+
+      // HEIR PROMOTION: Broadcast the upcoming detached games
+      if (idsToDetach.length > 0) {
+        try {
+          const heir = await prisma.game.findFirst({
+            where: {
+              id: { in: idsToDetach },
+              start: { gt: new Date() }
+            },
+            orderBy: { start: 'asc' },
+            include: {
+              field: true,
+              participants: {
+                include: { user: true }
+              },
+              teams: true,
+              roles: { include: { user: true } }
+            }
+          });
+
+          if (heir) {
+            const mapped = mapGameForClient(heir);
+            io.emit('game:created', mapped);
+          }
+        } catch (heirErr) {
+          console.error("Failed to promote heir game (series delete)", heirErr);
+        }
+      }
     }
 
     return res.json({ ok: true, deletedGames: idsToDelete.length, detachedGames: idsToDetach.length });

@@ -1420,6 +1420,35 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     const io = req.io;
     if (io) {
       io.emit('game:deleted', { gameIds: [gameId] });
+
+      // HEIR PROMOTION: Broadcast next game in series if exists
+      if (game.seriesId) {
+        try {
+          const nextGame = await prisma.game.findFirst({
+            where: {
+              seriesId: game.seriesId,
+              start: { gt: new Date() },
+              id: { not: gameId }
+            },
+            orderBy: { start: 'asc' },
+            include: {
+              field: true,
+              participants: {
+                include: { user: true }
+              },
+              teams: true,
+              roles: { include: { user: true } }
+            }
+          });
+
+          if (nextGame) {
+            const mapped = mapGameForClient(nextGame);
+            io.emit('game:created', mapped);
+          }
+        } catch (heirError) {
+          console.error("Failed to promote heir game", heirError);
+        }
+      }
     }
 
     res.json({ message: 'Game deleted successfully' });
