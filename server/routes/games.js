@@ -443,13 +443,16 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
         fieldId: existing.fieldId || null,
         fieldName: existing.field?.name || '',
         fieldLocation: existing.field?.location || '',
-        price: existing.field?.price ?? 0,
+        price: existing.price ?? existing.field?.price ?? 0,
         maxPlayers: existing.maxPlayers,
         dayOfWeek: start.getDay(),
         time,
         duration: Number(existing.duration),
         isActive: true,
+        duration: Number(existing.duration),
+        isActive: true,
         sport: existing.sport,
+        autoOpenRegistrationHours: existing.registrationOpensAt ? (start.getTime() - new Date(existing.registrationOpensAt).getTime()) / 3600000 : null
       },
     });
 
@@ -514,6 +517,11 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
             start: occStart,
             duration: existing.duration,
             maxPlayers: existing.maxPlayers,
+            price: existing.price ?? existing.field?.price ?? 0,
+            teamSize: existing.teamSize,
+            customLat: existing.customLat,
+            customLng: existing.customLng,
+            customLocation: existing.customLocation,
             isOpenToJoin: existing.isOpenToJoin,
             isFriendsOnly: existing.isFriendsOnly,
             lotteryEnabled: existing.lotteryEnabled,
@@ -523,11 +531,16 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
             organizerId: existing.organizerId,
             participants: { create: participantsCreate },
             roles: { create: { userId: existing.organizerId, role: 'ORGANIZER' } },
+            roles: { create: { userId: existing.organizerId, role: 'ORGANIZER' } },
             sport: existing.sport,
+            registrationOpensAt: (existing.registrationOpensAt)
+              ? new Date(occStart.getTime() - (start.getTime() - new Date(existing.registrationOpensAt).getTime()))
+              : null
           },
           include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true }
         })
       );
+
     }
 
     const createdGames = await prisma.$transaction(createOps);
