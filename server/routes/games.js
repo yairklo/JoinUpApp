@@ -1331,24 +1331,45 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Game not found' });
     }
 
-    const del = await prisma.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
-    if (del.count === 0) {
+    const participants = await prisma.participation.findMany({ where: { gameId: game.id } });
+    const isParticipant = participants.some(p => p.userId === req.user.id);
+
+    if (!isParticipant) {
       return res.status(400).json({ error: 'You are not a participant in this game' });
     }
+
+    // CHECK: Is this the last player?
+    if (participants.length === 1 && participants[0].userId === req.user.id) {
+      // Delete the game completely
+      const gameId = game.id;
+      await prisma.$transaction([
+        prisma.participation.deleteMany({ where: { gameId } }),
+        prisma.gameRole.deleteMany({ where: { gameId } }),
+        prisma.team.deleteMany({ where: { gameId } }),
+        prisma.chatParticipant.deleteMany({ where: { chatId: gameId } }),
+        prisma.chatRoom.deleteMany({ where: { id: gameId } }),
+        prisma.game.delete({ where: { id: gameId } })
+      ]);
+
+      const io = req.io;
+      if (io) {
+        io.emit('game:deleted', { gameIds: [gameId] });
+      }
+      return res.json({ message: 'Game deleted because the last player left', deleted: true });
+    }
+
+    // Normal leave logic
+    await prisma.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
 
     // Remove from Chat
     try {
       await prisma.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
-    } catch (e) {
-      // Ignore
-    }
+    } catch (e) { /* Ignore */ }
 
+    // If organizer left (but others remain), reassign organizer
     const remaining = await prisma.participation.findMany({ where: { gameId: game.id } });
     if (game.organizerId === req.user.id) {
-      if (remaining.length === 0) {
-        await prisma.game.delete({ where: { id: game.id } });
-        return res.json({ message: 'Game deleted because organizer left' });
-      } else {
+      if (remaining.length > 0) {
         await prisma.game.update({ where: { id: game.id }, data: { organizerId: remaining[0].userId } });
       }
     }

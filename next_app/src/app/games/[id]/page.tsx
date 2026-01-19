@@ -116,7 +116,7 @@ export default async function GameDetails(props: {
             price={game.price}
           >
             {joined ? (
-              <LeaveGameButton gameId={game.id} />
+              <LeaveGameButton gameId={game.id} currentPlayers={game.participants.length || 0} />
             ) : (
               <JoinGameButton
                 gameId={game.id}

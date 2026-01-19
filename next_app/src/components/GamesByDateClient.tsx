@@ -203,6 +203,7 @@ export default function GamesByDateClient({
                 {joined ? (
                   <LeaveGameButton
                     gameId={g.id}
+                    currentPlayers={g.currentPlayers}
                     onLeft={() => {
                       notifyGameUpdate(g.id, 'leave', userId);
                       router.refresh();
@@ -263,6 +264,7 @@ export default function GamesByDateClient({
               {joined ? (
                 <LeaveGameButton
                   gameId={g.id}
+                  currentPlayers={g.currentPlayers}
                   onLeft={() => {
                     notifyGameUpdate(g.id, 'leave', userId);
                     router.refresh();
