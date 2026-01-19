@@ -79,6 +79,21 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
                     setSocketInstance(socket);
                 });
 
+                socket.on("connect_error", async (err: any) => {
+                    // console.log("Socket connection error:", err.message);
+                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
+                        try {
+                            const newToken = await getToken();
+                            if (newToken) {
+                                socket.auth = { token: newToken };
+                                socket.connect();
+                            }
+                        } catch (e) {
+                            console.error("Token refresh failed", e);
+                        }
+                    }
+                });
+
                 // Socket Event Handlers
                 const handleTyping = ({ chatId, userName }: { chatId: string, userName: string }) => {
                     if (!chatId || !userName) return;

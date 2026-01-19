@@ -365,10 +365,16 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
     await prisma.$transaction(ops);
 
     if (idsToDelete.length > 0) {
-      const io = req.app.get('io');
+      const io = req.io;
       if (io) {
         io.emit('game:deleted', { gameIds: idsToDelete });
       }
+    }
+
+    // Always emit series deleted as the Series object itself is gone
+    const io = req.io;
+    if (io) {
+      io.emit('series:deleted', { seriesId });
     }
 
     return res.json({ ok: true, deletedGames: idsToDelete.length, detachedGames: idsToDetach.length });

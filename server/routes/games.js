@@ -531,6 +531,22 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
     }
 
     const createdGames = await prisma.$transaction(createOps);
+
+    const seriesPayload = {
+      id: series.id,
+      name: series.title || "Series",
+      fieldName: series.fieldName,
+      time: series.time,
+      dayOfWeek: series.dayOfWeek,
+      subscriberCount: subscriberIds.length,
+      sport: series.sport,
+      subscriberIds: subscriberIds
+    };
+
+    if (req.io) {
+      req.io.emit('series:created', seriesPayload);
+    }
+
     return res.json({
       game: mapGameForClient(updated),
       created: createdGames.map(mapGameForClient),
@@ -1401,7 +1417,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       prisma.game.delete({ where: { id: gameId } })
     ]);
 
-    const io = req.app.get('io');
+    const io = req.io;
     if (io) {
       io.emit('game:deleted', { gameIds: [gameId] });
     }

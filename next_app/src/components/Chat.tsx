@@ -197,6 +197,18 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           socket?.emit("markAsRead", { roomId, userId: user?.id });
         });
 
+        socket.on("connect_error", async (err: any) => {
+          if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
+            try {
+              const newToken = await getToken();
+              if (newToken && socket) {
+                socket.auth = { token: newToken };
+                socket.connect();
+              }
+            } catch (e) { console.error("Refresh token failed", e); }
+          }
+        });
+
         // Presence updates
         socket.on('presence:update', ({ userId: uid, isOnline }) => {
           if (uid === otherUserId) {
