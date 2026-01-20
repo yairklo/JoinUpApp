@@ -358,13 +358,14 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
         select: {
           id: true,
           title: true,
+          status: true,
           field: { select: { name: true } }
         }
       });
       games.forEach(g => { gameMap[g.id] = { ...g, fieldName: g.field?.name }; });
     }
 
-    const parsedChats = await Promise.all(participations.map(async (p) => {
+    const results = await Promise.all(participations.map(async (p) => {
       const chat = p.chat;
       // For private chats, the "other" user is the name/image
       const otherParticipant = chat.participants.find(part => part.userId !== userId)?.user;
@@ -387,6 +388,7 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
       } else {
         // GROUP: Use Game Title if available
         const g = gameMap[chat.id];
+        if (g && g.status !== 'OPEN') return null;
         if (g) {
           chatName = g.title || g.fieldName || 'Game Chat';
         }
@@ -407,6 +409,8 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
         } : null
       };
     }));
+
+    const parsedChats = results.filter(Boolean);
 
     // Sort by last message time
     parsedChats.sort((a, b) => {

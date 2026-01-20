@@ -586,6 +586,46 @@ async function runLotterySweep() {
 
 setInterval(runLotterySweep, 60_000);
 
+// --- Game Auto-Completion (Passive) ---
+let completionCheckRunning = false;
+async function runGameCompletionCheck() {
+  if (completionCheckRunning) return;
+  completionCheckRunning = true;
+  try {
+    const now = new Date();
+    // Candidates: OPEN and started in the past
+    const candidates = await prisma.game.findMany({
+      where: {
+        status: 'OPEN',
+        start: { lt: now }
+      },
+      select: { id: true, start: true, duration: true }
+    });
+
+    const toComplete = candidates.filter(g => {
+      // Duration in hours (default 1) -> ms
+      const dur = (typeof g.duration === 'number' ? g.duration : 1);
+      const endTime = new Date(g.start.getTime() + dur * 3600000);
+      return endTime < now;
+    });
+
+    if (toComplete.length > 0) {
+      const ids = toComplete.map(g => g.id);
+      await prisma.game.updateMany({
+        where: { id: { in: ids } },
+        data: { status: 'COMPLETED' }
+      });
+      console.log(`🏁 Auto-completed ${ids.length} games.`);
+    }
+  } catch (e) {
+    console.error('Game completion check error:', e);
+  } finally {
+    completionCheckRunning = false;
+  }
+}
+setInterval(runGameCompletionCheck, 60_000);
+runGameCompletionCheck().catch(() => { });
+
 // --- Weekly Series Rolling Generation ---
 function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
   const [hh, mm] = String(hhmm).split(':').map(n => parseInt(n, 10));

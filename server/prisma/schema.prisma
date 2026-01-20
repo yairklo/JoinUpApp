@@ -90,6 +90,7 @@ model Game {
   customLocation String?
   organizerId  String
   sport        SportType       @default(SOCCER)
+  status       GameStatus      @default(OPEN)
   registrationOpensAt DateTime?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
@@ -100,6 +101,12 @@ model Game {
   participants Participation[]
   roles        GameRole[]
   teams        Team[]
+}
+
+enum GameStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
 }
 
 model Participation {
