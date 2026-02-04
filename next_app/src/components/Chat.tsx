@@ -281,8 +281,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 status: 'sent',
                 // PRESERVE OPTIMISTIC DATA:
                 sender: incomingMsg.sender || newMessages[matchIndex].sender,
-                // Fix: Only overwrite replyTo if incoming has it, otherwise keep local (optimistic)
-                replyTo: incomingMsg.replyTo ? incomingMsg.replyTo : newMessages[matchIndex].replyTo
+                // Fix: Always prefer local optimistic replyTo (source of truth) to prevent disappearance
+                replyTo: newMessages[matchIndex].replyTo || incomingMsg.replyTo
               };
               return newMessages;
             } else {

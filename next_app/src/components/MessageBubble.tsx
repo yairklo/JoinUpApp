@@ -215,7 +215,14 @@ export default function MessageBubble({
                 </Stack>
             )}
 
-            <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+            <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleClose}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                sx={{ zIndex: 2101 }}
+            >
                 <Box sx={{ p: 1, display: "flex", gap: 1 }}>
                     {COMMON_REACTIONS.map(emoji => (
                         <IconButton key={emoji} onClick={() => handleSelectEmoji(emoji)} size="small">{emoji}</IconButton>
