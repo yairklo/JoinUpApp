@@ -17,6 +17,15 @@ const messagesRoutes = require('./routes/messages');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission } = require('./utils/chatAuth');
 
+// Moderation
+const { moderator } = require('./moderationInstance');
+const { processReviewQueue } = require('./workers/reviewWorker');
+
+// Start Review Worker
+setInterval(() => {
+  processReviewQueue().catch(err => console.error("Worker Error:", err));
+}, 60 * 1000);
+
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3005;
@@ -139,6 +148,36 @@ io.use(async (socket, next) => {
 
 // Basic in-memory presence tracking
 const connectedUsers = new Set();
+
+// Fix 4: Redis Subscriber for Worker Events
+if (process.env.REDIS_URL) {
+  const Redis = require("ioredis");
+  const redisSub = new Redis(process.env.REDIS_URL); // Dedicated connection
+  const { Logger } = require('./utils/logger');
+
+  redisSub.subscribe('moderation_events', (err, count) => {
+    if (err) Logger.error("REDIS SUB", "Failed to subscribe:", err);
+    else Logger.info("REDIS SUB", `Subscribed to moderation_events. Count: ${count}`);
+  });
+
+  redisSub.on('message', (channel, message) => {
+    if (channel === 'moderation_events') {
+      try {
+        const event = JSON.parse(message);
+        if (event.type === 'delete') {
+          Logger.info('MODERATION', `Retroactive delete command received for msg: ${event.messageId}`);
+
+          // Broadcast deletion to the room (or globally if no roomId)
+          const target = event.roomId ? io.to(String(event.roomId)) : io;
+          target.emit('messageDeleted', { id: event.messageId });
+        }
+      } catch (e) {
+        Logger.error("REDIS SUB", "Error parsing message:", e);
+      }
+    }
+  });
+}
+
 
 io.on('connection', async (socket) => {
   // 1. Auto-join User & City User Rooms & Presence
@@ -304,6 +343,58 @@ io.on('connection', async (socket) => {
         console.error("Notification error:", err);
       }
     }
+
+    // --- Content Moderation ---
+    // Optimistic check: message already sent. Revoke if needed.
+    (async () => {
+      try {
+        const checkResult = await moderator.checkMessage(
+          String(text),
+          [], // History could be fetched if needed
+          {},
+          { userId: userId ? String(userId) : 'anonymous' }
+        );
+
+        // Priority 1: System Error / Rate Limit -> Log for later, but allow message (Fail Open)
+        if (checkResult.reviewNeeded) {
+          await prisma.flaggedMessage.create({
+            data: {
+              messageId: msg.id ? String(msg.id) : undefined,
+              content: String(text),
+              userId: userId ? String(userId) : 'unknown',
+              status: 'PENDING_RETRY',
+              failureReason: checkResult.auditData?.error || checkResult.source || 'RateLimit/SystemError',
+              aiTriggers: checkResult.auditData ? JSON.stringify(checkResult.auditData) : undefined
+            }
+          });
+        }
+        // Priority 2: Confirmed Toxic -> Delete immediately
+        else if (!checkResult.isSafe) {
+          const { Logger } = require('./utils/logger');
+          Logger.info("Socket", `Message ${msg.id} -> REJECTED (Reason: ${checkResult.reason || 'Unsafe'})`);
+          console.log(`[MODERATION] Revoking message ${msg.id}`);
+
+          // 1. Mark as rejected in DB
+          if (msg.id) {
+            await prisma.message.updateMany({
+              where: { id: String(msg.id) },
+              data: {
+                status: 'rejected',
+                text: '[Content Removed by Moderator]'
+              }
+            });
+          }
+
+          // 2. Emit revocation to room
+          const revokePayload = { id: msg.id, roomId: roomId ? String(roomId) : undefined };
+          // Use io directly here since we are in the main process
+          const target = roomId ? io.to(String(roomId)) : io;
+          target.emit('messageDeleted', revokePayload);
+        }
+      } catch (e) {
+        console.error("Moderation check error:", e);
+      }
+    })();
   });
 
   socket.on('addReaction', async ({ messageId, emoji, userId, roomId }) => {

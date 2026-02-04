@@ -17,6 +17,7 @@ model User {
   birthDate      DateTime?
   city           String?
   phone          String?
+  reputation     Int             @default(50)
   favoriteFields FavoriteField[]
   requestsRecv   FriendRequest[] @relation("Recv")
   requestsSent   FriendRequest[] @relation("Sent")
@@ -150,6 +151,7 @@ enum MessageStatus {
   sent
   delivered
   read
+  rejected
 }
 
 model Message {
@@ -347,4 +349,18 @@ enum SportType {
   SOCCER
   BASKETBALL
   TENNIS
+}
+
+model FlaggedMessage {
+  id            String   @id @default(cuid())
+  messageId     String?
+  content       String
+  userId        String
+  status        String   @default("PENDING_RETRY") // PENDING_RETRY, RESOLVED
+  resolution    String?  // AUTO_APPROVED, AUTO_REJECTED
+  retryCount    Int      @default(0)
+  failureReason String?
+  aiTriggers    Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
