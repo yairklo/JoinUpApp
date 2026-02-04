@@ -273,16 +273,15 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             );
 
             if (matchIndex > -1) {
+              const existingMsg = prev[matchIndex];
               // UPDATE EXISTING (In-Place Replacement)
-              // This preserves the array order and prevents scroll jumps.
               const newMessages = [...prev];
               newMessages[matchIndex] = {
                 ...incomingMsg,
                 status: 'sent',
-                // PRESERVE OPTIMISTIC DATA:
-                sender: incomingMsg.sender || newMessages[matchIndex].sender,
-                // Fix: Always prefer local optimistic replyTo (source of truth) to prevent disappearance
-                replyTo: newMessages[matchIndex].replyTo || incomingMsg.replyTo
+                // FIX: Prefer local hydrated data over server partial data
+                sender: existingMsg.sender || incomingMsg.sender,
+                replyTo: existingMsg.replyTo || incomingMsg.replyTo
               };
               return newMessages;
             } else {
@@ -437,12 +436,12 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         replyTo: replyToMessage ? {
           id: replyToMessage.id,
           text: replyToMessage.text,
-          // Fix: Better name lookup (Participant > NameMap > Message Sender > "User")
+          // Priority: 1. Direct Sender Object (Most reliable) -> 2. Flat Name -> 3. Participant Lookup -> 4. "User"
           senderName:
+            replyToMessage.sender?.name ||
+            replyToMessage.senderName ||
             chatDetails?.participants?.find((p: any) => String(p.userId) === String(replyToMessage.userId))?.user?.name ||
             nameByUserId[replyToMessage.userId || ""] ||
-            replyToMessage.senderName ||
-            replyToMessage.sender?.name ||
             "User"
         } : undefined
       };
