@@ -266,30 +266,27 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
 
           setMessages(prev => {
-            // 2. Deduplication / Check if exists by ID or TempID Correlation
-            const exists = prev.some(m =>
-              String(m.id) === String(incomingMsg.id) ||
+            // Refined Logic: Check match by Real ID OR Temp ID
+            const matchIndex = prev.findIndex(m =>
+              (String(m.id) === String(incomingMsg.id)) ||
               (incomingMsg.tempId && String(m.id) === String(incomingMsg.tempId))
             );
 
-            if (exists) {
-              // Exact match? Update it (confirmation of optimistic)
-              // We find the message that matches either the final ID or the temp ID
-              return prev.map(m => {
-                const isMatch = String(m.id) === String(incomingMsg.id) || (incomingMsg.tempId && String(m.id) === String(incomingMsg.tempId));
-                if (!isMatch) return m;
-
-                return {
-                  ...incomingMsg,
-                  // PRESERVE OPTIMISTIC DATA:
-                  // If incoming message lacks sender details (common from server), keep our local one
-                  sender: incomingMsg.sender || m.sender
-                };
-              });
+            if (matchIndex > -1) {
+              // UPDATE EXISTING (In-Place Replacement)
+              // This preserves the array order and prevents scroll jumps.
+              const newMessages = [...prev];
+              newMessages[matchIndex] = {
+                ...incomingMsg,
+                status: 'sent',
+                // PRESERVE OPTIMISTIC DATA:
+                sender: incomingMsg.sender || newMessages[matchIndex].sender
+              };
+              return newMessages;
+            } else {
+              // APPEND NEW
+              return [...prev, incomingMsg];
             }
-
-            // 3. New message -> Append
-            return [...prev, incomingMsg];
           });
 
           // Side Logic: Mark as read if not mine
@@ -579,7 +576,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 const avatarUrl = m.sender?.image || u?.image || u?.photoUrl || u?.avatar || u?.profilePicture || u?.imageUrl || (m.userId ? avatarByUserId[m.userId] : undefined);
 
                 return (
-                  <div key={m.id}>
+                  <div key={m.id || m.tempId}>
                     {showDateSeparator && (
                       <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
                         <Box sx={{ bgcolor: "action.disabledBackground", px: 2, py: 0.5, borderRadius: 4 }}>
