@@ -218,7 +218,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
         // Typing updates - FIXED LOGIC to use ID comparison
         socket.on('typing:start', ({ chatId, userName, senderId }) => {
-          if (chatId === roomId && senderId !== user?.id) {
+          if (String(chatId) === String(roomId) && String(senderId) !== String(user?.id)) {
             const name = userName || "Someone";
 
             // Clear existing timeout if exists
@@ -244,7 +244,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         });
 
         socket.on('typing:stop', ({ chatId, userName, senderId }) => {
-          if (chatId === roomId && senderId !== user?.id) {
+          if (String(chatId) === String(roomId) && String(senderId) !== String(user?.id)) {
             const name = userName || "Someone";
             if (typingTimeoutsRef.current[senderId]) {
               clearTimeout(typingTimeoutsRef.current[senderId]);
@@ -527,6 +527,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 const showDateSeparator = !prevDate || currentDate.toDateString() !== prevDate.toDateString();
                 const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
                 const isNextSameSender = nextMsg && nextMsg.userId === m.userId;
+
+                // Fix Avatar Lookup: Priority = Participant Info > avatarByUserId Fallback
+                const participant = chatDetails?.participants?.find((p: any) => String(p.userId) === String(m.senderId || m.userId));
+                const avatarUrl = participant?.user?.imageUrl || (m.userId ? avatarByUserId[m.userId] : undefined);
 
                 return (
                   <div key={m.id}>
