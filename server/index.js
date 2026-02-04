@@ -321,6 +321,7 @@ io.on('connection', async (socket) => {
       userId: finalUserId ? String(finalUserId) : undefined,
       replyTo: savedMsg && savedMsg.replyTo ? {
         ...savedMsg.replyTo,
+        senderName: savedMsg.replyTo.user?.name || "User", // Explicit name for fallback
         sender: savedMsg.replyTo.user // Map user relation to sender for frontend
       } : (replyTo || undefined),
       status: initialStatus,
