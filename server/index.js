@@ -257,7 +257,7 @@ io.on('connection', async (socket) => {
     }
   });
 
-  socket.on('message', async ({ text, roomId, userId, senderName, replyTo }) => {
+  socket.on('message', async ({ text, roomId, userId, senderName, replyTo, tempId }) => {
     if (!text) return;
 
     // Check active users in room to determine initial status
@@ -296,7 +296,8 @@ io.on('connection', async (socket) => {
       roomId: roomId ? String(roomId) : undefined,
       userId: userId ? String(userId) : undefined,
       replyTo: replyTo || undefined,
-      status: initialStatus
+      status: initialStatus,
+      tempId: tempId // Echo back the correlation ID
     };
 
     if (msg.roomId) {

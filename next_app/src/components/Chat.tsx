@@ -266,17 +266,26 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
 
           setMessages(prev => {
-            // 2. Deduplication / Check if exists
-            const exists = prev.some(m => String(m.id) === String(incomingMsg.id));
+            // 2. Deduplication / Check if exists by ID or TempID Correlation
+            const exists = prev.some(m =>
+              String(m.id) === String(incomingMsg.id) ||
+              (incomingMsg.tempId && String(m.id) === String(incomingMsg.tempId))
+            );
 
             if (exists) {
               // Exact match? Update it (confirmation of optimistic)
-              return prev.map(m => String(m.id) === String(incomingMsg.id) ? {
-                ...incomingMsg,
-                // PRESERVE OPTIMISTIC DATA:
-                // If incoming message lacks sender details (common from server), keep our local one
-                sender: incomingMsg.sender || m.sender
-              } : m);
+              // We find the message that matches either the final ID or the temp ID
+              return prev.map(m => {
+                const isMatch = String(m.id) === String(incomingMsg.id) || (incomingMsg.tempId && String(m.id) === String(incomingMsg.tempId));
+                if (!isMatch) return m;
+
+                return {
+                  ...incomingMsg,
+                  // PRESERVE OPTIMISTIC DATA:
+                  // If incoming message lacks sender details (common from server), keep our local one
+                  sender: incomingMsg.sender || m.sender
+                };
+              });
             }
 
             // 3. New message -> Append
@@ -410,8 +419,9 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
       socketInstance.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
       setEditingMessage(null);
     } else {
+      const optimisticId = Date.now();
       const optimisticMessage: ChatMessage & { content: string } = {
-        id: Date.now(),
+        id: optimisticId,
         text: trimmed,
         content: trimmed, // Fix: Ensure content matches text for optimistic UI
         roomId,
@@ -434,12 +444,14 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
       setMessages((prev) => [...prev, optimisticMessage]);
 
-      const payload: Partial<ChatMessage> & { roomId: string, userId: string } = {
+      // Include tempId so server can echo it back for correlation
+      const payload: Partial<ChatMessage> & { roomId: string, userId: string, tempId: string | number } = {
         text: trimmed,
         roomId,
         userId: user?.id || "anon",
         replyTo: optimisticMessage.replyTo,
-        status: "sent"
+        status: "sent",
+        tempId: optimisticId
       };
       socketInstance.emit("message", payload);
     }

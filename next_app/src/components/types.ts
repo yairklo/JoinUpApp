@@ -31,4 +31,5 @@ export type ChatMessage = {
         name?: string;
         image?: string | null;
     };
+    tempId?: string | number;
 };
