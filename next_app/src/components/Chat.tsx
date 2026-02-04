@@ -376,15 +376,30 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
       socketInstance.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
       setEditingMessage(null);
     } else {
-      const payload: Partial<ChatMessage> & { roomId: string, userId: string } = {
+      const optimisticMessage: ChatMessage & { content: string } = {
+        id: Date.now(),
         text: trimmed,
+        content: trimmed, // Fix: Ensure content matches text for optimistic UI
         roomId,
         userId: user?.id || "anon",
+        senderId: user?.id || "anon",
+        senderName: user?.fullName || "Me",
+        ts: new Date().toISOString(),
+        status: "sent", // Show as sent immediately
         replyTo: replyToMessage ? {
           id: replyToMessage.id,
           text: replyToMessage.text,
           senderName: nameByUserId[replyToMessage.userId || ""] || replyToMessage.senderName || "User"
-        } : undefined,
+        } : undefined
+      };
+
+      setMessages((prev) => [...prev, optimisticMessage]);
+
+      const payload: Partial<ChatMessage> & { roomId: string, userId: string } = {
+        text: trimmed,
+        roomId,
+        userId: user?.id || "anon",
+        replyTo: optimisticMessage.replyTo,
         status: "sent"
       };
       socketInstance.emit("message", payload);
