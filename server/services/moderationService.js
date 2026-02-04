@@ -161,7 +161,7 @@ class ContentModerator {
             this.openai = hasOpenAI ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
             const genAI = hasGemini ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
             this.gemini = genAI ? genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
+                model: "gemini-2.5-flash",
                 generationConfig: { responseMimeType: "application/json" }
             }) : null;
         } catch (e) { Logger.error("ContentModerator", "Init Error", e); }
