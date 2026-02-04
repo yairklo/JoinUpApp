@@ -261,11 +261,25 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           });
         });
 
-        socket.on("message", (msg: ChatMessage) => {
-          if (!msg.roomId || msg.roomId === roomId) {
-            setMessages((prev) => [...prev, msg]);
-            if (msg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
-          }
+        socket.on("message", (incomingMsg: ChatMessage) => {
+          // 1. Verify Room Match
+          if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
+
+          setMessages(prev => {
+            // 2. Deduplication / Check if exists
+            const exists = prev.some(m => String(m.id) === String(incomingMsg.id));
+
+            if (exists) {
+              // Exact match? Update it (confirmation of optimistic)
+              return prev.map(m => String(m.id) === String(incomingMsg.id) ? incomingMsg : m);
+            }
+
+            // 3. New message -> Append
+            return [...prev, incomingMsg];
+          });
+
+          // Side Logic: Mark as read if not mine
+          if (incomingMsg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
         });
 
         socket.on("messageUpdated", (payload: { id: string | number, text: string, isEdited: boolean, roomId?: string }) => {
@@ -275,15 +289,21 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         });
 
         socket.on("messageDeleted", (payload: { id: string | number, roomId?: string }) => {
-          if (!payload.roomId || payload.roomId === roomId) {
-            console.log(`[UI] Received delete command for message ${payload.id}`);
-            setMessages(prev => prev.map(m => m.id === payload.id ? {
-              ...m,
-              isDeleted: true,
-              text: "[Content Removed by Moderator]",
-              status: 'rejected'
-            } : m));
-          }
+          // 1. Verify Room Match
+          if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
+
+          // 2. Functional Update with strict string comparison
+          setMessages(prev => prev.map(msg => {
+            if (String(msg.id) === String(payload.id)) {
+              return {
+                ...msg,
+                isDeleted: true,
+                text: "[Content Removed by Moderator]",
+                status: 'rejected'
+              };
+            }
+            return msg;
+          }));
         });
 
         socket.on("messageReaction", (payload: { messageId: string | number; reactions: Record<string, Reaction>; roomId?: string }) => {
@@ -395,6 +415,11 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         senderName: user?.fullName || "Me",
         ts: new Date().toISOString(),
         status: "sent", // Show as sent immediately
+        sender: { // CRITICAL: Hydrate sender details immediately for the UI
+          id: user?.id,
+          name: user?.fullName || undefined,
+          image: user?.imageUrl || undefined
+        },
         replyTo: replyToMessage ? {
           id: replyToMessage.id,
           text: replyToMessage.text,

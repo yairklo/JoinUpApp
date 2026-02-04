@@ -26,4 +26,9 @@ export type ChatMessage = {
     isEdited?: boolean;
     isDeleted?: boolean;
     content?: string;
+    sender?: {
+        id?: string;
+        name?: string;
+        image?: string | null;
+    };
 };
