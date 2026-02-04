@@ -10,7 +10,7 @@ export type ReplyInfo = {
     senderName: string;
 };
 
-export type MessageStatus = "sent" | "delivered" | "read";
+export type MessageStatus = "sent" | "delivered" | "read" | "rejected";
 
 export type ChatMessage = {
     id: number | string;

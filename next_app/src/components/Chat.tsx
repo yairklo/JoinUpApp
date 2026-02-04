@@ -273,7 +273,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
         socket.on("messageDeleted", (payload: { id: string | number, roomId?: string }) => {
           if (!payload.roomId || payload.roomId === roomId) {
-            setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, isDeleted: true, text: "" } : m));
+            console.log(`[UI] Received delete command for message ${payload.id}`);
+            setMessages(prev => prev.map(m => m.id === payload.id ? {
+              ...m,
+              isDeleted: true,
+              text: "[Content Removed by Moderator]",
+              status: 'rejected'
+            } : m));
           }
         });
 

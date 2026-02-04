@@ -181,7 +181,7 @@ class ContentModerator {
         const dynamicConfig = { ...baseConfig };
         for (const key in dynamicConfig) {
             let newVal = dynamicConfig[key] + modifier;
-            newVal = Math.max(0.01, Math.min(0.95, newVal));
+            newVal = Math.max(0.15, Math.min(0.95, newVal));
             dynamicConfig[key] = parseFloat(newVal.toFixed(2));
         }
         return dynamicConfig;
