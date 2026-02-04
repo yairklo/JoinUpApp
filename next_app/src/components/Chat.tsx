@@ -218,44 +218,47 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
         // Typing updates - FIXED LOGIC to use ID comparison
         socket.on('typing:start', ({ chatId, userName, senderId }) => {
-          if (String(chatId) === String(roomId) && String(senderId) !== String(user?.id)) {
-            const name = userName || "Someone";
+          if (String(chatId) !== String(roomId)) return;
+          if (String(senderId) === String(user?.id)) return;
 
-            // Clear existing timeout if exists
-            if (typingTimeoutsRef.current[senderId]) {
-              clearTimeout(typingTimeoutsRef.current[senderId]);
-            }
+          const name = userName || "Someone";
 
-            setTypingUsers(prev => {
-              const next = new Set(prev);
-              next.add(name);
-              return next;
-            });
-
-            // Auto-clear after 3 seconds
-            typingTimeoutsRef.current[senderId] = setTimeout(() => {
-              setTypingUsers(prev => {
-                const next = new Set(prev);
-                next.delete(name);
-                return next;
-              });
-            }, 3000);
+          // Clear existing timeout if exists
+          if (typingTimeoutsRef.current[senderId]) {
+            clearTimeout(typingTimeoutsRef.current[senderId]);
           }
-        });
 
-        socket.on('typing:stop', ({ chatId, userName, senderId }) => {
-          if (String(chatId) === String(roomId) && String(senderId) !== String(user?.id)) {
-            const name = userName || "Someone";
-            if (typingTimeoutsRef.current[senderId]) {
-              clearTimeout(typingTimeoutsRef.current[senderId]);
-            }
+          setTypingUsers(prev => {
+            const next = new Set(prev);
+            next.add(name);
+            return next;
+          });
 
+          // Auto-clear after 3 seconds
+          typingTimeoutsRef.current[senderId] = setTimeout(() => {
             setTypingUsers(prev => {
               const next = new Set(prev);
               next.delete(name);
               return next;
             });
+          }, 3000);
+        });
+
+
+        socket.on('typing:stop', ({ chatId, userName, senderId }) => {
+          if (String(chatId) !== String(roomId)) return;
+          if (String(senderId) === String(user?.id)) return;
+
+          const name = userName || "Someone";
+          if (typingTimeoutsRef.current[senderId]) {
+            clearTimeout(typingTimeoutsRef.current[senderId]);
           }
+
+          setTypingUsers(prev => {
+            const next = new Set(prev);
+            next.delete(name);
+            return next;
+          });
         });
 
         socket.on("message", (msg: ChatMessage) => {
@@ -530,7 +533,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
                 // Fix Avatar Lookup: Priority = Participant Info > avatarByUserId Fallback
                 const participant = chatDetails?.participants?.find((p: any) => String(p.userId) === String(m.senderId || m.userId));
-                const avatarUrl = participant?.user?.imageUrl || (m.userId ? avatarByUserId[m.userId] : undefined);
+                const u = participant?.user;
+                const avatarUrl = u?.image || u?.photoUrl || u?.avatar || u?.profilePicture || u?.imageUrl || (m.userId ? avatarByUserId[m.userId] : undefined);
 
                 return (
                   <div key={m.id}>
