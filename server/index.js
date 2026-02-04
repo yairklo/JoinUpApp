@@ -282,10 +282,10 @@ io.on('connection', async (socket) => {
             status: initialStatus
           },
           include: {
-            sender: true,
+            user: true,
             replyTo: {
               include: {
-                sender: {
+                user: {
                   select: { id: true, name: true, imageUrl: true }
                 }
               }
@@ -319,7 +319,10 @@ io.on('connection', async (socket) => {
       ts: savedMsg ? savedMsg.createdAt.toISOString() : new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
       userId: finalUserId ? String(finalUserId) : undefined,
-      replyTo: savedMsg ? savedMsg.replyTo : (replyTo || undefined),
+      replyTo: savedMsg && savedMsg.replyTo ? {
+        ...savedMsg.replyTo,
+        sender: savedMsg.replyTo.user // Map user relation to sender for frontend
+      } : (replyTo || undefined),
       status: initialStatus,
       tempId: tempId, // Echo back the correlation ID
       sender: senderUser ? {

@@ -26,7 +26,7 @@ router.get('/', authenticateToken, async (req, res) => {
       include: {
         replyTo: {
           include: {
-            sender: { select: { id: true, name: true, imageUrl: true } }
+            user: { select: { id: true, name: true, imageUrl: true } }
           }
         },
         reactions: true
@@ -56,8 +56,8 @@ router.get('/', authenticateToken, async (req, res) => {
           id: m.replyTo.id,
           text: m.replyTo.text,
           userId: m.replyTo.userId,
-          senderName: m.replyTo.sender?.name || "User",
-          sender: m.replyTo.sender // Include the object too for consistency
+          senderName: m.replyTo.user?.name || "User",
+          sender: m.replyTo.user // Include the object too for consistency
         } : undefined,
         reactions: reactions,
         status: m.status,
