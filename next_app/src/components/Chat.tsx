@@ -271,7 +271,12 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
             if (exists) {
               // Exact match? Update it (confirmation of optimistic)
-              return prev.map(m => String(m.id) === String(incomingMsg.id) ? incomingMsg : m);
+              return prev.map(m => String(m.id) === String(incomingMsg.id) ? {
+                ...incomingMsg,
+                // PRESERVE OPTIMISTIC DATA:
+                // If incoming message lacks sender details (common from server), keep our local one
+                sender: incomingMsg.sender || m.sender
+              } : m);
             }
 
             // 3. New message -> Append
@@ -556,10 +561,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
                 const isNextSameSender = nextMsg && nextMsg.userId === m.userId;
 
-                // Fix Avatar Lookup: Priority = Participant Info > avatarByUserId Fallback
+                // Fix Avatar Lookup: Priority = Message Sender Hydration > Participant Info > avatarByUserId Fallback
                 const participant = chatDetails?.participants?.find((p: any) => String(p.userId) === String(m.senderId || m.userId));
                 const u = participant?.user;
-                const avatarUrl = u?.image || u?.photoUrl || u?.avatar || u?.profilePicture || u?.imageUrl || (m.userId ? avatarByUserId[m.userId] : undefined);
+                const avatarUrl = m.sender?.image || u?.image || u?.photoUrl || u?.avatar || u?.profilePicture || u?.imageUrl || (m.userId ? avatarByUserId[m.userId] : undefined);
 
                 return (
                   <div key={m.id}>

@@ -290,7 +290,7 @@ io.on('connection', async (socket) => {
     const msg = {
       id: savedMsg ? savedMsg.id : Date.now(),
       text: String(text),
-      senderId: String(socket.id),
+      senderId: socket.userId ? String(socket.userId) : String(socket.id),
       senderName: senderName,
       ts: savedMsg ? savedMsg.createdAt.toISOString() : new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
