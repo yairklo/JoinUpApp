@@ -10,7 +10,7 @@ export type ReplyInfo = {
     senderName: string;
 };
 
-export type MessageStatus = "sent" | "delivered" | "read";
+export type MessageStatus = "sent" | "delivered" | "read" | "rejected";
 
 export type ChatMessage = {
     id: number | string;
@@ -25,4 +25,11 @@ export type ChatMessage = {
     status?: MessageStatus;
     isEdited?: boolean;
     isDeleted?: boolean;
+    content?: string;
+    sender?: {
+        id?: string;
+        name?: string;
+        image?: string | null;
+    };
+    tempId?: string | number;
 };

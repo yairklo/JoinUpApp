@@ -218,51 +218,79 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
         // Typing updates - FIXED LOGIC to use ID comparison
         socket.on('typing:start', ({ chatId, userName, senderId }) => {
-          if (chatId === roomId && senderId !== user?.id) {
-            const name = userName || "Someone";
+          if (String(chatId) !== String(roomId)) return;
+          if (String(senderId) === String(user?.id)) return;
 
-            // Clear existing timeout if exists
-            if (typingTimeoutsRef.current[senderId]) {
-              clearTimeout(typingTimeoutsRef.current[senderId]);
-            }
+          const name = userName || "Someone";
 
-            setTypingUsers(prev => {
-              const next = new Set(prev);
-              next.add(name);
-              return next;
-            });
-
-            // Auto-clear after 3 seconds
-            typingTimeoutsRef.current[senderId] = setTimeout(() => {
-              setTypingUsers(prev => {
-                const next = new Set(prev);
-                next.delete(name);
-                return next;
-              });
-            }, 3000);
+          // Clear existing timeout if exists
+          if (typingTimeoutsRef.current[senderId]) {
+            clearTimeout(typingTimeoutsRef.current[senderId]);
           }
-        });
 
-        socket.on('typing:stop', ({ chatId, userName, senderId }) => {
-          if (chatId === roomId && senderId !== user?.id) {
-            const name = userName || "Someone";
-            if (typingTimeoutsRef.current[senderId]) {
-              clearTimeout(typingTimeoutsRef.current[senderId]);
-            }
+          setTypingUsers(prev => {
+            const next = new Set(prev);
+            next.add(name);
+            return next;
+          });
 
+          // Auto-clear after 3 seconds
+          typingTimeoutsRef.current[senderId] = setTimeout(() => {
             setTypingUsers(prev => {
               const next = new Set(prev);
               next.delete(name);
               return next;
             });
-          }
+          }, 3000);
         });
 
-        socket.on("message", (msg: ChatMessage) => {
-          if (!msg.roomId || msg.roomId === roomId) {
-            setMessages((prev) => [...prev, msg]);
-            if (msg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
+
+        socket.on('typing:stop', ({ chatId, userName, senderId }) => {
+          if (String(chatId) !== String(roomId)) return;
+          if (String(senderId) === String(user?.id)) return;
+
+          const name = userName || "Someone";
+          if (typingTimeoutsRef.current[senderId]) {
+            clearTimeout(typingTimeoutsRef.current[senderId]);
           }
+
+          setTypingUsers(prev => {
+            const next = new Set(prev);
+            next.delete(name);
+            return next;
+          });
+        });
+
+        socket.on("message", (incomingMsg: ChatMessage) => {
+          // 1. Verify Room Match
+          if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
+
+          setMessages(prev => {
+            // Refined Logic: Check match by Real ID OR Temp ID
+            const matchIndex = prev.findIndex(m =>
+              (String(m.id) === String(incomingMsg.id)) ||
+              (incomingMsg.tempId && String(m.id) === String(incomingMsg.tempId))
+            );
+
+            if (matchIndex > -1) {
+              // UPDATE EXISTING (In-Place Replacement)
+              // This preserves the array order and prevents scroll jumps.
+              const newMessages = [...prev];
+              newMessages[matchIndex] = {
+                ...incomingMsg,
+                status: 'sent',
+                // PRESERVE OPTIMISTIC DATA:
+                sender: incomingMsg.sender || newMessages[matchIndex].sender
+              };
+              return newMessages;
+            } else {
+              // APPEND NEW
+              return [...prev, incomingMsg];
+            }
+          });
+
+          // Side Logic: Mark as read if not mine
+          if (incomingMsg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
         });
 
         socket.on("messageUpdated", (payload: { id: string | number, text: string, isEdited: boolean, roomId?: string }) => {
@@ -272,9 +300,21 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         });
 
         socket.on("messageDeleted", (payload: { id: string | number, roomId?: string }) => {
-          if (!payload.roomId || payload.roomId === roomId) {
-            setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, isDeleted: true, text: "" } : m));
-          }
+          // 1. Verify Room Match
+          if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
+
+          // 2. Functional Update with strict string comparison
+          setMessages(prev => prev.map(msg => {
+            if (String(msg.id) === String(payload.id)) {
+              return {
+                ...msg,
+                isDeleted: true,
+                text: "[Content Removed by Moderator]",
+                status: 'rejected'
+              };
+            }
+            return msg;
+          }));
         });
 
         socket.on("messageReaction", (payload: { messageId: string | number; reactions: Record<string, Reaction>; roomId?: string }) => {
@@ -376,16 +416,39 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
       socketInstance.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
       setEditingMessage(null);
     } else {
-      const payload: Partial<ChatMessage> & { roomId: string, userId: string } = {
+      const optimisticId = Date.now();
+      const optimisticMessage: ChatMessage & { content: string } = {
+        id: optimisticId,
         text: trimmed,
+        content: trimmed, // Fix: Ensure content matches text for optimistic UI
         roomId,
         userId: user?.id || "anon",
+        senderId: user?.id || "anon",
+        senderName: user?.fullName || "Me",
+        ts: new Date().toISOString(),
+        status: "sent", // Show as sent immediately
+        sender: { // CRITICAL: Hydrate sender details immediately for the UI
+          id: user?.id,
+          name: user?.fullName || undefined,
+          image: user?.imageUrl || undefined
+        },
         replyTo: replyToMessage ? {
           id: replyToMessage.id,
           text: replyToMessage.text,
           senderName: nameByUserId[replyToMessage.userId || ""] || replyToMessage.senderName || "User"
-        } : undefined,
-        status: "sent"
+        } : undefined
+      };
+
+      setMessages((prev) => [...prev, optimisticMessage]);
+
+      // Include tempId so server can echo it back for correlation
+      const payload: Partial<ChatMessage> & { roomId: string, userId: string, tempId: string | number } = {
+        text: trimmed,
+        roomId,
+        userId: user?.id || "anon",
+        replyTo: optimisticMessage.replyTo,
+        status: "sent",
+        tempId: optimisticId
       };
       socketInstance.emit("message", payload);
     }
@@ -507,8 +570,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
                 const isNextSameSender = nextMsg && nextMsg.userId === m.userId;
 
+                // Fix Avatar Lookup: Priority = Message Sender Hydration > Participant Info > avatarByUserId Fallback
+                const participant = chatDetails?.participants?.find((p: any) => String(p.userId) === String(m.senderId || m.userId));
+                const u = participant?.user;
+                const avatarUrl = m.sender?.image || u?.image || u?.photoUrl || u?.avatar || u?.profilePicture || u?.imageUrl || (m.userId ? avatarByUserId[m.userId] : undefined);
+
                 return (
-                  <div key={m.id}>
+                  <div key={m.id || m.tempId}>
                     {showDateSeparator && (
                       <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
                         <Box sx={{ bgcolor: "action.disabledBackground", px: 2, py: 0.5, borderRadius: 4 }}>
@@ -524,7 +592,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       onReact={handleReact}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
-                      avatarUrl={m.userId ? avatarByUserId[m.userId] : undefined}
+                      avatarUrl={avatarUrl}
                       displayName={(m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
                       timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                       showAvatar={!isNextSameSender}
