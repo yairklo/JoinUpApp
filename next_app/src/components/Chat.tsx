@@ -437,7 +437,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         replyTo: replyToMessage ? {
           id: replyToMessage.id,
           text: replyToMessage.text,
-          senderName: nameByUserId[replyToMessage.userId || ""] || replyToMessage.senderName || "User"
+          // Fix: Better name lookup (Participant > NameMap > Message Sender > "User")
+          senderName:
+            chatDetails?.participants?.find((p: any) => String(p.userId) === String(replyToMessage.userId))?.user?.name ||
+            nameByUserId[replyToMessage.userId || ""] ||
+            replyToMessage.senderName ||
+            replyToMessage.sender?.name ||
+            "User"
         } : undefined
       };
 
