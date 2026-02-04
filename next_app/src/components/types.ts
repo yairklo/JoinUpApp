@@ -25,4 +25,5 @@ export type ChatMessage = {
     status?: MessageStatus;
     isEdited?: boolean;
     isDeleted?: boolean;
+    content?: string;
 };
