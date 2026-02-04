@@ -280,7 +280,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 ...incomingMsg,
                 status: 'sent',
                 // PRESERVE OPTIMISTIC DATA:
-                sender: incomingMsg.sender || newMessages[matchIndex].sender
+                sender: incomingMsg.sender || newMessages[matchIndex].sender,
+                replyTo: incomingMsg.replyTo || newMessages[matchIndex].replyTo
               };
               return newMessages;
             } else {

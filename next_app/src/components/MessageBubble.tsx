@@ -223,7 +223,12 @@ export default function MessageBubble({
                 </Box>
             </Menu>
 
-            <Menu anchorEl={menuAnchorEl} open={Boolean(menuAnchorEl)} onClose={handleMenuClose}>
+            <Menu
+                anchorEl={menuAnchorEl}
+                open={Boolean(menuAnchorEl)}
+                onClose={handleMenuClose}
+                sx={{ zIndex: 1301 }} // Ensure it's above everything
+            >
                 <MenuItem onClick={handleEdit}>
                     <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>{isRTL ? "ערוך" : "Edit"}</ListItemText>
