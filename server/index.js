@@ -479,7 +479,7 @@ io.on('connection', async (socket) => {
     const rid = typeof data === 'object' ? data.roomId : undefined;
     const name = typeof data === 'object' ? data.userName : undefined; // Get userName
     const event = {
-      senderId: String(socket.id),
+      senderId: socket.userId ? String(socket.userId) : String(socket.id),
       userName: name,
       isTyping,
       roomId: rid ? String(rid) : undefined
@@ -487,7 +487,7 @@ io.on('connection', async (socket) => {
 
     // Also emit explicit start/stop for clients preferring that
     const explicitEvent = isTyping ? 'typing:start' : 'typing:stop';
-    const payload = { chatId: rid, userName: name, senderId: String(socket.id) };
+    const payload = { chatId: rid, userName: name, senderId: socket.userId ? String(socket.userId) : String(socket.id) };
 
     if (rid) {
       socket.to(String(rid)).emit('typing', event);
