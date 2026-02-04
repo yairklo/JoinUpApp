@@ -593,10 +593,11 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       avatarUrl={avatarUrl}
-                      displayName={(m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
+                      // Fix Name Lookup: Use Sender Hydration > Participant > NameMap > Fallback
+                      displayName={m.sender?.name || u?.name || (m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
                       timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                       showAvatar={!isNextSameSender}
-                      showName={!isPrevSameSender && !isMine}
+                      showName={!isPrevSameSender && !isMine && !isPrivate}
                       isFirstInGroup={!isPrevSameSender}
                       isLastInGroup={!isNextSameSender}
                       currentUserId={user?.id}
