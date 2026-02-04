@@ -227,7 +227,7 @@ export default function MessageBubble({
                 anchorEl={menuAnchorEl}
                 open={Boolean(menuAnchorEl)}
                 onClose={handleMenuClose}
-                sx={{ zIndex: 1301 }} // Ensure it's above everything
+                sx={{ zIndex: 2101 }} // Ensure it's above FloatingChat (2000)
             >
                 <MenuItem onClick={handleEdit}>
                     <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
