@@ -41,13 +41,14 @@ interface MessageBubbleProps {
     isFirstInGroup: boolean;
     isLastInGroup: boolean;
     currentUserId?: string | null;
+    nameByUserId?: Record<string, string | null>;
 }
 
 const COMMON_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 export default function MessageBubble({
     message, isMine, isRTL, onReply, onReact, onEdit, onDelete, avatarUrl, displayName, timeStr,
-    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId
+    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId, nameByUserId
 }: MessageBubbleProps) {
 
     const [hover, setHover] = useState(false);
@@ -158,7 +159,9 @@ export default function MessageBubble({
                                     }}
                                 >
                                     <Typography variant="caption" fontWeight="bold" display="block" sx={{ color: isMine ? "inherit" : "primary.main" }}>
-                                        {message.replyTo.senderName}
+                                        {message.replyTo.senderName && message.replyTo.senderName !== "User"
+                                            ? message.replyTo.senderName
+                                            : (nameByUserId && message.replyTo.userId ? (nameByUserId[message.replyTo.userId] || "User") : "User")}
                                     </Typography>
                                     <Typography variant="caption" noWrap sx={{ display: "block", maxWidth: 150, opacity: 0.9 }}>
                                         {message.replyTo.text}

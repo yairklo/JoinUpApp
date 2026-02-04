@@ -281,7 +281,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 status: 'sent',
                 // FIX: Prefer local hydrated data over server partial data
                 sender: existingMsg.sender || incomingMsg.sender,
-                replyTo: existingMsg.replyTo || incomingMsg.replyTo
+                // Fix: Force keep local reply if it has data (prevents disappearance)
+                replyTo: (existingMsg.replyTo?.senderName) ? existingMsg.replyTo : incomingMsg.replyTo
               };
               return newMessages;
             } else {
@@ -607,6 +608,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       showName={!isPrevSameSender && !isMine && !isPrivate}
                       isFirstInGroup={!isPrevSameSender}
                       isLastInGroup={!isNextSameSender}
+                      nameByUserId={nameByUserId} // Pass map for robust name lookup
                       currentUserId={user?.id}
                     />
                   </div>

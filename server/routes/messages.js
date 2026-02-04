@@ -24,7 +24,11 @@ router.get('/', authenticateToken, async (req, res) => {
       orderBy: { createdAt: 'asc' },
       take,
       include: {
-        replyTo: { select: { id: true, text: true, userId: true } },
+        replyTo: {
+          include: {
+            sender: { select: { id: true, name: true, imageUrl: true } }
+          }
+        },
         reactions: true
       }
     });
@@ -52,7 +56,8 @@ router.get('/', authenticateToken, async (req, res) => {
           id: m.replyTo.id,
           text: m.replyTo.text,
           userId: m.replyTo.userId,
-          senderName: "User" // Placeholder as we don't join User table here
+          senderName: m.replyTo.sender?.name || "User",
+          sender: m.replyTo.sender // Include the object too for consistency
         } : undefined,
         reactions: reactions,
         status: m.status,

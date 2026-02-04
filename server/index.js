@@ -281,6 +281,16 @@ io.on('connection', async (socket) => {
             replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
             status: initialStatus
           },
+          include: {
+            sender: true,
+            replyTo: {
+              include: {
+                sender: {
+                  select: { id: true, name: true, imageUrl: true }
+                }
+              }
+            }
+          }
         });
       } catch (e) {
         console.error('socket persist error:', e.message);
@@ -309,7 +319,7 @@ io.on('connection', async (socket) => {
       ts: savedMsg ? savedMsg.createdAt.toISOString() : new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
       userId: finalUserId ? String(finalUserId) : undefined,
-      replyTo: replyTo || undefined,
+      replyTo: savedMsg ? savedMsg.replyTo : (replyTo || undefined),
       status: initialStatus,
       tempId: tempId, // Echo back the correlation ID
       sender: senderUser ? {
@@ -368,11 +378,43 @@ io.on('connection', async (socket) => {
     // Optimistic check: message already sent. Revoke if needed.
     (async () => {
       try {
+        // Helper to calculate age
+        const calculateAge = (birthDate) => {
+          if (!birthDate) return 21; // Default fallback to Adult
+          const diff = Date.now() - new Date(birthDate).getTime();
+          return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+        };
+
+        // 1. Get Sender Age
+        let senderAge = 21;
+        if (senderUser && senderUser.birthDate) {
+          senderAge = calculateAge(senderUser.birthDate);
+        } else if (userId) {
+          // Fallback if senderUser wasn't fetched above (though it should be)
+          const s = await prisma.user.findUnique({ where: { id: String(userId) }, select: { birthDate: true } });
+          senderAge = calculateAge(s?.birthDate);
+        }
+
+        // 2. Get Receiver Age (Only for Private Chats)
+        let receiverAge = null;
+        if (roomId && String(roomId).startsWith('private_')) {
+          const parts = String(roomId).replace('private_', '').split('_');
+          const otherId = parts.find(id => id !== String(userId));
+          if (otherId) {
+            const receiver = await prisma.user.findUnique({ where: { id: otherId }, select: { birthDate: true } });
+            receiverAge = calculateAge(receiver?.birthDate);
+          }
+        }
+
         const checkResult = await moderator.checkMessage(
           String(text),
           [], // History could be fetched if needed
           {},
-          { userId: userId ? String(userId) : 'anonymous' }
+          {
+            userId: userId ? String(userId) : 'anonymous',
+            userAge: senderAge,
+            receiverAge: receiverAge
+          }
         );
 
         // Priority 1: System Error / Rate Limit -> Log for later, but allow message (Fail Open)

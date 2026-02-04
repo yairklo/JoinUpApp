@@ -7,7 +7,14 @@ export type Reaction = {
 export type ReplyInfo = {
     id: number | string;
     text: string;
-    senderName: string;
+    senderName?: string;
+    senderId?: string;
+    userId?: string;
+    sender?: {
+        name?: string;
+        image?: string | null;
+        id?: string;
+    };
 };
 
 export type MessageStatus = "sent" | "delivered" | "read" | "rejected";
