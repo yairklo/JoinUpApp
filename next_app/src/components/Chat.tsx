@@ -553,7 +553,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       onReact={handleReact}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
-                      avatarUrl={m.userId ? avatarByUserId[m.userId] : undefined}
+                      avatarUrl={avatarUrl}
                       displayName={(m.userId && nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
                       timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                       showAvatar={!isNextSameSender}
