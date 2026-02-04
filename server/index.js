@@ -287,17 +287,36 @@ io.on('connection', async (socket) => {
       }
     }
 
+    // Fetch sender details for hydration
+    let senderUser = null;
+    const finalUserId = socket.userId || userId;
+    if (finalUserId) {
+      try {
+        senderUser = await prisma.user.findUnique({
+          where: { id: String(finalUserId) },
+          select: { id: true, name: true, imageUrl: true }
+        });
+      } catch (e) {
+        console.error('Failed to fetch sender details:', e);
+      }
+    }
+
     const msg = {
       id: savedMsg ? savedMsg.id : Date.now(),
       text: String(text),
-      senderId: socket.userId ? String(socket.userId) : String(socket.id),
-      senderName: senderName,
+      senderId: finalUserId ? String(finalUserId) : String(socket.id),
+      senderName: senderUser?.name || senderName,
       ts: savedMsg ? savedMsg.createdAt.toISOString() : new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
-      userId: userId ? String(userId) : undefined,
+      userId: finalUserId ? String(finalUserId) : undefined,
       replyTo: replyTo || undefined,
       status: initialStatus,
-      tempId: tempId // Echo back the correlation ID
+      tempId: tempId, // Echo back the correlation ID
+      sender: senderUser ? {
+        id: senderUser.id,
+        name: senderUser.name,
+        image: senderUser.imageUrl
+      } : undefined
     };
 
     if (msg.roomId) {
