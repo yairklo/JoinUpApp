@@ -269,20 +269,23 @@ io.on('connection', async (socket) => {
       }
     }
 
+    // 4. Atomic Creation with Forced Deep Include
     let savedMsg = null;
-    // Persist if DB configured and room message
-    if (roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
-      try {
+    try {
+      if (roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
         savedMsg = await prisma.message.create({
           data: {
+            text: String(text),
             chatRoomId: String(roomId),
-            text: senderName ? `${senderName}: ${text}` : String(text),
             userId: userId ? String(userId) : null,
             replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
             status: initialStatus
           },
+          // CRITICAL: Force Deep Include immediately upon creation
           include: {
-            user: true,
+            user: {
+              select: { id: true, name: true, imageUrl: true }
+            },
             replyTo: {
               include: {
                 user: {
@@ -292,46 +295,42 @@ io.on('connection', async (socket) => {
             }
           }
         });
-      } catch (e) {
-        console.error('socket persist error:', e.message);
       }
+    } catch (e) {
+      console.error('Socket persist error:', e);
     }
 
-    // Fetch sender details for hydration
-    let senderUser = null;
-    const finalUserId = socket.userId || userId;
-    if (finalUserId) {
-      try {
-        senderUser = await prisma.user.findUnique({
-          where: { id: String(finalUserId) },
-          select: { id: true, name: true, imageUrl: true }
-        });
-      } catch (e) {
-        console.error('Failed to fetch sender details:', e);
-      }
-    }
-
+    // 5. Construct Payload from Hydrated DB Record (or fallback)
     const msg = {
       id: savedMsg ? savedMsg.id : Date.now(),
       text: String(text),
-      senderId: finalUserId ? String(finalUserId) : String(socket.id),
-      senderName: senderUser?.name || senderName,
+      // Use DB data if available (Source of Truth), else optimistic params
+      senderId: savedMsg?.userId || (finalUserId ? String(finalUserId) : String(socket.id)),
+      senderName: savedMsg?.user?.name || senderName || "Unknown",
       ts: savedMsg ? savedMsg.createdAt.toISOString() : new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
-      userId: finalUserId ? String(finalUserId) : undefined,
-      replyTo: savedMsg && savedMsg.replyTo ? {
-        ...savedMsg.replyTo,
-        senderName: savedMsg.replyTo.user?.name || "User", // Explicit name for fallback
-        sender: savedMsg.replyTo.user // Map user relation to sender for frontend
-      } : (replyTo || undefined),
+      userId: savedMsg?.userId || (finalUserId ? String(finalUserId) : undefined),
       status: initialStatus,
-      tempId: tempId, // Echo back the correlation ID
-      sender: senderUser ? {
+      tempId: tempId, // Echo back correlation ID
+
+      // Full Sender Object
+      sender: savedMsg?.user || (senderUser ? {
         id: senderUser.id,
         name: senderUser.name,
         image: senderUser.imageUrl
-      } : undefined
+      } : undefined),
+
+      // Full Reply Object (Deeply Hydrated)
+      replyTo: savedMsg?.replyTo ? {
+        id: savedMsg.replyTo.id,
+        text: savedMsg.replyTo.text,
+        senderId: savedMsg.replyTo.userId,
+        // CRITICAL FIX: Explicit name mapping
+        senderName: savedMsg.replyTo.user?.name || "User",
+        sender: savedMsg.replyTo.user
+      } : (replyTo || undefined)
     };
+
 
     if (msg.roomId) {
       io.to(msg.roomId).emit('message', msg);
