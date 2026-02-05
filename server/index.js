@@ -350,8 +350,28 @@ io.on('connection', async (socket) => {
       // Check if message needs human review (flagged but allowed)
       if (modResult.reviewNeeded) {
         console.log(`⚠️ [MODERATION] FLAGGED for review: ${finalUserId} (Age: ${senderAge}) -> ${receiverAge ? `Receiver Age: ${receiverAge}` : 'Public'} | Reason: ${modResult.reason || 'N/A'}`);
-        // TODO: Save to FlaggedMessage table for human review
-        // For now, allow the message to proceed
+
+        // Save to FlaggedMessage table for human review
+        try {
+          await prisma.flaggedMessage.create({
+            data: {
+              content: text,
+              userId: finalUserId,
+              status: 'PENDING_REVIEW',
+              resolution: null,
+              aiTriggers: {
+                reason: modResult.reason || 'Unknown',
+                source: modResult.source || 'moderator',
+                senderAge,
+                receiverAge,
+                chatMode: senderAge >= 18 && receiverAge < 18 ? 'ADULT_TO_MINOR' : 'OTHER'
+              }
+            }
+          });
+          console.log(`💾 [MODERATION] Saved flagged message to database for review`);
+        } catch (dbError) {
+          console.error('[MODERATION] Failed to save flagged message:', dbError);
+        }
       }
     } catch (e) {
       console.error('[MODERATION] Service Error:', e);
