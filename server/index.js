@@ -308,7 +308,7 @@ io.on('connection', async (socket) => {
         if (otherParticipant) {
           const receiver = await prisma.user.findUnique({
             where: { id: otherParticipant.userId },
-            select: { age: true, birthDate: true }
+            select: { birthDate: true }
           });
           receiverAge = getAge(receiver);
           console.log(`[DEBUG] Receiver Found: ${otherParticipant.userId}, Age Data:`, receiver, `CalcAge: ${receiverAge}`); // DEBUG LOG
