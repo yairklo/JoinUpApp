@@ -30,6 +30,7 @@ model User {
   sports         UserSport[]
   seriesSubscriptions SeriesParticipant[]
   chatParticipations ChatParticipant[]
+  messages       Message[]
 }
 
 model Field {
@@ -159,6 +160,7 @@ model Message {
   chatRoomId String
   chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
   userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
   text      String
   status    MessageStatus @default(sent)
   createdAt DateTime @default(now())

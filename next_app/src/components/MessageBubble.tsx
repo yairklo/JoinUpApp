@@ -41,13 +41,14 @@ interface MessageBubbleProps {
     isFirstInGroup: boolean;
     isLastInGroup: boolean;
     currentUserId?: string | null;
+    nameByUserId?: Record<string, string | null>;
 }
 
 const COMMON_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 export default function MessageBubble({
     message, isMine, isRTL, onReply, onReact, onEdit, onDelete, avatarUrl, displayName, timeStr,
-    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId
+    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId, nameByUserId
 }: MessageBubbleProps) {
 
     const [hover, setHover] = useState(false);
@@ -158,7 +159,9 @@ export default function MessageBubble({
                                     }}
                                 >
                                     <Typography variant="caption" fontWeight="bold" display="block" sx={{ color: isMine ? "inherit" : "primary.main" }}>
-                                        {message.replyTo.senderName}
+                                        {message.replyTo.senderName && message.replyTo.senderName !== "User"
+                                            ? message.replyTo.senderName
+                                            : (nameByUserId && message.replyTo.userId ? (nameByUserId[message.replyTo.userId] || "User") : "User")}
                                     </Typography>
                                     <Typography variant="caption" noWrap sx={{ display: "block", maxWidth: 150, opacity: 0.9 }}>
                                         {message.replyTo.text}
@@ -215,7 +218,14 @@ export default function MessageBubble({
                 </Stack>
             )}
 
-            <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleClose} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+            <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleClose}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                sx={{ zIndex: 2101 }}
+            >
                 <Box sx={{ p: 1, display: "flex", gap: 1 }}>
                     {COMMON_REACTIONS.map(emoji => (
                         <IconButton key={emoji} onClick={() => handleSelectEmoji(emoji)} size="small">{emoji}</IconButton>
@@ -223,7 +233,12 @@ export default function MessageBubble({
                 </Box>
             </Menu>
 
-            <Menu anchorEl={menuAnchorEl} open={Boolean(menuAnchorEl)} onClose={handleMenuClose}>
+            <Menu
+                anchorEl={menuAnchorEl}
+                open={Boolean(menuAnchorEl)}
+                onClose={handleMenuClose}
+                sx={{ zIndex: 2101 }} // Ensure it's above FloatingChat (2000)
+            >
                 <MenuItem onClick={handleEdit}>
                     <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>{isRTL ? "ערוך" : "Edit"}</ListItemText>

@@ -260,6 +260,22 @@ io.on('connection', async (socket) => {
   socket.on('message', async ({ text, roomId, userId, senderName, replyTo, tempId }) => {
     if (!text) return;
 
+    // FIX: Define missing variables immediately
+    const finalUserId = userId ? String(userId) : (socket.userId ? String(socket.userId) : null);
+
+    // Fetch sender details early (needed for moderation and fallbacks)
+    let senderUser = null;
+    if (finalUserId) {
+      try {
+        senderUser = await prisma.user.findUnique({
+          where: { id: finalUserId },
+          select: { id: true, name: true, imageUrl: true, birthDate: true }
+        });
+      } catch (e) {
+        console.error('Failed to fetch sender details:', e);
+      }
+    }
+
     // Check active users in room to determine initial status
     let initialStatus = 'sent';
     if (roomId) {
@@ -269,36 +285,75 @@ io.on('connection', async (socket) => {
       }
     }
 
+    // 4. Atomic Creation with Forced Deep Include
     let savedMsg = null;
-    // Persist if DB configured and room message
-    if (roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
-      try {
+    try {
+      if (roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
         savedMsg = await prisma.message.create({
           data: {
+            text: String(text),
             chatRoomId: String(roomId),
-            text: senderName ? `${senderName}: ${text}` : String(text),
             userId: userId ? String(userId) : null,
             replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
             status: initialStatus
           },
+          // CRITICAL: Force Deep Include immediately upon creation
+          include: {
+            user: {
+              select: { id: true, name: true, imageUrl: true }
+            },
+            replyTo: {
+              include: {
+                user: {
+                  select: { id: true, name: true, imageUrl: true }
+                }
+              }
+            }
+          }
         });
-      } catch (e) {
-        console.error('socket persist error:', e.message);
       }
+    } catch (e) {
+      console.error('Socket persist error:', e);
     }
 
+    // 5. Construct Payload from Hydrated DB Record (or fallback)
     const msg = {
       id: savedMsg ? savedMsg.id : Date.now(),
       text: String(text),
-      senderId: socket.userId ? String(socket.userId) : String(socket.id),
-      senderName: senderName,
+      // Use DB data if available (Source of Truth), else optimistic params
+      senderId: savedMsg?.userId || (finalUserId ? String(finalUserId) : String(socket.id)),
+      senderName: savedMsg?.user?.name || senderName || "Unknown",
       ts: savedMsg ? savedMsg.createdAt.toISOString() : new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
-      userId: userId ? String(userId) : undefined,
-      replyTo: replyTo || undefined,
+      userId: savedMsg?.userId || (finalUserId ? String(finalUserId) : undefined),
       status: initialStatus,
-      tempId: tempId // Echo back the correlation ID
+      tempId: tempId, // Echo back correlation ID
+
+      // Full Sender Object
+      sender: savedMsg?.user || (senderUser ? {
+        id: senderUser.id,
+        name: senderUser.name,
+        image: senderUser.imageUrl
+      } : undefined),
+
+      // Full Reply Object (Deeply Hydrated)
+      replyTo: savedMsg?.replyTo ? {
+        id: savedMsg.replyTo.id,
+        text: savedMsg.replyTo.text,
+        senderId: savedMsg.replyTo.userId,
+        // CRITICAL FIX: Explicit name mapping
+        senderName: savedMsg.replyTo.user?.name || "User",
+        sender: savedMsg.replyTo.user
+      } : (replyTo || undefined)
     };
+
+
+    // Debug Log for Reply Persistence
+    if (msg.replyTo) {
+      console.log(`[DEBUG] Emitting message ${msg.id} with replyTo:`, msg.replyTo.senderName);
+    } else {
+      console.log(`[DEBUG] Emitting message ${msg.id} WITHOUT replyTo`);
+    }
 
     if (msg.roomId) {
       io.to(msg.roomId).emit('message', msg);
@@ -349,11 +404,43 @@ io.on('connection', async (socket) => {
     // Optimistic check: message already sent. Revoke if needed.
     (async () => {
       try {
+        // Helper to calculate age
+        const calculateAge = (birthDate) => {
+          if (!birthDate) return 21; // Default fallback to Adult
+          const diff = Date.now() - new Date(birthDate).getTime();
+          return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+        };
+
+        // 1. Get Sender Age
+        let senderAge = 21;
+        if (senderUser && senderUser.birthDate) {
+          senderAge = calculateAge(senderUser.birthDate);
+        } else if (userId) {
+          // Fallback if senderUser wasn't fetched above (though it should be)
+          const s = await prisma.user.findUnique({ where: { id: String(userId) }, select: { birthDate: true } });
+          senderAge = calculateAge(s?.birthDate);
+        }
+
+        // 2. Get Receiver Age (Only for Private Chats)
+        let receiverAge = null;
+        if (roomId && String(roomId).startsWith('private_')) {
+          const parts = String(roomId).replace('private_', '').split('_');
+          const otherId = parts.find(id => id !== String(userId));
+          if (otherId) {
+            const receiver = await prisma.user.findUnique({ where: { id: otherId }, select: { birthDate: true } });
+            receiverAge = calculateAge(receiver?.birthDate);
+          }
+        }
+
         const checkResult = await moderator.checkMessage(
           String(text),
           [], // History could be fetched if needed
           {},
-          { userId: userId ? String(userId) : 'anonymous' }
+          {
+            userId: userId ? String(userId) : 'anonymous',
+            userAge: senderAge,
+            receiverAge: receiverAge
+          }
         );
 
         // Priority 1: System Error / Rate Limit -> Log for later, but allow message (Fail Open)
