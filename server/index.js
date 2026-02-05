@@ -346,6 +346,13 @@ io.on('connection', async (socket) => {
         });
         return; // STOP EXECUTION
       }
+
+      // Check if message needs human review (flagged but allowed)
+      if (modResult.reviewNeeded) {
+        console.log(`⚠️ [MODERATION] FLAGGED for review: ${finalUserId} (Age: ${senderAge}) -> ${receiverAge ? `Receiver Age: ${receiverAge}` : 'Public'} | Reason: ${modResult.reason || 'N/A'}`);
+        // TODO: Save to FlaggedMessage table for human review
+        // For now, allow the message to proceed
+      }
     } catch (e) {
       console.error('[MODERATION] Service Error:', e);
       // Fail Open: Allow message if moderation crashes? Or Closed?
