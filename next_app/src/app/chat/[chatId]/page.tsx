@@ -13,13 +13,14 @@ export default async function ChatPage({ params }: PageProps) {
     return (
         <Box
             sx={{
-                // Full viewport height minus header
-                height: "calc(100vh - 70px)",
+                // Full viewport height minus header (use dvh for mobile browsers)
+                height: "calc(100dvh - 70px)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 bgcolor: { xs: "background.paper", md: "grey.100" }, // Grey bg only on desktop
-                p: { xs: 0, md: 3 }
+                p: { xs: 0, md: 3 },
+                overflow: "hidden" // Prevent body scroll
             }}
         >
             {/* Wrapper for Desktop View */}
