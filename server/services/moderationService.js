@@ -365,9 +365,12 @@ class ContentModerator {
             safetyTier = "STRICT_PROTECTION";
             systemInstruction = `
             MODE: ADULT_TALKING_TO_MINOR.
-            1. ZERO TOLERANCE: Grooming, sexual innuendo, asking for photos, meeting requests, or manipulation.
-            2. BLOCK: Any hostility or bullying from the adult.
-            3. ALLOW: Normal game coordination, mild frustration.
+            1. ZERO TOLERANCE (BLOCK): Grooming, sexual innuendo, asking for photos, meeting requests, or manipulation.
+            2. BLOCK: Severe hostility, threats, or bullying from the adult.
+            3. ALLOW WITH FLAG: Casual Hebrew slang and mild profanity (e.g., "איזה זין", "חרא", "לעזאזל") - mark as reviewNeeded: true but isSafe: true.
+            4. ALLOW: Normal game coordination, mild frustration, casual conversation.
+            
+            IMPORTANT: Distinguish between harmful sexual content (BLOCK) and casual slang expressions (ALLOW but FLAG for review).
             `;
         } else {
             // SCENARIO 3: Minor to Minor / Public Game
