@@ -295,12 +295,16 @@ io.on('connection', async (socket) => {
       try {
         const parts = String(roomId).replace('private_', '').split('_');
         const otherId = parts.find(id => id !== String(finalUserId));
+
+        console.log(`[DEBUG] Age Check - Room: ${roomId}, Me: ${finalUserId}, Other: ${otherId}`); // DEBUG LOG
+
         if (otherId) {
           const receiver = await prisma.user.findUnique({
             where: { id: otherId },
             select: { age: true, birthDate: true }
           });
           receiverAge = getAge(receiver);
+          console.log(`[DEBUG] Receiver Fetched:`, receiver, `CalcAge: ${receiverAge}`); // DEBUG LOG
         }
       } catch (e) {
         console.error('[MODERATION] Failed to fetch receiver details:', e);
