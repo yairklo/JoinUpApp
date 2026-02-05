@@ -357,42 +357,23 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   const { messagesCache, loadMessages } = useChat();
 
+  // FIX: Only run this effect when the Room ID changes. 
+  // Removing 'messagesCache' from dependencies prevents the optimistic message 
+  // from being overwritten by a stale cache update immediately after sending.
   useEffect(() => {
     if (!roomId) return;
 
-    // OPTIMIZATION: Check cache first
+    // 1. Instant load from cache if available (mount only)
     if (messagesCache[roomId]) {
       setMessages(messagesCache[roomId]);
       setIsLoading(false);
       prevMessagesLengthRef.current = messagesCache[roomId].length;
-      // Proceed to fetch in background to ensure freshness? 
-      // The user said: "If Cached: Set messages immediately ... If Not Cached: Proceed with the fetch".
-      // Usually we want to update if there are new ones. 
-      // `loadMessages` does a fetch. 
-      // If we want stale-while-revalidate, we might need to modify `loadMessages` or just call it here anyway?
-      // User request: "If Not Cached: Proceed with the fetch". Implies if cached, don't fetch or fetch later?
-      // "Add Actions: ... loadMessages(chatId): Checks messagesCache[chatId]. If exists, return immediately. If not, fetch..."
-      // THIS is the key: `loadMessages` in context behaves differently than I implemented in previous step?
-      // In previous step (ChatContext), I implemented `loadMessages` to check cache and return if found.
-      // So simply calling `loadMessages` handles the caching logic!
-      // But `Chat.tsx` wants to "Set messages immediately" from cache.
-      // If `loadMessages` returns cache immediately (async/promise resolves fast), it's fine.
-      // But if we want to avoid the "tick" of promise resolution?
-      // "if (messagesCache[chatId]) return messagesCache[chatId]" inside `loadMessages` makes it almost instant (microtask).
-      // So I can just call `loadMessages`.
     }
 
     const initMessages = async () => {
-      // If not cached visually (to avoid flicker even if almost instant), set manual check
-      if (messagesCache[roomId]) {
-        setMessages(messagesCache[roomId]);
-        setIsLoading(false);
-        prevMessagesLengthRef.current = messagesCache[roomId].length;
-        // We might want to refresh though. The context `loadMessages` returns cache if present. 
-        // It does NOT refresh if present.
-        // This implies we rely on Socket for new messages.
-        return;
-      }
+      // If we already have data from cache, avoid re-fetching or flickering
+      // You can decide to fetch in background if needed, but don't reset state here if not empty.
+      if (messagesCache[roomId]) return;
 
       setIsLoading(true);
       try {
@@ -407,7 +388,9 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     };
 
     initMessages();
-  }, [roomId, loadMessages, messagesCache]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]); // <--- CRITICAL CHANGE: Dependencies are now locked to roomId only.
 
   useEffect(() => {
     const missing = Array.from(new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))).filter(id => !(id in avatarByUserId));
