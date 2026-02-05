@@ -276,6 +276,70 @@ io.on('connection', async (socket) => {
       }
     }
 
+    // --- MODERATION & SAFETY CHECK ---
+    const getAge = (u) => {
+      if (!u) return 21; // Default to adult if unknown
+      if (u.age) return u.age;
+      if (u.birthDate) {
+        const diff = Date.now() - new Date(u.birthDate).getTime();
+        return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+      }
+      return 21;
+    };
+
+    const senderAge = getAge(senderUser);
+    let receiverAge = null;
+
+    // Detect if Private Chat and fetch Receiver Age
+    if (roomId && String(roomId).startsWith('private_')) {
+      try {
+        const parts = String(roomId).replace('private_', '').split('_');
+        const otherId = parts.find(id => id !== String(finalUserId));
+        if (otherId) {
+          const receiver = await prisma.user.findUnique({
+            where: { id: otherId },
+            select: { age: true, birthDate: true }
+          });
+          receiverAge = getAge(receiver);
+        }
+      } catch (e) {
+        console.error('[MODERATION] Failed to fetch receiver details:', e);
+      }
+    }
+
+    // Call Moderator Service
+    try {
+      // Retrieve last few messages for context (optional, can be empty for speed)
+      // const previousMessages = ... (Skipping for now to prioritize speed)
+
+      const modResult = await moderator.checkMessage(
+        text,
+        [], // Chat History (empty for now)
+        {}, // User Config (default)
+        {
+          userId: finalUserId,
+          userAge: senderAge,
+          receiverAge: receiverAge,
+          userGender: senderUser?.gender
+        }
+      );
+
+      if (!modResult.isSafe) {
+        console.log(`❌ [MODERATION] BLOCKED message from ${finalUserId} (Age: ${senderAge}) -> ${receiverAge ? `Receiver Age: ${receiverAge}` : 'Public'}`);
+        socket.emit('message:error', {
+          id: tempId || Date.now(),
+          error: "Message blocked by safety filters.",
+          reason: "Community Guidelines Violation"
+        });
+        return; // STOP EXECUTION
+      }
+    } catch (e) {
+      console.error('[MODERATION] Service Error:', e);
+      // Fail Open: Allow message if moderation crashes? Or Closed?
+      // Usually Fail Open to prevent chat downtime, unless strict.
+    }
+    // ---------------------------------
+
     // Check active users in room to determine initial status
     let initialStatus = 'sent';
     if (roomId) {
