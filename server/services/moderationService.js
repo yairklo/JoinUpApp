@@ -20,9 +20,9 @@ const THRESHOLDS = {
     ADULT: {
         "harassment": { block: 0.95, flag: 0.85 },
         "hate": { block: 0.90, flag: 0.80 },
-        "self-harm": { block: 0.60, flag: 0.30 },
+        "self-harm": { block: 0.80, flag: 0.30 },
         "sexual": { block: 0.95, flag: 0.90 },
-        "sexual/minors": { block: 0.50, flag: 0.05 }, // Always strictly flagged
+        "sexual/minors": { block: 0.70, flag: 0.05 }, // Always strictly flagged
         "violence": { block: 0.95, flag: 0.85 }
     }
 };
