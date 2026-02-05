@@ -13,14 +13,19 @@ export default async function ChatPage({ params }: PageProps) {
     return (
         <Box
             sx={{
-                // Full viewport height minus header (use dvh for mobile browsers)
-                height: "calc(100dvh - 70px)",
+                // Lock container to viewport to prevent body scroll (overscroll)
+                position: "fixed",
+                top: "70px", // Navbar height
+                bottom: 0,
+                left: 0,
+                right: 0,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 bgcolor: { xs: "background.paper", md: "grey.100" }, // Grey bg only on desktop
                 p: { xs: 0, md: 3 },
-                overflow: "hidden" // Prevent body scroll
+                overflow: "hidden",
+                zIndex: 0 // Ensure it sits below overlay elements but locks scroll
             }}
         >
             {/* Wrapper for Desktop View */}
