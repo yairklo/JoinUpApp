@@ -265,6 +265,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           // 1. Verify Room Match
           if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
 
+          console.log("📨 [CLIENT] Received Socket Message:", {
+            id: incomingMsg.id,
+            senderName: incomingMsg.senderName,
+            replyTo: incomingMsg.replyTo, // <--- IS THIS NULL HERE?
+            replyToName: incomingMsg.replyTo?.senderName
+          });
+
           setMessages(prev => {
             // Refined Logic: Check match by Real ID OR Temp ID
             const matchIndex = prev.findIndex(m =>
@@ -274,6 +281,16 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
             if (matchIndex > -1) {
               const existingMsg = prev[matchIndex];
+              console.log("🔄 [MERGE] Found existing optimistic msg:", {
+                localReply: existingMsg.replyTo,
+                serverReply: incomingMsg.replyTo
+              });
+
+              // The Aggressive Fix: ALWAYS prefer local if available
+              const safeReply = existingMsg.replyTo || incomingMsg.replyTo;
+
+              console.log("✅ [MERGE] Resulting Reply Object:", safeReply);
+
               // UPDATE EXISTING (In-Place Replacement)
               const newMessages = [...prev];
               newMessages[matchIndex] = {
@@ -282,10 +299,11 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 // FIX: Prefer local hydrated data over server partial data
                 sender: existingMsg.sender || incomingMsg.sender,
                 // Fix: Force keep local reply (Aggressive Persistence) - Local is Source of Truth for UI
-                replyTo: existingMsg.replyTo || incomingMsg.replyTo
+                replyTo: safeReply
               };
               return newMessages;
             } else {
+              console.log("➕ [APPEND] No match found, appending new message.");
               // APPEND NEW
               return [...prev, incomingMsg];
             }
