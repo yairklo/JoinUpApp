@@ -262,54 +262,46 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         });
 
         socket.on("message", (incomingMsg: ChatMessage) => {
-          // 1. Verify Room Match
           if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
 
-          console.log("📨 [CLIENT] Received Socket Message:", {
+          // DEBUG: See exactly what creates the match failure
+          console.log("📨 [SOCKET] Incoming:", {
             id: incomingMsg.id,
-            senderName: incomingMsg.senderName,
-            replyTo: incomingMsg.replyTo, // <--- IS THIS NULL HERE?
-            replyToName: incomingMsg.replyTo?.senderName
+            tempId: incomingMsg.tempId,
+            replyTo: incomingMsg.replyTo
           });
 
           setMessages(prev => {
-            // Refined Logic: Check match by Real ID OR Temp ID
-            const matchIndex = prev.findIndex(m =>
-              (String(m.id) === String(incomingMsg.id)) ||
-              (incomingMsg.tempId && String(m.id) === String(incomingMsg.tempId))
-            );
+            const matchIndex = prev.findIndex(m => {
+              // Check 1: ID Match
+              const idMatch = String(m.id) === String(incomingMsg.id);
+              // Check 2: TempID Match (Loose comparison for safety)
+              const tempMatch = incomingMsg.tempId && (String(m.id) == String(incomingMsg.tempId));
+
+              return idMatch || tempMatch;
+            });
 
             if (matchIndex > -1) {
               const existingMsg = prev[matchIndex];
-              console.log("🔄 [MERGE] Found existing optimistic msg:", {
-                localReply: existingMsg.replyTo,
-                serverReply: incomingMsg.replyTo
-              });
+              console.log("✅ [MERGE] Matched existing msg. Keeping local reply.");
 
-              // The Aggressive Fix: ALWAYS prefer local if available
+              // CRITICAL FIX: The "||" operator protects the UI from server data loss
               const safeReply = existingMsg.replyTo || incomingMsg.replyTo;
 
-              console.log("✅ [MERGE] Resulting Reply Object:", safeReply);
-
-              // UPDATE EXISTING (In-Place Replacement)
               const newMessages = [...prev];
               newMessages[matchIndex] = {
                 ...incomingMsg,
                 status: 'sent',
-                // FIX: Prefer local hydrated data over server partial data
                 sender: existingMsg.sender || incomingMsg.sender,
-                // Fix: Force keep local reply (Aggressive Persistence) - Local is Source of Truth for UI
                 replyTo: safeReply
               };
               return newMessages;
             } else {
-              console.log("➕ [APPEND] No match found, appending new message.");
-              // APPEND NEW
+              console.warn("➕ [APPEND] No match found for tempId:", incomingMsg.tempId);
               return [...prev, incomingMsg];
             }
           });
 
-          // Side Logic: Mark as read if not mine
           if (incomingMsg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
         });
 
@@ -421,7 +413,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     const missing = Array.from(new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))).filter(id => !(id in avatarByUserId));
     if (missing.length === 0) return;
     missing.forEach((uid) => {
-      fetch(`${API_BASE} /api/users / ${uid} `).then(r => r.json()).then((u) => {
+      fetch(`${API_BASE}/api/users/${uid}`).then(r => r.json()).then((u) => {
         setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
         if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
       }).catch(() => setAvatarByUserId((prev) => ({ ...prev, [uid]: null })));
