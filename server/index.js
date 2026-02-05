@@ -292,24 +292,31 @@ io.on('connection', async (socket) => {
     const senderAge = getAge(senderUser);
     let receiverAge = null;
 
-    // Detect if Private Chat and fetch Receiver Age
-    if (roomId && String(roomId).startsWith('private_')) {
+    // Fetch all participants in this chat to find the receiver
+    if (roomId) {
       try {
-        const parts = String(roomId).replace('private_', '').split('_');
-        const otherId = parts.find(id => id !== String(finalUserId));
+        const participants = await prisma.chatParticipant.findMany({
+          where: { chatId: String(roomId) },
+          select: { userId: true }
+        });
 
-        console.log(`[DEBUG] Age Check - Room: ${roomId}, Me: ${finalUserId}, Other: ${otherId}`); // DEBUG LOG
+        console.log(`[DEBUG] Chat Participants:`, participants.map(p => p.userId)); // DEBUG LOG
 
-        if (otherId) {
+        // Find the other user (not the sender)
+        const otherParticipant = participants.find(p => p.userId !== String(finalUserId));
+
+        if (otherParticipant) {
           const receiver = await prisma.user.findUnique({
-            where: { id: otherId },
+            where: { id: otherParticipant.userId },
             select: { age: true, birthDate: true }
           });
           receiverAge = getAge(receiver);
-          console.log(`[DEBUG] Receiver Fetched:`, receiver, `CalcAge: ${receiverAge}`); // DEBUG LOG
+          console.log(`[DEBUG] Receiver Found: ${otherParticipant.userId}, Age Data:`, receiver, `CalcAge: ${receiverAge}`); // DEBUG LOG
+        } else {
+          console.log(`[DEBUG] No other participant found (group chat or solo?)`); // DEBUG LOG
         }
       } catch (e) {
-        console.error('[MODERATION] Failed to fetch receiver details:', e);
+        console.error('[MODERATION] Failed to fetch chat participants:', e);
       }
     }
 
