@@ -77,6 +77,9 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   // Track previous message length to differentiate updates from new messages
   const prevMessagesLengthRef = useRef(0);
 
+  // Ref for auto-focusing input
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
   const [avatarByUserId, setAvatarByUserId] = useState<Record<string, string | null>>({});
   const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({});
@@ -459,13 +462,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
     socketInstance.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
   };
 
-  const handleEdit = (msg: ChatMessage) => { setEditingMessage(msg); setInputValue(msg.text); setReplyToMessage(null); };
+  const handleEdit = (msg: ChatMessage) => { setEditingMessage(msg); setInputValue(msg.text); setReplyToMessage(null); inputRef.current?.focus(); };
   const handleDelete = (messageId: string | number) => { socketInstance?.emit("deleteMessage", { messageId, roomId }); };
   const cancelAction = () => { setReplyToMessage(null); setEditingMessage(null); setInputValue(""); };
   const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
   };
-  const handleReply = (msg: ChatMessage) => { setReplyToMessage(msg); setEditingMessage(null); };
+  const handleReply = (msg: ChatMessage) => { setReplyToMessage(msg); setEditingMessage(null); inputRef.current?.focus(); };
   const handleReact = (messageId: string | number, emoji: string) => { socketInstance?.emit("addReaction", { messageId, emoji, userId: user?.id, roomId }); };
 
   const getDayString = (date: Date, isRTL: boolean) => {
@@ -646,6 +649,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
       <Box sx={{ p: 2, borderTop: 1, borderColor: "divider", bgcolor: "background.paper" }}>
         <Stack direction="row" spacing={1} alignItems="flex-end">
           <TextField
+            inputRef={inputRef}
             fullWidth multiline maxRows={3} variant="outlined" size="small"
             placeholder={isRTL ? "כתוב הודעה..." : "Type a message..."}
             value={inputValue}
