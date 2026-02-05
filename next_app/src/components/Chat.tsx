@@ -281,8 +281,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 status: 'sent',
                 // FIX: Prefer local hydrated data over server partial data
                 sender: existingMsg.sender || incomingMsg.sender,
-                // Fix: Force keep local reply if it has data (prevents disappearance)
-                replyTo: (existingMsg.replyTo?.senderName) ? existingMsg.replyTo : incomingMsg.replyTo
+                // Fix: Force keep local reply (Aggressive Persistence) - Local is Source of Truth for UI
+                replyTo: existingMsg.replyTo || incomingMsg.replyTo
               };
               return newMessages;
             } else {

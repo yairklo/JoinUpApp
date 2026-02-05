@@ -332,6 +332,13 @@ io.on('connection', async (socket) => {
     };
 
 
+    // Debug Log for Reply Persistence
+    if (msg.replyTo) {
+      console.log(`[DEBUG] Emitting message ${msg.id} with replyTo:`, msg.replyTo.senderName);
+    } else {
+      console.log(`[DEBUG] Emitting message ${msg.id} WITHOUT replyTo`);
+    }
+
     if (msg.roomId) {
       io.to(msg.roomId).emit('message', msg);
       // Support ChatList updates
