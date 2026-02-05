@@ -22,6 +22,10 @@ const { moderator } = require('./moderationInstance');
 const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Start Review Worker
+// Run immediately on startup to process any backlog
+processReviewQueue().catch(err => console.error("Worker Startup Error:", err));
+
+// Then run every minute
 setInterval(() => {
   processReviewQueue().catch(err => console.error("Worker Error:", err));
 }, 60 * 1000);
