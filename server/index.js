@@ -364,7 +364,9 @@ io.on('connection', async (socket) => {
                 source: modResult.source || 'moderator',
                 senderAge,
                 receiverAge,
-                chatMode: senderAge >= 18 && receiverAge < 18 ? 'ADULT_TO_MINOR' : 'OTHER'
+                chatMode: senderAge >= 18 && receiverAge < 18 ? 'ADULT_TO_MINOR' : 'OTHER',
+                retryDelay: modResult.retryDelay || null,
+                retryAfter: modResult.retryDelay ? new Date(Date.now() + modResult.retryDelay * 1000).toISOString() : null
               }
             }
           });

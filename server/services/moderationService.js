@@ -389,38 +389,97 @@ class ContentModerator {
         const policy = Object.entries(config).map(([k, v]) => `- ${k}: ${v}`).join("\n");
         let userProfile = `Reputation: ${userScore}/100. Age: ${senderAge}.`;
 
-        const prompt = `
-        Role: Context-Aware Safety Moderator.
-        Current Mode: ${safetyTier}
+        // Model Fallback Chain (fastest → most reliable)
+        const modelChain = [
+            'gemini-2.5-flash',           // Primary: Fast but quota-limited
+            'gemini-2.0-flash-001',       // Fallback 1: Stable 2.0 version
+            'gemini-2.0-flash-lite-001',  // Fallback 2: Lighter, separate quota
+            'gemini-flash-lite-latest',   // Fallback 3: Latest lite version
+            'gemini-flash-latest'         // Fallback 4: Latest stable (last resort)
+        ];
 
-        Policy:
-        ${systemInstruction}
+        let lastError = null;
+        for (const modelName of modelChain) {
+            try {
+                const model = this.gemini.getGenerativeModel({ model: modelName });
+                const fullSystemInstruction = `
+                Role: Context-Aware Safety Moderator.
+                Current Mode: ${safetyTier}
+                Triggers Detected: [${triggers.join(", ")}]
+                Task: Return JSON { "isSafe": boolean, "reason": "short string" }.
+                If safe, set isSafe: true.
+                If unsafe, specify if it's "HARASSMENT", "GROOMING", "THREAT", or "SELF_HARM".
+                ${systemInstruction}
+                
+                # Policy
+                ${policy}
+                
+                # User
+                ${userProfile}
+                
+                # Context (PII Scrubbed)
+                ${context}
+                `;
 
-        Triggers Detected: [${triggers.join(", ")}]
+                Logger.debugAI('Gemini', 'Full Prompt Context', { model: modelName, systemInstruction: fullSystemInstruction, message });
 
-        User Message: "${message}"
-        
-        Context (PII Scrubbed):
-        ${context}
+                const result = await model.generateContent({
+                    contents: [{ role: "user", parts: [{ text: message }] }],
+                    systemInstruction: fullSystemInstruction,
+                    generationConfig: { temperature: 0.3, responseMimeType: "application/json" }
+                });
 
-        Task: Return JSON { "isSafe": boolean, "reason": "short string" }.
-        If safe, set isSafe: true.
-        If unsafe, specify if it's "HARASSMENT", "GROOMING", "THREAT", or "SELF_HARM".
-        `;
+                const raw = result.response.text();
+                Logger.debugAI('Gemini', 'Raw Output', raw);
 
-        Logger.debugAI('Gemini', 'Full Prompt Context', prompt);
+                const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+                const verdict = { isSafe: !!parsed.isSafe, reason: parsed.reason || "N/A", source: "gemini_decision" };
+                Logger.info("ContentModerator", `Gemini Verdict (${modelName})`, verdict);
+                return verdict;
+            } catch (error) {
+                lastError = error;
 
-        try {
-            const result = await this.gemini.generateContent(prompt);
-            const rawText = result.response.text();
-            Logger.debugAI('Gemini', 'Raw Output', rawText);
+                // Check if it's a quota error (429)
+                if (error.status === 429) {
+                    Logger.warn("ContentModerator", `Model ${modelName} quota exceeded, trying next model...`);
 
-            const parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
-            return { ...parsed, source: "gemini_decision" };
-        } catch (e) {
-            Logger.error("ContentModerator", "Gemini Generation/Parse Error", e);
-            return { isSafe: true, reviewNeeded: true, source: "fail_open_gemini" };
+                    // Extract retryDelay from Google's API response
+                    let retryDelay = null;
+                    try {
+                        const retryInfo = error.errorDetails?.find(detail => detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+                        if (retryInfo?.retryDelay) {
+                            // Parse "48s" -> 48 seconds
+                            const match = retryInfo.retryDelay.match(/(\d+)s/);
+                            if (match) {
+                                retryDelay = parseInt(match[1], 10);
+                            }
+                        }
+                    } catch (parseError) {
+                        Logger.warn("ContentModerator", "Failed to parse retryDelay:", parseError);
+                    }
+
+                    // Store for potential use if all models fail
+                    if (retryDelay) {
+                        lastError.parsedRetryDelay = retryDelay;
+                    }
+
+                    continue; // Try next model
+                }
+
+                // For other errors, break the loop and fail open
+                Logger.error("ContentModerator", `Model ${modelName} failed with non-quota error:`, error.message);
+                break;
+            }
         }
+
+        // All models failed - Fail Open
+        Logger.error("ContentModerator", "Gemini Generation/Parse Error", lastError);
+        return {
+            isSafe: true,
+            reviewNeeded: true,
+            source: "fail_open_gemini",
+            retryDelay: lastError?.parsedRetryDelay || null
+        };
     }
 }
 
