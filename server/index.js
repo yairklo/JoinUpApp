@@ -263,6 +263,8 @@ io.on('connection', async (socket) => {
     // FIX: Define missing variables immediately
     const finalUserId = userId ? String(userId) : (socket.userId ? String(socket.userId) : null);
 
+    console.log(`[DEBUG] Incoming Message - Room: "${roomId}", User: ${finalUserId}`); // <--- TOP LEVEL DEBUG LOG
+
     // Fetch sender details early (needed for moderation and fallbacks)
     let senderUser = null;
     if (finalUserId) {
