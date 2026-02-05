@@ -8,12 +8,31 @@ const { Logger } = require('../utils/logger'); // Import Logger
 /**
  * CONFIGURATION & CONSTANTS
  */
-const DEFAULT_THRESHOLDS = {
-    "harassment": 0.2,
-    "hate": 0.1,
-    "self-harm": 0.05,
-    "sexual": 0.1,
-    "violence": 0.5
+const THRESHOLDS = {
+    TEEN: {
+        "harassment": { block: 0.80, flag: 0.40 },
+        "hate": { block: 0.60, flag: 0.25 },
+        "self-harm": { block: 0.40, flag: 0.10 },
+        "sexual": { block: 0.60, flag: 0.20 },
+        "sexual/minors": { block: 0.50, flag: 0.05 }, // Flag early (0.05), Block only if sure (0.50)
+        "violence": { block: 0.80, flag: 0.40 }
+    },
+    ADULT: {
+        "harassment": { block: 0.95, flag: 0.85 },
+        "hate": { block: 0.90, flag: 0.80 },
+        "self-harm": { block: 0.60, flag: 0.30 },
+        "sexual": { block: 0.95, flag: 0.90 },
+        "sexual/minors": { block: 0.50, flag: 0.05 }, // Always strictly flagged
+        "violence": { block: 0.95, flag: 0.85 }
+    }
+};
+
+// Default fallback (conservative)
+const DEFAULT_THRESHOLDS = THRESHOLDS.TEEN;
+
+// Range for "Review Only" (Flag but don't block)
+const REVIEW_RANGES = {
+    ADULT: { min: 0.50, max: 0.90 }
 };
 
 const REPUTATION = {
@@ -218,7 +237,14 @@ class ContentModerator {
         }
 
         const sanitizedMessage = this._scrubPII(safeMessage);
-        const activeConfig = this._getDynamicConfig({ ...DEFAULT_THRESHOLDS, ...userConfig }, reputation);
+
+        // SELECT CONFIG BASED ON AGE
+        const senderAge = userAge || 21;
+        const receiverAge = options.receiverAge || 21;
+        const isAdultChat = senderAge >= 18 && receiverAge >= 18;
+
+        const baseConfig = isAdultChat ? THRESHOLDS.ADULT : THRESHOLDS.TEEN;
+        const activeConfig = this._getDynamicConfig({ ...baseConfig, ...userConfig }, reputation);
 
         try {
             // Layer 1: OpenAI
@@ -243,7 +269,7 @@ class ContentModerator {
             // Removed: this.security.adjustReputation(userId, REPUTATION.PENALTY_FLAGGED); // Fix 3: Double Jeopardy
 
             const context = this._truncateHistory(chatHistory, maxHistoryChars, 10);
-            const demographics = { age: userAge, gender: userGender };
+            const demographics = { age: userAge, gender: userGender, receiverAge: options.receiverAge };
 
             const result = await this._askGemini(
                 sanitizedMessage,
@@ -280,10 +306,20 @@ class ContentModerator {
     _getSuspicionTriggers(modResult, config) {
         const triggers = [];
         if (modResult.flagged) triggers.push("flagged_by_openai");
+
         for (const [cat, score] of Object.entries(modResult.category_scores)) {
-            let limit = config[cat] || (cat.includes('/') ? config[cat.split('/')[0]] : undefined);
-            if (limit !== undefined && score > limit) {
-                triggers.push(`${cat} (${score.toFixed(3)} > ${limit})`);
+            // Config structure is now { block: X, flag: Y }
+            let limits = config[cat] || (cat.includes('/') ? config[cat.split('/')[0]] : undefined);
+
+            if (limits) {
+                // Check BLOCK
+                if (limits.block && score > limits.block) {
+                    triggers.push(`[BLOCK] ${cat} (${score.toFixed(3)} > ${limits.block})`);
+                }
+                // Check FLAG
+                else if (limits.flag && score > limits.flag) {
+                    triggers.push(`[FLAG] ${cat} (${score.toFixed(3)} > ${limits.flag})`);
+                }
             }
         }
         return [...new Set(triggers)];
@@ -306,38 +342,68 @@ class ContentModerator {
     }
 
     async _askGemini(message, context, triggers, config, userScore, demographics) {
+        // Logic to determine safety tier
+        const senderAge = demographics.age || 21; // Default to Adult (Fix 4)
+        const receiverAge = demographics.receiverAge || 21; // Assume adult if unknown
+        const isSenderMinor = senderAge < 18;
+        const isReceiverMinor = receiverAge < 18;
+
+        let safetyTier = "STANDARD";
+        let systemInstruction = "";
+
+        if (!isSenderMinor && !isReceiverMinor) {
+            // SCENARIO 1: Adult to Adult
+            safetyTier = "LOOSE";
+            systemInstruction = `
+            MODE: ADULT_PRIVATE_CHAT.
+            1. ALLOW: Profanity, cursing, sexual humor, and coarse language. This is a private chat between adults.
+            2. BLOCK ONLY: actionable threats, severe sexual harassment (non-consensual), or encouragement of self-harm.
+            3. SLANG: Hebrew slang like "פיפי" (Pee) means "funny", NOT bodily fluids. "זונה" (Bitch) can be friendly banter. Context is king.
+            `;
+        } else if (!isSenderMinor && isReceiverMinor) {
+            // SCENARIO 2: Adult to Minor (STRICTEST)
+            safetyTier = "STRICT_PROTECTION";
+            systemInstruction = `
+            MODE: ADULT_TALKING_TO_MINOR.
+            1. ZERO TOLERANCE: Grooming, sexual innuendo, asking for photos, meeting requests, or manipulation.
+            2. BLOCK: Any hostility or bullying from the adult.
+            3. ALLOW: Normal game coordination, mild frustration.
+            `;
+        } else {
+            // SCENARIO 3: Minor to Minor / Public Game
+            safetyTier = "TEEN_GAMER";
+            systemInstruction = `
+            MODE: TEEN_GAMING_CHAT.
+            1. ALLOW: Casual swearing ("shit", "fuck", "damn"), gaming trash-talk, and slang.
+            2. IGNORE: Words like "פיפי" (funny), "הומו" (often used as slang, flag only if malicious bullying).
+            3. BLOCK: Sexual solicitation, severe bullying/boycotting (חרם), suicide threats, doxxing.
+            4. DISTINCTION: "You suck at this game" is SAFE. "Go kill yourself" is UNSAFE.
+            `;
+        }
+
+        Logger.info("ContentModerator", `Detected Chat Mode: ${safetyTier} (SenderAge: ${senderAge}, ReceiverAge: ${receiverAge}, DefaultUsed: ${!demographics.age})`);
+
         const policy = Object.entries(config).map(([k, v]) => `- ${k}: ${v}`).join("\n");
+        let userProfile = `Reputation: ${userScore}/100. Age: ${senderAge}.`;
 
-        let userProfile = `Reputation: ${userScore}/100.`;
-        if (demographics.age) userProfile += ` Age: ${demographics.age}.`;
-        if (demographics.gender) userProfile += ` Gender: ${demographics.gender}.`;
+        const prompt = `
+        Role: Context-Aware Safety Moderator.
+        Current Mode: ${safetyTier}
 
-        let safetyInstruction = "Important: Ignore gaming slang or friendly banter if context allows.";
+        Policy:
+        ${systemInstruction}
 
-        if (demographics.age && demographics.age < 15) {
-            safetyInstruction += " **HIGH ALERT: User is a minor (<15). Be stricter with grooming, sexual topics, or bullying.**";
-        }
-        if (userScore < REPUTATION.SUSPICIOUS_THRESHOLD) {
-            safetyInstruction += " **WARNING: Low reputation user. Do not give benefit of the doubt.**";
-        }
+        Triggers Detected: [${triggers.join(", ")}]
 
-        const prompt = `You are a Safety Moderator for a teen chat app. 
-    User Profile: ${userProfile}
-    
-    Policy (0=Strict, 1=Loose):
-    ${policy}
-    
-    Triggers Detected: [${triggers.join(", ")}]
-    
-    Context (PII Scrubbed):
-    ${context}
-    
-    Message to Evaluate: "${message}"
-    
-    Task: Evaluate safety based on policy/profile.
-    Instruction: ${safetyInstruction}
-    
-    Return JSON: { "isSafe": boolean, "reason": "string" }`;
+        User Message: "${message}"
+        
+        Context (PII Scrubbed):
+        ${context}
+
+        Task: Return JSON { "isSafe": boolean, "reason": "short string" }.
+        If safe, set isSafe: true.
+        If unsafe, specify if it's "HARASSMENT", "GROOMING", "THREAT", or "SELF_HARM".
+        `;
 
         Logger.debugAI('Gemini', 'Full Prompt Context', prompt);
 
