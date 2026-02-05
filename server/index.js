@@ -260,6 +260,22 @@ io.on('connection', async (socket) => {
   socket.on('message', async ({ text, roomId, userId, senderName, replyTo, tempId }) => {
     if (!text) return;
 
+    // FIX: Define missing variables immediately
+    const finalUserId = userId ? String(userId) : (socket.userId ? String(socket.userId) : null);
+
+    // Fetch sender details early (needed for moderation and fallbacks)
+    let senderUser = null;
+    if (finalUserId) {
+      try {
+        senderUser = await prisma.user.findUnique({
+          where: { id: finalUserId },
+          select: { id: true, name: true, imageUrl: true, birthDate: true }
+        });
+      } catch (e) {
+        console.error('Failed to fetch sender details:', e);
+      }
+    }
+
     // Check active users in room to determine initial status
     let initialStatus = 'sent';
     if (roomId) {
