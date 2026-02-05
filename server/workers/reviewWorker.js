@@ -20,12 +20,39 @@ async function processReviewQueue() {
     for (const item of failedMessages) {
         console.log(`[WORKER] Retrying message ${item.messageId}...`);
 
-        // Retry moderation with the original user context
+        // Check if we should wait before retrying (based on Google's retryDelay)
+        if (item.aiTriggers && typeof item.aiTriggers === 'object' && item.aiTriggers.retryAfter) {
+            const retryAfter = new Date(item.aiTriggers.retryAfter);
+            const now = new Date();
+            if (now < retryAfter) {
+                const waitSeconds = Math.ceil((retryAfter - now) / 1000);
+                console.log(`[WORKER] Skipping message ${item.messageId} - retry in ${waitSeconds}s (Google API requested delay)`);
+                continue;
+            }
+        }
+
+        // Extract age context from aiTriggers if available
+        let senderAge = null;
+        let receiverAge = null;
+        try {
+            if (item.aiTriggers && typeof item.aiTriggers === 'object') {
+                senderAge = item.aiTriggers.senderAge || null;
+                receiverAge = item.aiTriggers.receiverAge || null;
+            }
+        } catch (e) {
+            console.error('[WORKER] Failed to parse aiTriggers:', e);
+        }
+
+        // Retry moderation with the original user context + age data
         const result = await moderator.checkMessage(
             item.content,
             [], // History might be hard to reconstruct here, usually empty or fetched from DB
             {},
-            { userId: item.userId }
+            {
+                userId: item.userId,
+                userAge: senderAge,
+                receiverAge: receiverAge
+            }
         );
 
         if (!result.reviewNeeded) {

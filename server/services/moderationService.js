@@ -8,12 +8,31 @@ const { Logger } = require('../utils/logger'); // Import Logger
 /**
  * CONFIGURATION & CONSTANTS
  */
-const DEFAULT_THRESHOLDS = {
-    "harassment": 0.2,
-    "hate": 0.1,
-    "self-harm": 0.05,
-    "sexual": 0.1,
-    "violence": 0.5
+const THRESHOLDS = {
+    TEEN: {
+        "harassment": { block: 0.80, flag: 0.40 },
+        "hate": { block: 0.60, flag: 0.25 },
+        "self-harm": { block: 0.40, flag: 0.10 },
+        "sexual": { block: 0.60, flag: 0.20 },
+        "sexual/minors": { block: 0.50, flag: 0.05 }, // Flag early (0.05), Block only if sure (0.50)
+        "violence": { block: 0.80, flag: 0.40 }
+    },
+    ADULT: {
+        "harassment": { block: 0.95, flag: 0.85 },
+        "hate": { block: 0.90, flag: 0.80 },
+        "self-harm": { block: 0.80, flag: 0.30 },
+        "sexual": { block: 0.95, flag: 0.90 },
+        "sexual/minors": { block: 0.70, flag: 0.05 }, // Always strictly flagged
+        "violence": { block: 0.95, flag: 0.85 }
+    }
+};
+
+// Default fallback (conservative)
+const DEFAULT_THRESHOLDS = THRESHOLDS.TEEN;
+
+// Range for "Review Only" (Flag but don't block)
+const REVIEW_RANGES = {
+    ADULT: { min: 0.50, max: 0.90 }
 };
 
 const REPUTATION = {
@@ -159,11 +178,7 @@ class ContentModerator {
 
         try {
             this.openai = hasOpenAI ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
-            const genAI = hasGemini ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
-            this.gemini = genAI ? genAI.getGenerativeModel({
-                model: "gemini-2.5-flash",
-                generationConfig: { responseMimeType: "application/json" }
-            }) : null;
+            this.gemini = hasGemini ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
         } catch (e) { Logger.error("ContentModerator", "Init Error", e); }
     }
 
@@ -218,7 +233,14 @@ class ContentModerator {
         }
 
         const sanitizedMessage = this._scrubPII(safeMessage);
-        const activeConfig = this._getDynamicConfig({ ...DEFAULT_THRESHOLDS, ...userConfig }, reputation);
+
+        // SELECT CONFIG BASED ON AGE
+        const senderAge = userAge || 21;
+        const receiverAge = options.receiverAge || 21;
+        const isAdultChat = senderAge >= 18 && receiverAge >= 18;
+
+        const baseConfig = isAdultChat ? THRESHOLDS.ADULT : THRESHOLDS.TEEN;
+        const activeConfig = this._getDynamicConfig({ ...baseConfig, ...userConfig }, reputation);
 
         try {
             // Layer 1: OpenAI
@@ -243,7 +265,7 @@ class ContentModerator {
             // Removed: this.security.adjustReputation(userId, REPUTATION.PENALTY_FLAGGED); // Fix 3: Double Jeopardy
 
             const context = this._truncateHistory(chatHistory, maxHistoryChars, 10);
-            const demographics = { age: userAge, gender: userGender };
+            const demographics = { age: userAge, gender: userGender, receiverAge: options.receiverAge };
 
             const result = await this._askGemini(
                 sanitizedMessage,
@@ -280,10 +302,20 @@ class ContentModerator {
     _getSuspicionTriggers(modResult, config) {
         const triggers = [];
         if (modResult.flagged) triggers.push("flagged_by_openai");
+
         for (const [cat, score] of Object.entries(modResult.category_scores)) {
-            let limit = config[cat] || (cat.includes('/') ? config[cat.split('/')[0]] : undefined);
-            if (limit !== undefined && score > limit) {
-                triggers.push(`${cat} (${score.toFixed(3)} > ${limit})`);
+            // Config structure is now { block: X, flag: Y }
+            let limits = config[cat] || (cat.includes('/') ? config[cat.split('/')[0]] : undefined);
+
+            if (limits) {
+                // Check BLOCK
+                if (limits.block && score > limits.block) {
+                    triggers.push(`[BLOCK] ${cat} (${score.toFixed(3)} > ${limits.block})`);
+                }
+                // Check FLAG
+                else if (limits.flag && score > limits.flag) {
+                    triggers.push(`[FLAG] ${cat} (${score.toFixed(3)} > ${limits.flag})`);
+                }
             }
         }
         return [...new Set(triggers)];
@@ -306,52 +338,144 @@ class ContentModerator {
     }
 
     async _askGemini(message, context, triggers, config, userScore, demographics) {
+        // Logic to determine safety tier
+        const senderAge = demographics.age || 21; // Default to Adult (Fix 4)
+        const receiverAge = demographics.receiverAge || 21; // Assume adult if unknown
+        const isSenderMinor = senderAge < 18;
+        const isReceiverMinor = receiverAge < 18;
+
+        let safetyTier = "STANDARD";
+        let systemInstruction = "";
+
+        if (!isSenderMinor && !isReceiverMinor) {
+            // SCENARIO 1: Adult to Adult
+            safetyTier = "LOOSE";
+            systemInstruction = `
+            MODE: ADULT_PRIVATE_CHAT.
+            1. ALLOW: Profanity, cursing, sexual humor, and coarse language. This is a private chat between adults.
+            2. BLOCK ONLY: actionable threats, severe sexual harassment (non-consensual), or encouragement of self-harm.
+            3. SLANG: Hebrew slang like "פיפי" (Pee) means "funny", NOT bodily fluids. "זונה" (Bitch) can be friendly banter. Context is king.
+            `;
+        } else if (!isSenderMinor && isReceiverMinor) {
+            // SCENARIO 2: Adult to Minor (STRICTEST)
+            safetyTier = "STRICT_PROTECTION";
+            systemInstruction = `
+            MODE: ADULT_TALKING_TO_MINOR.
+            1. ZERO TOLERANCE (BLOCK): Grooming, sexual innuendo, asking for photos, meeting requests, or manipulation.
+            2. BLOCK: Severe hostility, threats, or bullying from the adult.
+            3. ALLOW WITH FLAG: Casual Hebrew slang and mild profanity (e.g., "איזה זין", "חרא", "לעזאזל") - mark as reviewNeeded: true but isSafe: true.
+            4. ALLOW: Normal game coordination, mild frustration, casual conversation.
+            
+            IMPORTANT: Distinguish between harmful sexual content (BLOCK) and casual slang expressions (ALLOW but FLAG for review).
+            `;
+        } else {
+            // SCENARIO 3: Minor to Minor / Public Game
+            safetyTier = "TEEN_GAMER";
+            systemInstruction = `
+            MODE: TEEN_GAMING_CHAT.
+            1. ALLOW: Casual swearing ("shit", "fuck", "damn"), gaming trash-talk, and slang.
+            2. IGNORE: Words like "פיפי" (funny), "הומו" (often used as slang, flag only if malicious bullying).
+            3. BLOCK: Sexual solicitation, severe bullying/boycotting (חרם), suicide threats, doxxing.
+            4. DISTINCTION: "You suck at this game" is SAFE. "Go kill yourself" is UNSAFE.
+            `;
+        }
+
+        Logger.info("ContentModerator", `Detected Chat Mode: ${safetyTier} (SenderAge: ${senderAge}, ReceiverAge: ${receiverAge}, DefaultUsed: ${!demographics.age})`);
+
         const policy = Object.entries(config).map(([k, v]) => `- ${k}: ${v}`).join("\n");
+        let userProfile = `Reputation: ${userScore}/100. Age: ${senderAge}.`;
 
-        let userProfile = `Reputation: ${userScore}/100.`;
-        if (demographics.age) userProfile += ` Age: ${demographics.age}.`;
-        if (demographics.gender) userProfile += ` Gender: ${demographics.gender}.`;
+        // Model Fallback Chain (fastest → most reliable)
+        const modelChain = [
+            'gemini-2.5-flash',           // Primary: Fast but quota-limited
+            'gemini-2.0-flash-001',       // Fallback 1: Stable 2.0 version
+            'gemini-2.0-flash-lite-001',  // Fallback 2: Lighter, separate quota
+            'gemini-flash-lite-latest',   // Fallback 3: Latest lite version
+            'gemini-flash-latest'         // Fallback 4: Latest stable (last resort)
+        ];
 
-        let safetyInstruction = "Important: Ignore gaming slang or friendly banter if context allows.";
+        let lastError = null;
+        for (const modelName of modelChain) {
+            try {
+                const model = this.gemini.getGenerativeModel({ model: modelName });
+                const fullSystemInstruction = `
+                Role: Context-Aware Safety Moderator.
+                Current Mode: ${safetyTier}
+                Triggers Detected: [${triggers.join(", ")}]
+                Task: Return JSON { "isSafe": boolean, "reason": "short string" }.
+                If safe, set isSafe: true.
+                If unsafe, specify if it's "HARASSMENT", "GROOMING", "THREAT", or "SELF_HARM".
+                ${systemInstruction}
+                
+                # Policy
+                ${policy}
+                
+                # User
+                ${userProfile}
+                
+                # Context (PII Scrubbed)
+                ${context}
+                `;
 
-        if (demographics.age && demographics.age < 15) {
-            safetyInstruction += " **HIGH ALERT: User is a minor (<15). Be stricter with grooming, sexual topics, or bullying.**";
+                Logger.debugAI('Gemini', 'Full Prompt Context', { model: modelName, systemInstruction: fullSystemInstruction, message });
+
+                const result = await model.generateContent({
+                    contents: [{ role: "user", parts: [{ text: message }] }],
+                    systemInstruction: fullSystemInstruction,
+                    generationConfig: { temperature: 0.3, responseMimeType: "application/json" }
+                });
+
+                const raw = result.response.text();
+                Logger.debugAI('Gemini', 'Raw Output', raw);
+
+                const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+                const verdict = { isSafe: !!parsed.isSafe, reason: parsed.reason || "N/A", source: "gemini_decision" };
+                Logger.info("ContentModerator", `Gemini Verdict (${modelName})`, verdict);
+                return verdict;
+            } catch (error) {
+                lastError = error;
+
+                // Check if it's a quota error (429)
+                if (error.status === 429) {
+                    Logger.warn("ContentModerator", `Model ${modelName} quota exceeded, trying next model...`);
+
+                    // Extract retryDelay from Google's API response
+                    let retryDelay = null;
+                    try {
+                        const retryInfo = error.errorDetails?.find(detail => detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+                        if (retryInfo?.retryDelay) {
+                            // Parse "48s" -> 48 seconds
+                            const match = retryInfo.retryDelay.match(/(\d+)s/);
+                            if (match) {
+                                retryDelay = parseInt(match[1], 10);
+                            }
+                        }
+                    } catch (parseError) {
+                        Logger.warn("ContentModerator", "Failed to parse retryDelay:", parseError);
+                    }
+
+                    // Store for potential use if all models fail
+                    if (retryDelay) {
+                        lastError.parsedRetryDelay = retryDelay;
+                    }
+
+                    continue; // Try next model
+                }
+
+                // For other errors, break the loop and fail open
+                Logger.error("ContentModerator", `Model ${modelName} failed with non-quota error:`, error.message);
+                break;
+            }
         }
-        if (userScore < REPUTATION.SUSPICIOUS_THRESHOLD) {
-            safetyInstruction += " **WARNING: Low reputation user. Do not give benefit of the doubt.**";
-        }
 
-        const prompt = `You are a Safety Moderator for a teen chat app. 
-    User Profile: ${userProfile}
-    
-    Policy (0=Strict, 1=Loose):
-    ${policy}
-    
-    Triggers Detected: [${triggers.join(", ")}]
-    
-    Context (PII Scrubbed):
-    ${context}
-    
-    Message to Evaluate: "${message}"
-    
-    Task: Evaluate safety based on policy/profile.
-    Instruction: ${safetyInstruction}
-    
-    Return JSON: { "isSafe": boolean, "reason": "string" }`;
-
-        Logger.debugAI('Gemini', 'Full Prompt Context', prompt);
-
-        try {
-            const result = await this.gemini.generateContent(prompt);
-            const rawText = result.response.text();
-            Logger.debugAI('Gemini', 'Raw Output', rawText);
-
-            const parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
-            return { ...parsed, source: "gemini_decision" };
-        } catch (e) {
-            Logger.error("ContentModerator", "Gemini Generation/Parse Error", e);
-            return { isSafe: true, reviewNeeded: true, source: "fail_open_gemini" };
-        }
+        // All models failed - Fail Open
+        Logger.error("ContentModerator", "Gemini Generation/Parse Error", lastError);
+        return {
+            isSafe: true,
+            reviewNeeded: true,
+            source: "fail_open_gemini",
+            retryDelay: lastError?.parsedRetryDelay || null
+        };
     }
 }
 

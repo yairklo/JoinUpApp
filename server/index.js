@@ -22,6 +22,10 @@ const { moderator } = require('./moderationInstance');
 const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Start Review Worker
+// Run immediately on startup to process any backlog
+processReviewQueue().catch(err => console.error("Worker Startup Error:", err));
+
+// Then run every minute
 setInterval(() => {
   processReviewQueue().catch(err => console.error("Worker Error:", err));
 }, 60 * 1000);
@@ -263,6 +267,8 @@ io.on('connection', async (socket) => {
     // FIX: Define missing variables immediately
     const finalUserId = userId ? String(userId) : (socket.userId ? String(socket.userId) : null);
 
+    console.log(`[DEBUG] Incoming Message - Room: "${roomId}", User: ${finalUserId}`); // <--- TOP LEVEL DEBUG LOG
+
     // Fetch sender details early (needed for moderation and fallbacks)
     let senderUser = null;
     if (finalUserId) {
@@ -275,6 +281,110 @@ io.on('connection', async (socket) => {
         console.error('Failed to fetch sender details:', e);
       }
     }
+
+    // --- MODERATION & SAFETY CHECK ---
+    const getAge = (u) => {
+      if (!u) return 21; // Default to adult if unknown
+      if (u.age) return u.age;
+      if (u.birthDate) {
+        const diff = Date.now() - new Date(u.birthDate).getTime();
+        return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+      }
+      return 21;
+    };
+
+    const senderAge = getAge(senderUser);
+    let receiverAge = null;
+
+    // Fetch all participants in this chat to find the receiver
+    if (roomId) {
+      try {
+        const participants = await prisma.chatParticipant.findMany({
+          where: { chatId: String(roomId) },
+          select: { userId: true }
+        });
+
+        console.log(`[DEBUG] Chat Participants:`, participants.map(p => p.userId)); // DEBUG LOG
+
+        // Find the other user (not the sender)
+        const otherParticipant = participants.find(p => p.userId !== String(finalUserId));
+
+        if (otherParticipant) {
+          const receiver = await prisma.user.findUnique({
+            where: { id: otherParticipant.userId },
+            select: { birthDate: true }
+          });
+          receiverAge = getAge(receiver);
+          console.log(`[DEBUG] Receiver Found: ${otherParticipant.userId}, Age Data:`, receiver, `CalcAge: ${receiverAge}`); // DEBUG LOG
+        } else {
+          console.log(`[DEBUG] No other participant found (group chat or solo?)`); // DEBUG LOG
+        }
+      } catch (e) {
+        console.error('[MODERATION] Failed to fetch chat participants:', e);
+      }
+    }
+
+    // Call Moderator Service
+    try {
+      // Retrieve last few messages for context (optional, can be empty for speed)
+      // const previousMessages = ... (Skipping for now to prioritize speed)
+
+      const modResult = await moderator.checkMessage(
+        text,
+        [], // Chat History (empty for now)
+        {}, // User Config (default)
+        {
+          userId: finalUserId,
+          userAge: senderAge,
+          receiverAge: receiverAge,
+          userGender: senderUser?.gender
+        }
+      );
+
+      if (!modResult.isSafe) {
+        console.log(`❌ [MODERATION] BLOCKED message from ${finalUserId} (Age: ${senderAge}) -> ${receiverAge ? `Receiver Age: ${receiverAge}` : 'Public'}`);
+        socket.emit('message:error', {
+          id: tempId || Date.now(),
+          error: "Message blocked by safety filters.",
+          reason: "Community Guidelines Violation"
+        });
+        return; // STOP EXECUTION
+      }
+
+      // Check if message needs human review (flagged but allowed)
+      if (modResult.reviewNeeded) {
+        console.log(`⚠️ [MODERATION] FLAGGED for review: ${finalUserId} (Age: ${senderAge}) -> ${receiverAge ? `Receiver Age: ${receiverAge}` : 'Public'} | Reason: ${modResult.reason || 'N/A'}`);
+
+        // Save to FlaggedMessage table for human review
+        try {
+          await prisma.flaggedMessage.create({
+            data: {
+              content: text,
+              userId: finalUserId,
+              status: 'PENDING_REVIEW',
+              resolution: null,
+              aiTriggers: {
+                reason: modResult.reason || 'Unknown',
+                source: modResult.source || 'moderator',
+                senderAge,
+                receiverAge,
+                chatMode: senderAge >= 18 && receiverAge < 18 ? 'ADULT_TO_MINOR' : 'OTHER',
+                retryDelay: modResult.retryDelay || null,
+                retryAfter: modResult.retryDelay ? new Date(Date.now() + modResult.retryDelay * 1000).toISOString() : null
+              }
+            }
+          });
+          console.log(`💾 [MODERATION] Saved flagged message to database for review`);
+        } catch (dbError) {
+          console.error('[MODERATION] Failed to save flagged message:', dbError);
+        }
+      }
+    } catch (e) {
+      console.error('[MODERATION] Service Error:', e);
+      // Fail Open: Allow message if moderation crashes? Or Closed?
+      // Usually Fail Open to prevent chat downtime, unless strict.
+    }
+    // ---------------------------------
 
     // Check active users in room to determine initial status
     let initialStatus = 'sent';
@@ -400,89 +510,7 @@ io.on('connection', async (socket) => {
       }
     }
 
-    // --- Content Moderation ---
-    // Optimistic check: message already sent. Revoke if needed.
-    (async () => {
-      try {
-        // Helper to calculate age
-        const calculateAge = (birthDate) => {
-          if (!birthDate) return 21; // Default fallback to Adult
-          const diff = Date.now() - new Date(birthDate).getTime();
-          return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
-        };
-
-        // 1. Get Sender Age
-        let senderAge = 21;
-        if (senderUser && senderUser.birthDate) {
-          senderAge = calculateAge(senderUser.birthDate);
-        } else if (userId) {
-          // Fallback if senderUser wasn't fetched above (though it should be)
-          const s = await prisma.user.findUnique({ where: { id: String(userId) }, select: { birthDate: true } });
-          senderAge = calculateAge(s?.birthDate);
-        }
-
-        // 2. Get Receiver Age (Only for Private Chats)
-        let receiverAge = null;
-        if (roomId && String(roomId).startsWith('private_')) {
-          const parts = String(roomId).replace('private_', '').split('_');
-          const otherId = parts.find(id => id !== String(userId));
-          if (otherId) {
-            const receiver = await prisma.user.findUnique({ where: { id: otherId }, select: { birthDate: true } });
-            receiverAge = calculateAge(receiver?.birthDate);
-          }
-        }
-
-        const checkResult = await moderator.checkMessage(
-          String(text),
-          [], // History could be fetched if needed
-          {},
-          {
-            userId: userId ? String(userId) : 'anonymous',
-            userAge: senderAge,
-            receiverAge: receiverAge
-          }
-        );
-
-        // Priority 1: System Error / Rate Limit -> Log for later, but allow message (Fail Open)
-        if (checkResult.reviewNeeded) {
-          await prisma.flaggedMessage.create({
-            data: {
-              messageId: msg.id ? String(msg.id) : undefined,
-              content: String(text),
-              userId: userId ? String(userId) : 'unknown',
-              status: 'PENDING_RETRY',
-              failureReason: checkResult.auditData?.error || checkResult.source || 'RateLimit/SystemError',
-              aiTriggers: checkResult.auditData ? JSON.stringify(checkResult.auditData) : undefined
-            }
-          });
-        }
-        // Priority 2: Confirmed Toxic -> Delete immediately
-        else if (!checkResult.isSafe) {
-          const { Logger } = require('./utils/logger');
-          Logger.info("Socket", `Message ${msg.id} -> REJECTED (Reason: ${checkResult.reason || 'Unsafe'})`);
-          console.log(`[MODERATION] Revoking message ${msg.id}`);
-
-          // 1. Mark as rejected in DB
-          if (msg.id) {
-            await prisma.message.updateMany({
-              where: { id: String(msg.id) },
-              data: {
-                status: 'rejected',
-                text: '[Content Removed by Moderator]'
-              }
-            });
-          }
-
-          // 2. Emit revocation to room
-          const revokePayload = { id: msg.id, roomId: roomId ? String(roomId) : undefined };
-          // Use io directly here since we are in the main process
-          const target = roomId ? io.to(String(roomId)) : io;
-          target.emit('messageDeleted', revokePayload);
-        }
-      } catch (e) {
-        console.error("Moderation check error:", e);
-      }
-    })();
+    // --- Legacy moderation code removed - now handled earlier in flow (lines 320-375) ---
   });
 
   socket.on('addReaction', async ({ messageId, emoji, userId, roomId }) => {
