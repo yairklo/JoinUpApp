@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import { requestForToken, onMessageListener } from '../utils/firebase';
 
 const useNotification = () => {
+    const { getToken } = useAuth();
     const [notification, setNotification] = useState<any>({ title: '', body: '' });
     const [fcmToken, setFcmToken] = useState<string | null>(null);
 
@@ -45,7 +47,7 @@ const useNotification = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('__clerk_client_jwt')}`
+                    'Authorization': `Bearer ${await getToken()}`
                 },
                 body: JSON.stringify({
                     fcmToken: token,
