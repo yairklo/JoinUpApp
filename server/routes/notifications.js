@@ -2,23 +2,15 @@ const express = require('express');
 const router = express.Router();
 const { NotificationService } = require('../services/notificationService');
 const { PrismaClient } = require('@prisma/client');
+const { authenticateToken } = require('../utils/auth');
 
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
-// Middleware to extract userId from Clerk auth
-// Assumes you have Clerk middleware that sets req.auth.userId
-const requireAuth = (req, res, next) => {
-    if (!req.auth?.userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    next();
-};
-
 // GET /api/notifications - Get all notifications for current user
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
     try {
-        const userId = req.auth.userId;
+        const userId = req.user.id;
         const limit = parseInt(req.query.limit) || 50;
         const offset = parseInt(req.query.offset) || 0;
 
@@ -37,9 +29,9 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // GET /api/notifications/unread-count - Get unread count
-router.get('/unread-count', requireAuth, async (req, res) => {
+router.get('/unread-count', authenticateToken, async (req, res) => {
     try {
-        const userId = req.auth.userId;
+        const userId = req.user.id;
         const count = await notificationService.getUnreadCount(userId);
         res.json({ count });
     } catch (error) {
@@ -49,9 +41,9 @@ router.get('/unread-count', requireAuth, async (req, res) => {
 });
 
 // POST /api/notifications/:id/read - Mark notification as read
-router.post('/:id/read', requireAuth, async (req, res) => {
+router.post('/:id/read', authenticateToken, async (req, res) => {
     try {
-        const userId = req.auth.userId;
+        const userId = req.user.id;
         const notificationId = req.params.id;
 
         await notificationService.markAsRead(notificationId, userId);
@@ -63,9 +55,9 @@ router.post('/:id/read', requireAuth, async (req, res) => {
 });
 
 // POST /api/notifications/read-all - Mark all notifications as read
-router.post('/read-all', requireAuth, async (req, res) => {
+router.post('/read-all', authenticateToken, async (req, res) => {
     try {
-        const userId = req.auth.userId;
+        const userId = req.user.id;
         await notificationService.markAllAsRead(userId);
         res.json({ success: true });
     } catch (error) {
@@ -75,9 +67,9 @@ router.post('/read-all', requireAuth, async (req, res) => {
 });
 
 // POST /api/notifications/register-device - Register FCM token
-router.post('/register-device', requireAuth, async (req, res) => {
+router.post('/register-device', authenticateToken, async (req, res) => {
     try {
-        const userId = req.auth.userId;
+        const userId = req.user.id;
         const { fcmToken, deviceType, deviceName } = req.body;
 
         if (!fcmToken) {
@@ -99,7 +91,7 @@ router.post('/register-device', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/notifications/device/:token - Remove device
-router.delete('/device/:token', requireAuth, async (req, res) => {
+router.delete('/device/:token', authenticateToken, async (req, res) => {
     try {
         const fcmToken = req.params.token;
         await notificationService.removeDevice(fcmToken);
@@ -111,9 +103,9 @@ router.delete('/device/:token', requireAuth, async (req, res) => {
 });
 
 // GET /api/notifications/settings - Get notification settings
-router.get('/settings', requireAuth, async (req, res) => {
+router.get('/settings', authenticateToken, async (req, res) => {
     try {
-        const userId = req.auth.userId;
+        const userId = req.user.id;
         const settings = await notificationService.getSettings(userId);
         res.json(settings);
     } catch (error) {
@@ -123,9 +115,9 @@ router.get('/settings', requireAuth, async (req, res) => {
 });
 
 // PUT /api/notifications/settings - Update notification settings
-router.put('/settings', requireAuth, async (req, res) => {
+router.put('/settings', authenticateToken, async (req, res) => {
     try {
-        const userId = req.auth.userId;
+        const userId = req.user.id;
         const { pushEnabled, friendRequestsEnabled, messagesEnabled, gameRemindersEnabled } = req.body;
 
         const settings = await notificationService.updateSettings(userId, {
