@@ -38,7 +38,8 @@ const useNotification = () => {
 
     const registerDevice = async (token: string) => {
         try {
-            await fetch('/api/notifications/register-device', {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
+            await fetch(`${apiUrl}/api/notifications/register-device`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
