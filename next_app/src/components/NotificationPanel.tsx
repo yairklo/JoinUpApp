@@ -20,6 +20,8 @@ import { Notifications as NotificationsIcon } from '@mui/icons-material';
 import { useAuth } from '@clerk/nextjs';
 import { io, Socket } from 'socket.io-client';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
+
 interface Notification {
     id: string;
     type: string;
@@ -34,7 +36,7 @@ interface Notification {
 }
 
 export default function NotificationPanel() {
-    const { userId } = useAuth();
+    const { userId, getToken } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -98,9 +100,10 @@ export default function NotificationPanel() {
 
         setLoading(true);
         try {
-            const res = await fetch('/api/notifications', {
+            const token = await getToken();
+            const res = await fetch(`${API_URL}/api/notifications`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('__clerk_client_jwt')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
@@ -108,6 +111,8 @@ export default function NotificationPanel() {
                 const data = await res.json();
                 setNotifications(data.notifications || []);
                 setUnreadCount(data.unreadCount || 0);
+            } else {
+                console.error('[NOTIFICATIONS] Fetch failed:', res.status, await res.text());
             }
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to fetch:', error);
@@ -118,10 +123,11 @@ export default function NotificationPanel() {
 
     const markAsRead = async (id: string) => {
         try {
-            await fetch(`/api/notifications/${id}/read`, {
+            const token = await getToken();
+            await fetch(`${API_URL}/api/notifications/${id}/read`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('__clerk_client_jwt')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
@@ -136,10 +142,11 @@ export default function NotificationPanel() {
 
     const markAllAsRead = async () => {
         try {
-            await fetch('/api/notifications/read-all', {
+            const token = await getToken();
+            await fetch(`${API_URL}/api/notifications/read-all`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('__clerk_client_jwt')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
