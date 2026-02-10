@@ -112,6 +112,7 @@ app.use('/api/series', seriesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
+console.log('✅ [ROUTES] Notification routes mounted at /api/notifications');
 app.use('/api/chats', require('./routes/chats'));
 
 // Health check

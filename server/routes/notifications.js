@@ -7,6 +7,15 @@ const { authenticateToken } = require('../utils/auth');
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
+// TEST endpoint - no auth required
+router.get('/test', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Notification routes are working!',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // GET /api/notifications - Get all notifications for current user
 router.get('/', authenticateToken, async (req, res) => {
     try {
