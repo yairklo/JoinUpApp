@@ -14,12 +14,17 @@ const gamesRoutes = require('./routes/games');
 const usersRoutes = require('./routes/users');
 const seriesRoutes = require('./routes/series');
 const messagesRoutes = require('./routes/messages');
+const notificationsRoutes = require('./routes/notifications');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission } = require('./utils/chatAuth');
 
 // Moderation
 const { moderator } = require('./moderationInstance');
 const { processReviewQueue } = require('./workers/reviewWorker');
+
+// Notification Workers
+const { startGameReminderWorker } = require('./workers/gameReminderWorker');
+const { startCleanupWorker } = require('./workers/cleanupWorker');
 
 // Start Review Worker
 // Run immediately on startup to process any backlog
@@ -96,6 +101,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Store io in app for access in routes
+app.set('io', io);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/fields', fieldsRoutes);
@@ -103,6 +111,7 @@ app.use('/api/games', gamesRoutes);
 app.use('/api/series', seriesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/notifications', notificationsRoutes);
 app.use('/api/chats', require('./routes/chats'));
 
 // Health check
@@ -959,4 +968,9 @@ server.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🔌 Socket.IO ready on /api/socket (CORS origin: ${JSON.stringify(socketAllowedOrigin)})`);
+
+  // Start notification workers
+  startGameReminderWorker(io);
+  startCleanupWorker();
+  console.log('🔔 Notification workers started');
 });

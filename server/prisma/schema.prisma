@@ -31,6 +31,11 @@ model User {
   seriesSubscriptions SeriesParticipant[]
   chatParticipations ChatParticipant[]
   messages       Message[]
+  
+  // Notification System
+  notifications  Notification[]  @relation("UserNotifications")
+  devices        UserDevice[]    @relation("UserDevices")
+  notificationSettings UserNotificationSettings? @relation("UserNotificationSettings")
 }
 
 model Field {
@@ -94,6 +99,7 @@ model Game {
   sport        SportType       @default(SOCCER)
   status       GameStatus      @default(OPEN)
   registrationOpensAt DateTime?
+  reminderSent Boolean         @default(false) // Track if 1-hour reminder was sent
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   field        Field           @relation(fields: [fieldId], references: [id])
@@ -365,4 +371,60 @@ model FlaggedMessage {
   aiTriggers    Json?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// ============================================
+// NOTIFICATION SYSTEM
+// ============================================
+
+enum NotificationType {
+  FRIEND_REQUEST
+  FRIEND_ACCEPTED
+  NEW_MESSAGE
+  GAME_REMINDER
+  GAME_CANCELLED
+  GAME_UPDATED
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?            // Metadata: gameId, friendRequestId, chatId, link, etc.
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  
+  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, createdAt(sort: Desc)]) // Fast retrieval of recent notifications
+  @@index([userId, read])                   // Fast counting of unread notifications
+  @@index([createdAt])                      // For cleanup worker (TTL)
+}
+
+model UserDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  fcmToken   String   @unique
+  deviceType String?  // "ios", "android", "web"
+  deviceName String?  // User-friendly name
+  lastUsed   DateTime @default(now())
+  createdAt  DateTime @default(now())
+  
+  user       User     @relation("UserDevices", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([fcmToken])
+}
+
+model UserNotificationSettings {
+  id                    String  @id @default(cuid())
+  userId                String  @unique
+  pushEnabled           Boolean @default(true)
+  friendRequestsEnabled Boolean @default(true)
+  messagesEnabled       Boolean @default(true)
+  gameRemindersEnabled  Boolean @default(true)
+  
+  user                  User    @relation("UserNotificationSettings", fields: [userId], references: [id], onDelete: Cascade)
 }

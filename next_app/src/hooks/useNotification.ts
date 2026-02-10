@@ -10,7 +10,11 @@ const useNotification = () => {
             if (Notification.permission === 'granted') {
                 // Automatically fetch token if allowed
                 requestForToken().then(token => {
-                    if (token) setFcmToken(token);
+                    if (token) {
+                        setFcmToken(token);
+                        // Register device with backend
+                        registerDevice(token);
+                    }
                 });
             }
         }
@@ -32,12 +36,35 @@ const useNotification = () => {
         listen();
     }, []); // single initialization
 
+    const registerDevice = async (token: string) => {
+        try {
+            await fetch('/api/notifications/register-device', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('__clerk_client_jwt')}`
+                },
+                body: JSON.stringify({
+                    fcmToken: token,
+                    deviceType: 'web',
+                    deviceName: navigator.userAgent.substring(0, 100) // Truncate for DB
+                })
+            });
+            console.log('[NOTIFICATION] Device registered successfully');
+        } catch (error) {
+            console.error('[NOTIFICATION] Failed to register device:', error);
+        }
+    };
+
     const requestPermission = async () => {
         if (typeof window !== 'undefined' && 'Notification' in window) {
             const permission = await Notification.requestPermission();
             if (permission === 'granted') {
                 const token = await requestForToken();
-                if (token) setFcmToken(token);
+                if (token) {
+                    setFcmToken(token);
+                    await registerDevice(token);
+                }
             }
             return permission;
         }
