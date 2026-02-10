@@ -39,7 +39,9 @@ const useNotification = () => {
     const registerDevice = async (token: string) => {
         try {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
-            await fetch(`${apiUrl}/api/notifications/register-device`, {
+            console.log('[NOTIFICATION] Registering device to:', `${apiUrl}/api/notifications/register-device`);
+
+            const response = await fetch(`${apiUrl}/api/notifications/register-device`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -51,6 +53,13 @@ const useNotification = () => {
                     deviceName: navigator.userAgent.substring(0, 100) // Truncate for DB
                 })
             });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[NOTIFICATION] Registration failed:', response.status, errorText);
+                throw new Error(`Registration failed: ${response.status}`);
+            }
+
             console.log('[NOTIFICATION] Device registered successfully');
         } catch (error) {
             console.error('[NOTIFICATION] Failed to register device:', error);
