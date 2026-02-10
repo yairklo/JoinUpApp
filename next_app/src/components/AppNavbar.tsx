@@ -25,6 +25,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import AuthButtons from "@/components/AuthButtons";
 import { ColorModeContext } from "@/components/theme/themeRegistry";
 import ChatList from "@/components/ChatList";
+import NotificationPanel from "@/components/NotificationPanel";
 
 export default function AppNavbar() {
   const [mounted, setMounted] = useState(false);
@@ -80,6 +81,9 @@ export default function AppNavbar() {
             {mounted && (
               <ClerkLoaded>
                 <SignedIn>
+                  {/* Notification Panel */}
+                  {user && <NotificationPanel />}
+
                   {/* Chat List Dropdown */}
                   {user && (
                     <ChatList

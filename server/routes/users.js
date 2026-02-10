@@ -1,8 +1,10 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../utils/auth');
+const { NotificationService } = require('../services/notificationService');
 const router = express.Router();
 const prisma = new PrismaClient();
+const notificationService = new NotificationService(prisma);
 
 // Shared constants
 const { SPORT_KEYS } = require('../utils/sports');
@@ -244,6 +246,23 @@ router.post('/requests', authenticateToken, async (req, res) => {
     if (existingReq) return res.status(400).json({ error: 'Request already exists' });
     try {
       const fr = await prisma.friendRequest.create({ data: { requesterId, receiverId } });
+
+      // Send notification to receiver
+      const requester = await prisma.user.findUnique({ where: { id: requesterId } });
+      await notificationService.sendNotification(
+        receiverId,
+        'FRIEND_REQUEST',
+        'בקשת חברות חדשה',
+        `${requester?.name || 'משתמש'} שלח/ה לך בקשת חברות`,
+        {
+          friendRequestId: fr.id,
+          requesterId,
+          requesterName: requester?.name,
+          link: '/friends'
+        },
+        req.app.get('io') // Get Socket.IO instance from app
+      ).catch(err => console.error('[NOTIFICATION] Failed to send friend request notification:', err));
+
       res.status(201).json(fr);
     } catch (err) {
       // handle unique race condition
@@ -289,6 +308,22 @@ router.post('/requests/:id/accept', authenticateToken, async (req, res) => {
       prisma.friendRequest.delete({ where: { id: reqRow.id } }),
       prisma.friendship.create({ data: { userAId: a, userBId: b } })
     ]);
+
+    // Send notification to requester
+    const accepter = await prisma.user.findUnique({ where: { id: req.user.id } });
+    await notificationService.sendNotification(
+      reqRow.requesterId,
+      'FRIEND_ACCEPTED',
+      'בקשת חברות אושרה',
+      `${accepter?.name || 'משתמש'} אישר/ה את בקשת החברות שלך`,
+      {
+        userId: req.user.id,
+        userName: accepter?.name,
+        link: `/profile/${req.user.id}`
+      },
+      req.app.get('io')
+    ).catch(err => console.error('[NOTIFICATION] Failed to send friend accepted notification:', err));
+
     res.json({ ok: true });
   } catch (e) {
     console.error('Accept request error:', e);

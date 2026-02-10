@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import ChatList from "@/components/ChatList";
+import NotificationPanel from "@/components/NotificationPanel";
 import {
   AppBar,
   Toolbar,
@@ -55,13 +56,15 @@ export default function Navbar() {
             JoinUp
           </Typography>
 
-          {/* Actions Section */}
           <Stack direction="row" spacing={1} alignItems="center">
             {user && (
-              <ChatList
-                userId={user.id}
-                onChatSelect={(chatId) => router.push(`/chat/${chatId}`)}
-              />
+              <>
+                <NotificationPanel />
+                <ChatList
+                  userId={user.id}
+                  onChatSelect={(chatId) => router.push(`/chat/${chatId}`)}
+                />
+              </>
             )}
             <ThemeToggle />
           </Stack>
