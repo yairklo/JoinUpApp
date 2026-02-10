@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     IconButton,
     Badge,
@@ -36,12 +37,14 @@ interface Notification {
 }
 
 export default function NotificationPanel() {
+    const router = useRouter();
     const { userId, getToken } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [loading, setLoading] = useState(false);
     const [socket, setSocket] = useState<Socket | null>(null);
+    const [permissionGranted, setPermissionGranted] = useState(false);
 
     const open = Boolean(anchorEl);
 
@@ -159,10 +162,10 @@ export default function NotificationPanel() {
 
     const handleNotificationClick = (notif: Notification) => {
         markAsRead(notif.id);
-        if (notif.data?.link) {
-            window.location.href = notif.data.link;
-        }
         setAnchorEl(null);
+        if (notif.data?.link) {
+            router.push(notif.data.link);
+        }
     };
 
     const handleClick = (event: React.MouseEvent<HTMLElement>) => {
