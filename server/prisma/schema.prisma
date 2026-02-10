@@ -125,7 +125,7 @@ model Participation {
   status    ParticipationStatus @default(CONFIRMED)
   createdAt DateTime @default(now())
   game      Game     @relation(fields: [gameId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   team      Team?    @relation(fields: [teamId], references: [id])
 
   @@unique([gameId, userId])

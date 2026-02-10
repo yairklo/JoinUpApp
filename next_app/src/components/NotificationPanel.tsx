@@ -1,7 +1,22 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Badge, Dropdown, ListGroup, Button, Spinner } from 'react-bootstrap';
-import { BellFill } from 'react-bootstrap-icons';
+import {
+    IconButton,
+    Badge,
+    Menu,
+    MenuItem,
+    List,
+    ListItem,
+    ListItemButton,
+    ListItemText,
+    Button,
+    CircularProgress,
+    Typography,
+    Box,
+    Divider,
+    Chip
+} from '@mui/material';
+import { Notifications as NotificationsIcon } from '@mui/icons-material';
 import { useAuth } from '@clerk/nextjs';
 import { io, Socket } from 'socket.io-client';
 
@@ -22,9 +37,11 @@ export default function NotificationPanel() {
     const { userId } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [show, setShow] = useState(false);
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [loading, setLoading] = useState(false);
     const [socket, setSocket] = useState<Socket | null>(null);
+
+    const open = Boolean(anchorEl);
 
     // Initialize Socket.IO connection
     useEffect(() => {
@@ -39,17 +56,14 @@ export default function NotificationPanel() {
 
         socketInstance.on('connect', () => {
             console.log('[NOTIFICATIONS] Socket connected');
-            // Join user-specific room for notifications
             socketInstance.emit('join', `user_${userId}`);
         });
 
-        // Listen for real-time notifications
         socketInstance.on('notification', (data: Notification) => {
             console.log('[NOTIFICATIONS] Received real-time notification:', data);
             setNotifications(prev => [data, ...prev]);
             setUnreadCount(prev => prev + 1);
 
-            // Optional: Show browser notification if permission granted
             if (Notification.permission === 'granted') {
                 new Notification(data.title, {
                     body: data.body,
@@ -65,18 +79,16 @@ export default function NotificationPanel() {
         };
     }, [userId]);
 
-    // Fetch notifications on mount and when dropdown opens
     useEffect(() => {
-        if (show && userId) {
+        if (open && userId) {
             fetchNotifications();
         }
-    }, [show, userId]);
+    }, [open, userId]);
 
-    // Poll for new notifications every 30 seconds (backup for WebSocket)
     useEffect(() => {
         if (!userId) return;
 
-        fetchNotifications(); // Initial fetch
+        fetchNotifications();
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
     }, [userId]);
@@ -143,84 +155,111 @@ export default function NotificationPanel() {
         if (notif.data?.link) {
             window.location.href = notif.data.link;
         }
-        setShow(false);
+        setAnchorEl(null);
+    };
+
+    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleClose = () => {
+        setAnchorEl(null);
     };
 
     if (!userId) return null;
 
     return (
-        <Dropdown show={show} onToggle={setShow} align="end">
-            <Dropdown.Toggle
-                variant="link"
-                className="position-relative p-2 text-decoration-none"
-                style={{ color: 'inherit' }}
-            >
-                <BellFill size={24} />
-                {unreadCount > 0 && (
-                    <Badge
-                        bg="danger"
-                        pill
-                        className="position-absolute top-0 start-100 translate-middle"
-                        style={{ fontSize: '0.7rem' }}
-                    >
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                    </Badge>
-                )}
-            </Dropdown.Toggle>
+        <>
+            <IconButton onClick={handleClick} color="inherit">
+                <Badge badgeContent={unreadCount} color="error">
+                    <NotificationsIcon />
+                </Badge>
+            </IconButton>
 
-            <Dropdown.Menu style={{ width: '380px', maxHeight: '500px', overflowY: 'auto' }}>
-                <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
-                    <h6 className="mb-0 fw-bold">התראות</h6>
+            <Menu
+                anchorEl={anchorEl}
+                open={open}
+                onClose={handleClose}
+                PaperProps={{
+                    sx: {
+                        width: 380,
+                        maxHeight: 500,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }
+                }}
+            >
+                <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h6" fontWeight="bold">התראות</Typography>
                     {unreadCount > 0 && (
-                        <Button
-                            size="sm"
-                            variant="link"
-                            onClick={markAllAsRead}
-                            className="text-decoration-none p-0"
-                        >
+                        <Button size="small" onClick={markAllAsRead}>
                             סמן הכל כנקרא
                         </Button>
                     )}
-                </div>
+                </Box>
+                <Divider />
 
                 {loading && notifications.length === 0 ? (
-                    <div className="text-center py-4">
-                        <Spinner animation="border" size="sm" />
-                    </div>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                        <CircularProgress size={24} />
+                    </Box>
                 ) : notifications.length === 0 ? (
-                    <ListGroup.Item className="text-center text-muted py-4">
-                        אין התראות חדשות
-                    </ListGroup.Item>
+                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                        <Typography color="text.secondary">אין התראות חדשות</Typography>
+                    </Box>
                 ) : (
-                    <ListGroup variant="flush">
+                    <List sx={{ overflow: 'auto', flex: 1 }}>
                         {notifications.map((notif) => (
-                            <ListGroup.Item
+                            <ListItemButton
                                 key={notif.id}
-                                action
                                 onClick={() => handleNotificationClick(notif)}
-                                className={`${!notif.read ? 'bg-light border-start border-primary border-3' : ''} cursor-pointer`}
-                                style={{ cursor: 'pointer' }}
+                                sx={{
+                                    bgcolor: !notif.read ? 'action.hover' : 'transparent',
+                                    borderLeft: !notif.read ? 3 : 0,
+                                    borderColor: 'primary.main',
+                                    '&:hover': {
+                                        bgcolor: 'action.selected'
+                                    }
+                                }}
                             >
-                                <div className="d-flex justify-content-between align-items-start mb-1">
-                                    <strong className="text-truncate" style={{ maxWidth: '250px' }}>
-                                        {notif.title}
-                                    </strong>
-                                    <small className="text-muted ms-2" style={{ whiteSpace: 'nowrap' }}>
-                                        {formatTime(notif.createdAt)}
-                                    </small>
-                                </div>
-                                <div className="text-muted small">{notif.body}</div>
-                                {!notif.read && (
-                                    <Badge bg="primary" className="mt-1" style={{ fontSize: '0.65rem' }}>
-                                        חדש
-                                    </Badge>
-                                )}
-                            </ListGroup.Item>
+                                <ListItemText
+                                    primary={
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 0.5 }}>
+                                            <Typography
+                                                variant="subtitle2"
+                                                fontWeight="bold"
+                                                sx={{
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    maxWidth: '250px'
+                                                }}
+                                            >
+                                                {notif.title}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 1 }}>
+                                                {formatTime(notif.createdAt)}
+                                            </Typography>
+                                        </Box>
+                                    }
+                                    secondary={
+                                        <>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {notif.body}
+                                            </Typography>
+                                            {!notif.read && (
+                                                <Chip label="חדש" color="primary" size="small" sx={{ mt: 0.5, height: 20, fontSize: '0.65rem' }} />
+                                            )}
+                                        </>
+                                    }
+                                />
+                            </ListItemButton>
                         ))}
-                    </ListGroup>
+                    </List>
                 )}
-            </Dropdown.Menu>
-        </Dropdown>
+            </Menu>
+        </>
     );
 }
 
