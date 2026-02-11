@@ -148,34 +148,34 @@ class NotificationService {
                 try {
                     await admin.messaging().send({
                         token,
-                        notification: { title, body },
+                        // notification: { title, body }, // REMOVED to prevent double notification
                         data: {
                             ...data,
                             type,
+                            title, // Send title in data
+                            body,  // Send body in data
                             notificationId: data.notificationId || '',
-                            link: data.link || '/'
+                            link: data.link || '/',
+                            icon: '/icons/web-app-manifest-192x192.png'
                         },
                         webpush: {
                             fcmOptions: {
                                 link: data.link || '/'
-                            },
-                            notification: {
-                                icon: '/icons/web-app-manifest-192x192.png',
-                                badge: '/icons/favicon-96x96.png'
                             }
                         },
                         android: {
                             priority: 'high',
                             notification: {
-                                sound: 'default',
-                                clickAction: data.link || '/'
+                                icon: 'icon_notification',
+                                color: '#000000',
+                                clickAction: 'FLUTTER_NOTIFICATION_CLICK' // Standard for many handlers, but we will handle in SW
                             }
                         },
                         apns: {
                             payload: {
                                 aps: {
-                                    sound: 'default',
-                                    badge: 1
+                                    contentAvailable: true,
+                                    sound: 'default'
                                 }
                             }
                         }
