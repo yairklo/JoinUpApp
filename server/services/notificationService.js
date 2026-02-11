@@ -100,20 +100,35 @@ class NotificationService {
         }
 
         try {
-            // 1. Check user notification settings
-            const settings = await this.prisma.userNotificationSettings.findUnique({
-                where: { userId }
-            });
+            // 1. Check user notification settings (optional - use defaults if table doesn't exist)
+            let settings = null;
+            try {
+                settings = await this.prisma.userNotificationSettings.findUnique({
+                    where: { userId }
+                });
+            } catch (error) {
+                // Table doesn't exist - use default settings (all enabled)
+                Logger.info('NotificationService', 'UserNotificationSettings table not found, using defaults');
+                settings = {
+                    pushEnabled: true,
+                    friendRequestsEnabled: true,
+                    messagesEnabled: true,
+                    gameRemindersEnabled: true
+                };
+            }
 
-            if (!settings?.pushEnabled) {
+            // If settings exist and push is explicitly disabled, skip
+            if (settings && settings.pushEnabled === false) {
                 Logger.info('NotificationService', `Push disabled for user ${userId}`);
                 return;
             }
 
-            // 2. Check type-specific settings
-            if (type === 'FRIEND_REQUEST' && !settings.friendRequestsEnabled) return;
-            if (type === 'NEW_MESSAGE' && !settings.messagesEnabled) return;
-            if (type === 'GAME_REMINDER' && !settings.gameRemindersEnabled) return;
+            // 2. Check type-specific settings (only if settings exist)
+            if (settings) {
+                if (type === 'FRIEND_REQUEST' && settings.friendRequestsEnabled === false) return;
+                if (type === 'NEW_MESSAGE' && settings.messagesEnabled === false) return;
+                if (type === 'GAME_REMINDER' && settings.gameRemindersEnabled === false) return;
+            }
 
             // 3. Get all user devices
             const devices = await this.prisma.userDevice.findMany({
