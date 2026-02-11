@@ -1,5 +1,18 @@
 /* eslint-disable no-undef */
 // Give the service worker access to Firebase Messaging.
+const SW_VERSION = 'v1.2.0'; // Change this to force update
+console.log(`[firebase-messaging-sw.js] Service Worker Version: ${SW_VERSION}`);
+
+self.addEventListener('install', (event) => {
+    console.log('[firebase-messaging-sw.js] Installing new version...');
+    self.skipWaiting(); // Force this SW to become active immediately
+});
+
+self.addEventListener('activate', (event) => {
+    console.log('[firebase-messaging-sw.js] Activating new version...');
+    event.waitUntil(clients.claim()); // Take control of all clients immediately
+});
+
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
@@ -42,7 +55,10 @@ self.addEventListener('notificationclick', function (event) {
 
     event.notification.close();
 
+    // Get the link from data, default to root
     const link = event.notification.data?.link || '/';
+    // Construct absolute URL
+    const urlToOpen = new URL(link, self.registration.scope).href;
 
     // This looks to see if the current is already open and focuses if it is
     event.waitUntil(
@@ -53,18 +69,17 @@ self.addEventListener('notificationclick', function (event) {
             // Check if there's already a tab/window open with this URL
             for (let i = 0; i < clientList.length; i++) {
                 const client = clientList[i];
-                // PWA usually runs on same origin, so we check if client url starts with origin
+                // Check if client is in our scope and is focusable
                 if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
-                    // Focus the existing window
                     if (link && link !== '/') {
-                        client.navigate(link);
+                        client.navigate(urlToOpen);
                     }
                     return client.focus();
                 }
             }
-            // If not open, open a new window
+            // If not open, open a new window with absolute URL
             if (clients.openWindow) {
-                return clients.openWindow(link);
+                return clients.openWindow(urlToOpen);
             }
         })
     );
