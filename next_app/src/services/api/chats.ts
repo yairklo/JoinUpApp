@@ -8,7 +8,15 @@ export interface ChatDetails {
 }
 
 export const chatsApi = {
-    getDetails: (roomId: string, token: string) => {
-        return apiClient<ChatDetails>(`/api/chats/${roomId}`, { token });
+    getDetails: (chatId: string, token: string) => {
+        return apiClient<ChatDetails>(`/api/chats/${chatId}/details`, { token });
+    },
+
+    createPrivate: (targetUserId: string, token: string) => {
+        return apiClient<{ chatId: string }>('/api/chats/private', {
+            method: 'POST',
+            data: { targetUserId },
+            token
+        });
     }
 };

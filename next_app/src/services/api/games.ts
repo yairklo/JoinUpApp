@@ -34,6 +34,14 @@ export const gamesApi = {
     },
 
     // Mutation Methods
+    create: (data: any, token: string) => {
+        return apiClient<{ fieldId: string; id: string }>('/api/games', {
+            method: 'POST',
+            data,
+            token
+        });
+    },
+
     update: (gameId: string, data: UpdateGameDTO, token: string) => {
         return apiClient(`/api/games/${gameId}`, {
             method: 'PATCH',
