@@ -24,7 +24,7 @@ export default function TestNotificationPage() {
         if (permissionStatus === 'granted') {
             new Notification('Test Notification', {
                 body: 'This is a test notification from the browser directly.',
-                icon: '/icon-192x192.png'
+                icon: '/icons/web-app-manifest-192x192.png'
             });
         } else {
             alert('Permission not granted! Current status: ' + permissionStatus);

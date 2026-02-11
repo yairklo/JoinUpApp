@@ -160,8 +160,8 @@ class NotificationService {
                                 link: data.link || '/'
                             },
                             notification: {
-                                icon: '/icon-192x192.png',
-                                badge: '/badge-72x72.png'
+                                icon: '/icons/web-app-manifest-192x192.png',
+                                badge: '/icons/favicon-96x96.png'
                             }
                         },
                         android: {
