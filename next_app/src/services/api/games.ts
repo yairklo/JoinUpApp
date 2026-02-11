@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { Game } from '@/types/game';
 
 export interface UpdateGameDTO {
     time?: string;
@@ -14,6 +15,25 @@ export interface UpdateGameDTO {
 }
 
 export const gamesApi = {
+    // GET Methods
+    search: (params: URLSearchParams, token?: string) => {
+        const endpoint = token ? '/api/games/search' : '/api/games/public';
+        return apiClient<Game[]>(`${endpoint}?${params.toString()}`, { token });
+    },
+
+    getMyGames: (token: string) => {
+        return apiClient<Game[]>('/api/games/my', { token });
+    },
+
+    getByCity: (city: string, token?: string) => {
+        return apiClient<Game[]>(`/api/games/city?city=${encodeURIComponent(city)}`, { token });
+    },
+
+    getByFriends: (token: string) => {
+        return apiClient<Game[]>('/api/games/friends', { token });
+    },
+
+    // Mutation Methods
     update: (gameId: string, data: UpdateGameDTO, token: string) => {
         return apiClient(`/api/games/${gameId}`, {
             method: 'PATCH',
