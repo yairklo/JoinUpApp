@@ -22,12 +22,50 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message ', payload);
+
     // Customize notification here
-    const notificationTitle = payload.notification.title;
+    const notificationTitle = payload.data.title || payload.notification?.title || 'New Notification';
     const notificationOptions = {
-        body: payload.notification.body,
-        icon: '/icons/web-app-manifest-192x192.png'
+        body: payload.data.body || payload.notification?.body,
+        icon: '/icons/web-app-manifest-192x192.png',
+        badge: '/icons/favicon-96x96.png',
+        data: {
+            link: payload.data.link || '/'
+        }
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function (event) {
+    console.log('[firebase-messaging-sw.js] Notification click received.');
+
+    event.notification.close();
+
+    const link = event.notification.data?.link || '/';
+
+    // This looks to see if the current is already open and focuses if it is
+    event.waitUntil(
+        clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        }).then(function (clientList) {
+            // Check if there's already a tab/window open with this URL
+            for (let i = 0; i < clientList.length; i++) {
+                const client = clientList[i];
+                // PWA usually runs on same origin, so we check if client url starts with origin
+                if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
+                    // Focus the existing window
+                    if (link && link !== '/') {
+                        client.navigate(link);
+                    }
+                    return client.focus();
+                }
+            }
+            // If not open, open a new window
+            if (clients.openWindow) {
+                return clients.openWindow(link);
+            }
+        })
+    );
 });
