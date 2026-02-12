@@ -1,11 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-// MUI
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -30,9 +25,9 @@ import AddIcon from "@mui/icons-material/Add";
 import EditCalendarIcon from "@mui/icons-material/EditCalendar";
 import UpdateIcon from "@mui/icons-material/Update";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import DeleteSeriesDialog from "./DeleteSeriesDialog";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
+import DeleteSeriesDialog from "./DeleteSeriesDialog";
+import { useSeriesLogic } from "@/hooks/useSeriesLogic";
 
 interface SeriesManagerProps {
   gameId: string;
@@ -45,132 +40,11 @@ interface SeriesManagerProps {
 }
 
 export default function SeriesManager({ gameId, seriesId, canManage, gameData }: SeriesManagerProps) {
-  const { getToken } = useAuth();
-  const router = useRouter();
-
-  const [open, setOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [tabValue, setTabValue] = useState(0);
-  const [customDates, setCustomDates] = useState<string[]>([]);
-  const [tempDate, setTempDate] = useState("");
-
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [subLoading, setSubLoading] = useState(false);
-
-  const [editData, setEditData] = useState({
-    time: gameData.time,
-    updateFuture: true,
+  const { state, actions } = useSeriesLogic({
+    gameId,
+    seriesId,
+    initialTime: gameData.time
   });
-
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => setOpen(false);
-
-  const handleMakeRecurring = async () => {
-    setLoading(true);
-    try {
-      const token = await getToken();
-      const type = tabValue === 0 ? "WEEKLY" : "CUSTOM";
-
-      const payload = {
-        type,
-        dates: type === "CUSTOM" ? customDates : undefined,
-      };
-
-      const res = await fetch(`${API_BASE}/api/games/${gameId}/recurrence`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error("Failed to create series");
-
-      const data = await res.json();
-      const newSeriesId = data.seriesId || data.series?.id;
-
-      if (newSeriesId) {
-        router.push(`/series/${newSeriesId}`);
-      } else {
-        router.refresh();
-      }
-
-      handleClose();
-    } catch (error) {
-      console.error(error);
-      alert("Error creating series");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateSeries = async () => {
-    if (!seriesId) return;
-    setLoading(true);
-    try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/series/${seriesId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          time: editData.time,
-          updateFutureGames: editData.updateFuture
-        })
-      });
-
-      if (!res.ok) throw new Error("Failed to update");
-
-      alert("Series updated successfully!");
-      router.refresh();
-      handleClose();
-    } catch (err) {
-      console.error(err);
-      alert("Update failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteSeriesSuccess = () => {
-    router.push("/");
-  };
-
-  const handleToggleSubscribe = async () => {
-    if (!seriesId) return;
-    setSubLoading(true);
-    try {
-      const token = await getToken();
-      const method = isSubscribed ? "DELETE" : "POST";
-
-      await fetch(`${API_BASE}/api/series/${seriesId}/subscribe`, {
-        method,
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      setIsSubscribed(!isSubscribed);
-      router.refresh();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSubLoading(false);
-    }
-  };
-
-  const addCustomDate = () => {
-    if (!tempDate) return;
-    if (customDates.includes(tempDate)) return;
-    setCustomDates([...customDates, tempDate]);
-    setTempDate("");
-  };
-
-  const removeCustomDate = (dateToRemove: string) => {
-    setCustomDates(customDates.filter(d => d !== dateToRemove));
-  };
 
   if (seriesId) {
     return (
@@ -188,9 +62,9 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
             control={
               <Switch
                 size="small"
-                checked={isSubscribed}
-                onChange={handleToggleSubscribe}
-                disabled={subLoading}
+                checked={state.isSubscribed}
+                onChange={actions.handleToggleSubscribe}
+                disabled={state.subLoading}
               />
             }
             label={<Typography variant="caption">הרשמה קבועה</Typography>}
@@ -218,13 +92,13 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
             variant="outlined"
             fullWidth
             sx={{ mt: 1 }}
-            onClick={handleOpen}
+            onClick={() => actions.setOpen(true)}
           >
             Manage Series Settings
           </Button>
         )}
 
-        <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
+        <Dialog open={state.open} onClose={() => actions.setOpen(false)} fullWidth maxWidth="xs">
           <DialogTitle>הגדרות סדרה</DialogTitle>
           <DialogContent>
             <Alert severity="info" sx={{ mb: 2 }}>
@@ -236,15 +110,15 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
               type="time"
               fullWidth
               margin="normal"
-              value={editData.time}
-              onChange={(e) => setEditData({ ...editData, time: e.target.value })}
+              value={state.editData.time}
+              onChange={(e) => actions.setEditData({ ...state.editData, time: e.target.value })}
             />
 
             <FormControlLabel
               control={
                 <Switch
-                  checked={editData.updateFuture}
-                  onChange={(e) => setEditData({ ...editData, updateFuture: e.target.checked })}
+                  checked={state.editData.updateFutureGames}
+                  onChange={(e) => actions.setEditData({ ...state.editData, updateFutureGames: e.target.checked })}
                 />
               }
               label="עדכן גם משחקים עתידיים קיימים"
@@ -254,26 +128,26 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
               <Button
                 color="error"
                 startIcon={<DeleteForeverIcon />}
-                onClick={() => setDeleteDialogOpen(true)}
+                onClick={() => actions.setDeleteDialogOpen(true)}
               >
                 מחק סדרה ומשחקים עתידיים
               </Button>
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleClose}>ביטול</Button>
-            <Button variant="contained" onClick={handleUpdateSeries} disabled={loading}>
-              {loading ? "שומר..." : "שמור שינויים"}
+            <Button onClick={() => actions.setOpen(false)}>ביטול</Button>
+            <Button variant="contained" onClick={actions.handleUpdateSeries} disabled={state.loading}>
+              {state.loading ? "שומר..." : "שמור שינויים"}
             </Button>
           </DialogActions>
         </Dialog>
 
         <DeleteSeriesDialog
-          open={deleteDialogOpen}
-          onClose={() => setDeleteDialogOpen(false)}
+          open={state.deleteDialogOpen}
+          onClose={() => actions.setDeleteDialogOpen(false)}
           seriesId={seriesId}
           seriesName="Series"
-          onSuccess={handleDeleteSeriesSuccess}
+          onSuccess={actions.handleDeleteSeriesSuccess}
         />
       </Box>
     );
@@ -287,22 +161,22 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
         variant="text"
         color="secondary"
         startIcon={<UpdateIcon />}
-        onClick={handleOpen}
+        onClick={() => actions.setOpen(true)}
         fullWidth
         sx={{ mt: 1, justifyContent: "flex-start" }}
       >
         Make Recurring / Series
       </Button>
 
-      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+      <Dialog open={state.open} onClose={() => actions.setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>הפוך לסדרה</DialogTitle>
         <DialogContent>
-          <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} sx={{ mb: 2 }}>
+          <Tabs value={state.tabValue} onChange={(e, v) => actions.setTabValue(v)} sx={{ mb: 2 }}>
             <Tab label="אוטומטי שבועי" />
             <Tab label="תאריכים מותאמים" />
           </Tabs>
 
-          {tabValue === 0 ? (
+          {state.tabValue === 0 ? (
             <Box>
               <Alert severity="success" sx={{ mb: 2 }}>
                 פעולה זו תיצור משחקים אוטומטית <b>כל שבוע</b> בשעה <b>{gameData.time}</b>.
@@ -324,35 +198,35 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
                   type="datetime-local"
                   size="small"
                   fullWidth
-                  value={tempDate}
-                  onChange={(e) => setTempDate(e.target.value)}
+                  value={state.tempDate}
+                  onChange={(e) => actions.setTempDate(e.target.value)}
                 />
-                <Button variant="contained" onClick={addCustomDate} disabled={!tempDate}>
+                <Button variant="contained" onClick={actions.addCustomDate} disabled={!state.tempDate}>
                   <AddIcon />
                 </Button>
               </Stack>
 
               <Box display="flex" flexWrap="wrap" gap={1}>
-                {customDates.map((date) => (
+                {state.customDates.map((date) => (
                   <Chip
                     key={date}
                     label={new Date(date).toLocaleString()}
-                    onDelete={() => removeCustomDate(date)}
+                    onDelete={() => actions.removeCustomDate(date)}
                   />
                 ))}
-                {customDates.length === 0 && <Typography variant="caption" color="text.secondary">לא נבחרו תאריכים</Typography>}
+                {state.customDates.length === 0 && <Typography variant="caption" color="text.secondary">לא נבחרו תאריכים</Typography>}
               </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>ביטול</Button>
+          <Button onClick={() => actions.setOpen(false)}>ביטול</Button>
           <Button
             variant="contained"
-            onClick={handleMakeRecurring}
-            disabled={loading || (tabValue === 1 && customDates.length === 0)}
+            onClick={actions.handleMakeRecurring}
+            disabled={state.loading || (state.tabValue === 1 && state.customDates.length === 0)}
           >
-            {loading ? <CircularProgress size={24} /> : "צור סדרה"}
+            {state.loading ? <CircularProgress size={24} /> : "צור סדרה"}
           </Button>
         </DialogActions>
       </Dialog>

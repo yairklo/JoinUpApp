@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
@@ -19,195 +18,30 @@ import Grid from "@mui/material/Grid";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Collapse from "@mui/material/Collapse";
-import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
 
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
 import { SPORT_MAPPING } from "@/utils/sports";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
+import { useGameEditor, GameEditorProps } from "@/hooks/useGameEditor";
 
 export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
   value,
   label,
 }));
 
-// Helper functions to get local date/time parts from ISO string
-function getIsoDatePart(iso: string | null | undefined) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function getIsoTimePart(iso: string | null | undefined) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
-}
-
-interface GameDetailsEditorProps {
-  gameId: string;
-  initialTime: string;
-  initialDate: string;
-  initialMaxPlayers: number;
-  initialSport?: string;
-  initialRegistrationOpensAt?: string | null;
-  initialFriendsOnlyUntil?: string | null;
-  initialIsFriendsOnly: boolean;
-  initialTitle?: string | null;
-  initialTeamSize?: number | null;
-  initialPrice?: number | null;
+// Extend the props to include canManage, which isn't in the hook props but is in the component props
+interface ComponentProps extends GameEditorProps {
   canManage: boolean;
 }
 
-export default function GameDetailsEditor({
-  gameId,
-  initialTime,
-  initialDate,
-  initialMaxPlayers,
-  initialSport = "SOCCER",
-  initialRegistrationOpensAt,
-  initialFriendsOnlyUntil,
-  initialIsFriendsOnly,
-  initialTitle,
-  initialTeamSize,
-  initialPrice,
-  canManage
-}: GameDetailsEditorProps) {
-  const { getToken } = useAuth();
-  const router = useRouter();
+export default function GameDetailsEditor(props: ComponentProps) {
+  const { canManage } = props;
 
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const [time, setTime] = useState(initialTime);
-  const [date, setDate] = useState(initialDate);
-  const [maxPlayers, setMaxPlayers] = useState(initialMaxPlayers);
-  const [sport, setSport] = useState(initialSport);
-  const [title, setTitle] = useState(initialTitle || "");
-  const [teamSize, setTeamSize] = useState<number | null>(initialTeamSize ?? null);
-  const [price, setPrice] = useState<number | null>(initialPrice ?? null);
-  const [isFriendsOnly, setIsFriendsOnly] = useState(initialIsFriendsOnly);
-
-  // Future Registration State
-  const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
-  const [regDate, setRegDate] = useState(getIsoDatePart(initialRegistrationOpensAt));
-  const [regTime, setRegTime] = useState(getIsoTimePart(initialRegistrationOpensAt));
-
-  // Public Later State
-  const [makePublicLater, setMakePublicLater] = useState(!!initialFriendsOnlyUntil);
-  const [publicDate, setPublicDate] = useState(getIsoDatePart(initialFriendsOnlyUntil));
-  const [publicTime, setPublicTime] = useState(getIsoTimePart(initialFriendsOnlyUntil));
-
-  const handleOpen = () => {
-    setTime(initialTime);
-    setDate(initialDate);
-    setMaxPlayers(initialMaxPlayers);
-    setSport(initialSport || "SOCCER");
-    setTitle(initialTitle || "");
-    setTeamSize(initialTeamSize ?? null);
-    setPrice(initialPrice ?? null);
-    setIsFriendsOnly(initialIsFriendsOnly);
-
-    setFutureRegEnabled(!!initialRegistrationOpensAt);
-    if (initialRegistrationOpensAt) {
-      setRegDate(getIsoDatePart(initialRegistrationOpensAt));
-      setRegTime(getIsoTimePart(initialRegistrationOpensAt));
-    } else {
-      setRegTime("");
-    }
-
-    setMakePublicLater(!!initialFriendsOnlyUntil);
-    if (initialFriendsOnlyUntil) {
-      setPublicDate(getIsoDatePart(initialFriendsOnlyUntil));
-      setPublicTime(getIsoTimePart(initialFriendsOnlyUntil));
-    } else {
-      setPublicDate("");
-      setPublicTime("");
-    }
-
-    setOpen(true);
-  };
-
-  const handleClose = () => setOpen(false);
-
-  const handleDeleteGame = async () => {
-    if (!confirm("Are you sure you want to delete this game? This action cannot be undone.")) return;
-    setLoading(true);
-    try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/games/${gameId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error("Failed to delete game");
-      router.push("/");
-    } catch (error) {
-      console.error(error);
-      alert("Failed to delete game");
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setLoading(true);
-    try {
-      const token = await getToken();
-
-      let registrationOpensAt = null;
-      if (futureRegEnabled) {
-        if (regDate && regTime) {
-          registrationOpensAt = new Date(`${regDate}T${regTime}:00`).toISOString();
-        }
-      }
-
-      let friendsOnlyUntil = null;
-      if (makePublicLater) {
-        if (publicDate && publicTime) {
-          friendsOnlyUntil = new Date(`${publicDate}T${publicTime}:00`).toISOString();
-        }
-      }
-
-      const res = await fetch(`${API_BASE}/api/games/${gameId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          time,
-          date,
-          maxPlayers,
-          sport,
-          title,
-          teamSize: teamSize,
-          price: price,
-          isFriendsOnly,
-          registrationOpensAt: futureRegEnabled ? registrationOpensAt : null,
-          friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to update game");
-
-      router.refresh();
-      handleClose();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to update game details");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use the custom hook
+  const { state, actions } = useGameEditor(props);
 
   if (!canManage) return null;
 
@@ -217,14 +51,14 @@ export default function GameDetailsEditor({
         variant="outlined"
         size="small"
         startIcon={<EditIcon />}
-        onClick={handleOpen}
+        onClick={actions.handleOpen}
         sx={{ mt: 2, borderRadius: 2 }}
         fullWidth
       >
         ערוך פרטי משחק
       </Button>
 
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <Dialog open={state.open} onClose={actions.handleClose} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, direction: "rtl" }}>
           <EditIcon color="primary" />
           עריכת פרטי משחק
@@ -239,8 +73,8 @@ export default function GameDetailsEditor({
                 <TextField
                   label="כותרת המשחק (אופציונלי)"
                   fullWidth
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  value={state.title}
+                  onChange={(e) => actions.setTitle(e.target.value)}
                   placeholder="למשל: כדורגל שישי בצהריים"
                 />
               </Grid>
@@ -249,8 +83,8 @@ export default function GameDetailsEditor({
                   label="תאריך"
                   type="date"
                   fullWidth
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
+                  value={state.date}
+                  onChange={(e) => actions.setDate(e.target.value)}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
@@ -259,8 +93,8 @@ export default function GameDetailsEditor({
                   label="שעה"
                   type="time"
                   fullWidth
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
+                  value={state.time}
+                  onChange={(e) => actions.setTime(e.target.value)}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
@@ -269,8 +103,8 @@ export default function GameDetailsEditor({
                   label="כמות שחקנים מקסימלית"
                   type="number"
                   fullWidth
-                  value={maxPlayers}
-                  onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
+                  value={state.maxPlayers}
+                  onChange={(e) => actions.setMaxPlayers(parseInt(e.target.value))}
                   InputProps={{ inputProps: { min: 2 } }}
                 />
               </Grid>
@@ -279,8 +113,8 @@ export default function GameDetailsEditor({
                   label='גודל קבוצה (למשל 5 ל "5X5")'
                   type="number"
                   fullWidth
-                  value={teamSize || ""}
-                  onChange={(e) => setTeamSize(e.target.value ? parseInt(e.target.value) : null)}
+                  value={state.teamSize || ""}
+                  onChange={(e) => actions.setTeamSize(e.target.value ? parseInt(e.target.value) : null)}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
@@ -288,8 +122,8 @@ export default function GameDetailsEditor({
                   label="מחיר (₪)"
                   type="number"
                   fullWidth
-                  value={price || ""}
-                  onChange={(e) => setPrice(e.target.value ? parseInt(e.target.value) : null)}
+                  value={state.price || ""}
+                  onChange={(e) => actions.setPrice(e.target.value ? parseInt(e.target.value) : null)}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
@@ -297,8 +131,8 @@ export default function GameDetailsEditor({
                   select
                   label="סוג ספורט"
                   fullWidth
-                  value={sport}
-                  onChange={(e) => setSport(e.target.value)}
+                  value={state.sport}
+                  onChange={(e) => actions.setSport(e.target.value)}
                 >
                   {SPORTS.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -312,19 +146,19 @@ export default function GameDetailsEditor({
               <Grid size={{ xs: 12 }} mt={2}>
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <FormControlLabel
-                    control={<Switch checked={futureRegEnabled} onChange={(e) => setFutureRegEnabled(e.target.checked)} />}
+                    control={<Switch checked={state.futureRegEnabled} onChange={(e) => actions.setFutureRegEnabled(e.target.checked)} />}
                     label="פתיחת רישום עתידית"
                     sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
                   />
-                  <Collapse in={futureRegEnabled}>
+                  <Collapse in={state.futureRegEnabled}>
                     <Grid container spacing={2} mt={1}>
                       <Grid size={{ xs: 6 }}>
                         <TextField
                           label="תאריך פתיחה"
                           type="date"
                           fullWidth
-                          value={regDate}
-                          onChange={(e) => setRegDate(e.target.value)}
+                          value={state.regDate}
+                          onChange={(e) => actions.setRegDate(e.target.value)}
                           InputLabelProps={{ shrink: true }}
                         />
                       </Grid>
@@ -333,8 +167,8 @@ export default function GameDetailsEditor({
                           label="שעה"
                           type="time"
                           fullWidth
-                          value={regTime}
-                          onChange={(e) => setRegTime(e.target.value)}
+                          value={state.regTime}
+                          onChange={(e) => actions.setRegTime(e.target.value)}
                           InputLabelProps={{ shrink: true }}
                         />
                       </Grid>
@@ -345,29 +179,29 @@ export default function GameDetailsEditor({
 
               {/* Friends Only / Private Section */}
               <Grid size={{ xs: 12 }} mt={2}>
-                <Paper variant="outlined" sx={{ p: 2, borderColor: isFriendsOnly ? 'primary.main' : 'divider' }}>
+                <Paper variant="outlined" sx={{ p: 2, borderColor: state.isFriendsOnly ? 'primary.main' : 'divider' }}>
                   <FormControlLabel
-                    control={<Switch checked={isFriendsOnly} onChange={(e) => setIsFriendsOnly(e.target.checked)} />}
+                    control={<Switch checked={state.isFriendsOnly} onChange={(e) => actions.setIsFriendsOnly(e.target.checked)} />}
                     label="משחק פרטי (לחברים בלבד)"
                     sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
                   />
 
-                  <Collapse in={isFriendsOnly}>
+                  <Collapse in={state.isFriendsOnly}>
                     <Box mt={2} p={2} bgcolor="grey.50" borderRadius={1} border={1} borderColor="divider">
                       <FormControlLabel
-                        control={<Switch checked={makePublicLater} onChange={(e) => setMakePublicLater(e.target.checked)} />}
+                        control={<Switch checked={state.makePublicLater} onChange={(e) => actions.setMakePublicLater(e.target.checked)} />}
                         label="פתח לציבור במועד מאוחר יותר"
                         sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
                       />
-                      <Collapse in={makePublicLater}>
+                      <Collapse in={state.makePublicLater}>
                         <Grid container spacing={2} mt={1}>
                           <Grid size={{ xs: 6 }}>
                             <TextField
                               label="תאריך פתיחה לציבור"
                               type="date"
                               fullWidth
-                              value={publicDate}
-                              onChange={(e) => setPublicDate(e.target.value)}
+                              value={state.publicDate}
+                              onChange={(e) => actions.setPublicDate(e.target.value)}
                               InputLabelProps={{ shrink: true }}
                             />
                           </Grid>
@@ -376,8 +210,8 @@ export default function GameDetailsEditor({
                               label="שעת פתיחה"
                               type="time"
                               fullWidth
-                              value={publicTime}
-                              onChange={(e) => setPublicTime(e.target.value)}
+                              value={state.publicTime}
+                              onChange={(e) => actions.setPublicTime(e.target.value)}
                               InputLabelProps={{ shrink: true }}
                             />
                           </Grid>
@@ -388,29 +222,26 @@ export default function GameDetailsEditor({
                 </Paper>
               </Grid>
 
-              {/* Make Public Later Section */}
-
-
             </Grid>
           </Box>
         </DialogContent>
         <DialogActions sx={{ direction: "ltr", display: "flex", justifyContent: "space-between" }}>
           <Button
             color="error"
-            onClick={handleDeleteGame}
+            onClick={actions.deleteGame}
             startIcon={<DeleteForeverIcon />}
-            disabled={loading}
+            disabled={state.loading}
           >
             מחק משחק
           </Button>
           <Box>
-            <Button onClick={handleClose} color="inherit" sx={{ mr: 1 }}>ביטול</Button>
+            <Button onClick={actions.handleClose} color="inherit" sx={{ mr: 1 }}>ביטול</Button>
             <Button
-              onClick={handleSave}
+              onClick={actions.saveGame}
               variant="contained"
-              disabled={loading}
+              disabled={state.loading}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : "שמור שינויים"}
+              {state.loading ? <CircularProgress size={24} color="inherit" /> : "שמור שינויים"}
             </Button>
           </Box>
         </DialogActions>

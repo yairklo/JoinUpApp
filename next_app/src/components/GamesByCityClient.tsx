@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useUser, useAuth } from "@clerk/nextjs";
+import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
@@ -13,133 +13,29 @@ import SearchIcon from "@mui/icons-material/Search";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import InputAdornment from "@mui/material/InputAdornment";
-import CheckIcon from "@mui/icons-material/Check";
-import CloseIcon from "@mui/icons-material/Close";
-import { useSyncedGames } from "@/hooks/useSyncedGames";
-import { Game } from "@/types/game";
+
+import Dialog from "@mui/material/Dialog"; // Ensure imported
+
+import { useGamesByCity } from "@/hooks/useGamesByCity";
 import { useGameUpdate } from "@/context/GameUpdateContext";
+import { SportFilter } from "@/utils/sports";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
-import Dialog from "@mui/material/Dialog";
 import FullPageList from "@/components/FullPageList";
 
-// Type definition moved to src/types/game.ts
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-
-import { SportFilter } from "@/utils/sports";
-
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
-    const [displayedCity, setDisplayedCity] = useState(initialCity || "");
-    const [loading, setLoading] = useState(true);
+    const { games, loading, displayedCity, setDisplayedCity, availableCities } = useGamesByCity(initialCity);
+    const { user } = useUser();
+    const router = useRouter();
+    const userId = user?.id || "";
+    const { notifyGameUpdate } = useGameUpdate();
+
     const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [tempCity, setTempCity] = useState("");
-
-    const predicate = useCallback((game: Game) => {
-        // Filter incoming games by city
-        if (!displayedCity) return false;
-        return game.city === displayedCity || game.fieldLocation?.includes(displayedCity);
-    }, [displayedCity]);
-
-    const { games, setGames } = useSyncedGames([], predicate);
-
-    const { user, isLoaded } = useUser();
-    const { getToken } = useAuth();
-    const router = useRouter();
-    const userId = user?.id || "";
-
-    const [availableCities, setAvailableCities] = useState<string[]>([]);
-
-    const { notifyGameUpdate } = useGameUpdate();
-
-    // useGameUpdateListener is handled by useSyncedGames
-
-    useEffect(() => {
-        // Fetch available cities for autocomplete
-        fetch(`${API_BASE}/api/fields/cities`)
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) {
-                    setAvailableCities(data);
-                }
-            })
-            .catch(err => console.error("Failed to load cities", err));
-    }, []);
-
-    // 1. Fetch User City if not provided initially
-    useEffect(() => {
-        if (!isLoaded || initialCity) return; // If we have prop, use it (and it's already set in state)
-        if (!user) return;
-
-        let ignore = false;
-        async function fetchUserCity() {
-            try {
-                const token = await getToken();
-                const res = await fetch(`${API_BASE}/api/users/${user?.id}`, {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.city && !ignore) {
-                        setDisplayedCity(data.city);
-                    } else if (!ignore) {
-                        // Fallback if user has no city
-                        setDisplayedCity("Tel Aviv");
-                    }
-                }
-            } catch (e) {
-                console.error("Error fetching user city", e);
-                if (!ignore) setDisplayedCity("Tel Aviv");
-            }
-        }
-        fetchUserCity();
-        return () => { ignore = true; };
-    }, [isLoaded, user, initialCity, getToken]);
-
-
-    // 2. Fetch Games whenever displayedCity changes
-    useEffect(() => {
-        if (!displayedCity) return;
-
-        let ignore = false;
-        async function fetchGames() {
-            setLoading(true);
-            try {
-                const token = await getToken({ template: undefined }).catch(() => "");
-                const qs = new URLSearchParams();
-                qs.set("city", displayedCity);
-
-                const res = await fetch(`${API_BASE}/api/games/city?${qs.toString()}`, {
-                    cache: "no-store",
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                });
-
-                if (!res.ok) throw new Error("Failed to fetch city games");
-                const data: Game[] = await res.json();
-
-                data.sort(
-                    (a, b) =>
-                        new Date(`${a.date}T${a.time}:00`).getTime() -
-                        new Date(`${b.date}T${b.time}:00`).getTime()
-                );
-
-                if (!ignore) setGames(data);
-            } catch (err) {
-                console.error("Error loading city games:", err);
-                if (!ignore) setGames([]);
-            } finally {
-                if (!ignore) setLoading(false);
-            }
-        }
-
-        fetchGames();
-        return () => { ignore = true; };
-    }, [displayedCity, getToken]);
 
     const handleEditClick = () => {
         setTempCity(displayedCity);
@@ -147,13 +43,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
     };
 
     const handleSaveClick = () => {
-        if (tempCity.trim()) {
-            setDisplayedCity(tempCity.trim());
-        }
-        setIsEditing(false);
-    };
-
-    const handleCancelClick = () => {
+        if (tempCity.trim()) setDisplayedCity(tempCity.trim());
         setIsEditing(false);
     };
 
@@ -170,13 +60,50 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
         );
     }
 
-    // Even if empty, we might want to show the header so they can change city? 
-    // But current design returns null if empty. 
-    // Let's allow returning empty list if we are editing or have a city, 
-    // so user effectively sees "No games in X" but can change X.
-    // For now, let's keep it simple: if no games found, we still show the component 
-    // BUT we need to handle "No games" UI. 
-    // To minimize UI disruption, if games is empty, we render the header and a message.
+    const renderGameCard = (g: any) => {
+        const joined = !!userId && (g.participants || []).some((p: any) => p.id === userId);
+        const mainTitle = g.title || g.fieldName;
+        const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
+        return (
+            <GameHeaderCard
+                key={g.id}
+                time={g.time}
+                date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
+                durationHours={g.duration ?? 1}
+                title={mainTitle}
+                subtitle={subtitle}
+                currentPlayers={g.currentPlayers}
+                maxPlayers={g.maxPlayers}
+                sport={g.sport}
+                teamSize={g.teamSize}
+                price={g.price}
+                isJoined={joined}
+            >
+                {joined ? (
+                    <LeaveGameButton
+                        gameId={g.id}
+                        currentPlayers={g.currentPlayers}
+                        onLeft={() => {
+                            notifyGameUpdate(g.id, 'leave', userId);
+                            router.refresh();
+                        }}
+                    />
+                ) : (
+                    <JoinGameButton
+                        gameId={g.id}
+                        registrationOpensAt={g.registrationOpensAt}
+                        onJoined={() => {
+                            notifyGameUpdate(g.id, 'join', userId);
+                            router.refresh();
+                        }}
+                    />
+                )}
+                <Link href={`/games/${g.id}`} passHref legacyBehavior>
+                    <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
+                </Link>
+            </GameHeaderCard>
+        );
+    };
 
     return (
         <>
@@ -189,7 +116,6 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                     </IconButton>
                 }
             >
-                {/* LIST CONTENT */}
                 {filteredGames.length === 0 ? (
                     <Box p={2} width="100%">
                         <Typography variant="body2" color="text.secondary">
@@ -197,53 +123,10 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                             <Button size="small" onClick={handleEditClick} startIcon={<SearchIcon />}>חפש עיר אחרת</Button>
                         </Typography>
                     </Box>
-                ) : (
-                    filteredGames.map((g) => {
-                        const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
-                        const mainTitle = g.title || g.fieldName;
-                        const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
-                        return (
-                            <GameHeaderCard
-                                key={g.id}
-                                time={g.time}
-                                date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
-                                durationHours={g.duration ?? 1}
-                                title={mainTitle}
-                                subtitle={subtitle}
-                                currentPlayers={g.currentPlayers}
-                                maxPlayers={g.maxPlayers}
-                                sport={g.sport}
-                                teamSize={g.teamSize}
-                                price={g.price}
-                                isJoined={joined}
-                            >
-                                {joined ? (
-                                    <LeaveGameButton
-                                        gameId={g.id}
-                                        currentPlayers={g.currentPlayers}
-                                        onLeft={() => {
-                                            notifyGameUpdate(g.id, 'leave', userId);
-                                            router.refresh();
-                                        }}
-                                    />
-                                ) : (
-                                    <JoinGameButton
-                                        gameId={g.id}
-                                        registrationOpensAt={g.registrationOpensAt}
-                                        onJoined={() => {
-                                            notifyGameUpdate(g.id, 'join', userId);
-                                            router.refresh();
-                                        }}
-                                    />
-                                )}
-                                <Button component={Link} href={`/games/${g.id}`} variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
-                            </GameHeaderCard>
-                        )
-                    })
-                )}
+                ) : filteredGames.map(renderGameCard)}
             </GamesHorizontalList>
 
-            <Dialog open={isEditing} onClose={handleCancelClick} fullWidth maxWidth="xs">
+            <Dialog open={isEditing} onClose={() => setIsEditing(false)} fullWidth maxWidth="xs">
                 <Box p={3}>
                     <Typography variant="h6" mb={2} display="flex" alignItems="center" gap={1}>
                         <SearchIcon color="action" />
@@ -252,22 +135,13 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                     <Autocomplete
                         options={availableCities}
                         value={availableCities.includes(tempCity) ? tempCity : null}
-                        onChange={(event, newValue) => {
-                            setTempCity(newValue || "");
-                        }}
-                        renderInput={(params) => (
-                            <TextField
-                                {...params}
-                                label="שם העיר"
-                                placeholder="בחר עיר..."
-                                autoFocus
-                            />
-                        )}
+                        onChange={(event, newValue) => { setTempCity(newValue || ""); }}
+                        renderInput={(params) => <TextField {...params} label="שם העיר" placeholder="בחר עיר..." autoFocus />}
                         noOptionsText="לא נמצאו ערים"
                         fullWidth
                     />
                     <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
-                        <Button onClick={handleCancelClick}>ביטול</Button>
+                        <Button onClick={() => setIsEditing(false)}>ביטול</Button>
                         <Button variant="contained" onClick={handleSaveClick} disabled={!tempCity}>חפש</Button>
                     </Box>
                 </Box>
@@ -278,54 +152,8 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 onClose={() => setIsSeeAllOpen(false)}
                 title={`משחקים ב${displayedCity}`}
                 items={filteredGames}
-                renderItem={(g) => {
-                    const joined = !!userId && (g.participants || []).some((p) => p.id === userId);
-                    const mainTitle = g.title || g.fieldName;
-                    const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
-                    return (
-                        <GameHeaderCard
-                            key={g.id}
-                            time={g.time}
-                            date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
-                            durationHours={g.duration ?? 1}
-                            title={mainTitle}
-                            subtitle={subtitle}
-                            currentPlayers={g.currentPlayers}
-                            maxPlayers={g.maxPlayers}
-                            sport={g.sport}
-                            teamSize={g.teamSize}
-                            price={g.price}
-                            isJoined={joined}
-                        >
-                            {joined ? (
-                                <LeaveGameButton
-                                    gameId={g.id}
-                                    currentPlayers={g.currentPlayers}
-                                    onLeft={() => {
-                                        notifyGameUpdate(g.id, 'leave', userId);
-                                        router.refresh();
-                                    }}
-                                />
-                            ) : (
-                                <JoinGameButton
-                                    gameId={g.id}
-                                    registrationOpensAt={g.registrationOpensAt}
-                                    onJoined={() => {
-                                        notifyGameUpdate(g.id, 'join', userId);
-                                        router.refresh();
-                                    }}
-                                />
-                            )}
-                            <Link href={`/games/${g.id}`} passHref legacyBehavior>
-                                <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
-                            </Link>
-                        </GameHeaderCard>
-                    )
-                }}
+                renderItem={renderGameCard}
             />
         </>
     );
 }
-
-// Wait, I need to make sure I import Dialog.
-
