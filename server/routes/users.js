@@ -423,7 +423,6 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
       } else {
         // GROUP: Use Game Title if available
         const g = gameMap[chat.id];
-        if (g && g.status !== 'OPEN') return null;
         if (g) {
           chatName = g.title || g.fieldName || 'Game Chat';
         }
