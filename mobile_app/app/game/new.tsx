@@ -182,16 +182,18 @@ export default function NewGameScreen() {
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
                     <Text className="text-lg font-bold mb-2 text-gray-800">ספורט</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        const SPORT_MAP:any = {SOCCER:'כדורגל', BASKETBALL:'כדורסל', TENNIS:'טניס', VOLLEYBALL:'כדורעף'};
-                        {['SOCCER', 'BASKETBALL', 'TENNIS', 'VOLLEYBALL'].map(s => (
-                            <TouchableOpacity
-                                key={s}
-                                onPress={() => setSport(s)}
-                                className={`mr-2 px-4 py-2 rounded-full border ${sport === s ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
-                            >
-                                <Text className={sport === s ? 'text-white font-bold' : 'text-gray-700'}>{SPORT_MAP[s]}</Text>
-                            </TouchableOpacity>
-                        ))}
+                        {['SOCCER', 'BASKETBALL', 'TENNIS', 'VOLLEYBALL'].map(s => {
+                            const SPORT_MAP: Record<string, string> = { SOCCER: 'כדורגל', BASKETBALL: 'כדורסל', TENNIS: 'טניס', VOLLEYBALL: 'כדורעף' };
+                            return (
+                                <TouchableOpacity
+                                    key={s}
+                                    onPress={() => setSport(s)}
+                                    className={`mr-2 px-4 py-2 rounded-full border ${sport === s ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                                >
+                                    <Text className={sport === s ? 'text-white font-bold' : 'text-gray-700'}>{SPORT_MAP[s]}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </ScrollView>
                 </View>
 
