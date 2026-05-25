@@ -17,8 +17,12 @@ export default function HomeScreen() {
   const today = new Date().toISOString().split('T')[0];
   const { games, loading, refreshGames, selectedDate, setSelectedDate } = useGamesByDate(today);
   const { user } = useUser();
-  const onRefresh = useCallback(() => {
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
     refreshGames();
+    // Simulate a brief delay so the spinner shows properly for the user interaction
+    setTimeout(() => setRefreshing(false), 800);
   }, [refreshGames]);
 
   const renderGameItem = useCallback(({ item }: { item: Game }) => {
@@ -77,7 +81,7 @@ export default function HomeScreen() {
           renderItem={renderGameItem}
           contentContainerStyle={{ paddingVertical: 10 }}
           refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor="#2563eb" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
           }
           ListEmptyComponent={
             <View className="items-center justify-center py-20 px-10">
