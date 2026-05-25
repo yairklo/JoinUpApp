@@ -69,6 +69,20 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             if (messagesCache[roomId]) return;
             setIsLoading(true);
             try {
+                // Temporary debug block
+                try {
+                    const token = await getToken();
+                    if (token) {
+                        const debugRes = await fetch(`${API_BASE}/api/debug/chatAuth/${encodeURIComponent(roomId)}`, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        const debugData = await debugRes.json();
+                        console.log("[DEBUG CHAT_AUTH]", debugData);
+                    }
+                } catch (err) {
+                    console.error("Debug fetch failed", err);
+                }
+
                 const msgs = await loadMessages(roomId);
                 setMessages(msgs);
                 prevMessagesLengthRef.current = msgs.length;
