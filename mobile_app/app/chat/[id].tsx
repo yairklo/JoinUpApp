@@ -17,7 +17,7 @@ export default function ChatScreen() {
         state: {
             messages, isLoading, inputValue, effectiveChatName,
             typingUsers, replyToMessage, editingMessage, isOtherUserOnline,
-            avatarByUserId, nameByUserId
+            avatarByUserId, nameByUserId, otherUserId
         },
         actions: {
             handleSendMessage, setInputValue, setReplyToMessage,
