@@ -19,5 +19,5 @@
 ## Phase 2: Web Refinements
 
 ### Task 4: Web Chat Interaction Update
-- [-] **Task 4.1: Game chat floating widget.** Modify the web chat list behavior. Clicking a game chat should toggle/open a compact floating chat widget on the screen instead of executing a hard redirect to the dedicated game page.
+- [PR Created - https://github.com/yairklo/JoinUpApp/pull/new/feature/web-floating-game-chat] **Task 4.1: Game chat floating widget.** Modify the web chat list behavior. Clicking a game chat should toggle/open a compact floating chat widget on the screen instead of executing a hard redirect to the dedicated game page.
 *Git branch: `feature/web-floating-game-chat`*
