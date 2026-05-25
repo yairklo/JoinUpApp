@@ -1,8 +1,9 @@
-import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { usersApi, UserProfile } from '../../src/services/api/users';
+import { Ionicons } from '@expo/vector-icons';
 
 const SPORT_MAPPING: Record<string, string> = {
   BASKETBALL: 'כדורסל',
@@ -25,6 +26,9 @@ export default function ProfileScreen() {
     
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [form, setForm] = useState({ city: '', phone: '' });
 
     useEffect(() => {
         if (!user?.id) return;
@@ -34,6 +38,7 @@ export default function ProfileScreen() {
                 if (token) {
                     const data = await usersApi.getProfile(user.id, token);
                     setProfile(data);
+                    setForm({ city: data?.city || '', phone: data?.phone || '' });
                 }
             } catch (err) {
                 console.error("Failed to load profile", err);
@@ -50,6 +55,23 @@ export default function ProfileScreen() {
             router.replace('/sign-in');
         } catch (err) {
             console.error("Sign out failed", err);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!user?.id) return;
+        setSaving(true);
+        try {
+            const token = await getToken();
+            if (token) {
+                const updated = await usersApi.updateProfile(user.id, form, token);
+                setProfile(updated);
+                setIsEditing(false);
+            }
+        } catch (err) {
+            Alert.alert("Error", "Failed to update profile.");
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -77,22 +99,69 @@ export default function ProfileScreen() {
 
             {/* Info Section */}
             <View className="bg-white p-6 rounded-2xl shadow-sm mb-4">
-                <Text className="text-lg font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">Personal Info</Text>
+                <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 pb-2">
+                    <Text className="text-lg font-bold text-gray-800">Personal Info</Text>
+                    {!isEditing ? (
+                        <TouchableOpacity onPress={() => setIsEditing(true)}>
+                            <Ionicons name="pencil" size={20} color="#2563eb" />
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity onPress={() => { setIsEditing(false); setForm({ city: profile?.city || '', phone: profile?.phone || '' }); }}>
+                            <Ionicons name="close" size={24} color="#ef4444" />
+                        </TouchableOpacity>
+                    )}
+                </View>
                 
-                <View className="flex-row justify-between mb-3">
+                <View className="flex-row justify-between items-center mb-3">
                     <Text className="text-gray-500 font-medium">Email</Text>
                     <Text className="text-gray-800">{profile?.email || user.primaryEmailAddress?.emailAddress || '-'}</Text>
                 </View>
                 
-                <View className="flex-row justify-between mb-3">
+                <View className="flex-row justify-between items-center mb-3">
                     <Text className="text-gray-500 font-medium">Phone</Text>
-                    <Text className="text-gray-800">{profile?.phone || '-'}</Text>
+                    {isEditing ? (
+                        <TextInput 
+                            value={form.phone} 
+                            onChangeText={(text) => setForm({ ...form, phone: text })}
+                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 ml-4 text-right"
+                            keyboardType="phone-pad"
+                        />
+                    ) : (
+                        <Text className="text-gray-800">{profile?.phone || '-'}</Text>
+                    )}
+                </View>
+
+                <View className="flex-row justify-between items-center mb-3">
+                    <Text className="text-gray-500 font-medium">City</Text>
+                    {isEditing ? (
+                        <TextInput 
+                            value={form.city} 
+                            onChangeText={(text) => setForm({ ...form, city: text })}
+                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 ml-4 text-right"
+                        />
+                    ) : (
+                        <Text className="text-gray-800">{profile?.city || '-'}</Text>
+                    )}
                 </View>
 
                 <View className="flex-row justify-between mb-3">
                     <Text className="text-gray-500 font-medium">Age</Text>
                     <Text className="text-gray-800">{age ? String(age) : '-'}</Text>
                 </View>
+
+                {isEditing && (
+                    <TouchableOpacity 
+                        onPress={handleSave} 
+                        disabled={saving}
+                        className={`mt-4 py-3 rounded-xl items-center ${saving ? 'bg-blue-300' : 'bg-blue-600'}`}
+                    >
+                        {saving ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text className="text-white font-bold">Save Profile</Text>
+                        )}
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Sports Section */}
