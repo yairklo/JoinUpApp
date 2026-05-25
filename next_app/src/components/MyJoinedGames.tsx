@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useUser, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -14,67 +11,14 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 
-import { useSyncedGames } from "@/hooks/useSyncedGames";
-import { Game } from "@/types/game";
+import { useMyGames } from "@/hooks/useMyGames";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { SportFilter } from "@/utils/sports";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-
 export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
-  const { user, isLoaded } = useUser();
-  const { getToken } = useAuth();
-  const userId = user?.id || "";
-  const { games, setGames } = useSyncedGames([]);
-  const [loading, setLoading] = useState(true);
+  const { games, loading, userId, isLoaded } = useMyGames();
   const router = useRouter();
-
   const { notifyGameUpdate } = useGameUpdate();
-
-  // useGameUpdateListener is handled by useSyncedGames
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-
-    let ignore = false;
-    async function fetchMyGames() {
-      try {
-        const token = await getToken();
-        const res = await fetch(`${API_BASE}/api/games/my`, {
-          cache: "no-store",
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error("Failed to fetch games");
-
-        const myGames: Game[] = await res.json();
-        const myUpcoming = myGames;
-
-        // Deduplicate by seriesId, keeping the first occurrence (nearest upcoming)
-        const uniqueSeries = new Set<string>();
-        const dedupedGames = myUpcoming.filter((g) => {
-          if (!g.seriesId) return true;
-          if (uniqueSeries.has(g.seriesId)) return false;
-          uniqueSeries.add(g.seriesId);
-          return true;
-        });
-
-        if (!ignore) setGames(dedupedGames);
-      } catch (error) {
-        console.error("Failed to load my games", error);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-
-    fetchMyGames();
-    return () => {
-      ignore = true;
-    };
-  }, [userId, isLoaded, getToken, setGames]);
 
   // Derive the list: only show games where I am still a participant
   const joinedGames = games.filter((g) => {
@@ -125,14 +69,14 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
                 currentPlayers={g.currentPlayers}
                 onLeft={() => {
                   notifyGameUpdate(g.id, 'leave', userId);
-                  router.refresh();
+                  router.refresh(); // Refresh to update other lists
                 }}
               />
 
               <Button
                 component={Link}
                 href={`/games/${g.id}`}
-                variant="text"
+                variant="text" // Corrected variant
                 color="primary"
                 size="small"
                 endIcon={<ArrowForwardIcon />}
