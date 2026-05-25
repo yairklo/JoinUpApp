@@ -78,7 +78,7 @@ export function useGamesByDate(initialDate: string, fieldId?: string) {
 
         fetchGames();
         return () => { ignore = true; };
-    }, [selectedDate, fieldId, isLoaded, getToken, setGames, refreshTrigger]);
+    }, [selectedDate, fieldId, isLoaded, setGames, refreshTrigger]);
 
     const groups = useMemo(() => {
         return games.reduce<Record<string, Game[]>>((acc, g) => {
