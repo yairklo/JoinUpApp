@@ -19,8 +19,8 @@ interface GameCardProps {
 
 export default function GameCard({ game, isJoined, children }: GameCardProps) {
     const sportImg = SPORT_IMAGES[game.sport?.toUpperCase() || "DEFAULT"] || SPORT_IMAGES.DEFAULT;
-    const occupancyPercentage = Math.min((game.currentשחקנים / game.maxשחקנים) * 100, 100);
-    const isFull = game.currentשחקנים >= game.maxשחקנים;
+    const occupancyPercentage = Math.min((game.currentPlayers / game.maxPlayers) * 100, 100);
+    const isFull = game.currentPlayers >= game.maxPlayers;
 
     // Date formatting (DD/MM)
     const displayDate = game.date?.includes('-') ? game.date.split('-').reverse().slice(0, 2).join('/') : game.date;
@@ -59,7 +59,7 @@ export default function GameCard({ game, isJoined, children }: GameCardProps) {
                         ) : null}
                         <View className="bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
                             <Text className="text-gray-600 font-bold text-[10px]">
-                                {game.teamSize ? `${game.teamSize}X${game.teamSize}` : `${game.maxשחקנים} שחקנים`}
+                                {game.teamSize ? `${game.teamSize}X${game.teamSize}` : `${game.maxPlayers} שחקנים`}
                             </Text>
                         </View>
                     </View>
@@ -80,7 +80,7 @@ export default function GameCard({ game, isJoined, children }: GameCardProps) {
                     <View className="flex-row-reverse justify-between items-center mb-1.5">
                         <Text className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">תפוסה</Text>
                         <Text className={`text-xs font-black ${isFull ? 'text-red-500' : 'text-blue-600'}`}>
-                            {game.currentשחקנים}/{game.maxשחקנים} {isFull ? '(מלא)' : ''}
+                            {game.currentPlayers}/{game.maxPlayers} {isFull ? '(מלא)' : ''}
                         </Text>
                     </View>
                     <View className="h-2 bg-gray-100 rounded-full overflow-hidden">

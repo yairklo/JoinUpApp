@@ -75,8 +75,6 @@ export default function HomeScreen() {
               />
             </View>
           }
-          data={games}
-          keyExtractor={(item) => String(item.id)}
           renderItem={renderGameItem}
           contentContainerStyle={{ paddingVertical: 10 }}
           refreshControl={
