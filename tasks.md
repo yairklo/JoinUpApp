@@ -12,8 +12,8 @@
 *Git branch: `feature/mobile-home-games-list`*
 
 ### Task 3: Chat Header & Navigation Refactor
-- [ ] **Task 3.1: Chat view header.** Add a top row/header to individual chat screens displaying the participant's name (or game title for game chats), avatar, and online/typing indicators.
-- [ ] **Task 3.2: Add back button navigation.** Implement a back button in the chat header that correctly navigates the user back to the main chats list view.
+- [PR Created - https://github.com/yairklo/JoinUpApp/pull/new/feature/mobile-chat-header-navigation] **Task 3.1: Chat view header.** Add a top row/header to individual chat screens displaying the participant's name (or game title for game chats), avatar, and online/typing indicators.
+- [PR Created - https://github.com/yairklo/JoinUpApp/pull/new/feature/mobile-chat-header-navigation] **Task 3.2: Add back button navigation.** Implement a back button in the chat header that correctly navigates the user back to the main chats list view.
 *Git branch: `feature/mobile-chat-header-navigation`*
 
 ## Phase 2: Web Refinements
