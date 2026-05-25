@@ -180,15 +180,16 @@ export default function NewGameScreen() {
 
                 {/* Sport Selection */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">Sport</Text>
+                    <Text className="text-lg font-bold mb-2 text-gray-800">ספורט</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        const SPORT_MAP:any = {SOCCER:'כדורגל', BASKETBALL:'כדורסל', TENNIS:'טניס', VOLLEYBALL:'כדורעף'};
                         {['SOCCER', 'BASKETBALL', 'TENNIS', 'VOLLEYBALL'].map(s => (
                             <TouchableOpacity
                                 key={s}
                                 onPress={() => setSport(s)}
                                 className={`mr-2 px-4 py-2 rounded-full border ${sport === s ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                             >
-                                <Text className={sport === s ? 'text-white font-bold' : 'text-gray-700'}>{s}</Text>
+                                <Text className={sport === s ? 'text-white font-bold' : 'text-gray-700'}>{SPORT_MAP[s]}</Text>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
@@ -196,18 +197,18 @@ export default function NewGameScreen() {
 
                 {/* Title */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">Game Title (Optional)</Text>
+                    <Text className="text-lg font-bold mb-2 text-gray-800">כותרת משחק (אופציונלי)</Text>
                     <TextInput
                         value={title}
                         onChangeText={setTitle}
-                        placeholder="e.g. Friday Soccer!"
-                        className="bg-gray-100 p-3 rounded-lg"
+                        placeholder="לדוגמה: כדורגל שישי!"
+                        className="bg-gray-100 p-3 rounded-lg text-right"
                     />
                 </View>
 
                 {/* Field Selection */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">Location</Text>
+                    <Text className="text-lg font-bold mb-2 text-gray-800">מיקום</Text>
 
                     {/* City Selector */}
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
@@ -222,7 +223,7 @@ export default function NewGameScreen() {
                         ))}
                     </ScrollView>
 
-                    <Text className="text-sm text-gray-500 mb-2">Select Field:</Text>
+                    <Text className="text-sm text-gray-500 mb-2">בחר מגרש:</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         {filteredFields.map(field => (
                             <TouchableOpacity
@@ -239,13 +240,13 @@ export default function NewGameScreen() {
 
                 {/* Date & Time */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-4 text-gray-800">When?</Text>
-                    <View className="flex-row justify-between">
+                    <Text className="text-lg font-bold mb-4 text-gray-800">מתי?</Text>
+                    <View className="flex-row-reverse justify-between">
                         <TouchableOpacity
                             onPress={() => setShowDatePicker(true)}
                             className="flex-1 bg-gray-100 p-3 rounded-lg mr-2 items-center"
                         >
-                            <Text className="text-gray-500 text-xs mb-1">Date</Text>
+                            <Text className="text-gray-500 text-xs mb-1">תאריך</Text>
                             <Text className="text-gray-800 font-medium">{date.toLocaleDateString()}</Text>
                         </TouchableOpacity>
 
@@ -253,7 +254,7 @@ export default function NewGameScreen() {
                             onPress={() => setShowTimePicker(true)}
                             className="flex-1 bg-gray-100 p-3 rounded-lg ml-2 items-center"
                         >
-                            <Text className="text-gray-500 text-xs mb-1">Time</Text>
+                            <Text className="text-gray-500 text-xs mb-1">שעה</Text>
                             <Text className="text-gray-800 font-medium">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                         </TouchableOpacity>
                     </View>
@@ -268,10 +269,10 @@ export default function NewGameScreen() {
 
                 {/* Config */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-4 text-gray-800">Details</Text>
+                    <Text className="text-lg font-bold mb-4 text-gray-800">פרטים</Text>
 
-                    <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700">Duration (Hours)</Text>
+                    <View className="flex-row-reverse items-center justify-between mb-4">
+                        <Text className="text-gray-700">משך זמן (שעות)</Text>
                         <TextInput
                             value={duration}
                             onChangeText={setDuration}
@@ -280,8 +281,8 @@ export default function NewGameScreen() {
                         />
                     </View>
 
-                    <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700">Max Players</Text>
+                    <View className="flex-row-reverse items-center justify-between mb-4">
+                        <Text className="text-gray-700">מקסימום שחקנים</Text>
                         <TextInput
                             value={maxPlayers}
                             onChangeText={setMaxPlayers}
@@ -290,8 +291,8 @@ export default function NewGameScreen() {
                         />
                     </View>
 
-                    <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700">Team Size (Optional)</Text>
+                    <View className="flex-row-reverse items-center justify-between mb-4">
+                        <Text className="text-gray-700">גודל קבוצה (אופציונלי)</Text>
                         <TextInput
                             value={teamSize}
                             onChangeText={setTeamSize}
@@ -301,8 +302,8 @@ export default function NewGameScreen() {
                         />
                     </View>
 
-                    <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700">Price (₪)</Text>
+                    <View className="flex-row-reverse items-center justify-between mb-4">
+                        <Text className="text-gray-700">מחיר (₪)</Text>
                         <TextInput
                             value={price}
                             onChangeText={setPrice}
@@ -311,19 +312,19 @@ export default function NewGameScreen() {
                         />
                     </View>
 
-                    <View className="flex-row items-center justify-between">
-                        <Text className="text-gray-700 font-bold">Private Game (Friends Only)</Text>
+                    <View className="flex-row-reverse items-center justify-between">
+                        <Text className="text-gray-700 font-bold">משחק פרטי (לחברים בלבד)</Text>
                         <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#2563eb' }} />
                     </View>
                 </View>
 
                 {/* Optional Description */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">Extra Info</Text>
+                    <Text className="text-lg font-bold mb-2 text-gray-800">מידע נוסף</Text>
                     <TextInput
                         value={description}
                         onChangeText={setDescription}
-                        placeholder="Any special instructions?"
+                        placeholder="הוראות מיוחדות?"
                         multiline
                         className="bg-gray-100 p-3 rounded-lg h-24 text-top"
                     />
@@ -331,22 +332,22 @@ export default function NewGameScreen() {
 
                 {/* Advanced Options */}
                 <View className="bg-white p-4 rounded-xl mb-6 shadow-sm">
-                    <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} className="flex-row justify-between items-center py-2">
-                        <Text className="text-lg font-bold text-gray-800">Advanced Options</Text>
+                    <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} className="flex-row-reverse justify-between items-center py-2">
+                        <Text className="text-lg font-bold text-gray-800">אפשרויות מתקדמות</Text>
                         <FontAwesome name={showAdvanced ? "chevron-up" : "chevron-down"} size={16} color="#4b5563" />
                     </TouchableOpacity>
 
                     {showAdvanced && (
                         <View className="mt-4">
                             
-                            {/* Future Registration */}
+                            {/* הרשמה עתידית */}
                             <View className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                <View className="flex-row items-center justify-between mb-4">
-                                    <Text className="text-gray-800 font-bold text-sm">Future Registration</Text>
+                                <View className="flex-row-reverse items-center justify-between mb-4">
+                                    <Text className="text-gray-800 font-bold text-sm">הרשמה עתידית</Text>
                                     <Switch value={futureRegistration} onValueChange={setFutureRegistration} trackColor={{ true: '#2563eb' }} />
                                 </View>
                                 {futureRegistration && (
-                                    <View className="flex-row justify-between">
+                                    <View className="flex-row-reverse justify-between">
                                         <TouchableOpacity onPress={() => setActivePicker('futureRegDate')} className="flex-1 bg-white p-2 rounded-lg mr-2 border border-gray-200">
                                             <Text className="text-center">{futureRegDate.toLocaleDateString()}</Text>
                                         </TouchableOpacity>
@@ -359,13 +360,13 @@ export default function NewGameScreen() {
 
                             {/* Lottery */}
                             <View className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-100">
-                                <View className="flex-row items-center justify-between mb-4">
-                                    <Text className="text-orange-900 font-bold text-sm">Lottery Enabled</Text>
+                                <View className="flex-row-reverse items-center justify-between mb-4">
+                                    <Text className="text-orange-900 font-bold text-sm">מערכת הגרלה</Text>
                                     <Switch value={lotteryEnabled} onValueChange={setLotteryEnabled} trackColor={{ true: '#f97316' }} />
                                 </View>
                                 {lotteryEnabled && (
                                     <>
-                                        <View className="flex-row justify-between mb-4">
+                                        <View className="flex-row-reverse justify-between mb-4">
                                             <TouchableOpacity onPress={() => setActivePicker('lotteryDate')} className="flex-1 bg-white p-2 rounded-lg mr-2 border border-orange-200">
                                                 <Text className="text-center">{lotteryDate.toLocaleDateString()}</Text>
                                             </TouchableOpacity>
@@ -373,23 +374,23 @@ export default function NewGameScreen() {
                                                 <Text className="text-center">{lotteryTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                                             </TouchableOpacity>
                                         </View>
-                                        <View className="flex-row items-center justify-between">
-                                            <Text className="text-orange-900 text-xs">Include Organizer in Lottery</Text>
+                                        <View className="flex-row-reverse items-center justify-between">
+                                            <Text className="text-orange-900 text-xs">כלול מארגן בהגרלה</Text>
                                             <Switch value={organizerInLottery} onValueChange={setOrganizerInLottery} trackColor={{ true: '#f97316' }} />
                                         </View>
                                     </>
                                 )}
                             </View>
 
-                            {/* Make Public Later (Only if Private) */}
+                            {/* פתח לציבור בהמשך (Only if Private) */}
                             {isPrivate && (
                                 <View className="mb-2 p-4 bg-green-50 rounded-lg border border-green-100">
-                                    <View className="flex-row items-center justify-between mb-4">
-                                        <Text className="text-green-900 font-bold text-sm">Make Public Later</Text>
+                                    <View className="flex-row-reverse items-center justify-between mb-4">
+                                        <Text className="text-green-900 font-bold text-sm">פתח לציבור בהמשך</Text>
                                         <Switch value={makePublicLater} onValueChange={setMakePublicLater} trackColor={{ true: '#22c55e' }} />
                                     </View>
                                     {makePublicLater && (
-                                        <View className="flex-row justify-between">
+                                        <View className="flex-row-reverse justify-between">
                                             <TouchableOpacity onPress={() => setActivePicker('publicDate')} className="flex-1 bg-white p-2 rounded-lg mr-2 border border-green-200">
                                                 <Text className="text-center">{publicDate.toLocaleDateString()}</Text>
                                             </TouchableOpacity>
@@ -425,7 +426,7 @@ export default function NewGameScreen() {
                     className={`p-4 rounded-xl items-center mb-10 ${submitting ? 'bg-blue-400' : 'bg-blue-600'}`}
                 >
                     <Text className="text-white font-bold text-lg">
-                        {submitting ? 'Creating...' : 'Create Game'}
+                        {submitting ? 'יוצר...' : 'צור משחק'}
                     </Text>
                 </TouchableOpacity>
 

@@ -56,21 +56,21 @@ export default function MyGamesSection() {
 
     return (
         <View className="py-4">
-            <Text className="px-5 text-lg font-bold text-gray-800 mb-3">המשחקים שלי</Text>
+            <Text className="px-5 text-lg font-bold text-gray-800 mb-3 text-right">המשחקים שלי</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {games.map(game => (
                     <View key={game.id} className="w-72 mr-4">
                         <GameCard game={game} isJoined={true}>
-                            <View className="flex-row justify-between items-center w-full">
+                            <View className="flex-row-reverse justify-between items-center w-full">
                                 <LeaveGameButton gameId={game.id} onLeft={() => {
                                     setGames(prev => prev.filter(g => g.id !== game.id));
                                 }} />
                                 <TouchableOpacity 
                                     onPress={() => router.push(`/game/${game.id}`)}
-                                    className="flex-row items-center bg-blue-50 px-3 py-2 rounded-xl"
+                                    className="flex-row-reverse items-center bg-blue-50 px-3 py-2 rounded-xl"
                                 >
-                                    <Text className="text-blue-600 font-bold mr-1">פרטים</Text>
-                                    <Ionicons name="arrow-forward" size={16} color="#2563eb" />
+                                    <Text className="text-blue-600 font-bold ml-1">פרטים</Text>
+                                    <Ionicons name="arrow-back" size={16} color="#2563eb" />
                                 </TouchableOpacity>
                             </View>
                         </GameCard>
