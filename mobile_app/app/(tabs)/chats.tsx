@@ -14,6 +14,8 @@ export default function ChatsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
+    const [tabValue, setTabValue] = useState(0); // 0 = private, 1 = group
+
     const fetchChats = async () => {
         if (!user) return;
         try {
@@ -40,10 +42,17 @@ export default function ChatsScreen() {
         fetchChats();
     };
 
+    const filteredChats = chats.filter((chat) =>
+        tabValue === 0 ? chat.type === 'private' : chat.type === 'group'
+    );
+
     const renderItem = ({ item }: { item: any }) => (
         <TouchableOpacity
             className="flex-row items-center p-4 bg-white border-b border-gray-100"
-            onPress={() => router.push(`/chat/${item.id}`)}
+            onPress={() => {
+                // Keep the same routing behavior. If the user wants to go to the game profile, it would be /game/[id]. But for chat, we use /chat/[id]
+                router.push(`/chat/${item.id}`);
+            }}
         >
             <Image
                 source={{ uri: item.image || "https://ui-avatars.com/api/?name=" + item.name }}
@@ -84,8 +93,24 @@ export default function ChatsScreen() {
 
     return (
         <View className="flex-1 bg-gray-50">
+            {/* Custom Tabs */}
+            <View className="flex-row bg-white border-b border-gray-200">
+                <TouchableOpacity
+                    className={`flex-1 py-4 items-center border-b-2 ${tabValue === 0 ? 'border-blue-600' : 'border-transparent'}`}
+                    onPress={() => setTabValue(0)}
+                >
+                    <Text className={`font-bold ${tabValue === 0 ? 'text-blue-600' : 'text-gray-500'}`}>שחקנים</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    className={`flex-1 py-4 items-center border-b-2 ${tabValue === 1 ? 'border-blue-600' : 'border-transparent'}`}
+                    onPress={() => setTabValue(1)}
+                >
+                    <Text className={`font-bold ${tabValue === 1 ? 'text-blue-600' : 'text-gray-500'}`}>משחקים</Text>
+                </TouchableOpacity>
+            </View>
+
             <FlatList
-                data={chats}
+                data={filteredChats}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
                 refreshControl={
@@ -93,7 +118,9 @@ export default function ChatsScreen() {
                 }
                 ListEmptyComponent={
                     <View className="items-center justify-center py-20">
-                        <Text className="text-gray-400 text-lg">No conversations yet</Text>
+                        <Text className="text-gray-400 text-lg">
+                            {tabValue === 0 ? "אין צ'אטים פעילים עם שחקנים" : "לא נרשמת לאף משחק"}
+                        </Text>
                     </View>
                 }
             />

@@ -99,11 +99,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }, [user?.id, chats.length, getToken]);
 
     // 2. Load Messages (Prefetch/Cache)
-    const loadMessages = useCallback(async (chatId: string): Promise<ChatMessage[]> => {
+    const loadMessages = useCallback(async (chatId: string, forceFetch = false): Promise<ChatMessage[]> => {
         if (!chatId || chatId === 'global') return [];
 
         // Check Cache - Instant Return
-        if (messagesCache[chatId]) {
+        if (!forceFetch && messagesCache[chatId]) {
             return messagesCache[chatId];
         }
 
