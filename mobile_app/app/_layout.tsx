@@ -35,7 +35,7 @@ export default function RootLayout() {
         <AuthGuard>
           <ChatProvider>
             <GameUpdateProvider>
-              <Slot />
+              <Stack screenOptions={{ headerShown: false }} />
             </GameUpdateProvider>
           </ChatProvider>
         </AuthGuard>

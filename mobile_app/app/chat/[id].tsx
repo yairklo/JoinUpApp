@@ -17,7 +17,7 @@ export default function ChatScreen() {
         state: {
             messages, isLoading, inputValue, effectiveChatName,
             typingUsers, replyToMessage, editingMessage, isOtherUserOnline,
-            avatarByUserId, nameByUserId
+            avatarByUserId, nameByUserId, otherUserId
         },
         actions: {
             handleSendMessage, setInputValue, setReplyToMessage,
@@ -129,44 +129,34 @@ export default function ChatScreen() {
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-white" edges={['bottom']}>
-            <Stack.Screen
-                options={{
-                    headerLeft: () => (
-                        <TouchableOpacity onPress={() => router.back()} style={{ padding: 8, marginLeft: -8 }}>
-                            <Ionicons name="arrow-back" size={24} color="#111827" />
-                        </TouchableOpacity>
-                    ),
-                    headerTitle: () => {
-                        const otherUserId = Object.keys(avatarByUserId).find(id => id !== user?.id);
-                        const avatarUrl = otherUserId ? avatarByUserId[otherUserId] : null;
+        <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
+            <Stack.Screen options={{ headerShown: false }} />
+            
+            {/* Custom Header */}
+            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-10">
+                <TouchableOpacity onPress={() => router.back()} className="mr-4 p-2 -ml-2 rounded-full active:bg-gray-100">
+                    <Ionicons name="arrow-back" size={26} color="#111827" />
+                </TouchableOpacity>
 
-                        return (
-                            <View className="flex-row items-center">
-                                {avatarUrl ? (
-                                    <Image source={{ uri: avatarUrl }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 12 }} />
-                                ) : (
-                                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#E5E7EB', marginRight: 12, alignItems: 'center', justifyContent: 'center' }}>
-                                        <Ionicons name="chatbubbles" size={18} color="#9CA3AF" />
-                                    </View>
-                                )}
-                                <View className="justify-center">
-                                    <Text className="font-black text-gray-900 text-lg">{effectiveChatName}</Text>
-                                    {isOtherUserOnline && (
-                                        <View className="flex-row items-center mt-0.5">
-                                            <View className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1" />
-                                            <Text className="text-[10px] text-gray-400 font-bold uppercase">Online Now</Text>
-                                        </View>
-                                    )}
-                                </View>
+                <View className="flex-row items-center flex-1">
+                    {otherUserId && avatarByUserId[otherUserId] ? (
+                        <Image source={{ uri: avatarByUserId[otherUserId]! }} style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12 }} />
+                    ) : (
+                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E5E7EB', marginRight: 12, alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="chatbubbles" size={24} color="#9CA3AF" />
+                        </View>
+                    )}
+                    <View className="justify-center flex-1">
+                        <Text className="font-black text-gray-900 text-xl" numberOfLines={1}>{effectiveChatName}</Text>
+                        {isOtherUserOnline && (
+                            <View className="flex-row items-center mt-1">
+                                <View className="w-2 h-2 rounded-full bg-green-500 mr-1.5" />
+                                <Text className="text-xs text-gray-500 font-bold uppercase">Online Now</Text>
                             </View>
-                        );
-                    },
-                    headerTitleAlign: 'left',
-                    headerShadowVisible: false,
-                    headerStyle: { backgroundColor: 'white' }
-                }}
-            />
+                        )}
+                    </View>
+                </View>
+            </View>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 className="flex-1"

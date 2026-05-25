@@ -51,7 +51,7 @@ export default function ChatsScreen() {
             className="flex-row items-center p-4 bg-white border-b border-gray-100"
             onPress={() => {
                 // Keep the same routing behavior. If the user wants to go to the game profile, it would be /game/[id]. But for chat, we use /chat/[id]
-                router.push(`/chat/${item.id}`);
+                router.push({ pathname: '/chat/[id]', params: { id: item.id, name: item.name } });
             }}
         >
             <Image
