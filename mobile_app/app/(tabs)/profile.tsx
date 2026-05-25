@@ -170,57 +170,7 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                     </View>
                 )}
-                
-                <View className="flex-row justify-between items-center mb-3">
-                    <Text className="text-gray-500 font-medium">Email</Text>
-                    <Text className="text-gray-800">{profile?.email || user.primaryEmailAddress?.emailAddress || '-'}</Text>
-                </View>
-                
-                <View className="flex-row justify-between items-center mb-3">
-                    <Text className="text-gray-500 font-medium">Phone</Text>
-                    {isEditing ? (
-                        <TextInput 
-                            value={form.phone} 
-                            onChangeText={(text) => setForm({ ...form, phone: text })}
-                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 ml-4 text-right"
-                            keyboardType="phone-pad"
-                        />
-                    ) : (
-                        <Text className="text-gray-800">{profile?.phone || '-'}</Text>
-                    )}
-                </View>
 
-                <View className="flex-row justify-between items-center mb-3">
-                    <Text className="text-gray-500 font-medium">City</Text>
-                    {isEditing ? (
-                        <TextInput 
-                            value={form.city} 
-                            onChangeText={(text) => setForm({ ...form, city: text })}
-                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 ml-4 text-right"
-                        />
-                    ) : (
-                        <Text className="text-gray-800">{profile?.city || '-'}</Text>
-                    )}
-                </View>
-
-                <View className="flex-row justify-between mb-3">
-                    <Text className="text-gray-500 font-medium">Age</Text>
-                    <Text className="text-gray-800">{age ? String(age) : '-'}</Text>
-                </View>
-
-                {isEditing && (
-                    <TouchableOpacity 
-                        onPress={handleSave} 
-                        disabled={saving}
-                        className={`mt-4 py-3 rounded-xl items-center ${saving ? 'bg-blue-300' : 'bg-blue-600'}`}
-                    >
-                        {saving ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text className="text-white font-bold">Save Profile</Text>
-                        )}
-                    </TouchableOpacity>
-                )}
             </View>
 
             {/* Sports Section */}
