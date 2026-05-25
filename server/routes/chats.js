@@ -76,8 +76,9 @@ router.get('/:chatId', authenticateToken, async (req, res) => {
 
         if (!chat) return res.status(404).json({ error: 'Chat not found' });
 
-        // Verify access
-        const isParticipant = chat.participants.some(p => p.userId === userId);
+        // Verify access using the centralized function (which includes Self-Healing)
+        const { checkChatPermission } = require('../utils/chatAuth');
+        const isParticipant = await checkChatPermission(userId, chatId);
         if (!isParticipant) return res.status(403).json({ error: 'Access denied' });
 
         res.json(chat);

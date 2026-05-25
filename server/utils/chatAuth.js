@@ -18,7 +18,32 @@ async function checkChatPermission(userId, chatId) {
                 }
             }
         });
-        return !!participant;
+        
+        if (participant) return true;
+
+        // Self-Healing: Check if this is a game chat, and if the user is in the game's Participation
+        const gameParticipation = await prisma.participation.findUnique({
+            where: {
+                gameId_userId: {
+                    gameId: String(chatId),
+                    userId: String(userId)
+                }
+            }
+        });
+
+        if (gameParticipation) {
+            // User is in the game! Add them to the ChatRoom
+            await prisma.chatParticipant.create({
+                data: {
+                    userId: String(userId),
+                    chatId: String(chatId)
+                }
+            });
+            console.log(`[Self-Healing] Created missing ChatParticipant for user ${userId} in chat ${chatId}`);
+            return true;
+        }
+
+        return false;
     } catch (error) {
         console.error('Chat permission check error:', error);
         return false;
