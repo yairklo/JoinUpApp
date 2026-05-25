@@ -19,6 +19,14 @@ export const usersApi = {
         return apiClient<UserProfile>(`/api/users/${userId}`, { token });
     },
 
+    updateProfile: (userId: string, data: any, token: string) => {
+        return apiClient<UserProfile>(`/api/users/${userId}`, {
+            method: 'PUT',
+            data,
+            token
+        });
+    },
+
     getFriends: (userId: string, token: string) => {
         return apiClient<any[]>(`/api/users/${userId}/friends`, { token });
     },
