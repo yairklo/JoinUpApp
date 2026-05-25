@@ -23,7 +23,7 @@ export default function MyGamesSection() {
             try {
                 const token = await getToken();
                 if (token) {
-                    const data = await apiClient<Game[]>(`/api/users/${user.id}/games`, { token });
+                    const data = await apiClient<Game[]>(`/api/games/my`, { token });
                     if (isMounted) {
                         // Filter for active/upcoming games
                         const active = data.filter(g => new Date(`${g.date}T${g.time}`) >= new Date());
