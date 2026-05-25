@@ -129,6 +129,49 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Debug route
+app.get('/api/debug/chatAuth/:chatId', async (req, res) => {
+    const { chatId } = req.params;
+    const authHeader = req.headers.authorization;
+    let userId = 'unknown';
+    
+    // Quick token decode just for debugging
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        try {
+            const jwt = require('jsonwebtoken');
+            const decoded = jwt.decode(token); // Clerk tokens can be decoded without secret to read payload
+            userId = decoded?.sub || decoded?.userId || 'decoded_but_no_id';
+        } catch (e) {
+            userId = 'invalid_token';
+        }
+    }
+    
+    try {
+        const { PrismaClient } = require('@prisma/client');
+        const p = new PrismaClient();
+        
+        const chatRoom = await p.chatRoom.findUnique({ where: { id: chatId } });
+        const participant = await p.chatParticipant.findFirst({ where: { userId, chatId } });
+        const participation = await p.participation.findFirst({ where: { gameId: chatId, userId } });
+        
+        const { checkChatPermission } = require('./utils/chatAuth');
+        const isAllowed = await checkChatPermission(userId, chatId);
+        
+        res.json({
+            userId,
+            chatId,
+            chatRoomExists: !!chatRoom,
+            participantExists: !!participant,
+            participationExists: !!participation,
+            checkChatPermissionResult: isAllowed,
+            participationStatus: participation?.status || null
+        });
+    } catch (e) {
+        res.json({ error: e.message, stack: e.stack });
+    }
+});
+
 // 404 handler (no path pattern to avoid path-to-regexp issues)
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
