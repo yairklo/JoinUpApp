@@ -9,7 +9,7 @@ export interface ChatDetails {
 
 export const chatsApi = {
     getDetails: (chatId: string, token: string) => {
-        return apiClient<ChatDetails>(`/api/chats/${chatId}/details`, { token });
+        return apiClient<ChatDetails>(`/api/chats/${chatId}`, { token, silent: true });
     },
 
     getUserChats: (userId: string, token: string) => {

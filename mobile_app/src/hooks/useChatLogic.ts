@@ -61,10 +61,17 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
                     // Not a game or failed to fetch, stick with roomId
                 }
 
+                if (!targetId || targetId === 'undefined' || targetId === 'null') {
+                    return;
+                }
+
                 const data = await chatsApi.getDetails(targetId, token);
                 setChatDetails(data);
-            } catch (e) {
-                console.error("Failed to fetch chat details", e);
+            } catch (e: any) {
+                // Ignore expected 404 errors to prevent them from showing as popups in LogBox
+                if (!e.message?.includes('Route not found') && !e.message?.includes('Chat not found')) {
+                    console.error("Failed to fetch chat details", e);
+                }
             }
         };
         fetchDetails();
