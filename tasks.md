@@ -3,8 +3,8 @@
 ## Phase 1: Mobile Refinements (Align with Web)
 
 ### Task 1: Profile Page Data & Layout Alignment
-- [ ] **Task 1.1: Identify and fetch missing data.** Update the mobile profile view/component to fetch and expose all data fields currently available in the web version (e.g., user stats, history, linked accounts).
-- [ ] **Task 1.2: UI and Layout design.** Adapt the layout for mobile screen sizes, ensuring all information is clearly displayed with responsive spacing, and mark completed.
+- [-] **Task 1.1: Identify and fetch missing data.** Update the mobile profile view/component to fetch and expose all data fields currently available in the web version (e.g., user stats, history, linked accounts).
+- [-] **Task 1.2: UI and Layout design.** Adapt the layout for mobile screen sizes, ensuring all information is clearly displayed with responsive spacing, and mark completed.
 *Git branch: `feature/mobile-profile-alignment`* 
 
 ### Task 2: Home Page - "My Games" & "My Series"
