@@ -10,6 +10,8 @@ import JoinGameButton from '@/components/JoinGameButton';
 import LeaveGameButton from '@/components/LeaveGameButton';
 import GamesDateNav from '@/components/GamesDateNav';
 import { Ionicons } from '@expo/vector-icons';
+import MyGamesSection from '@/components/MyGamesSection';
+import SeriesSection from '@/components/SeriesSection';
 
 export default function HomeScreen() {
   const today = new Date().toISOString().split('T')[0];
@@ -56,13 +58,20 @@ export default function HomeScreen() {
         </Link>
       </View>
 
-      <GamesDateNav
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-      />
-
       <View className="flex-1 mt-2">
         <FlatList
+          data={games}
+          keyExtractor={(item) => String(item.id)}
+          ListHeaderComponent={
+            <View>
+              <MyGamesSection />
+              <SeriesSection />
+              <GamesDateNav
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+              />
+            </View>
+          }
           data={games}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderGameItem}

@@ -8,7 +8,7 @@
 *Git branch: `feature/mobile-profile-alignment`* 
 
 ### Task 2: Home Page - "My Games" & "My Series"
-- [ ] **Task 2.1: Add "My Games" & "My Series" section.** Update the mobile home page dashboard to render the user's active games and registered series, mirroring the web implementation layout.
+- [PR Created - https://github.com/yairklo/JoinUpApp/pull/new/feature/mobile-home-games-list] **Task 2.1: Add "My Games" & "My Series" section.** Update the mobile home page dashboard to render the user's active games and registered series, mirroring the web implementation layout.
 *Git branch: `feature/mobile-home-games-list`*
 
 ### Task 3: Chat Header & Navigation Refactor
