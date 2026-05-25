@@ -7,11 +7,14 @@ import GameCard from './GameCard';
 import LeaveGameButton from './LeaveGameButton';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSyncedGames } from '@/hooks/useSyncedGames';
 
 export default function MyGamesSection() {
     const { getToken } = useAuth();
     const { user } = useUser();
-    const [games, setGames] = useState<Game[]>([]);
+    const { games, setGames } = useSyncedGames([], (game) => {
+        return Boolean(game.participants?.some(p => p.id === user?.id) || game.organizerId === user?.id);
+    });
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
