@@ -1,6 +1,6 @@
-import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Alert, Keyboard } from 'react-native';
+import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Alert, Keyboard, Image } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useChatLogic } from '@/hooks/useChatLogic';
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import ReplyPreview from '@/components/chat/ReplyPreview';
 export default function ChatScreen() {
     const { id, name } = useLocalSearchParams<{ id: string, name?: string }>();
     const { user } = useUser();
+    const router = useRouter();
 
     const {
         state: {
@@ -131,23 +132,41 @@ export default function ChatScreen() {
         <SafeAreaView className="flex-1 bg-white" edges={['bottom']}>
             <Stack.Screen
                 options={{
-                    headerTitle: () => (
-                        <View className="items-center">
-                            <Text className="font-black text-gray-900 text-lg">{effectiveChatName}</Text>
-                            {isOtherUserOnline && (
-                                <View className="flex-row items-center">
-                                    <View className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1" />
-                                    <Text className="text-[10px] text-gray-400 font-bold uppercase">Online Now</Text>
-                                </View>
-                            )}
-                        </View>
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={() => router.back()} style={{ padding: 8, marginLeft: -8 }}>
+                            <Ionicons name="arrow-back" size={24} color="#111827" />
+                        </TouchableOpacity>
                     ),
-                    headerTitleAlign: 'center',
+                    headerTitle: () => {
+                        const otherUserId = Object.keys(avatarByUserId).find(id => id !== user?.id);
+                        const avatarUrl = otherUserId ? avatarByUserId[otherUserId] : null;
+
+                        return (
+                            <View className="flex-row items-center">
+                                {avatarUrl ? (
+                                    <Image source={{ uri: avatarUrl }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 12 }} />
+                                ) : (
+                                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#E5E7EB', marginRight: 12, alignItems: 'center', justifyContent: 'center' }}>
+                                        <Ionicons name="chatbubbles" size={18} color="#9CA3AF" />
+                                    </View>
+                                )}
+                                <View className="justify-center">
+                                    <Text className="font-black text-gray-900 text-lg">{effectiveChatName}</Text>
+                                    {isOtherUserOnline && (
+                                        <View className="flex-row items-center mt-0.5">
+                                            <View className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1" />
+                                            <Text className="text-[10px] text-gray-400 font-bold uppercase">Online Now</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+                        );
+                    },
+                    headerTitleAlign: 'left',
                     headerShadowVisible: false,
                     headerStyle: { backgroundColor: 'white' }
                 }}
             />
-
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 className="flex-1"
