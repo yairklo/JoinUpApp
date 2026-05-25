@@ -246,6 +246,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             socketInstance.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
             setEditingMessage(null);
         } else {
+            console.log("SENDING MESSAGE TO:", API_BASE);
             const optimisticId = Date.now();
             const optimisticMessage: ChatMessage & { content: string } = {
                 id: optimisticId, text: trimmed, content: trimmed, roomId,
