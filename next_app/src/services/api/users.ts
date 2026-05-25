@@ -8,8 +8,8 @@ export interface UserProfile {
 }
 
 export const usersApi = {
-    getProfile: (token: string) => {
-        return apiClient<UserProfile>('/api/users/profile', { token });
+    getProfile: (userId: string, token?: string) => {
+        return apiClient<UserProfile>(`/api/users/${userId}`, { token });
     },
 
     getFriends: (userId: string, token: string) => {

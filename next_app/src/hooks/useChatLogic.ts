@@ -196,16 +196,21 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     useEffect(() => {
         const missing = Array.from(new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))).filter(id => !(id in avatarByUserId));
         if (missing.length === 0) return;
-        missing.forEach(async (uid) => {
-            try {
-                const u = await usersApi.getProfile(uid);
-                setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
-                if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
-            } catch {
-                setAvatarByUserId((prev) => ({ ...prev, [uid]: null }));
-            }
-        });
-    }, [messages, avatarByUserId]);
+        
+        const hydrateUsers = async () => {
+            const token = await getToken();
+            missing.forEach(async (uid) => {
+                try {
+                    const u = await usersApi.getProfile(uid, token || undefined);
+                    setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
+                    if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
+                } catch {
+                    setAvatarByUserId((prev) => ({ ...prev, [uid]: null }));
+                }
+            });
+        };
+        hydrateUsers();
+    }, [messages, avatarByUserId, getToken]);
 
 
     // Helper Props for UI
