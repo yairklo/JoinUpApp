@@ -4,7 +4,14 @@ export interface UserProfile {
     id: string;
     name: string;
     imageUrl?: string;
-    // Add other fields
+    email?: string | null;
+    phone?: string | null;
+    city?: string | null;
+    birthYear?: number | null;
+    age?: number | null;
+    birthDate?: string | null;
+    sports?: { id: string; name: string; position?: string | null }[];
+    positions?: { id: string; name: string; sportId: string }[];
 }
 
 export const usersApi = {
