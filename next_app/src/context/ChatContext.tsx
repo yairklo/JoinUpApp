@@ -90,13 +90,13 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     // 1. Load Chats
-    const loadChats = useCallback(async () => {
+    const loadChats = useCallback(async (forceFetch = false) => {
         if (!user?.id) return;
-        // Optimization: If chats exist, don't block UI, but ideally we should re-validate in background.
-        // For now, consistent with requirements: fetch if empty.
-        if (chats.length > 0) return;
 
-        setLoadingChats(true);
+        if (chats.length === 0) {
+            setLoadingChats(true);
+        }
+
         try {
             const token = await getToken();
             const res = await fetch(`${API_BASE}/api/users/${user.id}/chats`, {
@@ -114,7 +114,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             setLoadingChats(false);
         }
-    }, [user?.id, chats.length, getToken, API_BASE]);
+    }, [user?.id, getToken, API_BASE]);
 
     // 2. Load Messages (Prefetch/Cache)
     const loadMessages = useCallback(async (chatId: string): Promise<ChatMessage[]> => {
@@ -163,9 +163,14 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         setChats(prevChats => {
             const chatIndex = prevChats.findIndex(c => c.id === newMessage.chatId || c.id === newMessage.roomId);
 
-            // If chat doesn't exist in list yet, we might want to fetch chats again or add it dynamically.
-            // For now, we only update existing.
-            if (chatIndex === -1) return prevChats;
+            // If chat doesn't exist in list yet, fetch all chats again to sync
+            if (chatIndex === -1) {
+                // Trigger a background reload of chats
+                setTimeout(() => {
+                    loadChats(true);
+                }, 100);
+                return prevChats;
+            }
 
             const updatedChat = {
                 ...prevChats[chatIndex],
@@ -220,7 +225,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                 };
             });
         }
-    }, [user?.id]);
+    }, [user?.id, loadChats]);
 
     const openChat = (chatId: string, info?: HeaderInfo) => {
         setActiveChatId(chatId);

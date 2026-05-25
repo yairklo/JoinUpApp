@@ -75,7 +75,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             }
         };
         fetchDetails();
-    }, [roomId, getToken]);
+    }, [roomId]); // Removed getToken to prevent re-fetching on every re-render
 
     // 2. Load Messages
     useEffect(() => {
@@ -87,10 +87,11 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         }
 
         const initMessages = async () => {
-            if (messagesCache[roomId]) return;
-            setIsLoading(true);
+            if (!messagesCache[roomId]) {
+                setIsLoading(true);
+            }
             try {
-                const msgs = await loadMessages(roomId);
+                const msgs = await loadMessages(roomId, true);
                 setMessages(msgs);
                 prevMessagesLengthRef.current = msgs.length;
             } catch (e) {
@@ -211,21 +212,26 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
         if (user?.id) initSocket();
         return () => { if (socket) socket.disconnect(); };
-    }, [roomId, user?.id, getToken]); // Removed otherUserId from dep to avoid infinite loop / simplified
+    }, [roomId, user?.id]); // Removed getToken from deps to prevent socket disconnect on every re-render
 
     // 4. Hydrate Users
     useEffect(() => {
         const missing = Array.from(new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))).filter(id => !(id in avatarByUserId));
         if (missing.length === 0) return;
-        missing.forEach(async (uid) => {
-            try {
-                const u = await usersApi.getProfile(uid);
-                setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
-                if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
-            } catch {
-                setAvatarByUserId((prev) => ({ ...prev, [uid]: null }));
-            }
-        });
+        const hydrateUsers = async () => {
+            const token = await getToken();
+            if (!token) return;
+            missing.forEach(async (uid) => {
+                try {
+                    const u = await usersApi.getProfile(uid, token);
+                    setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
+                    if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
+                } catch {
+                    setAvatarByUserId((prev) => ({ ...prev, [uid]: null }));
+                }
+            });
+        };
+        hydrateUsers();
     }, [messages, avatarByUserId]);
 
 

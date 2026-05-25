@@ -1,4 +1,4 @@
-import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Alert, Keyboard } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useChatLogic } from '@/hooks/useChatLogic';
@@ -15,15 +15,18 @@ export default function ChatScreen() {
     const {
         state: {
             messages, isLoading, inputValue, effectiveChatName,
-            typingUsers, replyToMessage, editingMessage, isOtherUserOnline
+            typingUsers, replyToMessage, editingMessage, isOtherUserOnline,
+            avatarByUserId, nameByUserId
         },
         actions: {
             handleSendMessage, setInputValue, setReplyToMessage,
-            setEditingMessage, handleDelete, handleReact
+            setEditingMessage, handleDelete, handleReact,
+            handleTyping, handleStopTyping
         }
     } = useChatLogic({ roomId: id, chatName: name });
 
     const flatListRef = useRef<FlatList>(null);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
 
     useEffect(() => {
         if (messages.length > 0) {
@@ -32,6 +35,30 @@ export default function ChatScreen() {
             }, 100);
         }
     }, [messages]);
+
+    useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const showSubscription = Keyboard.addListener(showEvent, (e) => {
+            setKeyboardHeight(e.endCoordinates.height);
+        });
+        const hideSubscription = Keyboard.addListener(hideEvent, () => {
+            setKeyboardHeight(0);
+        });
+        return () => {
+            showSubscription.remove();
+            hideSubscription.remove();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (keyboardHeight > 0 && messages.length > 0) {
+            setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+        }
+    }, [keyboardHeight, messages.length]);
 
     const handleLongPress = (message: any) => {
         const isMe = message.userId === user?.id;
@@ -72,9 +99,19 @@ export default function ChatScreen() {
         const isMe = item.userId === user?.id;
         const showAvatar = !isMe && (index === 0 || messages[index - 1].userId !== item.userId);
 
+        const enrichedMessage = {
+            ...item,
+            senderName: item.senderName || item.sender?.name || nameByUserId[item.userId] || "User",
+            sender: {
+                ...item.sender,
+                image: item.sender?.image || avatarByUserId[item.userId],
+                name: item.sender?.name || nameByUserId[item.userId]
+            }
+        };
+
         return (
             <MessageBubble
-                message={item}
+                message={enrichedMessage}
                 isMe={isMe}
                 showAvatar={showAvatar}
                 onLongPress={() => handleLongPress(item)}
@@ -115,6 +152,7 @@ export default function ChatScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 className="flex-1"
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+                style={Platform.OS === 'android' ? { paddingBottom: keyboardHeight } : {}}
             >
                 <FlatList
                     ref={flatListRef}
@@ -153,7 +191,11 @@ export default function ChatScreen() {
                     <View className="flex-1 bg-gray-50 rounded-3xl px-4 py-2 mr-3 flex-row items-end min-h-[44px] border border-gray-100 shadow-sm shadow-gray-100">
                         <TextInput
                             value={inputValue}
-                            onChangeText={setInputValue}
+                            onChangeText={(text) => {
+                                setInputValue(text);
+                                if (text.length > 0) handleTyping();
+                                else handleStopTyping();
+                            }}
                             placeholder="תכתוב משהו נחמד..."
                             placeholderTextColor="#9ca3af"
                             className="flex-1 text-gray-900 text-base max-h-32"

@@ -54,7 +54,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             }
         };
         fetchDetails();
-    }, [roomId, getToken]);
+    }, [roomId]); // Removed getToken to prevent re-fetching on every re-render
 
     // 2. Load Messages
     useEffect(() => {
@@ -190,7 +190,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
         if (user?.id) initSocket();
         return () => { if (socket) socket.disconnect(); };
-    }, [roomId, user?.id, getToken]); // Removed otherUserId from dep to avoid infinite loop / simplified
+    }, [roomId, user?.id]); // Removed getToken from deps to prevent socket disconnect on every re-render
 
     // 4. Hydrate Users
     useEffect(() => {
