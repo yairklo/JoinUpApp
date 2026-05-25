@@ -162,7 +162,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
     const handleSelect = (chat: ChatPreview) => {
         markChatAsRead(chat.id);
 
-        if (chat.type === 'group' || isMobile) {
+        if (isMobile) {
             const route = chat.type === 'group' ? `/games/${chat.id}` : `/chat/${chat.id}`;
             router.push(route);
         } else {
