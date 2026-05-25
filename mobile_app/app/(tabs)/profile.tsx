@@ -101,16 +101,75 @@ export default function ProfileScreen() {
             <View className="bg-white p-6 rounded-2xl shadow-sm mb-4">
                 <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 pb-2">
                     <Text className="text-lg font-bold text-gray-800">Personal Info</Text>
-                    {!isEditing ? (
-                        <TouchableOpacity onPress={() => setIsEditing(true)} className="bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
-                            <Text className="text-blue-600 font-bold text-sm">Edit Profile</Text>
-                        </TouchableOpacity>
+                </View>
+                
+                <View className="flex-row justify-between items-center mb-3">
+                    <Text className="text-gray-500 font-medium">Email</Text>
+                    <Text className="text-gray-800">{profile?.email || user.primaryEmailAddress?.emailAddress || '-'}</Text>
+                </View>
+                
+                <View className="flex-row justify-between items-center mb-3">
+                    <Text className="text-gray-500 font-medium">Phone</Text>
+                    {isEditing ? (
+                        <TextInput 
+                            value={form.phone} 
+                            onChangeText={(text) => setForm({ ...form, phone: text })}
+                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 ml-4 text-right"
+                            keyboardType="phone-pad"
+                        />
                     ) : (
-                        <TouchableOpacity onPress={() => { setIsEditing(false); setForm({ city: profile?.city || '', phone: profile?.phone || '' }); }} className="bg-red-50 px-3 py-1 rounded-full border border-red-100">
-                            <Text className="text-red-600 font-bold text-sm">Cancel</Text>
-                        </TouchableOpacity>
+                        <Text className="text-gray-800">{profile?.phone || '-'}</Text>
                     )}
                 </View>
+
+                <View className="flex-row justify-between items-center mb-3">
+                    <Text className="text-gray-500 font-medium">City</Text>
+                    {isEditing ? (
+                        <TextInput 
+                            value={form.city} 
+                            onChangeText={(text) => setForm({ ...form, city: text })}
+                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 ml-4 text-right"
+                        />
+                    ) : (
+                        <Text className="text-gray-800">{profile?.city || '-'}</Text>
+                    )}
+                </View>
+
+                <View className="flex-row justify-between mb-3">
+                    <Text className="text-gray-500 font-medium">Age</Text>
+                    <Text className="text-gray-800">{age ? String(age) : '-'}</Text>
+                </View>
+
+                {/* Edit Toggle Button */}
+                {!isEditing ? (
+                    <TouchableOpacity 
+                        onPress={() => setIsEditing(true)} 
+                        className="mt-4 py-3 rounded-xl items-center bg-gray-100 border border-gray-200"
+                    >
+                        <Text className="text-gray-700 font-bold">Edit Profile</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View className="mt-4 flex-row justify-between space-x-2">
+                        <TouchableOpacity 
+                            onPress={() => { setIsEditing(false); setForm({ city: profile?.city || '', phone: profile?.phone || '' }); }} 
+                            className="flex-1 py-3 rounded-xl items-center bg-red-50 border border-red-100 mr-2"
+                        >
+                            <Text className="text-red-600 font-bold">Cancel</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            onPress={handleSave} 
+                            disabled={saving}
+                            className={`flex-1 py-3 rounded-xl items-center ${saving ? 'bg-blue-300' : 'bg-blue-600'}`}
+                        >
+                            {saving ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <Text className="text-white font-bold">Save</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
                 
                 <View className="flex-row justify-between items-center mb-3">
                     <Text className="text-gray-500 font-medium">Email</Text>
