@@ -48,9 +48,8 @@ export default function ChatsScreen() {
 
     const renderItem = ({ item }: { item: any }) => (
         <TouchableOpacity
-            className="flex-row items-center p-4 bg-white border-b border-gray-100"
+            className="flex-row-reverse items-center p-4 bg-white border-b border-gray-100"
             onPress={() => {
-                // Keep the same routing behavior. If the user wants to go to the game profile, it would be /game/[id]. But for chat, we use /chat/[id]
                 router.push({ pathname: '/chat/[id]', params: { id: item.id, name: item.name } });
             }}
         >
@@ -58,20 +57,20 @@ export default function ChatsScreen() {
                 source={{ uri: item.image || "https://ui-avatars.com/api/?name=" + item.name }}
                 className="w-12 h-12 rounded-full bg-gray-200"
             />
-            <View className="flex-1 ml-4 justify-center">
-                <View className="flex-row justify-between mb-1">
-                    <Text className="text-gray-900 font-bold text-base" numberOfLines={1}>{item.name}</Text>
+            <View className="flex-1 mr-4 justify-center">
+                <View className="flex-row-reverse justify-between mb-1">
+                    <Text className="text-gray-900 font-bold text-base text-right" numberOfLines={1}>{item.name}</Text>
                     {item.lastMessage && (
                         <Text className="text-gray-400 text-xs">
                             {new Date(item.lastMessage.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </Text>
                     )}
                 </View>
-                <View className="flex-row justify-between items-center">
-                    <Text className="text-gray-500 text-sm flex-1 mr-2" numberOfLines={1}>
+                <View className="flex-row-reverse justify-between items-center">
+                    <Text className="text-gray-500 text-sm flex-1 ml-2 text-right" numberOfLines={1}>
                         {item.lastMessage ? (
-                            (item.lastMessage.senderId === user?.id ? "You: " : "") + item.lastMessage.text
-                        ) : "No messages yet"}
+                            (item.lastMessage.senderId === user?.id ? "אתה: " : "") + item.lastMessage.text
+                        ) : "אין הודעות עדיין"}
                     </Text>
                     {item.unreadCount > 0 && (
                         <View className="bg-blue-600 rounded-full px-2 py-0.5">
@@ -94,7 +93,7 @@ export default function ChatsScreen() {
     return (
         <View className="flex-1 bg-gray-50">
             {/* Custom Tabs */}
-            <View className="flex-row bg-white border-b border-gray-200">
+            <View className="flex-row-reverse bg-white border-b border-gray-200">
                 <TouchableOpacity
                     className={`flex-1 py-4 items-center border-b-2 ${tabValue === 0 ? 'border-blue-600' : 'border-transparent'}`}
                     onPress={() => setTabValue(0)}

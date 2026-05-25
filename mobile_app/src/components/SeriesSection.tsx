@@ -54,30 +54,30 @@ export default function SeriesSection() {
 
     return (
         <View className="py-4 bg-gray-50">
-            <View className="flex-row justify-between items-center px-5 mb-3">
-                <Text className="text-lg font-bold text-gray-800">הצטרף לסדרה</Text>
+            <View className="flex-row-reverse justify-between items-center px-5 mb-3">
+                <Text className="text-lg font-bold text-gray-800 text-right">הצטרף לסדרה</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {series.map(s => (
                     <View key={s.id} className="w-64 bg-white rounded-2xl p-4 mr-4 shadow-sm border border-gray-100">
-                        <View className="flex-row justify-between items-start mb-2">
+                        <View className="flex-row-reverse justify-between items-start mb-2">
                             <View className="bg-blue-100 px-2 py-1 rounded">
                                 <Text className="text-blue-800 text-xs font-bold">{s.sport || 'ספורט'}</Text>
                             </View>
-                            <View className="flex-row items-center">
+                            <View className="flex-row-reverse items-center">
                                 <Ionicons name="people" size={14} color="#6b7280" />
-                                <Text className="text-gray-500 text-xs ml-1">{s.subscriberCount}</Text>
+                                <Text className="text-gray-500 text-xs ml-1 text-right">{s.subscriberCount}</Text>
                             </View>
                         </View>
-                        <Text className="font-bold text-lg text-gray-900 mb-1">{s.name}</Text>
-                        <Text className="text-gray-500 text-sm mb-4">{s.fieldName} • {s.time}</Text>
+                        <Text className="font-bold text-lg text-gray-900 mb-1 text-right">{s.name}</Text>
+                        <Text className="text-gray-500 text-sm mb-4 text-right">{s.fieldName} • {s.time}</Text>
                         
                         <TouchableOpacity 
                             onPress={() => router.push(`/series/${s.id}`)}
-                            className="bg-blue-50 py-2 rounded-xl items-center flex-row justify-center border border-blue-100"
+                            className="bg-blue-50 py-2 rounded-xl items-center flex-row-reverse justify-center border border-blue-100"
                         >
-                            <Text className="text-blue-600 font-bold mr-1">View Series</Text>
-                            <Ionicons name="arrow-forward" size={16} color="#2563eb" />
+                            <Text className="text-blue-600 font-bold ml-1">צפה בסדרה</Text>
+                            <Ionicons name="arrow-back" size={16} color="#2563eb" />
                         </TouchableOpacity>
                     </View>
                 ))}

@@ -48,11 +48,11 @@ export default function GameDetailsScreen() {
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert("Error", "You must be signed in to join");
+                Alert.alert("Error", "עליך להיות מחובר כדי להצטרף");
                 return;
             }
             await gamesApi.join(game.id, token);
-            Alert.alert("Success", "You have joined the game!");
+            Alert.alert("Success", "הצטרפת למשחק!");
             fetchGame(); // Refresh
         } catch (err: any) {
             Alert.alert("Error", err.response?.data?.error || "Failed to join game");
@@ -61,12 +61,12 @@ export default function GameDetailsScreen() {
         }
     };
 
-    const handleLeave = async () => {
+    const handleעזוב = async () => {
         if (!game) return;
-        Alert.alert("Leave Game", "Are you sure you want to leave?", [
+        Alert.alert("עזוב Game", "האם אתה בטוח שברצונך לעזוב?", [
             { text: "Cancel", style: "cancel" },
             {
-                text: "Leave",
+                text: "עזוב",
                 style: "destructive",
                 onPress: async () => {
                     setActionLoading(true);
@@ -74,7 +74,7 @@ export default function GameDetailsScreen() {
                         const token = await getToken();
                         if (!token) return;
                         await gamesApi.leave(game.id, token);
-                        Alert.alert("Success", "You have left the game.");
+                        Alert.alert("Success", "עזבת את המשחק.");
                         fetchGame(); // Refresh
                     } catch (err: any) {
                         Alert.alert("Error", err.response?.data?.error || "Failed to leave game");
@@ -97,7 +97,7 @@ export default function GameDetailsScreen() {
     if (!game) {
         return (
             <View className="flex-1 justify-center items-center bg-white">
-                <Text className="text-gray-500">Game not found</Text>
+                <Text className="text-gray-500">המשחק לא נמצא</Text>
             </View>
         );
     }
@@ -108,24 +108,24 @@ export default function GameDetailsScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: 'Game Details', headerShown: true }} />
+            <Stack.Screen options={{ title: 'פרטי משחק', headerShown: true }} />
             <ScrollView className="flex-1 bg-gray-50">
                 {/* Header Section */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
-                    <Text className="text-2xl font-bold text-gray-800 mb-2">{game.field?.name || game.fieldName || "Unknown Field"}</Text>
-                    <View className="flex-row items-center mb-2">
+                    <Text className="text-2xl font-bold text-gray-800 mb-2 text-right">{game.field?.name || game.fieldName || "מגרש לא ידוע"}</Text>
+                    <View className="flex-row-reverse items-center mb-2">
                         <FontAwesome name="calendar" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base">
                             {new Date(game.date).toLocaleDateString()} at {game.time}
                         </Text>
                     </View>
-                    <View className="flex-row items-center mb-2">
+                    <View className="flex-row-reverse items-center mb-2">
                         <FontAwesome name="map-marker" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base">
-                            {game.field?.location || game.fieldLocation || "No location provided"}
+                            {game.field?.location || game.fieldLocation || "לא סופק מיקום"}
                         </Text>
                     </View>
-                    <View className="flex-row items-center">
+                    <View className="flex-row-reverse items-center">
                         <FontAwesome name="money" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base">
                             {game.price ? `₪${game.price}` : 'Free'}
@@ -135,16 +135,16 @@ export default function GameDetailsScreen() {
 
                 {/* Participants Section */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
-                    <View className="flex-row justify-between items-center mb-4">
-                        <Text className="text-lg font-bold text-gray-800">Players</Text>
+                    <View className="flex-row-reverse justify-between items-center mb-4">
+                        <Text className="text-lg font-bold text-gray-800">שחקנים</Text>
                         <Text className="text-gray-500">
                             {game.currentPlayers} / {game.maxPlayers}
                         </Text>
                     </View>
 
-                    <View className="flex-row flex-wrap">
+                    <View className="flex-row-reverse flex-wrap">
                         {game.participants?.map((p) => (
-                            <View key={p.id} className="mr-4 mb-4 items-center w-16">
+                            <View key={p.id} className="ml-4 mb-4 items-center w-16">
                                 <Image
                                     source={{ uri: p.avatar || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
                                     className="w-12 h-12 rounded-full bg-gray-200 mb-1"
@@ -156,7 +156,7 @@ export default function GameDetailsScreen() {
                                     {p.name || "User"}
                                 </Text>
                                 {p.id === game.organizerId && (
-                                    <Text className="text-[10px] text-blue-600 font-bold">HOST</Text>
+                                    <Text className="text-[10px] text-blue-600 font-bold">מארגן</Text>
                                 )}
                             </View>
                         ))}
@@ -171,15 +171,15 @@ export default function GameDetailsScreen() {
                                 onPress={() => router.push(`/chat/${game.id}`)}
                                 className="bg-blue-100 p-4 rounded-xl items-center mb-3 border border-blue-200"
                             >
-                                <Text className="text-blue-700 font-bold text-lg">Open Chat</Text>
+                                <Text className="text-blue-700 font-bold text-lg">פתח צ'אט</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                onPress={handleLeave}
+                                onPress={handleעזוב}
                                 disabled={actionLoading}
                                 className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
                             >
-                                <Text className="text-red-600 font-bold text-lg">Leave Game</Text>
+                                <Text className="text-red-600 font-bold text-lg">עזוב משחק</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
@@ -189,7 +189,7 @@ export default function GameDetailsScreen() {
                             className={`p-4 rounded-xl items-center ${isFull ? 'bg-gray-300' : 'bg-blue-600'}`}
                         >
                             <Text className="text-white font-bold text-lg">
-                                {isFull ? "Game Full" : "Join Game"}
+                                {isFull ? "משחק מלא" : "הצטרף למשחק"}
                             </Text>
                         </TouchableOpacity>
                     )}
@@ -200,16 +200,16 @@ export default function GameDetailsScreen() {
                                 onPress={() => router.push(`/game/edit/${game.id}`)}
                                 className="mt-4 p-4 rounded-xl items-center border border-gray-300"
                             >
-                                <Text className="text-gray-600 font-bold">Edit Game</Text>
+                                <Text className="text-gray-600 font-bold">ערוך משחק</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
                                 onPress={() => router.push(`/game/teams/${game.id}`)}
                                 className="mt-4 p-4 rounded-xl items-center border border-indigo-200 bg-indigo-50"
                             >
-                                <View className="flex-row items-center">
-                                    <FontAwesome name="users" size={16} color="#4f46e5" style={{ marginRight: 8 }} />
-                                    <Text className="text-indigo-700 font-bold">Manage Teams</Text>
+                                <View className="flex-row-reverse items-center">
+                                    <FontAwesome name="users" size={16} color="#4f46e5" style={{ marginLeft: 8 }} />
+                                    <Text className="text-indigo-700 font-bold">נהל קבוצות</Text>
                                 </View>
                             </TouchableOpacity>
 
@@ -219,9 +219,9 @@ export default function GameDetailsScreen() {
                                     onPress={() => router.push(`/series/${game.seriesId}`)}
                                     className="mt-3 p-4 rounded-xl items-center border border-blue-200 bg-blue-50"
                                 >
-                                    <View className="flex-row items-center">
-                                        <FontAwesome name="calendar-check-o" size={16} color="#2563eb" style={{ marginRight: 8 }} />
-                                        <Text className="text-blue-700 font-bold">Manage Series</Text>
+                                    <View className="flex-row-reverse items-center">
+                                        <FontAwesome name="calendar-check-o" size={16} color="#2563eb" style={{ marginLeft: 8 }} />
+                                        <Text className="text-blue-700 font-bold">נהל סדרה</Text>
                                     </View>
                                 </TouchableOpacity>
                             ) : (
@@ -229,9 +229,9 @@ export default function GameDetailsScreen() {
                                     onPress={() => series.actions.setOpen(true)}
                                     className="mt-3 p-4 rounded-xl items-center border border-purple-200 bg-purple-50"
                                 >
-                                    <View className="flex-row items-center">
-                                        <FontAwesome name="repeat" size={16} color="#9333ea" style={{ marginRight: 8 }} />
-                                        <Text className="text-purple-700 font-bold">Make Recurring</Text>
+                                    <View className="flex-row-reverse items-center">
+                                        <FontAwesome name="repeat" size={16} color="#9333ea" style={{ marginLeft: 8 }} />
+                                        <Text className="text-purple-700 font-bold">הפוך לסדרה</Text>
                                     </View>
                                 </TouchableOpacity>
                             )}
@@ -251,25 +251,25 @@ export default function GameDetailsScreen() {
             >
                 <View className="flex-1 justify-end bg-black/50">
                     <View className="bg-white rounded-t-3xl p-6 h-[70%]">
-                        <View className="flex-row justify-between items-center mb-6">
-                            <Text className="text-xl font-bold text-gray-800">Create Series</Text>
+                        <View className="flex-row-reverse justify-between items-center mb-6">
+                            <Text className="text-xl font-bold text-gray-800">צור סדרה</Text>
                             <TouchableOpacity onPress={() => series.actions.setOpen(false)}>
-                                <Text className="text-blue-600 font-bold">Cancel</Text>
+                                <Text className="text-blue-600 font-bold">ביטול</Text>
                             </TouchableOpacity>
                         </View>
 
-                        <View className="flex-row mb-6 bg-gray-100 p-1 rounded-lg">
+                        <View className="flex-row-reverse mb-6 bg-gray-100 p-1 rounded-lg">
                             <TouchableOpacity
                                 onPress={() => series.actions.setTabValue(0)}
                                 className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 0 ? 'bg-white shadow-sm' : ''}`}
                             >
-                                <Text className={`font-bold ${series.state.tabValue === 0 ? 'text-blue-600' : 'text-gray-500'}`}>Weekly</Text>
+                                <Text className={`font-bold ${series.state.tabValue === 0 ? 'text-blue-600' : 'text-gray-500'}`}>שבועי</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => series.actions.setTabValue(1)}
                                 className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 1 ? 'bg-white shadow-sm' : ''}`}
                             >
-                                <Text className={`font-bold ${series.state.tabValue === 1 ? 'text-blue-600' : 'text-gray-500'}`}>Custom Dates</Text>
+                                <Text className={`font-bold ${series.state.tabValue === 1 ? 'text-blue-600' : 'text-gray-500'}`}>תאריכים מותאמים אישית</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -299,7 +299,7 @@ export default function GameDetailsScreen() {
                             {series.state.loading ? (
                                 <ActivityIndicator color="white" />
                             ) : (
-                                <Text className="text-white font-bold text-lg">Create Series</Text>
+                                <Text className="text-white font-bold text-lg">צור סדרה</Text>
                             )}
                         </TouchableOpacity>
                     </View>

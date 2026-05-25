@@ -49,11 +49,10 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
-      {/* Search/Filter Bar (Simulated) */}
-      <View className="flex-row items-center justify-between px-6 py-4">
-        <View>
-          <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest">Welcome back</Text>
-          <Text className="text-2xl font-black text-gray-900">{user?.firstName || "Friend"} 👋</Text>
+      <View className="flex-row-reverse items-center justify-between px-6 py-4">
+        <View className="items-end">
+          <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest text-right">ברוך שובך</Text>
+          <Text className="text-2xl font-black text-gray-900 text-right">👋 {user?.firstName || "חבר"}</Text>
         </View>
         <Link href="/notifications" asChild>
           <TouchableOpacity className="w-12 h-12 bg-gray-50 rounded-2xl items-center justify-center border border-gray-100">
