@@ -102,12 +102,12 @@ export default function ProfileScreen() {
                 <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 pb-2">
                     <Text className="text-lg font-bold text-gray-800">Personal Info</Text>
                     {!isEditing ? (
-                        <TouchableOpacity onPress={() => setIsEditing(true)}>
-                            <Ionicons name="pencil" size={20} color="#2563eb" />
+                        <TouchableOpacity onPress={() => setIsEditing(true)} className="bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                            <Text className="text-blue-600 font-bold text-sm">Edit Profile</Text>
                         </TouchableOpacity>
                     ) : (
-                        <TouchableOpacity onPress={() => { setIsEditing(false); setForm({ city: profile?.city || '', phone: profile?.phone || '' }); }}>
-                            <Ionicons name="close" size={24} color="#ef4444" />
+                        <TouchableOpacity onPress={() => { setIsEditing(false); setForm({ city: profile?.city || '', phone: profile?.phone || '' }); }} className="bg-red-50 px-3 py-1 rounded-full border border-red-100">
+                            <Text className="text-red-600 font-bold text-sm">Cancel</Text>
                         </TouchableOpacity>
                     )}
                 </View>
