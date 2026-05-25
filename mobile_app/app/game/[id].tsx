@@ -108,7 +108,7 @@ export default function GameDetailsScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: 'Game Details' }} />
+            <Stack.Screen options={{ title: 'Game Details', headerShown: true }} />
             <ScrollView className="flex-1 bg-gray-50">
                 {/* Header Section */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
