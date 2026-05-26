@@ -50,7 +50,7 @@ export default function HomeScreen() {
   }, [user]);
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-white dark:bg-cyber-bg" edges={['top']}>
       <View className="flex-1 mt-2">
         <FlatList
           data={games}
@@ -59,7 +59,7 @@ export default function HomeScreen() {
             <View>
               <View className="px-6 mb-4">
                 <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest">{t("home.welcomeBack")}</Text>
-                <Text className="text-2xl font-black text-gray-900">👋 {user?.firstName || t("home.friend")}</Text>
+                <Text className="text-2xl font-black text-gray-900 dark:text-cyber-text">👋 {user?.firstName || t("home.friend")}</Text>
               </View>
               <MyGamesSection />
               <SeriesSection />
