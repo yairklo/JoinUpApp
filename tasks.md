@@ -40,7 +40,7 @@
 *Git branch: `feature/mobile-map-search-view`*
 
 ### Task 8: Native Push Notifications Sync
-- [ ] **Task 8.1: Connect in-app events to Native Notifications.** Request device notification permissions and bridge the app's existing real-time notification events to trigger system-level native push notifications on the user's phone.
+- [PR Created - feature/mobile-native-push-notifications] **Task 8.1: Connect in-app events to Native Notifications.** Request device notification permissions and bridge the app's existing real-time notification events to trigger system-level native push notifications on the user's phone.
 *Git branch: `feature/mobile-native-push-notifications`*
 
 ## Phase 3: Localization, Performance & Map Customization

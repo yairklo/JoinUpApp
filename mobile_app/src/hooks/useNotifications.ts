@@ -2,6 +2,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { io, Socket } from 'socket.io-client';
 import { notificationsApi, Notification as NotificationType, API_BASE } from '@/services/api';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+
+Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+    }),
+});
 
 export function useNotifications() {
     const { userId, isLoaded, getToken } = useAuth();
@@ -12,6 +22,26 @@ export function useNotifications() {
     const [socket, setSocket] = useState<Socket | null>(null);
 
     const socketRef = useRef<Socket | null>(null);
+
+    // 0. Request Push Permissions on Mount
+    useEffect(() => {
+        const requestPermissions = async () => {
+            if (!Device.isDevice) {
+                console.log('[NOTIFICATIONS] Must use physical device for Push Notifications');
+                return;
+            }
+            const { status: existingStatus } = await Notifications.getPermissionsAsync();
+            let finalStatus = existingStatus;
+            if (existingStatus !== 'granted') {
+                const { status } = await Notifications.requestPermissionsAsync();
+                finalStatus = status;
+            }
+            if (finalStatus !== 'granted') {
+                console.log('[NOTIFICATIONS] Failed to get push token for push notification!');
+            }
+        };
+        requestPermissions();
+    }, []);
 
     // 1. Fetch Notifications (Initial + Polling)
     const fetchNotifications = useCallback(async () => {
@@ -68,17 +98,22 @@ export function useNotifications() {
                 socketInstance?.emit('join', `user_${userId} `);
             });
 
-            socketInstance.on('notification', (data: NotificationType) => {
+            socketInstance.on('notification', async (data: NotificationType) => {
                 console.log('[NOTIFICATIONS] Received real-time notification:', data);
                 setNotifications(prev => [data, ...prev]);
                 setUnreadCount(prev => prev + 1);
 
-                // if (Notification.permission === 'granted') {
-                //     new Notification(data.title, {
-                //         body: data.body,
-                //         icon: '/icon-192x192.png'
-                //     });
-                // }
+                const { status } = await Notifications.getPermissionsAsync();
+                if (status === 'granted') {
+                    await Notifications.scheduleNotificationAsync({
+                        content: {
+                            title: data.title || 'JoinUp',
+                            body: data.message || 'התקבלה התראה חדשה',
+                            data: { id: data.id, link: data.link },
+                        },
+                        trigger: null,
+                    });
+                }
             });
 
             setSocket(socketInstance);
