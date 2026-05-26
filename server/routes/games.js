@@ -714,7 +714,7 @@ router.get('/', attachOptionalUser, async (req, res) => {
 // Search games
 router.get('/search', attachOptionalUser, async (req, res) => {
   try {
-    const { fieldId, date, isOpenToJoin } = req.query;
+    const { fieldId, date, isOpenToJoin, q, city, minLat, maxLat, minLng, maxLng } = req.query;
     const where = {};
     if (fieldId) where.fieldId = String(fieldId);
     if (typeof isOpenToJoin !== 'undefined') where.isOpenToJoin = String(isOpenToJoin) === 'true';
@@ -724,9 +724,52 @@ router.get('/search', attachOptionalUser, async (req, res) => {
       const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
       where.start = { gte: startOfDay, lte: endOfDay };
     }
+    
+    // Add text search
+    if (q) {
+      where.OR = [
+        { title: { contains: String(q), mode: 'insensitive' } },
+        { description: { contains: String(q), mode: 'insensitive' } },
+        { field: { name: { contains: String(q), mode: 'insensitive' } } }
+      ];
+    }
+    
+    // Add city filter
+    if (city) {
+      where.field = { ...where.field, city: String(city) };
+    }
+
+    // Add Bounding Box filter (Spatial bounds)
+    if (minLat && maxLat && minLng && maxLng) {
+      const boundsWhere = {
+        OR: [
+          {
+            customLat: { gte: parseFloat(minLat), lte: parseFloat(maxLat) },
+            customLng: { gte: parseFloat(minLng), lte: parseFloat(maxLng) }
+          },
+          {
+            field: {
+              lat: { gte: parseFloat(minLat), lte: parseFloat(maxLat) },
+              lng: { gte: parseFloat(minLng), lte: parseFloat(maxLng) }
+            }
+          }
+        ]
+      };
+      
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, boundsWhere];
+        delete where.OR;
+      } else {
+        where.OR = boundsWhere.OR;
+      }
+    }
+
     const visibility = buildVisibilityWhere(req.user?.id);
+    // Combine base visibility rules with query rules
+    const finalWhere = where.AND ? { AND: [visibility, ...where.AND] } : { AND: [visibility, where] };
+    
     const games = await prisma.game.findMany({
-      where: { AND: [visibility, where] },
+      where: finalWhere,
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
