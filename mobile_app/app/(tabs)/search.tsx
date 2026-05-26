@@ -1,4 +1,4 @@
-import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
