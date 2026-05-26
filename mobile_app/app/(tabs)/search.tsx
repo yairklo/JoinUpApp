@@ -29,6 +29,7 @@ export default function SearchScreen() {
     
     const [mapBounds, setMapBounds] = useState<{minLat: number, maxLat: number, minLng: number, maxLng: number} | null>(null);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [selectedFieldGames, setSelectedFieldGames] = useState<Game[] | null>(null);
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -284,10 +285,13 @@ export default function SearchScreen() {
             </View>
 
             {/* Results */}
-            {loading ? (
-                <ActivityIndicator size="large" color="#2563eb" className="mt-10" />
-            ) : isMapView ? (
-                <View className="flex-1 mt-2 mx-2 mb-2 rounded-3xl overflow-hidden shadow-sm border border-gray-200">
+            {isMapView ? (
+                <View className="flex-1 mt-2 mx-2 mb-2 rounded-3xl overflow-hidden shadow-sm border border-gray-200 relative">
+                    {loading && (
+                        <View className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-white p-2 rounded-full shadow-lg">
+                            <ActivityIndicator size="small" color="#2563eb" />
+                        </View>
+                    )}
                     <MapView
                         ref={mapRef as any}
                         style={{ flex: 1 }}
@@ -333,7 +337,7 @@ export default function SearchScreen() {
                                 <Marker
                                     key={firstGame.id}
                                     coordinate={{ latitude: lat!, longitude: lng! }}
-                                    title={group.length > 1 ? `${group.length} משחקים ב${firstGame.field?.name || firstGame.fieldName}` : firstGame.title || firstGame.fieldName}
+                                    onPress={() => setSelectedFieldGames(group)}
                                 >
                                     <View style={{ backgroundColor: hexColor }} className="w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-lg">
                                         <MaterialCommunityIcons name={iconName as any} size={20} color="white" />
@@ -343,33 +347,59 @@ export default function SearchScreen() {
                                             </View>
                                         )}
                                     </View>
-                                    <Callout onPress={() => {
-                                        if (group.length === 1) {
-                                            router.push(`/game/${firstGame.id}`);
-                                        } else {
-                                            // Ideally open a modal, but Callout onPress works differently on Android/iOS.
-                                            // For now, if they press, just navigate to the first game, or handle a custom view.
-                                            // We will show all games inside the callout text.
-                                            router.push(`/game/${firstGame.id}`); // Basic fallback
-                                        }
-                                    }}>
-                                        <View className="p-2 w-56">
-                                            <Text className="font-bold text-gray-800 text-sm text-right mb-1">
-                                                {firstGame.field?.name || firstGame.fieldName}
-                                            </Text>
-                                            {group.map((g, idx) => (
-                                                <View key={g.id} className={`py-1 ${idx > 0 ? 'border-t border-gray-100' : ''}`}>
-                                                    <Text className="text-gray-800 text-xs text-right font-medium">{g.title || 'משחק'}</Text>
-                                                    <Text className="text-gray-500 text-xs text-right">{new Date(g.date).toLocaleDateString()} בשעה {g.time}</Text>
-                                                </View>
-                                            ))}
-                                            <Text className="text-blue-600 text-xs mt-2 font-bold text-center">לחץ לפרטים על המשחק הראשון</Text>
-                                        </View>
-                                    </Callout>
                                 </Marker>
                             );
                         })}
                     </MapView>
+
+                    {/* Games Modal for Map Markers */}
+                    <Modal
+                        visible={!!selectedFieldGames}
+                        transparent={true}
+                        animationType="slide"
+                        onRequestClose={() => setSelectedFieldGames(null)}
+                    >
+                        <View className="flex-1 justify-end bg-black/50">
+                            <View className="bg-white rounded-t-3xl p-6 max-h-[80%]">
+                                <View className="flex-row justify-between items-center mb-4">
+                                    <TouchableOpacity onPress={() => setSelectedFieldGames(null)} className="p-2">
+                                        <MaterialCommunityIcons name="close" size={24} color="#6b7280" />
+                                    </TouchableOpacity>
+                                    <Text className="text-xl font-bold text-gray-800 text-right">
+                                        {selectedFieldGames?.[0]?.field?.name || selectedFieldGames?.[0]?.fieldName || 'משחקים במגרש'}
+                                    </Text>
+                                </View>
+                                <ScrollView showsVerticalScrollIndicator={false}>
+                                    {selectedFieldGames?.map((game) => (
+                                        <TouchableOpacity 
+                                            key={game.id}
+                                            className="bg-gray-50 p-4 rounded-2xl mb-3 border border-gray-100 flex-row justify-between items-center"
+                                            onPress={() => {
+                                                setSelectedFieldGames(null);
+                                                router.push(`/game/${game.id}`);
+                                            }}
+                                        >
+                                            <View className="bg-blue-100 p-2 rounded-full">
+                                                <MaterialCommunityIcons name="chevron-left" size={24} color="#2563eb" />
+                                            </View>
+                                            <View className="flex-1 items-end mr-3">
+                                                <Text className="text-base font-bold text-gray-800 text-right">{game.title || 'משחק'}</Text>
+                                                <Text className="text-sm text-gray-500 text-right mt-1">
+                                                    {new Date(game.date).toLocaleDateString()} בשעה {game.time}
+                                                </Text>
+                                                <View className="flex-row items-center justify-end mt-2">
+                                                    <Text className="text-xs text-blue-600 font-medium ml-1">
+                                                        {game.sport === 'SOCCER' ? 'כדורגל' : game.sport === 'BASKETBALL' ? 'כדורסל' : 'טניס'}
+                                                    </Text>
+                                                    <MaterialCommunityIcons name={getSportIcon(game.sport)} size={12} color="#2563eb" />
+                                                </View>
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        </View>
+                    </Modal>
                 </View>
             ) : (
                 <FlatList
