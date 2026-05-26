@@ -1,7 +1,9 @@
 import { Slot, SplashScreen, Stack, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import { useColorScheme } from "react-native";
+import { useColorScheme, LogBox } from "react-native";
+
+LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
 import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
 import { tokenStorage } from "@/services/api/client.adapter";
