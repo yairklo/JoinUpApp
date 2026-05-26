@@ -9,6 +9,11 @@ export type Game = {
     date: string;
     time: string;
     duration?: number;
+    fieldLat?: number | null;
+    fieldLng?: number | null;
+    customLat?: number | null;
+    customLng?: number | null;
+    customLocation?: string | null;
     maxPlayers: number;
     currentPlayers: number;
     participants?: GameParticipant[];
