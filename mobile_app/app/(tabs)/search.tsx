@@ -1,5 +1,6 @@
 import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView } from 'react-native';
-import MapView, { Marker, Callout } from 'react-native-maps';
+import { Marker, Callout } from 'react-native-maps';
+import MapView from 'react-native-map-clustering';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'expo-router';
@@ -116,39 +117,22 @@ export default function SearchScreen() {
             if (selectedSport) {
                 finalGames = finalGames.filter(g => g.sport === selectedSport || g.type === selectedSport || g.title?.includes(selectedSport));
             }
+            
+            // Explicit local filter for city, to ensure the map and list never show items from other cities
+            // even if the backend search is fuzzy
+            if (selectedCity) {
+                finalGames = finalGames.filter(g => {
+                    const loc = g.field?.location || g.fieldLocation || '';
+                    const city = g.field?.city || g.city || '';
+                    return city === selectedCity || loc.includes(selectedCity);
+                });
+            }
 
             setGames(finalGames);
         } catch (error) {
             console.error("Search failed", error);
         } finally {
             setLoading(false);
-            
-            // Camera logic
-            if (isMapView && mapRef.current) {
-                if (selectedCity) {
-                    // Try to geocode city to center map
-                    try {
-                        const geocode = await Location.geocodeAsync(selectedCity + ', Israel');
-                        if (geocode.length > 0) {
-                            mapRef.current.animateToRegion({
-                                latitude: geocode[0].latitude,
-                                longitude: geocode[0].longitude,
-                                latitudeDelta: 0.1,
-                                longitudeDelta: 0.1,
-                            });
-                        }
-                    } catch (e) {
-                        console.log("Geocode failed", e);
-                    }
-                } else if (userLocation) {
-                    mapRef.current.animateToRegion({
-                        latitude: userLocation.latitude,
-                        longitude: userLocation.longitude,
-                        latitudeDelta: 0.1,
-                        longitudeDelta: 0.1,
-                    });
-                }
-            }
         }
     };
     
@@ -162,14 +146,15 @@ export default function SearchScreen() {
         return 'map-marker';
     };
     
-    const getSportColor = (sport?: string) => {
+    // Returning explicit Hex colors ensures NativeWind doesn't purge them
+    const getSportColorHex = (sport?: string) => {
         const s = sport?.toLowerCase() || '';
-        if (s.includes('כדורגל')) return 'bg-green-600';
-        if (s.includes('כדורסל')) return 'bg-orange-500';
-        if (s.includes('טניס')) return 'bg-yellow-500';
-        if (s.includes('כדורעף')) return 'bg-blue-400';
-        if (s.includes('פדל')) return 'bg-purple-500';
-        return 'bg-blue-600';
+        if (s.includes('כדורגל')) return '#16a34a'; // green-600
+        if (s.includes('כדורסל')) return '#f97316'; // orange-500
+        if (s.includes('טניס')) return '#eab308'; // yellow-500
+        if (s.includes('כדורעף')) return '#60a5fa'; // blue-400
+        if (s.includes('פדל')) return '#a855f7'; // purple-500
+        return '#2563eb'; // blue-600 (default)
     };
 
     const renderGameItem = ({ item }: { item: Game }) => (
@@ -286,10 +271,11 @@ export default function SearchScreen() {
             ) : isMapView ? (
                 <View className="flex-1 mt-2 mx-2 mb-2 rounded-3xl overflow-hidden shadow-sm border border-gray-200">
                     <MapView
-                        ref={mapRef}
+                        ref={mapRef as any}
                         style={{ flex: 1 }}
                         showsUserLocation={true}
                         showsMyLocationButton={true}
+                        clusterColor="#2563eb"
                         initialRegion={{
                             latitude: userLocation?.latitude || 32.0853,
                             longitude: userLocation?.longitude || 34.7818,
@@ -302,7 +288,7 @@ export default function SearchScreen() {
                             const lng = game.customLng || game.fieldLng;
                             if (!lat || !lng) return null;
                             const iconName = getSportIcon(game.sport || game.type);
-                            const bgColor = getSportColor(game.sport || game.type);
+                            const hexColor = getSportColorHex(game.sport || game.type);
                             return (
                                 <Marker
                                     key={game.id}
@@ -311,7 +297,7 @@ export default function SearchScreen() {
                                     description={new Date(game.date).toLocaleDateString() + ' ' + game.time}
                                     onCalloutPress={() => router.push(`/game/${game.id}`)}
                                 >
-                                    <View className={`w-10 h-10 rounded-full ${bgColor} items-center justify-center border-2 border-white shadow-lg`}>
+                                    <View style={{ backgroundColor: hexColor }} className="w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-lg">
                                         <MaterialCommunityIcons name={iconName as any} size={20} color="white" />
                                     </View>
                                     <Callout>
