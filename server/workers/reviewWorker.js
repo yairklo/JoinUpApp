@@ -111,7 +111,17 @@ async function deleteMessageFromChat(msgId, roomId) {
             // Lazy load redis publisher
             const Redis = require("ioredis");
             // Use dedicated connection for publishing in worker (good practice to not reuse blocking connections if any)
-            const publisher = new Redis(process.env.REDIS_URL);
+            const publisher = new Redis(process.env.REDIS_URL, {
+                maxRetriesPerRequest: 1,
+                retryStrategy: (times) => {
+                    if (times > 3) return null; // Stop retrying after 3 times
+                    return Math.min(times * 500, 2000);
+                }
+            });
+            
+            publisher.on('error', (err) => {
+                Logger.warn("WORKER", `Redis publisher error: ${err.message}`);
+            });
 
             // We need accurate roomId to broadcast to specific room
             const msg = await prisma.message.findUnique({ where: { id: msgId } });

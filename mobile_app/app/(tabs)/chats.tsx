@@ -4,8 +4,10 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { chatsApi } from '@/services/api';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 export default function ChatsScreen() {
+    const { t } = useTranslation();
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
     const router = useRouter();
@@ -48,7 +50,7 @@ export default function ChatsScreen() {
 
     const renderItem = ({ item }: { item: any }) => (
         <TouchableOpacity
-            className="flex-row-reverse items-center p-4 bg-white border-b border-gray-100"
+            className="flex-row items-center p-4 bg-white border-b border-gray-100"
             onPress={() => {
                 router.push({ pathname: '/chat/[id]', params: { id: item.id, name: item.name } });
             }}
@@ -58,19 +60,19 @@ export default function ChatsScreen() {
                 className="w-12 h-12 rounded-full bg-gray-200"
             />
             <View className="flex-1 mr-4 justify-center">
-                <View className="flex-row-reverse justify-between mb-1">
-                    <Text className="text-gray-900 font-bold text-base text-right" numberOfLines={1}>{item.name}</Text>
+                <View className="flex-row justify-between mb-1">
+                    <Text className="text-gray-900 font-bold text-base text-left" numberOfLines={1}>{item.name}</Text>
                     {item.lastMessage && (
                         <Text className="text-gray-400 text-xs">
                             {new Date(item.lastMessage.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </Text>
                     )}
                 </View>
-                <View className="flex-row-reverse justify-between items-center">
-                    <Text className="text-gray-500 text-sm flex-1 ml-2 text-right" numberOfLines={1}>
+                <View className="flex-row justify-between items-center">
+                    <Text className="text-gray-500 text-sm flex-1 ml-2 text-left" numberOfLines={1}>
                         {item.lastMessage ? (
-                            (item.lastMessage.senderId === user?.id ? "אתה: " : "") + item.lastMessage.text
-                        ) : "אין הודעות עדיין"}
+                            (item.lastMessage.senderId === user?.id ? t("chats.you") : "") + item.lastMessage.text
+                        ) : t("chats.noMessages")}
                     </Text>
                     {item.unreadCount > 0 && (
                         <View className="bg-blue-600 rounded-full px-2 py-0.5">
@@ -93,18 +95,18 @@ export default function ChatsScreen() {
     return (
         <View className="flex-1 bg-gray-50">
             {/* Custom Tabs */}
-            <View className="flex-row-reverse bg-white border-b border-gray-200">
+            <View className="flex-row bg-white border-b border-gray-200">
                 <TouchableOpacity
                     className={`flex-1 py-4 items-center border-b-2 ${tabValue === 0 ? 'border-blue-600' : 'border-transparent'}`}
                     onPress={() => setTabValue(0)}
                 >
-                    <Text className={`font-bold ${tabValue === 0 ? 'text-blue-600' : 'text-gray-500'}`}>שחקנים</Text>
+                    <Text className={`font-bold ${tabValue === 0 ? 'text-blue-600' : 'text-gray-500'}`}>{t("chats.players")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     className={`flex-1 py-4 items-center border-b-2 ${tabValue === 1 ? 'border-blue-600' : 'border-transparent'}`}
                     onPress={() => setTabValue(1)}
                 >
-                    <Text className={`font-bold ${tabValue === 1 ? 'text-blue-600' : 'text-gray-500'}`}>משחקים</Text>
+                    <Text className={`font-bold ${tabValue === 1 ? 'text-blue-600' : 'text-gray-500'}`}>{t("chats.games")}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -118,7 +120,7 @@ export default function ChatsScreen() {
                 ListEmptyComponent={
                     <View className="items-center justify-center py-20">
                         <Text className="text-gray-400 text-lg">
-                            {tabValue === 0 ? "אין צ'אטים פעילים עם שחקנים" : "לא נרשמת לאף משחק"}
+                            {tabValue === 0 ? t("chats.noActiveChats") : t("chats.noGamesRegistered")}
                         </Text>
                     </View>
                 }

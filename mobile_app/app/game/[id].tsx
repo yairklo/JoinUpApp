@@ -6,8 +6,10 @@ import { gamesApi } from '@/services/api';
 import { Game } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useSeriesLogic } from '@/hooks/useSeriesLogic';
+import { useTranslation } from 'react-i18next';
 
 export default function GameDetailsScreen() {
+    const { t } = useTranslation();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getToken } = useAuth();
     const { user } = useUser();
@@ -66,7 +68,7 @@ export default function GameDetailsScreen() {
         Alert.alert("עזוב Game", "האם אתה בטוח שברצונך לעזוב?", [
             { text: "Cancel", style: "cancel" },
             {
-                text: "עזוב",
+                text: t('game.leave'),
                 style: "destructive",
                 onPress: async () => {
                     setActionLoading(true);
@@ -108,41 +110,41 @@ export default function GameDetailsScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: 'פרטי משחק', headerShown: true }} />
+            <Stack.Screen options={{ title: t('game.details'), headerShown: true }} />
             <ScrollView className="flex-1 bg-gray-50">
                 {/* Header Section */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
-                    <Text className="text-2xl font-bold text-gray-800 mb-2 text-right">{game.field?.name || game.fieldName || "מגרש לא ידוע"}</Text>
-                    <View className="flex-row-reverse items-center mb-2">
+                    <Text className="text-2xl font-bold text-gray-800 mb-2 text-left">{game.field?.name || game.fieldName || t('game.unknownField')}</Text>
+                    <View className="flex-row items-center mb-2">
                         <FontAwesome name="calendar" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base">
                             {new Date(game.date).toLocaleDateString()} at {game.time}
                         </Text>
                     </View>
-                    <View className="flex-row-reverse items-center mb-2">
+                    <View className="flex-row items-center mb-2">
                         <FontAwesome name="map-marker" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base">
-                            {game.field?.location || game.fieldLocation || "לא סופק מיקום"}
+                            {game.field?.location || game.fieldLocation || t('game.unknownLocation')}
                         </Text>
                     </View>
-                    <View className="flex-row-reverse items-center">
+                    <View className="flex-row items-center">
                         <FontAwesome name="money" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base">
-                            {game.price ? `₪${game.price}` : 'Free'}
+                            {game.price ? `₪${game.price}` : t('game.free')}
                         </Text>
                     </View>
                 </View>
 
                 {/* Participants Section */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
-                    <View className="flex-row-reverse justify-between items-center mb-4">
-                        <Text className="text-lg font-bold text-gray-800">שחקנים</Text>
+                    <View className="flex-row justify-between items-center mb-4">
+                        <Text className="text-lg font-bold text-gray-800">{t('game.players')}</Text>
                         <Text className="text-gray-500">
                             {game.currentPlayers} / {game.maxPlayers}
                         </Text>
                     </View>
 
-                    <View className="flex-row-reverse flex-wrap">
+                    <View className="flex-row flex-wrap">
                         {game.participants?.map((p) => (
                             <View key={p.id} className="ml-4 mb-4 items-center w-16">
                                 <Image
@@ -207,7 +209,7 @@ export default function GameDetailsScreen() {
                                 onPress={() => router.push(`/game/teams/${game.id}`)}
                                 className="mt-4 p-4 rounded-xl items-center border border-indigo-200 bg-indigo-50"
                             >
-                                <View className="flex-row-reverse items-center">
+                                <View className="flex-row items-center">
                                     <FontAwesome name="users" size={16} color="#4f46e5" style={{ marginLeft: 8 }} />
                                     <Text className="text-indigo-700 font-bold">נהל קבוצות</Text>
                                 </View>
@@ -219,7 +221,7 @@ export default function GameDetailsScreen() {
                                     onPress={() => router.push(`/series/${game.seriesId}`)}
                                     className="mt-3 p-4 rounded-xl items-center border border-blue-200 bg-blue-50"
                                 >
-                                    <View className="flex-row-reverse items-center">
+                                    <View className="flex-row items-center">
                                         <FontAwesome name="calendar-check-o" size={16} color="#2563eb" style={{ marginLeft: 8 }} />
                                         <Text className="text-blue-700 font-bold">נהל סדרה</Text>
                                     </View>
@@ -229,7 +231,7 @@ export default function GameDetailsScreen() {
                                     onPress={() => series.actions.setOpen(true)}
                                     className="mt-3 p-4 rounded-xl items-center border border-purple-200 bg-purple-50"
                                 >
-                                    <View className="flex-row-reverse items-center">
+                                    <View className="flex-row items-center">
                                         <FontAwesome name="repeat" size={16} color="#9333ea" style={{ marginLeft: 8 }} />
                                         <Text className="text-purple-700 font-bold">הפוך לסדרה</Text>
                                     </View>
@@ -251,14 +253,14 @@ export default function GameDetailsScreen() {
             >
                 <View className="flex-1 justify-end bg-black/50">
                     <View className="bg-white rounded-t-3xl p-6 h-[70%]">
-                        <View className="flex-row-reverse justify-between items-center mb-6">
+                        <View className="flex-row justify-between items-center mb-6">
                             <Text className="text-xl font-bold text-gray-800">צור סדרה</Text>
                             <TouchableOpacity onPress={() => series.actions.setOpen(false)}>
                                 <Text className="text-blue-600 font-bold">ביטול</Text>
                             </TouchableOpacity>
                         </View>
 
-                        <View className="flex-row-reverse mb-6 bg-gray-100 p-1 rounded-lg">
+                        <View className="flex-row mb-6 bg-gray-100 p-1 rounded-lg">
                             <TouchableOpacity
                                 onPress={() => series.actions.setTabValue(0)}
                                 className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 0 ? 'bg-white shadow-sm' : ''}`}

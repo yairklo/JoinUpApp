@@ -1,10 +1,12 @@
 import { Slot, SplashScreen, Stack, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
 import { tokenStorage } from "@/services/api/client.adapter";
 import { ChatProvider } from "@/context/ChatContext";
 import { GameUpdateProvider } from "@/context/GameUpdateContext";
+import { I18nextProvider } from 'react-i18next';
+import i18n, { initI18n } from "@/i18n";
 import "../global.css"; // NativeWind
 
 // Prevent splash screen from auto-hiding
@@ -18,29 +20,38 @@ if (!publishableKey) {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({});
+  const [i18nLoaded, setI18nLoaded] = useState(false);
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
+    initI18n().then(() => setI18nLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    if (loaded && i18nLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [loaded, i18nLoaded]);
+
+  if (!i18nLoaded) return null;
 
   return (
-    <ClerkProvider tokenCache={tokenStorage} publishableKey={publishableKey}>
-      <ClerkLoaded>
-        <AuthGuard>
-          <ChatProvider>
-            <GameUpdateProvider>
-              <Stack screenOptions={{ headerShown: false }} />
-            </GameUpdateProvider>
-          </ChatProvider>
-        </AuthGuard>
-      </ClerkLoaded>
-    </ClerkProvider>
+    <I18nextProvider i18n={i18n}>
+      <ClerkProvider tokenCache={tokenStorage} publishableKey={publishableKey}>
+        <ClerkLoaded>
+          <AuthGuard>
+            <ChatProvider>
+              <GameUpdateProvider>
+                <Stack screenOptions={{ headerShown: false }} />
+              </GameUpdateProvider>
+            </ChatProvider>
+          </AuthGuard>
+        </ClerkLoaded>
+      </ClerkProvider>
+    </I18nextProvider>
   );
 }
 

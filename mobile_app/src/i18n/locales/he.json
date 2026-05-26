@@ -1,0 +1,97 @@
+{
+  "common": {
+    "cancel": "ביטול",
+    "search": "חיפוש",
+    "confirm": "אישור"
+  },
+  "tabs": {
+    "games": "משחקים",
+    "search": "חיפוש",
+    "chats": "צ'אטים",
+    "profile": "פרופיל"
+  },
+  "search": {
+    "placeholder": "חפש משחקים, מגרשים...",
+    "allCities": "כל הערים",
+    "noGamesFound": "לא נמצאו משחקים",
+    "selectCity": "בחר עיר",
+    "close": "סגור",
+    "game": "משחק",
+    "unknownLocation": "מיקום לא ידוע"
+  },
+  "home": {
+    "welcomeBack": "ברוך שובך",
+    "friend": "חבר",
+    "noGamesToday": "אין משחקים בתאריך זה",
+    "noGamesDesc": "נראה שאין משחקים זמינים כרגע. נסה לבחור תאריך אחר או צור משחק חדש!",
+    "backToToday": "חזור להיום",
+    "myGames": "המשחקים שלי",
+    "mySeries": "הסדרות שלי"
+  },
+  "chats": {
+    "players": "שחקנים",
+    "games": "משחקים",
+    "noActiveChats": "אין צ'אטים פעילים עם שחקנים",
+    "noGamesRegistered": "לא נרשמת לאף משחק",
+    "noMessages": "אין הודעות עדיין",
+    "you": "אתה: "
+  },
+  "profile": {
+    "unknownCity": "עיר לא ידועה",
+    "personalDetails": "פרטים אישיים",
+    "email": "אימייל",
+    "phone": "טלפון",
+    "city": "עיר",
+    "age": "גיל",
+    "editProfile": "ערוך פרופיל",
+    "saveChanges": "שמור שינויים",
+    "error": "שגיאה",
+    "updateFailed": "נכשל בעדכון הפרופיל.",
+    "signOut": "התנתק",
+    "sports": "תחומי עניין בספורט",
+    "noSports": "לא נבחרו ענפי ספורט מועדפים"
+  },
+  "game": {
+    "details": "פרטי משחק",
+    "unknownField": "מגרש לא ידוע",
+    "unknownLocation": "לא סופק מיקום",
+    "free": "חינם",
+    "players": "שחקנים",
+    "leave": "עזוב",
+    "join": "הצטרף",
+    "series": "סדרה",
+    "manageSeries": "נהל סדרה",
+    "full": "מלא",
+    "joinGame": "הצטרף למשחק",
+    "leaveGame": "עזוב משחק",
+    "registrationOpensAt": "הרשמה תיפתח ב:",
+    "opensAt": "נפתח ב- {{time}}",
+    "confirmLeave": "האם אתה בטוח שברצונך לעזוב את המשחק?"
+  },
+  "newGame": {
+    "sport": "ספורט",
+    "soccer": "כדורגל",
+    "basketball": "כדורסל",
+    "tennis": "טניס",
+    "volleyball": "כדורעף",
+    "title": "כותרת המשחק (לא חובה)",
+    "duration": "זמן משחק (שעות)",
+    "selectField": "בחר מגרש",
+    "maxPlayers": "מקסימום שחקנים",
+    "price": "מחיר (₪)",
+    "privateGroup": "קבוצה פרטית?",
+    "lottery": "הגרלה?",
+    "futureRegistration": "פתיחת הרשמה עתידית?",
+    "create": "יצירת משחק",
+    "description": "פרטים נוספים (לא חובה)",
+    "whatsappLink": "לינק לקבוצת הוואטסאפ (לא חובה)"
+  },
+  "chat": {
+    "message": "הודעה...",
+    "send": "שלח",
+    "options": "אפשרויות הודעה",
+    "reply": "השב",
+    "delete": "מחק",
+    "edit": "ערוך"
+  }
+}

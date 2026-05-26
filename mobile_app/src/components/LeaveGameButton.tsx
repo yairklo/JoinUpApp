@@ -4,6 +4,7 @@ import { gamesApi } from "@/services/api";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 export default function LeaveGameButton({
     gameId,
@@ -15,15 +16,16 @@ export default function LeaveGameButton({
     const { getToken } = useAuth();
     const { user } = useUser();
     const { notifyGameUpdate } = useGameUpdate();
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
 
     const handleLeave = () => {
         Alert.alert(
-            "עזיבת משחק",
-            "האם אתה בטוח שברצונך לעזוב את המשחק?",
+            t("game.leaveGame"),
+            t("game.confirmLeave"),
             [
-                { text: "ביטול", style: "cancel" },
-                { text: "עזוב", style: "destructive", onPress: leave }
+                { text: t("common.cancel"), style: "cancel" },
+                { text: t("game.leave"), style: "destructive", onPress: leave }
             ]
         );
     };
@@ -56,7 +58,7 @@ export default function LeaveGameButton({
             ) : (
                 <>
                     <Ionicons name="exit-outline" size={20} color="#dc2626" />
-                    <Text className="ml-1 text-red-600 font-bold text-base">עזוב</Text>
+                    <Text numberOfLines={1} ellipsizeMode="tail" className="ml-1 text-red-600 font-bold text-base flex-shrink">{t("game.leave")}</Text>
                 </>
             )}
         </TouchableOpacity>

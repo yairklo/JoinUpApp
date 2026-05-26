@@ -8,10 +8,12 @@ import LeaveGameButton from './LeaveGameButton';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSyncedGames } from '@/hooks/useSyncedGames';
+import { useTranslation } from 'react-i18next';
 
 export default function MyGamesSection() {
     const { getToken } = useAuth();
-    const { user } = useUser();
+    const { user, isLoaded } = useUser();
+    const { t } = useTranslation();
     const { games, setGames } = useSyncedGames([], (game) => {
         return Boolean(game.participants?.some(p => p.id === user?.id) || game.organizerId === user?.id);
     });
@@ -44,7 +46,7 @@ export default function MyGamesSection() {
         return () => { isMounted = false; };
     }, [user?.id, getToken]);
 
-    if (loading) {
+    if (loading && games.length === 0) {
         return (
             <View className="py-6 items-center">
                 <ActivityIndicator size="small" color="#2563eb" />
@@ -55,22 +57,24 @@ export default function MyGamesSection() {
     if (games.length === 0) return null;
 
     return (
-        <View className="py-4">
-            <Text className="px-5 text-lg font-bold text-gray-800 mb-3 text-right">המשחקים שלי</Text>
+        <View className="mb-6">
+            <View className="px-5 mb-3 flex-row justify-between items-end">
+                <Text className="text-xl font-black text-gray-900">{t("home.myGames")}</Text>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {games.map(game => (
                     <View key={game.id} className="w-72 mr-4">
                         <GameCard game={game} isJoined={true}>
-                            <View className="flex-row-reverse justify-between items-center w-full">
+                            <View className="flex-row justify-between items-center w-full">
                                 <LeaveGameButton gameId={game.id} onLeft={() => {
                                     setGames(prev => prev.filter(g => g.id !== game.id));
                                 }} />
                                 <TouchableOpacity 
                                     onPress={() => router.push(`/game/${game.id}`)}
-                                    className="flex-row-reverse items-center bg-blue-50 px-3 py-2 rounded-xl"
+                                    className="bg-blue-50 py-2 px-3 rounded-xl items-center flex-row justify-center border border-blue-100"
                                 >
-                                    <Text className="text-blue-600 font-bold ml-1">פרטים</Text>
-                                    <Ionicons name="arrow-back" size={16} color="#2563eb" />
+                                    <Ionicons name="information-circle-outline" size={16} color="#2563eb" />
+                                    <Text className="text-blue-600 font-bold ml-1">{t('game.details')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </GameCard>
