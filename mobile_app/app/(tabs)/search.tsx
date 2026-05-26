@@ -26,6 +26,9 @@ export default function SearchScreen() {
     const [cityModalVisible, setCityModalVisible] = useState(false);
     const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
     const mapRef = useRef<MapView>(null);
+    
+    const [mapBounds, setMapBounds] = useState<{minLat: number, maxLat: number, minLng: number, maxLng: number} | null>(null);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -63,8 +66,17 @@ export default function SearchScreen() {
     };
 
     useEffect(() => {
-        performSearch();
-    }, [selectedCity, selectedDate, selectedSport]);
+        // Debounce search when bounds change
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+        searchTimeoutRef.current = setTimeout(() => {
+            performSearch();
+        }, 500);
+        return () => {
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        }
+    }, [selectedCity, selectedDate, selectedSport, mapBounds]);
 
     const loadCities = async () => {
         try {
@@ -82,6 +94,12 @@ export default function SearchScreen() {
             const params = new URLSearchParams();
             if (query) params.append('q', query);
             if (selectedCity) params.append('city', selectedCity);
+            if (isMapView && mapBounds) {
+                params.append('minLat', mapBounds.minLat.toString());
+                params.append('maxLat', mapBounds.maxLat.toString());
+                params.append('minLng', mapBounds.minLng.toString());
+                params.append('maxLng', mapBounds.maxLng.toString());
+            }
             
             let targetDateStr = '';
             if (selectedDate) {
@@ -282,29 +300,70 @@ export default function SearchScreen() {
                             latitudeDelta: 0.1,
                             longitudeDelta: 0.1,
                         }}
+                        onRegionChangeComplete={(region) => {
+                            if (!region) return;
+                            setMapBounds({
+                                minLat: region.latitude - (region.latitudeDelta / 2),
+                                maxLat: region.latitude + (region.latitudeDelta / 2),
+                                minLng: region.longitude - (region.longitudeDelta / 2),
+                                maxLng: region.longitude + (region.longitudeDelta / 2),
+                            });
+                        }}
                     >
-                        {games.map(game => {
-                            const lat = game.customLat || game.fieldLat;
-                            const lng = game.customLng || game.fieldLng;
-                            if (!lat || !lng) return null;
-                            const iconName = getSportIcon(game.sport || game.type);
-                            const hexColor = getSportColorHex(game.sport || game.type);
+                        {Object.values(games.reduce((acc, game) => {
+                            const lat = game.customLat || game.fieldLat || game.field?.lat;
+                            const lng = game.customLng || game.fieldLng || game.field?.lng;
+                            if (!lat || !lng) return acc;
+                            const key = `${lat},${lng}`;
+                            if (!acc[key]) acc[key] = [];
+                            acc[key].push(game);
+                            return acc;
+                        }, {} as Record<string, Game[]>)).map(group => {
+                            const firstGame = group[0];
+                            const lat = firstGame.customLat || firstGame.fieldLat || firstGame.field?.lat;
+                            const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng;
+                            
+                            // If multiple sports, show generic icon/color, else the specific sport
+                            const uniqueSports = [...new Set(group.map(g => g.sport || g.type))];
+                            const isMixed = uniqueSports.length > 1;
+                            const iconName = isMixed ? 'map-marker-multiple' : getSportIcon(firstGame.sport || firstGame.type);
+                            const hexColor = isMixed ? '#64748b' : getSportColorHex(firstGame.sport || firstGame.type); // slate-500 for mixed
+                            
                             return (
                                 <Marker
-                                    key={game.id}
-                                    coordinate={{ latitude: lat, longitude: lng }}
-                                    title={game.title || game.fieldName}
-                                    description={new Date(game.date).toLocaleDateString() + ' ' + game.time}
-                                    onCalloutPress={() => router.push(`/game/${game.id}`)}
+                                    key={firstGame.id}
+                                    coordinate={{ latitude: lat!, longitude: lng! }}
+                                    title={group.length > 1 ? `${group.length} משחקים ב${firstGame.field?.name || firstGame.fieldName}` : firstGame.title || firstGame.fieldName}
                                 >
                                     <View style={{ backgroundColor: hexColor }} className="w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-lg">
                                         <MaterialCommunityIcons name={iconName as any} size={20} color="white" />
+                                        {group.length > 1 && (
+                                            <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-4 h-4 items-center justify-center">
+                                                <Text className="text-white text-[10px] font-bold">{group.length}</Text>
+                                            </View>
+                                        )}
                                     </View>
-                                    <Callout>
-                                        <View className="p-2 w-48">
-                                            <Text className="font-bold text-gray-800 text-sm text-right">{game.title || game.fieldName}</Text>
-                                            <Text className="text-gray-600 text-xs mt-1 text-right">{new Date(game.date).toLocaleDateString()} בשעה {game.time}</Text>
-                                            <Text className="text-blue-600 text-xs mt-1 font-bold text-right">לחץ לפרטים והצטרפות</Text>
+                                    <Callout onPress={() => {
+                                        if (group.length === 1) {
+                                            router.push(`/game/${firstGame.id}`);
+                                        } else {
+                                            // Ideally open a modal, but Callout onPress works differently on Android/iOS.
+                                            // For now, if they press, just navigate to the first game, or handle a custom view.
+                                            // We will show all games inside the callout text.
+                                            router.push(`/game/${firstGame.id}`); // Basic fallback
+                                        }
+                                    }}>
+                                        <View className="p-2 w-56">
+                                            <Text className="font-bold text-gray-800 text-sm text-right mb-1">
+                                                {firstGame.field?.name || firstGame.fieldName}
+                                            </Text>
+                                            {group.map((g, idx) => (
+                                                <View key={g.id} className={`py-1 ${idx > 0 ? 'border-t border-gray-100' : ''}`}>
+                                                    <Text className="text-gray-800 text-xs text-right font-medium">{g.title || 'משחק'}</Text>
+                                                    <Text className="text-gray-500 text-xs text-right">{new Date(g.date).toLocaleDateString()} בשעה {g.time}</Text>
+                                                </View>
+                                            ))}
+                                            <Text className="text-blue-600 text-xs mt-2 font-bold text-center">לחץ לפרטים על המשחק הראשון</Text>
                                         </View>
                                     </Callout>
                                 </Marker>
