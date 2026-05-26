@@ -1,4 +1,5 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Platform, Modal } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import React, { useState, useEffect } from 'react';
 import { useRouter, Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
@@ -54,6 +55,11 @@ export default function NewGameScreen() {
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
 
+    // Map State
+    const [showMapModal, setShowMapModal] = useState(false);
+    const [customPoint, setCustomPoint] = useState<{lat: number, lng: number} | null>(null);
+    const [customFieldName, setCustomFieldName] = useState('');
+
     useEffect(() => {
         loadInitialData();
     }, []);
@@ -79,8 +85,8 @@ export default function NewGameScreen() {
     const filteredFields = fields.filter(f => !selectedCity || f.city === selectedCity || f.location?.includes(selectedCity));
 
     const handleSubmit = async () => {
-        if (!selectedField) {
-            Alert.alert("Error", "Please select a field");
+        if (!selectedField && !customPoint) {
+            Alert.alert("Error", "אנא בחר מגרש או סמן מיקום במפה");
             return;
         }
 
@@ -121,7 +127,15 @@ export default function NewGameScreen() {
 
             // Construct payload matching backend expectation
             const payload = {
-                fieldId: selectedField.id,
+                fieldId: selectedField?.id || "",
+                ...(customPoint && !selectedField ? {
+                    newField: {
+                        name: customFieldName || 'מיקום מותאם אישית',
+                        location: 'מיקום נבחר מהמפה',
+                        type: 'open'
+                    }
+                } : {}),
+                ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
                 date: dateStr,
                 time: timeString,
                 maxPlayers: parseInt(maxPlayers) || 14,
@@ -212,7 +226,28 @@ export default function NewGameScreen() {
 
                 {/* Field Selection */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">מיקום</Text>
+                    <View className="flex-row justify-between items-center mb-2">
+                        <Text className="text-lg font-bold text-gray-800">מיקום</Text>
+                        <TouchableOpacity onPress={() => setShowMapModal(true)} className="flex-row items-center bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                            <FontAwesome name="map-marker" size={14} color="#2563eb" style={{ marginRight: 6 }} />
+                            <Text className="text-blue-700 font-bold text-xs">בחר במפה</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {customPoint && !selectedField && (
+                        <View className="bg-green-50 p-3 rounded-lg mb-3 border border-green-200">
+                            <Text className="text-green-800 font-bold mb-1">✓ מיקום נבחר מהמפה</Text>
+                            <TextInput
+                                value={customFieldName}
+                                onChangeText={setCustomFieldName}
+                                placeholder="שם המיקום (אופציונלי)"
+                                className="bg-white p-2 rounded border border-green-100 text-sm mt-1"
+                            />
+                            <TouchableOpacity onPress={() => setCustomPoint(null)} className="mt-2">
+                                <Text className="text-red-500 text-xs font-bold">הסר בחירה</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
 
                     {/* City Selector */}
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
@@ -435,6 +470,42 @@ export default function NewGameScreen() {
                 </TouchableOpacity>
 
             </ScrollView>
+
+            <Modal visible={showMapModal} animationType="slide" onRequestClose={() => setShowMapModal(false)}>
+                <View className="flex-1 bg-white">
+                    <View className="flex-row justify-between items-center p-4 border-b border-gray-200 pt-10">
+                        <Text className="text-lg font-bold">בחר מיקום</Text>
+                        <TouchableOpacity onPress={() => setShowMapModal(false)}>
+                            <Text className="text-blue-600 font-bold">סגור</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <MapView 
+                        style={{ flex: 1 }}
+                        initialRegion={{
+                            latitude: 32.0853,
+                            longitude: 34.7818,
+                            latitudeDelta: 0.1,
+                            longitudeDelta: 0.1,
+                        }}
+                        onPress={(e) => {
+                            setCustomPoint(e.nativeEvent.coordinate);
+                            setSelectedField(null);
+                        }}
+                    >
+                        {customPoint && <Marker coordinate={customPoint} title="מיקום נבחר" />}
+                    </MapView>
+                    {customPoint && (
+                        <View className="p-4 bg-white pb-10">
+                            <TouchableOpacity 
+                                className="bg-blue-600 p-4 rounded-xl items-center"
+                                onPress={() => setShowMapModal(false)}
+                            >
+                                <Text className="text-white font-bold">אשר מיקום</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+            </Modal>
         </>
     );
 }
