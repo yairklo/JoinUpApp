@@ -13,8 +13,8 @@
 *Git branch: `feature/mobile-filter-past-games`*
 
 ### Task 3: Home Page - Series Cards with Images & Indicators
-- [ ] **Task 3.1: Add images to Series cards.** Update the series cards/items on the main dashboard to display cover images, matching the behavior of single game cards.
-- [ ] **Task 3.2: Add "Series" badge indicator.** Implement a distinct visual badge or label (taking inspiration from the web platform) to clearly differentiate a multiple-match "Series" card from a single "Game" card.
+- [-] **Task 3.1: Add images to Series cards.** Update the series cards/items on the main dashboard to display cover images, matching the behavior of single game cards.
+- [-] **Task 3.2: Add "Series" badge indicator.** Implement a distinct visual badge or label (taking inspiration from the web platform) to clearly differentiate a multiple-match "Series" card from a single "Game" card.
 *Git branch: `feature/mobile-home-series-ui`*
 
 ### Task 4: Game Details Utility Actions (Share, Navigate, Calendar)
