@@ -5,6 +5,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { gamesApi } from '@/services/api';
 import { Game } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSeriesLogic } from '@/hooks/useSeriesLogic';
 import { useTranslation } from 'react-i18next';
 
@@ -109,8 +110,13 @@ export default function GameDetailsScreen() {
     const isOrganizer = game.organizerId === user?.id;
 
     return (
-        <>
-            <Stack.Screen options={{ title: t('game.details'), headerShown: true }} />
+        <SafeAreaView edges={['top']} className="flex-1 bg-white">
+            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+                <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
+                    <FontAwesome name="arrow-left" size={20} color="#4b5563" />
+                </TouchableOpacity>
+                <Text className="text-xl font-bold text-gray-900">{t('game.details')}</Text>
+            </View>
             <ScrollView className="flex-1 bg-gray-50">
                 {/* Header Section */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
@@ -198,25 +204,70 @@ export default function GameDetailsScreen() {
                         </Text>
                     </View>
 
-                    <View className="flex-row flex-wrap">
-                        {game.participants?.map((p) => (
-                            <View key={p.id} className="ml-4 mb-4 items-center w-16">
-                                <Image
-                                    source={{ uri: p.avatar || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
-                                    className="w-12 h-12 rounded-full bg-gray-200 mb-1"
-                                />
-                                <Text
-                                    className="text-xs text-center text-gray-600"
-                                    numberOfLines={1}
-                                >
-                                    {p.name || "User"}
-                                </Text>
-                                {p.id === game.organizerId && (
-                                    <Text className="text-[10px] text-blue-600 font-bold">מארגן</Text>
-                                )}
-                            </View>
-                        ))}
-                    </View>
+                    {game.teams && game.teams.length > 0 ? (
+                        <View className="flex-col gap-4">
+                            {game.teams.map(team => {
+                                if (!team.playerIds || team.playerIds.length === 0) return null;
+                                return (
+                                    <View key={team.id} className="border border-gray-100 rounded-xl p-3 bg-gray-50" style={{ borderRightWidth: 4, borderRightColor: team.color }}>
+                                        <Text className="font-bold text-gray-800 mb-2">{team.name} ({team.playerIds.length})</Text>
+                                        <View className="flex-row flex-wrap">
+                                            {team.playerIds.map(pid => {
+                                                const p = game.participants?.find(part => part.id === pid);
+                                                if (!p) return null;
+                                                return (
+                                                    <View key={pid} className="mr-3 mb-2 items-center w-12">
+                                                        <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
+                                                        <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
+                                                    </View>
+                                                )
+                                            })}
+                                        </View>
+                                    </View>
+                                )
+                            })}
+                            
+                            {/* Unassigned Players (Bench) */}
+                            {(() => {
+                                const assignedPlayerIds = new Set(game.teams.flatMap(t => t.playerIds || []));
+                                const bench = game.participants?.filter(p => !assignedPlayerIds.has(p.id)) || [];
+                                if (bench.length === 0) return null;
+                                return (
+                                    <View className="border border-gray-100 rounded-xl p-3 bg-white">
+                                        <Text className="font-bold text-gray-500 mb-2">לא שובצו ({bench.length})</Text>
+                                        <View className="flex-row flex-wrap">
+                                            {bench.map(p => (
+                                                <View key={p.id} className="mr-3 mb-2 items-center w-12">
+                                                    <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
+                                                    <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+                                )
+                            })()}
+                        </View>
+                    ) : (
+                        <View className="flex-row flex-wrap">
+                            {game.participants?.map((p) => (
+                                <View key={p.id} className="ml-4 mb-4 items-center w-16">
+                                    <Image
+                                        source={{ uri: p.avatar || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
+                                        className="w-12 h-12 rounded-full bg-gray-200 mb-1"
+                                    />
+                                    <Text
+                                        className="text-xs text-center text-gray-600"
+                                        numberOfLines={1}
+                                    >
+                                        {p.name || "User"}
+                                    </Text>
+                                    {p.id === game.organizerId && (
+                                        <Text className="text-[10px] text-blue-600 font-bold">מארגן</Text>
+                                    )}
+                                </View>
+                            ))}
+                        </View>
+                    )}
                 </View>
 
                 {/* Actions Section */}
@@ -228,6 +279,13 @@ export default function GameDetailsScreen() {
                                 className="bg-blue-100 p-4 rounded-xl items-center mb-3 border border-blue-200"
                             >
                                 <Text className="text-blue-700 font-bold text-lg">פתח צ'אט</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={() => router.push(`/game/teams/${game.id}`)}
+                                className="bg-gray-100 p-4 rounded-xl items-center mb-3"
+                            >
+                                <Text className="text-gray-700 font-bold text-lg">נהל קבוצות</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -361,6 +419,6 @@ export default function GameDetailsScreen() {
                     </View>
                 </View>
             </Modal>
-        </>
+        </SafeAreaView>
     );
 }
