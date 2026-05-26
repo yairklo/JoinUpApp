@@ -42,3 +42,24 @@
 ### Task 8: Native Push Notifications Sync
 - [ ] **Task 8.1: Connect in-app events to Native Notifications.** Request device notification permissions and bridge the app's existing real-time notification events to trigger system-level native push notifications on the user's phone.
 *Git branch: `feature/mobile-native-push-notifications`*
+
+## Phase 3: Localization, Performance & Map Customization
+
+### Task 9: Series Details Page Layout & Localization
+- [ ] **Task 9.1: Fix Layout Spacing.** Adjust the series details screen layout to reduce overall height and top spacing, ensuring a more compact and mobile-friendly view.
+- [ ] **Task 9.2: Align Series Data with Web.** Update the series screen to fetch and display all metadata available on the web version (such as venue location, recurring schedule details, etc.), replacing the current edit-only state.
+- [ ] **Task 9.3: Multilingual Support & Badges.** Implement full i18n/localization (Hebrew and English) for the series details text. Ensure the "Series" badge indicator on the home page dashboard dynamically adapts its text/layout based on the user's selected language.
+*Git branch: `feature/mobile-series-details-localization`*
+
+### Task 10: Notifications Screen Optimization
+- [ ] **Task 10.1: Fix Layout Height.** Adjust the notification page design and layout constraints to fix the excessive height issue.
+- [ ] **Task 10.2: Fix Infinite Refresh Bug.** Audit the useEffect dependencies or state management lifecycle on the notifications page to prevent the screen from constantly re-rendering/refreshing.
+*Git branch: `feature/mobile-notifications-performance-fix`*
+
+### Task 11: Advanced Search Map Customization & Logic
+- [ ] **Task 11.1: Sport-Specific Map Markers.** Replace the default red location pins on the search map with dynamic custom markers or icons based on the game's sport category (e.g., Football, Basketball, Tennis).
+- [ ] **Task 11.2: Current Location Pin.** Check for device location permissions, and if granted, render a distinct "Current User Location" marker/blue dot on the map.
+- [ ] **Task 11.3: Map Camera Camera Focus Logic.** Implement reactive camera positioning for the map: 
+  - If the user filters/searches for a specific city, center and focus the map view on that city's coordinates.
+  - If "All Cities" or no specific city is selected, center and focus the map directly on the user's current coordinates.
+*Git branch: `feature/mobile-search-map-customization`*
