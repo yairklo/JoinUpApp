@@ -149,11 +149,11 @@ export default function SearchScreen() {
     // Returning explicit Hex colors ensures NativeWind doesn't purge them
     const getSportColorHex = (sport?: string) => {
         const s = sport?.toLowerCase() || '';
-        if (s.includes('כדורגל')) return '#16a34a'; // green-600
-        if (s.includes('כדורסל')) return '#f97316'; // orange-500
-        if (s.includes('טניס')) return '#eab308'; // yellow-500
-        if (s.includes('כדורעף')) return '#60a5fa'; // blue-400
-        if (s.includes('פדל')) return '#a855f7'; // purple-500
+        if (s.includes('כדורגל') || s.includes('soccer') || s.includes('football')) return '#16a34a'; // green-600
+        if (s.includes('כדורסל') || s.includes('basketball')) return '#f97316'; // orange-500
+        if (s.includes('טניס') || s.includes('tennis')) return '#eab308'; // yellow-500
+        if (s.includes('כדורעף') || s.includes('volleyball')) return '#60a5fa'; // blue-400
+        if (s.includes('פדל') || s.includes('padel')) return '#a855f7'; // purple-500
         return '#2563eb'; // blue-600 (default)
     };
 
