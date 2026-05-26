@@ -73,7 +73,10 @@ export default function SearchScreen() {
             });
             
             if (selectedDate) {
-                const targetDate = selectedDate.toISOString().split('T')[0];
+                const year = selectedDate.getFullYear();
+                const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                const day = String(selectedDate.getDate()).padStart(2, '0');
+                const targetDate = `${year}-${month}-${day}`;
                 upcomingGames = upcomingGames.filter(g => g.date === targetDate);
             }
             if (selectedSport) {
