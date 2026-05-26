@@ -51,40 +51,45 @@ export default function SearchScreen() {
         try {
             const token = await getToken();
             const params = new URLSearchParams();
-            if (query) params.append('q', query); // Assuming backend supports 'q' for general search
+            if (query) params.append('q', query);
             if (selectedCity) params.append('city', selectedCity);
-
-            // If backend search is limited, we might need to use getByCity or getAll and filter client-side
-            // Given gamesApi.search signature:
-            // search takes params directly.
-
-            const results = await gamesApi.search(params, token || undefined);
             
-            const now = new Date();
-            let upcomingGames = results.filter(game => {
-                if (!game.date) return true;
-                const gameDateTime = new Date(`${game.date}T${game.time || '00:00'}`);
-                if (game.duration) {
-                    gameDateTime.setMinutes(gameDateTime.getMinutes() + game.duration);
-                } else {
-                    gameDateTime.setHours(gameDateTime.getHours() + 2); // Default 2 hours
-                }
-                return gameDateTime > now;
-            });
-            
+            let targetDateStr = '';
             if (selectedDate) {
                 const year = selectedDate.getFullYear();
                 const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
                 const day = String(selectedDate.getDate()).padStart(2, '0');
-                const targetDate = `${year}-${month}-${day}`;
-                upcomingGames = upcomingGames.filter(g => g.date === targetDate);
-            }
-            if (selectedSport) {
-                // If game.sport is missing, assume checking title/type or just filter
-                upcomingGames = upcomingGames.filter(g => g.sport === selectedSport || g.type === selectedSport || g.title?.includes(selectedSport));
+                targetDateStr = `${year}-${month}-${day}`;
+                params.append('date', targetDateStr);
             }
 
-            setGames(upcomingGames);
+            const results = await gamesApi.search(params, token || undefined);
+            
+            const now = new Date();
+            let finalGames = results;
+            
+            if (!selectedDate) {
+                // If no specific date selected, only show upcoming games
+                finalGames = finalGames.filter(game => {
+                    if (!game.date) return true;
+                    const gameDateTime = new Date(`${game.date}T${game.time || '00:00'}`);
+                    if (game.duration) {
+                        gameDateTime.setMinutes(gameDateTime.getMinutes() + game.duration);
+                    } else {
+                        gameDateTime.setHours(gameDateTime.getHours() + 2); // Default 2 hours
+                    }
+                    return gameDateTime > now;
+                });
+            } else {
+                // Keep all games for the selected date, regardless of time
+                finalGames = finalGames.filter(g => g.date === targetDateStr);
+            }
+            
+            if (selectedSport) {
+                finalGames = finalGames.filter(g => g.sport === selectedSport || g.type === selectedSport || g.title?.includes(selectedSport));
+            }
+
+            setGames(finalGames);
         } catch (error) {
             console.error("Search failed", error);
         } finally {
