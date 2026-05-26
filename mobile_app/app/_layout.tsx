@@ -1,6 +1,8 @@
 import { Slot, SplashScreen, Stack, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
+import { useColorScheme } from "react-native";
+import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
 import { tokenStorage } from "@/services/api/client.adapter";
 import { ChatProvider } from "@/context/ChatContext";
@@ -21,6 +23,19 @@ if (!publishableKey) {
 export default function RootLayout() {
   const [loaded, error] = useFonts({});
   const [i18nLoaded, setI18nLoaded] = useState(false);
+  const colorScheme = useColorScheme();
+
+  const CyberDarkTheme = {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      background: '#0a0a0a',
+      card: '#171717',
+      text: '#f8fafc',
+      border: '#262626',
+      primary: '#2563eb',
+    },
+  };
 
   useEffect(() => {
     if (error) throw error;
@@ -43,11 +58,13 @@ export default function RootLayout() {
       <ClerkProvider tokenCache={tokenStorage} publishableKey={publishableKey}>
         <ClerkLoaded>
           <AuthGuard>
-            <ChatProvider>
-              <GameUpdateProvider>
-                <Stack screenOptions={{ headerShown: false }} />
-              </GameUpdateProvider>
-            </ChatProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? CyberDarkTheme : DefaultTheme}>
+              <ChatProvider>
+                <GameUpdateProvider>
+                  <Stack screenOptions={{ headerShown: false }} />
+                </GameUpdateProvider>
+              </ChatProvider>
+            </ThemeProvider>
           </AuthGuard>
         </ClerkLoaded>
       </ClerkProvider>
