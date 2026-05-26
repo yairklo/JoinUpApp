@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal, Share, Linking } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -139,6 +139,60 @@ export default function GameDetailsScreen() {
                             {game.price ? `₪${game.price}` : t('game.free')}
                         </Text>
                     </View>
+                </View>
+
+                {/* Utility Actions Section */}
+                <View className="bg-white p-4 mb-4 shadow-sm flex-row justify-around border-y border-gray-100">
+                    <TouchableOpacity 
+                        className="items-center"
+                        onPress={() => {
+                            Share.share({
+                                message: `Join me for a game at ${game.field?.name || game.fieldName} on ${new Date(game.date).toLocaleDateString()} at ${game.time}!`,
+                                title: 'Join my game'
+                            });
+                        }}
+                    >
+                        <View className="w-12 h-12 bg-blue-50 rounded-full items-center justify-center mb-1">
+                            <FontAwesome name="share-alt" size={20} color="#2563eb" />
+                        </View>
+                        <Text className="text-xs text-gray-600 font-bold">{t('game.share') || 'Share'}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        className="items-center"
+                        onPress={() => {
+                            const query = encodeURIComponent(game.field?.location || game.fieldLocation || '');
+                            Linking.openURL(`https://maps.google.com/?q=${query}`);
+                        }}
+                    >
+                        <View className="w-12 h-12 bg-green-50 rounded-full items-center justify-center mb-1">
+                            <FontAwesome name="location-arrow" size={20} color="#16a34a" />
+                        </View>
+                        <Text className="text-xs text-gray-600 font-bold">{t('game.navigate') || 'Navigate'}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        className="items-center"
+                        onPress={() => {
+                            const startStr = `${game.date}T${game.time || '00:00'}:00`;
+                            const startDate = new Date(startStr);
+                            const endDate = new Date(startDate.getTime() + (game.duration || 60) * 60000);
+                            
+                            const formatGoogleDate = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, '');
+                            
+                            const title = encodeURIComponent(game.title || game.fieldName || 'Sports Game');
+                            const details = encodeURIComponent(`JoinUp Game\n\nLink: https://joinup.app/game/${game.id}`);
+                            const location = encodeURIComponent(game.field?.location || game.fieldLocation || '');
+                            
+                            const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${details}&location=${location}`;
+                            Linking.openURL(url);
+                        }}
+                    >
+                        <View className="w-12 h-12 bg-purple-50 rounded-full items-center justify-center mb-1">
+                            <FontAwesome name="calendar-plus-o" size={20} color="#9333ea" />
+                        </View>
+                        <Text className="text-xs text-gray-600 font-bold">{t('game.calendar') || 'Calendar'}</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Participants Section */}

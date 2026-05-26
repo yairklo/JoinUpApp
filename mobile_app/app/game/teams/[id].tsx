@@ -2,9 +2,10 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Modal, TextInpu
 import React, { useState, useEffect } from 'react';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
-import { gamesApi } from '@/services/api'; // We might need a specific updateTeams endpoint or use update
+import { gamesApi } from '@/services/api';
 import { Game, Team, GameParticipant } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Mock colors for teams
 const TEAM_COLORS = [
@@ -127,17 +128,18 @@ export default function TeamBuilderScreen() {
     const getP = (pid: string) => participants.find(p => p.id === pid);
 
     return (
-        <>
-            <Stack.Screen
-                options={{
-                    title: 'Team Builder',
-                    headerRight: () => (
-                        <TouchableOpacity onPress={handleSave} disabled={saving}>
-                            <Text className="text-blue-600 font-bold text-lg">{saving ? "..." : "Save"}</Text>
-                        </TouchableOpacity>
-                    )
-                }}
-            />
+        <SafeAreaView edges={['top']} className="flex-1 bg-white">
+            <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+                <View className="flex-row items-center">
+                    <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
+                        <FontAwesome name="arrow-left" size={20} color="#4b5563" />
+                    </TouchableOpacity>
+                    <Text className="text-xl font-bold text-gray-900">Team Builder</Text>
+                </View>
+                <TouchableOpacity onPress={handleSave} disabled={saving} className="p-2">
+                    <Text className="text-blue-600 font-bold text-lg">{saving ? "..." : "Save"}</Text>
+                </TouchableOpacity>
+            </View>
             <View className="flex-1 bg-gray-50">
                 <ScrollView className="flex-1 p-4">
 
@@ -242,6 +244,6 @@ export default function TeamBuilderScreen() {
 
                 </ScrollView>
             </View>
-        </>
+        </SafeAreaView>
     );
 }

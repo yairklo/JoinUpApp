@@ -18,7 +18,7 @@
 *Git branch: `feature/mobile-home-series-ui`*
 
 ### Task 4: Game Details Utility Actions (Share, Navigate, Calendar)
-- [ ] **Task 4.1: Add Share, Navigate, and Calendar buttons.** Introduce interactive buttons/icons on the game details screen for native sharing, location navigation (linking to maps), and "Add to Calendar" functionality.
+- [-] **Task 4.1: Add Share, Navigate, and Calendar buttons.** Introduce interactive buttons/icons on the game details screen for native sharing, location navigation (linking to maps), and "Add to Calendar" functionality.
 *Git branch: `feature/mobile-game-details-actions`*
 
 ---
