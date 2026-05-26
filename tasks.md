@@ -52,8 +52,8 @@
 *Git branch: `feature/mobile-series-details-localization`*
 
 ### Task 10: Notifications Screen Optimization
-- [ ] **Task 10.1: Fix Layout Height.** Adjust the notification page design and layout constraints to fix the excessive height issue.
-- [ ] **Task 10.2: Fix Infinite Refresh Bug.** Audit the useEffect dependencies or state management lifecycle on the notifications page to prevent the screen from constantly re-rendering/refreshing.
+- [x] **Task 10.1: Fix Layout Height.** Adjust the notification page design and layout constraints to fix the excessive height issue.
+- [x] **Task 10.2: Fix Infinite Refresh Bug.** Audit the useEffect dependencies or state management lifecycle on the notifications page to prevent the screen from constantly re-rendering/refreshing.
 *Git branch: `feature/mobile-notifications-performance-fix`*
 
 ### Task 11: Advanced Search Map Customization & Logic

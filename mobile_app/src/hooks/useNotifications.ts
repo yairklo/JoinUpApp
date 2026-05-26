@@ -62,7 +62,7 @@ export function useNotifications() {
         } finally {
             setLoading(false);
         }
-    }, [userId, getToken]);
+    }, [userId]); // Removed getToken to prevent infinite re-renders
 
     // Initial Fetch & Polling
     useEffect(() => {
@@ -71,7 +71,7 @@ export function useNotifications() {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
-    }, [isLoaded, userId, fetchNotifications]);
+    }, [isLoaded, userId]); // Removed fetchNotifications to prevent infinite loop
 
     // 2. Socket Connection
     useEffect(() => {

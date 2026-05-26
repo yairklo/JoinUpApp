@@ -37,10 +37,10 @@ export default function NotificationsScreen() {
 
     const renderItem = ({ item }: { item: any }) => (
         <TouchableOpacity
-            className={`flex-row p-4 border-b border-gray-100 ${!item.read ? 'bg-blue-50' : 'bg-white'}`}
+            className={`flex-row p-3 border-b border-gray-100 ${!item.read ? 'bg-blue-50' : 'bg-white'}`}
             onPress={() => handleNotificationPress(item)}
         >
-            <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${!item.read ? 'bg-blue-200' : 'bg-gray-100'}`}>
+            <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${!item.read ? 'bg-blue-200' : 'bg-gray-100'}`}>
                 <FontAwesome name="bell" size={16} color={!item.read ? '#1e40af' : '#9ca3af'} />
             </View>
             <View className="flex-1">
@@ -90,6 +90,7 @@ export default function NotificationsScreen() {
                         renderItem={renderItem}
                         refreshing={loading}
                         onRefresh={refreshNotifications}
+                        contentContainerStyle={{ paddingBottom: 80 }}
                         ListEmptyComponent={
                             <View className="flex-1 justify-center items-center mt-20 px-10">
                                 <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-4">
