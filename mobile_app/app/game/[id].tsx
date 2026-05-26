@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal, Share, Linking } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -147,15 +148,15 @@ export default function GameDetailsScreen() {
                         className="items-center"
                         onPress={() => {
                             Share.share({
-                                message: `Join me for a game at ${game.field?.name || game.fieldName} on ${new Date(game.date).toLocaleDateString()} at ${game.time}!`,
-                                title: 'Join my game'
+                                message: `הצטרפו אלי למשחק ב-${game.field?.name || game.fieldName} בתאריך ${game.date.split('-').reverse().join('/')} בשעה ${game.time}!\nhttps://joinup.app/game/${game.id}`,
+                                title: 'הצטרף למשחק שלי'
                             });
                         }}
                     >
                         <View className="w-12 h-12 bg-blue-50 rounded-full items-center justify-center mb-1">
                             <FontAwesome name="share-alt" size={20} color="#2563eb" />
                         </View>
-                        <Text className="text-xs text-gray-600 font-bold">{t('game.share') || 'Share'}</Text>
+                        <Text className="text-xs text-gray-600 font-bold">{t('game.share', 'שתף')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity 
@@ -168,7 +169,7 @@ export default function GameDetailsScreen() {
                         <View className="w-12 h-12 bg-green-50 rounded-full items-center justify-center mb-1">
                             <FontAwesome name="location-arrow" size={20} color="#16a34a" />
                         </View>
-                        <Text className="text-xs text-gray-600 font-bold">{t('game.navigate') || 'Navigate'}</Text>
+                        <Text className="text-xs text-gray-600 font-bold">{t('game.navigate', 'נווט')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity 
@@ -191,8 +192,26 @@ export default function GameDetailsScreen() {
                         <View className="w-12 h-12 bg-purple-50 rounded-full items-center justify-center mb-1">
                             <FontAwesome name="calendar-plus-o" size={20} color="#9333ea" />
                         </View>
-                        <Text className="text-xs text-gray-600 font-bold">{t('game.calendar') || 'Calendar'}</Text>
+                        <Text className="text-xs text-gray-600 font-bold">{t('game.calendar', 'יומן')}</Text>
                     </TouchableOpacity>
+                </View>
+
+                {/* Map Section */}
+                <View className="bg-white p-4 mb-4 shadow-sm border-b border-gray-100">
+                    <Text className="text-lg font-bold text-gray-800 mb-3">{t('game.location', 'מיקום המגרש')}</Text>
+                    <View className="h-48 rounded-xl overflow-hidden bg-gray-100">
+                        <MapView 
+                            style={{ flex: 1 }}
+                            initialRegion={{
+                                latitude: 32.0853, // Fallback Tel Aviv coordinates for MVP
+                                longitude: 34.7818,
+                                latitudeDelta: 0.05,
+                                longitudeDelta: 0.05,
+                            }}
+                        >
+                            <Marker coordinate={{ latitude: 32.0853, longitude: 34.7818 }} title={game.field?.name || game.fieldName} description={game.field?.location || game.fieldLocation} />
+                        </MapView>
+                    </View>
                 </View>
 
                 {/* Participants Section */}
@@ -279,13 +298,6 @@ export default function GameDetailsScreen() {
                                 className="bg-blue-100 p-4 rounded-xl items-center mb-3 border border-blue-200"
                             >
                                 <Text className="text-blue-700 font-bold text-lg">פתח צ'אט</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={() => router.push(`/game/teams/${game.id}`)}
-                                className="bg-gray-100 p-4 rounded-xl items-center mb-3"
-                            >
-                                <Text className="text-gray-700 font-bold text-lg">נהל קבוצות</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity

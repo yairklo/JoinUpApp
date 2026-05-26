@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Modal, TextInpu
 import React, { useState, useEffect } from 'react';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
+import { useTranslation } from 'react-i18next';
 import { gamesApi } from '@/services/api';
 import { Game, Team, GameParticipant } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -23,6 +24,7 @@ export default function TeamBuilderScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getToken } = useAuth();
     const router = useRouter();
+    const { t } = useTranslation();
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -77,10 +79,10 @@ export default function TeamBuilderScreen() {
 
             await gamesApi.update(id, { teams } as any, token);
 
-            Alert.alert("Success", "Teams saved!", [{ text: "OK", onPress: () => router.back() }]);
+            Alert.alert(t('success', 'הצלחה'), t('teams.saved', 'הקבוצות נשמרו!'), [{ text: t('ok', 'אישור'), onPress: () => router.back() }]);
         } catch (error) {
             console.error("Failed to save teams", error);
-            Alert.alert("Error", "Failed to save teams");
+            Alert.alert(t('error', 'שגיאה'), t('teams.saveFailed', 'שגיאה בשמירת קבוצות'));
         } finally {
             setSaving(false);
         }
@@ -90,7 +92,7 @@ export default function TeamBuilderScreen() {
         const newId = `t${Date.now()}`;
         const usedColors = new Set(teams.map((t) => t.color));
         const nextColor = TEAM_COLORS.find((c) => !usedColors.has(c.hex))?.hex || "#6b7280";
-        setTeams([...teams, { id: newId, name: `Team ${teams.length + 1}`, color: nextColor, playerIds: [] }]);
+        setTeams([...teams, { id: newId, name: `${t('teams.team', 'קבוצה')} ${teams.length + 1}`, color: nextColor, playerIds: [] }]);
     };
 
     const handleRemoveTeam = (teamId: string) => {
@@ -134,10 +136,10 @@ export default function TeamBuilderScreen() {
                     <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
                         <FontAwesome name="arrow-left" size={20} color="#4b5563" />
                     </TouchableOpacity>
-                    <Text className="text-xl font-bold text-gray-900">Team Builder</Text>
+                    <Text className="text-xl font-bold text-gray-900">{t('teams.title', 'ניהול קבוצות')}</Text>
                 </View>
                 <TouchableOpacity onPress={handleSave} disabled={saving} className="p-2">
-                    <Text className="text-blue-600 font-bold text-lg">{saving ? "..." : "Save"}</Text>
+                    <Text className="text-blue-600 font-bold text-lg">{saving ? "..." : t('teams.save', 'שמור')}</Text>
                 </TouchableOpacity>
             </View>
             <View className="flex-1 bg-gray-50">
@@ -146,15 +148,15 @@ export default function TeamBuilderScreen() {
                     {/* Bench */}
                     <View className="bg-white p-4 rounded-xl mb-4 shadow-sm border border-gray-100">
                         <View className="flex-row justify-between items-center mb-3">
-                            <Text className="font-bold text-gray-700">The Bench ({unassignedPlayers.length})</Text>
+                            <Text className="font-bold text-gray-700">{t('teams.bench', 'ספסל')} ({unassignedPlayers.length})</Text>
                             <TouchableOpacity onPress={() => setTeams(teams.map(t => ({ ...t, playerIds: [] })))}>
-                                <Text className="text-red-500 text-xs">Reset All</Text>
+                                <Text className="text-red-500 text-xs">{t('teams.resetAll', 'אפס הכל')}</Text>
                             </TouchableOpacity>
                         </View>
 
                         <View className="flex-row flex-wrap">
                             {unassignedPlayers.length === 0 && (
-                                <Text className="text-gray-400 italic text-sm">Everyone is in a team!</Text>
+                                <Text className="text-gray-400 italic text-sm">{t('teams.allAssigned', 'כולם שובצו בקבוצות!')}</Text>
                             )}
                             {unassignedPlayers.map(p => (
                                 <TouchableOpacity
@@ -173,7 +175,7 @@ export default function TeamBuilderScreen() {
                         </View>
                         {selectedPlayerId && (
                             <Text className="mt-2 text-center text-blue-600 text-sm font-bold">
-                                Tap a team below to assign {getP(selectedPlayerId)?.name?.split(' ')[0]}
+                                {t('teams.tapToAssign', 'לחץ על קבוצה כדי לשבץ את')} {getP(selectedPlayerId)?.name?.split(' ')[0]}
                             </Text>
                         )}
                     </View>
@@ -204,7 +206,7 @@ export default function TeamBuilderScreen() {
 
                                     <View className="p-3 flex-row flex-wrap">
                                         {team.playerIds.length === 0 ? (
-                                            <Text className="text-gray-400 italic w-full text-center py-2">Empty Squad</Text>
+                                            <Text className="text-gray-400 italic w-full text-center py-2">{t('teams.emptySquad', 'קבוצה ריקה')}</Text>
                                         ) : (
                                             team.playerIds.map(pid => {
                                                 const p = getP(pid);
@@ -238,7 +240,7 @@ export default function TeamBuilderScreen() {
                             className="bg-white border-2 border-dashed border-gray-300 p-4 rounded-xl items-center"
                         >
                             <FontAwesome name="plus" size={20} color="#9ca3af" />
-                            <Text className="text-gray-500 font-bold mt-1">Add Another Team</Text>
+                            <Text className="text-gray-500 font-bold mt-1">{t('teams.addTeam', 'הוסף קבוצה נוספת')}</Text>
                         </TouchableOpacity>
                     </View>
 
