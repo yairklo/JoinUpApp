@@ -236,6 +236,7 @@ export default function SearchScreen() {
                         />
                     </View>
                 </View>
+            </Modal>
             {/* Sport Selection Modal */}
             <Modal
                 animationType="slide"
