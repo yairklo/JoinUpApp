@@ -81,7 +81,7 @@ export default function SeriesSection() {
                                 className="w-full h-full" 
                             />
                             <View className="absolute top-2 left-2 bg-indigo-600 px-2 py-1 rounded-md border border-white/20">
-                                <Text className="text-white text-[10px] font-bold tracking-widest uppercase">Series</Text>
+                                <Text className="text-white text-[10px] font-bold tracking-widest uppercase">{t('series.badge', 'SERIES')}</Text>
                             </View>
                             <View className="absolute top-2 right-2 bg-black/60 px-2 py-1 rounded-full border border-white/20 flex-row items-center">
                                 <Text className="text-white text-[10px] font-bold mx-1">{s.sport || t('newGame.sport')}</Text>

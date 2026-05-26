@@ -46,9 +46,9 @@
 ## Phase 3: Localization, Performance & Map Customization
 
 ### Task 9: Series Details Page Layout & Localization
-- [ ] **Task 9.1: Fix Layout Spacing.** Adjust the series details screen layout to reduce overall height and top spacing, ensuring a more compact and mobile-friendly view.
-- [ ] **Task 9.2: Align Series Data with Web.** Update the series screen to fetch and display all metadata available on the web version (such as venue location, recurring schedule details, etc.), replacing the current edit-only state.
-- [ ] **Task 9.3: Multilingual Support & Badges.** Implement full i18n/localization (Hebrew and English) for the series details text. Ensure the "Series" badge indicator on the home page dashboard dynamically adapts its text/layout based on the user's selected language.
+- [PR Created - feature/mobile-series-details-localization] **Task 9.1: Fix Layout Spacing.** Adjust the series details screen layout to reduce overall height and top spacing, ensuring a more compact and mobile-friendly view.
+- [PR Created - feature/mobile-series-details-localization] **Task 9.2: Align Series Data with Web.** Update the series screen to fetch and display all metadata available on the web version (such as venue location, recurring schedule details, etc.), replacing the current edit-only state.
+- [PR Created - feature/mobile-series-details-localization] **Task 9.3: Multilingual Support & Badges.** Implement full i18n/localization (Hebrew and English) for the series details text. Ensure the "Series" badge indicator on the home page dashboard dynamically adapts its text/layout based on the user's selected language.
 *Git branch: `feature/mobile-series-details-localization`*
 
 ### Task 10: Notifications Screen Optimization
