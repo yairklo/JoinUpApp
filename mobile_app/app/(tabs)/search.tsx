@@ -1,4 +1,5 @@
 import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView } from 'react-native';
+import MapView, { Marker, Callout } from 'react-native-maps';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -26,6 +27,7 @@ export default function SearchScreen() {
 
     const [selectedSport, setSelectedSport] = useState<string | null>(null);
     const [sportModalVisible, setSportModalVisible] = useState(false);
+    const [isMapView, setIsMapView] = useState(false);
     const SPORTS = ['כדורגל', 'כדורסל', 'טניס', 'כדורעף', 'פדל'];
 
     useEffect(() => {
@@ -144,6 +146,18 @@ export default function SearchScreen() {
                 {/* Filter Chips */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
                     <TouchableOpacity
+                        onPress={() => setIsMapView(!isMapView)}
+                        className={`mr-2 px-4 py-2 rounded-full border ${isMapView ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}
+                    >
+                        <View className="flex-row items-center">
+                            <FontAwesome name={isMapView ? "list" : "map"} size={12} color={isMapView ? "white" : "#4b5563"} style={{ marginRight: 6 }} />
+                            <Text className={`font-medium ${isMapView ? 'text-white' : 'text-gray-600'}`}>
+                                {isMapView ? t("search.list", "רשימה") : t("search.map", "מפה")}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                         onPress={() => setCityModalVisible(true)}
                         className={`mr-2 px-4 py-2 rounded-full border ${selectedCity ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                     >
@@ -196,6 +210,42 @@ export default function SearchScreen() {
             {/* Results */}
             {loading ? (
                 <ActivityIndicator size="large" color="#2563eb" className="mt-10" />
+            ) : isMapView ? (
+                <View className="flex-1 mt-2 mx-2 mb-2 rounded-3xl overflow-hidden shadow-sm border border-gray-200">
+                    <MapView
+                        style={{ flex: 1 }}
+                        showsUserLocation={true}
+                        initialRegion={{
+                            latitude: 32.0853,
+                            longitude: 34.7818,
+                            latitudeDelta: 0.1,
+                            longitudeDelta: 0.1,
+                        }}
+                    >
+                        {games.map(game => {
+                            const lat = game.customLat || game.fieldLat;
+                            const lng = game.customLng || game.fieldLng;
+                            if (!lat || !lng) return null;
+                            return (
+                                <Marker
+                                    key={game.id}
+                                    coordinate={{ latitude: lat, longitude: lng }}
+                                    title={game.title || game.fieldName}
+                                    description={new Date(game.date).toLocaleDateString() + ' ' + game.time}
+                                    onCalloutPress={() => router.push(`/game/${game.id}`)}
+                                >
+                                    <Callout>
+                                        <View className="p-2 w-48">
+                                            <Text className="font-bold text-gray-800 text-sm text-right">{game.title || game.fieldName}</Text>
+                                            <Text className="text-gray-600 text-xs mt-1 text-right">{new Date(game.date).toLocaleDateString()} בשעה {game.time}</Text>
+                                            <Text className="text-blue-600 text-xs mt-1 font-bold text-right">לחץ לפרטים והצטרפות</Text>
+                                        </View>
+                                    </Callout>
+                                </Marker>
+                            );
+                        })}
+                    </MapView>
+                </View>
             ) : (
                 <FlatList
                     data={games}

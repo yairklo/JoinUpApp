@@ -35,8 +35,8 @@
 *Git branch: `feature/mobile-maps-integration`*
 
 ### Task 7: Map Search View with Filters
-- [ ] **Task 7.1: Search map view.** Build or integrate a map view within the search tab displaying the user's current location surrounded by active game pins.
-- [ ] **Task 7.2: Map pin reactive filtering.** Connect the existing search filters (date, sports type, etc.) to dynamically filter and re-render the pins visible on the map.
+- [PR Created - feature/mobile-map-search-view] **Task 7.1: Search map view.** Build or integrate a map view within the search tab displaying the user's current location surrounded by active game pins.
+- [PR Created - feature/mobile-map-search-view] **Task 7.2: Map pin reactive filtering.** Connect the existing search filters (date, sports type, etc.) to dynamically filter and re-render the pins visible on the map.
 *Git branch: `feature/mobile-map-search-view`*
 
 ### Task 8: Native Push Notifications Sync
