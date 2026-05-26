@@ -8,6 +8,8 @@ import { gamesApi, fieldsApi } from '@/services/api';
 import { useAuth } from '@clerk/clerk-expo';
 import { Game } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import * as Location from 'expo-location';
 
 export default function SearchScreen() {
     const { t } = useTranslation();
@@ -21,6 +23,8 @@ export default function SearchScreen() {
     const [games, setGames] = useState<Game[]>([]);
     const [loading, setLoading] = useState(false);
     const [cityModalVisible, setCityModalVisible] = useState(false);
+    const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
+    const mapRef = useRef<MapView>(null);
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -33,7 +37,29 @@ export default function SearchScreen() {
     useEffect(() => {
         loadCities();
         performSearch();
+        requestLocation();
     }, []);
+    
+    const requestLocation = async () => {
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status === 'granted') {
+                const location = await Location.getCurrentPositionAsync({});
+                setUserLocation(location.coords);
+                // If map is already visible and no city selected, center on user
+                if (!selectedCity && mapRef.current) {
+                    mapRef.current.animateToRegion({
+                        latitude: location.coords.latitude,
+                        longitude: location.coords.longitude,
+                        latitudeDelta: 0.1,
+                        longitudeDelta: 0.1,
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Location permission error", error);
+        }
+    };
 
     useEffect(() => {
         performSearch();
@@ -96,7 +122,54 @@ export default function SearchScreen() {
             console.error("Search failed", error);
         } finally {
             setLoading(false);
+            
+            // Camera logic
+            if (isMapView && mapRef.current) {
+                if (selectedCity) {
+                    // Try to geocode city to center map
+                    try {
+                        const geocode = await Location.geocodeAsync(selectedCity + ', Israel');
+                        if (geocode.length > 0) {
+                            mapRef.current.animateToRegion({
+                                latitude: geocode[0].latitude,
+                                longitude: geocode[0].longitude,
+                                latitudeDelta: 0.1,
+                                longitudeDelta: 0.1,
+                            });
+                        }
+                    } catch (e) {
+                        console.log("Geocode failed", e);
+                    }
+                } else if (userLocation) {
+                    mapRef.current.animateToRegion({
+                        latitude: userLocation.latitude,
+                        longitude: userLocation.longitude,
+                        latitudeDelta: 0.1,
+                        longitudeDelta: 0.1,
+                    });
+                }
+            }
         }
+    };
+    
+    const getSportIcon = (sport?: string) => {
+        const s = sport?.toLowerCase() || '';
+        if (s.includes('כדורגל') || s.includes('soccer') || s.includes('football')) return 'soccer';
+        if (s.includes('כדורסל') || s.includes('basketball')) return 'basketball';
+        if (s.includes('טניס') || s.includes('tennis')) return 'tennis-ball';
+        if (s.includes('כדורעף') || s.includes('volleyball')) return 'volleyball';
+        if (s.includes('פדל') || s.includes('padel')) return 'racquetball';
+        return 'map-marker';
+    };
+    
+    const getSportColor = (sport?: string) => {
+        const s = sport?.toLowerCase() || '';
+        if (s.includes('כדורגל')) return 'bg-green-600';
+        if (s.includes('כדורסל')) return 'bg-orange-500';
+        if (s.includes('טניס')) return 'bg-yellow-500';
+        if (s.includes('כדורעף')) return 'bg-blue-400';
+        if (s.includes('פדל')) return 'bg-purple-500';
+        return 'bg-blue-600';
     };
 
     const renderGameItem = ({ item }: { item: Game }) => (
@@ -213,11 +286,13 @@ export default function SearchScreen() {
             ) : isMapView ? (
                 <View className="flex-1 mt-2 mx-2 mb-2 rounded-3xl overflow-hidden shadow-sm border border-gray-200">
                     <MapView
+                        ref={mapRef}
                         style={{ flex: 1 }}
                         showsUserLocation={true}
+                        showsMyLocationButton={true}
                         initialRegion={{
-                            latitude: 32.0853,
-                            longitude: 34.7818,
+                            latitude: userLocation?.latitude || 32.0853,
+                            longitude: userLocation?.longitude || 34.7818,
                             latitudeDelta: 0.1,
                             longitudeDelta: 0.1,
                         }}
@@ -226,6 +301,8 @@ export default function SearchScreen() {
                             const lat = game.customLat || game.fieldLat;
                             const lng = game.customLng || game.fieldLng;
                             if (!lat || !lng) return null;
+                            const iconName = getSportIcon(game.sport || game.type);
+                            const bgColor = getSportColor(game.sport || game.type);
                             return (
                                 <Marker
                                     key={game.id}
@@ -234,6 +311,9 @@ export default function SearchScreen() {
                                     description={new Date(game.date).toLocaleDateString() + ' ' + game.time}
                                     onCalloutPress={() => router.push(`/game/${game.id}`)}
                                 >
+                                    <View className={`w-10 h-10 rounded-full ${bgColor} items-center justify-center border-2 border-white shadow-lg`}>
+                                        <MaterialCommunityIcons name={iconName as any} size={20} color="white" />
+                                    </View>
                                     <Callout>
                                         <View className="p-2 w-48">
                                             <Text className="font-bold text-gray-800 text-sm text-right">{game.title || game.fieldName}</Text>

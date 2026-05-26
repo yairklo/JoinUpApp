@@ -57,9 +57,9 @@
 *Git branch: `feature/mobile-notifications-performance-fix`*
 
 ### Task 11: Advanced Search Map Customization & Logic
-- [ ] **Task 11.1: Sport-Specific Map Markers.** Replace the default red location pins on the search map with dynamic custom markers or icons based on the game's sport category (e.g., Football, Basketball, Tennis).
-- [ ] **Task 11.2: Current Location Pin.** Check for device location permissions, and if granted, render a distinct "Current User Location" marker/blue dot on the map.
-- [ ] **Task 11.3: Map Camera Camera Focus Logic.** Implement reactive camera positioning for the map: 
+- [x] **Task 11.1: Sport-Specific Map Markers.** Replace the default red location pins on the search map with dynamic custom markers or icons based on the game's sport category (e.g., Football, Basketball, Tennis).
+- [x] **Task 11.2: Current Location Pin.** Check for device location permissions, and if granted, render a distinct "Current User Location" marker/blue dot on the map.
+- [x] **Task 11.3: Map Camera Camera Focus Logic.** Implement reactive camera positioning for the map: 
   - If the user filters/searches for a specific city, center and focus the map view on that city's coordinates.
   - If "All Cities" or no specific city is selected, center and focus the map directly on the user's current coordinates.
 *Git branch: `feature/mobile-search-map-customization`*
