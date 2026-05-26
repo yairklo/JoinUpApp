@@ -51,7 +51,20 @@ export default function SearchScreen() {
             // search takes params directly.
 
             const results = await gamesApi.search(params, token || undefined);
-            setGames(results);
+            
+            const now = new Date();
+            const upcomingGames = results.filter(game => {
+                if (!game.date) return true;
+                const gameDateTime = new Date(`${game.date}T${game.time || '00:00'}`);
+                if (game.duration) {
+                    gameDateTime.setMinutes(gameDateTime.getMinutes() + game.duration);
+                } else {
+                    gameDateTime.setHours(gameDateTime.getHours() + 2); // Default 2 hours
+                }
+                return gameDateTime > now;
+            });
+            
+            setGames(upcomingGames);
         } catch (error) {
             console.error("Search failed", error);
         } finally {
