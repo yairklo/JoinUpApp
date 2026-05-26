@@ -18,7 +18,7 @@
 *Git branch: `feature/mobile-home-series-ui`*
 
 ### Task 4: Game Details Utility Actions (Share, Navigate, Calendar)
-- [-] **Task 4.1: Add Share, Navigate, and Calendar buttons.** Introduce interactive buttons/icons on the game details screen for native sharing, location navigation (linking to maps), and "Add to Calendar" functionality.
+- [PR Created - feature/mobile-game-details-actions] **Task 4.1: Add Share, Navigate, and Calendar buttons.** Introduce interactive buttons/icons on the game details screen for native sharing, location navigation (linking to maps), and "Add to Calendar" functionality.
 *Git branch: `feature/mobile-game-details-actions`*
 
 ---
@@ -26,7 +26,7 @@
 ## Phase 2: Advanced Features (Themes, Maps & Notifications)
 
 ### Task 5: Mobile Dark Mode Implementation
-- [ ] **Task 5.1: Dark Mode support.** Add global dark theme configurations matching the application's Cyber League / Electric Sport design palette, ensuring proper contrast across all text and background components.
+- [-] **Task 5.1: Dark Mode support.** Add global dark theme configurations matching the application's Cyber League / Electric Sport design palette, ensuring proper contrast across all text and background components.
 *Git branch: `feature/mobile-dark-mode`*
 
 ### Task 6: Map Integrations (Game Details & Location Creation)
