@@ -68,6 +68,7 @@ export default function NotificationsScreen() {
         <>
             <Stack.Screen
                 options={{
+                    headerShown: true,
                     title: 'Notifications',
                     headerRight: () => (
                         unreadCount > 0 ? (
