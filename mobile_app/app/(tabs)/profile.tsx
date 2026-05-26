@@ -4,6 +4,7 @@ import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { usersApi, UserProfile } from '../../src/services/api/users';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 const SPORT_MAPPING: Record<string, string> = {
   BASKETBALL: 'כדורסל',
@@ -20,6 +21,7 @@ function calculateAge(birthDate?: string | null) {
 }
 
 export default function ProfileScreen() {
+    const { t } = useTranslation();
     const { user } = useUser();
     const { signOut, getToken } = useAuth();
     const router = useRouter();
@@ -69,7 +71,7 @@ export default function ProfileScreen() {
                 setIsEditing(false);
             }
         } catch (err) {
-            Alert.alert("שגיאה", "נכשל בעדכון הפרופיל.");
+            Alert.alert(t("profile.error"), t("profile.updateFailed"));
         } finally {
             setSaving(false);
         }
@@ -94,50 +96,50 @@ export default function ProfileScreen() {
                     className="w-24 h-24 rounded-full mb-4"
                 />
                 <Text className="text-2xl font-bold text-gray-800">{profile?.name || user.fullName}</Text>
-                <Text className="text-gray-500 mb-2">{profile?.city || "עיר לא ידועה"}</Text>
+                <Text className="text-gray-500 mb-2">{profile?.city || t("profile.unknownCity")}</Text>
             </View>
 
             {/* Info Section */}
             <View className="bg-white p-6 rounded-2xl shadow-sm mb-4">
-                <View className="flex-row-reverse justify-between items-center mb-4 border-b border-gray-100 pb-2">
-                    <Text className="text-lg font-bold text-gray-800">פרטים אישיים</Text>
+                <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 pb-2">
+                    <Text className="text-lg font-bold text-gray-800">{t("profile.personalDetails")}</Text>
                 </View>
                 
-                <View className="flex-row-reverse justify-between items-center mb-3">
-                    <Text className="text-gray-500 font-medium">אימייל</Text>
-                    <Text className="text-gray-800 text-right">{profile?.email || user.primaryEmailAddress?.emailAddress || '-'}</Text>
+                <View className="flex-row justify-between items-center mb-3">
+                    <Text className="text-gray-500 font-medium">{t("profile.email")}</Text>
+                    <Text className="text-gray-800 text-left">{profile?.email || user.primaryEmailAddress?.emailAddress || '-'}</Text>
                 </View>
                 
-                <View className="flex-row-reverse justify-between items-center mb-3">
-                    <Text className="text-gray-500 font-medium">טלפון</Text>
+                <View className="flex-row justify-between items-center mb-3">
+                    <Text className="text-gray-500 font-medium">{t("profile.phone")}</Text>
                     {isEditing ? (
                         <TextInput 
                             value={form.phone} 
                             onChangeText={(text) => setForm({ ...form, phone: text })}
-                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 mr-4 text-right"
+                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 mr-4 text-left"
                             keyboardType="phone-pad"
                         />
                     ) : (
-                        <Text className="text-gray-800 text-right">{profile?.phone || '-'}</Text>
+                        <Text className="text-gray-800 text-left">{profile?.phone || '-'}</Text>
                     )}
                 </View>
 
-                <View className="flex-row-reverse justify-between items-center mb-3">
-                    <Text className="text-gray-500 font-medium">עיר</Text>
+                <View className="flex-row justify-between items-center mb-3">
+                    <Text className="text-gray-500 font-medium">{t("profile.city")}</Text>
                     {isEditing ? (
                         <TextInput 
                             value={form.city} 
                             onChangeText={(text) => setForm({ ...form, city: text })}
-                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 mr-4 text-right"
+                            className="bg-gray-50 border border-gray-200 rounded px-2 py-1 flex-1 mr-4 text-left"
                         />
                     ) : (
-                        <Text className="text-gray-800 text-right">{profile?.city || '-'}</Text>
+                        <Text className="text-gray-800 text-left">{profile?.city || '-'}</Text>
                     )}
                 </View>
 
-                <View className="flex-row-reverse justify-between mb-3">
-                    <Text className="text-gray-500 font-medium">גיל</Text>
-                    <Text className="text-gray-800 text-right">{age ? String(age) : '-'}</Text>
+                <View className="flex-row justify-between mb-3">
+                    <Text className="text-gray-500 font-medium">{t("profile.age")}</Text>
+                    <Text className="text-gray-800 text-left">{age ? String(age) : '-'}</Text>
                 </View>
 
                 {/* Edit Toggle Button */}
@@ -146,10 +148,10 @@ export default function ProfileScreen() {
                         onPress={() => setIsEditing(true)} 
                         className="mt-4 py-3 rounded-xl items-center bg-gray-100 border border-gray-200"
                     >
-                        <Text className="text-gray-700 font-bold">ערוך פרופיל</Text>
+                        <Text className="text-gray-700 font-bold">{t("profile.editProfile")}</Text>
                     </TouchableOpacity>
                 ) : (
-                    <View className="mt-4 flex-row-reverse justify-between space-x-2 space-x-reverse">
+                    <View className="mt-4 flex-row justify-between space-x-2 space-x-reverse">
                         <TouchableOpacity 
                             onPress={() => { setIsEditing(false); setForm({ city: profile?.city || '', phone: profile?.phone || '' }); }} 
                             className="flex-1 py-3 rounded-xl items-center bg-red-50 border border-red-100 ml-2"
@@ -175,10 +177,10 @@ export default function ProfileScreen() {
 
             {/* Sports Section */}
             <View className="bg-white p-6 rounded-2xl shadow-sm mb-6">
-                <Text className="text-lg font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2 text-right">ספורט ועמדות</Text>
+                <Text className="text-lg font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2 text-left">ספורט ועמדות</Text>
                 
                 {profile?.sports && profile.sports.length > 0 ? (
-                    <View className="flex-row-reverse flex-wrap">
+                    <View className="flex-row flex-wrap">
                         {profile.sports.map(s => {
                             const hebrewName = SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name;
                             const label = s.position ? `${hebrewName} (${s.position})` : hebrewName;
@@ -190,7 +192,7 @@ export default function ProfileScreen() {
                         })}
                     </View>
                 ) : (
-                    <Text className="text-gray-400 italic text-right">לא הוגדרו ענפי ספורט</Text>
+                    <Text className="text-gray-400 italic text-left">לא הוגדרו ענפי ספורט</Text>
                 )}
             </View>
 
@@ -198,7 +200,7 @@ export default function ProfileScreen() {
                 onPress={handleSignOut}
                 className="bg-red-50 p-4 rounded-xl items-center border border-red-100 mb-8 shadow-sm"
             >
-                <Text className="text-red-600 font-bold text-lg">התנתק</Text>
+                <Text className="text-red-600 font-bold text-lg">{t("profile.signOut")}</Text>
             </TouchableOpacity>
         </ScrollView>
     );

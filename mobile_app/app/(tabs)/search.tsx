@@ -1,12 +1,14 @@
 import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { gamesApi, fieldsApi } from '@/services/api';
 import { useAuth } from '@clerk/clerk-expo';
 import { Game } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function SearchScreen() {
+    const { t } = useTranslation();
     const { getToken } = useAuth();
     const router = useRouter();
 
@@ -66,13 +68,13 @@ export default function SearchScreen() {
                 <FontAwesome name="soccer-ball-o" size={24} color="#2563eb" />
             </View>
             <View className="flex-1 justify-center">
-                <Text className="text-lg font-bold text-gray-800 mb-1">{item.field?.name || item.fieldName || "Game"}</Text>
+                <Text className="text-lg font-bold text-gray-800 mb-1">{item.field?.name || item.fieldName || t("search.game")}</Text>
                 <Text className="text-gray-500 text-sm mb-1">
                     {new Date(item.date).toLocaleDateString()} at {item.time}
                 </Text>
                 <View className="flex-row items-center">
                     <FontAwesome name="map-marker" size={12} color="#6b7280" style={{ marginRight: 4 }} />
-                    <Text className="text-gray-500 text-xs">{item.field?.location || item.fieldLocation || "Unknown Location"}</Text>
+                    <Text className="text-gray-500 text-xs">{item.field?.location || item.fieldLocation || t("search.unknownLocation")}</Text>
                 </View>
             </View>
             <View className="items-end justify-center">
@@ -92,7 +94,7 @@ export default function SearchScreen() {
                 <View className="flex-row items-center bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-3">
                     <FontAwesome name="search" size={16} color="#9ca3af" style={{ marginRight: 10 }} />
                     <TextInput
-                        placeholder="Search games, fields..."
+                        placeholder={t("search.placeholder")}
                         value={query}
                         onChangeText={setQuery}
                         onSubmitEditing={performSearch}
@@ -108,7 +110,7 @@ export default function SearchScreen() {
                         className={`mr-2 px-4 py-2 rounded-full border ${selectedCity ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                     >
                         <Text className={`font-medium ${selectedCity ? 'text-white' : 'text-gray-600'}`}>
-                            {selectedCity || "All Cities"} ▾
+                            {selectedCity || t("search.allCities")} ▾
                         </Text>
                     </TouchableOpacity>
                     {/* Add more filters here if needed (Date, Price) */}
@@ -126,7 +128,7 @@ export default function SearchScreen() {
                     contentContainerStyle={{ paddingBottom: 20 }}
                     ListEmptyComponent={
                         <View className="items-center mt-10">
-                            <Text className="text-gray-400">No games found</Text>
+                            <Text className="text-gray-400">{t('search.noGamesFound')}</Text>
                         </View>
                     }
                 />
@@ -142,23 +144,23 @@ export default function SearchScreen() {
                 <View className="flex-1 justify-end bg-black/50">
                     <View className="bg-white rounded-t-3xl p-6 h-[50%]">
                         <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-xl font-bold">Select City</Text>
+                            <Text className="text-xl font-bold">{t('search.selectCity')}</Text>
                             <TouchableOpacity onPress={() => setCityModalVisible(false)}>
-                                <Text className="text-blue-600 font-bold">Close</Text>
+                                <Text className="text-blue-600 font-bold">{t('search.close')}</Text>
                             </TouchableOpacity>
                         </View>
                         <FlatList
-                            data={['All Cities', ...cities]}
+                            data={[t("search.allCities"), ...cities]}
                             keyExtractor={(item) => item}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
                                     className="py-4 border-b border-gray-100"
                                     onPress={() => {
-                                        setSelectedCity(item === 'All Cities' ? null : item);
+                                        setSelectedCity(item === t("search.allCities") ? null : item);
                                         setCityModalVisible(false);
                                     }}
                                 >
-                                    <Text className={`text-lg ${selectedCity === item ? 'text-blue-600 font-bold' : (item === 'All Cities' && !selectedCity ? 'text-blue-600 font-bold' : 'text-gray-800')}`}>
+                                    <Text className={`text-lg ${selectedCity === item ? 'text-blue-600 font-bold' : (item === t("search.allCities") && !selectedCity ? 'text-blue-600 font-bold' : 'text-gray-800')}`}>
                                         {item}
                                     </Text>
                                 </TouchableOpacity>

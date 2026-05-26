@@ -209,8 +209,18 @@ const connectedUsers = new Set();
 // Fix 4: Redis Subscriber for Worker Events
 if (process.env.REDIS_URL) {
   const Redis = require("ioredis");
-  const redisSub = new Redis(process.env.REDIS_URL); // Dedicated connection
   const { Logger } = require('./utils/logger');
+  
+  const redisSub = new Redis(process.env.REDIS_URL, {
+    retryStrategy: (times) => {
+      if (times > 3) return null; // Stop retrying after 3 times
+      return Math.min(times * 500, 2000);
+    }
+  }); 
+
+  redisSub.on('error', (err) => {
+    Logger.warn("REDIS SUB", `Connection error: ${err.message}`);
+  });
 
   redisSub.subscribe('moderation_events', (err, count) => {
     if (err) Logger.error("REDIS SUB", "Failed to subscribe:", err);

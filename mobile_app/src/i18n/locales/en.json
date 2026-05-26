@@ -1,0 +1,97 @@
+{
+  "tabs": {
+    "games": "Games",
+    "search": "Search",
+    "chats": "Chats",
+    "profile": "Profile"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "search": "Search",
+    "confirm": "Confirm"
+  },
+  "search": {
+    "placeholder": "Search games, fields...",
+    "allCities": "All Cities",
+    "noGamesFound": "No games found",
+    "selectCity": "Select City",
+    "close": "Close",
+    "game": "Game",
+    "unknownLocation": "Unknown Location"
+  },
+  "home": {
+    "welcomeBack": "Welcome Back",
+    "friend": "Friend",
+    "noGamesToday": "No games on this date",
+    "noGamesDesc": "Looks like there are no available games right now. Try selecting another date or create a new game!",
+    "backToToday": "Back to Today",
+    "myGames": "My Games",
+    "mySeries": "My Series"
+  },
+  "chats": {
+    "players": "Players",
+    "games": "Games",
+    "noActiveChats": "No active chats with players",
+    "noGamesRegistered": "You haven't registered to any game",
+    "noMessages": "No messages yet",
+    "you": "You: "
+  },
+  "profile": {
+    "unknownCity": "Unknown City",
+    "personalDetails": "Personal Details",
+    "email": "Email",
+    "phone": "Phone",
+    "city": "City",
+    "age": "Age",
+    "editProfile": "Edit Profile",
+    "saveChanges": "Save Changes",
+    "error": "Error",
+    "updateFailed": "Failed to update profile.",
+    "signOut": "Sign Out",
+    "sports": "Sports",
+    "noSports": "No preferred sports selected"
+  },
+  "game": {
+    "details": "Game Details",
+    "unknownField": "Unknown Field",
+    "unknownLocation": "No location provided",
+    "free": "Free",
+    "players": "Players",
+    "leave": "Leave",
+    "join": "Join",
+    "series": "Series",
+    "manageSeries": "Manage Series",
+    "full": "Full",
+    "joinGame": "Join Game",
+    "leaveGame": "Leave Game",
+    "registrationOpensAt": "Registration opens at:",
+    "opensAt": "Opens at {{time}}",
+    "confirmLeave": "Are you sure you want to leave the game?"
+  },
+  "newGame": {
+    "sport": "Sport",
+    "soccer": "Soccer",
+    "basketball": "Basketball",
+    "tennis": "Tennis",
+    "volleyball": "Volleyball",
+    "title": "Game Title (Optional)",
+    "duration": "Duration (Hours)",
+    "selectField": "Select Field",
+    "maxPlayers": "Max Players",
+    "price": "Price (₪)",
+    "privateGroup": "Private Group?",
+    "lottery": "Lottery?",
+    "futureRegistration": "Future Registration?",
+    "create": "Create Game",
+    "description": "Additional Details (Optional)",
+    "whatsappLink": "WhatsApp Group Link (Optional)"
+  },
+  "chat": {
+    "message": "Message...",
+    "send": "Send",
+    "options": "Message Options",
+    "reply": "Reply",
+    "delete": "Delete",
+    "edit": "Edit"
+  }
+}

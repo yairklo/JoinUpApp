@@ -4,6 +4,7 @@ import { gamesApi } from "@/services/api";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 export default function JoinGameButton({
     gameId,
@@ -16,6 +17,7 @@ export default function JoinGameButton({
 }) {
     const { getToken } = useAuth();
     const { user } = useUser();
+    const { t } = useTranslation();
     const { notifyGameUpdate } = useGameUpdate();
     const [loading, setLoading] = useState(false);
 
@@ -37,7 +39,6 @@ export default function JoinGameButton({
             console.error("Join Failed:", e);
             alert(e.message || "Failed to join game");
         } finally {
-            setLoading(true); // Keep loading state until navigation or update, or just reset
             setLoading(false);
         }
     };
@@ -50,7 +51,7 @@ export default function JoinGameButton({
                 className="bg-gray-100 flex-row items-center justify-center p-3 rounded-xl border border-gray-200"
             >
                 <Ionicons name="lock-closed" size={16} color="#6b7280" />
-                <Text className="ml-2 text-gray-500 font-bold">Opens at {timeStr}</Text>
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 font-bold flex-shrink">{t("game.opensAt", { time: timeStr })}</Text>
             </TouchableOpacity>
         );
     }
@@ -66,7 +67,7 @@ export default function JoinGameButton({
             ) : (
                 <>
                     <Ionicons name="add" size={20} color="white" />
-                    <Text className="ml-1 text-white font-bold text-base">הצטרף</Text>
+                    <Text numberOfLines={1} ellipsizeMode="tail" className="ml-1 text-white font-bold text-base flex-shrink">{t("game.join")}</Text>
                 </>
             )}
         </TouchableOpacity>

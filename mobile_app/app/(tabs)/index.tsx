@@ -10,10 +10,12 @@ import JoinGameButton from '@/components/JoinGameButton';
 import LeaveGameButton from '@/components/LeaveGameButton';
 import GamesDateNav from '@/components/GamesDateNav';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import MyGamesSection from '@/components/MyGamesSection';
 import SeriesSection from '@/components/SeriesSection';
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const today = new Date().toISOString().split('T')[0];
   const { games, loading, refreshGames, selectedDate, setSelectedDate } = useGamesByDate(today);
   const { user } = useUser();
@@ -49,24 +51,16 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
-      <View className="flex-row-reverse items-center justify-between px-6 py-4">
-        <View className="items-end">
-          <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest text-right">ברוך שובך</Text>
-          <Text className="text-2xl font-black text-gray-900 text-right">👋 {user?.firstName || "חבר"}</Text>
-        </View>
-        <Link href="/notifications" asChild>
-          <TouchableOpacity className="w-12 h-12 bg-gray-50 rounded-2xl items-center justify-center border border-gray-100">
-            <Ionicons name="notifications-outline" size={22} color="#111827" />
-          </TouchableOpacity>
-        </Link>
-      </View>
-
       <View className="flex-1 mt-2">
         <FlatList
           data={games}
           keyExtractor={(item) => String(item.id)}
           ListHeaderComponent={
             <View>
+              <View className="px-6 mb-4">
+                <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest">{t("home.welcomeBack")}</Text>
+                <Text className="text-2xl font-black text-gray-900">👋 {user?.firstName || t("home.friend")}</Text>
+              </View>
               <MyGamesSection />
               <SeriesSection />
               <GamesDateNav
@@ -85,15 +79,15 @@ export default function HomeScreen() {
               <View className="w-20 h-20 bg-gray-50 rounded-full items-center justify-center mb-4">
                 <Ionicons name="calendar-outline" size={32} color="#9ca3af" />
               </View>
-              <Text className="text-gray-900 font-black text-xl text-center">אין משחקים בתאריך זה</Text>
+              <Text className="text-gray-900 font-black text-xl text-center">{t("home.noGamesToday")}</Text>
               <Text className="text-gray-500 text-center mt-2 leading-5">
-                נראה שאין משחקים זמינים כרגע. נסה לבחור תאריך אחר או צור משחק חדש!
+                {t("home.noGamesDesc")}
               </Text>
               <TouchableOpacity
                 onPress={() => setSelectedDate(today)}
                 className="mt-6 bg-blue-50 px-6 py-3 rounded-2xl"
               >
-                <Text className="text-blue-600 font-bold">חזור להיום</Text>
+                <Text className="text-blue-600 font-bold">{t("home.backToToday")}</Text>
               </TouchableOpacity>
             </View>
           }
