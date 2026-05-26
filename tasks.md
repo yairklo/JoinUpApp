@@ -30,8 +30,8 @@
 *Git branch: `feature/mobile-dark-mode`*
 
 ### Task 6: Map Integrations (Game Details & Location Creation)
-- [ ] **Task 6.1: Static/Interactive map on details page.** Embed a map view on the game details page rendering a pin at the specific game coordinates/address.
-- [ ] **Task 6.2: Custom location pin during game creation.** Align with the web platform to allow users to drop a custom pinpoint on a map during game creation to define a new location (instead of selecting an existing city field).
+- [x] **Task 6.1: Static/Interactive map on details page.** Embed a map view on the game details page rendering a pin at the specific game coordinates/address.
+- [PR Created - feature/task-6.2] **Task 6.2: Custom location pin during game creation.** Align with the web platform to allow users to drop a custom pinpoint on a map during game creation to define a new location (instead of selecting an existing city field).
 *Git branch: `feature/mobile-maps-integration`*
 
 ### Task 7: Map Search View with Filters
