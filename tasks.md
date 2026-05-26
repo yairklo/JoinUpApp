@@ -3,22 +3,22 @@
 ## Phase 1: Layout, UI fixes & Navigation
 
 ### Task 1: Game Details Page UI & Lineup Management
-- [ ] **Task 1.1: Fix Header Spacing.** Update the game details page header layout, introducing safe area insets or top padding to push the title down so it doesn't overlap with the device status bar (battery/time indicators).
-- [ ] **Task 1.2: Lineup Teams Display.** Implement the team/group division display (`JoinUp` team splits) on the game details page, mirroring the web version's layout and logic.
-- [ ] **Task 1.3: Edit Teams Screen Positioning & Save.** Adjust the team editing screen layout to sit lower on the screen (add top padding/safe area). Ensure the "Save Changes" functionality for team configurations is fully wired and functional.
+- [-] **Task 1.1: Fix Header Spacing.** Update the game details page header layout, introducing safe area insets or top padding to push the title down so it doesn't overlap with the device status bar (battery/time indicators).
+- [-] **Task 1.2: Lineup Teams Display.** Implement the team/group division display (`JoinUp` team splits) on the game details page, mirroring the web version's layout and logic.
+- [-] **Task 1.3: Edit Teams Screen Positioning & Save.** Adjust the team editing screen layout to sit lower on the screen (add top padding/safe area). Ensure the "Save Changes" functionality for team configurations is fully wired and functional.
 *Git branch: `feature/mobile-game-details-layout`*
 
 ### Task 2: Search Page - Active Games Filter
-- [ ] **Task 2.1: Filter out past games.** Update the game search query logic to filter out and hide games whose end-times or dates have already passed, displaying only upcoming matches.
+- [PR Created - feature/mobile-filter-past-games] **Task 2.1: Filter out past games.** Update the game search query logic to filter out and hide games whose end-times or dates have already passed, displaying only upcoming matches.
 *Git branch: `feature/mobile-filter-past-games`*
 
 ### Task 3: Home Page - Series Cards with Images & Indicators
-- [ ] **Task 3.1: Add images to Series cards.** Update the series cards/items on the main dashboard to display cover images, matching the behavior of single game cards.
-- [ ] **Task 3.2: Add "Series" badge indicator.** Implement a distinct visual badge or label (taking inspiration from the web platform) to clearly differentiate a multiple-match "Series" card from a single "Game" card.
+- [PR Created - feature/mobile-home-series-ui] **Task 3.1: Add images to Series cards.** Update the series cards/items on the main dashboard to display cover images, matching the behavior of single game cards.
+- [PR Created - feature/mobile-home-series-ui] **Task 3.2: Add "Series" badge indicator.** Implement a distinct visual badge or label (taking inspiration from the web platform) to clearly differentiate a multiple-match "Series" card from a single "Game" card.
 *Git branch: `feature/mobile-home-series-ui`*
 
 ### Task 4: Game Details Utility Actions (Share, Navigate, Calendar)
-- [ ] **Task 4.1: Add Share, Navigate, and Calendar buttons.** Introduce interactive buttons/icons on the game details screen for native sharing, location navigation (linking to maps), and "Add to Calendar" functionality.
+- [-] **Task 4.1: Add Share, Navigate, and Calendar buttons.** Introduce interactive buttons/icons on the game details screen for native sharing, location navigation (linking to maps), and "Add to Calendar" functionality.
 *Git branch: `feature/mobile-game-details-actions`*
 
 ---
