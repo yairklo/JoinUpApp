@@ -203,13 +203,20 @@ export default function GameDetailsScreen() {
                         <MapView 
                             style={{ flex: 1 }}
                             initialRegion={{
-                                latitude: 32.0853, // Fallback Tel Aviv coordinates for MVP
-                                longitude: 34.7818,
+                                latitude: game.customLat || game.fieldLat || 32.0853,
+                                longitude: game.customLng || game.fieldLng || 34.7818,
                                 latitudeDelta: 0.05,
                                 longitudeDelta: 0.05,
                             }}
                         >
-                            <Marker coordinate={{ latitude: 32.0853, longitude: 34.7818 }} title={game.field?.name || game.fieldName} description={game.field?.location || game.fieldLocation} />
+                            <Marker 
+                                coordinate={{ 
+                                    latitude: game.customLat || game.fieldLat || 32.0853, 
+                                    longitude: game.customLng || game.fieldLng || 34.7818 
+                                }} 
+                                title={game.title || game.fieldName} 
+                                description={game.customLocation || game.fieldLocation} 
+                            />
                         </MapView>
                     </View>
                 </View>
