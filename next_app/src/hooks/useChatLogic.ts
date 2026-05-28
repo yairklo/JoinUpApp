@@ -97,6 +97,13 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roomId]);
 
+    // Helper Props for UI
+    const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
+    const otherParticipant = isPrivate ? chatDetails?.participants?.find((p: any) => p.userId !== user?.id) : null;
+    const otherUserId = otherParticipant?.userId;
+    const otherUserAvatar = otherParticipant?.user?.imageUrl;
+    const effectiveChatName = chatName || (isPrivate ? otherParticipant?.user?.name : "Game Chat") || (roomId === "global" ? "Global Chat" : "Chat");
+
     // 3. Socket Logic
     useEffect(() => {
         if (!socketInstance || !isConnected || !roomId || !user?.id) return;
@@ -215,13 +222,6 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         hydrateUsers();
     }, [messages, avatarByUserId, getToken]);
 
-
-    // Helper Props for UI
-    const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
-    const otherParticipant = isPrivate ? chatDetails?.participants?.find((p: any) => p.userId !== user?.id) : null;
-    const otherUserId = otherParticipant?.userId;
-    const otherUserAvatar = otherParticipant?.user?.imageUrl;
-    const effectiveChatName = chatName || (isPrivate ? otherParticipant?.user?.name : "Game Chat") || (roomId === "global" ? "Global Chat" : "Chat");
 
 
     // Actions
