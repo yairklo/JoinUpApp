@@ -17,7 +17,14 @@
     "selectCity": "בחר עיר",
     "close": "סגור",
     "game": "משחק",
-    "unknownLocation": "מיקום לא ידוע"
+    "unknownLocation": "מיקום לא ידוע",
+    "list": "רשימה",
+    "map": "מפה",
+    "date": "תאריך",
+    "sport": "ספורט",
+    "selectSport": "בחר ספורט",
+    "allSports": "כל סוגי הספורט",
+    "atTime": "בשעה"
   },
   "home": {
     "welcomeBack": "ברוך שובך",

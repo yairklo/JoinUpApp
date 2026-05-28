@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { io, Socket } from 'socket.io-client';
+import { useSocket } from '@/context/SocketContext';
 import { notificationsApi, Notification as NotificationType, API_BASE } from '@/services/api';
 
 export function useNotifications() {
@@ -9,9 +9,7 @@ export function useNotifications() {
     const [notifications, setNotifications] = useState<NotificationType[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [socket, setSocket] = useState<Socket | null>(null);
-
-    const socketRef = useRef<Socket | null>(null);
+    const { socket, isConnected } = useSocket();
 
     // 1. Fetch Notifications (Initial + Polling)
     const fetchNotifications = useCallback(async () => {
@@ -45,53 +43,31 @@ export function useNotifications() {
 
     // 2. Socket Connection
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !socket || !isConnected) return;
 
-        let socketInstance: Socket | null = null;
+        // Emit initial join
+        socket.emit('join', `user_${userId}`);
 
-        const initSocket = async () => {
-            const token = await getToken(); // Get token for auth if needed, though current implementation used localStorage. 
-            // Ideally we pass token in auth object.
-            // The original code used localStorage.getItem('__clerk_client_jwt'). 
-            // We should try to use the token from hook if possible, or fallback to the cookie/storage if Clerk handles it.
-            // `io` options auth: { token } is standard.
+        // Event Handlers
+        const handleNotification = (data: NotificationType) => {
+            console.log('[NOTIFICATIONS] Received real-time notification:', data);
+            setNotifications(prev => [data, ...prev]);
+            setUnreadCount(prev => prev + 1);
 
-            socketInstance = io(API_BASE, {
-                path: '/api/socket',
-                transports: ['websocket'],
-                auth: {
-                    token: token || ""
-                }
-            });
-
-            socketInstance.on('connect', () => {
-                console.log('[NOTIFICATIONS] Socket connected');
-                socketInstance?.emit('join', `user_${userId}`);
-            });
-
-            socketInstance.on('notification', (data: NotificationType) => {
-                console.log('[NOTIFICATIONS] Received real-time notification:', data);
-                setNotifications(prev => [data, ...prev]);
-                setUnreadCount(prev => prev + 1);
-
-                if (Notification.permission === 'granted') {
-                    new Notification(data.title, {
-                        body: data.body,
-                        icon: '/icon-192x192.png'
-                    });
-                }
-            });
-
-            setSocket(socketInstance);
-            socketRef.current = socketInstance;
+            if (Notification.permission === 'granted') {
+                new Notification(data.title, {
+                    body: data.body,
+                    icon: '/icon-192x192.png'
+                });
+            }
         };
 
-        initSocket();
+        socket.on('notification', handleNotification);
 
         return () => {
-            if (socketInstance) socketInstance.disconnect();
+            socket.off('notification', handleNotification);
         };
-    }, [userId, getToken]);
+    }, [userId, socket, isConnected]);
 
 
     // 3. Actions

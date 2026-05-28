@@ -17,7 +17,14 @@
     "selectCity": "Select City",
     "close": "Close",
     "game": "Game",
-    "unknownLocation": "Unknown Location"
+    "unknownLocation": "Unknown Location",
+    "list": "List",
+    "map": "Map",
+    "date": "Date",
+    "sport": "Category",
+    "selectSport": "Select Category",
+    "allSports": "All Categories",
+    "atTime": "at"
   },
   "home": {
     "welcomeBack": "Welcome Back",

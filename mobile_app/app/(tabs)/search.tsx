@@ -13,7 +13,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Location from 'expo-location';
 
 export default function SearchScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { getToken } = useAuth();
     const router = useRouter();
 
@@ -25,10 +25,10 @@ export default function SearchScreen() {
     const [loading, setLoading] = useState(false);
     const [cityModalVisible, setCityModalVisible] = useState(false);
     const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
-    const mapRef = useRef<MapView>(null);
+    const mapRef = useRef<any>(null);
     
     const [mapBounds, setMapBounds] = useState<{minLat: number, maxLat: number, minLng: number, maxLng: number} | null>(null);
-    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const searchTimeoutRef = useRef<any>(null);
     const [selectedFieldGames, setSelectedFieldGames] = useState<Game[] | null>(null);
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -37,7 +37,13 @@ export default function SearchScreen() {
     const [selectedSport, setSelectedSport] = useState<string | null>(null);
     const [sportModalVisible, setSportModalVisible] = useState(false);
     const [isMapView, setIsMapView] = useState(false);
-    const SPORTS = ['כדורגל', 'כדורסל', 'טניס', 'כדורעף', 'פדל'];
+    const SPORTS = [
+        { id: 'SOCCER', label: t('newGame.soccer', 'כדורגל') },
+        { id: 'BASKETBALL', label: t('newGame.basketball', 'כדורסל') },
+        { id: 'TENNIS', label: t('newGame.tennis', 'טניס') },
+        { id: 'VOLLEYBALL', label: t('newGame.volleyball', 'כדורעף') },
+        { id: 'PADEL', label: t('newGame.padel', 'פדל') }
+    ];
 
     useEffect(() => {
         loadCities();
@@ -134,7 +140,7 @@ export default function SearchScreen() {
             }
             
             if (selectedSport) {
-                finalGames = finalGames.filter(g => g.sport === selectedSport || g.type === selectedSport || g.title?.includes(selectedSport));
+                finalGames = finalGames.filter(g => g.sport === selectedSport || g.title?.includes(selectedSport));
             }
             
             // Explicit local filter for city, to ensure the map and list never show items from other cities
@@ -176,18 +182,42 @@ export default function SearchScreen() {
         return '#2563eb'; // blue-600 (default)
     };
 
+    const translateCity = (city: string) => {
+        if (i18n.language !== 'en') return city;
+        const map: Record<string, string> = {
+            'תל אביב-יפו': 'Tel Aviv-Yafo',
+            'תל אביב': 'Tel Aviv',
+            'ירושלים': 'Jerusalem',
+            'חיפה': 'Haifa',
+            'ראשון לציון': 'Rishon LeZion',
+            'פתח תקווה': 'Petah Tikva',
+            'אשדוד': 'Ashdod',
+            'נתניה': 'Netanya',
+            'באר שבע': 'Beer Sheva',
+            'חולון': 'Holon',
+            'רמת גן': 'Ramat Gan',
+            'הרצליה': 'Herzliya',
+            'רעננה': 'Raanana',
+            'כפר סבא': 'Kfar Saba',
+            'אילת': 'Eilat',
+            'רחובות': 'Rehovot',
+            'מודיעין': 'Modiin'
+        };
+        return map[city] || city;
+    };
+
     const renderGameItem = ({ item }: { item: Game }) => (
         <TouchableOpacity
             className="flex-row bg-white p-4 mb-3 rounded-2xl mx-4 shadow-sm"
             onPress={() => router.push(`/game/${item.id}`)}
         >
-            <View className="w-16 h-16 bg-blue-100 rounded-xl items-center justify-center mr-4">
-                <FontAwesome name="soccer-ball-o" size={24} color="#2563eb" />
+            <View className="w-16 h-16 rounded-xl items-center justify-center mr-4" style={{ backgroundColor: getSportColorHex(item.sport) + '20' }}>
+                <MaterialCommunityIcons name={getSportIcon(item.sport) as any} size={28} color={getSportColorHex(item.sport)} />
             </View>
             <View className="flex-1 justify-center">
                 <Text className="text-lg font-bold text-gray-800 mb-1">{item.field?.name || item.fieldName || t("search.game")}</Text>
                 <Text className="text-gray-500 text-sm mb-1">
-                    {new Date(item.date).toLocaleDateString()} at {item.time}
+                    {new Date(item.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} {t('search.atTime', 'בשעה')} {item.time}
                 </Text>
                 <View className="flex-row items-center">
                     <FontAwesome name="map-marker" size={12} color="#6b7280" style={{ marginRight: 4 }} />
@@ -239,7 +269,7 @@ export default function SearchScreen() {
                         className={`mr-2 px-4 py-2 rounded-full border ${selectedCity ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                     >
                         <Text className={`font-medium ${selectedCity ? 'text-white' : 'text-gray-600'}`}>
-                            {selectedCity || t("search.allCities", "כל הערים")} ▾
+                            {selectedCity ? translateCity(selectedCity) : t("search.allCities", "כל הערים")} ▾
                         </Text>
                     </TouchableOpacity>
 
@@ -248,7 +278,7 @@ export default function SearchScreen() {
                         className={`mr-2 px-4 py-2 rounded-full border ${selectedSport ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                     >
                         <Text className={`font-medium ${selectedSport ? 'text-white' : 'text-gray-600'}`}>
-                            {selectedSport || t("search.sport", "ספורט")} ▾
+                            {selectedSport ? SPORTS.find(s => s.id === selectedSport)?.label || selectedSport : t("search.sport", "ספורט")} ▾
                         </Text>
                     </TouchableOpacity>
 
@@ -263,7 +293,7 @@ export default function SearchScreen() {
                         className={`mr-2 px-4 py-2 rounded-full border flex-row items-center ${selectedDate ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                     >
                         <Text className={`font-medium ${selectedDate ? 'text-white' : 'text-gray-600'}`}>
-                            {selectedDate ? selectedDate.toLocaleDateString() : t("search.date", "תאריך")}
+                            {selectedDate ? selectedDate.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL') : t("search.date", "תאריך")}
                         </Text>
                         {selectedDate && <FontAwesome name="times" size={12} color="white" style={{ marginLeft: 6 }} />}
                     </TouchableOpacity>
@@ -328,10 +358,10 @@ export default function SearchScreen() {
                             const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng;
                             
                             // If multiple sports, show generic icon/color, else the specific sport
-                            const uniqueSports = [...new Set(group.map(g => g.sport || g.type))];
+                            const uniqueSports = [...new Set(group.map(g => g.sport))];
                             const isMixed = uniqueSports.length > 1;
-                            const iconName = isMixed ? 'map-marker-multiple' : getSportIcon(firstGame.sport || firstGame.type);
-                            const hexColor = isMixed ? '#64748b' : getSportColorHex(firstGame.sport || firstGame.type); // slate-500 for mixed
+                            const iconName = isMixed ? 'map-marker-multiple' : getSportIcon(firstGame.sport);
+                            const hexColor = isMixed ? '#64748b' : getSportColorHex(firstGame.sport); // slate-500 for mixed
                             
                             return (
                                 <Marker
@@ -385,11 +415,11 @@ export default function SearchScreen() {
                                             <View className="flex-1 items-end mr-3">
                                                 <Text className="text-base font-bold text-gray-800 text-right">{game.title || 'משחק'}</Text>
                                                 <Text className="text-sm text-gray-500 text-right mt-1">
-                                                    {new Date(game.date).toLocaleDateString()} בשעה {game.time}
+                                                    {new Date(game.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} {t('search.atTime', 'בשעה')} {game.time}
                                                 </Text>
                                                 <View className="flex-row items-center justify-end mt-2">
                                                     <Text className="text-xs text-blue-600 font-medium ml-1">
-                                                        {game.sport === 'SOCCER' ? 'כדורגל' : game.sport === 'BASKETBALL' ? 'כדורסל' : 'טניס'}
+                                                        {SPORTS.find(s => s.id === game.sport)?.label || game.sport}
                                                     </Text>
                                                     <MaterialCommunityIcons name={getSportIcon(game.sport)} size={12} color="#2563eb" />
                                                 </View>
@@ -442,7 +472,7 @@ export default function SearchScreen() {
                                     }}
                                 >
                                     <Text className={`text-lg ${selectedCity === item ? 'text-blue-600 font-bold' : (item === t("search.allCities") && !selectedCity ? 'text-blue-600 font-bold' : 'text-gray-800')}`}>
-                                        {item}
+                                        {item === t("search.allCities") ? item : translateCity(item)}
                                     </Text>
                                 </TouchableOpacity>
                             )}
@@ -467,17 +497,17 @@ export default function SearchScreen() {
                         </View>
                         <FlatList
                             data={SPORTS}
-                            keyExtractor={(item) => item}
+                            keyExtractor={(item) => item.id}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
                                     className="py-4 border-b border-gray-100"
                                     onPress={() => {
-                                        setSelectedSport(item);
+                                        setSelectedSport(item.id);
                                         setSportModalVisible(false);
                                     }}
                                 >
-                                    <Text className={`text-lg ${selectedSport === item ? 'text-blue-600 font-bold' : 'text-gray-800'}`}>
-                                        {item}
+                                    <Text className={`text-lg ${selectedSport === item.id ? 'text-blue-600 font-bold' : 'text-gray-800'}`}>
+                                        {item.label}
                                     </Text>
                                 </TouchableOpacity>
                             )}

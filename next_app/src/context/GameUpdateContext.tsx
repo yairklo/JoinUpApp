@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from "react";
-import { io, Socket } from "socket.io-client";
 import { useAuth } from "@clerk/nextjs";
+import { useSocket } from "@/context/SocketContext";
 import { Game } from "@/types/game";
 
 type GameAction = "join" | "leave";
@@ -55,78 +55,47 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
     const [seriesDeletedListeners] = useState(() => new Set<(event: SeriesDeletedEvent) => void>());
 
     const { getToken } = useAuth();
-    const socketRef = useRef<Socket | null>(null);
+    const { socket, isConnected } = useSocket();
 
     // Socket Connection
     useEffect(() => {
-        let socket: Socket | null = null;
+        if (!socket || !isConnected) return;
 
-        const initSocket = async () => {
-            const base = process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
-
-            try {
-                const token = await getToken();
-                // We use the same path as Chat component
-                socket = io(base, {
-                    path: "/api/socket",
-                    transports: ["websocket"],
-                    withCredentials: true,
-                    auth: { token }
-                });
-                socketRef.current = socket;
-
-                socket.on("connect", () => {
-                    // console.log("GameUpdateContext: Socket connected", socket?.id);
-                });
-
-                socket.on("connect_error", async (err: any) => {
-                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
-                        try {
-                            const newToken = await getToken();
-                            if (newToken && socket) {
-                                socket.auth = { token: newToken };
-                                socket.connect();
-                            }
-                        } catch (e) {
-                            console.error("Token refresh failed", e);
-                        }
-                    }
-                });
-
-                // Listen for game creation (Delta Update)
-                socket.on("game:created", (game: Game) => {
-                    const event: GameCreatedEvent = { game };
-                    createdListeners.forEach(cb => cb(event));
-                });
-
-                // Listen for game deletion
-                socket.on("game:deleted", (payload: { gameIds: string[] }) => {
-                    deletedListeners.forEach(cb => cb(payload));
-                });
-
-                // Listen for series events
-                socket.on("series:created", (series: SeriesPayload) => {
-                    seriesCreatedListeners.forEach(cb => cb(series));
-                });
-                socket.on("series:deleted", (payload: SeriesDeletedEvent) => {
-                    seriesDeletedListeners.forEach(cb => cb(payload));
-                });
-
-                socket.on("error", (err) => {
-                    console.error("GameSocket error", err);
-                });
-
-            } catch (e) {
-                console.error("GameSocket init failed", e);
-            }
+        const handleGameCreated = (game: Game) => {
+            const event: GameCreatedEvent = { game };
+            createdListeners.forEach(cb => cb(event));
         };
 
-        initSocket();
+        const handleGameDeleted = (payload: { gameIds: string[] }) => {
+            deletedListeners.forEach(cb => cb(payload));
+        };
+
+        const handleSeriesCreated = (series: SeriesPayload) => {
+            seriesCreatedListeners.forEach(cb => cb(series));
+        };
+
+        const handleSeriesDeleted = (payload: SeriesDeletedEvent) => {
+            seriesDeletedListeners.forEach(cb => cb(payload));
+        };
+
+        const handleError = (err: any) => {
+            console.error("GameSocket error", err);
+        };
+
+        socket.on("game:created", handleGameCreated);
+        socket.on("game:deleted", handleGameDeleted);
+        socket.on("series:created", handleSeriesCreated);
+        socket.on("series:deleted", handleSeriesDeleted);
+        socket.on("error", handleError);
 
         return () => {
-            if (socket) socket.disconnect();
+            socket.off("game:created", handleGameCreated);
+            socket.off("game:deleted", handleGameDeleted);
+            socket.off("series:created", handleSeriesCreated);
+            socket.off("series:deleted", handleSeriesDeleted);
+            socket.off("error", handleError);
         };
-    }, [getToken, createdListeners, deletedListeners, seriesCreatedListeners, seriesDeletedListeners]);
+    }, [socket, isConnected, createdListeners, deletedListeners, seriesCreatedListeners, seriesDeletedListeners]);
 
     const notifyGameUpdate = useCallback((gameId: string, action: GameAction, userId: string) => {
         const event: GameUpdateEvent = { gameId, action, userId };

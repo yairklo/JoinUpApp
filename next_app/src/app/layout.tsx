@@ -11,6 +11,7 @@ import NotificationAsker from "@/components/NotificationAsker";
 
 import { ChatProvider } from "@/context/ChatContext";
 import FloatingChatWindow from "@/components/FloatingChatWindow";
+import { SocketProvider } from "@/context/SocketContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -61,21 +62,23 @@ export default function RootLayout({
           <link rel="icon" href="/favicon.svg" />
         </head>
         <body className={`${geistSans.variable} ${geistMono.variable}`}>
-          {/* ThemeRegistry דואג שקומפוננטות MUI יראו טוב */}
-          <ThemeRegistry>
-            <ChatProvider>
-              {/* AppNavbar עדיין מסתמך על Bootstrap ולכן חייב את ה-CSS למעלה */}
-              <AppNavbar />
+          <SocketProvider>
+            {/* ThemeRegistry דואג שקומפוננטות MUI יראו טוב */}
+            <ThemeRegistry>
+              <ChatProvider>
+                {/* AppNavbar עדיין מסתמך על Bootstrap ולכן חייב את ה-CSS למעלה */}
+                <AppNavbar />
 
-              {/* הורדתי את ה-container של בוטסטראפ כדי לאפשר רוחב מלא לדפים החדשים */}
-              <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-                {children}
-              </main>
+                {/* הורדתי את ה-container של בוטסטראפ כדי לאפשר רוחב מלא לדפים החדשים */}
+                <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+                  {children}
+                </main>
 
-              <FloatingChatWindow />
-              <NotificationAsker />
-            </ChatProvider>
-          </ThemeRegistry>
+                <FloatingChatWindow />
+                <NotificationAsker />
+              </ChatProvider>
+            </ThemeRegistry>
+          </SocketProvider>
         </body>
       </html>
     </ClerkProvider>

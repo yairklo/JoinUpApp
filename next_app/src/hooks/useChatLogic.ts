@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
-import { io, Socket } from "socket.io-client";
+import { Socket } from "socket.io-client";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useChat } from "@/context/ChatContext";
 import { chatsApi, usersApi, API_BASE } from "@/services/api";
 import { ChatMessage, Reaction, MessageStatus } from "@/components/types";
+import { useSocket } from "@/context/SocketContext";
 
 // NOTE: We import API_BASE from services, but socket still needs it.
 // We might want to move socket logic to a service later, but for now hook is fine.
@@ -29,7 +30,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [unreadNewMessages, setUnreadNewMessages] = useState(0);
-    const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
+    const { socket: socketInstance, isConnected } = useSocket();
 
     const [avatarByUserId, setAvatarByUserId] = useState<Record<string, string | null>>({});
     const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({});
@@ -98,113 +99,101 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
     // 3. Socket Logic
     useEffect(() => {
-        let socket: Socket | null = null;
-        const initSocket = async () => {
-            try {
-                const token = await getToken();
-                socket = io(API_BASE, {
-                    path: "/api/socket",
-                    transports: ["websocket"],
-                    withCredentials: true,
-                    auth: { token }
+        if (!socketInstance || !isConnected || !roomId || !user?.id) return;
+
+        // Emit initial setup
+        socketInstance.emit("joinRoom", roomId);
+        socketInstance.emit("markAsRead", { roomId, userId: user.id });
+
+        // Event Handlers
+        const handlePresenceUpdate = ({ userId: uid, isOnline }: any) => {
+            if (uid === otherUserId) setIsOtherUserOnline(isOnline);
+        };
+
+        const handleTypingStart = ({ chatId, userName, senderId }: any) => {
+            if (String(chatId) !== String(roomId)) return;
+            if (String(senderId) === String(user?.id)) return;
+            const name = userName || "Someone";
+            if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
+            setTypingUsers(prev => { const next = new Set(prev); next.add(name); return next; });
+            typingTimeoutsRef.current[senderId] = setTimeout(() => {
+                setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
+            }, 3000);
+        };
+
+        const handleTypingStop = ({ chatId, userName, senderId }: any) => {
+            if (String(chatId) !== String(roomId)) return;
+            if (String(senderId) === String(user?.id)) return;
+            const name = userName || "Someone";
+            if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
+            setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
+        };
+
+        const handleMessage = (incomingMsg: ChatMessage) => {
+            if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
+
+            setMessages(prev => {
+                const matchIndex = prev.findIndex(m => {
+                    const idMatch = String(m.id) === String(incomingMsg.id);
+                    const tempMatch = incomingMsg.tempId && (String(m.id) == String(incomingMsg.tempId));
+                    return idMatch || tempMatch;
                 });
-                setSocketInstance(socket);
+                if (matchIndex > -1) {
+                    const existingMsg = prev[matchIndex];
+                    const safeReply = existingMsg.replyTo || incomingMsg.replyTo;
+                    const newMessages = [...prev];
+                    newMessages[matchIndex] = { ...incomingMsg, status: 'sent', sender: existingMsg.sender || incomingMsg.sender, replyTo: safeReply };
+                    return newMessages;
+                } else {
+                    return [...prev, incomingMsg];
+                }
+            });
+            if (incomingMsg.userId !== user?.id) socketInstance.emit("markAsRead", { roomId, userId: user?.id });
+        };
 
-                socket.on("connect", () => {
-                    socket?.emit("joinRoom", roomId);
-                    socket?.emit("markAsRead", { roomId, userId: user?.id });
-                });
-
-                socket.on("connect_error", async (err: any) => {
-                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
-                        try {
-                            const newToken = await getToken();
-                            if (newToken && socket) {
-                                socket.auth = { token: newToken };
-                                socket.connect();
-                            }
-                        } catch (e) { console.error("Refresh token failed", e); }
-                    }
-                });
-
-                // Event Listeners (Same as before)
-                socket.on('presence:update', ({ userId: uid, isOnline }) => {
-                    if (uid === otherUserId) setIsOtherUserOnline(isOnline);
-                });
-
-                socket.on('typing:start', ({ chatId, userName, senderId }) => {
-                    if (String(chatId) !== String(roomId)) return;
-                    if (String(senderId) === String(user?.id)) return;
-                    const name = userName || "Someone";
-                    if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
-                    setTypingUsers(prev => { const next = new Set(prev); next.add(name); return next; });
-                    typingTimeoutsRef.current[senderId] = setTimeout(() => {
-                        setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
-                    }, 3000);
-                });
-
-                socket.on('typing:stop', ({ chatId, userName, senderId }) => {
-                    if (String(chatId) !== String(roomId)) return;
-                    if (String(senderId) === String(user?.id)) return;
-                    const name = userName || "Someone";
-                    if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
-                    setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
-                });
-
-                socket.on("message", (incomingMsg: ChatMessage) => {
-                    if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
-
-                    setMessages(prev => {
-                        const matchIndex = prev.findIndex(m => {
-                            const idMatch = String(m.id) === String(incomingMsg.id);
-                            const tempMatch = incomingMsg.tempId && (String(m.id) == String(incomingMsg.tempId));
-                            return idMatch || tempMatch;
-                        });
-                        if (matchIndex > -1) {
-                            const existingMsg = prev[matchIndex];
-                            const safeReply = existingMsg.replyTo || incomingMsg.replyTo;
-                            const newMessages = [...prev];
-                            newMessages[matchIndex] = { ...incomingMsg, status: 'sent', sender: existingMsg.sender || incomingMsg.sender, replyTo: safeReply };
-                            return newMessages;
-                        } else {
-                            return [...prev, incomingMsg];
-                        }
-                    });
-                    if (incomingMsg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
-                });
-
-                // ... Other events (updated, deleted, reactions) ...
-                socket.on("messageUpdated", (payload) => {
-                    if (!payload.roomId || payload.roomId === roomId) {
-                        setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, text: payload.text, isEdited: payload.isEdited } : m));
-                    }
-                });
-
-                socket.on("messageDeleted", (payload) => {
-                    if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
-                    setMessages(prev => prev.map(msg => String(msg.id) === String(payload.id) ? { ...msg, isDeleted: true, text: "[Content Removed]", status: 'rejected' } : msg));
-                });
-
-                socket.on("messageReaction", (payload) => {
-                    if (!payload.roomId || payload.roomId === roomId) {
-                        setMessages((prev) => prev.map(m => (String(m.id) === String(payload.messageId)) ? { ...m, reactions: payload.reactions } : m));
-                    }
-                });
-
-                socket.on("messageStatusUpdate", (payload) => {
-                    if (payload.roomId === roomId) {
-                        setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read') ? { ...m, status: payload.status } : m));
-                    }
-                });
-
-            } catch (e) {
-                console.error("Socket connection failed", e);
+        const handleMessageUpdated = (payload: any) => {
+            if (!payload.roomId || payload.roomId === roomId) {
+                setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, text: payload.text, isEdited: payload.isEdited } : m));
             }
         };
 
-        if (user?.id) initSocket();
-        return () => { if (socket) socket.disconnect(); };
-    }, [roomId, user?.id]); // Removed getToken from deps to prevent socket disconnect on every re-render
+        const handleMessageDeleted = (payload: any) => {
+            if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
+            setMessages(prev => prev.map(msg => String(msg.id) === String(payload.id) ? { ...msg, isDeleted: true, text: "[Content Removed]", status: 'rejected' } : msg));
+        };
+
+        const handleMessageReaction = (payload: any) => {
+            if (!payload.roomId || payload.roomId === roomId) {
+                setMessages((prev) => prev.map(m => (String(m.id) === String(payload.messageId)) ? { ...m, reactions: payload.reactions } : m));
+            }
+        };
+
+        const handleMessageStatusUpdate = (payload: any) => {
+            if (payload.roomId === roomId) {
+                setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read') ? { ...m, status: payload.status } : m));
+            }
+        };
+
+        socketInstance.on('presence:update', handlePresenceUpdate);
+        socketInstance.on('typing:start', handleTypingStart);
+        socketInstance.on('typing:stop', handleTypingStop);
+        socketInstance.on("message", handleMessage);
+        socketInstance.on("messageUpdated", handleMessageUpdated);
+        socketInstance.on("messageDeleted", handleMessageDeleted);
+        socketInstance.on("messageReaction", handleMessageReaction);
+        socketInstance.on("messageStatusUpdate", handleMessageStatusUpdate);
+
+        return () => {
+            socketInstance.off('presence:update', handlePresenceUpdate);
+            socketInstance.off('typing:start', handleTypingStart);
+            socketInstance.off('typing:stop', handleTypingStop);
+            socketInstance.off("message", handleMessage);
+            socketInstance.off("messageUpdated", handleMessageUpdated);
+            socketInstance.off("messageDeleted", handleMessageDeleted);
+            socketInstance.off("messageReaction", handleMessageReaction);
+            socketInstance.off("messageStatusUpdate", handleMessageStatusUpdate);
+        };
+    }, [socketInstance, isConnected, roomId, user?.id, otherUserId]);
 
     // 4. Hydrate Users
     useEffect(() => {

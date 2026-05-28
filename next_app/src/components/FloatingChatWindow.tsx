@@ -10,6 +10,7 @@ import Chat from "./Chat";
 import ChatList from "./ChatList";
 import { useChat } from "@/context/ChatContext";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { useSocket } from "@/context/SocketContext";
 
 export default function FloatingChatWindow() {
     const { activeChatId, isWidgetOpen, isMinimized, headerInfo, closeChat, minimizeChat, maximizeChat, goBackToList } = useChat();
@@ -20,7 +21,7 @@ export default function FloatingChatWindow() {
     const isRTL = true; // Hardcoded for widget or derive from context if available
 
     // Socket & State for Status
-    const [socketInstance, setSocketInstance] = useState<any>(null);
+    const { socket: socketInstance, isConnected } = useSocket();
     const [otherUserId, setOtherUserId] = useState<string | null>(null);
     const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
     const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
@@ -62,102 +63,63 @@ export default function FloatingChatWindow() {
 
     // Socket Initialization for Header Logic
     useEffect(() => {
-        if (!isWidgetOpen || !user || !activeChatId) return;
+        if (!isWidgetOpen || !user || !activeChatId || !socketInstance || !isConnected) return;
 
-        let socket: any = null;
+        socketInstance.emit("joinRoom", activeChatId);
+        
+        if (otherUserId) {
+            socketInstance.emit('subscribePresence', otherUserId);
+        }
 
-        const initSocket = async () => {
-            try {
-                const token = await getToken();
-                // We reuse the existing socket infrastructure by creating a connection specific for this widget's header
-                // Note: This creates a second socket connection if Chat also connects. 
-                // Ideally, ChatContext should hold the socket, but per instructions we implement here.
-                const { io } = require("socket.io-client");
-                socket = io(API_BASE, {
-                    path: "/api/socket",
-                    transports: ["websocket"],
-                    withCredentials: true,
-                    auth: { token }
-                });
-                setSocketInstance(socket);
-
-                socket.on("connect", () => {
-                    if (activeChatId) {
-                        socket.emit("joinRoom", activeChatId);
-                    }
-                });
-
-                socket.on("connect_error", async (err: any) => {
-                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
-                        try {
-                            const newToken = await getToken();
-                            if (newToken && socket) {
-                                socket.auth = { token: newToken };
-                                socket.connect();
-                            }
-                        } catch (e) {
-                            console.error("Token refresh failed", e);
-                        }
-                    }
-                });
-
-                // Presence
-                socket.on('presence:update', ({ userId: uid, isOnline }: { userId: string, isOnline: boolean }) => {
-                    if (uid === otherUserId) {
-                        setIsOtherUserOnline(isOnline);
-                    }
-                });
-
-                // Typing
-                socket.on('typing:start', ({ chatId, userName, senderId }: { chatId: string, userName: string, senderId: string }) => {
-                    if (chatId === activeChatId && senderId !== user.id) {
-                        const name = userName || "Someone";
-                        if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
-
-                        setTypingUsers(prev => {
-                            const next = new Set(prev);
-                            next.add(name);
-                            return next;
-                        });
-
-                        typingTimeoutsRef.current[senderId] = setTimeout(() => {
-                            setTypingUsers(prev => {
-                                const next = new Set(prev);
-                                next.delete(name);
-                                return next;
-                            });
-                        }, 3000);
-                    }
-                });
-
-                socket.on('typing:stop', ({ chatId, userName, senderId }: { chatId: string, userName: string, senderId: string }) => {
-                    if (chatId === activeChatId && senderId !== user.id) {
-                        const name = userName || "Someone";
-                        if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
-                        setTypingUsers(prev => {
-                            const next = new Set(prev);
-                            next.delete(name);
-                            return next;
-                        });
-                    }
-                });
-
-                // Subscribe Presence
-                if (otherUserId) {
-                    socket.emit('subscribePresence', otherUserId);
-                }
-
-            } catch (e) {
-                console.error("Widget Socket Init Error", e);
+        const handlePresenceUpdate = ({ userId: uid, isOnline }: { userId: string, isOnline: boolean }) => {
+            if (uid === otherUserId) {
+                setIsOtherUserOnline(isOnline);
             }
         };
 
-        initSocket();
+        const handleTypingStart = ({ chatId, userName, senderId }: { chatId: string, userName: string, senderId: string }) => {
+            if (chatId === activeChatId && senderId !== user.id) {
+                const name = userName || "Someone";
+                if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
+
+                setTypingUsers(prev => {
+                    const next = new Set(prev);
+                    next.add(name);
+                    return next;
+                });
+
+                typingTimeoutsRef.current[senderId] = setTimeout(() => {
+                    setTypingUsers(prev => {
+                        const next = new Set(prev);
+                        next.delete(name);
+                        return next;
+                    });
+                }, 3000);
+            }
+        };
+
+        const handleTypingStop = ({ chatId, userName, senderId }: { chatId: string, userName: string, senderId: string }) => {
+            if (chatId === activeChatId && senderId !== user.id) {
+                const name = userName || "Someone";
+                if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
+                setTypingUsers(prev => {
+                    const next = new Set(prev);
+                    next.delete(name);
+                    return next;
+                });
+            }
+        };
+
+        socketInstance.on('presence:update', handlePresenceUpdate);
+        socketInstance.on('typing:start', handleTypingStart);
+        socketInstance.on('typing:stop', handleTypingStop);
 
         return () => {
-            if (socket) socket.disconnect();
+            socketInstance.off('presence:update', handlePresenceUpdate);
+            socketInstance.off('typing:start', handleTypingStart);
+            socketInstance.off('typing:stop', handleTypingStop);
         };
-    }, [isWidgetOpen, user, activeChatId, getToken, API_BASE, otherUserId]);
+    }, [isWidgetOpen, user, activeChatId, otherUserId, socketInstance, isConnected]);
 
     // Update presence subscription if otherUserId changes while socket is active
     useEffect(() => {
