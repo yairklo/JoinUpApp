@@ -88,6 +88,7 @@ export function useNotifications() {
 
             socketInstance = io(API_BASE, {
                 path: '/api/socket',
+                transports: ['websocket'],
                 auth: {
                     token: token || ""
                 }

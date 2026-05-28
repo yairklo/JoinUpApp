@@ -89,6 +89,7 @@ const socketAllowedOrigin =
 
 const io = new Server(server, {
   path: '/api/socket',
+  transports: ['websocket'],
   cors: {
     origin: Array.isArray(socketAllowedOrigin) ? socketAllowedOrigin : (socketAllowedOrigin || '*'),
     methods: ['GET', 'POST'],
@@ -120,14 +121,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Football Fields API is running' });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'Something went wrong!',
-    message: err.message
-  });
-});
+// Error handling middleware moved to end of file
 
 // Debug route
 app.get('/api/debug/chatAuth/:chatId', async (req, res) => {
@@ -1015,6 +1009,15 @@ async function runWeeklySeriesGeneration() {
 setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
 // Kick once on boot (non-blocking)
 runWeeklySeriesGeneration().catch(() => { });
+
+// Global Error handling middleware (Must be last before server start)
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    error: 'Something went wrong!',
+    message: err.message
+  });
+});
 
 // Start server (HTTP + Socket.IO)
 server.listen(PORT, async () => {

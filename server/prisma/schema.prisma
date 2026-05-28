@@ -179,6 +179,8 @@ model Message {
 
   // New: Reactions Relation
   reactions Reaction[]
+
+  @@index([chatRoomId])
 }
 
 model Reaction {
