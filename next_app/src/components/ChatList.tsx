@@ -25,7 +25,7 @@ import ChatIcon from "@mui/icons-material/Chat";
 import PersonIcon from "@mui/icons-material/Person";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import { formatDistanceToNow } from "date-fns";
-import { io } from "socket.io-client";
+import { useSocket } from "@/context/SocketContext";
 
 interface ChatListProps {
     userId: string;
@@ -44,7 +44,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
         chats, loadingChats, totalUnread, loadChats, updateChatList, markChatAsRead, loadMessages
     } = useChat();
 
-    const [socketInstance, setSocketInstance] = useState<any>(null);
+    const { socket: socketInstance, isConnected } = useSocket();
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -58,82 +58,45 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
 
     // Socket Initialization for List Updates
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !socketInstance || !isConnected) return;
 
-        let socket: any = null;
+        socketInstance.emit("setup", { id: userId });
 
-        const initSocket = async () => {
-            try {
-                const token = await getToken();
-                const API_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "";
-
-                socket = io(API_URL, {
-                    path: "/api/socket",
-                    transports: ["websocket"],
-                    withCredentials: true,
-                    auth: { token }
+        // Socket Event Handlers
+        const handleTyping = ({ chatId, userName }: { chatId: string, userName: string }) => {
+            if (!chatId || !userName) return;
+            setTypingStatus(prev => ({ ...prev, [chatId]: `${userName} is typing...` }));
+            setTimeout(() => {
+                setTypingStatus(prev => {
+                    const newState = { ...prev };
+                    delete newState[chatId];
+                    return newState;
                 });
-
-                socket.on("connect", () => {
-                    socket.emit("setup", { id: userId });
-                    setSocketInstance(socket);
-                });
-
-                socket.on("connect_error", async (err: any) => {
-                    // console.log("Socket connection error:", err.message);
-                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
-                        try {
-                            const newToken = await getToken();
-                            if (newToken) {
-                                socket.auth = { token: newToken };
-                                socket.connect();
-                            }
-                        } catch (e) {
-                            console.error("Token refresh failed", e);
-                        }
-                    }
-                });
-
-                // Socket Event Handlers
-                const handleTyping = ({ chatId, userName }: { chatId: string, userName: string }) => {
-                    if (!chatId || !userName) return;
-                    setTypingStatus(prev => ({ ...prev, [chatId]: `${userName} is typing...` }));
-                    setTimeout(() => {
-                        setTypingStatus(prev => {
-                            const newState = { ...prev };
-                            delete newState[chatId];
-                            return newState;
-                        });
-                    }, 3000);
-                };
-
-                const handleStopTyping = ({ chatId }: { chatId: string }) => {
-                    setTypingStatus(prev => {
-                        const newState = { ...prev };
-                        delete newState[chatId];
-                        return newState;
-                    });
-                };
-
-                const handleNewMessage = (newMessage: any) => {
-                    updateChatList(newMessage);
-                };
-
-                socket.on("typing:start", handleTyping);
-                socket.on("typing:stop", handleStopTyping);
-                socket.on("message:received", handleNewMessage);
-
-            } catch (e) {
-                console.error("Socket init failed", e);
-            }
+            }, 3000);
         };
 
-        initSocket();
+        const handleStopTyping = ({ chatId }: { chatId: string }) => {
+            setTypingStatus(prev => {
+                const newState = { ...prev };
+                delete newState[chatId];
+                return newState;
+            });
+        };
+
+        const handleNewMessage = (newMessage: any) => {
+            updateChatList(newMessage);
+        };
+
+        socketInstance.on("typing:start", handleTyping);
+        socketInstance.on("typing:stop", handleStopTyping);
+        socketInstance.on("message:received", handleNewMessage);
 
         return () => {
-            if (socket) socket.disconnect();
+            socketInstance.off("typing:start", handleTyping);
+            socketInstance.off("typing:stop", handleStopTyping);
+            socketInstance.off("message:received", handleNewMessage);
         };
-    }, [userId, getToken, updateChatList]);
+    }, [userId, socketInstance, isConnected, updateChatList]);
 
     // Join rooms when socket AND chats are ready
     useEffect(() => {
