@@ -10,6 +10,7 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import GroupIcon from "@mui/icons-material/Group";
 
 import { useGamesByDate } from "@/hooks/useGamesByDate";
 import { useGameUpdate } from "@/context/GameUpdateContext";
@@ -31,7 +32,8 @@ export default function GamesByDateClient({
   fieldId?: string;
   sportFilter?: SportFilter;
 }) {
-  const { selectedDate, setSelectedDate, games, loading, groups } = useGamesByDate(initialDate, fieldId);
+  const [networkGames, setNetworkGames] = useState(false);
+  const { selectedDate, setSelectedDate, games, loading, groups } = useGamesByDate(initialDate, fieldId, networkGames);
   const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
 
   const { user } = useUser();
@@ -119,6 +121,18 @@ export default function GamesByDateClient({
           fieldId={fieldId}
           onSelectDate={(d) => setSelectedDate(d)}
         />
+      </Box>
+
+      <Box display="flex" justifyContent="flex-start" mb={2} px={1}>
+        <Button
+          variant={networkGames ? "contained" : "outlined"}
+          size="small"
+          onClick={() => setNetworkGames(!networkGames)}
+          startIcon={<GroupIcon />}
+          sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
+        >
+          רשת המכרים
+        </Button>
       </Box>
 
       {loading ? (
