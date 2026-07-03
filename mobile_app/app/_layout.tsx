@@ -1,7 +1,7 @@
 import { Slot, SplashScreen, Stack, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import { useColorScheme, LogBox } from "react-native";
+import { useColorScheme, LogBox, View, Text } from "react-native";
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
 import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native";
@@ -13,6 +13,8 @@ import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "@/i18n";
 import "../global.css"; // NativeWind
 
+console.log("=== _layout.tsx loaded ===");
+
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
@@ -23,7 +25,7 @@ if (!publishableKey) {
 }
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({});
+  console.log("=== RootLayout rendering ===");
   const [i18nLoaded, setI18nLoaded] = useState(false);
   const colorScheme = useColorScheme();
 
@@ -40,20 +42,28 @@ export default function RootLayout() {
   };
 
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    initI18n().then(() => setI18nLoaded(true));
+    console.log("=== RootLayout useEffect (mount) ===");
+    const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
+    Promise.race([initI18n(), timeout])
+      .then(() => {
+        console.log("=== RootLayout i18n init resolved ===");
+        setI18nLoaded(true);
+      })
+      .catch((e) => {
+        console.error("I18n init error:", e);
+        setI18nLoaded(true);
+      });
   }, []);
 
   useEffect(() => {
-    if (loaded && i18nLoaded) {
-      SplashScreen.hideAsync();
+    console.log("=== RootLayout useEffect i18nLoaded change:", i18nLoaded, "===");
+    if (i18nLoaded) {
+      console.log("=== Calling SplashScreen.hideAsync() ===");
+      SplashScreen.hideAsync().catch(console.warn);
     }
-  }, [loaded, i18nLoaded]);
+  }, [i18nLoaded]);
 
-  if (!i18nLoaded) return null;
+  if (!i18nLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Loading i18n...</Text></View>;
 
   return (
     <I18nextProvider i18n={i18n}>
@@ -84,7 +94,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, isSignedIn]);
 
-  if (!isLoaded) return null;
+  if (!isLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Loading Clerk...</Text></View>;
 
   return <>{children}</>;
 }
