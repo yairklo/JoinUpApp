@@ -73,6 +73,11 @@ export function useNotifications() {
         return () => clearInterval(interval);
     }, [isLoaded, userId]); // Removed fetchNotifications to prevent infinite loop
 
+    const getTokenRef = useRef(getToken);
+    useEffect(() => {
+        getTokenRef.current = getToken;
+    }, [getToken]);
+
     // 2. Socket Connection
     useEffect(() => {
         console.log('[NOTIFICATIONS] Socket useEffect triggered. userId:', userId);
@@ -83,7 +88,7 @@ export function useNotifications() {
         const initSocket = async () => {
             try {
                 console.log('[NOTIFICATIONS] Getting Clerk token...');
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 console.log('[NOTIFICATIONS] Token obtained. Connecting socket to:', API_BASE);
 
                 socketInstance = io(API_BASE, {
@@ -139,7 +144,7 @@ export function useNotifications() {
             console.log('[NOTIFICATIONS] Cleaning up socket...');
             if (socketInstance) socketInstance.disconnect();
         };
-    }, [userId, getToken]);
+    }, [userId]);
 
 
     // 3. Actions
