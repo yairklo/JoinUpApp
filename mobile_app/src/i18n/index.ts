@@ -9,6 +9,44 @@ import en from './locales/en.json';
 import he from './locales/he.json';
 
 const LANGUAGE_KEY = 'app_language';
+const memoryStorage = new Map<string, string>();
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), timeoutMs);
+  });
+  return Promise.race([
+    promise.then((res) => {
+      clearTimeout(timeoutId);
+      return res;
+    }),
+    timeoutPromise
+  ]);
+}
+
+const safeGetLang = async (): Promise<string | null> => {
+  try {
+    const val = await withTimeout(SecureStore.getItemAsync(LANGUAGE_KEY), 1000, "__TIMEOUT__");
+    if (val === "__TIMEOUT__") {
+      console.warn("SecureStore.getItemAsync timed out for key:", LANGUAGE_KEY);
+      return memoryStorage.get(LANGUAGE_KEY) || null;
+    }
+    return val;
+  } catch (e) {
+    console.error("SecureStore.getItemAsync error:", e);
+    return memoryStorage.get(LANGUAGE_KEY) || null;
+  }
+};
+
+const safeSetLang = async (lang: string): Promise<void> => {
+  memoryStorage.set(LANGUAGE_KEY, lang);
+  try {
+    await withTimeout(SecureStore.setItemAsync(LANGUAGE_KEY, lang), 1000, null);
+  } catch (e) {
+    console.error("SecureStore.setItemAsync error:", e);
+  }
+};
 
 const resources = {
   en: { translation: en },
@@ -16,7 +54,7 @@ const resources = {
 };
 
 export const initI18n = async () => {
-  let savedLanguage = await SecureStore.getItemAsync(LANGUAGE_KEY);
+  let savedLanguage = await safeGetLang();
 
   if (!savedLanguage) {
     const deviceLanguage = getLocales()[0]?.languageCode;
@@ -48,7 +86,7 @@ export const initI18n = async () => {
 };
 
 export const changeLanguage = async (lang: 'en' | 'he') => {
-  await SecureStore.setItemAsync(LANGUAGE_KEY, lang);
+  await safeSetLang(lang);
   await i18n.changeLanguage(lang);
   
   const isRTL = lang === 'he';

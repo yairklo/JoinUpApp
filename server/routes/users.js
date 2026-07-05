@@ -400,21 +400,33 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
       games.forEach(g => { gameMap[g.id] = { ...g, fieldName: g.field?.name }; });
     }
 
-    const results = await Promise.all(participations.map(async (p) => {
+    // Pre-fetch Unread Message Counts (Bulk query avoiding N+1)
+    const chatIds = participations.map(p => p.chatId);
+    
+    let unreadMap = {};
+    if (chatIds.length > 0) {
+      const unreadCounts = await prisma.message.groupBy({
+        by: ['chatRoomId'],
+        where: {
+          chatRoomId: { in: chatIds },
+          userId: { not: userId },
+          status: { not: 'read' }
+        },
+        _count: { id: true }
+      });
+      
+      unreadMap = unreadCounts.reduce((acc, curr) => {
+        acc[curr.chatRoomId] = curr._count.id;
+        return acc;
+      }, {});
+    }
+
+    const results = participations.map((p) => {
       const chat = p.chat;
       // For private chats, the "other" user is the name/image
       const otherParticipant = chat.participants.find(part => part.userId !== userId)?.user;
 
       const lastMsg = chat.messages[0];
-
-      // Count unread messages
-      const unreadCount = await prisma.message.count({
-        where: {
-          chatRoomId: chat.id,
-          userId: { not: userId },
-          status: { not: 'read' }
-        }
-      });
 
       // Determine Chat Name
       let chatName = 'Group Chat';
@@ -434,7 +446,7 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
         name: chatName,
         image: chat.type === 'PRIVATE' ? (otherParticipant?.imageUrl || null) : null,
         otherUserId: chat.type === 'PRIVATE' ? otherParticipant?.id : undefined,
-        unreadCount,
+        unreadCount: unreadMap[chat.id] || 0,
         lastMessage: lastMsg ? {
           text: lastMsg.text,
           createdAt: lastMsg.createdAt,
@@ -442,7 +454,7 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
           status: lastMsg.status
         } : null
       };
-    }));
+    });
 
     const parsedChats = results.filter(Boolean);
 

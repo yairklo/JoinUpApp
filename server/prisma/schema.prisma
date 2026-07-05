@@ -109,6 +109,11 @@ model Game {
   participants Participation[]
   roles        GameRole[]
   teams        Team[]
+
+  @@index([start, status])
+  @@index([sport])
+  @@index([fieldId])
+  @@index([organizerId])
 }
 
 enum GameStatus {

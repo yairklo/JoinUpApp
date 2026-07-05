@@ -37,6 +37,7 @@ export default function SearchScreen() {
     const [selectedSport, setSelectedSport] = useState<string | null>(null);
     const [sportModalVisible, setSportModalVisible] = useState(false);
     const [isMapView, setIsMapView] = useState(false);
+    const [networkGames, setNetworkGames] = useState(false);
     const SPORTS = [
         { id: 'SOCCER', label: t('newGame.soccer', 'כדורגל') },
         { id: 'BASKETBALL', label: t('newGame.basketball', 'כדורסל') },
@@ -83,7 +84,7 @@ export default function SearchScreen() {
         return () => {
             if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         }
-    }, [selectedCity, selectedDate, selectedSport, mapBounds]);
+    }, [selectedCity, selectedDate, selectedSport, mapBounds, query, networkGames]);
 
     const loadCities = async () => {
         try {
@@ -101,6 +102,7 @@ export default function SearchScreen() {
             const params = new URLSearchParams();
             if (query) params.append('q', query);
             if (selectedCity) params.append('city', selectedCity);
+            if (networkGames) params.append('networkGames', 'true');
             if (isMapView && mapBounds) {
                 params.append('minLat', mapBounds.minLat.toString());
                 params.append('maxLat', mapBounds.maxLat.toString());
@@ -265,6 +267,18 @@ export default function SearchScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
+                        onPress={() => setNetworkGames(!networkGames)}
+                        className={`mr-2 px-4 py-2 rounded-full border ${networkGames ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}
+                    >
+                        <View className="flex-row items-center">
+                            <FontAwesome name="users" size={12} color={networkGames ? "white" : "#4b5563"} style={{ marginRight: 6 }} />
+                            <Text className={`font-medium ${networkGames ? 'text-white' : 'text-gray-600'}`}>
+                                {t("search.networkGames", "רשת המכרים")}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                         onPress={() => setCityModalVisible(true)}
                         className={`mr-2 px-4 py-2 rounded-full border ${selectedCity ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                     >
@@ -399,10 +413,12 @@ export default function SearchScreen() {
                                         {selectedFieldGames?.[0]?.field?.name || selectedFieldGames?.[0]?.fieldName || 'משחקים במגרש'}
                                     </Text>
                                 </View>
-                                <ScrollView showsVerticalScrollIndicator={false}>
-                                    {selectedFieldGames?.map((game) => (
+                                <FlatList
+                                    showsVerticalScrollIndicator={false}
+                                    data={selectedFieldGames}
+                                    keyExtractor={(game) => game.id}
+                                    renderItem={({ item: game }) => (
                                         <TouchableOpacity 
-                                            key={game.id}
                                             className="bg-gray-50 p-4 rounded-2xl mb-3 border border-gray-100 flex-row justify-between items-center"
                                             onPress={() => {
                                                 setSelectedFieldGames(null);
@@ -425,8 +441,8 @@ export default function SearchScreen() {
                                                 </View>
                                             </View>
                                         </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
+                                    )}
+                                />
                             </View>
                         </View>
                     </Modal>

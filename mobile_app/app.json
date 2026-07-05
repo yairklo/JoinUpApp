@@ -22,7 +22,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.yairklo.mobile_app"
     },
     "web": {
       "bundler": "metro",
@@ -33,14 +34,7 @@
       "expo-router",
       "expo-secure-store",
       "@react-native-community/datetimepicker",
-      "expo-web-browser",
-      "expo-localization",
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "Allow JoinUp to use your location to show games near you."
-        }
-      ]
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

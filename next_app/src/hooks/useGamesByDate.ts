@@ -4,7 +4,7 @@ import { gamesApi } from '@/services/api';
 import { Game } from '@/types/game';
 import { useSyncedGames } from './useSyncedGames';
 
-export function useGamesByDate(initialDate: string, fieldId?: string) {
+export function useGamesByDate(initialDate: string, fieldId?: string, networkGames?: boolean) {
     const { isLoaded } = useUser();
     const { getToken } = useAuth();
     const [selectedDate, setSelectedDate] = useState<string>(initialDate);
@@ -29,6 +29,7 @@ export function useGamesByDate(initialDate: string, fieldId?: string) {
                 const qs = new URLSearchParams();
                 qs.set("date", selectedDate);
                 if (fieldId) qs.set("fieldId", fieldId);
+                if (networkGames) qs.set("networkGames", "true");
 
                 const token = await getToken({ template: undefined }).catch(() => "");
 
@@ -63,7 +64,7 @@ export function useGamesByDate(initialDate: string, fieldId?: string) {
 
         fetchGames();
         return () => { ignore = true; };
-    }, [selectedDate, fieldId, isLoaded, getToken, setGames]);
+    }, [selectedDate, fieldId, networkGames, isLoaded, getToken, setGames]);
 
     const groups = useMemo(() => {
         return games.reduce<Record<string, Game[]>>((acc, g) => {
