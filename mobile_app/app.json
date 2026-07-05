@@ -23,7 +23,12 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.yairklo.mobile_app"
+      "package": "com.yairklo.mobile_app",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCSkGsi2WtND71FfLA3h5o0IMje_veOPxw"
+        }
+      }
     },
     "web": {
       "bundler": "metro",
