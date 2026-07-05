@@ -96,7 +96,8 @@ export function useNotifications() {
 
             socketInstance.on('connect', () => {
                 console.log('[NOTIFICATIONS] Socket connected');
-                socketInstance?.emit('join', `user_${userId} `);
+                socketInstance?.emit('join', `user_${userId}`);
+                socketInstance?.emit('setup', { id: userId });
             });
 
             socketInstance.on('notification', async (data: NotificationType) => {
@@ -109,7 +110,7 @@ export function useNotifications() {
                     await Notifications.scheduleNotificationAsync({
                         content: {
                             title: data.title || 'JoinUp',
-                            body: data.message || 'התקבלה התראה חדשה',
+                            body: data.message || data.text || 'התקבלה התראה חדשה',
                             data: { id: data.id, link: data.link },
                         },
                         trigger: null,
