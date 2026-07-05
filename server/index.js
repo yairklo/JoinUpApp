@@ -531,7 +531,7 @@ io.on('connection', async (socket) => {
     }
 
     // Send Notifications to recipients
-    if (userId && roomId) {
+    if (finalUserId && roomId) {
       try {
         let recipientIds = [];
 
@@ -544,12 +544,12 @@ io.on('connection', async (socket) => {
         if (chatRoom) {
           recipientIds = chatRoom.participants
             .map(p => p.userId)
-            .filter(id => id !== String(userId));
+            .filter(id => id !== String(finalUserId));
         }
         // 2. Fallback for Web's "private_ID1_ID2" string format
         else if (String(roomId).startsWith('private_')) {
           const parts = String(roomId).replace('private_', '').split('_');
-          const otherId = parts.find(id => id !== String(userId));
+          const otherId = parts.find(id => id !== String(finalUserId));
           if (otherId) recipientIds.push(otherId);
         }
         // 3. Fallback: Group Chat (roomId is a gameId directly)
@@ -558,23 +558,25 @@ io.on('connection', async (socket) => {
             where: {
               gameId: String(roomId),
               status: 'CONFIRMED',
-              userId: { not: String(userId) }
+              userId: { not: String(finalUserId) }
             },
             select: { userId: true }
           });
           recipientIds = participations.map(p => p.userId);
         }
 
+        console.log(`[DEBUG NOTIFICATIONS] Resolved recipientIds for room ${roomId}:`, recipientIds);
         recipientIds.forEach(recipientId => {
+          console.log(`[DEBUG NOTIFICATIONS] Emitting notification to recipient ${recipientId} via room ${recipientId}`);
           io.to(recipientId).emit('notification', {
             type: 'message',
             roomId: roomId,
-            senderId: userId,
+            senderId: finalUserId,
             text: text
           });
         });
       } catch (err) {
-        console.error("Notification error:", err);
+        console.error("[DEBUG NOTIFICATIONS] Notification error:", err);
       }
     }
 
