@@ -565,7 +565,9 @@ io.on('connection', async (socket) => {
           recipientIds = participations.map(p => p.userId);
         }
 
+        console.log(`[DEBUG NOTIFICATIONS] Resolved recipientIds for room ${roomId}:`, recipientIds);
         recipientIds.forEach(recipientId => {
+          console.log(`[DEBUG NOTIFICATIONS] Emitting notification to recipient ${recipientId} via room ${recipientId}`);
           io.to(recipientId).emit('notification', {
             type: 'message',
             roomId: roomId,
@@ -574,7 +576,7 @@ io.on('connection', async (socket) => {
           });
         });
       } catch (err) {
-        console.error("Notification error:", err);
+        console.error("[DEBUG NOTIFICATIONS] Notification error:", err);
       }
     }
 
