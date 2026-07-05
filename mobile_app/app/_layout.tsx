@@ -8,6 +8,7 @@ import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native
 import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
 import { tokenStorage } from "@/services/api/client.adapter";
 import { ChatProvider } from "@/context/ChatContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 import { GameUpdateProvider } from "@/context/GameUpdateContext";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "@/i18n";
@@ -72,9 +73,11 @@ export default function RootLayout() {
           <AuthGuard>
             <ThemeProvider value={colorScheme === 'dark' ? CyberDarkTheme : DefaultTheme}>
               <ChatProvider>
-                <GameUpdateProvider>
-                  <Stack screenOptions={{ headerShown: false }} />
-                </GameUpdateProvider>
+                <NotificationProvider>
+                  <GameUpdateProvider>
+                    <Stack screenOptions={{ headerShown: false }} />
+                  </GameUpdateProvider>
+                </NotificationProvider>
               </ChatProvider>
             </ThemeProvider>
           </AuthGuard>

@@ -1,7 +1,7 @@
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
 import React, { useEffect } from 'react';
 import { useRouter, Stack } from 'expo-router';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotifications } from '@/context/NotificationContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function NotificationsScreen() {

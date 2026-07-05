@@ -75,10 +75,10 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     // 1. Load Chats
-    const loadChats = useCallback(async () => {
+    const loadChats = useCallback(async (forceRefresh = false) => {
         if (!user?.id) return;
         // Optimization: If chats exist, don't block UI
-        if (chats.length > 0) return;
+        if (!forceRefresh && chats.length > 0) return;
 
         setLoadingChats(true);
         try {

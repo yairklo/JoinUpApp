@@ -535,13 +535,24 @@ io.on('connection', async (socket) => {
       try {
         let recipientIds = [];
 
-        // Case 1: Private Chat (roomId format: "private_ID1_ID2")
-        if (String(roomId).startsWith('private_')) {
+        // 1. Try to fetch ChatRoom and its participants from database first (works for mobile UUIDs)
+        const chatRoom = await prisma.chatRoom.findUnique({
+          where: { id: String(roomId) },
+          include: { participants: true }
+        }).catch(() => null);
+
+        if (chatRoom) {
+          recipientIds = chatRoom.participants
+            .map(p => p.userId)
+            .filter(id => id !== String(userId));
+        }
+        // 2. Fallback for Web's "private_ID1_ID2" string format
+        else if (String(roomId).startsWith('private_')) {
           const parts = String(roomId).replace('private_', '').split('_');
           const otherId = parts.find(id => id !== String(userId));
           if (otherId) recipientIds.push(otherId);
         }
-        // Case 2: Group Chat (roomId is a gameId)
+        // 3. Fallback: Group Chat (roomId is a gameId directly)
         else {
           const participations = await prisma.participation.findMany({
             where: {

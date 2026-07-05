@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { io, Socket } from 'socket.io-client';
 import { notificationsApi, Notification as NotificationType, API_BASE } from '@/services/api';
+import { useChat } from '@/context/ChatContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
@@ -15,6 +16,7 @@ Notifications.setNotificationHandler({
 
 export function useNotifications() {
     const { userId, isLoaded, getToken } = useAuth();
+    const { updateChatList } = useChat();
 
     const [notifications, setNotifications] = useState<NotificationType[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -73,60 +75,91 @@ export function useNotifications() {
         return () => clearInterval(interval);
     }, [isLoaded, userId]); // Removed fetchNotifications to prevent infinite loop
 
+    const getTokenRef = useRef(getToken);
+    useEffect(() => {
+        getTokenRef.current = getToken;
+    }, [getToken]);
+
     // 2. Socket Connection
     useEffect(() => {
+        console.log('[NOTIFICATIONS] Socket useEffect triggered. userId:', userId);
         if (!userId) return;
 
         let socketInstance: Socket | null = null;
 
         const initSocket = async () => {
-            const token = await getToken(); // Get token for auth if needed, though current implementation used localStorage. 
-            // Ideally we pass token in auth object.
-            // The original code used localStorage.getItem('__clerk_client_jwt'). 
-            // We should try to use the token from hook if possible, or fallback to the cookie/storage if Clerk handles it.
-            // `io` options auth: { token } is standard.
+            try {
+                console.log('[NOTIFICATIONS] Getting Clerk token...');
+                const token = await getTokenRef.current();
+                console.log('[NOTIFICATIONS] Token obtained. Connecting socket to:', API_BASE);
 
-            socketInstance = io(API_BASE, {
-                path: '/api/socket',
-                transports: ['websocket'],
-                auth: {
-                    token: token || ""
-                }
-            });
+                socketInstance = io(API_BASE, {
+                    path: '/api/socket',
+                    transports: ['websocket'],
+                    auth: {
+                        token: token || ""
+                    }
+                });
 
-            socketInstance.on('connect', () => {
-                console.log('[NOTIFICATIONS] Socket connected');
-                socketInstance?.emit('join', `user_${userId} `);
-            });
+                socketInstance.on('connect', () => {
+                    console.log('[NOTIFICATIONS] Socket connected successfully! ID:', socketInstance?.id);
+                    socketInstance?.emit('join', `user_${userId}`);
+                    socketInstance?.emit('setup', { id: userId });
+                });
 
-            socketInstance.on('notification', async (data: NotificationType) => {
-                console.log('[NOTIFICATIONS] Received real-time notification:', data);
-                setNotifications(prev => [data, ...prev]);
-                setUnreadCount(prev => prev + 1);
+                socketInstance.on('connect_error', (error) => {
+                    console.error('[NOTIFICATIONS] Socket connection error:', error);
+                });
 
-                const { status } = await Notifications.getPermissionsAsync();
-                if (status === 'granted') {
-                    await Notifications.scheduleNotificationAsync({
-                        content: {
-                            title: data.title || 'JoinUp',
-                            body: data.message || 'התקבלה התראה חדשה',
-                            data: { id: data.id, link: data.link },
-                        },
-                        trigger: null,
-                    });
-                }
-            });
+                socketInstance.on('disconnect', (reason) => {
+                    console.log('[NOTIFICATIONS] Socket disconnected. Reason:', reason);
+                });
 
-            setSocket(socketInstance);
-            socketRef.current = socketInstance;
+                socketInstance.on('notification', async (data: any) => {
+                    console.log('[NOTIFICATIONS] Received real-time notification:', data);
+                    
+                    if (data.type === 'message') {
+                        updateChatList({
+                            chatId: data.roomId,
+                            roomId: data.roomId,
+                            content: data.text,
+                            text: data.text,
+                            senderId: data.senderId,
+                            userId: data.senderId,
+                            ts: new Date().toISOString()
+                        });
+                    }
+
+                    setNotifications(prev => [data, ...prev]);
+                    setUnreadCount(prev => prev + 1);
+
+                    const { status } = await Notifications.getPermissionsAsync();
+                    if (status === 'granted') {
+                        await Notifications.scheduleNotificationAsync({
+                            content: {
+                                title: data.title || 'JoinUp',
+                                body: data.message || data.text || 'התקבלה התראה חדשה',
+                                data: { id: data.id, link: data.link },
+                            },
+                            trigger: null,
+                        });
+                    }
+                });
+
+                setSocket(socketInstance);
+                socketRef.current = socketInstance;
+            } catch (e) {
+                console.error('[NOTIFICATIONS] Error in initSocket:', e);
+            }
         };
 
         initSocket();
 
         return () => {
+            console.log('[NOTIFICATIONS] Cleaning up socket...');
             if (socketInstance) socketInstance.disconnect();
         };
-    }, [userId, getToken]);
+    }, [userId]);
 
 
     // 3. Actions
