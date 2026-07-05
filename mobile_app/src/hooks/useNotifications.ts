@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { io, Socket } from 'socket.io-client';
-import { notificationsApi, Notification as NotificationType, API_BASE } from '@/services/api';
+import { notificationsApi, chatsApi, Notification as NotificationType, API_BASE } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -101,10 +101,23 @@ export function useNotifications() {
                     }
                 });
 
-                socketInstance.on('connect', () => {
+                socketInstance.on('connect', async () => {
                     console.log('[NOTIFICATIONS] Socket connected successfully! ID:', socketInstance?.id);
                     socketInstance?.emit('join', `user_${userId}`);
                     socketInstance?.emit('setup', { id: userId });
+
+                    // Pre-join all active chat rooms for real-time list updates
+                    try {
+                        const userChats = await chatsApi.getUserChats(userId, token || "");
+                        console.log(`[NOTIFICATIONS] Joining ${userChats.length} chat rooms...`);
+                        userChats.forEach((chat: any) => {
+                            if (chat && chat.id) {
+                                socketInstance?.emit('joinRoom', chat.id);
+                            }
+                        });
+                    } catch (err) {
+                        console.error('[NOTIFICATIONS] Failed to pre-join chat rooms:', err);
+                    }
                 });
 
                 socketInstance.on('connect_error', (error) => {
@@ -113,6 +126,20 @@ export function useNotifications() {
 
                 socketInstance.on('disconnect', (reason) => {
                     console.log('[NOTIFICATIONS] Socket disconnected. Reason:', reason);
+                });
+
+                // Listen to message events from pre-joined chat rooms to update the list in real-time
+                socketInstance.on('message', (incomingMsg: any) => {
+                    console.log('[NOTIFICATIONS] Received real-time chat message:', incomingMsg);
+                    updateChatList({
+                        chatId: incomingMsg.roomId || incomingMsg.chatId,
+                        roomId: incomingMsg.roomId || incomingMsg.chatId,
+                        content: incomingMsg.text || incomingMsg.content,
+                        text: incomingMsg.text || incomingMsg.content,
+                        senderId: incomingMsg.userId || incomingMsg.senderId,
+                        userId: incomingMsg.userId || incomingMsg.senderId,
+                        ts: incomingMsg.ts || new Date().toISOString()
+                    });
                 });
 
                 socketInstance.on('notification', async (data: any) => {
