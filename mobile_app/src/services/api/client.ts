@@ -1,6 +1,5 @@
-const PROD_API = "https://joinup-app.onrender.com"; // Hardcoded for now or use Env
-const DEV_API = "http://10.0.2.2:3005"; // Android Emulator
-
+// API base URL — set via EXPO_PUBLIC_API_URL in .env
+// Production: https://joinupapp-1.onrender.com | Dev fallback: http://10.0.2.2:3005 (Android emulator)
 export const API_BASE = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3005";
 
 interface RequestConfig extends RequestInit {
