@@ -276,10 +276,10 @@ export default function ProfileScreen() {
                                                 <FontAwesome name="times-circle" size={20} color="#ef4444" />
                                             </TouchableOpacity>
                                         </View>
-                                        {/* Position buttons */}
+                                        {/* Position chips */}
                                         {positions.length > 0 && (
-                                            <View>
-                                                <Text className="text-xs text-gray-500 mb-2">עמדה (אופציונלי):</Text>
+                                            <View className="mb-2">
+                                                <Text className="text-xs text-gray-500 mb-2">עמדה מוגדרת מראש:</Text>
                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                     <View className="flex-row">
                                                         <TouchableOpacity
@@ -301,6 +301,17 @@ export default function ProfileScreen() {
                                                 </ScrollView>
                                             </View>
                                         )}
+                                        {/* Free-text position input */}
+                                        <View className="mt-1">
+                                            <Text className="text-xs text-gray-500 mb-1">או הכנס עמדה חופשית:</Text>
+                                            <TextInput
+                                                value={positions.includes(s.position) ? '' : s.position}
+                                                onChangeText={(v) => updatePosition(s.sportId, v)}
+                                                placeholder="למשל: אמצע, קשר פוגעני..."
+                                                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-right"
+                                                placeholderTextColor="#9ca3af"
+                                            />
+                                        </View>
                                     </View>
                                 );
                             })}
