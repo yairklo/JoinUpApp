@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { io, Socket } from 'socket.io-client';
 import { notificationsApi, Notification as NotificationType, API_BASE } from '@/services/api';
+import { useChat } from '@/context/ChatContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
@@ -15,6 +16,7 @@ Notifications.setNotificationHandler({
 
 export function useNotifications() {
     const { userId, isLoaded, getToken } = useAuth();
+    const { updateChatList } = useChat();
 
     const [notifications, setNotifications] = useState<NotificationType[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -113,8 +115,21 @@ export function useNotifications() {
                     console.log('[NOTIFICATIONS] Socket disconnected. Reason:', reason);
                 });
 
-                socketInstance.on('notification', async (data: NotificationType) => {
+                socketInstance.on('notification', async (data: any) => {
                     console.log('[NOTIFICATIONS] Received real-time notification:', data);
+                    
+                    if (data.type === 'message') {
+                        updateChatList({
+                            chatId: data.roomId,
+                            roomId: data.roomId,
+                            content: data.text,
+                            text: data.text,
+                            senderId: data.senderId,
+                            userId: data.senderId,
+                            ts: new Date().toISOString()
+                        });
+                    }
+
                     setNotifications(prev => [data, ...prev]);
                     setUnreadCount(prev => prev + 1);
 

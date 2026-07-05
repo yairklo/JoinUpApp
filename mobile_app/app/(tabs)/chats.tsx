@@ -2,6 +2,7 @@ import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Refre
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { chatsApi } from '@/services/api';
+import { useChat } from '@/context/ChatContext';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -12,36 +13,20 @@ export default function ChatsScreen() {
     const { getToken } = useAuth();
     const router = useRouter();
 
-    const [chats, setChats] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { chats, loadChats, loadingChats } = useChat();
     const [refreshing, setRefreshing] = useState(false);
-
     const [tabValue, setTabValue] = useState(0); // 0 = private, 1 = group
-
-    const fetchChats = async () => {
-        if (!user) return;
-        try {
-            const token = await getToken();
-            if (!token) return;
-            const data = await chatsApi.getUserChats(user.id, token);
-            setChats(data);
-        } catch (error) {
-            console.error("Failed to fetch chats", error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    };
 
     useFocusEffect(
         useCallback(() => {
-            if (isLoaded) fetchChats();
-        }, [isLoaded, user])
+            if (isLoaded && user) loadChats();
+        }, [isLoaded, user, loadChats])
     );
 
-    const onRefresh = () => {
+    const onRefresh = async () => {
         setRefreshing(true);
-        fetchChats();
+        await loadChats(true);
+        setRefreshing(false);
     };
 
     const filteredChats = chats.filter((chat) =>
@@ -84,7 +69,7 @@ export default function ChatsScreen() {
         </TouchableOpacity>
     );
 
-    if (loading && !refreshing) {
+    if (loadingChats && !refreshing) {
         return (
             <View className="flex-1 justify-center items-center">
                 <ActivityIndicator size="large" color="#2563eb" />
