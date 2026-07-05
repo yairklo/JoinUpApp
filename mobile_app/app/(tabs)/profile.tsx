@@ -127,10 +127,43 @@ export default function ProfileScreen() {
         setForm(prev => ({ ...prev, sportsData: prev.sportsData.filter(s => s.sportId !== sportId) }));
     };
 
-    const updatePosition = (sportId: string, position: string) => {
+    // Toggle a preset position on/off in the comma-separated positions string
+    const togglePosition = (sportId: string, pos: string) => {
         setForm(prev => ({
             ...prev,
-            sportsData: prev.sportsData.map(s => s.sportId === sportId ? { ...s, position } : s),
+            sportsData: prev.sportsData.map(s => {
+                if (s.sportId !== sportId) return s;
+                const current = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+                const exists = current.includes(pos);
+                const updated = exists ? current.filter(p => p !== pos) : [...current, pos];
+                return { ...s, position: updated.join(', ') };
+            })
+        }));
+    };
+
+    // Add a free-text custom position (appended to existing)
+    const addCustomPosition = (sportId: string, custom: string) => {
+        if (!custom.trim()) return;
+        setForm(prev => ({
+            ...prev,
+            sportsData: prev.sportsData.map(s => {
+                if (s.sportId !== sportId) return s;
+                const current = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+                if (current.includes(custom.trim())) return s;
+                return { ...s, position: [...current, custom.trim()].join(', ') };
+            })
+        }));
+    };
+
+    // Remove a specific position tag
+    const removePositionTag = (sportId: string, pos: string) => {
+        setForm(prev => ({
+            ...prev,
+            sportsData: prev.sportsData.map(s => {
+                if (s.sportId !== sportId) return s;
+                const updated = s.position.split(',').map(p => p.trim()).filter(p => p && p !== pos);
+                return { ...s, position: updated.join(', ') };
+            })
         }));
     };
 
@@ -276,56 +309,103 @@ export default function ProfileScreen() {
                                                 <FontAwesome name="times-circle" size={20} color="#ef4444" />
                                             </TouchableOpacity>
                                         </View>
-                                        {/* Position chips */}
+                                        {/* Selected positions tags */}
+                                        {(() => {
+                                            const selectedPositions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+                                            if (selectedPositions.length === 0) return null;
+                                            return (
+                                                <View className="flex-row flex-wrap mb-2">
+                                                    {selectedPositions.map(pos => (
+                                                        <View key={pos} className="flex-row items-center bg-blue-600 px-2.5 py-1 rounded-full mr-1.5 mb-1.5">
+                                                            <Text className="text-white text-xs font-medium mr-1">{pos}</Text>
+                                                            <TouchableOpacity onPress={() => removePositionTag(s.sportId, pos)} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                                                                <FontAwesome name="times" size={10} color="rgba(255,255,255,0.8)" />
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            );
+                                        })()}
+
+                                        {/* Preset position chips — multi-select toggle */}
                                         {positions.length > 0 && (
                                             <View className="mb-2">
-                                                <Text className="text-xs text-gray-500 mb-2">עמדה מוגדרת מראש:</Text>
+                                                <Text className="text-xs text-gray-500 mb-2">בחר עמדות (ניתן לבחור מספר):</Text>
                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                     <View className="flex-row">
-                                                        <TouchableOpacity
-                                                            onPress={() => updatePosition(s.sportId, '')}
-                                                            className={`px-3 py-1.5 rounded-full mr-2 border ${!s.position ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'}`}
-                                                        >
-                                                            <Text className={`text-xs font-medium ${!s.position ? 'text-white' : 'text-gray-600'}`}>כללי</Text>
-                                                        </TouchableOpacity>
-                                                        {positions.map(pos => (
-                                                            <TouchableOpacity
-                                                                key={pos}
-                                                                onPress={() => updatePosition(s.sportId, pos)}
-                                                                className={`px-3 py-1.5 rounded-full mr-2 border ${s.position === pos ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'}`}
-                                                            >
-                                                                <Text className={`text-xs font-medium ${s.position === pos ? 'text-white' : 'text-gray-600'}`}>{pos}</Text>
-                                                            </TouchableOpacity>
-                                                        ))}
+                                                        {positions.map(pos => {
+                                                            const selected = s.position.split(',').map(p => p.trim()).includes(pos);
+                                                            return (
+                                                                <TouchableOpacity
+                                                                    key={pos}
+                                                                    onPress={() => togglePosition(s.sportId, pos)}
+                                                                    className={`px-3 py-1.5 rounded-full mr-2 border ${selected ? 'bg-blue-100 border-blue-400' : 'bg-white border-gray-200'}`}
+                                                                >
+                                                                    <Text className={`text-xs font-medium ${selected ? 'text-blue-700' : 'text-gray-600'}`}>{pos}</Text>
+                                                                </TouchableOpacity>
+                                                            );
+                                                        })}
                                                     </View>
                                                 </ScrollView>
                                             </View>
                                         )}
-                                        {/* Free-text position input */}
-                                        <View className="mt-1">
-                                            <Text className="text-xs text-gray-500 mb-1">או הכנס עמדה חופשית:</Text>
-                                            <TextInput
-                                                value={positions.includes(s.position) ? '' : s.position}
-                                                onChangeText={(v) => updatePosition(s.sportId, v)}
-                                                placeholder="למשל: אמצע, קשר פוגעני..."
-                                                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-right"
-                                                placeholderTextColor="#9ca3af"
-                                            />
-                                        </View>
+
+                                        {/* Free-text custom position */}
+                                        {(() => {
+                                            const [customText, setCustomText] = React.useState('');
+                                            return (
+                                                <View className="mt-1">
+                                                    <Text className="text-xs text-gray-500 mb-1">הוסף עמדה חופשית:</Text>
+                                                    <View className="flex-row">
+                                                        <TextInput
+                                                            value={customText}
+                                                            onChangeText={setCustomText}
+                                                            placeholder="למשל: קשר פוגעני, חלוץ שני..."
+                                                            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 mr-2 text-right"
+                                                            placeholderTextColor="#9ca3af"
+                                                            onSubmitEditing={() => { addCustomPosition(s.sportId, customText); setCustomText(''); }}
+                                                            returnKeyType="done"
+                                                        />
+                                                        <TouchableOpacity
+                                                            onPress={() => { addCustomPosition(s.sportId, customText); setCustomText(''); }}
+                                                            disabled={!customText.trim()}
+                                                            className={`px-3 rounded-lg items-center justify-center ${customText.trim() ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                                        >
+                                                            <FontAwesome name="plus" size={14} color={customText.trim() ? 'white' : '#9ca3af'} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            );
+                                        })()}
                                     </View>
                                 );
                             })}
                         </View>
                     ) : (
-                        // View mode: show chips
-                        <View className="flex-row flex-wrap">
+                        // View mode: sport card with individual position chips
+                        <View>
                             {profile?.sports?.map(s => {
                                 const hebrewName = SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name;
-                                const label = s.position ? `${hebrewName} · ${s.position}` : hebrewName;
+                                const positions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
                                 return (
-                                    <View key={s.id} className="bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 ml-2 mb-2 flex-row items-center">
-                                        <FontAwesome name="futbol-o" size={11} color="#2563eb" style={{ marginRight: 5 }} />
-                                        <Text className="text-blue-700 font-medium text-sm">{label}</Text>
+                                    <View key={s.id} className="mb-3 last:mb-0">
+                                        <View className="flex-row items-center mb-1.5">
+                                            <View className="w-7 h-7 bg-blue-100 rounded-full items-center justify-center mr-2">
+                                                <FontAwesome name="futbol-o" size={12} color="#2563eb" />
+                                            </View>
+                                            <Text className="font-bold text-gray-800">{hebrewName}</Text>
+                                        </View>
+                                        {positions.length > 0 ? (
+                                            <View className="flex-row flex-wrap mr-9">
+                                                {positions.map(pos => (
+                                                    <View key={pos} className="bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 mr-1.5 mb-1">
+                                                        <Text className="text-blue-700 text-xs font-medium">{pos}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        ) : (
+                                            <Text className="text-gray-400 text-xs mr-9">כללי</Text>
+                                        )}
                                     </View>
                                 );
                             })}
