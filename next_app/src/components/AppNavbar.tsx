@@ -17,6 +17,7 @@ import Stack from "@mui/material/Stack";
 
 // Icons
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
+import SearchIcon from "@mui/icons-material/Search";
 import Brightness4Icon from "@mui/icons-material/Brightness4"; // Moon
 import Brightness7Icon from "@mui/icons-material/Brightness7"; // Sun
 import PersonIcon from "@mui/icons-material/Person";
@@ -51,23 +52,42 @@ export default function AppNavbar() {
       <Container maxWidth="lg">
         <Toolbar disableGutters sx={{ justifyContent: "space-between" }}>
 
-          {/* Logo Section */}
-          <Link href="/" passHref style={{ textDecoration: "none", color: "inherit" }}>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer" }}>
-              <SportsSoccerIcon color="primary" />
-              <Typography
-                variant="h6"
-                component="div"
+          {/* Left Side Actions */}
+          <Stack direction="row" alignItems="center" spacing={3}>
+            <Link href="/" passHref style={{ textDecoration: "none", color: "inherit" }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer" }}>
+                <SportsSoccerIcon color="primary" />
+                <Typography
+                  variant="h6"
+                  component="div"
+                  sx={{
+                    fontWeight: 800,
+                    letterSpacing: "-0.5px",
+                    color: "text.primary"
+                  }}
+                >
+                  JoinUp
+                </Typography>
+              </Stack>
+            </Link>
+
+            {/* Find Games / Search Link */}
+            <Link href="/search" passHref style={{ textDecoration: "none" }}>
+              <Button
+                variant="text"
+                color="inherit"
+                startIcon={<SearchIcon />}
                 sx={{
-                  fontWeight: 800,
-                  letterSpacing: "-0.5px",
-                  color: "text.primary"
+                  textTransform: "none",
+                  fontWeight: 600,
+                  color: "text.secondary",
+                  "&:hover": { color: "primary.main", bgcolor: "transparent" }
                 }}
               >
-                JoinUp
-              </Typography>
-            </Stack>
-          </Link>
+                Find Games
+              </Button>
+            </Link>
+          </Stack>
 
           {/* Right Side Actions */}
           <Stack direction="row" alignItems="center" spacing={1}>
