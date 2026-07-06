@@ -1,5 +1,5 @@
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { Image } from 'expo-image'; // Fix #2b: expo-image for disk+memory caching
+import { Image } from 'expo-image';
 import React, { useState, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/clerk-expo';
 import { useChat, ChatPreview } from '@/context/ChatContext';
@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 
-// Fix #2a: Extracted + memoized chat item — only re-renders when its own data changes
+// Extracted + memoized chat item — only re-renders when its own data changes
 const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel, onPress }: {
     item: ChatPreview;
     userId?: string;
@@ -39,16 +39,18 @@ const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel
                 )}
             </View>
             <View className="flex-row justify-between items-center">
-                <Text 
-                    className={`text-sm flex-1 ml-2 text-left ${isTyping ? 'text-blue-500 italic' : 'text-gray-500'}`} 
+                <Text
+                    className={`text-sm flex-1 ml-2 text-left ${isTyping ? 'text-blue-500 italic' : item.unreadCount > 0 ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}
                     numberOfLines={1}
                 >
-                    {isTyping ? isTyping : (item.lastMessage
-                        ? (item.lastMessage.senderId === userId ? youLabel : '') + item.lastMessage.text
-                        : noMessagesLabel)}
+                    {isTyping
+                        ? isTyping
+                        : (item.lastMessage
+                            ? (item.lastMessage.senderId === userId ? youLabel : '') + item.lastMessage.text
+                            : noMessagesLabel)}
                 </Text>
                 {item.unreadCount > 0 && (
-                    <View className="bg-blue-600 rounded-full px-2 py-0.5">
+                    <View className="bg-blue-600 rounded-full px-2 py-0.5 ml-2">
                         <Text className="text-white text-xs font-bold">{item.unreadCount}</Text>
                     </View>
                 )}
@@ -56,7 +58,6 @@ const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel
         </View>
     </TouchableOpacity>
 ), (prev, next) =>
-    // Custom equality: only re-render if these specific fields changed
     prev.item.id === next.item.id &&
     prev.item.lastMessage?.text === next.item.lastMessage?.text &&
     prev.item.lastMessage?.createdAt === next.item.lastMessage?.createdAt &&
@@ -86,17 +87,14 @@ export default function ChatsScreen() {
         setRefreshing(false);
     }, [loadChats]);
 
-    // Fix #2a: memoized filter — only recomputes when chats or tab changes
     const filteredChats = useMemo(
         () => chats.filter(chat => tabValue === 0 ? chat.type === 'private' : chat.type === 'group'),
         [chats, tabValue]
     );
 
-    // Cache translation strings so they're stable references in renderItem
     const youLabel = t('chats.you');
     const noMessagesLabel = t('chats.noMessages');
 
-    // Fix #2a: stable renderItem reference — won't cause FlatList to re-render all items
     const renderItem = useCallback(({ item }: { item: ChatPreview }) => (
         <ChatItem
             item={item}
@@ -110,6 +108,14 @@ export default function ChatsScreen() {
             }}
         />
     ), [user?.id, typingStatus, youLabel, noMessagesLabel, router]);
+
+    // KEY FIX: extraData must change whenever chats reorder, get new messages, or typing changes.
+    // Without this, FlatList sees the same array reference and skips re-rendering rows.
+    const extraData = useMemo(() => ({
+        typing: typingStatus,
+        // A diff-signal string that changes when any chat bubbles up, gets a new message, or unread count changes
+        msgKey: filteredChats.map(c => `${c.id}:${c.lastMessage?.createdAt ?? ''}:${c.unreadCount}`).join('|'),
+    }), [typingStatus, filteredChats]);
 
     if (loadingChats && !refreshing) {
         return (
@@ -148,8 +154,7 @@ export default function ChatsScreen() {
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
-                extraData={typingStatus}
-                // Performance props
+                extraData={extraData}
                 removeClippedSubviews={true}
                 maxToRenderPerBatch={10}
                 windowSize={10}
