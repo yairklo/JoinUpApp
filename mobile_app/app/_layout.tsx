@@ -12,9 +12,21 @@ import { NotificationProvider } from "@/context/NotificationContext";
 import { GameUpdateProvider } from "@/context/GameUpdateContext";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "@/i18n";
+import { SocketManager } from "@/services/socketManager";
 import "../global.css"; // NativeWind
 
-console.log("=== _layout.tsx loaded ===");
+// Fix #9: Defined once outside component — not recreated on every render
+const CyberDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: '#0a0a0a',
+    card: '#171717',
+    text: '#f8fafc',
+    border: '#262626',
+    primary: '#2563eb',
+  },
+};
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -26,40 +38,23 @@ if (!publishableKey) {
 }
 
 export default function RootLayout() {
-  console.log("=== RootLayout rendering ===");
   const [i18nLoaded, setI18nLoaded] = useState(false);
   const colorScheme = useColorScheme();
 
-  const CyberDarkTheme = {
-    ...DarkTheme,
-    colors: {
-      ...DarkTheme.colors,
-      background: '#0a0a0a',
-      card: '#171717',
-      text: '#f8fafc',
-      border: '#262626',
-      primary: '#2563eb',
-    },
-  };
-
   useEffect(() => {
-    console.log("=== RootLayout useEffect (mount) ===");
     const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
     Promise.race([initI18n(), timeout])
       .then(() => {
-        console.log("=== RootLayout i18n init resolved ===");
         setI18nLoaded(true);
       })
       .catch((e) => {
-        console.error("I18n init error:", e);
+        console.error('I18n init error:', e);
         setI18nLoaded(true);
       });
   }, []);
 
   useEffect(() => {
-    console.log("=== RootLayout useEffect i18nLoaded change:", i18nLoaded, "===");
     if (i18nLoaded) {
-      console.log("=== Calling SplashScreen.hideAsync() ===");
       SplashScreen.hideAsync().catch(console.warn);
     }
   }, [i18nLoaded]);
@@ -88,7 +83,7 @@ export default function RootLayout() {
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -96,6 +91,22 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace("/sign-in");
     }
   }, [isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      getToken().then((token) => {
+        if (token) {
+          SocketManager.connect(token);
+        }
+      });
+    } else if (isLoaded && !isSignedIn) {
+      SocketManager.disconnect();
+    }
+
+    return () => {
+      SocketManager.disconnect();
+    };
+  }, [isLoaded, isSignedIn, getToken]);
 
   if (!isLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Loading Clerk...</Text></View>;
 

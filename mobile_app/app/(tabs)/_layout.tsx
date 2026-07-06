@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, Link } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -17,11 +17,38 @@ export default function TabLayout() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
 
+  // Memoized so it doesn't re-create on every render
+  const HeaderRight = useCallback(() => (
+    <View className="flex-row items-center gap-2 pr-4 pl-4">
+      <TouchableOpacity
+        onPress={() => {
+          const newTheme = colorScheme === 'dark' ? 'light' : 'dark';
+          Appearance.setColorScheme(newTheme);
+        }}
+        className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 items-center justify-center border border-gray-200 dark:border-gray-700"
+      >
+        <Ionicons name={colorScheme === 'dark' ? 'sunny' : 'moon'} size={16} color={colorScheme === 'dark' ? '#facc15' : '#4b5563'} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => changeLanguage(i18n.language === 'en' ? 'he' : 'en')}
+        className="h-8 px-2 bg-gray-100 dark:bg-gray-800 rounded-lg items-center justify-center border border-gray-200 dark:border-gray-700"
+      >
+        <Text className="font-bold text-gray-800 dark:text-gray-200 text-xs">{i18n.language === 'en' ? 'EN' : 'HE'}</Text>
+      </TouchableOpacity>
+      <Link href="/notifications" asChild>
+        <TouchableOpacity className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg items-center justify-center border border-gray-200 dark:border-gray-700">
+          <Ionicons name="notifications-outline" size={16} color={colorScheme === 'dark' ? '#f3f4f6' : '#111827'} />
+        </TouchableOpacity>
+      </Link>
+    </View>
+  ), [colorScheme]);
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#2563eb', // blue-600
+        tabBarActiveTintColor: '#2563eb',
         headerShown: true,
+        lazy: true, // Fix #11: only mount tab when first visited
       }}>
       <Tabs.Screen
         name="index"
@@ -29,30 +56,7 @@ export default function TabLayout() {
           title: t('tabs.games'),
           tabBarIcon: ({ color }) => <TabBarIcon name="soccer-ball-o" color={color} />,
           headerTitle: 'JoinUp Games',
-          headerRight: () => (
-            <View className="flex-row items-center gap-2 pr-4 pl-4">
-              <TouchableOpacity 
-                onPress={() => {
-                    const newTheme = colorScheme === 'dark' ? 'light' : 'dark';
-                    Appearance.setColorScheme(newTheme);
-                }}
-                className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 items-center justify-center border border-gray-200 dark:border-gray-700"
-              >
-                <Ionicons name={colorScheme === 'dark' ? 'sunny' : 'moon'} size={16} color={colorScheme === 'dark' ? '#facc15' : '#4b5563'} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => changeLanguage(i18n.language === 'en' ? 'he' : 'en')}
-                className="h-8 px-2 bg-gray-100 dark:bg-gray-800 rounded-lg items-center justify-center border border-gray-200 dark:border-gray-700"
-              >
-                <Text className="font-bold text-gray-800 dark:text-gray-200 text-xs">{i18n.language === 'en' ? 'EN' : 'HE'}</Text>
-              </TouchableOpacity>
-              <Link href="/notifications" asChild>
-                <TouchableOpacity className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg items-center justify-center border border-gray-200 dark:border-gray-700">
-                  <Ionicons name="notifications-outline" size={16} color={colorScheme === 'dark' ? '#f3f4f6' : '#111827'} />
-                </TouchableOpacity>
-              </Link>
-            </View>
-          ),
+          headerRight: HeaderRight,
         }}
       />
       <Tabs.Screen

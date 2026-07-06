@@ -310,6 +310,12 @@ io.on('connection', async (socket) => {
     }
   });
 
+  socket.on('leaveRoom', (roomId) => {
+    if (roomId) {
+      socket.leave(String(roomId));
+    }
+  });
+
   // 1. User Setup: Join personal room for notifications
   socket.on('setup', (userData) => {
     if (userData?.id) {
@@ -567,7 +573,21 @@ io.on('connection', async (socket) => {
 
         console.log(`[DEBUG NOTIFICATIONS] Resolved recipientIds for room ${roomId}:`, recipientIds);
         recipientIds.forEach(recipientId => {
-          console.log(`[DEBUG NOTIFICATIONS] Emitting notification to recipient ${recipientId} via room ${recipientId}`);
+          console.log(`[DEBUG NOTIFICATIONS] Emitting notification & sync to recipient ${recipientId} via room ${recipientId}`);
+          
+          // Data Sync Event (Decoupled from Notifications)
+          io.to(recipientId).emit('chat:sync', {
+            chatId: roomId,
+            lastMessage: {
+              text: text,
+              createdAt: msg.createdAt || new Date().toISOString(),
+              senderId: finalUserId,
+              status: 'sent'
+            },
+            unreadCountIncrement: 1
+          });
+
+          // Visual/Push Notification Event
           io.to(recipientId).emit('notification', {
             type: 'message',
             roomId: roomId,

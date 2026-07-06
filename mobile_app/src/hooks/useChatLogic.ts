@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
-import { io, Socket } from "socket.io-client";
+import { SocketManager } from "@/services/socketManager";
 import { useUser, useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "./useRouter.adapter";
 import { useChat } from "@/context/ChatContext";
@@ -17,7 +17,7 @@ export interface UseChatLogicProps {
 export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const { user } = useUser();
     const { getToken } = useAuth();
-    const { messagesCache, loadMessages } = useChat();
+    const { messagesCache, loadMessages, markChatAsRead, openChat, closeChat } = useChat();
 
     const [isLoading, setIsLoading] = useState(true);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -30,7 +30,6 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const [unreadNewMessages, setUnreadNewMessages] = useState(0);
-    const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
 
     const [avatarByUserId, setAvatarByUserId] = useState<Record<string, string | null>>({});
     const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({});
@@ -40,6 +39,15 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const isUserAtBottomRef = useRef(true);
     const prevMessagesLengthRef = useRef(0);
     const typingTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+    // Fix #5: track fetched user IDs to prevent re-fetching and cascading re-renders
+    const fetchedUserIdsRef = useRef<Set<string>>(new Set());
+
+    // 0. Register Active Chat globally
+    useEffect(() => {
+        if (!roomId || roomId === 'global') return;
+        openChat(roomId);
+        return () => closeChat();
+    }, [roomId, openChat, closeChat]);
 
     // 1. Resolve Room ID and Fetch Details
     useEffect(() => {
@@ -104,135 +112,141 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roomId]);
 
-    // 3. Socket Logic
+    // 3. Socket Logic via Singleton
     useEffect(() => {
-        let socket: Socket | null = null;
-        const initSocket = async () => {
-            try {
-                const token = await getToken();
-                socket = io(API_BASE, {
-                    path: "/api/socket",
-                    transports: ["websocket"],
-                    withCredentials: true,
-                    auth: { token }
-                });
-                setSocketInstance(socket);
+        if (!user?.id || !roomId) return;
 
-                socket.on("connect", () => {
-                    socket?.emit("joinRoom", roomId);
-                    socket?.emit("markAsRead", { roomId, userId: user?.id });
-                });
-
-                socket.on("connect_error", async (err: any) => {
-                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
-                        try {
-                            const newToken = await getToken();
-                            if (newToken && socket) {
-                                socket.auth = { token: newToken };
-                                socket.connect();
-                            }
-                        } catch (e) { console.error("Refresh token failed", e); }
-                    }
-                });
-
-                // Event Listeners (Same as before)
-                socket.on('presence:update', ({ userId: uid, isOnline }) => {
-                    if (uid === otherUserId) setIsOtherUserOnline(isOnline);
-                });
-
-                socket.on('typing:start', ({ chatId, userName, senderId }) => {
-                    if (String(chatId) !== String(roomId)) return;
-                    if (String(senderId) === String(user?.id)) return;
-                    const name = userName || "Someone";
-                    if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
-                    setTypingUsers(prev => { const next = new Set(prev); next.add(name); return next; });
-                    typingTimeoutsRef.current[senderId] = setTimeout(() => {
-                        setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
-                    }, 3000);
-                });
-
-                socket.on('typing:stop', ({ chatId, userName, senderId }) => {
-                    if (String(chatId) !== String(roomId)) return;
-                    if (String(senderId) === String(user?.id)) return;
-                    const name = userName || "Someone";
-                    if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
-                    setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
-                });
-
-                socket.on("message", (incomingMsg: ChatMessage) => {
-                    if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
-
-                    setMessages(prev => {
-                        const matchIndex = prev.findIndex(m => {
-                            const idMatch = String(m.id) === String(incomingMsg.id);
-                            const tempMatch = incomingMsg.tempId && (String(m.id) == String(incomingMsg.tempId));
-                            return idMatch || tempMatch;
-                        });
-                        if (matchIndex > -1) {
-                            const existingMsg = prev[matchIndex];
-                            const safeReply = existingMsg.replyTo || incomingMsg.replyTo;
-                            const newMessages = [...prev];
-                            newMessages[matchIndex] = { ...incomingMsg, status: 'sent', sender: existingMsg.sender || incomingMsg.sender, replyTo: safeReply };
-                            return newMessages;
-                        } else {
-                            return [...prev, incomingMsg];
-                        }
-                    });
-                    if (incomingMsg.userId !== user?.id) socket?.emit("markAsRead", { roomId, userId: user?.id });
-                });
-
-                // ... Other events (updated, deleted, reactions) ...
-                socket.on("messageUpdated", (payload) => {
-                    if (!payload.roomId || payload.roomId === roomId) {
-                        setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, text: payload.text, isEdited: payload.isEdited } : m));
-                    }
-                });
-
-                socket.on("messageDeleted", (payload) => {
-                    if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
-                    setMessages(prev => prev.map(msg => String(msg.id) === String(payload.id) ? { ...msg, isDeleted: true, text: "[Content Removed]", status: 'rejected' } : msg));
-                });
-
-                socket.on("messageReaction", (payload) => {
-                    if (!payload.roomId || payload.roomId === roomId) {
-                        setMessages((prev) => prev.map(m => (String(m.id) === String(payload.messageId)) ? { ...m, reactions: payload.reactions } : m));
-                    }
-                });
-
-                socket.on("messageStatusUpdate", (payload) => {
-                    if (payload.roomId === roomId) {
-                        setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read') ? { ...m, status: payload.status } : m));
-                    }
-                });
-
-            } catch (e) {
-                console.error("Socket connection failed", e);
-            }
+        const joinRoom = () => {
+            SocketManager.emit("joinRoom", roomId);
+            SocketManager.emit("markAsRead", { roomId, userId: user?.id });
+            markChatAsRead(roomId);
         };
 
-        if (user?.id) initSocket();
-        return () => { if (socket) socket.disconnect(); };
-    }, [roomId, user?.id]); // Removed getToken from deps to prevent socket disconnect on every re-render
+        joinRoom(); // Initial join
 
-    // 4. Hydrate Users
+        const unsubscribeConnect = SocketManager.on("connect", joinRoom);
+
+        const unsubscribePresence = SocketManager.on('presence:update', ({ userId: uid, isOnline }) => {
+            if (uid === otherUserId) setIsOtherUserOnline(isOnline);
+        });
+
+        const unsubscribeTypingStart = SocketManager.on('typing:start', ({ chatId, userName, senderId }) => {
+            if (String(chatId) !== String(roomId)) return;
+            if (String(senderId) === String(user?.id)) return;
+            const name = userName || "Someone";
+            if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
+            setTypingUsers(prev => { const next = new Set(prev); next.add(name); return next; });
+            typingTimeoutsRef.current[senderId] = setTimeout(() => {
+                setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
+            }, 3000);
+        });
+
+        const unsubscribeTypingStop = SocketManager.on('typing:stop', ({ chatId, userName, senderId }) => {
+            if (String(chatId) !== String(roomId)) return;
+            if (String(senderId) === String(user?.id)) return;
+            const name = userName || "Someone";
+            if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
+            setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
+        });
+
+        const unsubscribeMessage = SocketManager.on("message", (incomingMsg: ChatMessage) => {
+            if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
+
+            setMessages(prev => {
+                const matchIndex = prev.findIndex(m => {
+                    const idMatch = String(m.id) === String(incomingMsg.id);
+                    const tempMatch = incomingMsg.tempId && (String(m.id) == String(incomingMsg.tempId));
+                    return idMatch || tempMatch;
+                });
+                if (matchIndex > -1) {
+                    const existingMsg = prev[matchIndex];
+                    const safeReply = existingMsg.replyTo || incomingMsg.replyTo;
+                    const newMessages = [...prev];
+                    newMessages[matchIndex] = { ...incomingMsg, status: 'sent', sender: existingMsg.sender || incomingMsg.sender, replyTo: safeReply };
+                    return newMessages;
+                } else {
+                    return [...prev, incomingMsg];
+                }
+            });
+            if (incomingMsg.userId !== user?.id) {
+                SocketManager.emit("markAsRead", { roomId, userId: user?.id });
+                markChatAsRead(roomId);
+            }
+        });
+
+        const unsubscribeMessageUpdated = SocketManager.on("messageUpdated", (payload) => {
+            if (!payload.roomId || payload.roomId === roomId) {
+                setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, text: payload.text, isEdited: payload.isEdited } : m));
+            }
+        });
+
+        const unsubscribeMessageDeleted = SocketManager.on("messageDeleted", (payload) => {
+            if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
+            setMessages(prev => prev.map(msg => String(msg.id) === String(payload.id) ? { ...msg, isDeleted: true, text: "[Content Removed]", status: 'rejected' } : msg));
+        });
+
+        const unsubscribeMessageReaction = SocketManager.on("messageReaction", (payload) => {
+            if (!payload.roomId || payload.roomId === roomId) {
+                setMessages((prev) => prev.map(m => (String(m.id) === String(payload.messageId)) ? { ...m, reactions: payload.reactions } : m));
+            }
+        });
+
+        const unsubscribeMessageStatusUpdate = SocketManager.on("messageStatusUpdate", (payload) => {
+            if (payload.roomId === roomId) {
+                setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read') ? { ...m, status: payload.status } : m));
+            }
+        });
+
+        return () => {
+            unsubscribeConnect();
+            unsubscribePresence();
+            unsubscribeTypingStart();
+            unsubscribeTypingStop();
+            unsubscribeMessage();
+            unsubscribeMessageUpdated();
+            unsubscribeMessageDeleted();
+            unsubscribeMessageReaction();
+            unsubscribeMessageStatusUpdate();
+            SocketManager.emit('leaveRoom', roomId);
+        };
+    }, [roomId, user?.id, otherUserId]); // Added otherUserId for presence checks
+
+    // 4. Hydrate Users — Fix #5: batch update, ref guard, no cascading re-renders
     useEffect(() => {
-        const missing = Array.from(new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))).filter(id => !(id in avatarByUserId));
+        const missing = [...new Set(
+            messages.map(m => m.userId).filter((id): id is string => !!id)
+        )].filter(id => !fetchedUserIdsRef.current.has(id));
+
         if (missing.length === 0) return;
+
+        // Mark all as in-flight immediately to prevent duplicate fetches
+        missing.forEach(id => fetchedUserIdsRef.current.add(id));
+
         const hydrateUsers = async () => {
             const token = await getToken();
             if (!token) return;
-            missing.forEach(async (uid) => {
-                try {
-                    const u = await usersApi.getProfile(uid, token);
-                    setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
-                    if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
-                } catch {
-                    setAvatarByUserId((prev) => ({ ...prev, [uid]: null }));
+
+            // Fetch all missing users in parallel, then do ONE batch state update
+            const results = await Promise.allSettled(
+                missing.map(uid => usersApi.getProfile(uid, token).then(u => ({ uid, u })))
+            );
+
+            const newAvatars: Record<string, string | null> = {};
+            const newNames: Record<string, string> = {};
+            results.forEach(r => {
+                if (r.status === 'fulfilled') {
+                    const { uid, u } = r.value;
+                    newAvatars[uid] = u?.imageUrl || null;
+                    if (u?.name) newNames[uid] = String(u.name);
                 }
             });
+
+            // Single state update per batch — no cascading effect triggers
+            setAvatarByUserId(prev => ({ ...prev, ...newAvatars }));
+            setNameByUserId(prev => ({ ...prev, ...newNames }));
         };
         hydrateUsers();
-    }, [messages, avatarByUserId]);
+    }, [messages]); // Fix #5: only messages in deps, no avatarByUserId
 
 
     // Helper Props for UI
@@ -246,10 +260,10 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     // Actions
     const handleSendMessage = () => {
         const trimmed = inputValue.trim();
-        if (!trimmed || !socketInstance) return;
+        if (!trimmed) return;
 
         if (editingMessage) {
-            socketInstance.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
+            SocketManager.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
             setEditingMessage(null);
         } else {
             console.log("SENDING MESSAGE TO:", API_BASE);
@@ -266,19 +280,19 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             };
             setMessages((prev) => [...prev, optimisticMessage]);
 
-            socketInstance.emit("message", { text: trimmed, roomId, userId: user?.id, replyTo: optimisticMessage.replyTo, status: "sent", tempId: optimisticId });
+            SocketManager.emit("message", { text: trimmed, roomId, userId: user?.id, replyTo: optimisticMessage.replyTo, status: "sent", tempId: optimisticId });
         }
         setInputValue("");
         setReplyToMessage(null);
-        socketInstance.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
+        SocketManager.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
     };
 
     const handleTyping = () => {
-        socketInstance?.emit("typing", { isTyping: true, roomId, userName: user?.fullName });
+        SocketManager.emit("typing", { isTyping: true, roomId, userName: user?.fullName });
     };
 
     const handleStopTyping = () => {
-        socketInstance?.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
+        SocketManager.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
     };
 
     return {
@@ -294,8 +308,8 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             setInputValue, setReplyToMessage, setEditingMessage,
             setShowScrollButton, setUnreadNewMessages,
             handleSendMessage, handleTyping, handleStopTyping,
-            handleDelete: (id: string | number) => socketInstance?.emit("deleteMessage", { messageId: id, roomId }),
-            handleReact: (id: string | number, emoji: string) => socketInstance?.emit("addReaction", { messageId: id, emoji, userId: user?.id, roomId }),
+            handleDelete: (id: string | number) => SocketManager.emit("deleteMessage", { messageId: id, roomId }),
+            handleReact: (id: string | number, emoji: string) => SocketManager.emit("addReaction", { messageId: id, emoji, userId: user?.id, roomId }),
         }
     };
 }

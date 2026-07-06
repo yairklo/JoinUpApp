@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { io, Socket } from 'socket.io-client';
+import { SocketManager } from '@/services/socketManager';
 import { notificationsApi, chatsApi, Notification as NotificationType, API_BASE } from '@/services/api';
-import { useChat } from '@/context/ChatContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
@@ -16,43 +15,34 @@ Notifications.setNotificationHandler({
 
 export function useNotifications() {
     const { userId, isLoaded, getToken } = useAuth();
-    const { updateChatList } = useChat();
 
     const [notifications, setNotifications] = useState<NotificationType[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [socket, setSocket] = useState<Socket | null>(null);
 
-    const socketRef = useRef<Socket | null>(null);
+    // Fix #7: cache permission status so we don't call getPermissionsAsync on every notification
+    const permissionGrantedRef = useRef<boolean | null>(null);
 
-    // 0. Request Push Permissions on Mount
+    // 0. Request Push Permissions on Mount (once)
     useEffect(() => {
         const requestPermissions = async () => {
-            if (!Device.isDevice) {
-                console.log('[NOTIFICATIONS] Must use physical device for Push Notifications');
-                return;
-            }
+            if (!Device.isDevice) return;
             const { status: existingStatus } = await Notifications.getPermissionsAsync();
             let finalStatus = existingStatus;
             if (existingStatus !== 'granted') {
                 const { status } = await Notifications.requestPermissionsAsync();
                 finalStatus = status;
             }
-            if (finalStatus !== 'granted') {
-                console.log('[NOTIFICATIONS] Failed to get push token for push notification!');
-            }
+            // Fix #7: cache result so we never call getPermissionsAsync again
+            permissionGrantedRef.current = finalStatus === 'granted';
         };
         requestPermissions();
     }, []);
 
-    // 1. Fetch Notifications (Initial + Polling)
+    // 1. Fetch Notifications (Initial load only — real-time updates handled by socket)
     const fetchNotifications = useCallback(async () => {
         if (!userId) return;
-        setLoading(prev => prev === false ? true : prev); // Only set true if not already loading to avoid flicker? Or maybe just set true.
-        // Actually, for polling we might not want to set loading=true every time, but for initial load yes.
-        // Let's stick to simple logic: Only set loading on first fetch? 
-        // For now, let's just set it.
-
+        setLoading(true);
         try {
             const token = await getToken();
             if (!token) return;
@@ -64,131 +54,54 @@ export function useNotifications() {
         } finally {
             setLoading(false);
         }
-    }, [userId]); // Removed getToken to prevent infinite re-renders
+    }, [userId]);
 
-    // Initial Fetch & Polling
+    // Initial fetch only — Fix #7: removed 30s polling (socket handles real-time updates)
     useEffect(() => {
         if (!isLoaded || !userId) return;
-
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
-    }, [isLoaded, userId]); // Removed fetchNotifications to prevent infinite loop
+        // No interval — the socket below pushes live updates
+    }, [isLoaded, userId]);
 
     const getTokenRef = useRef(getToken);
     useEffect(() => {
         getTokenRef.current = getToken;
     }, [getToken]);
 
-    // 2. Socket Connection
+    // 2. Socket Connection via Singleton
     useEffect(() => {
-        console.log('[NOTIFICATIONS] Socket useEffect triggered. userId:', userId);
         if (!userId) return;
 
-        let socketInstance: Socket | null = null;
-
-        const initSocket = async () => {
-            try {
-                console.log('[NOTIFICATIONS] Getting Clerk token...');
-                const token = await getTokenRef.current();
-                console.log('[NOTIFICATIONS] Token obtained. Connecting socket to:', API_BASE);
-
-                socketInstance = io(API_BASE, {
-                    path: '/api/socket',
-                    transports: ['websocket'],
-                    auth: {
-                        token: token || ""
-                    }
-                });
-
-                socketInstance.on('connect', async () => {
-                    console.log('[NOTIFICATIONS] Socket connected successfully! ID:', socketInstance?.id);
-                    socketInstance?.emit('join', `user_${userId}`);
-                    socketInstance?.emit('setup', { id: userId });
-
-                    // Pre-join all active chat rooms for real-time list updates
-                    try {
-                        const userChats = await chatsApi.getUserChats(userId, token || "");
-                        console.log(`[NOTIFICATIONS] Joining ${userChats.length} chat rooms...`);
-                        userChats.forEach((chat: any) => {
-                            if (chat && chat.id) {
-                                socketInstance?.emit('joinRoom', chat.id);
-                            }
-                        });
-                    } catch (err) {
-                        console.error('[NOTIFICATIONS] Failed to pre-join chat rooms:', err);
-                    }
-                });
-
-                socketInstance.on('connect_error', (error) => {
-                    console.error('[NOTIFICATIONS] Socket connection error:', error);
-                });
-
-                socketInstance.on('disconnect', (reason) => {
-                    console.log('[NOTIFICATIONS] Socket disconnected. Reason:', reason);
-                });
-
-                // Listen to message events from pre-joined chat rooms to update the list in real-time
-                socketInstance.on('message', (incomingMsg: any) => {
-                    console.log('[NOTIFICATIONS] Received real-time chat message:', incomingMsg);
-                    updateChatList({
-                        chatId: incomingMsg.roomId || incomingMsg.chatId,
-                        roomId: incomingMsg.roomId || incomingMsg.chatId,
-                        content: incomingMsg.text || incomingMsg.content,
-                        text: incomingMsg.text || incomingMsg.content,
-                        senderId: incomingMsg.userId || incomingMsg.senderId,
-                        userId: incomingMsg.userId || incomingMsg.senderId,
-                        ts: incomingMsg.ts || new Date().toISOString()
-                    });
-                });
-
-                socketInstance.on('notification', async (data: any) => {
-                    console.log('[NOTIFICATIONS] Received real-time notification:', data);
-                    
-                    if (data.type === 'message') {
-                        updateChatList({
-                            chatId: data.roomId,
-                            roomId: data.roomId,
-                            content: data.text,
-                            text: data.text,
-                            senderId: data.senderId,
-                            userId: data.senderId,
-                            ts: new Date().toISOString()
-                        });
-                    }
-
-                    setNotifications(prev => [data, ...prev]);
-                    setUnreadCount(prev => prev + 1);
-
-                    const { status } = await Notifications.getPermissionsAsync();
-                    if (status === 'granted') {
-                        await Notifications.scheduleNotificationAsync({
-                            content: {
-                                title: data.title || 'JoinUp',
-                                body: data.message || data.text || 'התקבלה התראה חדשה',
-                                data: { id: data.id, link: data.link },
-                            },
-                            trigger: null,
-                        });
-                    }
-                });
-
-                setSocket(socketInstance);
-                socketRef.current = socketInstance;
-            } catch (e) {
-                console.error('[NOTIFICATIONS] Error in initSocket:', e);
-            }
+        // Ensure we join the personal room
+        const setupPersonalRoom = () => {
+            SocketManager.emit('join', `user_${userId}`);
+            SocketManager.emit('setup', { id: userId });
         };
 
-        initSocket();
+        setupPersonalRoom();
+        const unsubscribeConnect = SocketManager.on('connect', setupPersonalRoom);
+
+        const unsubscribeNotification = SocketManager.on('notification', async (data: any) => {
+            setNotifications(prev => [data, ...prev]);
+            setUnreadCount(prev => prev + 1);
+
+            if (permissionGrantedRef.current) {
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: data.title || 'JoinUp',
+                        body: data.message || data.text || 'התקבלה התראה חדשה',
+                        data: { id: data.id, link: data.link },
+                    },
+                    trigger: null,
+                });
+            }
+        });
 
         return () => {
-            console.log('[NOTIFICATIONS] Cleaning up socket...');
-            if (socketInstance) socketInstance.disconnect();
+            unsubscribeConnect();
+            unsubscribeNotification();
         };
     }, [userId]);
-
-
     // 3. Actions
     const markAsRead = async (id: string) => {
         try {
