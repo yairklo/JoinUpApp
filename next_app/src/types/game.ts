@@ -17,4 +17,13 @@ export type Game = {
     teamSize?: number | null;
     price?: number | null;
     organizerId?: string;
+    fieldLat?: number | null;
+    fieldLng?: number | null;
+    customLat?: number | null;
+    customLng?: number | null;
+    field?: {
+        lat?: number | null;
+        lng?: number | null;
+        name?: string;
+    };
 };
