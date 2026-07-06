@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile_app",
+    "name": "JoinUp",
     "slug": "mobile_app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -23,7 +23,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.yairklo.mobile_app",
+      "package": "com.yairklo.joinupapp",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCSkGsi2WtND71FfLA3h5o0IMje_veOPxw"
