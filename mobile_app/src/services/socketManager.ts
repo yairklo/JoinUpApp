@@ -19,7 +19,13 @@ export const SocketManager = {
       listeners.get(event)?.forEach((cb) => cb(...args));
     });
 
+    // Explicitly route reserved socket.io events (onAny doesn't catch these)
+    socket.on('connect', () => {
+      listeners.get('connect')?.forEach((cb) => cb());
+    });
+
     socket.on('disconnect', (reason) => {
+      listeners.get('disconnect')?.forEach((cb) => cb(reason));
       if (reason === 'io server disconnect') {
         socket?.connect();
       }

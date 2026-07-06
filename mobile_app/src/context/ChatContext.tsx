@@ -37,6 +37,7 @@ interface ChatContextProps {
     chats: ChatPreview[];
     loadingChats: boolean;
     totalUnread: number;
+    typingStatus: Record<string, string>;
     messagesCache: Record<string, ChatMessage[]>;
     openChat: (chatId: string, info?: HeaderInfo) => void;
     openWidget: () => void;
@@ -68,6 +69,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const [totalUnread, setTotalUnread] = useState(0);
     const [messagesCache, setMessagesCache] = useState<Record<string, ChatMessage[]>>({});
 
+    const [typingStatus, setTypingStatus] = useState<Record<string, string>>({});
+
     // Fix #3: ref-based guard so loadChats has a stable reference
     const chatsLoadedRef = useRef(false);
 
@@ -78,6 +81,20 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         // No localStorage in React Native
     }, []);
+
+    // 0. Join Chat Rooms for Real-time Typing Indicators
+    useEffect(() => {
+        if (!user?.id || chats.length === 0) return;
+        const chatIds = chats.map(c => c.id);
+        
+        const joinAll = () => {
+            SocketManager.emit('joinChats', chatIds);
+        };
+        joinAll();
+
+        const unsubConnect = SocketManager.on('connect', joinAll);
+        return () => unsubConnect();
+    }, [user?.id, chats.length]);
 
     // 1. Load Chats
     const loadChats = useCallback(async (forceRefresh = false) => {
@@ -254,13 +271,36 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         const handleIncoming = (incomingMsg: any) => {
             updateChatList(incomingMsg);
         };
-
         const unsubSync = SocketManager.on('chat:sync', handleIncoming);
         const unsubMsg = SocketManager.on('message', handleIncoming);
+
+        const unsubTypingStart = SocketManager.on('typing:start', ({ chatId, userName, senderId }) => {
+            if (String(senderId) === String(user?.id)) return;
+            const name = userName || "Someone";
+            setTypingStatus(prev => ({ ...prev, [chatId]: `${name} מקליד...` }));
+            // Clear after 3 seconds
+            setTimeout(() => {
+                setTypingStatus(prev => {
+                    const newState = { ...prev };
+                    delete newState[chatId];
+                    return newState;
+                });
+            }, 3000);
+        });
+
+        const unsubTypingStop = SocketManager.on('typing:stop', ({ chatId }) => {
+            setTypingStatus(prev => {
+                const newState = { ...prev };
+                delete newState[chatId];
+                return newState;
+            });
+        });
 
         return () => {
             unsubSync();
             unsubMsg();
+            unsubTypingStart();
+            unsubTypingStop();
         };
     }, [user?.id, updateChatList]);
 
@@ -306,19 +346,20 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const markChatAsRead = useCallback((chatId: string) => {
-        setChats(prev => prev.map(c => {
-            if (c.id === chatId) {
-                if (c.unreadCount > 0) {
-                    setTotalUnread(u => Math.max(0, u - c.unreadCount));
-                }
-                return { ...c, unreadCount: 0 };
-            }
-            return c;
-        }));
+        setChats(prevChats => {
+            const chatIndex = prevChats.findIndex(c => c.id === chatId);
+            if (chatIndex === -1 || !prevChats[chatIndex].unreadCount) return prevChats;
+
+            const unreadCount = prevChats[chatIndex].unreadCount;
+            setTotalUnread(prev => Math.max(0, prev - unreadCount));
+
+            const newChats = [...prevChats];
+            newChats[chatIndex] = { ...newChats[chatIndex], unreadCount: 0 };
+            return newChats;
+        });
     }, []);
 
-    // Fix #4: memoized context value — consumers only re-render when relevant values change
-    const contextValue = useMemo(() => ({
+    const value = {
         activeChatId,
         isWidgetOpen,
         isMinimized,
@@ -326,6 +367,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         chats,
         loadingChats,
         totalUnread,
+        typingStatus,
         messagesCache,
         openChat,
         openWidget,
@@ -336,16 +378,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         loadChats,
         loadMessages,
         updateChatList,
-        markChatAsRead,
-    }), [
-        activeChatId, isWidgetOpen, isMinimized, headerInfo,
-        chats, loadingChats, totalUnread, messagesCache,
-        openChat, openWidget, closeChat, minimizeChat, maximizeChat,
-        goBackToList, loadChats, loadMessages, updateChatList, markChatAsRead,
-    ]);
+        markChatAsRead
+    };
 
     return (
-        <ChatContext.Provider value={contextValue}>
+        <ChatContext.Provider value={value}>
             {children}
         </ChatContext.Provider>
     );
