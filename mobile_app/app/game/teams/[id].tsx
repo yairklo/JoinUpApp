@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert, Image, Modal, TextInput } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { gamesApi } from '@/services/api';
 import { Game, Team, GameParticipant } from '@/types/game';
@@ -23,6 +23,7 @@ const TEAM_COLORS = [
 export default function TeamBuilderScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getToken } = useAuth();
+    const { user } = useUser();
     const router = useRouter();
     const { t } = useTranslation();
 
@@ -32,8 +33,11 @@ export default function TeamBuilderScreen() {
 
     const [teams, setTeams] = useState<Team[]>([]);
     const [participants, setParticipants] = useState<GameParticipant[]>([]);
+    const [managers, setManagers] = useState<any[]>([]);
 
     const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+
+    const isOrganizer = game?.organizerId === user?.id;
 
     useEffect(() => {
         fetchGame();
@@ -45,7 +49,8 @@ export default function TeamBuilderScreen() {
             const data = await gamesApi.getById(id, token || undefined);
             setGame(data);
             setParticipants(data.participants || []);
-            setTeams(data.teams || [
+            setManagers(data.managers || []);
+            setTeams(data.teams && data.teams.length > 0 ? data.teams : [
                 { id: "t1", name: "Team A", color: "#f97316", playerIds: [] },
                 { id: "t2", name: "Team B", color: "#3b82f6", playerIds: [] },
             ]);
@@ -64,20 +69,8 @@ export default function TeamBuilderScreen() {
             const token = await getToken();
             if (!token) return;
 
-            // Update teams via API
-            // Assuming gamesApi.update handles 'teams' in payload, or we need a specific endpoint
-            // Based on 'UpdateGameDTO' earlier, 'teams' wasn't there. 
-            // We might need to use a dedicated endpoint or update the DTO/Backend.
-            // For now, I'll attempt sending it in update, if backend supports it.
-            // If not, I'll assume there is a way or I might need to add it to 'gamesApi'.
-
-            // Checking 'UpdateGameDTO' in games.ts... it does NOT have teams.
-            // Checking Web implementation... it uses `gamesApi.update`? 
-            // If Web uses it, then it must be supported or I missed checking web usage.
-            // Let's assume for now we send it as part of update payload, trusting backend accepts generic objects or I missed it.
-            // IF this fails, we know why.
-
-            await gamesApi.update(id, { teams } as any, token);
+            // Use the dedicated saveTeams endpoint
+            await gamesApi.saveTeams(id, teams, token);
 
             Alert.alert(t('success', 'הצלחה'), t('teams.saved', 'הקבוצות נשמרו!'), [{ text: t('ok', 'אישור'), onPress: () => router.back() }]);
         } catch (error) {
@@ -85,6 +78,23 @@ export default function TeamBuilderScreen() {
             Alert.alert(t('error', 'שגיאה'), t('teams.saveFailed', 'שגיאה בשמירת קבוצות'));
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleToggleManager = async (playerId: string, isCurrentlyManager: boolean) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            if (isCurrentlyManager) {
+                await gamesApi.removeManager(id, playerId, token);
+                setManagers(prev => prev.filter(m => m.id !== playerId));
+            } else {
+                await gamesApi.addManager(id, playerId, token);
+                setManagers(prev => [...prev, { id: playerId }]);
+            }
+        } catch (err) {
+            console.error('Failed to update manager', err);
+            Alert.alert(t('error', 'שגיאה'), t('teams.managerUpdateFailed', 'עדכון מנהל נכשל'));
         }
     };
 
@@ -243,6 +253,37 @@ export default function TeamBuilderScreen() {
                             <Text className="text-gray-500 font-bold mt-1">{t('teams.addTeam', 'הוסף קבוצה נוספת')}</Text>
                         </TouchableOpacity>
                     </View>
+
+                    {/* Manage Admins Section */}
+                    {isOrganizer && (
+                        <View className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mt-2 mb-10">
+                            <Text className="font-bold text-gray-700 mb-3">{t('teams.manageAdmins', 'ניהול מנהלים (Admins)')}</Text>
+                            <Text className="text-gray-500 text-xs mb-3">{t('teams.adminsDesc', 'מנהלים יכולים לערוך את פרטי המשחק ואת הרכבי הקבוצות')}</Text>
+                            
+                            {participants.filter(p => p.id !== user.id).map(p => {
+                                const isManager = managers.some(m => m.id === p.id);
+                                return (
+                                    <View key={p.id} className="flex-row items-center justify-between py-2 border-b border-gray-50">
+                                        <View className="flex-row items-center">
+                                            <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-8 h-8 rounded-full mr-2 bg-gray-200" />
+                                            <Text className="text-gray-800 font-medium">{p.name}</Text>
+                                        </View>
+                                        <TouchableOpacity 
+                                            onPress={() => handleToggleManager(p.id, isManager)}
+                                            className={`px-3 py-1 rounded-full ${isManager ? 'bg-red-100' : 'bg-blue-100'}`}
+                                        >
+                                            <Text className={isManager ? 'text-red-600 text-xs font-bold' : 'text-blue-600 text-xs font-bold'}>
+                                                {isManager ? t('teams.removeAdmin', 'הסר מנהל') : t('teams.makeAdmin', 'מנה משחק')}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                );
+                            })}
+                            {participants.length <= 1 && (
+                                <Text className="text-gray-400 italic text-sm">{t('teams.noOtherPlayers', 'אין שחקנים נוספים במשחק')}</Text>
+                            )}
+                        </View>
+                    )}
 
                 </ScrollView>
             </View>

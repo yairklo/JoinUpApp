@@ -59,6 +59,29 @@ export const gamesApi = {
         });
     },
 
+    saveTeams: (gameId: string, teams: any, token: string) => {
+        return apiClient(`/api/games/${gameId}/teams`, {
+            method: 'PUT',
+            data: { teams },
+            token
+        });
+    },
+
+    addManager: (gameId: string, userId: string, token: string) => {
+        return apiClient(`/api/games/${gameId}/roles`, {
+            method: 'POST',
+            data: { userId, role: 'MANAGER' },
+            token
+        });
+    },
+
+    removeManager: (gameId: string, userId: string, token: string) => {
+        return apiClient(`/api/games/${gameId}/roles/${userId}`, {
+            method: 'DELETE',
+            token
+        });
+    },
+
     getById: (gameId: string, token?: string) => {
         return apiClient<Game>(`/api/games/${gameId}`, { token });
     },
