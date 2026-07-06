@@ -134,7 +134,12 @@ export default function SearchScreen() {
                 
                 finalGames = finalGames.filter(game => {
                     if (!game.date) return true;
-                    const gameDateTime = new Date(`${game.date}T${game.time || '00:00'}`);
+                    
+                    // Robust local date parsing that works across all JS engines (Hermes/JSC/V8)
+                    const [year, month, day] = game.date.split('-').map(Number);
+                    const [hours, minutes] = (game.time || '00:00').split(':').map(Number);
+                    const gameDateTime = new Date(year, month - 1, day, hours, minutes, 0);
+                    
                     if (game.duration) {
                         gameDateTime.setMinutes(gameDateTime.getMinutes() + game.duration);
                     } else {
