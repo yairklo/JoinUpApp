@@ -12,3 +12,11 @@ export const SPORT_MAPPING: Record<string, string> = {
 
 export type SportType = keyof typeof SPORT_IMAGES;
 export type SportFilter = SportType | "ALL";
+
+export const POSITION_OPTIONS: Record<string, string[]> = {
+    SOCCER: ['שוער', 'בלם', 'מגן', 'קשר', 'חלוץ'],
+    BASKETBALL: ['פוינט גארד', 'שוטינג גארד', 'סמול פורוורד', 'פאואר פורוורד', 'סנטר'],
+    TENNIS: ['שחקן בסיס', 'שחקן רשת'],
+    VOLLEYBALL: ['פאסר', 'חוסם', 'לייבירו', 'תוקף'],
+    PADEL: []
+};

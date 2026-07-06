@@ -1,6 +1,6 @@
-import { View, Text, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, RefreshControl, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useGamesByDate } from '@/hooks/useGamesByDate';
 import { Link, useRouter } from 'expo-router';
 import { Game } from '@/types/game';
@@ -14,24 +14,44 @@ import { useTranslation } from 'react-i18next';
 import MyGamesSection from '@/components/MyGamesSection';
 import SeriesSection from '@/components/SeriesSection';
 
+const SPORTS = [
+  { id: 'ALL', label: 'הכל' },
+  { id: 'SOCCER', label: 'כדורגל' },
+  { id: 'BASKETBALL', label: 'כדורסל' },
+  { id: 'TENNIS', label: 'טניס' },
+  { id: 'VOLLEYBALL', label: 'כדורעף' },
+  { id: 'PADEL', label: 'פדל' }
+];
+
 export default function HomeScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const today = new Date().toISOString().split('T')[0];
   const { games, loading, refreshGames, selectedDate, setSelectedDate } = useGamesByDate(today);
   const { user } = useUser();
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedSport, setSelectedSport] = useState('ALL');
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     refreshGames();
-    // Simulate a brief delay so the spinner shows properly for the user interaction
     setTimeout(() => setRefreshing(false), 800);
   }, [refreshGames]);
 
-  const renderGameItem = useCallback(({ item }: { item: Game }) => {
+  // Memoize filtered games to prevent heavy loops in render
+  const filteredGames = useMemo(() => {
+    if (!games) return [];
+    if (selectedSport === 'ALL') return games;
+    return games.filter((g: Game) => g.sport === selectedSport);
+  }, [games, selectedSport]);
+
+  const cappedGames = useMemo(() => filteredGames.slice(0, 3), [filteredGames]);
+
+  const renderGameItem = useCallback((item: Game) => {
     const isJoined = item.participants?.some(p => p.id === user?.id);
 
     return (
-      <View className="px-5">
+      <View key={item.id} className="px-5 mb-4">
         <GameCard game={item} isJoined={isJoined}>
           <View className="flex-1">
             {isJoined ? (
@@ -49,51 +69,81 @@ export default function HomeScreen() {
     );
   }, [user]);
 
-  // Fix #8: memoized header — MyGamesSection and SeriesSection won't re-render
-  // on every game join/leave state change
-  const ListHeader = useMemo(() => (
-    <View>
-      <View className="px-6 mb-4">
-        <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest">{t('home.welcomeBack')}</Text>
-        <Text className="text-2xl font-black text-gray-900 dark:text-cyber-text">👋 {user?.firstName || t('home.friend')}</Text>
-      </View>
-      <MyGamesSection />
-      <SeriesSection />
-      <GamesDateNav selectedDate={selectedDate} onSelectDate={setSelectedDate} />
-    </View>
-  ), [user?.firstName, selectedDate, setSelectedDate, t]);
-
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-cyber-bg" edges={['top']}>
-      <View className="flex-1 mt-2">
-        <FlatList
-          data={games}
-          keyExtractor={(item) => String(item.id)}
-          ListHeaderComponent={ListHeader}
-          renderItem={renderGameItem}
-          contentContainerStyle={{ paddingVertical: 10 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
-          }
-          ListEmptyComponent={
-            <View className="items-center justify-center py-20 px-10">
-              <View className="w-20 h-20 bg-gray-50 rounded-full items-center justify-center mb-4">
-                <Ionicons name="calendar-outline" size={32} color="#9ca3af" />
-              </View>
-              <Text className="text-gray-900 font-black text-xl text-center">{t("home.noGamesToday")}</Text>
-              <Text className="text-gray-500 text-center mt-2 leading-5">
-                {t("home.noGamesDesc")}
-              </Text>
+      <ScrollView
+        className="flex-1 mt-2"
+        contentContainerStyle={{ paddingVertical: 10, paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
+        }
+      >
+        <View className="px-6 mb-4">
+          <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest">{t('home.welcomeBack')}</Text>
+          <Text className="text-2xl font-black text-gray-900 dark:text-cyber-text">👋 {user?.firstName || t('home.friend')}</Text>
+        </View>
+
+        {/* Horizontal Sport Pills Filter */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4 pl-5 pr-5 flex-row">
+          <View className="flex-row pb-2">
+            {SPORTS.map((s) => {
+              const isActive = selectedSport === s.id;
+              return (
+                <TouchableOpacity
+                  key={s.id}
+                  onPress={() => setSelectedSport(s.id)}
+                  className={`px-4 py-2 rounded-full mr-3 border ${isActive ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'}`}
+                >
+                  <Text className={`font-bold text-sm ${isActive ? 'text-white' : 'text-gray-600'}`}>
+                    {s.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <View className="w-5" />
+          </View>
+        </ScrollView>
+
+        <MyGamesSection />
+        <SeriesSection />
+        <GamesDateNav selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+
+        {/* Games List */}
+        {loading && games.length === 0 ? (
+          <View className="py-10 items-center justify-center">
+            <ActivityIndicator size="large" color="#2563eb" />
+          </View>
+        ) : cappedGames.length > 0 ? (
+          <View className="mt-2">
+            {cappedGames.map(renderGameItem)}
+
+            {filteredGames.length > 3 && (
               <TouchableOpacity
-                onPress={() => setSelectedDate(today)}
-                className="mt-6 bg-blue-50 px-6 py-3 rounded-2xl"
+                onPress={() => router.push({ pathname: '/(tabs)/search', params: { date: selectedDate, hideMap: 'true', sport: selectedSport !== 'ALL' ? selectedSport : undefined } })}
+                className="mx-5 mb-4 p-4 rounded-2xl border border-blue-100 bg-blue-50 items-center"
               >
-                <Text className="text-blue-600 font-bold">{t("home.backToToday")}</Text>
+                <Text className="text-blue-600 font-bold text-center">הצג הכל ({filteredGames.length})</Text>
               </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <View className="items-center justify-center py-20 px-10">
+            <View className="w-20 h-20 bg-gray-50 rounded-full items-center justify-center mb-4">
+              <Ionicons name="calendar-outline" size={32} color="#9ca3af" />
             </View>
-          }
-        />
-      </View>
+            <Text className="text-gray-900 font-black text-xl text-center">{t("home.noGamesToday")}</Text>
+            <Text className="text-gray-500 text-center mt-2 leading-5">
+              {t("home.noGamesDesc")}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setSelectedDate(today)}
+              className="mt-6 bg-blue-50 px-6 py-3 rounded-2xl"
+            >
+              <Text className="text-blue-600 font-bold">{t("home.backToToday")}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
 
       {/* Floating Action Button */}
       <Link href="/game/new" asChild>

@@ -56,12 +56,23 @@ export default function ProfileScreen() {
         loadSports();
     }, [user?.id]);
 
+    const [friends, setFriends] = useState<any[]>([]);
+    const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
+
     const loadProfile = async () => {
         try {
             const token = await getToken();
             if (token) {
-                const data = await usersApi.getProfile(user!.id, token);
+                const [data, friendsData, incomingData] = await Promise.all([
+                    usersApi.getProfile(user!.id, token),
+                    usersApi.getFriends(user!.id, token),
+                    usersApi.getIncomingRequests(user!.id, token)
+                ]);
+                
                 setProfile(data);
+                setFriends(friendsData);
+                setIncomingRequests(incomingData);
+
                 setForm({
                     city: data?.city || '',
                     phone: data?.phone || '',
@@ -107,6 +118,42 @@ export default function ProfileScreen() {
             Alert.alert(t("profile.error", "שגיאה"), t("profile.updateFailed", "עדכון הפרופיל נכשל"));
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleAcceptRequest = async (requestId: string) => {
+        try {
+            const token = await getToken();
+            if (token) {
+                await usersApi.acceptFriendRequest(requestId, token);
+                loadProfile(); // Refresh lists
+            }
+        } catch (err) {
+            Alert.alert(t('error', 'שגיאה'), t('profile.failedToAccept', 'Failed to accept request'));
+        }
+    };
+
+    const handleDeclineRequest = async (requestId: string) => {
+        try {
+            const token = await getToken();
+            if (token) {
+                await usersApi.declineFriendRequest(requestId, token);
+                loadProfile(); // Refresh lists
+            }
+        } catch (err) {
+            Alert.alert(t('error', 'שגיאה'), t('profile.failedToDecline', 'Failed to decline request'));
+        }
+    };
+
+    const handleRemoveFriend = async (friendId: string) => {
+        try {
+            const token = await getToken();
+            if (token) {
+                await usersApi.removeFriend(user!.id, friendId, token);
+                loadProfile(); // Refresh lists
+            }
+        } catch (err) {
+            Alert.alert(t('error', 'שגיאה'), t('profile.failedToRemove', 'Failed to remove friend'));
         }
     };
 
@@ -415,6 +462,75 @@ export default function ProfileScreen() {
                         </View>
                     )}
                 </View>
+
+                {/* Social Section */}
+                {!isEditing && (
+                    <View className="mb-6 mx-4">
+                        {/* Incoming Requests */}
+                        {incomingRequests.length > 0 && (
+                            <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
+                                <Text className="font-bold text-gray-900 mb-3 flex-row items-center">
+                                    <FontAwesome name="bell" size={16} color="#eab308" style={{ marginRight: 6 }} />
+                                    {' '}{t('profile.incomingRequests', 'בקשות חברות נכנסות')} ({incomingRequests.length})
+                                </Text>
+                                {incomingRequests.map(req => (
+                                    <View key={req.id} className="flex-row items-center justify-between mb-3 last:mb-0">
+                                        <TouchableOpacity onPress={() => router.push(`/user/${req.requester.id}`)} className="flex-row items-center flex-1">
+                                            <Image 
+                                                source={{ uri: req.requester.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.requester.name)}` }} 
+                                                className="w-10 h-10 rounded-full bg-gray-200 mr-3" 
+                                            />
+                                            <Text className="text-sm font-bold text-gray-800" numberOfLines={1}>{req.requester.name}</Text>
+                                        </TouchableOpacity>
+                                        <View className="flex-row items-center ml-2">
+                                            <TouchableOpacity 
+                                                onPress={() => handleAcceptRequest(req.id)}
+                                                className="bg-green-100 p-2 rounded-full mr-2"
+                                            >
+                                                <FontAwesome name="check" size={16} color="#16a34a" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity 
+                                                onPress={() => handleDeclineRequest(req.id)}
+                                                className="bg-red-100 p-2 rounded-full"
+                                            >
+                                                <FontAwesome name="times" size={16} color="#dc2626" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+
+                        {/* Friends List */}
+                        <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                            <Text className="font-bold text-gray-900 mb-3 flex-row items-center">
+                                <FontAwesome name="users" size={16} color="#3b82f6" style={{ marginRight: 6 }} />
+                                {' '}{t('profile.myFriends', 'החברים שלי')} ({friends.length})
+                            </Text>
+                            {friends.length === 0 ? (
+                                <Text className="text-gray-500 text-sm">{t('profile.noFriends', 'עדיין אין לך חברים ברשת.')}</Text>
+                            ) : (
+                                friends.map(friend => (
+                                    <View key={friend.id} className="flex-row items-center justify-between mb-3 last:mb-0">
+                                        <TouchableOpacity onPress={() => router.push(`/user/${friend.id}`)} className="flex-row items-center flex-1">
+                                            <Image 
+                                                source={{ uri: friend.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.name)}` }} 
+                                                className="w-10 h-10 rounded-full bg-gray-200 mr-3" 
+                                            />
+                                            <Text className="text-sm font-bold text-gray-800" numberOfLines={1}>{friend.name}</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity 
+                                            onPress={() => handleRemoveFriend(friend.id)}
+                                            className="bg-red-50 px-3 py-1.5 rounded-lg border border-red-100"
+                                        >
+                                            <Text className="text-xs text-red-600 font-bold">{t('profile.removeFriend', 'הסר')}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                ))
+                            )}
+                        </View>
+                    </View>
+                )}
 
                 {/* Sign Out */}
                 <TouchableOpacity
