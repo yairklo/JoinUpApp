@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { ChatMessage } from "@/types/chat";
 import { chatsApi } from "@/services/api/chats";
@@ -66,6 +66,9 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const [totalUnread, setTotalUnread] = useState(0);
     const [messagesCache, setMessagesCache] = useState<Record<string, ChatMessage[]>>({});
 
+    // Fix #3: ref-based guard so loadChats has a stable reference
+    const chatsLoadedRef = useRef(false);
+
     // API Client handles base URL
 
 
@@ -77,8 +80,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // 1. Load Chats
     const loadChats = useCallback(async (forceRefresh = false) => {
         if (!user?.id) return;
-        // Optimization: If chats exist, don't block UI
-        if (!forceRefresh && chats.length > 0) return;
+        // Fix #3: use ref instead of chats.length to avoid stale closure rebuild
+        if (!forceRefresh && chatsLoadedRef.current) return;
 
         setLoadingChats(true);
         try {
@@ -91,12 +94,13 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             // Calculate total unread
             const total = data.reduce((acc: number, chat: ChatPreview) => acc + (chat.unreadCount || 0), 0);
             setTotalUnread(total);
+            chatsLoadedRef.current = true;
         } catch (error) {
             console.error("Failed to load chats", error);
         } finally {
             setLoadingChats(false);
         }
-    }, [user?.id, chats.length, getToken]);
+    }, [user?.id, getToken]); // Fix #3: removed chats.length — stable reference now
 
     // 2. Load Messages (Prefetch/Cache)
     const loadMessages = useCallback(async (chatId: string, forceFetch = false): Promise<ChatMessage[]> => {
@@ -247,29 +251,35 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }));
     }, []);
 
+    // Fix #4: memoized context value — consumers only re-render when relevant values change
+    const contextValue = useMemo(() => ({
+        activeChatId,
+        isWidgetOpen,
+        isMinimized,
+        headerInfo,
+        chats,
+        loadingChats,
+        totalUnread,
+        messagesCache,
+        openChat,
+        openWidget,
+        closeChat,
+        minimizeChat,
+        maximizeChat,
+        goBackToList,
+        loadChats,
+        loadMessages,
+        updateChatList,
+        markChatAsRead,
+    }), [
+        activeChatId, isWidgetOpen, isMinimized, headerInfo,
+        chats, loadingChats, totalUnread, messagesCache,
+        openChat, openWidget, closeChat, minimizeChat, maximizeChat,
+        goBackToList, loadChats, loadMessages, updateChatList, markChatAsRead,
+    ]);
+
     return (
-        <ChatContext.Provider
-            value={{
-                activeChatId,
-                isWidgetOpen,
-                isMinimized,
-                headerInfo,
-                chats,
-                loadingChats,
-                totalUnread,
-                messagesCache,
-                openChat,
-                openWidget,
-                closeChat,
-                minimizeChat,
-                maximizeChat,
-                goBackToList,
-                loadChats,
-                loadMessages,
-                updateChatList,
-                markChatAsRead
-            }}
-        >
+        <ChatContext.Provider value={contextValue}>
             {children}
         </ChatContext.Provider>
     );

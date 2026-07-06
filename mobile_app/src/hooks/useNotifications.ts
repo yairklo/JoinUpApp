@@ -21,38 +21,32 @@ export function useNotifications() {
     const [notifications, setNotifications] = useState<NotificationType[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [socket, setSocket] = useState<Socket | null>(null);
-
+    // Fix #7: removed socketInstance from state (no re-render needed)
     const socketRef = useRef<Socket | null>(null);
 
-    // 0. Request Push Permissions on Mount
+    // Fix #7: cache permission status so we don't call getPermissionsAsync on every notification
+    const permissionGrantedRef = useRef<boolean | null>(null);
+
+    // 0. Request Push Permissions on Mount (once)
     useEffect(() => {
         const requestPermissions = async () => {
-            if (!Device.isDevice) {
-                console.log('[NOTIFICATIONS] Must use physical device for Push Notifications');
-                return;
-            }
+            if (!Device.isDevice) return;
             const { status: existingStatus } = await Notifications.getPermissionsAsync();
             let finalStatus = existingStatus;
             if (existingStatus !== 'granted') {
                 const { status } = await Notifications.requestPermissionsAsync();
                 finalStatus = status;
             }
-            if (finalStatus !== 'granted') {
-                console.log('[NOTIFICATIONS] Failed to get push token for push notification!');
-            }
+            // Fix #7: cache result so we never call getPermissionsAsync again
+            permissionGrantedRef.current = finalStatus === 'granted';
         };
         requestPermissions();
     }, []);
 
-    // 1. Fetch Notifications (Initial + Polling)
+    // 1. Fetch Notifications (Initial load only — real-time updates handled by socket)
     const fetchNotifications = useCallback(async () => {
         if (!userId) return;
-        setLoading(prev => prev === false ? true : prev); // Only set true if not already loading to avoid flicker? Or maybe just set true.
-        // Actually, for polling we might not want to set loading=true every time, but for initial load yes.
-        // Let's stick to simple logic: Only set loading on first fetch? 
-        // For now, let's just set it.
-
+        setLoading(true);
         try {
             const token = await getToken();
             if (!token) return;
@@ -64,16 +58,14 @@ export function useNotifications() {
         } finally {
             setLoading(false);
         }
-    }, [userId]); // Removed getToken to prevent infinite re-renders
+    }, [userId]);
 
-    // Initial Fetch & Polling
+    // Initial fetch only — Fix #7: removed 30s polling (socket handles real-time updates)
     useEffect(() => {
         if (!isLoaded || !userId) return;
-
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
-    }, [isLoaded, userId]); // Removed fetchNotifications to prevent infinite loop
+        // No interval — the socket below pushes live updates
+    }, [isLoaded, userId]);
 
     const getTokenRef = useRef(getToken);
     useEffect(() => {
@@ -82,55 +74,35 @@ export function useNotifications() {
 
     // 2. Socket Connection
     useEffect(() => {
-        console.log('[NOTIFICATIONS] Socket useEffect triggered. userId:', userId);
         if (!userId) return;
 
         let socketInstance: Socket | null = null;
 
         const initSocket = async () => {
             try {
-                console.log('[NOTIFICATIONS] Getting Clerk token...');
                 const token = await getTokenRef.current();
-                console.log('[NOTIFICATIONS] Token obtained. Connecting socket to:', API_BASE);
 
                 socketInstance = io(API_BASE, {
                     path: '/api/socket',
                     transports: ['websocket'],
-                    auth: {
-                        token: token || ""
-                    }
+                    auth: { token: token || '' }
                 });
 
-                socketInstance.on('connect', async () => {
-                    console.log('[NOTIFICATIONS] Socket connected successfully! ID:', socketInstance?.id);
+                socketInstance.on('connect', () => {
+                    // Join personal room for targeted notifications
                     socketInstance?.emit('join', `user_${userId}`);
                     socketInstance?.emit('setup', { id: userId });
-
-                    // Pre-join all active chat rooms for real-time list updates
-                    try {
-                        const userChats = await chatsApi.getUserChats(userId, token || "");
-                        console.log(`[NOTIFICATIONS] Joining ${userChats.length} chat rooms...`);
-                        userChats.forEach((chat: any) => {
-                            if (chat && chat.id) {
-                                socketInstance?.emit('joinRoom', chat.id);
-                            }
-                        });
-                    } catch (err) {
-                        console.error('[NOTIFICATIONS] Failed to pre-join chat rooms:', err);
-                    }
+                    // Fix #7: removed chatsApi.getUserChats() from connect handler
+                    // That was a heavy API call on every reconnect — chat rooms are
+                    // joined by the chat screen's own socket in useChatLogic
                 });
 
                 socketInstance.on('connect_error', (error) => {
-                    console.error('[NOTIFICATIONS] Socket connection error:', error);
+                    if (__DEV__) console.warn('[NOTIFICATIONS] Socket error:', error.message);
                 });
 
-                socketInstance.on('disconnect', (reason) => {
-                    console.log('[NOTIFICATIONS] Socket disconnected. Reason:', reason);
-                });
-
-                // Listen to message events from pre-joined chat rooms to update the list in real-time
+                // Listen to message events to update chat list preview in real-time
                 socketInstance.on('message', (incomingMsg: any) => {
-                    console.log('[NOTIFICATIONS] Received real-time chat message:', incomingMsg);
                     updateChatList({
                         chatId: incomingMsg.roomId || incomingMsg.chatId,
                         roomId: incomingMsg.roomId || incomingMsg.chatId,
@@ -143,16 +115,11 @@ export function useNotifications() {
                 });
 
                 socketInstance.on('notification', async (data: any) => {
-                    console.log('[NOTIFICATIONS] Received real-time notification:', data);
-                    
                     if (data.type === 'message') {
                         updateChatList({
-                            chatId: data.roomId,
-                            roomId: data.roomId,
-                            content: data.text,
-                            text: data.text,
-                            senderId: data.senderId,
-                            userId: data.senderId,
+                            chatId: data.roomId, roomId: data.roomId,
+                            content: data.text, text: data.text,
+                            senderId: data.senderId, userId: data.senderId,
                             ts: new Date().toISOString()
                         });
                     }
@@ -160,8 +127,8 @@ export function useNotifications() {
                     setNotifications(prev => [data, ...prev]);
                     setUnreadCount(prev => prev + 1);
 
-                    const { status } = await Notifications.getPermissionsAsync();
-                    if (status === 'granted') {
+                    // Fix #7: use cached permission status instead of calling getPermissionsAsync on every notification
+                    if (permissionGrantedRef.current) {
                         await Notifications.scheduleNotificationAsync({
                             content: {
                                 title: data.title || 'JoinUp',
@@ -173,7 +140,6 @@ export function useNotifications() {
                     }
                 });
 
-                setSocket(socketInstance);
                 socketRef.current = socketInstance;
             } catch (e) {
                 console.error('[NOTIFICATIONS] Error in initSocket:', e);
@@ -183,7 +149,6 @@ export function useNotifications() {
         initSocket();
 
         return () => {
-            console.log('[NOTIFICATIONS] Cleaning up socket...');
             if (socketInstance) socketInstance.disconnect();
         };
     }, [userId]);

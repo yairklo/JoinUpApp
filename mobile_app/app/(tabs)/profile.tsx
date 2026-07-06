@@ -43,6 +43,8 @@ export default function ProfileScreen() {
 
     // Form state
     const [form, setForm] = useState({ city: '', phone: '', sportsData: [] as SportEntry[] });
+    // Per-sport free-text input state (keyed by sportId)
+    const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
 
     // Sport picker modal
     const [sportModalVisible, setSportModalVisible] = useState(false);
@@ -351,32 +353,33 @@ export default function ProfileScreen() {
                                         )}
 
                                         {/* Free-text custom position */}
-                                        {(() => {
-                                            const [customText, setCustomText] = React.useState('');
-                                            return (
-                                                <View className="mt-1">
-                                                    <Text className="text-xs text-gray-500 mb-1">הוסף עמדה חופשית:</Text>
-                                                    <View className="flex-row">
-                                                        <TextInput
-                                                            value={customText}
-                                                            onChangeText={setCustomText}
-                                                            placeholder="למשל: קשר פוגעני, חלוץ שני..."
-                                                            className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 mr-2 text-right"
-                                                            placeholderTextColor="#9ca3af"
-                                                            onSubmitEditing={() => { addCustomPosition(s.sportId, customText); setCustomText(''); }}
-                                                            returnKeyType="done"
-                                                        />
-                                                        <TouchableOpacity
-                                                            onPress={() => { addCustomPosition(s.sportId, customText); setCustomText(''); }}
-                                                            disabled={!customText.trim()}
-                                                            className={`px-3 rounded-lg items-center justify-center ${customText.trim() ? 'bg-blue-600' : 'bg-gray-200'}`}
-                                                        >
-                                                            <FontAwesome name="plus" size={14} color={customText.trim() ? 'white' : '#9ca3af'} />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </View>
-                                            );
-                                        })()}
+                                        <View className="mt-1">
+                                            <Text className="text-xs text-gray-500 mb-1">הוסף עמדה חופשית:</Text>
+                                            <View className="flex-row">
+                                                <TextInput
+                                                    value={customTexts[s.sportId] || ''}
+                                                    onChangeText={(v) => setCustomTexts(prev => ({ ...prev, [s.sportId]: v }))}
+                                                    placeholder="למשל: קשר פוגעני, חלוץ שני..."
+                                                    className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 mr-2 text-right"
+                                                    placeholderTextColor="#9ca3af"
+                                                    onSubmitEditing={() => {
+                                                        addCustomPosition(s.sportId, customTexts[s.sportId] || '');
+                                                        setCustomTexts(prev => ({ ...prev, [s.sportId]: '' }));
+                                                    }}
+                                                    returnKeyType="done"
+                                                />
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        addCustomPosition(s.sportId, customTexts[s.sportId] || '');
+                                                        setCustomTexts(prev => ({ ...prev, [s.sportId]: '' }));
+                                                    }}
+                                                    disabled={!(customTexts[s.sportId] || '').trim()}
+                                                    className={`px-3 rounded-lg items-center justify-center ${(customTexts[s.sportId] || '').trim() ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                                >
+                                                    <FontAwesome name="plus" size={14} color={(customTexts[s.sportId] || '').trim() ? 'white' : '#9ca3af'} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
                                     </View>
                                 );
                             })}

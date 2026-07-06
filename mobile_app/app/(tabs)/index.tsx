@@ -1,6 +1,6 @@
 import { View, Text, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useGamesByDate } from '@/hooks/useGamesByDate';
 import { Link, useRouter } from 'expo-router';
 import { Game } from '@/types/game';
@@ -49,26 +49,27 @@ export default function HomeScreen() {
     );
   }, [user]);
 
+  // Fix #8: memoized header — MyGamesSection and SeriesSection won't re-render
+  // on every game join/leave state change
+  const ListHeader = useMemo(() => (
+    <View>
+      <View className="px-6 mb-4">
+        <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest">{t('home.welcomeBack')}</Text>
+        <Text className="text-2xl font-black text-gray-900 dark:text-cyber-text">👋 {user?.firstName || t('home.friend')}</Text>
+      </View>
+      <MyGamesSection />
+      <SeriesSection />
+      <GamesDateNav selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+    </View>
+  ), [user?.firstName, selectedDate, setSelectedDate, t]);
+
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-cyber-bg" edges={['top']}>
       <View className="flex-1 mt-2">
         <FlatList
           data={games}
           keyExtractor={(item) => String(item.id)}
-          ListHeaderComponent={
-            <View>
-              <View className="px-6 mb-4">
-                <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest">{t("home.welcomeBack")}</Text>
-                <Text className="text-2xl font-black text-gray-900 dark:text-cyber-text">👋 {user?.firstName || t("home.friend")}</Text>
-              </View>
-              <MyGamesSection />
-              <SeriesSection />
-              <GamesDateNav
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-              />
-            </View>
-          }
+          ListHeaderComponent={ListHeader}
           renderItem={renderGameItem}
           contentContainerStyle={{ paddingVertical: 10 }}
           refreshControl={
