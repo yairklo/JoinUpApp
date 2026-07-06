@@ -75,8 +75,13 @@ export function useNotifications() {
         if (!userId) return;
 
         // Ensure we join the personal room
-        SocketManager.emit('join', `user_${userId}`);
-        SocketManager.emit('setup', { id: userId });
+        const setupPersonalRoom = () => {
+            SocketManager.emit('join', `user_${userId}`);
+            SocketManager.emit('setup', { id: userId });
+        };
+
+        setupPersonalRoom();
+        const unsubscribeConnect = SocketManager.on('connect', setupPersonalRoom);
 
         const unsubscribeMessage = SocketManager.on('message', (incomingMsg: any) => {
             updateChatList({
@@ -116,6 +121,7 @@ export function useNotifications() {
         });
 
         return () => {
+            unsubscribeConnect();
             unsubscribeMessage();
             unsubscribeNotification();
         };

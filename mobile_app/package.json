@@ -9,11 +9,12 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@babel/runtime": "^8.0.0",
+    "@babel/runtime": "^7.20.0",
     "@clerk/clerk-expo": "^2.19.22",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-navigation/native": "^7.1.8",
+    "babel-preset-expo": "~54.0.10",
     "expo": "~54.0.35",
     "expo-auth-session": "~7.0.11",
     "expo-constants": "~18.0.13",

@@ -17,7 +17,7 @@ export interface UseChatLogicProps {
 export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const { user } = useUser();
     const { getToken } = useAuth();
-    const { messagesCache, loadMessages } = useChat();
+    const { messagesCache, loadMessages, markChatAsRead } = useChat();
 
     const [isLoading, setIsLoading] = useState(true);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -29,7 +29,6 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
     const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
-    const [unreadNewMessages, setUnreadNewMessages] = useState(0);
     const [unreadNewMessages, setUnreadNewMessages] = useState(0);
 
     const [avatarByUserId, setAvatarByUserId] = useState<Record<string, string | null>>({});
@@ -113,6 +112,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         const joinRoom = () => {
             SocketManager.emit("joinRoom", roomId);
             SocketManager.emit("markAsRead", { roomId, userId: user?.id });
+            markChatAsRead(roomId);
         };
 
         joinRoom(); // Initial join
@@ -161,7 +161,10 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
                     return [...prev, incomingMsg];
                 }
             });
-            if (incomingMsg.userId !== user?.id) SocketManager.emit("markAsRead", { roomId, userId: user?.id });
+            if (incomingMsg.userId !== user?.id) {
+                SocketManager.emit("markAsRead", { roomId, userId: user?.id });
+                markChatAsRead(roomId);
+            }
         });
 
         const unsubscribeMessageUpdated = SocketManager.on("messageUpdated", (payload) => {
