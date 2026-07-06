@@ -43,11 +43,14 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const fetchedUserIdsRef = useRef<Set<string>>(new Set());
 
     // 0. Register Active Chat globally
+    // Use chatDetails.id (resolved ChatRoom UUID) when available, else raw roomId
+    const effectiveRoomId = chatDetails?.id || roomId;
+
     useEffect(() => {
         if (!roomId || roomId === 'global') return;
-        openChat(roomId);
+        openChat(effectiveRoomId);
         return () => closeChat();
-    }, [roomId, openChat, closeChat]);
+    }, [effectiveRoomId, openChat, closeChat]);
 
     // 1. Resolve Room ID and Fetch Details
     useEffect(() => {
@@ -116,10 +119,13 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     useEffect(() => {
         if (!user?.id || !roomId) return;
 
+        // Use the resolved ChatRoom UUID (effectiveRoomId) so typing/messages reach
+        // the correct socket room. Falls back to raw roomId on first render (before
+        // chatDetails loads), and re-runs when chatDetails resolves.
         const joinRoom = () => {
-            SocketManager.emit("joinRoom", roomId);
-            SocketManager.emit("markAsRead", { roomId, userId: user?.id });
-            markChatAsRead(roomId);
+            SocketManager.emit("joinRoom", effectiveRoomId);
+            SocketManager.emit("markAsRead", { roomId: effectiveRoomId, userId: user?.id });
+            markChatAsRead(effectiveRoomId);
         };
 
         joinRoom(); // Initial join
@@ -150,7 +156,10 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         });
 
         const unsubscribeMessage = SocketManager.on("message", (incomingMsg: ChatMessage) => {
-            if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
+            // Accept messages for either the raw roomId or the resolved chatRoom UUID
+            if (incomingMsg.roomId &&
+                String(incomingMsg.roomId) !== String(roomId) &&
+                String(incomingMsg.roomId) !== String(effectiveRoomId)) return;
 
             setMessages(prev => {
                 const matchIndex = prev.findIndex(m => {
@@ -207,9 +216,12 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             unsubscribeMessageDeleted();
             unsubscribeMessageReaction();
             unsubscribeMessageStatusUpdate();
-            SocketManager.emit('leaveRoom', roomId);
+            // Do NOT emit leaveRoom here — that would eject the user from the Socket.io
+            // room entirely, breaking ChatContext typing indicators on the chat list.
+            // The user should stay passively joined (via joinChats) even when not
+            // actively viewing this chat screen.
         };
-    }, [roomId, user?.id, otherUserId]); // Added otherUserId for presence checks
+    }, [effectiveRoomId, roomId, user?.id, otherUserId]); // effectiveRoomId re-runs when chatDetails resolves
 
     // 4. Hydrate Users — Fix #5: batch update, ref guard, no cascading re-renders
     useEffect(() => {
@@ -263,13 +275,12 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         if (!trimmed) return;
 
         if (editingMessage) {
-            SocketManager.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
+            SocketManager.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId: effectiveRoomId });
             setEditingMessage(null);
         } else {
-            console.log("SENDING MESSAGE TO:", API_BASE);
             const optimisticId = Date.now();
             const optimisticMessage: ChatMessage & { content: string } = {
-                id: optimisticId, text: trimmed, content: trimmed, roomId,
+                id: optimisticId, text: trimmed, content: trimmed, roomId: effectiveRoomId,
                 userId: user?.id || "anon", senderId: user?.id || "anon", senderName: user?.fullName || "Me",
                 ts: new Date().toISOString(), status: "sent",
                 sender: { id: user?.id, name: user?.fullName || undefined, image: user?.imageUrl || undefined },
@@ -280,19 +291,21 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             };
             setMessages((prev) => [...prev, optimisticMessage]);
 
-            SocketManager.emit("message", { text: trimmed, roomId, userId: user?.id, replyTo: optimisticMessage.replyTo, status: "sent", tempId: optimisticId });
+            // Always use effectiveRoomId (resolved ChatRoom UUID) so the server routes correctly
+            SocketManager.emit("message", { text: trimmed, roomId: effectiveRoomId, userId: user?.id, replyTo: optimisticMessage.replyTo, status: "sent", tempId: optimisticId });
         }
         setInputValue("");
         setReplyToMessage(null);
-        SocketManager.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
+        SocketManager.emit("typing", { isTyping: false, roomId: effectiveRoomId, userName: user?.fullName });
     };
 
     const handleTyping = () => {
-        SocketManager.emit("typing", { isTyping: true, roomId, userName: user?.fullName });
+        // Use effectiveRoomId so typing events reach the correct socket room
+        SocketManager.emit("typing", { isTyping: true, roomId: effectiveRoomId, userName: user?.fullName });
     };
 
     const handleStopTyping = () => {
-        SocketManager.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
+        SocketManager.emit("typing", { isTyping: false, roomId: effectiveRoomId, userName: user?.fullName });
     };
 
     return {
@@ -308,8 +321,8 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             setInputValue, setReplyToMessage, setEditingMessage,
             setShowScrollButton, setUnreadNewMessages,
             handleSendMessage, handleTyping, handleStopTyping,
-            handleDelete: (id: string | number) => SocketManager.emit("deleteMessage", { messageId: id, roomId }),
-            handleReact: (id: string | number, emoji: string) => SocketManager.emit("addReaction", { messageId: id, emoji, userId: user?.id, roomId }),
+            handleDelete: (id: string | number) => SocketManager.emit("deleteMessage", { messageId: id, roomId: effectiveRoomId }),
+            handleReact: (id: string | number, emoji: string) => SocketManager.emit("addReaction", { messageId: id, emoji, userId: user?.id, roomId: effectiveRoomId }),
         }
     };
 }
