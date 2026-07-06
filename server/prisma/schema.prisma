@@ -64,6 +64,8 @@ model Field {
   streetNumber String?
   favorites    FavoriteField[]
   games        Game[]
+
+  @@index([lat, lng])
 }
 
 model Game {
@@ -114,6 +116,7 @@ model Game {
   @@index([sport])
   @@index([fieldId])
   @@index([organizerId])
+  @@index([customLat, customLng])
 }
 
 enum GameStatus {
