@@ -77,30 +77,16 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // API Client handles base URL
 
 
-    // Initialize UI and Socket Connection
+    // Send 'setup' to join personal notification room.
+    // Called on mount (socket may already be connected) AND on every reconnect.
     useEffect(() => {
-        let unsubSetup: (() => void) | undefined;
-        
-        if (user?.id) {
-            getToken().then(token => {
-                if (token) {
-                    SocketManager.connect(token);
-                    
-                    const sendSetup = () => {
-                        SocketManager.emit('setup', { id: user.id });
-                    };
-                    
-                    sendSetup();
-                    unsubSetup = SocketManager.on('connect', sendSetup);
-                }
-            });
-        } else {
-            SocketManager.disconnect();
-        }
-        return () => {
-            if (unsubSetup) unsubSetup();
+        const sendSetup = () => {
+            if (user?.id) SocketManager.emit('setup', { id: user.id });
         };
-    }, [user?.id, getToken]);
+        sendSetup();
+        const unsubSetup = SocketManager.on('connect', sendSetup);
+        return () => unsubSetup();
+    }, [user?.id]);
 
     // 0. Join Chat Rooms for Real-time Typing Indicators
     useEffect(() => {

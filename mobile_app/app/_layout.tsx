@@ -106,20 +106,19 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [isLoaded, isSignedIn, segments]);
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
+    if (!isLoaded) return;
+
+    if (isSignedIn) {
+      // Connect socket once. ChatContext will send 'setup' with the actual userId.
+      // No cleanup return here — socket must stay alive across re-renders.
       getToken().then((token) => {
-        if (token) {
-          SocketManager.connect(token);
-        }
+        if (token) SocketManager.connect(token);
       });
-    } else if (isLoaded && !isSignedIn) {
+    } else {
+      // Only disconnect on actual sign-out
       SocketManager.disconnect();
     }
-
-    return () => {
-      SocketManager.disconnect();
-    };
-  }, [isLoaded, isSignedIn, getToken]);
+  }, [isLoaded, isSignedIn]);
 
   if (!isLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Loading Clerk...</Text></View>;
 
