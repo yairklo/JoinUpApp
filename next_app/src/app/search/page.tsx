@@ -6,6 +6,7 @@ import { useAuth } from "@clerk/nextjs";
 import { gamesApi } from "@/services/api/games";
 import { fieldsApi } from "@/services/api/fields";
 import { Game } from "@/types/game";
+import { SPORT_MAPPING } from "@/utils/sports";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
@@ -31,13 +32,7 @@ const SearchMapComponent = dynamic(
   { ssr: false, loading: () => <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box> }
 );
 
-const SPORTS = [
-  { id: "SOCCER", label: "כדורגל" },
-  { id: "BASKETBALL", label: "כדורסל" },
-  { id: "TENNIS", label: "טניס" },
-  { id: "VOLLEYBALL", label: "כדורעף" },
-  { id: "PADEL", label: "פדל" }
-];
+const SPORTS = Object.entries(SPORT_MAPPING).map(([id, label]) => ({ id, label }));
 
 const CITY_COORDS: Record<string, [number, number]> = {
   'תל אביב-יפו': [32.0853, 34.7818],
@@ -247,16 +242,24 @@ export default function SearchPage() {
             </TextField>
           </Stack>
 
-          {/* Date Picker */}
-          <TextField
-            label="תאריך (Date)"
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-            size="small"
-          />
+          {/* Date Picker Section with "השבוע הקרוב" Chip */}
+          <Stack direction="row" spacing={1} alignItems="center" width="100%">
+            <Chip
+              label="השבוע הקרוב"
+              onClick={() => setSelectedDate("")}
+              color={!selectedDate ? "primary" : "default"}
+              variant={!selectedDate ? "filled" : "outlined"}
+              sx={{ fontWeight: 600, height: 40, px: 1 }}
+            />
+            <TextField
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+              fullWidth
+            />
+          </Stack>
         </Stack>
 
         {/* Sport Filters */}
