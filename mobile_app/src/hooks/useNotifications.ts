@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { SocketManager } from '@/services/socketManager';
 import { notificationsApi, chatsApi, Notification as NotificationType, API_BASE } from '@/services/api';
-import { useChat } from '@/context/ChatContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
@@ -16,7 +15,6 @@ Notifications.setNotificationHandler({
 
 export function useNotifications() {
     const { userId, isLoaded, getToken } = useAuth();
-    const { updateChatList } = useChat();
 
     const [notifications, setNotifications] = useState<NotificationType[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -83,28 +81,7 @@ export function useNotifications() {
         setupPersonalRoom();
         const unsubscribeConnect = SocketManager.on('connect', setupPersonalRoom);
 
-        const unsubscribeMessage = SocketManager.on('message', (incomingMsg: any) => {
-            updateChatList({
-                chatId: incomingMsg.roomId || incomingMsg.chatId,
-                roomId: incomingMsg.roomId || incomingMsg.chatId,
-                content: incomingMsg.text || incomingMsg.content,
-                text: incomingMsg.text || incomingMsg.content,
-                senderId: incomingMsg.userId || incomingMsg.senderId,
-                userId: incomingMsg.userId || incomingMsg.senderId,
-                ts: incomingMsg.ts || new Date().toISOString()
-            });
-        });
-
         const unsubscribeNotification = SocketManager.on('notification', async (data: any) => {
-            if (data.type === 'message') {
-                updateChatList({
-                    chatId: data.roomId, roomId: data.roomId,
-                    content: data.text, text: data.text,
-                    senderId: data.senderId, userId: data.senderId,
-                    ts: new Date().toISOString()
-                });
-            }
-
             setNotifications(prev => [data, ...prev]);
             setUnreadCount(prev => prev + 1);
 
@@ -122,12 +99,9 @@ export function useNotifications() {
 
         return () => {
             unsubscribeConnect();
-            unsubscribeMessage();
             unsubscribeNotification();
         };
     }, [userId]);
-
-
     // 3. Actions
     const markAsRead = async (id: string) => {
         try {

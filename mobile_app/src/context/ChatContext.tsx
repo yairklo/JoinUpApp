@@ -5,6 +5,8 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { ChatMessage } from "@/types/chat";
 import { chatsApi } from "@/services/api/chats";
 import { apiClient } from "@/services/api/client";
+import { SocketManager } from "@/services/socketManager";
+import * as Notifications from 'expo-notifications';
 
 export interface HeaderInfo {
     name: string;
@@ -134,6 +136,36 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
             // Update Cache
             setMessagesCache(prev => ({ ...prev, [chatId]: mapped }));
+
+            // Update Chat List preview with the latest fetched message
+            if (mapped.length > 0) {
+                const lastMsg = mapped[mapped.length - 1];
+                setChats(prevChats => {
+                    const chatIndex = prevChats.findIndex(c => c.id === chatId);
+                    if (chatIndex === -1) return prevChats;
+
+                    const currentLastMsg = prevChats[chatIndex].lastMessage;
+                    if (!currentLastMsg || new Date(lastMsg.ts) > new Date(currentLastMsg.createdAt)) {
+                        const newChats = [...prevChats];
+                        newChats[chatIndex] = {
+                            ...newChats[chatIndex],
+                            lastMessage: {
+                                text: lastMsg.text,
+                                createdAt: lastMsg.ts,
+                                senderId: lastMsg.senderId,
+                                status: lastMsg.status || 'sent'
+                            }
+                        };
+                        return newChats.sort((a, b) => {
+                            const dateA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
+                            const dateB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
+                            return dateB - dateA;
+                        });
+                    }
+                    return prevChats;
+                });
+            }
+
             return mapped;
         } catch (error) {
             console.error("Failed to load messages:", error);
@@ -143,28 +175,41 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
     // 3. Socket Update Handler
     const updateChatList = useCallback((newMessage: any) => {
+        const roomId = newMessage.chatId || newMessage.roomId;
+        const isActiveChat = activeChatId === roomId;
+
         // A. Update the Chat List (Preview & Order)
         setChats(prevChats => {
-            const chatIndex = prevChats.findIndex(c => c.id === newMessage.chatId || c.id === newMessage.roomId);
+            const chatIndex = prevChats.findIndex(c => c.id === roomId);
 
             if (chatIndex === -1) return prevChats;
+
+            // Extract correct properties depending on payload type (message vs chat:sync)
+            const text = newMessage.lastMessage?.text || newMessage.content || newMessage.text;
+            const createdAt = newMessage.lastMessage?.createdAt || newMessage.ts || new Date().toISOString();
+            const senderId = newMessage.lastMessage?.senderId || newMessage.senderId || newMessage.userId;
+            const status = newMessage.lastMessage?.status || newMessage.status || 'sent';
+            
+            // Deduplication Guard: If user is actively inside the chat room, do NOT increment unread.
+            const incrementAmount = newMessage.unreadCountIncrement || 1;
+            const shouldIncrementUnread = (!isActiveChat && senderId !== user?.id);
 
             const updatedChat = {
                 ...prevChats[chatIndex],
                 lastMessage: {
-                    text: newMessage.content || newMessage.text,
-                    createdAt: newMessage.ts || new Date().toISOString(),
-                    senderId: newMessage.senderId || newMessage.userId,
-                    status: newMessage.status || 'sent'
+                    text,
+                    createdAt,
+                    senderId,
+                    status
                 },
-                unreadCount: (newMessage.senderId !== user?.id && newMessage.userId !== user?.id)
-                    ? (prevChats[chatIndex].unreadCount || 0) + 1
+                unreadCount: shouldIncrementUnread
+                    ? (prevChats[chatIndex].unreadCount || 0) + incrementAmount
                     : prevChats[chatIndex].unreadCount
             };
 
             // Update Global Unread if needed
-            if (newMessage.senderId !== user?.id && newMessage.userId !== user?.id) {
-                setTotalUnread(prev => prev + 1);
+            if (shouldIncrementUnread) {
+                setTotalUnread(prev => prev + incrementAmount);
             }
 
             // Move to top
@@ -201,7 +246,29 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                 };
             });
         }
-    }, [user?.id]);
+    }, [user?.id, activeChatId]); // Ensure activeChatId is in deps
+
+    // 4. Socket Listeners for Global Chat State
+    useEffect(() => {
+        if (!user?.id) return;
+        
+        const handleIncoming = (incomingMsg: any) => {
+            updateChatList(incomingMsg);
+        };
+
+        const unsubSync = SocketManager.on('chat:sync', handleIncoming);
+        const unsubMsg = SocketManager.on('message', handleIncoming);
+
+        return () => {
+            unsubSync();
+            unsubMsg();
+        };
+    }, [user?.id, updateChatList]);
+
+    // 5. Update OS Badge Count
+    useEffect(() => {
+        Notifications.setBadgeCountAsync(totalUnread).catch(e => console.warn('Failed to set badge count:', e));
+    }, [totalUnread]);
 
     const openChat = (chatId: string, info?: HeaderInfo) => {
         setActiveChatId(chatId);

@@ -17,7 +17,7 @@ export interface UseChatLogicProps {
 export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const { user } = useUser();
     const { getToken } = useAuth();
-    const { messagesCache, loadMessages, markChatAsRead } = useChat();
+    const { messagesCache, loadMessages, markChatAsRead, openChat, closeChat } = useChat();
 
     const [isLoading, setIsLoading] = useState(true);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -41,6 +41,13 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const typingTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
     // Fix #5: track fetched user IDs to prevent re-fetching and cascading re-renders
     const fetchedUserIdsRef = useRef<Set<string>>(new Set());
+
+    // 0. Register Active Chat globally
+    useEffect(() => {
+        if (!roomId || roomId === 'global') return;
+        openChat(roomId);
+        return () => closeChat();
+    }, [roomId, openChat, closeChat]);
 
     // 1. Resolve Room ID and Fetch Details
     useEffect(() => {
