@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
 import { gamesApi } from "@/services/api/games";
+import { fieldsApi } from "@/services/api/fields";
 import { Game } from "@/types/game";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
@@ -19,7 +20,10 @@ import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
+import MenuItem from "@mui/material/MenuItem";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import SearchIcon from "@mui/icons-material/Search";
+import GroupIcon from "@mui/icons-material/Group";
 
 // Dynamically import the map to avoid SSR issues with Leaflet using window
 const SearchMapComponent = dynamic(
@@ -31,8 +35,29 @@ const SPORTS = [
   { id: "SOCCER", label: "כדורגל" },
   { id: "BASKETBALL", label: "כדורסל" },
   { id: "TENNIS", label: "טניס" },
-  { id: "VOLLEYBALL", label: "כדורעף" }
+  { id: "VOLLEYBALL", label: "כדורעף" },
+  { id: "PADEL", label: "פדל" }
 ];
+
+const CITY_COORDS: Record<string, [number, number]> = {
+  'תל אביב-יפו': [32.0853, 34.7818],
+  'תל אביב': [32.0853, 34.7818],
+  'ירושלים': [31.7683, 35.2137],
+  'חיפה': [32.7940, 34.9896],
+  'ראשון לציון': [31.9730, 34.7925],
+  'פתח תקווה': [32.0840, 34.8878],
+  'אשדוד': [31.8014, 34.6435],
+  'נתניה': [32.3215, 34.8532],
+  'באר שבע': [31.2518, 34.7913],
+  'חולון': [32.0158, 34.7874],
+  'רמת גן': [32.0684, 34.8248],
+  'הרצליה': [32.1624, 34.8447],
+  'רעננה': [32.1848, 34.8713],
+  'כפר סבא': [32.1713, 34.9069],
+  'אילת': [29.5577, 34.9519],
+  'רחובות': [31.8928, 34.8113],
+  'מודיעין': [31.9056, 35.0006]
+};
 
 type Bounds = { minLat: number; maxLat: number; minLng: number; maxLng: number };
 
@@ -42,9 +67,21 @@ export default function SearchPage() {
 
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Filters
+  const [query, setQuery] = useState("");
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(""); // YYYY-MM-DD
+  const [selectedCity, setSelectedCity] = useState<string>("");
+  const [networkGames, setNetworkGames] = useState(false);
+  const [cities, setCities] = useState<string[]>([]);
+  
   const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
+  const [targetLocation, setTargetLocation] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    fieldsApi.getCities().then(res => setCities(res)).catch(console.error);
+  }, []);
 
   const performSearch = useCallback(async () => {
     setLoading(true);
@@ -52,8 +89,10 @@ export default function SearchPage() {
       const token = await getToken();
       const params = new URLSearchParams();
 
+      if (query) params.append("q", query);
       if (selectedSport) params.append("sport", selectedSport);
       if (selectedDate) params.append("date", selectedDate);
+      if (networkGames) params.append("networkGames", "true");
 
       if (mapBounds) {
         params.append("minLat", mapBounds.minLat.toString());
@@ -93,7 +132,7 @@ export default function SearchPage() {
     } finally {
       setLoading(false);
     }
-  }, [getToken, selectedSport, selectedDate, mapBounds]);
+  }, [getToken, query, selectedSport, selectedDate, networkGames, mapBounds]);
 
   useEffect(() => {
     performSearch();
@@ -159,21 +198,66 @@ export default function SearchPage() {
           p: 2,
         }}
       >
-        <Typography variant="h5" fontWeight={800} mb={3}>
-          Find Games
-        </Typography>
+        {/* Search Header */}
+        <Stack spacing={2} mb={3}>
+          <Typography variant="h5" fontWeight={800}>
+            Find Games
+          </Typography>
 
-        {/* Date Picker */}
-        <TextField
-          label="תאריך (Date)"
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          fullWidth
-          margin="normal"
-          size="small"
-        />
+          <TextField
+            placeholder="חפש קבוצה, אולם או שחקן..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            InputProps={{
+              startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
+            }}
+            fullWidth
+            size="small"
+          />
+
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              variant={networkGames ? "contained" : "outlined"}
+              size="small"
+              onClick={() => setNetworkGames(!networkGames)}
+              startIcon={<GroupIcon />}
+              sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
+            >
+              רשת המכרים
+            </Button>
+
+            <TextField
+              select
+              value={selectedCity}
+              onChange={(e) => {
+                const city = e.target.value;
+                setSelectedCity(city);
+                if (city && CITY_COORDS[city]) {
+                  setTargetLocation(CITY_COORDS[city]);
+                }
+              }}
+              size="small"
+              sx={{ minWidth: 120 }}
+              label="עיר"
+            >
+              <MenuItem value="">כל הערים</MenuItem>
+              {cities.map((city) => (
+                <MenuItem key={city} value={city}>{city}</MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+
+          {/* Date Picker */}
+          <TextField
+            label="תאריך (Date)"
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+            size="small"
+          />
+        </Stack>
 
         {/* Sport Filters */}
         <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: 1, mb: 2 }}>
@@ -229,6 +313,7 @@ export default function SearchPage() {
           games={games}
           onBoundsChanged={handleBoundsChanged}
           onGameSelect={(id) => router.push(`/games/${id}`)}
+          targetLocation={targetLocation}
         />
       </Box>
     </Box>
