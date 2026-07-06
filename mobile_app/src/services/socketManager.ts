@@ -9,6 +9,7 @@ export const SocketManager = {
     if (socket?.connected) return;
     socket = io(API_BASE, {
       path: '/api/socket',
+      transports: ['websocket'],
       auth: { token },
       autoConnect: true,
     });
