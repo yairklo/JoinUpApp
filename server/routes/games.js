@@ -723,6 +723,10 @@ router.get('/search', attachOptionalUser, async (req, res) => {
       const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
       const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
       where.start = { gte: startOfDay, lte: endOfDay };
+    } else {
+      // If no specific date is provided, filter out past games from the database level.
+      // This prevents deduplicateSeriesGames from keeping an old past game and hiding future games.
+      where.start = { gte: new Date() };
     }
     
     if (sport) {

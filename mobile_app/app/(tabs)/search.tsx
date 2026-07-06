@@ -2,7 +2,7 @@ import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, I
 import { Marker, Callout } from 'react-native-maps';
 import MapView from 'react-native-map-clustering';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { gamesApi, fieldsApi } from '@/services/api';
@@ -36,7 +36,7 @@ export default function SearchScreen() {
 
     const [selectedSport, setSelectedSport] = useState<string | null>(null);
     const [sportModalVisible, setSportModalVisible] = useState(false);
-    const [isMapView, setIsMapView] = useState(false);
+    const [isMapView, setIsMapView] = useState(true);
     const [networkGames, setNetworkGames] = useState(false);
     const SPORTS = [
         { id: 'SOCCER', label: t('newGame.soccer', 'כדורגל') },
@@ -128,16 +128,24 @@ export default function SearchScreen() {
             let finalGames = results;
             
             if (!selectedDate) {
-                // If no specific date selected, only show upcoming games
+                // If no specific date selected, only show upcoming games for the next 7 days
+                const nextWeek = new Date(now);
+                nextWeek.setDate(nextWeek.getDate() + 7);
+                
                 finalGames = finalGames.filter(game => {
                     if (!game.date) return true;
-                    const gameDateTime = new Date(`${game.date}T${game.time || '00:00'}`);
+                    
+                    // Robust local date parsing that works across all JS engines (Hermes/JSC/V8)
+                    const [year, month, day] = game.date.split('-').map(Number);
+                    const [hours, minutes] = (game.time || '00:00').split(':').map(Number);
+                    const gameDateTime = new Date(year, month - 1, day, hours, minutes, 0);
+                    
                     if (game.duration) {
                         gameDateTime.setMinutes(gameDateTime.getMinutes() + game.duration);
                     } else {
                         gameDateTime.setHours(gameDateTime.getHours() + 2); // Default 2 hours
                     }
-                    return gameDateTime > now;
+                    return gameDateTime > now && gameDateTime <= nextWeek;
                 });
             } else {
                 // Keep all games for the selected date, regardless of time
@@ -319,7 +327,7 @@ export default function SearchScreen() {
                         className={`mr-2 px-4 py-2 rounded-full border flex-row items-center ${selectedDate ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                     >
                         <Text className={`font-medium ${selectedDate ? 'text-white' : 'text-gray-600'}`}>
-                            {selectedDate ? selectedDate.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL') : t("search.date", "תאריך")}
+                            {selectedDate ? selectedDate.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL') : t("search.upcomingWeek", "השבוע הקרוב")}
                         </Text>
                         {selectedDate && <FontAwesome name="times" size={12} color="white" style={{ marginLeft: 6 }} />}
                     </TouchableOpacity>
