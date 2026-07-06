@@ -3,7 +3,7 @@ import { Marker, Callout } from 'react-native-maps';
 import MapView from 'react-native-map-clustering';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { gamesApi, fieldsApi } from '@/services/api';
 import { useAuth } from '@clerk/clerk-expo';
@@ -31,12 +31,14 @@ export default function SearchScreen() {
     const searchTimeoutRef = useRef<any>(null);
     const [selectedFieldGames, setSelectedFieldGames] = useState<Game[] | null>(null);
 
-    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const params = useLocalSearchParams();
+
+    const [selectedDate, setSelectedDate] = useState<Date | null>(params.date ? new Date(params.date as string) : null);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
-    const [selectedSport, setSelectedSport] = useState<string | null>(null);
+    const [selectedSport, setSelectedSport] = useState<string | null>((params.sport as string) || null);
     const [sportModalVisible, setSportModalVisible] = useState(false);
-    const [isMapView, setIsMapView] = useState(true);
+    const [isMapView, setIsMapView] = useState(params.hideMap !== 'true');
     const [networkGames, setNetworkGames] = useState(false);
     const SPORTS = [
         { id: 'SOCCER', label: t('newGame.soccer', 'כדורגל') },

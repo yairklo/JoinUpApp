@@ -242,10 +242,10 @@ export default function GameDetailsScreen() {
                                                 const p = game.participants?.find(part => part.id === pid);
                                                 if (!p) return null;
                                                 return (
-                                                    <View key={pid} className="mr-3 mb-2 items-center w-12">
+                                                    <TouchableOpacity key={pid} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
                                                         <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
                                                         <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
-                                                    </View>
+                                                    </TouchableOpacity>
                                                 )
                                             })}
                                         </View>
@@ -263,10 +263,10 @@ export default function GameDetailsScreen() {
                                         <Text className="font-bold text-gray-500 mb-2">לא שובצו ({bench.length})</Text>
                                         <View className="flex-row flex-wrap">
                                             {bench.map(p => (
-                                                <View key={p.id} className="mr-3 mb-2 items-center w-12">
+                                                <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
                                                     <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
                                                     <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
-                                                </View>
+                                                </TouchableOpacity>
                                             ))}
                                         </View>
                                     </View>
@@ -276,7 +276,7 @@ export default function GameDetailsScreen() {
                     ) : (
                         <View className="flex-row flex-wrap">
                             {game.participants?.map((p) => (
-                                <View key={p.id} className="ml-4 mb-4 items-center w-16">
+                                <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="ml-4 mb-4 items-center w-16">
                                     <Image
                                         source={{ uri: p.avatar || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
                                         className="w-12 h-12 rounded-full bg-gray-200 mb-1"
@@ -290,7 +290,7 @@ export default function GameDetailsScreen() {
                                     {p.id === game.organizerId && (
                                         <Text className="text-[10px] text-blue-600 font-bold">מארגן</Text>
                                     )}
-                                </View>
+                                </TouchableOpacity>
                             ))}
                         </View>
                     )}

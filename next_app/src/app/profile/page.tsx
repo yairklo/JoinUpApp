@@ -41,7 +41,7 @@ import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 
 
 // Custom Components
-import { SPORT_MAPPING } from "@/utils/sports";
+import { SPORT_MAPPING, POSITION_OPTIONS } from "@/utils/sports";
 
 import Avatar from "@/components/Avatar";
 import AddFriendButton from "@/components/AddFriendButton";
@@ -93,6 +93,46 @@ export default function ProfilePage() {
     sportsData: [] as { sportId: string; position: string; }[]
   });
   const [newSportId, setNewSportId] = useState("");
+  const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
+
+  const togglePosition = (sportId: string, pos: string) => {
+    setForm(prev => ({
+      ...prev,
+      sportsData: prev.sportsData.map(s => {
+        if (s.sportId !== sportId) return s;
+        const current = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+        const exists = current.includes(pos);
+        const updated = exists ? current.filter(p => p !== pos) : [...current, pos];
+        return { ...s, position: updated.join(', ') };
+      })
+    }));
+  };
+
+  const addCustomPosition = (sportId: string) => {
+    const custom = customTexts[sportId] || "";
+    if (!custom.trim()) return;
+    setForm(prev => ({
+      ...prev,
+      sportsData: prev.sportsData.map(s => {
+        if (s.sportId !== sportId) return s;
+        const current = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+        if (current.includes(custom.trim())) return s;
+        return { ...s, position: [...current, custom.trim()].join(', ') };
+      })
+    }));
+    setCustomTexts(prev => ({ ...prev, [sportId]: "" }));
+  };
+
+  const removePositionTag = (sportId: string, pos: string) => {
+    setForm(prev => ({
+      ...prev,
+      sportsData: prev.sportsData.map(s => {
+        if (s.sportId !== sportId) return s;
+        const updated = s.position.split(',').map(p => p.trim()).filter(p => p && p !== pos);
+        return { ...s, position: updated.join(', ') };
+      })
+    }));
+  };
 
   // Fetch logic remains the same...
   useEffect(() => {
@@ -255,24 +295,25 @@ export default function ProfilePage() {
                         <Typography variant="body1">{calculateAge(profile.birthDate) || '-'}</Typography>
                       </Grid>
                       <Grid size={12}>
-                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Sports</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Sports & Positions</Typography>
                         {(profile.sports && profile.sports.length > 0) ? (
-                          <Stack direction="row" spacing={1}>
+                          <Stack spacing={2}>
                             {profile.sports.map(s => {
                               const hebrewName = SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name;
-                              return <Chip key={s.id} label={s.position ? `${hebrewName} (${s.position})` : hebrewName} size="small" />;
+                              const positions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+                              return (
+                                <Box key={s.id} display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                                  <Chip label={hebrewName} color="primary" />
+                                  {positions.map((pos, i) => (
+                                    <Chip key={i} label={pos} size="small" variant="outlined" color="primary" />
+                                  ))}
+                                </Box>
+                              );
                             })}
                           </Stack>
                         ) : <Typography variant="body2">-</Typography>}
                       </Grid>
-                      <Grid size={12}>
-                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Positions</Typography>
-                        {(profile.positions && profile.positions.length > 0) ? (
-                          <Stack direction="row" spacing={1}>
-                            {profile.positions.map(p => <Chip key={p.id} label={p.name} size="small" variant="outlined" />)}
-                          </Stack>
-                        ) : <Typography variant="body2">-</Typography>}
-                      </Grid>
+
                     </Grid>
                   ) : (
                     // טופס עריכה
@@ -297,26 +338,83 @@ export default function ProfilePage() {
                             // Using simplified logic assuming s.sportId is the key (or even if it is ID, we show it if not in mapping)
                             const hebrewName = SPORT_MAPPING[s.sportId] || s.sportId;
 
+                            const sportPositions = POSITION_OPTIONS[s.sportId] || [];
+                            const activePositions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+
                             return (
-                              <Box key={s.sportId} display="flex" gap={1} alignItems="center">
-                                <Chip label={hebrewName} />
-                                <TextField
-                                  label="Position"
-                                  size="small"
-                                  value={s.position}
-                                  onChange={(e) => {
-                                    const newData = [...form.sportsData];
-                                    newData[idx].position = e.target.value;
+                              <Box key={s.sportId} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                                  <Typography variant="subtitle1" fontWeight="bold">{hebrewName}</Typography>
+                                  <IconButton size="small" color="error" onClick={() => {
+                                    const newData = form.sportsData.filter(x => x.sportId !== s.sportId);
                                     setForm({ ...form, sportsData: newData });
-                                  }}
-                                  sx={{ flexGrow: 1 }}
-                                />
-                                <IconButton size="small" color="error" onClick={() => {
-                                  const newData = form.sportsData.filter(x => x.sportId !== s.sportId);
-                                  setForm({ ...form, sportsData: newData });
-                                }}>
-                                  <DeleteIcon />
-                                </IconButton>
+                                  }}>
+                                    <DeleteIcon />
+                                  </IconButton>
+                                </Box>
+                                
+                                {sportPositions.length > 0 && (
+                                  <Box mb={2}>
+                                    <Typography variant="caption" color="text.secondary" gutterBottom display="block">בחר עמדות:</Typography>
+                                    <Stack direction="row" flexWrap="wrap" gap={1}>
+                                      {sportPositions.map(pos => {
+                                        const isSelected = activePositions.includes(pos);
+                                        return (
+                                          <Chip
+                                            key={pos}
+                                            label={pos}
+                                            color={isSelected ? "primary" : "default"}
+                                            variant={isSelected ? "filled" : "outlined"}
+                                            onClick={() => togglePosition(s.sportId, pos)}
+                                          />
+                                        );
+                                      })}
+                                    </Stack>
+                                  </Box>
+                                )}
+
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary" gutterBottom display="block">הוסף עמדה חופשית:</Typography>
+                                  <Box display="flex" gap={1} alignItems="center">
+                                    <TextField
+                                      size="small"
+                                      placeholder="למשל: קשר פוגעני"
+                                      value={customTexts[s.sportId] || ""}
+                                      onChange={(e) => setCustomTexts(prev => ({ ...prev, [s.sportId]: e.target.value }))}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          addCustomPosition(s.sportId);
+                                        }
+                                      }}
+                                      sx={{ flexGrow: 1 }}
+                                    />
+                                    <Button 
+                                      variant="contained" 
+                                      size="small" 
+                                      onClick={() => addCustomPosition(s.sportId)}
+                                      disabled={!(customTexts[s.sportId] || "").trim()}
+                                    >
+                                      הוסף
+                                    </Button>
+                                  </Box>
+                                </Box>
+
+                                {activePositions.filter(p => !sportPositions.includes(p)).length > 0 && (
+                                  <Box mt={2}>
+                                    <Typography variant="caption" color="text.secondary" gutterBottom display="block">עמדות מותאמות אישית:</Typography>
+                                    <Stack direction="row" flexWrap="wrap" gap={1}>
+                                      {activePositions.filter(p => !sportPositions.includes(p)).map(pos => (
+                                        <Chip
+                                          key={pos}
+                                          label={pos}
+                                          color="primary"
+                                          onDelete={() => removePositionTag(s.sportId, pos)}
+                                        />
+                                      ))}
+                                    </Stack>
+                                  </Box>
+                                )}
                               </Box>
                             );
                           })}

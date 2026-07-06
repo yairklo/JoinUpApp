@@ -1,4 +1,4 @@
-import { Slot, SplashScreen, Stack, useRouter } from "expo-router";
+import { Slot, SplashScreen, Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
 import { useColorScheme, LogBox, View, Text } from "react-native";
@@ -85,12 +85,25 @@ export default function RootLayout() {
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      router.replace("/sign-in");
+    if (!isLoaded) return;
+
+    const inAuthGroup = segments[0] === 'sign-in' || segments[0] === 'sign-up';
+
+    if (!isSignedIn) {
+      // If not signed in and not on auth pages, redirect to sign-in
+      if (!inAuthGroup) {
+        router.replace("/sign-in");
+      }
+    } else {
+      // If signed in and on auth pages, redirect to home
+      if (inAuthGroup) {
+        router.replace("/(tabs)");
+      }
     }
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, segments]);
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
