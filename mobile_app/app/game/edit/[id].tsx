@@ -7,6 +7,8 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Game } from '@/types/game';
 
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 export default function EditGameScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getToken } = useAuth();
@@ -108,16 +110,24 @@ export default function EditGameScreen() {
 
     if (loading) {
         return (
-            <View className="flex-1 justify-center items-center bg-white">
+            <SafeAreaView className="flex-1 justify-center items-center bg-white">
                 <ActivityIndicator size="large" color="#2563eb" />
-            </View>
+            </SafeAreaView>
         );
     }
 
     return (
-        <>
-            <Stack.Screen options={{ title: 'Edit Game' }} />
-            <ScrollView className="flex-1 bg-gray-50 p-4">
+        <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
+            <Stack.Screen options={{ headerShown: false }} />
+            
+            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+                <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
+                    <FontAwesome name="arrow-left" size={20} color="#4b5563" />
+                </TouchableOpacity>
+                <Text className="text-xl font-bold text-gray-900">Edit Game</Text>
+            </View>
+
+            <ScrollView className="flex-1 p-4">
 
                 {/* Field Info (Read Only) */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
@@ -208,6 +218,6 @@ export default function EditGameScreen() {
                 </TouchableOpacity>
 
             </ScrollView>
-        </>
+        </SafeAreaView>
     );
 }

@@ -14,6 +14,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import EmailIcon from '@mui/icons-material/Email';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import UserProfileActions from "@/components/UserProfileActions";
+import { SPORT_MAPPING } from "@/utils/sports";
 
 type PublicUser = {
     id: string;
@@ -124,28 +125,6 @@ export default async function UserPublicPage(props: {
                                 </Stack>
                             </Box>
 
-                            {/* Sports */}
-                            <Box>
-                                <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
-                                    Sports
-                                </Typography>
-                                <Box mt={1} display="flex" gap={1} flexWrap="wrap">
-                                    {(u.sports && u.sports.length > 0) ? (
-                                        u.sports.map((s) => (
-                                            <Chip
-                                                key={s.id}
-                                                label={s.position ? `${s.name} (${s.position})` : s.name}
-                                                icon={<SportsSoccerIcon />}
-                                                color="primary"
-                                                variant="outlined"
-                                            />
-                                        ))
-                                    ) : (
-                                        <Typography variant="body2" color="text.secondary">-</Typography>
-                                    )}
-                                </Box>
-                            </Box>
-
                             {/* Age */}
                             {u.age && (
                                 <Box>
@@ -156,25 +135,39 @@ export default async function UserPublicPage(props: {
                                 </Box>
                             )}
 
-                            {/* Positions */}
+                            {/* Sports & Positions */}
                             <Box>
-                                <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
-                                    Positions
+                                <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase" gutterBottom>
+                                    Sports & Positions
                                 </Typography>
-                                <Box mt={1} display="flex" gap={1} flexWrap="wrap">
-                                    {(u.positions && u.positions.length > 0) ? (
-                                        u.positions.map((p) => (
-                                            <Chip
-                                                key={p.id}
-                                                label={p.name}
-                                                size="small"
-                                                variant="outlined"
-                                            />
-                                        ))
-                                    ) : (
-                                        <Typography variant="body2" color="text.secondary">-</Typography>
-                                    )}
-                                </Box>
+                                {(u.sports && u.sports.length > 0) ? (
+                                    <Stack spacing={2} mt={1}>
+                                        {u.sports.map((s) => {
+                                            const hebrewName = SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name;
+                                            const positions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+                                            return (
+                                                <Box key={s.id} display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                                                    <Chip 
+                                                        label={hebrewName} 
+                                                        color="primary" 
+                                                        icon={<SportsSoccerIcon />} 
+                                                    />
+                                                    {positions.map((pos, i) => (
+                                                        <Chip 
+                                                            key={i} 
+                                                            label={pos} 
+                                                            size="small" 
+                                                            variant="outlined" 
+                                                            color="primary" 
+                                                        />
+                                                    ))}
+                                                </Box>
+                                            );
+                                        })}
+                                    </Stack>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">-</Typography>
+                                )}
                             </Box>
 
                         </Stack>
