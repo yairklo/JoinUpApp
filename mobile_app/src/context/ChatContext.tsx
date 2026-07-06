@@ -218,7 +218,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         });
 
         // B. Update Messages Cache
-        const roomId = newMessage.chatId || newMessage.roomId;
         if (roomId) {
             setMessagesCache(prevCache => {
                 const currentMessages = prevCache[roomId];
