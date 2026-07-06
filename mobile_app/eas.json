@@ -12,7 +12,9 @@
       "distribution": "internal",
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
-        "EXPO_PUBLIC_API_URL": "https://joinupapp-1.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://joinupapp-1.onrender.com",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bm90YWJsZS1kb2ctMTEuY2xlcmsuYWNjb3VudHMuZGV2JA",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCSkGsi2WtND71FfLA3h5o0IMje_veOPxw"
       },
       "android": {
         "buildType": "apk"
