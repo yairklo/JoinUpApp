@@ -73,6 +73,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
     // Fix #3: ref-based guard so loadChats has a stable reference
     const chatsLoadedRef = useRef(false);
+    const chatsRef = useRef<ChatPreview[]>([]);
+
+    useEffect(() => {
+        chatsRef.current = chats;
+    }, [chats]);
 
     // API Client handles base URL
 
@@ -201,6 +206,13 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         const roomId = newMessage.chatId || newMessage.roomId;
         const isActiveChat = activeChatId === roomId;
 
+        const chatExists = chatsRef.current.some(c => c.id === roomId);
+        if (!chatExists) {
+            // New conversation arrived: fetch updated chat list layout asynchronously
+            loadChats(true);
+            return;
+        }
+
         // A. Update the Chat List (Preview & Order)
         setChats(prevChats => {
             const chatIndex = prevChats.findIndex(c => c.id === roomId);
@@ -268,7 +280,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                 };
             });
         }
-    }, [user?.id, activeChatId]); // Ensure activeChatId is in deps
+    }, [user?.id, activeChatId, loadChats]); // Ensure activeChatId and loadChats are in deps
 
     // 4. Socket Listeners for Global Chat State
     useEffect(() => {
