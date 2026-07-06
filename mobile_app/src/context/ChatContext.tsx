@@ -77,10 +77,19 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // API Client handles base URL
 
 
-    // Initialize UI
+    // Initialize UI and Socket Connection
     useEffect(() => {
-        // No localStorage in React Native
-    }, []);
+        if (user?.id) {
+            getToken().then(token => {
+                if (token) SocketManager.connect(token);
+            });
+        } else {
+            SocketManager.disconnect();
+        }
+        return () => {
+            // Clean up socket on unmount if needed, or leave it for the user logout
+        };
+    }, [user?.id, getToken]);
 
     // 0. Join Chat Rooms for Real-time Typing Indicators
     useEffect(() => {

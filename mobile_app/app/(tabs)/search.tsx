@@ -12,6 +12,74 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Location from 'expo-location';
 
+const GameMarker = React.memo(({ group, onPress, mapRef }: { group: Game[], onPress: (g: Game[]) => void, mapRef: React.RefObject<any> }) => {
+    const firstGame = group[0];
+    const lat = firstGame.customLat || firstGame.fieldLat || firstGame.field?.lat;
+    const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng;
+    
+    // If multiple sports, show generic icon/color, else the specific sport
+    const uniqueSports = [...new Set(group.map(g => g.sport))];
+    const isMixed = uniqueSports.length > 1;
+    
+    // Quick helpers since they were inline. We recreate them here simply or use the ones from scope if we pass them.
+    // For simplicity, we just check the sport strings directly here
+    const getSportIcon = (s: string) => {
+        const sport = s.toUpperCase();
+        if (sport === 'BASKETBALL') return 'basketball';
+        if (sport === 'TENNIS') return 'tennis';
+        if (sport === 'VOLLEYBALL') return 'volleyball';
+        if (sport === 'PADEL') return 'tennis-ball';
+        return 'soccer';
+    };
+    const getSportColorHex = (s: string) => {
+        const sport = s.toUpperCase();
+        if (sport === 'BASKETBALL') return '#f97316';
+        if (sport === 'TENNIS') return '#eab308';
+        if (sport === 'VOLLEYBALL') return '#06b6d4';
+        if (sport === 'PADEL') return '#a855f7';
+        return '#16a34a';
+    };
+
+    const iconName = isMixed ? 'map-marker-multiple' : getSportIcon(firstGame.sport);
+    const hexColor = isMixed ? '#64748b' : getSportColorHex(firstGame.sport);
+    
+    return (
+        <Marker
+            coordinate={{ latitude: lat!, longitude: lng! }}
+            anchor={{ x: 0.5, y: 1.0 }}
+            hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
+            onPress={(e) => {
+                e.stopPropagation();
+                // Center the map
+                if (mapRef.current?.animateToRegion) {
+                    mapRef.current.animateToRegion({
+                        latitude: lat!,
+                        longitude: lng!,
+                        latitudeDelta: 0.05,
+                        longitudeDelta: 0.05
+                    }, 500);
+                }
+                onPress(group);
+            }}
+        >
+            <View style={{ backgroundColor: hexColor }} className="w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-lg">
+                <MaterialCommunityIcons name={iconName as any} size={20} color="white" />
+                {group.length > 1 && (
+                    <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-4 h-4 items-center justify-center">
+                        <Text className="text-white text-[10px] font-bold">{group.length}</Text>
+                    </View>
+                )}
+            </View>
+        </Marker>
+    );
+}, (prev, next) => {
+    // Custom comparison: only re-render if group changes significantly
+    if (prev.group.length !== next.group.length) return false;
+    const prevIds = prev.group.map(g => g.id).join(',');
+    const nextIds = next.group.map(g => g.id).join(',');
+    return prevIds === nextIds;
+});
+
 export default function SearchScreen() {
     const { t, i18n } = useTranslation();
     const { getToken } = useAuth();
@@ -383,30 +451,13 @@ export default function SearchScreen() {
                     >
                         {groupedMapGames.map(group => {
                             const firstGame = group[0];
-                            const lat = firstGame.customLat || firstGame.fieldLat || firstGame.field?.lat;
-                            const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng;
-                            
-                            // If multiple sports, show generic icon/color, else the specific sport
-                            const uniqueSports = [...new Set(group.map(g => g.sport))];
-                            const isMixed = uniqueSports.length > 1;
-                            const iconName = isMixed ? 'map-marker-multiple' : getSportIcon(firstGame.sport);
-                            const hexColor = isMixed ? '#64748b' : getSportColorHex(firstGame.sport); // slate-500 for mixed
-                            
                             return (
-                                <Marker
-                                    key={firstGame.id}
-                                    coordinate={{ latitude: lat!, longitude: lng! }}
-                                    onPress={() => setSelectedFieldGames(group)}
-                                >
-                                    <View style={{ backgroundColor: hexColor }} className="w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-lg">
-                                        <MaterialCommunityIcons name={iconName as any} size={20} color="white" />
-                                        {group.length > 1 && (
-                                            <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-4 h-4 items-center justify-center">
-                                                <Text className="text-white text-[10px] font-bold">{group.length}</Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                </Marker>
+                                <GameMarker 
+                                    key={firstGame.id} // Stable key based on game id
+                                    group={group}
+                                    onPress={setSelectedFieldGames}
+                                    mapRef={mapRef}
+                                />
                             );
                         })}
                     </MapView>

@@ -148,6 +148,7 @@ export default function ChatsScreen() {
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
+                extraData={typingStatus}
                 // Performance props
                 removeClippedSubviews={true}
                 maxToRenderPerBatch={10}
