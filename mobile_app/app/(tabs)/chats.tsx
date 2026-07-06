@@ -8,9 +8,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 
 // Fix #2a: Extracted + memoized chat item — only re-renders when its own data changes
-const ChatItem = React.memo(({ item, userId, youLabel, noMessagesLabel, onPress }: {
+const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel, onPress }: {
     item: ChatPreview;
     userId?: string;
+    isTyping?: string;
     youLabel: string;
     noMessagesLabel: string;
     onPress: () => void;
@@ -38,10 +39,13 @@ const ChatItem = React.memo(({ item, userId, youLabel, noMessagesLabel, onPress 
                 )}
             </View>
             <View className="flex-row justify-between items-center">
-                <Text className="text-gray-500 text-sm flex-1 ml-2 text-left" numberOfLines={1}>
-                    {item.lastMessage
+                <Text 
+                    className={`text-sm flex-1 ml-2 text-left ${isTyping ? 'text-blue-500 italic' : 'text-gray-500'}`} 
+                    numberOfLines={1}
+                >
+                    {isTyping ? isTyping : (item.lastMessage
                         ? (item.lastMessage.senderId === userId ? youLabel : '') + item.lastMessage.text
-                        : noMessagesLabel}
+                        : noMessagesLabel)}
                 </Text>
                 {item.unreadCount > 0 && (
                     <View className="bg-blue-600 rounded-full px-2 py-0.5">
@@ -57,7 +61,8 @@ const ChatItem = React.memo(({ item, userId, youLabel, noMessagesLabel, onPress 
     prev.item.lastMessage?.text === next.item.lastMessage?.text &&
     prev.item.lastMessage?.createdAt === next.item.lastMessage?.createdAt &&
     prev.item.unreadCount === next.item.unreadCount &&
-    prev.userId === next.userId
+    prev.userId === next.userId &&
+    prev.isTyping === next.isTyping
 );
 
 export default function ChatsScreen() {
@@ -65,7 +70,7 @@ export default function ChatsScreen() {
     const { user, isLoaded } = useUser();
     const router = useRouter();
 
-    const { chats, loadChats, loadingChats } = useChat();
+    const { chats, loadChats, loadingChats, typingStatus } = useChat();
     const [refreshing, setRefreshing] = useState(false);
     const [tabValue, setTabValue] = useState(0); // 0 = private, 1 = group
 
@@ -96,11 +101,15 @@ export default function ChatsScreen() {
         <ChatItem
             item={item}
             userId={user?.id}
+            isTyping={typingStatus?.[item.id]}
             youLabel={youLabel}
             noMessagesLabel={noMessagesLabel}
-            onPress={() => router.push({ pathname: '/chat/[id]', params: { id: item.id, name: item.name } })}
+            onPress={() => {
+                const route = item.type === 'group' ? `/games/${item.id}` : `/chat/${item.id}`;
+                router.push(route as any);
+            }}
         />
-    ), [user?.id, youLabel, noMessagesLabel, router]);
+    ), [user?.id, typingStatus, youLabel, noMessagesLabel, router]);
 
     if (loadingChats && !refreshing) {
         return (
