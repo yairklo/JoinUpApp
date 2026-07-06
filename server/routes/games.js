@@ -714,10 +714,50 @@ router.get('/', attachOptionalUser, async (req, res) => {
 // Search games
 router.get('/search', attachOptionalUser, async (req, res) => {
   try {
-    const { fieldId, date, isOpenToJoin, q, city, minLat, maxLat, minLng, maxLng, sport } = req.query;
+    const { fieldId, date, isOpenToJoin, q, city, minLat, maxLat, minLng, maxLng, sport, networkGames } = req.query;
     const where = {};
     if (fieldId) where.fieldId = String(fieldId);
     if (typeof isOpenToJoin !== 'undefined') where.isOpenToJoin = String(isOpenToJoin) === 'true';
+
+    // Handle Extended Social Network (Recursive CTE for 2nd Degree friends)
+    if (networkGames === 'true' && req.user?.id) {
+      const viewerId = req.user.id;
+      try {
+        const friends = await prisma.$queryRaw`
+          WITH RECURSIVE social_network AS (
+            SELECT 
+              CASE WHEN "userAId" = ${viewerId} THEN "userBId" ELSE "userAId" END AS user_id,
+              1 AS depth
+            FROM "Friendship"
+            WHERE "userAId" = ${viewerId} OR "userBId" = ${viewerId}
+
+            UNION
+
+            SELECT 
+              CASE WHEN f."userAId" = sn.user_id THEN f."userBId" ELSE f."userAId" END,
+              sn.depth + 1
+            FROM "Friendship" f
+            INNER JOIN social_network sn ON f."userAId" = sn.user_id OR f."userBId" = sn.user_id
+            WHERE sn.depth < 2
+          )
+          SELECT DISTINCT user_id FROM social_network WHERE user_id != ${viewerId};
+        `;
+        const friendIds = friends.map((f) => f.user_id);
+        if (friendIds.length > 0) {
+          where.participants = {
+            some: {
+              userId: { in: friendIds }
+            }
+          };
+        } else {
+          // Force no results if user has no friends at all in their network
+          where.id = 'none';
+        }
+      } catch (dbErr) {
+        console.error('Recursive CTE Social Network query failed:', dbErr);
+      }
+    }
+
     if (date) {
       const d = new Date(String(date));
       const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
