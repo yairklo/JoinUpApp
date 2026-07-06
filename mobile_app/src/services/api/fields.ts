@@ -14,5 +14,9 @@ export const fieldsApi = {
 
     getCities: () => {
         return apiClient<string[]>('/api/fields/cities');
+    },
+
+    search: (params: URLSearchParams) => {
+        return apiClient<any[]>('/api/fields/search?' + params.toString());
     }
 };

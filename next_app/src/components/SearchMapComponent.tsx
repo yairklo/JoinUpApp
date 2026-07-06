@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { Game } from "@/types/game";
+import Link from "next/link";
 
 // Setup standard Leaflet icons
 const defaultIcon = L.icon({
@@ -16,8 +17,36 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
+const emptyIcon = L.divIcon({
+  html: `
+    <div style="position:relative; width:36px; height:36px;">
+      <div style="
+        background-color: #94a3b8; 
+        width: 100%; 
+        height: 100%; 
+        border-radius: 50%; 
+        border: 3px solid white; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+      </div>
+    </div>
+  `,
+  className: "",
+  iconSize: [36, 36],
+  iconAnchor: [18, 18],
+  popupAnchor: [0, -18]
+});
+
 interface SearchMapComponentProps {
   games: Game[];
+  emptyFields?: any[];
   onBoundsChanged?: (bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => void;
   onGameSelect?: (gameId: string) => void;
   targetLocation?: [number, number] | null;
@@ -33,7 +62,7 @@ const getSportColorHex = (sport?: string) => {
   return '#2563eb'; // blue-600 (default)
 };
 
-export default function SearchMapComponent({ games, onBoundsChanged, onGameSelect, targetLocation }: SearchMapComponentProps) {
+export default function SearchMapComponent({ games, emptyFields = [], onBoundsChanged, onGameSelect, targetLocation }: SearchMapComponentProps) {
   const [userLocation, setUserLocation] = useState<[number, number]>([32.0853, 34.7818]); // Default Tel Aviv
 
   // Attempt to get user geolocation on mount
@@ -141,6 +170,42 @@ export default function SearchMapComponent({ games, onBoundsChanged, onGameSelec
                       </div>
                     </div>
                   ))}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+
+        {emptyFields.map((field, idx) => {
+          if (typeof field.lat !== "number" || typeof field.lng !== "number") return null;
+
+          return (
+            <Marker key={`empty-${idx}`} position={[field.lat, field.lng]} icon={emptyIcon}>
+              <Popup>
+                <div style={{ minWidth: 200, textAlign: "center" }}>
+                  <h6 style={{ fontWeight: 700, marginBottom: "8px" }}>
+                    {field.name}
+                  </h6>
+                  <div style={{ fontSize: "12px", color: "#666", marginBottom: "12px" }}>
+                    {field.location || "No location info"}
+                  </div>
+                  <Link href={`/games/new?fieldId=${field.id}`} passHref legacyBehavior>
+                    <a
+                      style={{
+                        display: "block",
+                        backgroundColor: "#2563eb",
+                        color: "white",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        textDecoration: "none",
+                        cursor: "pointer"
+                      }}
+                    >
+                      פתח משחק במגרש זה
+                    </a>
+                  </Link>
                 </div>
               </Popup>
             </Marker>
