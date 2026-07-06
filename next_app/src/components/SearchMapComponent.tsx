@@ -171,10 +171,10 @@ function MapEventsListener({
       // Debounce 500ms
       timeoutRef.current = setTimeout(() => {
         onBoundsChanged?.({
-          minLat: bounds.getSouth(),
-          maxLat: bounds.getNorth(),
-          minLng: bounds.getWest(),
-          maxLng: bounds.getEast(),
+          minLat: b.getSouth(),
+          maxLat: b.getNorth(),
+          minLng: b.getWest(),
+          maxLng: b.getEast(),
         });
       }, 500);
     },
