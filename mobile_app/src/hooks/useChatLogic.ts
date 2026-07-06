@@ -216,7 +216,10 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             unsubscribeMessageDeleted();
             unsubscribeMessageReaction();
             unsubscribeMessageStatusUpdate();
-            SocketManager.emit('leaveRoom', roomId);
+            // Do NOT emit leaveRoom here — that would eject the user from the Socket.io
+            // room entirely, breaking ChatContext typing indicators on the chat list.
+            // The user should stay passively joined (via joinChats) even when not
+            // actively viewing this chat screen.
         };
     }, [effectiveRoomId, roomId, user?.id, otherUserId]); // effectiveRoomId re-runs when chatDetails resolves
 
