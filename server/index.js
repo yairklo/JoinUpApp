@@ -925,18 +925,32 @@ runGameCompletionCheck().catch(() => { });
 
 // --- Weekly Series Rolling Generation ---
 function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
+  const { parseJerusalemTimeToUTC } = require('./utils/timezone');
   const [hh, mm] = String(hhmm).split(':').map(n => parseInt(n, 10));
-  const d = new Date(now);
-  const day = d.getDay();
+  
+  const tz = 'Asia/Jerusalem';
+  const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+  
+  const day = nowInTz.getDay();
   let addDays = (targetDay - day + 7) % 7;
-  // if today and time already passed, schedule next week
-  const candidate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-  candidate.setDate(candidate.getDate() + addDays);
-  candidate.setHours(Number.isInteger(hh) ? hh : 0, Number.isInteger(mm) ? mm : 0, 0, 0);
-  if (candidate <= now) {
-    candidate.setDate(candidate.getDate() + 7);
+  
+  const candidateYear = nowInTz.getFullYear();
+  const candidateMonth = nowInTz.getMonth();
+  const candidateDay = nowInTz.getDate() + addDays;
+  
+  const targetDate = new Date(candidateYear, candidateMonth, candidateDay);
+  const dateStr = targetDate.toISOString().split('T')[0];
+  const timeStr = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  
+  let candidateUtc = parseJerusalemTimeToUTC(dateStr, timeStr);
+  
+  if (candidateUtc <= now) {
+    const nextWeekDate = new Date(targetDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const nwDateStr = nextWeekDate.toISOString().split('T')[0];
+    candidateUtc = parseJerusalemTimeToUTC(nwDateStr, timeStr);
   }
-  return candidate;
+  
+  return candidateUtc;
 }
 
 let seriesGenRunning = false;
