@@ -7,13 +7,7 @@ import { apiClient, API_BASE } from '../../src/services/api/client';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-
-const SPORT_MAPPING: Record<string, string> = {
-    BASKETBALL: 'כדורסל',
-    SOCCER: 'כדורגל',
-    TENNIS: 'טניס',
-    VOLLEYBALL: 'כדורעף',
-};
+import { SPORT_MAPPING } from '@/utils/sports';
 
 const POSITION_OPTIONS: Record<string, string[]> = {
     SOCCER: ['שוער', 'בלם', 'מגן', 'קשר', 'חלוץ'],

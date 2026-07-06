@@ -40,13 +40,14 @@ export default function SearchScreen() {
     const [sportModalVisible, setSportModalVisible] = useState(false);
     const [isMapView, setIsMapView] = useState(params.hideMap !== 'true');
     const [networkGames, setNetworkGames] = useState(false);
-    const SPORTS = [
-        { id: 'SOCCER', label: t('newGame.soccer', 'כדורגל') },
-        { id: 'BASKETBALL', label: t('newGame.basketball', 'כדורסל') },
-        { id: 'TENNIS', label: t('newGame.tennis', 'טניס') },
-        { id: 'VOLLEYBALL', label: t('newGame.volleyball', 'כדורעף') },
-        { id: 'PADEL', label: t('newGame.padel', 'פדל') }
-    ];
+    
+    // Import SPORT_MAPPING to ensure alignment with our global sports list
+    const { SPORT_MAPPING } = require('@/utils/sports');
+    
+    const SPORTS = Object.keys(SPORT_MAPPING).map(key => ({
+        id: key,
+        label: SPORT_MAPPING[key]
+    }));
 
     useEffect(() => {
         loadCities();
