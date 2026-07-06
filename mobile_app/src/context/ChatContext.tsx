@@ -81,7 +81,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         if (user?.id) {
             getToken().then(token => {
-                if (token) SocketManager.connect(token);
+                if (token) {
+                    SocketManager.connect(token);
+                    // Crucial: Tell the server who we are so it joins our personal notification room
+                    SocketManager.emit('setup', { id: user.id });
+                }
             });
         } else {
             SocketManager.disconnect();

@@ -9,7 +9,6 @@ export const SocketManager = {
     if (socket?.connected) return;
     socket = io(API_BASE, {
       path: '/api/socket',
-      transports: ['websocket'],
       auth: { token },
       autoConnect: true,
     });
@@ -21,7 +20,13 @@ export const SocketManager = {
 
     // Explicitly route reserved socket.io events (onAny doesn't catch these)
     socket.on('connect', () => {
+      console.log("[SocketManager] Connected:", socket?.id);
       listeners.get('connect')?.forEach((cb) => cb());
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error("[SocketManager] Connection Error:", err.message);
+      listeners.get('connect_error')?.forEach((cb) => cb(err));
     });
 
     socket.on('disconnect', (reason) => {
