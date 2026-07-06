@@ -1,7 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from "react";
-import { io, Socket } from "socket.io-client";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
+import { SocketManager } from "@/services/socketManager";
 import { useAuth } from "@clerk/clerk-expo";
 import { Game } from "@/types/game";
 
@@ -54,78 +54,32 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
     const [seriesCreatedListeners] = useState(() => new Set<(series: SeriesPayload) => void>());
     const [seriesDeletedListeners] = useState(() => new Set<(event: SeriesDeletedEvent) => void>());
 
-    const { getToken } = useAuth();
-    const socketRef = useRef<Socket | null>(null);
-
-    // Socket Connection
+    // Socket Connection via Singleton
     useEffect(() => {
-        let socket: Socket | null = null;
+        const unsubscribeGameCreated = SocketManager.on("game:created", (game: Game) => {
+            const event: GameCreatedEvent = { game };
+            createdListeners.forEach(cb => cb(event));
+        });
 
-        const initSocket = async () => {
-            const base = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3005";
+        const unsubscribeGameDeleted = SocketManager.on("game:deleted", (payload: { gameIds: string[] }) => {
+            deletedListeners.forEach(cb => cb(payload));
+        });
 
-            try {
-                const token = await getToken();
-                socket = io(base, {
-                    path: "/api/socket",
-                    transports: ["websocket"],
-                    withCredentials: true,
-                    auth: { token }
-                });
-                socketRef.current = socket;
+        const unsubscribeSeriesCreated = SocketManager.on("series:created", (series: SeriesPayload) => {
+            seriesCreatedListeners.forEach(cb => cb(series));
+        });
 
-                socket.on("connect", () => {
-                    // console.log("GameUpdateContext: Socket connected", socket?.id);
-                });
-
-                socket.on("connect_error", async (err: any) => {
-                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
-                        try {
-                            const newToken = await getToken();
-                            if (newToken && socket) {
-                                socket.auth = { token: newToken };
-                                socket.connect();
-                            }
-                        } catch (e) {
-                            console.error("Token refresh failed", e);
-                        }
-                    }
-                });
-
-                // Listen for game creation (Delta Update)
-                socket.on("game:created", (game: Game) => {
-                    const event: GameCreatedEvent = { game };
-                    createdListeners.forEach(cb => cb(event));
-                });
-
-                // Listen for game deletion
-                socket.on("game:deleted", (payload: { gameIds: string[] }) => {
-                    deletedListeners.forEach(cb => cb(payload));
-                });
-
-                // Listen for series events
-                socket.on("series:created", (series: SeriesPayload) => {
-                    seriesCreatedListeners.forEach(cb => cb(series));
-                });
-                socket.on("series:deleted", (payload: SeriesDeletedEvent) => {
-                    seriesDeletedListeners.forEach(cb => cb(payload));
-                });
-
-                socket.on("error", (err) => {
-                    console.error("GameSocket error", err);
-                });
-
-            } catch (e) {
-                console.error("GameSocket init failed", e);
-            }
-        };
-
-        initSocket();
+        const unsubscribeSeriesDeleted = SocketManager.on("series:deleted", (payload: SeriesDeletedEvent) => {
+            seriesDeletedListeners.forEach(cb => cb(payload));
+        });
 
         return () => {
-            if (socket) socket.disconnect();
+            unsubscribeGameCreated();
+            unsubscribeGameDeleted();
+            unsubscribeSeriesCreated();
+            unsubscribeSeriesDeleted();
         };
-    }, [getToken, createdListeners, deletedListeners, seriesCreatedListeners, seriesDeletedListeners]);
+    }, [createdListeners, deletedListeners, seriesCreatedListeners, seriesDeletedListeners]);
 
     const notifyGameUpdate = useCallback((gameId: string, action: GameAction, userId: string) => {
         const event: GameUpdateEvent = { gameId, action, userId };

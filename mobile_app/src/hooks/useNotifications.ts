@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { io, Socket } from 'socket.io-client';
+import { SocketManager } from '@/services/socketManager';
 import { notificationsApi, chatsApi, Notification as NotificationType, API_BASE } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
 import * as Notifications from 'expo-notifications';
@@ -21,8 +21,6 @@ export function useNotifications() {
     const [notifications, setNotifications] = useState<NotificationType[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
-    // Fix #7: removed socketInstance from state (no re-render needed)
-    const socketRef = useRef<Socket | null>(null);
 
     // Fix #7: cache permission status so we don't call getPermissionsAsync on every notification
     const permissionGrantedRef = useRef<boolean | null>(null);
@@ -72,84 +70,54 @@ export function useNotifications() {
         getTokenRef.current = getToken;
     }, [getToken]);
 
-    // 2. Socket Connection
+    // 2. Socket Connection via Singleton
     useEffect(() => {
         if (!userId) return;
 
-        let socketInstance: Socket | null = null;
+        // Ensure we join the personal room
+        SocketManager.emit('join', `user_${userId}`);
+        SocketManager.emit('setup', { id: userId });
 
-        const initSocket = async () => {
-            try {
-                const token = await getTokenRef.current();
+        const unsubscribeMessage = SocketManager.on('message', (incomingMsg: any) => {
+            updateChatList({
+                chatId: incomingMsg.roomId || incomingMsg.chatId,
+                roomId: incomingMsg.roomId || incomingMsg.chatId,
+                content: incomingMsg.text || incomingMsg.content,
+                text: incomingMsg.text || incomingMsg.content,
+                senderId: incomingMsg.userId || incomingMsg.senderId,
+                userId: incomingMsg.userId || incomingMsg.senderId,
+                ts: incomingMsg.ts || new Date().toISOString()
+            });
+        });
 
-                socketInstance = io(API_BASE, {
-                    path: '/api/socket',
-                    transports: ['websocket'],
-                    auth: { token: token || '' }
+        const unsubscribeNotification = SocketManager.on('notification', async (data: any) => {
+            if (data.type === 'message') {
+                updateChatList({
+                    chatId: data.roomId, roomId: data.roomId,
+                    content: data.text, text: data.text,
+                    senderId: data.senderId, userId: data.senderId,
+                    ts: new Date().toISOString()
                 });
-
-                socketInstance.on('connect', () => {
-                    // Join personal room for targeted notifications
-                    socketInstance?.emit('join', `user_${userId}`);
-                    socketInstance?.emit('setup', { id: userId });
-                    // Fix #7: removed chatsApi.getUserChats() from connect handler
-                    // That was a heavy API call on every reconnect — chat rooms are
-                    // joined by the chat screen's own socket in useChatLogic
-                });
-
-                socketInstance.on('connect_error', (error) => {
-                    if (__DEV__) console.warn('[NOTIFICATIONS] Socket error:', error.message);
-                });
-
-                // Listen to message events to update chat list preview in real-time
-                socketInstance.on('message', (incomingMsg: any) => {
-                    updateChatList({
-                        chatId: incomingMsg.roomId || incomingMsg.chatId,
-                        roomId: incomingMsg.roomId || incomingMsg.chatId,
-                        content: incomingMsg.text || incomingMsg.content,
-                        text: incomingMsg.text || incomingMsg.content,
-                        senderId: incomingMsg.userId || incomingMsg.senderId,
-                        userId: incomingMsg.userId || incomingMsg.senderId,
-                        ts: incomingMsg.ts || new Date().toISOString()
-                    });
-                });
-
-                socketInstance.on('notification', async (data: any) => {
-                    if (data.type === 'message') {
-                        updateChatList({
-                            chatId: data.roomId, roomId: data.roomId,
-                            content: data.text, text: data.text,
-                            senderId: data.senderId, userId: data.senderId,
-                            ts: new Date().toISOString()
-                        });
-                    }
-
-                    setNotifications(prev => [data, ...prev]);
-                    setUnreadCount(prev => prev + 1);
-
-                    // Fix #7: use cached permission status instead of calling getPermissionsAsync on every notification
-                    if (permissionGrantedRef.current) {
-                        await Notifications.scheduleNotificationAsync({
-                            content: {
-                                title: data.title || 'JoinUp',
-                                body: data.message || data.text || 'התקבלה התראה חדשה',
-                                data: { id: data.id, link: data.link },
-                            },
-                            trigger: null,
-                        });
-                    }
-                });
-
-                socketRef.current = socketInstance;
-            } catch (e) {
-                console.error('[NOTIFICATIONS] Error in initSocket:', e);
             }
-        };
 
-        initSocket();
+            setNotifications(prev => [data, ...prev]);
+            setUnreadCount(prev => prev + 1);
+
+            if (permissionGrantedRef.current) {
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: data.title || 'JoinUp',
+                        body: data.message || data.text || 'התקבלה התראה חדשה',
+                        data: { id: data.id, link: data.link },
+                    },
+                    trigger: null,
+                });
+            }
+        });
 
         return () => {
-            if (socketInstance) socketInstance.disconnect();
+            unsubscribeMessage();
+            unsubscribeNotification();
         };
     }, [userId]);
 

@@ -12,6 +12,7 @@ import { NotificationProvider } from "@/context/NotificationContext";
 import { GameUpdateProvider } from "@/context/GameUpdateContext";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "@/i18n";
+import { SocketManager } from "@/services/socketManager";
 import "../global.css"; // NativeWind
 
 // Fix #9: Defined once outside component — not recreated on every render
@@ -82,7 +83,7 @@ export default function RootLayout() {
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -90,6 +91,22 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace("/sign-in");
     }
   }, [isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      getToken().then((token) => {
+        if (token) {
+          SocketManager.connect(token);
+        }
+      });
+    } else if (isLoaded && !isSignedIn) {
+      SocketManager.disconnect();
+    }
+
+    return () => {
+      SocketManager.disconnect();
+    };
+  }, [isLoaded, isSignedIn, getToken]);
 
   if (!isLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Loading Clerk...</Text></View>;
 
