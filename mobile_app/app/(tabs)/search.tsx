@@ -2,7 +2,7 @@ import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, I
 import { Marker, Callout } from 'react-native-maps';
 import MapView from 'react-native-map-clustering';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { gamesApi, fieldsApi } from '@/services/api';
