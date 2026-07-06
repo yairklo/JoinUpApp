@@ -66,5 +66,9 @@ export const usersApi = {
             method: 'DELETE',
             token
         });
+    },
+
+    search: (query: string, token: string) => {
+        return apiClient<any[]>(`/api/users/search?q=${encodeURIComponent(query)}`, { token });
     }
 };

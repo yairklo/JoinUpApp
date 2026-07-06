@@ -32,6 +32,97 @@ router.get('/sports', async (req, res) => {
   }
 });
 
+// Search users/players
+router.get('/search', authenticateToken, async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.json([]);
+
+    const loggedInUserId = req.user.id;
+
+    // Fetch matching users
+    const matchingUsers = await prisma.user.findMany({
+      where: {
+        AND: [
+          { id: { not: loggedInUserId } },
+          {
+            OR: [
+              { name: { contains: q, mode: 'insensitive' } },
+              { email: { contains: q, mode: 'insensitive' } }
+            ]
+          },
+          {
+            OR: [
+              { email: null },
+              { NOT: { email: { contains: '@mock.joinup.com' } } }
+            ]
+          }
+        ]
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        imageUrl: true,
+        city: true
+      },
+      take: 50
+    });
+
+    // Fetch friendships and friend requests to determine status in O(1)
+    const friendships = await prisma.friendship.findMany({
+      where: { OR: [{ userAId: loggedInUserId }, { userBId: loggedInUserId }] }
+    });
+    const friendRequests = await prisma.friendRequest.findMany({
+      where: { OR: [{ requesterId: loggedInUserId }, { receiverId: loggedInUserId }] }
+    });
+
+    const friendIds = new Set(friendships.map(f => (f.userAId === loggedInUserId ? f.userBId : f.userAId)));
+    const pendingRequesterIds = new Set(friendRequests.filter(r => r.status === 'PENDING').map(r => (r.requesterId === loggedInUserId ? r.receiverId : r.requesterId)));
+
+    const requestMap = {};
+    friendRequests.forEach(r => {
+      if (r.status === 'PENDING') {
+        const otherId = r.requesterId === loggedInUserId ? r.receiverId : r.requesterId;
+        requestMap[otherId] = {
+          id: r.id,
+          senderId: r.requesterId
+        };
+      }
+    });
+
+    const results = matchingUsers.map(u => {
+      let friendshipStatus = 'none';
+      let requestId = null;
+      let isRequestSender = false;
+
+      if (friendIds.has(u.id)) {
+        friendshipStatus = 'friends';
+      } else if (pendingRequesterIds.has(u.id)) {
+        friendshipStatus = 'pending';
+        requestId = requestMap[u.id]?.id || null;
+        isRequestSender = requestMap[u.id]?.senderId === loggedInUserId;
+      }
+
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        imageUrl: u.imageUrl,
+        city: u.city,
+        friendshipStatus,
+        requestId,
+        isRequestSender
+      };
+    });
+
+    res.json(results);
+  } catch (error) {
+    console.error('Search users error:', error);
+    res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
 // List users (public basic listing)
 router.get('/', async (req, res) => {
   try {

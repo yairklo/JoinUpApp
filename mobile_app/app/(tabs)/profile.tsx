@@ -497,10 +497,19 @@ export default function ProfileScreen() {
 
                         {/* Friends List */}
                         <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                            <Text className="font-bold text-gray-900 mb-3 flex-row items-center">
-                                <FontAwesome name="users" size={16} color="#3b82f6" style={{ marginRight: 6 }} />
-                                {' '}{t('profile.myFriends', 'החברים שלי')} ({friends.length})
-                            </Text>
+                            <View className="flex-row justify-between items-center mb-3">
+                                <Text className="font-bold text-gray-900 flex-row items-center">
+                                    <FontAwesome name="users" size={16} color="#3b82f6" style={{ marginRight: 6 }} />
+                                    {' '}{t('profile.myFriends', 'החברים שלי')} ({friends.length})
+                                </Text>
+                                <TouchableOpacity 
+                                    onPress={() => router.push('/user/search-players')}
+                                    className="flex-row items-center bg-blue-50 px-2 py-1 rounded-lg border border-blue-100"
+                                >
+                                    <FontAwesome name="search" size={12} color="#2563eb" style={{ marginRight: 4 }} />
+                                    <Text className="text-xs text-blue-600 font-bold">{t('profile.searchFriends', 'חפש שחקנים')}</Text>
+                                </TouchableOpacity>
+                            </View>
                             {friends.length === 0 ? (
                                 <Text className="text-gray-500 text-sm">{t('profile.noFriends', 'עדיין אין לך חברים ברשת.')}</Text>
                             ) : (
