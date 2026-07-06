@@ -6,7 +6,7 @@ const listeners: Map<string, Set<(...args: any[]) => void>> = new Map();
 
 export const SocketManager = {
   connect(token: string) {
-    if (socket?.connected) return;
+    if (socket) return; // Prevent creating multiple instances
     socket = io(API_BASE, {
       path: '/api/socket',
       transports: ['websocket'],
@@ -47,10 +47,11 @@ export const SocketManager = {
   },
 
   emit(event: string, ...args: any[]) {
-    if (socket?.connected) {
+    // Rely on socket.io's internal offline queue rather than blocking emits
+    if (socket) {
       socket.emit(event, ...args);
     } else {
-      console.warn(`[SocketManager] Missed emit: "${event}". Socket disconnected.`);
+      console.warn(`[SocketManager] Missed emit: "${event}". Socket null.`);
     }
   },
 

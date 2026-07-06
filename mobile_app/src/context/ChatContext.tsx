@@ -79,19 +79,26 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
     // Initialize UI and Socket Connection
     useEffect(() => {
+        let unsubSetup: (() => void) | undefined;
+        
         if (user?.id) {
             getToken().then(token => {
                 if (token) {
                     SocketManager.connect(token);
-                    // Crucial: Tell the server who we are so it joins our personal notification room
-                    SocketManager.emit('setup', { id: user.id });
+                    
+                    const sendSetup = () => {
+                        SocketManager.emit('setup', { id: user.id });
+                    };
+                    
+                    sendSetup();
+                    unsubSetup = SocketManager.on('connect', sendSetup);
                 }
             });
         } else {
             SocketManager.disconnect();
         }
         return () => {
-            // Clean up socket on unmount if needed, or leave it for the user logout
+            if (unsubSetup) unsubSetup();
         };
     }, [user?.id, getToken]);
 
