@@ -714,7 +714,7 @@ router.get('/', attachOptionalUser, async (req, res) => {
 // Search games
 router.get('/search', attachOptionalUser, async (req, res) => {
   try {
-    const { fieldId, date, isOpenToJoin, q, city, minLat, maxLat, minLng, maxLng } = req.query;
+    const { fieldId, date, isOpenToJoin, q, city, minLat, maxLat, minLng, maxLng, sport } = req.query;
     const where = {};
     if (fieldId) where.fieldId = String(fieldId);
     if (typeof isOpenToJoin !== 'undefined') where.isOpenToJoin = String(isOpenToJoin) === 'true';
@@ -723,6 +723,10 @@ router.get('/search', attachOptionalUser, async (req, res) => {
       const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
       const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
       where.start = { gte: startOfDay, lte: endOfDay };
+    }
+    
+    if (sport) {
+      where.sport = String(sport);
     }
     
     // Add text search

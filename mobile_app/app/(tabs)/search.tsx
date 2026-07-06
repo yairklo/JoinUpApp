@@ -109,6 +109,9 @@ export default function SearchScreen() {
                 params.append('minLng', mapBounds.minLng.toString());
                 params.append('maxLng', mapBounds.maxLng.toString());
             }
+            if (selectedSport) {
+                params.append('sport', selectedSport);
+            }
             
             let targetDateStr = '';
             if (selectedDate) {
@@ -139,10 +142,6 @@ export default function SearchScreen() {
             } else {
                 // Keep all games for the selected date, regardless of time
                 finalGames = finalGames.filter(g => g.date === targetDateStr);
-            }
-            
-            if (selectedSport) {
-                finalGames = finalGames.filter(g => g.sport === selectedSport || g.title?.includes(selectedSport));
             }
             
             // Explicit local filter for city, to ensure the map and list never show items from other cities
@@ -208,7 +207,7 @@ export default function SearchScreen() {
         return map[city] || city;
     };
 
-    const renderGameItem = ({ item }: { item: Game }) => (
+    const renderGameItem = useCallback(({ item }: { item: Game }) => (
         <TouchableOpacity
             className="flex-row bg-white p-4 mb-3 rounded-2xl mx-4 shadow-sm"
             onPress={() => router.push(`/game/${item.id}`)}
@@ -234,7 +233,20 @@ export default function SearchScreen() {
                 </View>
             </View>
         </TouchableOpacity>
-    );
+    ), [i18n.language, t, router]);
+
+    // Pre-calculate map marker groups to avoid heavy recalculation during map pan/zoom
+    const groupedMapGames = useMemo(() => {
+        return Object.values(games.reduce((acc, game) => {
+            const lat = game.customLat || game.fieldLat || game.field?.lat;
+            const lng = game.customLng || game.fieldLng || game.field?.lng;
+            if (!lat || !lng) return acc;
+            const key = `${lat},${lng}`;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(game);
+            return acc;
+        }, {} as Record<string, Game[]>));
+    }, [games]);
 
     return (
         <View className="flex-1 bg-gray-50 pt-4">
@@ -358,15 +370,7 @@ export default function SearchScreen() {
                             });
                         }}
                     >
-                        {Object.values(games.reduce((acc, game) => {
-                            const lat = game.customLat || game.fieldLat || game.field?.lat;
-                            const lng = game.customLng || game.fieldLng || game.field?.lng;
-                            if (!lat || !lng) return acc;
-                            const key = `${lat},${lng}`;
-                            if (!acc[key]) acc[key] = [];
-                            acc[key].push(game);
-                            return acc;
-                        }, {} as Record<string, Game[]>)).map(group => {
+                        {groupedMapGames.map(group => {
                             const firstGame = group[0];
                             const lat = firstGame.customLat || firstGame.fieldLat || firstGame.field?.lat;
                             const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng;
