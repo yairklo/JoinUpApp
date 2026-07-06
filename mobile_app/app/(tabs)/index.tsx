@@ -13,14 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import MyGamesSection from '@/components/MyGamesSection';
 import SeriesSection from '@/components/SeriesSection';
+import { SPORT_MAPPING } from '@/utils/sports';
 
 const SPORTS = [
   { id: 'ALL', label: 'הכל' },
-  { id: 'SOCCER', label: 'כדורגל' },
-  { id: 'BASKETBALL', label: 'כדורסל' },
-  { id: 'TENNIS', label: 'טניס' },
-  { id: 'VOLLEYBALL', label: 'כדורעף' },
-  { id: 'PADEL', label: 'פדל' }
+  ...Object.keys(SPORT_MAPPING).map(key => ({
+      id: key,
+      label: SPORT_MAPPING[key]
+  }))
 ];
 
 export default function HomeScreen() {

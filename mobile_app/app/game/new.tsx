@@ -7,6 +7,7 @@ import { gamesApi, fieldsApi } from '@/services/api';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
+import { SPORT_MAPPING } from '@/utils/sports';
 
 export default function NewGameScreen() {
     const { t } = useTranslation();
@@ -197,16 +198,18 @@ export default function NewGameScreen() {
                 {/* Sport Selection */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
                     <Text className="text-lg font-bold mb-2 text-gray-800">{t('newGame.sport')}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {['SOCCER', 'BASKETBALL', 'TENNIS', 'VOLLEYBALL'].map(s => {
-                            const SPORT_MAP: Record<string, string> = { SOCCER: t('newGame.soccer'), BASKETBALL: t('newGame.basketball'), TENNIS: t('newGame.tennis'), VOLLEYBALL: t('newGame.volleyball') };
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                        {Object.keys(SPORT_MAPPING).map(s => {
+                            const isSelected = sport === s;
                             return (
                                 <TouchableOpacity
                                     key={s}
                                     onPress={() => setSport(s)}
-                                    className={`mr-2 px-4 py-2 rounded-full border ${sport === s ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                                    className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                                 >
-                                    <Text className={sport === s ? 'text-white font-bold' : 'text-gray-700'}>{SPORT_MAP[s]}</Text>
+                                    <Text className={`${isSelected ? 'text-white' : 'text-gray-700'} font-medium`}>
+                                        {SPORT_MAPPING[s]}
+                                    </Text>
                                 </TouchableOpacity>
                             );
                         })}
