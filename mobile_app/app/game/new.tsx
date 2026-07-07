@@ -1,7 +1,7 @@
 import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Platform, Modal } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import React, { useState, useEffect } from 'react';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { gamesApi, fieldsApi } from '@/services/api';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -13,6 +13,8 @@ export default function NewGameScreen() {
     const { t } = useTranslation();
     const { getToken } = useAuth();
     const router = useRouter();
+    const params = useLocalSearchParams<{ fieldId?: string }>();
+    const prefilledFieldId = params.fieldId;
 
     const [cities, setCities] = useState<string[]>([]);
     const [fields, setFields] = useState<any[]>([]);
@@ -74,7 +76,16 @@ export default function NewGameScreen() {
             ]);
             setCities(cityList);
             setFields(fieldList);
-            if (cityList.length > 0) setSelectedCity(cityList[0]);
+            
+            if (prefilledFieldId) {
+                const found = fieldList.find((f: any) => f.id === prefilledFieldId);
+                if (found) {
+                    setSelectedField(found);
+                    if (found.city) setSelectedCity(found.city);
+                }
+            } else if (cityList.length > 0) {
+                setSelectedCity(cityList[0]);
+            }
         } catch (error) {
             console.error("Failed to load data", error);
             Alert.alert("Error", "Failed to load fields data");

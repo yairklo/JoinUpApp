@@ -54,6 +54,8 @@ const CITY_COORDS: Record<string, [number, number]> = {
   'מודיעין': [31.9056, 35.0006]
 };
 
+import MapIcon from "@mui/icons-material/Map";
+
 type Bounds = { minLat: number; maxLat: number; minLng: number; maxLng: number };
 
 export default function SearchPage() {
@@ -69,6 +71,8 @@ export default function SearchPage() {
   const [selectedDate, setSelectedDate] = useState<string>(""); // YYYY-MM-DD
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [networkGames, setNetworkGames] = useState(false);
+  const [showEmptyFields, setShowEmptyFields] = useState(false);
+  const [emptyFields, setEmptyFields] = useState<any[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   
   const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
@@ -122,12 +126,30 @@ export default function SearchPage() {
       }
 
       setGames(finalGames);
+
+      // Fetch empty fields in bounding box if filter is enabled
+      if (showEmptyFields && mapBounds) {
+        const fieldParams = new URLSearchParams();
+        fieldParams.append("minLat", mapBounds.minLat.toString());
+        fieldParams.append("maxLat", mapBounds.maxLat.toString());
+        fieldParams.append("minLng", mapBounds.minLng.toString());
+        fieldParams.append("maxLng", mapBounds.maxLng.toString());
+        if (selectedDate) {
+          fieldParams.append("date", selectedDate);
+        }
+        const allFields = await fieldsApi.search(fieldParams);
+        // Filter out fields that have 0 upcoming games
+        const empty = allFields.filter(f => f.upcomingGamesCount === 0);
+        setEmptyFields(empty);
+      } else {
+        setEmptyFields([]);
+      }
     } catch (error) {
       console.error("Search failed:", error);
     } finally {
       setLoading(false);
     }
-  }, [getToken, query, selectedSport, selectedDate, networkGames, mapBounds]);
+  }, [getToken, query, selectedSport, selectedDate, networkGames, mapBounds, showEmptyFields]);
 
   useEffect(() => {
     performSearch();
@@ -219,6 +241,16 @@ export default function SearchPage() {
               sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
             >
               רשת המכרים
+            </Button>
+
+            <Button
+              variant={showEmptyFields ? "contained" : "outlined"}
+              size="small"
+              onClick={() => setShowEmptyFields(!showEmptyFields)}
+              startIcon={<MapIcon />}
+              sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
+            >
+              מגרשים פנויים
             </Button>
 
             <TextField
@@ -314,6 +346,7 @@ export default function SearchPage() {
       >
         <SearchMapComponent
           games={games}
+          emptyFields={emptyFields}
           onBoundsChanged={handleBoundsChanged}
           onGameSelect={(id) => router.push(`/games/${id}`)}
           targetLocation={targetLocation}

@@ -108,6 +108,9 @@ export default function SearchScreen() {
     const [sportModalVisible, setSportModalVisible] = useState(false);
     const [isMapView, setIsMapView] = useState(params.hideMap !== 'true');
     const [networkGames, setNetworkGames] = useState(false);
+    const [showEmptyFields, setShowEmptyFields] = useState(false);
+    const [emptyFields, setEmptyFields] = useState<any[]>([]);
+    const [selectedEmptyField, setSelectedEmptyField] = useState<any | null>(null);
     
     // Import SPORT_MAPPING to ensure alignment with our global sports list
     const { SPORT_MAPPING } = require('@/utils/sports');
@@ -155,7 +158,7 @@ export default function SearchScreen() {
         return () => {
             if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         }
-    }, [selectedCity, selectedDate, selectedSport, mapBounds, query, networkGames]);
+    }, [selectedCity, selectedDate, selectedSport, mapBounds, query, networkGames, showEmptyFields]);
 
     const loadCities = async () => {
         try {
@@ -234,6 +237,23 @@ export default function SearchScreen() {
             }
 
             setGames(finalGames);
+
+            // Fetch empty fields in bounding box if filter is enabled
+            if (showEmptyFields && isMapView && mapBounds) {
+                const fieldParams = new URLSearchParams();
+                fieldParams.append('minLat', mapBounds.minLat.toString());
+                fieldParams.append('maxLat', mapBounds.maxLat.toString());
+                fieldParams.append('minLng', mapBounds.minLng.toString());
+                fieldParams.append('maxLng', mapBounds.maxLng.toString());
+                if (targetDateStr) {
+                    fieldParams.append('date', targetDateStr);
+                }
+                const allFields = await fieldsApi.search(fieldParams);
+                const empty = allFields.filter(f => f.upcomingGamesCount === 0);
+                setEmptyFields(empty);
+            } else {
+                setEmptyFields([]);
+            }
         } catch (error) {
             console.error("Search failed", error);
         } finally {
@@ -370,6 +390,18 @@ export default function SearchScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
+                        onPress={() => setShowEmptyFields(!showEmptyFields)}
+                        className={`mr-2 px-4 py-2 rounded-full border ${showEmptyFields ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}
+                    >
+                        <View className="flex-row items-center">
+                            <FontAwesome name="map-marker" size={12} color={showEmptyFields ? "white" : "#4b5563"} style={{ marginRight: 6 }} />
+                            <Text className={`font-medium ${showEmptyFields ? 'text-white' : 'text-gray-600'}`}>
+                                {t("search.emptyFields", "מגרשים פנויים")}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                         onPress={() => setCityModalVisible(true)}
                         className={`mr-2 px-4 py-2 rounded-full border ${selectedCity ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
                     >
@@ -460,6 +492,37 @@ export default function SearchScreen() {
                                 />
                             );
                         })}
+
+                        {showEmptyFields && emptyFields.map(field => {
+                            const lat = field.lat;
+                            const lng = field.lng;
+                            if (!lat || !lng) return null;
+
+                            return (
+                                <Marker
+                                    key={`empty-${field.id}`}
+                                    coordinate={{ latitude: lat, longitude: lng }}
+                                    anchor={{ x: 0.5, y: 1.0 }}
+                                    hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                                    onPress={(e) => {
+                                        e.stopPropagation();
+                                        if (mapRef.current?.animateToRegion) {
+                                            mapRef.current.animateToRegion({
+                                                latitude: lat,
+                                                longitude: lng,
+                                                latitudeDelta: 0.05,
+                                                longitudeDelta: 0.05
+                                            }, 500);
+                                        }
+                                        setSelectedEmptyField(field);
+                                    }}
+                                >
+                                    <View style={{ backgroundColor: '#94a3b8' }} className="w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-lg">
+                                        <MaterialCommunityIcons name="map-marker-plus" size={20} color="white" />
+                                    </View>
+                                </Marker>
+                            );
+                        })}
                     </MapView>
 
                     {/* Games Modal for Map Markers */}
@@ -509,6 +572,43 @@ export default function SearchScreen() {
                                         </TouchableOpacity>
                                     )}
                                 />
+                            </View>
+                        </View>
+                    </Modal>
+
+                    {/* Empty Field Modal for Creating a Game */}
+                    <Modal
+                        visible={!!selectedEmptyField}
+                        transparent={true}
+                        animationType="slide"
+                        onRequestClose={() => setSelectedEmptyField(null)}
+                    >
+                        <View className="flex-1 justify-end bg-black/50">
+                            <View className="bg-white rounded-t-3xl p-6">
+                                <View className="flex-row justify-between items-center mb-4">
+                                    <TouchableOpacity onPress={() => setSelectedEmptyField(null)} className="p-2">
+                                        <MaterialCommunityIcons name="close" size={24} color="#6b7280" />
+                                    </TouchableOpacity>
+                                    <Text className="text-xl font-bold text-gray-800 text-right">
+                                        {selectedEmptyField?.name || 'מגרש פנוי'}
+                                    </Text>
+                                </View>
+                                <Text className="text-gray-500 text-sm text-right mb-6">
+                                    {selectedEmptyField?.location || 'אין מידע על מיקום'}
+                                </Text>
+                                <TouchableOpacity
+                                    className="bg-blue-600 py-3 rounded-xl items-center justify-center shadow-lg"
+                                    onPress={() => {
+                                        const fieldId = selectedEmptyField?.id;
+                                        setSelectedEmptyField(null);
+                                        router.push({
+                                            pathname: '/game/new',
+                                            params: { fieldId }
+                                        });
+                                    }}
+                                >
+                                    <Text className="text-white font-bold text-base">פתח משחק במגרש זה</Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
                     </Modal>
