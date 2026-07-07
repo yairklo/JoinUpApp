@@ -2,9 +2,10 @@ import React, { useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, Link } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TouchableOpacity, Text, View, Appearance, useColorScheme } from 'react-native';
+import { TouchableOpacity, Text, View, Appearance, useColorScheme, Image } from 'react-native';
 import i18n, { changeLanguage } from '@/i18n';
 import { Ionicons } from '@expo/vector-icons';
+import { useUser } from '@clerk/clerk-expo';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
@@ -16,6 +17,7 @@ function TabBarIcon(props: {
 export default function TabLayout() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
+  const { user } = useUser();
 
   // Memoized so it doesn't re-create on every render
   const HeaderRight = useCallback(() => (
@@ -40,8 +42,17 @@ export default function TabLayout() {
           <Ionicons name="notifications-outline" size={16} color={colorScheme === 'dark' ? '#f3f4f6' : '#111827'} />
         </TouchableOpacity>
       </Link>
+      <Link href="/user/profile" asChild>
+        <TouchableOpacity className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg items-center justify-center border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {user?.imageUrl ? (
+            <Image source={{ uri: user.imageUrl }} style={{ width: '100%', height: '100%' }} />
+          ) : (
+            <Ionicons name="person-outline" size={16} color={colorScheme === 'dark' ? '#f3f4f6' : '#111827'} />
+          )}
+        </TouchableOpacity>
+      </Link>
     </View>
-  ), [colorScheme]);
+  ), [colorScheme, user]);
 
   return (
     <Tabs
@@ -74,10 +85,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="friends"
         options={{
-          title: t('tabs.profile'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          title: t('tabs.friends'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
         }}
       />
     </Tabs>
