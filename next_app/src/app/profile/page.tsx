@@ -71,9 +71,12 @@ function calculateAge(birthDate?: string | null) {
 }
 
 
+import { useRouter } from "next/navigation";
+
 export default function ProfilePage() {
   const { user } = useUser();
   const { getToken } = useAuth();
+  const router = useRouter();
   const userId = user?.id;
 
   const [profile, setProfile] = useState<PublicUser | null>(null);
