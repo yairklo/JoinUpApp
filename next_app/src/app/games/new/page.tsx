@@ -214,6 +214,7 @@ function NewGamePageInner() {
         body: JSON.stringify({
           fieldId: fieldIdToUse,
           ...form,
+          start: new Date(startIso).toISOString(),
           // New Field Logic
           ...(newFieldMode && !fieldIdToUse
             ? {

@@ -40,13 +40,15 @@ export default function EditGameScreen() {
             const data = await gamesApi.getById(id, token || undefined);
             setGame(data);
 
-            // Populate form
-            setDate(new Date(data.date));
-            // Time is string "HH:mm" in DB, need to construct Date object for Picker
+            // Populate form safely using local components
+            const [y, m_part, d_part] = data.date.split('-').map(Number);
+            const localDate = new Date();
+            localDate.setFullYear(y, m_part - 1, d_part);
+            setDate(localDate);
+
             const [hours, minutes] = data.time.split(':').map(Number);
             const timeObj = new Date();
-            timeObj.setHours(hours);
-            timeObj.setMinutes(minutes);
+            timeObj.setHours(hours, minutes, 0, 0);
             setTime(timeObj);
 
             setMaxPlayers(data.maxPlayers.toString());
@@ -69,16 +71,23 @@ export default function EditGameScreen() {
             const token = await getToken();
             if (!token) return;
 
-            // Combine Date and Time
-            const gameDate = new Date(date);
+            // Combine Date and Time safely using local timezone components
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
 
             // Format time string HH:mm
-            const timeString = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            const hours = time.getHours().toString().padStart(2, '0');
+            const minutes = time.getMinutes().toString().padStart(2, '0');
+            const timeString = `${hours}:${minutes}`;
+
+            // Create combined local datetime and cast to strict UTC ISO string
+            const start = new Date(`${dateStr}T${timeString}:00`).toISOString();
 
             // Construct payload matching UpdateGameDTO
             const payload = {
-                date: gameDate.toISOString(),
-                time: timeString,
+                start,
                 maxPlayers: parseInt(maxPlayers),
                 price: parseInt(price),
                 description,

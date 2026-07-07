@@ -125,9 +125,10 @@ export function useGameEditor({
                 friendsOnlyUntil = new Date(`${publicDate}T${publicTime}:00`).toISOString();
             }
 
-            const updateData: UpdateGameDTO = {
-                time,
-                date,
+            const start = new Date(`${date}T${time}:00`).toISOString();
+
+            const updateData: UpdateGameDTO & { start?: string } = {
+                start,
                 maxPlayers,
                 sport,
                 title,
@@ -138,7 +139,7 @@ export function useGameEditor({
                 friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null
             };
 
-            await gamesApi.update(gameId, updateData, token);
+            await gamesApi.update(gameId, updateData as any, token);
 
             router.refresh();
             handleClose();
