@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usersApi } from "@/services/api/users";
@@ -30,7 +30,8 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
 import Avatar from "@/components/Avatar";
 
-export default function SearchPlayersPage() {
+// 1. העברנו את כל הלוגיקה וה-UI לרכיב פנימי
+function SearchPlayersContent() {
   const { user } = useUser();
   const { getToken } = useAuth();
   const router = useRouter();
@@ -236,5 +237,18 @@ export default function SearchPlayersPage() {
         </Grid>
       )}
     </Container>
+  );
+}
+
+// 2. פונקציית הדיפולט שעוטפת את הכל ב-Suspense כדי למנוע את קריסת ה-Build
+export default function SearchPlayersPage() {
+  return (
+    <Suspense fallback={
+      <Box display="flex" justifyContent="center" py={8}>
+        <CircularProgress />
+      </Box>
+    }>
+      <SearchPlayersContent />
+    </Suspense>
   );
 }
