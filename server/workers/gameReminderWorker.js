@@ -15,14 +15,14 @@ async function sendGameReminders(io = null) {
 
     try {
         const now = new Date();
-        const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+        const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24h lookup window on DB level for efficiency
 
-        // Optimized query: only fetch games in the 1-hour window that haven't been reminded
+        // Fetch games starting in the next 24 hours that haven't been reminded
         const upcomingGames = await prisma.game.findMany({
             where: {
                 start: {
                     gte: now,
-                    lte: oneHourFromNow
+                    lte: oneDayFromNow
                 },
                 reminderSent: false, // Idempotency: only games not yet reminded
                 status: 'OPEN' // Only active games
@@ -45,10 +45,22 @@ async function sendGameReminders(io = null) {
             }
         });
 
-        console.log(`[GAME_REMINDER_WORKER] Found ${upcomingGames.length} games to remind`);
+        // Filter games in memory using strict absolute millisecond delta check
+        // delta = t_game,UTC - t_now,UTC
+        // Strictly check if 0 < delta <= 3,600,000 ms (60 minutes)
+        const gamesToRemind = upcomingGames.filter(game => {
+            const tGameUtc = new Date(game.start).getTime();
+            const tNowUtc = now.getTime();
+            const delta = tGameUtc - tNowUtc;
+            return delta > 0 && delta <= 3600000;
+        });
 
-        for (const game of upcomingGames) {
+        console.log(`[GAME_REMINDER_WORKER] Found ${gamesToRemind.length} games to remind within the 1-hour window`);
+
+        for (const game of gamesToRemind) {
+            // Explicitly format local time using Israel/Jerusalem timezone to be independent of server location
             const gameTime = game.start.toLocaleTimeString('he-IL', {
+                timeZone: 'Asia/Jerusalem',
                 hour: '2-digit',
                 minute: '2-digit'
             });

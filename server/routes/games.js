@@ -984,7 +984,8 @@ router.post('/', authenticateToken, async (req, res) => {
       create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
     });
 
-    const start = new Date(`${date}T${time}:00`);
+    const { parseJerusalemTimeToUTC } = require('../utils/timezone');
+    const start = parseJerusalemTimeToUTC(date, time);
 
     // Recurrence handling (flexible: WEEKLY or CUSTOM)
     const isRecurring = !!recurrence && (recurrence.type || recurrence.isRecurring);
