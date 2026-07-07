@@ -25,15 +25,24 @@ export default function SearchPlayersScreen() {
             return;
         }
 
+        console.log(`🔍 [Mobile SearchPlayers] Starting search for query: "${searchQuery}"`);
         try {
             setLoading(true);
+            console.log("🔑 [Mobile SearchPlayers] Requesting Clerk token...");
             const token = await getToken();
-            if (!token) return;
+            console.log("🔑 [Mobile SearchPlayers] Clerk token resolved:", token ? "Exists" : "Null/Empty");
 
+            if (!token) {
+                console.warn("⚠️ [Mobile SearchPlayers] Clerk token is null or empty. Aborting request.");
+                return;
+            }
+
+            console.log(`🌐 [Mobile SearchPlayers] Firing API request to search users...`);
             const data = await usersApi.search(searchQuery, token);
+            console.log("✅ [Mobile SearchPlayers] API response received. Results count:", data.length);
             setResults(data);
         } catch (error) {
-            console.error('Search players failed:', error);
+            console.error('❌ [Mobile SearchPlayers] Search players failed:', error);
             Alert.alert(t('error', 'Error'), t('searchFailed', 'Search failed, please try again.'));
         } finally {
             setLoading(false);

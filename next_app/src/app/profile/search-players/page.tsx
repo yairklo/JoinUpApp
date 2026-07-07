@@ -52,16 +52,25 @@ function SearchPlayersContent() {
       return;
     }
 
+    console.log(`🔍 [SearchPlayers] Starting search for query: "${searchQuery}"`);
     setLoading(true);
     setError(null);
     try {
+      console.log("🔑 [SearchPlayers] Requesting Clerk token...");
       const token = await getToken();
-      if (!token) return;
+      console.log("🔑 [SearchPlayers] Clerk token resolved:", token ? "Exists (Token Length: " + token.length + ")" : "Null/Empty");
+      
+      if (!token) {
+        console.warn("⚠️ [SearchPlayers] Clerk token is null or empty. Aborting request.");
+        return;
+      }
 
+      console.log(`🌐 [SearchPlayers] Firing API request to /api/users/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await usersApi.search(searchQuery, token);
+      console.log("✅ [SearchPlayers] API response received:", data);
       setResults(data);
     } catch (err: any) {
-      console.error("Search failed:", err);
+      console.error("❌ [SearchPlayers] Search API request failed:", err);
       setError("חיפוש שחקנים נכשל. אנא נסה שנית.");
     } finally {
       setLoading(false);
