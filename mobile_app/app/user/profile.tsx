@@ -13,7 +13,6 @@ const POSITION_OPTIONS: Record<string, string[]> = {
     SOCCER: ['שוער', 'בלם', 'מגן', 'קשר', 'חלוץ'],
     BASKETBALL: ['פוינט גארד', 'שוטינג גארד', 'סמול פורוורד', 'פאואר פורוורד', 'סנטר'],
     TENNIS: ['שחקן בסיס', 'שחקן רשת'],
-    VOLLEYBALL: ['פאסר', 'חוסם', 'לייבירו', 'תוקף'],
 };
 
 function calculateAge(birthDate?: string | null) {
