@@ -36,9 +36,13 @@ router.get('/sports', async (req, res) => {
 router.get('/search', authenticateToken, async (req, res) => {
   try {
     const q = String(req.query.q || '').trim();
-    if (!q) return res.json([]);
-
     const loggedInUserId = req.user.id;
+    console.log(`[Backend User Search] 🔍 Query: "${q}", Logged-in user: "${loggedInUserId}"`);
+
+    if (!q) {
+      console.log('[Backend User Search] ⚠️ Empty query string. Returning early.');
+      return res.json([]);
+    }
 
     // Fetch matching users
     const matchingUsers = await prisma.user.findMany({
@@ -115,10 +119,10 @@ router.get('/search', authenticateToken, async (req, res) => {
         isRequestSender
       };
     });
-
+    console.log(`[Backend User Search] ✅ Found ${results.length} matching users. Returning results.`);
     res.json(results);
   } catch (error) {
-    console.error('Search users error:', error);
+    console.error('[Backend User Search] ❌ Error:', error);
     res.status(500).json({ error: 'Failed to search users' });
   }
 });
