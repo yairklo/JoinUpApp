@@ -36,6 +36,7 @@ import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import SearchIcon from "@mui/icons-material/Search";
 
 // MUI Form
 
@@ -70,9 +71,12 @@ function calculateAge(birthDate?: string | null) {
 }
 
 
+import { useRouter } from "next/navigation";
+
 export default function ProfilePage() {
   const { user } = useUser();
   const { getToken } = useAuth();
+  const router = useRouter();
   const userId = user?.id;
 
   const [profile, setProfile] = useState<PublicUser | null>(null);
@@ -486,6 +490,27 @@ export default function ProfilePage() {
             {/* צד ימין: סרגל צד */}
             <Grid size={{ xs: 12, md: 4 }}>
               <Stack spacing={3}>
+
+                {/* 0. Search Players Bar */}
+                <Card elevation={2}>
+                  <CardContent>
+                    <Typography variant="h6" mb={2}>Search Players</Typography>
+                    <TextField
+                      placeholder="חפש שחקנים לפי שם או אימייל..."
+                      size="small"
+                      fullWidth
+                      InputProps={{
+                        startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const val = (e.target as HTMLInputElement).value;
+                          router.push(`/profile/search-players?q=${encodeURIComponent(val)}`);
+                        }
+                      }}
+                    />
+                  </CardContent>
+                </Card>
 
                 {/* 1. Friends List */}
                 <Card elevation={2}>
