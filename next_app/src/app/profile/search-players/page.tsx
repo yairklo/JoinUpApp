@@ -161,7 +161,7 @@ export default function SearchPlayersPage() {
       {!loading && !error && results.length > 0 && (
         <Grid container spacing={3}>
           {results.map((player) => (
-            <Grid item xs={12} sm={6} md={4} key={player.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={player.id}>
               <Link href={`/users/${player.id}`} style={{ textDecoration: "none" }}>
                 <Card 
                   elevation={2} 
