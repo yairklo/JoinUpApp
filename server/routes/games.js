@@ -136,7 +136,7 @@ function buildVisibilityWhere(viewerId) {
 // Public games only (no auth, no friends-only)
 router.get('/public', async (req, res) => {
   try {
-    const { fieldId, date, isOpenToJoin } = req.query;
+    const { fieldId, date, startDate, endDate, isOpenToJoin } = req.query;
     const where = {
       AND: [
         { status: 'OPEN' },
@@ -151,7 +151,14 @@ router.get('/public', async (req, res) => {
 
     if (fieldId) where.AND.push({ fieldId: String(fieldId) });
     if (typeof isOpenToJoin !== 'undefined') where.AND.push({ isOpenToJoin: String(isOpenToJoin) === 'true' });
-    if (date) {
+    if (startDate && endDate) {
+      where.AND.push({
+        start: {
+          gte: new Date(String(startDate)),
+          lte: new Date(String(endDate))
+        }
+      });
+    } else if (date) {
       const d = new Date(String(date));
       const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
       const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
@@ -712,7 +719,7 @@ router.get('/', attachOptionalUser, async (req, res) => {
 // Search games
 router.get('/search', attachOptionalUser, async (req, res) => {
   try {
-    const { fieldId, date, isOpenToJoin, q, city, minLat, maxLat, minLng, maxLng, sport, networkGames } = req.query;
+    const { fieldId, date, startDate, endDate, isOpenToJoin, q, city, minLat, maxLat, minLng, maxLng, sport, networkGames } = req.query;
     const where = {};
     if (fieldId) where.fieldId = String(fieldId);
     if (typeof isOpenToJoin !== 'undefined') where.isOpenToJoin = String(isOpenToJoin) === 'true';
@@ -756,7 +763,12 @@ router.get('/search', attachOptionalUser, async (req, res) => {
       }
     }
 
-    if (date) {
+    if (startDate && endDate) {
+      where.start = {
+        gte: new Date(String(startDate)),
+        lte: new Date(String(endDate))
+      };
+    } else if (date) {
       const d = new Date(String(date));
       const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
       const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
