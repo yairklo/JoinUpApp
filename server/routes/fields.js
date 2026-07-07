@@ -6,7 +6,8 @@ const dataManager = require('../utils/dataManager');
 function mapFieldForClient(f) {
   if (!f) return f;
   const favoritesCount = (f._count && typeof f._count.favorites === 'number') ? f._count.favorites : (f.favoritesCount || 0);
-  return { ...f, type: f.type === 'CLOSED' ? 'closed' : 'open', favoritesCount };
+  const upcomingGamesCount = (f._count && typeof f._count.games === 'number') ? f._count.games : 0;
+  return { ...f, type: f.type === 'CLOSED' ? 'closed' : 'open', favoritesCount, upcomingGamesCount };
 }
 const { authenticateToken } = require('../utils/auth');
 
@@ -39,12 +40,8 @@ router.get('/', async (req, res) => {
 router.get('/cities', async (req, res) => {
   try {
     const { q } = req.query;
-    // Filter out null/empty cities, and only available fields?
-    // User wants "all cities that are saved to us".
-    // It's better to verify distinct cities from Fields table.
     const where = {
       city: { not: null },
-      // available: true // Optional: only cities with available fields?
     };
     if (q) {
       where.city = { ...where.city, contains: String(q), mode: 'insensitive' };
@@ -68,7 +65,7 @@ router.get('/cities', async (req, res) => {
 // Search fields
 router.get('/search', async (req, res) => {
   try {
-    const { location, type, available } = req.query;
+    const { location, type, available, minLat, maxLat, minLng, maxLng, date } = req.query;
     const where = {};
     if (location) where.location = { contains: String(location), mode: 'insensitive' };
     if (type) where.type = String(type).toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN';
@@ -78,17 +75,47 @@ router.get('/search', async (req, res) => {
     } else {
       where.available = String(available) === 'true';
     }
+
+    if (minLat && maxLat && minLng && maxLng) {
+      where.lat = { gte: parseFloat(minLat), lte: parseFloat(maxLat) };
+      where.lng = { gte: parseFloat(minLng), lte: parseFloat(maxLng) };
+    }
+
+    let startOfDay, endOfDay;
+    if (date) {
+      const d = new Date(String(date));
+      startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+      const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+    }
+
     const fields = await prisma.field.findMany({
       where,
       orderBy: { name: 'asc' },
-      include: { _count: { select: { favorites: true } } }
+      include: {
+        _count: {
+          select: {
+            favorites: true,
+            games: {
+              where: {
+                start: date ? {
+                  gte: startOfDay,
+                  lte: endOfDay
+                } : {
+                  gte: new Date()
+                },
+                status: 'OPEN'
+              }
+            }
+          }
+        }
+      }
     });
     res.json(fields.map(mapFieldForClient));
   } catch (error) {
     console.error('Search fields error:', error);
     // Fallback: filter local JSON
     try {
-      const { location, type, available } = req.query;
+      const { location, type, available, minLat, maxLat, minLng, maxLng } = req.query;
       const raw = await dataManager.readData('fields.json');
       const filtered = raw.filter((f) => {
         const matchLocation = location ? (f.location || '').toLowerCase().includes(String(location).toLowerCase()) : true;
@@ -96,7 +123,14 @@ router.get('/search', async (req, res) => {
         const matchAvail = typeof available !== 'undefined'
           ? (String(available) === 'true' ? f.available !== false : f.available === false)
           : f.available !== false;
-        return matchLocation && matchType && matchAvail;
+        
+        let matchBounds = true;
+        if (minLat && maxLat && minLng && maxLng) {
+          const lat = parseFloat(f.lat);
+          const lng = parseFloat(f.lng);
+          matchBounds = lat >= parseFloat(minLat) && lat <= parseFloat(maxLat) && lng >= parseFloat(minLng) && lng <= parseFloat(maxLng);
+        }
+        return matchLocation && matchType && matchAvail && matchBounds;
       });
       return res.json(filtered.map(mapFieldForClient));
     } catch (fallbackErr) {
