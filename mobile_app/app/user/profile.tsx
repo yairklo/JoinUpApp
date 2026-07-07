@@ -1,9 +1,9 @@
 import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { usersApi, UserProfile } from '../../src/services/api/users';
-import { apiClient, API_BASE } from '../../src/services/api/client';
+import { API_BASE } from '../../src/services/api/client';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,6 @@ const POSITION_OPTIONS: Record<string, string[]> = {
     SOCCER: ['שוער', 'בלם', 'מגן', 'קשר', 'חלוץ'],
     BASKETBALL: ['פוינט גארד', 'שוטינג גארד', 'סמול פורוורד', 'פאואר פורוורד', 'סנטר'],
     TENNIS: ['שחקן בסיס', 'שחקן רשת'],
-    VOLLEYBALL: ['פאסר', 'חוסם', 'לייבירו', 'תוקף'],
 };
 
 function calculateAge(birthDate?: string | null) {
@@ -50,22 +49,12 @@ export default function ProfileScreen() {
         loadSports();
     }, [user?.id]);
 
-    const [friends, setFriends] = useState<any[]>([]);
-    const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
-
     const loadProfile = async () => {
         try {
             const token = await getToken();
-            if (token) {
-                const [data, friendsData, incomingData] = await Promise.all([
-                    usersApi.getProfile(user!.id, token),
-                    usersApi.getFriends(user!.id, token),
-                    usersApi.getIncomingRequests(user!.id, token)
-                ]);
-                
+            if (token && user) {
+                const data = await usersApi.getProfile(user.id, token);
                 setProfile(data);
-                setFriends(friendsData);
-                setIncomingRequests(incomingData);
 
                 setForm({
                     city: data?.city || '',
@@ -115,42 +104,6 @@ export default function ProfileScreen() {
         }
     };
 
-    const handleAcceptRequest = async (requestId: string) => {
-        try {
-            const token = await getToken();
-            if (token) {
-                await usersApi.acceptFriendRequest(requestId, token);
-                loadProfile(); // Refresh lists
-            }
-        } catch (err) {
-            Alert.alert(t('error', 'שגיאה'), t('profile.failedToAccept', 'Failed to accept request'));
-        }
-    };
-
-    const handleDeclineRequest = async (requestId: string) => {
-        try {
-            const token = await getToken();
-            if (token) {
-                await usersApi.declineFriendRequest(requestId, token);
-                loadProfile(); // Refresh lists
-            }
-        } catch (err) {
-            Alert.alert(t('error', 'שגיאה'), t('profile.failedToDecline', 'Failed to decline request'));
-        }
-    };
-
-    const handleRemoveFriend = async (friendId: string) => {
-        try {
-            const token = await getToken();
-            if (token) {
-                await usersApi.removeFriend(user!.id, friendId, token);
-                loadProfile(); // Refresh lists
-            }
-        } catch (err) {
-            Alert.alert(t('error', 'שגיאה'), t('profile.failedToRemove', 'Failed to remove friend'));
-        }
-    };
-
     const handleCancelEdit = () => {
         setIsEditing(false);
         setForm({
@@ -184,118 +137,139 @@ export default function ProfileScreen() {
         }));
     };
 
-    // Add a free-text custom position (appended to existing)
-    const addCustomPosition = (sportId: string, custom: string) => {
-        if (!custom.trim()) return;
+    const addCustomPosition = (sportId: string, customPos: string) => {
+        if (!customPos.trim()) return;
         setForm(prev => ({
             ...prev,
             sportsData: prev.sportsData.map(s => {
                 if (s.sportId !== sportId) return s;
                 const current = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
-                if (current.includes(custom.trim())) return s;
-                return { ...s, position: [...current, custom.trim()].join(', ') };
+                if (current.includes(customPos.trim())) return s;
+                return { ...s, position: [...current, customPos.trim()].join(', ') };
             })
         }));
     };
 
-    // Remove a specific position tag
     const removePositionTag = (sportId: string, pos: string) => {
         setForm(prev => ({
             ...prev,
             sportsData: prev.sportsData.map(s => {
                 if (s.sportId !== sportId) return s;
-                const updated = s.position.split(',').map(p => p.trim()).filter(p => p && p !== pos);
+                const current = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+                const updated = current.filter(p => p !== pos);
                 return { ...s, position: updated.join(', ') };
             })
         }));
     };
 
-    if (!user || loading) {
+    const unaddedSports = availableSports.filter(
+        sport => !form.sportsData.some(s => s.sportId === sport.id)
+    );
+
+    if (loading) {
         return (
-            <View className="flex-1 items-center justify-center bg-gray-50">
+            <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
                 <ActivityIndicator size="large" color="#2563eb" />
-            </View>
+            </SafeAreaView>
         );
     }
 
-    const age = calculateAge(profile?.birthDate);
-    const unaddedSports = availableSports.filter(s => !form.sportsData.some(fs => fs.sportId === s.id));
-
     return (
-        <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
-            <ScrollView className="flex-1">
-                {/* Header / Avatar */}
-                <View className="items-center bg-white p-6 mb-4 shadow-sm">
+        <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'bottom']}>
+            <Stack.Screen options={{ 
+                headerShown: false
+            }} />
+            
+            {/* Custom Header Bar */}
+            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-150 shadow-sm">
+                <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
+                    <FontAwesome name="chevron-right" size={18} color="#374151" />
+                </TouchableOpacity>
+                <Text className="flex-1 text-center font-extrabold text-lg mr-10 text-gray-900">
+                    {t('profile.personalDetails', 'הפרופיל שלי')}
+                </Text>
+            </View>
+
+            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }}>
+                {/* Header details */}
+                <View className="items-center py-6 bg-white rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
                     <Image
-                        source={{ uri: profile?.imageUrl || user.imageUrl || undefined }}
-                        className="w-24 h-24 rounded-full mb-3"
+                        source={{ uri: user?.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}` }}
+                        className="w-24 h-24 rounded-full bg-gray-200 mb-3 border-2 border-blue-50"
                     />
-                    <Text className="text-2xl font-bold text-gray-800">{profile?.name || user.fullName}</Text>
-                    <Text className="text-gray-500 mt-1">{profile?.city || t("profile.unknownCity", "עיר לא ידועה")}</Text>
+                    <Text className="text-xl font-black text-gray-900">{user?.fullName || 'User'}</Text>
+                    <Text className="text-gray-400 text-sm mt-1">{user?.primaryEmailAddress?.emailAddress}</Text>
                 </View>
 
-                {/* Personal Details */}
-                <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4">
-                    <Text className="text-lg font-bold text-gray-800 mb-4 border-b border-gray-100 pb-2">
-                        {t("profile.personalDetails", "פרטים אישיים")}
-                    </Text>
-
-                    {/* Email */}
-                    <View className="flex-row justify-between items-center mb-3">
-                        <Text className="text-gray-500 font-medium">{t("profile.email", "אימייל")}</Text>
-                        <Text className="text-gray-800">{profile?.email || user.primaryEmailAddress?.emailAddress || '-'}</Text>
-                    </View>
-
-                    {/* Phone */}
-                    <View className="flex-row justify-between items-center mb-3">
-                        <Text className="text-gray-500 font-medium">{t("profile.phone", "טלפון")}</Text>
-                        {isEditing ? (
-                            <TextInput
-                                value={form.phone}
-                                onChangeText={(v) => setForm(p => ({ ...p, phone: v }))}
-                                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 flex-1 mr-4 text-left"
-                                keyboardType="phone-pad"
-                                placeholder="050-0000000"
-                            />
-                        ) : (
-                            <Text className="text-gray-800">{profile?.phone || '-'}</Text>
+                {/* Personal Details Form */}
+                <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
+                    <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 pb-2">
+                        <Text className="text-lg font-black text-gray-900">{t('profile.personalDetails', 'פרטים אישיים')}</Text>
+                        {!isEditing && (
+                            <TouchableOpacity
+                                onPress={() => setIsEditing(true)}
+                                className="flex-row items-center bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"
+                            >
+                                <FontAwesome name="edit" size={14} color="#2563eb" style={{ marginRight: 5 }} />
+                                <Text className="text-blue-600 font-bold text-sm">{t('profile.editProfile', 'ערוך')}</Text>
+                            </TouchableOpacity>
                         )}
                     </View>
 
                     {/* City */}
-                    <View className="flex-row justify-between items-center mb-3">
-                        <Text className="text-gray-500 font-medium">{t("profile.city", "עיר")}</Text>
+                    <View className="mb-4">
+                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.city', 'עיר')}</Text>
                         {isEditing ? (
                             <TextInput
                                 value={form.city}
-                                onChangeText={(v) => setForm(p => ({ ...p, city: v }))}
-                                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 flex-1 mr-4 text-left"
-                                placeholder="תל אביב"
+                                onChangeText={(val) => setForm(prev => ({ ...prev, city: val }))}
+                                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-right text-sm"
+                                placeholder="למשל: תל אביב, חיפה..."
+                                placeholderTextColor="#9ca3af"
                             />
                         ) : (
-                            <Text className="text-gray-800">{profile?.city || '-'}</Text>
+                            <Text className="text-gray-800 font-bold text-base text-right">{profile?.city || t('profile.unknownCity', 'לא צוין')}</Text>
                         )}
                     </View>
 
-                    {/* Age */}
-                    <View className="flex-row justify-between mb-4">
-                        <Text className="text-gray-500 font-medium">{t("profile.age", "גיל")}</Text>
-                        <Text className="text-gray-800">{age ? String(age) : '-'}</Text>
+                    {/* Phone */}
+                    <View className="mb-4">
+                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.phone', 'טלפון')}</Text>
+                        {isEditing ? (
+                            <TextInput
+                                value={form.phone}
+                                onChangeText={(val) => setForm(prev => ({ ...prev, phone: val }))}
+                                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-right text-sm"
+                                placeholder="למשל: 0501234567"
+                                keyboardType="phone-pad"
+                                placeholderTextColor="#9ca3af"
+                            />
+                        ) : (
+                            <Text className="text-gray-800 font-bold text-base text-right">{profile?.phone || t('profile.unknownPhone', 'לא צוין')}</Text>
+                        )}
                     </View>
 
-                    {/* Edit / Save buttons */}
-                    {!isEditing ? (
-                        <TouchableOpacity
-                            onPress={() => setIsEditing(true)}
-                            className="mt-2 py-3 rounded-xl items-center bg-gray-100 border border-gray-200"
-                        >
-                            <Text className="text-gray-700 font-bold">{t("profile.editProfile", "ערוך פרופיל")}</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <View className="mt-2 flex-row gap-2">
+                    {/* Email */}
+                    <View className="mb-4">
+                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.email', 'אימייל')}</Text>
+                        <Text className="text-gray-800 font-bold text-base text-right">
+                            {profile?.email || user?.primaryEmailAddress?.emailAddress || t('profile.unknownEmail', 'לא צוין')}
+                        </Text>
+                    </View>
+
+                    {/* Age */}
+                    <View className="mb-2">
+                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.age', 'גיל')}</Text>
+                        <Text className="text-gray-800 font-bold text-base text-right">
+                            {calculateAge(profile?.birthDate) || t('profile.unknownAge', 'לא ידוע')}
+                        </Text>
+                    </View>
+
+                    {isEditing && (
+                        <View className="flex-row gap-3 mt-4">
                             <TouchableOpacity
                                 onPress={handleCancelEdit}
-                                className="flex-1 py-3 rounded-xl items-center bg-red-50 border border-red-100"
+                                className="flex-1 py-3 rounded-xl border border-gray-200 items-center bg-gray-50"
                             >
                                 <Text className="text-red-600 font-bold">ביטול</Text>
                             </TouchableOpacity>
@@ -311,9 +285,9 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Sports & Positions */}
-                <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4">
+                <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
                     <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 pb-2">
-                        <Text className="text-lg font-bold text-gray-800">ספורט ועמדות</Text>
+                        <Text className="text-lg font-black text-gray-900">ספורט ועמדות</Text>
                         {isEditing && (
                             <TouchableOpacity
                                 onPress={() => setSportModalVisible(true)}
@@ -329,12 +303,11 @@ export default function ProfileScreen() {
                     {(isEditing ? form.sportsData : profile?.sports?.map(s => ({ sportId: s.id, position: s.position || '' })) || []).length === 0 ? (
                         <View className="items-center py-4">
                             <FontAwesome name="futbol-o" size={32} color="#d1d5db" />
-                            <Text className="text-gray-400 mt-2 text-center">
+                            <Text className="text-gray-400 mt-2 text-center text-sm">
                                 {isEditing ? 'לחץ "הוסף" כדי להוסיף ענף ספורט' : 'לא הוגדרו ענפי ספורט'}
                             </Text>
                         </View>
                     ) : isEditing ? (
-                        // Edit mode: show each sport with position picker + remove button
                         <View>
                             {form.sportsData.map((s) => {
                                 const sportName = SPORT_MAPPING[s.sportId] || s.sportId;
@@ -352,7 +325,8 @@ export default function ProfileScreen() {
                                                 <FontAwesome name="times-circle" size={20} color="#ef4444" />
                                             </TouchableOpacity>
                                         </View>
-                                        {/* Selected positions tags */}
+                                        
+                                        {/* Selected positions */}
                                         {(() => {
                                             const selectedPositions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
                                             if (selectedPositions.length === 0) return null;
@@ -370,7 +344,7 @@ export default function ProfileScreen() {
                                             );
                                         })()}
 
-                                        {/* Preset position chips — multi-select toggle */}
+                                        {/* Preset positions */}
                                         {positions.length > 0 && (
                                             <View className="mb-2">
                                                 <Text className="text-xs text-gray-500 mb-2">בחר עמדות (ניתן לבחור מספר):</Text>
@@ -393,7 +367,7 @@ export default function ProfileScreen() {
                                             </View>
                                         )}
 
-                                        {/* Free-text custom position */}
+                                        {/* Free text custom position */}
                                         <View className="mt-1">
                                             <Text className="text-xs text-gray-500 mb-1">הוסף עמדה חופשית:</Text>
                                             <View className="flex-row">
@@ -426,7 +400,6 @@ export default function ProfileScreen() {
                             })}
                         </View>
                     ) : (
-                        // View mode: sport card with individual position chips
                         <View>
                             {profile?.sports?.map(s => {
                                 const hebrewName = SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name;
@@ -456,84 +429,6 @@ export default function ProfileScreen() {
                         </View>
                     )}
                 </View>
-
-                {/* Social Section */}
-                {!isEditing && (
-                    <View className="mb-6 mx-4">
-                        {/* Incoming Requests */}
-                        {incomingRequests.length > 0 && (
-                            <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
-                                <Text className="font-bold text-gray-900 mb-3 flex-row items-center">
-                                    <FontAwesome name="bell" size={16} color="#eab308" style={{ marginRight: 6 }} />
-                                    {' '}{t('profile.incomingRequests', 'בקשות חברות נכנסות')} ({incomingRequests.length})
-                                </Text>
-                                {incomingRequests.map(req => (
-                                    <View key={req.id} className="flex-row items-center justify-between mb-3 last:mb-0">
-                                        <TouchableOpacity onPress={() => router.push(`/user/${req.requester.id}`)} className="flex-row items-center flex-1">
-                                            <Image 
-                                                source={{ uri: req.requester.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.requester.name)}` }} 
-                                                className="w-10 h-10 rounded-full bg-gray-200 mr-3" 
-                                            />
-                                            <Text className="text-sm font-bold text-gray-800" numberOfLines={1}>{req.requester.name}</Text>
-                                        </TouchableOpacity>
-                                        <View className="flex-row items-center ml-2">
-                                            <TouchableOpacity 
-                                                onPress={() => handleAcceptRequest(req.id)}
-                                                className="bg-green-100 p-2 rounded-full mr-2"
-                                            >
-                                                <FontAwesome name="check" size={16} color="#16a34a" />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity 
-                                                onPress={() => handleDeclineRequest(req.id)}
-                                                className="bg-red-100 p-2 rounded-full"
-                                            >
-                                                <FontAwesome name="times" size={16} color="#dc2626" />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-
-                        {/* Friends List */}
-                        <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                            <View className="flex-row justify-between items-center mb-3">
-                                <Text className="font-bold text-gray-900 flex-row items-center">
-                                    <FontAwesome name="users" size={16} color="#3b82f6" style={{ marginRight: 6 }} />
-                                    {' '}{t('profile.myFriends', 'החברים שלי')} ({friends.length})
-                                </Text>
-                                <TouchableOpacity 
-                                    onPress={() => router.push('/user/search-players')}
-                                    className="flex-row items-center bg-blue-50 px-2 py-1 rounded-lg border border-blue-100"
-                                >
-                                    <FontAwesome name="search" size={12} color="#2563eb" style={{ marginRight: 4 }} />
-                                    <Text className="text-xs text-blue-600 font-bold">{t('profile.searchFriends', 'חפש שחקנים')}</Text>
-                                </TouchableOpacity>
-                            </View>
-                            {friends.length === 0 ? (
-                                <Text className="text-gray-500 text-sm">{t('profile.noFriends', 'עדיין אין לך חברים ברשת.')}</Text>
-                            ) : (
-                                friends.map(friend => (
-                                    <View key={friend.id} className="flex-row items-center justify-between mb-3 last:mb-0">
-                                        <TouchableOpacity onPress={() => router.push(`/user/${friend.id}`)} className="flex-row items-center flex-1">
-                                            <Image 
-                                                source={{ uri: friend.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.name)}` }} 
-                                                className="w-10 h-10 rounded-full bg-gray-200 mr-3" 
-                                            />
-                                            <Text className="text-sm font-bold text-gray-800" numberOfLines={1}>{friend.name}</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            onPress={() => handleRemoveFriend(friend.id)}
-                                            className="bg-red-50 px-3 py-1.5 rounded-lg border border-red-100"
-                                        >
-                                            <Text className="text-xs text-red-600 font-bold">{t('profile.removeFriend', 'הסר')}</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                ))
-                            )}
-                        </View>
-                    </View>
-                )}
 
                 {/* Sign Out */}
                 <TouchableOpacity
