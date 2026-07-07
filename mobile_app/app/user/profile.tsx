@@ -250,6 +250,14 @@ export default function ProfileScreen() {
                         )}
                     </View>
 
+                    {/* Email */}
+                    <View className="mb-4">
+                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.email', 'אימייל')}</Text>
+                        <Text className="text-gray-800 font-bold text-base text-right">
+                            {profile?.email || user?.primaryEmailAddress?.emailAddress || t('profile.unknownEmail', 'לא צוין')}
+                        </Text>
+                    </View>
+
                     {/* Age */}
                     <View className="mb-2">
                         <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.age', 'גיל')}</Text>
