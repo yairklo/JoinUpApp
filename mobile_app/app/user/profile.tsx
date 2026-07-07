@@ -176,13 +176,22 @@ export default function ProfileScreen() {
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom']}>
+        <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'bottom']}>
             <Stack.Screen options={{ 
-                title: t('profile.personalDetails', 'הפרופיל שלי'),
-                headerBackTitle: t('common.back', 'חזרה'),
-                headerShown: true
+                headerShown: false
             }} />
-            <ScrollView className="flex-1 mt-2" contentContainerStyle={{ paddingBottom: 40 }}>
+            
+            {/* Custom Header Bar */}
+            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-150 shadow-sm">
+                <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
+                    <FontAwesome name="chevron-right" size={18} color="#374151" />
+                </TouchableOpacity>
+                <Text className="flex-1 text-center font-extrabold text-lg mr-10 text-gray-900">
+                    {t('profile.personalDetails', 'הפרופיל שלי')}
+                </Text>
+            </View>
+
+            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }}>
                 {/* Header details */}
                 <View className="items-center py-6 bg-white rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
                     <Image
