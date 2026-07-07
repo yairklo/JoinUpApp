@@ -35,7 +35,7 @@ export default function SearchPlayersPage() {
   const { getToken } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q") || "";
+  const initialQuery = searchParams?.get("q") || "";
 
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<any[]>([]);
