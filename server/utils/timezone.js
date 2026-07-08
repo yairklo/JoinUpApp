@@ -55,7 +55,39 @@ function getJerusalemDayHour(date = new Date()) {
   return { dayOfWeek, hour };
 }
 
+/** Games remain visible in active feeds for 30 minutes after kickoff. */
+const ACTIVE_GAME_GRACE_MS = 30 * 60 * 1000;
+
+function getActiveGameStartCutoff() {
+  return new Date(Date.now() - ACTIVE_GAME_GRACE_MS);
+}
+
+/**
+ * Build a Prisma `start` filter for active discovery feeds.
+ * Without a date: games from cutoff onward. With a date: that calendar day,
+ * but if the date is today the lower bound is the 30-minute grace cutoff.
+ */
+function buildActiveGameStartFilter(dateInput) {
+  const cutoff = getActiveGameStartCutoff();
+  if (!dateInput) return { gte: cutoff };
+
+  const d = new Date(String(dateInput));
+  const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+  const isToday = startOfDay.getTime() === todayStart.getTime();
+
+  return {
+    gte: isToday ? cutoff : startOfDay,
+    lte: endOfDay,
+  };
+}
+
 module.exports = {
   parseJerusalemTimeToUTC,
-  getJerusalemDayHour
+  getJerusalemDayHour,
+  getActiveGameStartCutoff,
+  buildActiveGameStartFilter,
+  ACTIVE_GAME_GRACE_MS,
 };
