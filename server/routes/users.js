@@ -382,6 +382,43 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
   }
 });
 
+// Paginated match history (privacy-enforced). Used by the profile "Load More" button.
+router.get('/:id/match-history', attachOptionalUser, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const skip = Math.max(0, parseInt(req.query.skip, 10) || 0);
+    const take = Math.min(20, Math.max(1, parseInt(req.query.take, 10) || 5));
+
+    const user = await prisma.user.findUnique({
+      where: { id: targetId },
+      select: { birthDate: true, privacyGames: true },
+    });
+    if (!user) return res.json([]);
+
+    const viewerId = req.user?.id || null;
+    const isOwner = viewerId === targetId;
+    const isFriend = viewerId && !isOwner ? await areConfirmedFriends(viewerId, targetId) : false;
+    const effGames = resolvePrivacyLevel(user.privacyGames, user.birthDate);
+
+    if (!canViewSection({ effectivePrivacy: effGames, isOwner, isFriend })) {
+      return res.status(403).json({ error: 'This section is private' });
+    }
+
+    const participations = await prisma.participation.findMany({
+      where: { userId: targetId, status: 'CONFIRMED', game: { start: { lt: new Date() } } },
+      select: { game: { select: { id: true, title: true, sport: true, start: true } } },
+      orderBy: { game: { start: 'desc' } },
+      skip,
+      take,
+    });
+
+    res.json(participations.map((p) => p.game));
+  } catch (error) {
+    console.error('Match history pagination error:', error);
+    res.status(500).json({ error: 'Failed to load match history' });
+  }
+});
+
 // Update user profile (owner only)
 router.put('/:id', authenticateToken, async (req, res) => {
   try {

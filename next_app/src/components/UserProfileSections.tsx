@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
-import { usersApi, UserProfile } from "@/services/api/users";
+import { usersApi, UserProfile, ProfileMatch } from "@/services/api/users";
 import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 import Avatar from "@/components/Avatar";
 
@@ -14,13 +14,22 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
+import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+
+const PAGE_SIZE = 5;
 
 export default function UserProfileSections({ userId }: { userId: string }) {
     const { getToken } = useAuth();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
+
+    // Match history pagination
+    const [matches, setMatches] = useState<ProfileMatch[]>([]);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     useEffect(() => {
         let active = true;
@@ -28,7 +37,11 @@ export default function UserProfileSections({ userId }: { userId: string }) {
             try {
                 const token = await getToken();
                 const data = await usersApi.getProfile(userId, token || undefined);
-                if (active) setProfile(data);
+                if (!active) return;
+                setProfile(data);
+                const initial = data.matchHistory || [];
+                setMatches(initial);
+                setHasMore(initial.length === PAGE_SIZE);
             } catch (e) {
                 console.error("Failed to load profile sections:", e);
             } finally {
@@ -39,6 +52,20 @@ export default function UserProfileSections({ userId }: { userId: string }) {
             active = false;
         };
     }, [userId, getToken]);
+
+    const handleLoadMore = async () => {
+        setLoadingMore(true);
+        try {
+            const token = await getToken();
+            const next = await usersApi.getMatchHistory(userId, matches.length, PAGE_SIZE, token || undefined);
+            setMatches((prev) => [...prev, ...next]);
+            setHasMore(next.length === PAGE_SIZE);
+        } catch (e) {
+            console.error("Failed to load more matches:", e);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -56,21 +83,6 @@ export default function UserProfileSections({ userId }: { userId: string }) {
 
     return (
         <Box>
-            {/* Sport stats chips — directly under the header name card */}
-            {sportStats.length > 0 && (
-                <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center" useFlexGap sx={{ mb: 3 }}>
-                    {sportStats.map((s) => (
-                        <Chip
-                            key={s.sport}
-                            label={`${SPORT_EMOJI[s.sport] || "🏅"} ${SPORT_MAPPING[s.sport] || s.sport} · ${s.count}`}
-                            color="primary"
-                            variant="outlined"
-                            sx={{ fontWeight: 600 }}
-                        />
-                    ))}
-                </Stack>
-            )}
-
             {(showFriends || showHistory) && <Divider sx={{ my: 3 }} />}
 
             {/* Friends */}
@@ -104,11 +116,27 @@ export default function UserProfileSections({ userId }: { userId: string }) {
                     <Typography variant="h6" fontWeight="bold" gutterBottom>
                         היסטוריית משחקים
                     </Typography>
-                    {profile.matchHistory!.length === 0 ? (
+
+                    {/* Sport stats chips — contextualized right above the match feed */}
+                    {sportStats.length > 0 && (
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                            {sportStats.map((s) => (
+                                <Chip
+                                    key={s.sport}
+                                    label={`${SPORT_EMOJI[s.sport] || "🏅"} ${SPORT_MAPPING[s.sport] || s.sport} · ${s.count}`}
+                                    color="primary"
+                                    variant="outlined"
+                                    sx={{ fontWeight: 600 }}
+                                />
+                            ))}
+                        </Stack>
+                    )}
+
+                    {matches.length === 0 ? (
                         <Typography variant="body2" color="text.secondary">אין משחקים קודמים</Typography>
                     ) : (
                         <Stack spacing={1.5}>
-                            {profile.matchHistory!.map((m) => {
+                            {matches.map((m) => {
                                 const sportLabel = m.sport ? SPORT_MAPPING[m.sport] || m.sport : "";
                                 const emoji = m.sport ? SPORT_EMOJI[m.sport] || "🏅" : "🏅";
                                 return (
@@ -132,6 +160,19 @@ export default function UserProfileSections({ userId }: { userId: string }) {
                                 );
                             })}
                         </Stack>
+                    )}
+
+                    {hasMore && (
+                        <Box display="flex" justifyContent="center" mt={2}>
+                            <Button
+                                variant="outlined"
+                                onClick={handleLoadMore}
+                                disabled={loadingMore}
+                                startIcon={loadingMore ? <CircularProgress size={16} /> : <ExpandMoreIcon />}
+                            >
+                                הצג משחקים נוספים
+                            </Button>
+                        </Box>
                     )}
                 </Box>
             )}

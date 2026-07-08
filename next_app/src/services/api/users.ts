@@ -99,4 +99,11 @@ export const usersApi = {
             token,
         });
     },
+
+    getMatchHistory: (userId: string, skip: number, take: number, token?: string) => {
+        return apiClient<ProfileMatch[]>(
+            `/api/users/${userId}/match-history?skip=${skip}&take=${take}`,
+            { token }
+        );
+    },
 };
