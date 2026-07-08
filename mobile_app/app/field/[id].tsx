@@ -1,9 +1,10 @@
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, FlatList } from 'react-native';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { fieldsApi, Field, FieldAnalytics, FieldScheduleGame, BusyCell } from '@/services/api';
 import { SPORT_MAPPING } from '@/utils/sports';
 
@@ -24,6 +25,17 @@ function currentJerusalemDay(): number {
     }).format(new Date());
     const idx = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday);
     return idx >= 0 ? idx : 0;
+}
+
+function FieldProfileHeader({ title, onBack }: { title: string; onBack: () => void }) {
+    return (
+        <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+            <TouchableOpacity onPress={onBack} className="p-2 mr-3" accessibilityRole="button" accessibilityLabel="Back">
+                <FontAwesome name="arrow-left" size={20} color="#4b5563" />
+            </TouchableOpacity>
+            <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>{title}</Text>
+        </View>
+    );
 }
 
 export default function FieldProfileScreen() {
@@ -85,20 +97,23 @@ export default function FieldProfileScreen() {
 
     if (loading) {
         return (
-            <View className="flex-1 justify-center items-center bg-gray-50">
-                <ActivityIndicator size="large" color="#2563eb" />
-            </View>
+            <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50">
+                <FieldProfileHeader title={t('field.profile')} onBack={() => router.back()} />
+                <View className="flex-1 justify-center items-center">
+                    <ActivityIndicator size="large" color="#2563eb" />
+                </View>
+            </SafeAreaView>
         );
     }
 
     if (!field) {
         return (
-            <>
-                <Stack.Screen options={{ title: t('field.profile'), headerShown: true }} />
-                <View className="flex-1 justify-center items-center bg-gray-50">
+            <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50">
+                <FieldProfileHeader title={t('field.profile')} onBack={() => router.back()} />
+                <View className="flex-1 justify-center items-center">
                     <Text className="text-gray-500">{t('field.notFound')}</Text>
                 </View>
-            </>
+            </SafeAreaView>
         );
     }
 
@@ -134,180 +149,179 @@ export default function FieldProfileScreen() {
     };
 
     return (
-        <>
-            <Stack.Screen options={{ title: field.name, headerShown: true }} />
-            <View className="flex-1 bg-gray-50">
-                <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 110 }}>
+        <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50">
+            <FieldProfileHeader title={field.name} onBack={() => router.back()} />
 
-                    {/* Field Header & Info */}
-                    <View className="bg-white mb-4 shadow-sm">
-                        {field.image ? (
-                            <Image source={{ uri: field.image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
+            <ScrollView
+                className="flex-1"
+                contentContainerStyle={{ paddingBottom: 16 }}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Field Header & Info */}
+                <View className="bg-white mb-4 shadow-sm">
+                    {field.image ? (
+                        <Image source={{ uri: field.image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
+                    ) : null}
+                    <View className="p-4">
+                        <Text className="text-2xl font-bold text-gray-800">{field.name}</Text>
+                        {address ? (
+                            <View className="flex-row items-center mt-1">
+                                <FontAwesome name="map-marker" size={14} color="#6b7280" style={{ marginRight: 6 }} />
+                                <Text className="text-gray-600 flex-1">{address}</Text>
+                            </View>
                         ) : null}
-                        <View className="p-4">
-                            <Text className="text-2xl font-bold text-gray-800">{field.name}</Text>
-                            {address ? (
-                                <View className="flex-row items-center mt-1">
-                                    <FontAwesome name="map-marker" size={14} color="#6b7280" style={{ marginRight: 6 }} />
-                                    <Text className="text-gray-600">{address}</Text>
-                                </View>
-                            ) : null}
 
-                            <View className="flex-row flex-wrap mt-3" style={{ gap: 6 }}>
-                                <View className="px-3 py-1 rounded-full bg-blue-50 border border-blue-200">
-                                    <Text className="text-blue-700 text-xs font-bold">
-                                        {field.type === 'closed' ? t('field.closedField') : t('field.openField')}
-                                    </Text>
+                        <View className="flex-row flex-wrap mt-3" style={{ gap: 6 }}>
+                            <View className="px-3 py-1 rounded-full bg-blue-50 border border-blue-200">
+                                <Text className="text-blue-700 text-xs font-bold">
+                                    {field.type === 'closed' ? t('field.closedField') : t('field.openField')}
+                                </Text>
+                            </View>
+                            {sports.map(s => (
+                                <View key={s} className="px-3 py-1 rounded-full bg-gray-100 border border-gray-200">
+                                    <Text className="text-gray-700 text-xs font-bold">{SPORT_MAPPING[s] || s}</Text>
                                 </View>
-                                {sports.map(s => (
-                                    <View key={s} className="px-3 py-1 rounded-full bg-gray-100 border border-gray-200">
-                                        <Text className="text-gray-700 text-xs font-bold">{SPORT_MAPPING[s] || s}</Text>
+                            ))}
+                        </View>
+
+                        <Text className="text-gray-500 text-sm mt-3">
+                            {!field.price || field.price <= 0
+                                ? t('field.freePrice')
+                                : t('field.pricePerHour', { price: field.price })}
+                        </Text>
+                    </View>
+                </View>
+
+                {analytics && (
+                    <>
+                        {/* JoinUp Roster Schedule */}
+                        <View className="bg-white p-4 mb-4 shadow-sm">
+                            <Text className="text-lg font-bold text-gray-800 mb-3">{t('field.upcomingGames')}</Text>
+                            {analytics.schedule.length === 0 ? (
+                                <Text className="text-gray-500 text-sm">{t('field.noUpcomingGames')}</Text>
+                            ) : (
+                                <FlatList
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    data={analytics.schedule}
+                                    keyExtractor={g => g.id}
+                                    renderItem={renderScheduleItem}
+                                    nestedScrollEnabled
+                                />
+                            )}
+                        </View>
+
+                        {/* Visual Busy Times Chart */}
+                        <View className="bg-white p-4 mb-4 shadow-sm">
+                            <Text className="text-lg font-bold text-gray-800">{t('field.busyTimes')}</Text>
+                            <Text className="text-gray-400 text-xs mb-3">
+                                {t('field.busySubtitle', { count: analytics.totalReports, days: analytics.reportWindowDays })}
+                            </Text>
+
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4" nestedScrollEnabled>
+                                {[0, 1, 2, 3, 4, 5, 6].map(d => (
+                                    <TouchableOpacity
+                                        key={d}
+                                        onPress={() => setSelectedDay(d)}
+                                        className={`mr-2 px-3 py-1.5 rounded-full border ${selectedDay === d ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                                    >
+                                        <Text className={selectedDay === d ? 'text-white font-bold text-xs' : 'text-gray-700 text-xs'}>
+                                            {t(`field.day${d}`)}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled>
+                                <View className="flex-row items-end" style={{ height: CHART_MAX_HEIGHT + 24 }}>
+                                    {dayCells.map((cell, hour) => {
+                                        const hasData = cell.samples > 0 && cell.avg !== null;
+                                        const barHeight = hasData ? Math.max(6, (cell.avg! / 5) * CHART_MAX_HEIGHT) : 0;
+                                        return (
+                                            <View key={hour} className="items-center" style={{ width: 22 }}>
+                                                <View
+                                                    style={{
+                                                        width: 14,
+                                                        height: CHART_MAX_HEIGHT,
+                                                        backgroundColor: 'rgba(128,128,128,0.08)',
+                                                        borderRadius: 3,
+                                                        justifyContent: 'flex-end',
+                                                        overflow: 'hidden'
+                                                    }}
+                                                >
+                                                    {hasData && (
+                                                        <View
+                                                            style={{
+                                                                width: '100%',
+                                                                height: barHeight,
+                                                                backgroundColor: levelColor(cell.avg!),
+                                                                borderTopLeftRadius: 3,
+                                                                borderTopRightRadius: 3
+                                                            }}
+                                                        />
+                                                    )}
+                                                </View>
+                                                {hour % 3 === 0 ? (
+                                                    <Text className="text-gray-400 mt-1" style={{ fontSize: 9 }}>{hour}</Text>
+                                                ) : (
+                                                    <Text style={{ fontSize: 9 }}> </Text>
+                                                )}
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            </ScrollView>
+
+                            {!hasDayData && (
+                                <Text className="text-gray-500 text-sm text-center mt-2">{t('field.noDayData')}</Text>
+                            )}
+
+                            <View className="flex-row justify-center mt-3" style={{ gap: 12 }}>
+                                {[
+                                    { color: '#22c55e', label: t('field.empty') },
+                                    { color: '#eab308', label: t('field.light') },
+                                    { color: '#f97316', label: t('field.moderate') },
+                                    { color: '#ef4444', label: t('field.crowded') }
+                                ].map(item => (
+                                    <View key={item.label} className="flex-row items-center">
+                                        <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: item.color, marginRight: 4 }} />
+                                        <Text className="text-gray-500 text-xs">{item.label}</Text>
                                     </View>
                                 ))}
                             </View>
-
-                            <Text className="text-gray-500 text-sm mt-3">
-                                {!field.price || field.price <= 0
-                                    ? t('field.freePrice')
-                                    : t('field.pricePerHour', { price: field.price })}
-                            </Text>
                         </View>
-                    </View>
+                    </>
+                )}
+            </ScrollView>
 
-                    {analytics && (
+            {/* Crowdsource Feedback Widget — flex footer inside SafeAreaView, not absolute */}
+            {userId && (
+                <View className="bg-white border-t border-gray-200 px-4 pt-4 pb-2 shadow-lg">
+                    {reportState === 'done' ? (
+                        <Text className="text-center font-bold text-gray-800 py-2">{t('field.thanks')}</Text>
+                    ) : (
                         <>
-                            {/* JoinUp Roster Schedule */}
-                            <View className="bg-white p-4 mb-4 shadow-sm">
-                                <Text className="text-lg font-bold text-gray-800 mb-3">{t('field.upcomingGames')}</Text>
-                                {analytics.schedule.length === 0 ? (
-                                    <Text className="text-gray-500 text-sm">{t('field.noUpcomingGames')}</Text>
-                                ) : (
-                                    <FlatList
-                                        horizontal
-                                        showsHorizontalScrollIndicator={false}
-                                        data={analytics.schedule}
-                                        keyExtractor={g => g.id}
-                                        renderItem={renderScheduleItem}
-                                    />
-                                )}
-                            </View>
-
-                            {/* Visual Busy Times Chart */}
-                            <View className="bg-white p-4 mb-4 shadow-sm">
-                                <Text className="text-lg font-bold text-gray-800">{t('field.busyTimes')}</Text>
-                                <Text className="text-gray-400 text-xs mb-3">
-                                    {t('field.busySubtitle', { count: analytics.totalReports, days: analytics.reportWindowDays })}
-                                </Text>
-
-                                {/* Day selector */}
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
-                                    {[0, 1, 2, 3, 4, 5, 6].map(d => (
-                                        <TouchableOpacity
-                                            key={d}
-                                            onPress={() => setSelectedDay(d)}
-                                            className={`mr-2 px-3 py-1.5 rounded-full border ${selectedDay === d ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
-                                        >
-                                            <Text className={selectedDay === d ? 'text-white font-bold text-xs' : 'text-gray-700 text-xs'}>
-                                                {t(`field.day${d}`)}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-
-                                {/* Bar chart drawn with plain Views */}
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                    <View className="flex-row items-end" style={{ height: CHART_MAX_HEIGHT + 24 }}>
-                                        {dayCells.map((cell, hour) => {
-                                            const hasData = cell.samples > 0 && cell.avg !== null;
-                                            const barHeight = hasData ? Math.max(6, (cell.avg! / 5) * CHART_MAX_HEIGHT) : 0;
-                                            return (
-                                                <View key={hour} className="items-center" style={{ width: 22 }}>
-                                                    {/* Faint full-height track = "no data" placeholder, distinct from an empty (green) bar */}
-                                                    <View
-                                                        style={{
-                                                            width: 14,
-                                                            height: CHART_MAX_HEIGHT,
-                                                            backgroundColor: 'rgba(128,128,128,0.08)',
-                                                            borderRadius: 3,
-                                                            justifyContent: 'flex-end',
-                                                            overflow: 'hidden'
-                                                        }}
-                                                    >
-                                                        {hasData && (
-                                                            <View
-                                                                style={{
-                                                                    width: '100%',
-                                                                    height: barHeight,
-                                                                    backgroundColor: levelColor(cell.avg!),
-                                                                    borderTopLeftRadius: 3,
-                                                                    borderTopRightRadius: 3
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </View>
-                                                    {hour % 3 === 0 ? (
-                                                        <Text className="text-gray-400 mt-1" style={{ fontSize: 9 }}>{hour}</Text>
-                                                    ) : (
-                                                        <Text style={{ fontSize: 9 }}> </Text>
-                                                    )}
-                                                </View>
-                                            );
-                                        })}
-                                    </View>
-                                </ScrollView>
-
-                                {!hasDayData && (
-                                    <Text className="text-gray-500 text-sm text-center mt-2">{t('field.noDayData')}</Text>
-                                )}
-
-                                {/* Legend */}
-                                <View className="flex-row justify-center mt-3" style={{ gap: 12 }}>
-                                    {[
-                                        { color: '#22c55e', label: t('field.empty') },
-                                        { color: '#eab308', label: t('field.light') },
-                                        { color: '#f97316', label: t('field.moderate') },
-                                        { color: '#ef4444', label: t('field.crowded') }
-                                    ].map(item => (
-                                        <View key={item.label} className="flex-row items-center">
-                                            <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: item.color, marginRight: 4 }} />
-                                            <Text className="text-gray-500 text-xs">{item.label}</Text>
-                                        </View>
-                                    ))}
-                                </View>
+                            <Text className="font-bold text-gray-800 mb-2 text-center">{t('field.busyNow')}</Text>
+                            <View className="flex-row justify-center pb-1" style={{ gap: 10 }}>
+                                {[
+                                    { label: t('field.empty'), level: 1, bg: 'bg-green-100 border-green-300', text: 'text-green-700' },
+                                    { label: t('field.moderate'), level: 3, bg: 'bg-orange-100 border-orange-300', text: 'text-orange-700' },
+                                    { label: t('field.crowded'), level: 5, bg: 'bg-red-100 border-red-300', text: 'text-red-700' }
+                                ].map(opt => (
+                                    <TouchableOpacity
+                                        key={opt.level}
+                                        disabled={reportState === 'submitting'}
+                                        onPress={() => submitReport(opt.level)}
+                                        className={`px-5 py-2 rounded-full border ${opt.bg} ${reportState === 'submitting' ? 'opacity-50' : ''}`}
+                                    >
+                                        <Text className={`font-bold ${opt.text}`}>{opt.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
                             </View>
                         </>
                     )}
-                </ScrollView>
-
-                {/* Crowdsource Feedback Widget (sticky footer) */}
-                {userId && (
-                    <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-6 shadow-lg">
-                        {reportState === 'done' ? (
-                            <Text className="text-center font-bold text-gray-800 py-2">{t('field.thanks')}</Text>
-                        ) : (
-                            <>
-                                <Text className="font-bold text-gray-800 mb-2 text-center">{t('field.busyNow')}</Text>
-                                <View className="flex-row justify-center" style={{ gap: 10 }}>
-                                    {[
-                                        { label: t('field.empty'), level: 1, bg: 'bg-green-100 border-green-300', text: 'text-green-700' },
-                                        { label: t('field.moderate'), level: 3, bg: 'bg-orange-100 border-orange-300', text: 'text-orange-700' },
-                                        { label: t('field.crowded'), level: 5, bg: 'bg-red-100 border-red-300', text: 'text-red-700' }
-                                    ].map(opt => (
-                                        <TouchableOpacity
-                                            key={opt.level}
-                                            disabled={reportState === 'submitting'}
-                                            onPress={() => submitReport(opt.level)}
-                                            className={`px-5 py-2 rounded-full border ${opt.bg} ${reportState === 'submitting' ? 'opacity-50' : ''}`}
-                                        >
-                                            <Text className={`font-bold ${opt.text}`}>{opt.label}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </>
-                        )}
-                    </View>
-                )}
-            </View>
-        </>
+                </View>
+            )}
+        </SafeAreaView>
     );
 }
