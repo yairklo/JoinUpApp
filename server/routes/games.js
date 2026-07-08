@@ -3,6 +3,7 @@ const dataManager = require('../utils/dataManager');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { PrismaClient, SportType } = require('@prisma/client');
 const { NotificationService } = require('../services/notificationService');
+const { getActiveGameStartCutoff, buildActiveGameStartFilter } = require('../utils/timezone');
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
@@ -163,10 +164,9 @@ router.get('/public', async (req, res) => {
     if (fieldId) where.AND.push({ fieldId: String(fieldId) });
     if (typeof isOpenToJoin !== 'undefined') where.AND.push({ isOpenToJoin: String(isOpenToJoin) === 'true' });
     if (date) {
-      const d = new Date(String(date));
-      const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-      const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-      where.AND.push({ start: { gte: startOfDay, lte: endOfDay } });
+      where.AND.push({ start: buildActiveGameStartFilter(date) });
+    } else {
+      where.AND.push({ start: { gte: getActiveGameStartCutoff() } });
     }
 
     const games = await prisma.game.findMany({
@@ -187,13 +187,13 @@ router.get('/public', async (req, res) => {
 router.get('/my', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const now = new Date();
+    const cutoff = getActiveGameStartCutoff();
 
     const games = await prisma.game.findMany({
       where: {
         AND: [
           { status: 'OPEN' },
-          { start: { gte: now } },
+          { start: { gte: cutoff } },
           {
             OR: [
               { participants: { some: { userId } } },
@@ -262,12 +262,12 @@ router.get('/friends', authenticateToken, async (req, res) => {
     }
 
     const visibility = buildVisibilityWhere(userId);
-    const now = new Date(); // Future games
+    const cutoff = getActiveGameStartCutoff();
     const games = await prisma.game.findMany({
       where: {
         AND: [
           visibility,
-          { start: { gte: now } },
+          { start: { gte: cutoff } },
           { participants: { some: { userId: { in: friendIds } } } },
           { participants: { none: { userId: userId } } }
         ]
@@ -291,12 +291,12 @@ router.get('/city', attachOptionalUser, async (req, res) => {
     if (!city) return res.json([]);
 
     const visibility = buildVisibilityWhere(req.user?.id);
-    const now = new Date();
+    const cutoff = getActiveGameStartCutoff();
     const games = await prisma.game.findMany({
       where: {
         AND: [
           visibility,
-          { start: { gte: now } },
+          { start: { gte: cutoff } },
           { field: { city: { equals: String(city), mode: 'insensitive' } } }
         ]
       },
@@ -712,8 +712,9 @@ router.patch('/:id', authenticateToken, async (req, res) => {
 router.get('/', attachOptionalUser, async (req, res) => {
   try {
     const visibility = buildVisibilityWhere(req.user?.id);
+    const cutoff = getActiveGameStartCutoff();
     const games = await prisma.game.findMany({
-      where: visibility,
+      where: { AND: [visibility, { start: { gte: cutoff } }] },
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
@@ -772,14 +773,10 @@ router.get('/search', attachOptionalUser, async (req, res) => {
     }
 
     if (date) {
-      const d = new Date(String(date));
-      const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-      const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-      where.start = { gte: startOfDay, lte: endOfDay };
+      where.start = buildActiveGameStartFilter(date);
     } else {
-      // If no specific date is provided, filter out past games from the database level.
-      // This prevents deduplicateSeriesGames from keeping an old past game and hiding future games.
-      where.start = { gte: new Date() };
+      // Filter out games that started more than 30 minutes ago.
+      where.start = { gte: getActiveGameStartCutoff() };
     }
     
     if (sport) {
@@ -848,8 +845,9 @@ router.get('/field/:fieldId', attachOptionalUser, async (req, res) => {
   try {
     const { fieldId } = req.params;
     const visibility = buildVisibilityWhere(req.user?.id);
+    const cutoff = getActiveGameStartCutoff();
     const games = await prisma.game.findMany({
-      where: { AND: [visibility, { fieldId }] },
+      where: { AND: [visibility, { fieldId }, { start: { gte: cutoff } }] },
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
@@ -863,12 +861,9 @@ router.get('/field/:fieldId', attachOptionalUser, async (req, res) => {
 // Get games by date
 router.get('/date/:date', attachOptionalUser, async (req, res) => {
   try {
-    const d = new Date(String(req.params.date));
-    const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-    const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
     const visibility = buildVisibilityWhere(req.user?.id);
     const games = await prisma.game.findMany({
-      where: { AND: [visibility, { start: { gte: startOfDay, lte: endOfDay } }] },
+      where: { AND: [visibility, { start: buildActiveGameStartFilter(req.params.date) }] },
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
@@ -883,11 +878,9 @@ router.get('/date/:date', attachOptionalUser, async (req, res) => {
 router.get('/today-city', attachOptionalUser, async (req, res) => {
   try {
     const { city } = req.query;
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const todayStr = new Date().toISOString().slice(0, 10);
     const where = {
-      start: { gte: startOfDay, lte: endOfDay },
+      start: buildActiveGameStartFilter(todayStr),
       ...(city ? { field: { city: { equals: String(city), mode: 'insensitive' } } } : {}),
     };
     const visibility = buildVisibilityWhere(req.user?.id);

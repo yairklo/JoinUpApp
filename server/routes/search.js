@@ -2,6 +2,7 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { authenticateToken } = require('../utils/auth');
+const { getActiveGameStartCutoff } = require('../utils/timezone');
 
 const router = express.Router();
 
@@ -83,11 +84,11 @@ router.get('/global', authenticateToken, async (req, res) => {
         take: 5,
       }),
 
-      // Games — public (not friends-only), open and upcoming.
+      // Games — public (not friends-only), open, upcoming or within 30-min grace.
       prisma.game.findMany({
         where: {
           status: 'OPEN',
-          start: { gte: new Date() },
+          start: { gte: getActiveGameStartCutoff() },
           isFriendsOnly: false,
           OR: gameOr,
         },
