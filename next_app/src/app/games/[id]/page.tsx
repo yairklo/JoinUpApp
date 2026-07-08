@@ -1,16 +1,13 @@
 import Avatar from "@/components/Avatar";
 import Chat from "@/components/Chat";
 import Link from "next/link";
-import LeaveGameButton from "@/components/LeaveGameButton";
-import JoinGameButton from "@/components/JoinGameButton";
-import GameHeaderCard from "@/components/GameHeaderCard";
-import { currentUser } from "@clerk/nextjs/server";
+import GameLiveSection from "@/components/GameLiveSection";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
-import PendingJoinRequests from "@/components/PendingJoinRequests";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -57,6 +54,7 @@ type Game = {
   friendsOnlyUntil?: string | null;
   isFriendsOnly?: boolean;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
   teamSize?: number | null;
   price?: number | null;
   chatRoomId?: string;
@@ -64,10 +62,11 @@ type Game = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-async function fetchGame(id: string): Promise<Game | null> {
+async function fetchGame(id: string, token?: string | null): Promise<Game | null> {
   try {
     const res = await fetch(`${API_BASE}/api/games/${id}`, {
       cache: "no-store",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) return null;
     const game = await res.json();
@@ -85,7 +84,9 @@ export default async function GameDetails(props: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await props.params;
-  const game = await fetchGame(id);
+  const { getToken } = await auth();
+  const token = await getToken().catch(() => null);
+  const game = await fetchGame(id, token);
   const user = await currentUser();
   const userId = user?.id || "";
   const joined = !!userId && (game?.participants || []).some((p) => p.id === userId);
@@ -112,34 +113,33 @@ export default async function GameDetails(props: {
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Header Section */}
         <Box mb={4}>
-          <GameHeaderCard
-            time={game.time}
-            date={game.date}
-            durationHours={game.duration ?? 1}
-            title={game.title || game.fieldName}
-            subtitle={game.title ? `${game.fieldName} • ${game.fieldLocation}` : game.fieldLocation}
-            currentPlayers={headerCount}
-            maxPlayers={game.maxPlayers}
-            sport={game.sport}
-            teamSize={game.teamSize}
-            price={game.price}
-          >
-            {joined ? (
-              <LeaveGameButton gameId={game.id} currentPlayers={game.participants.length || 0} />
-            ) : (
-              <JoinGameButton
-                gameId={game.id}
-                registrationOpensAt={game.registrationOpensAt}
-                joinPolicy={game.joinPolicy}
-              />
-            )}
-          </GameHeaderCard>
+          <GameLiveSection
+            initialGame={{
+              id: game.id,
+              time: game.time,
+              date: game.date,
+              duration: game.duration,
+              title: game.title,
+              fieldName: game.fieldName,
+              fieldLocation: game.fieldLocation,
+              currentPlayers: headerCount,
+              maxPlayers: game.maxPlayers,
+              sport: game.sport,
+              teamSize: game.teamSize,
+              price: game.price,
+              participants: game.participants,
+              registrationOpensAt: game.registrationOpensAt,
+              joinPolicy: game.joinPolicy,
+              viewerParticipationStatus: game.viewerParticipationStatus,
+              lotteryEnabled: game.lotteryEnabled,
+              lotteryPending: game.lotteryPending,
+              totalSignups: game.totalSignups,
+            }}
+            viewerId={userId}
+            canManageSeries={canManageSeries}
+          />
 
           <Box mt={2}>
-            {canManageSeries && game.joinPolicy === "REQUIRES_APPROVAL" && (
-              <PendingJoinRequests gameId={game.id} />
-            )}
-
             <GameActions
               gameId={game.id}
               fieldName={game.fieldName}

@@ -9,11 +9,15 @@ import { useTranslation } from "react-i18next";
 export default function JoinGameButton({
     gameId,
     registrationOpensAt,
+    joinPolicy,
+    viewerParticipationStatus,
     onJoined,
     onRequestSent
 }: {
     gameId: string;
     registrationOpensAt?: string | null;
+    joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
+    viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
     onJoined?: () => void;
     onRequestSent?: () => void;
 }) {
@@ -22,7 +26,11 @@ export default function JoinGameButton({
     const { t } = useTranslation();
     const { notifyGameUpdate } = useGameUpdate();
     const [loading, setLoading] = useState(false);
-    const [pending, setPending] = useState(false);
+    // Seed from server-provided status so a hard refresh doesn't forget an in-flight request.
+    const [pending, setPending] = useState(viewerParticipationStatus === "PENDING");
+    // A REQUIRES_APPROVAL rejection is terminal (server blocks re-requesting); an INSTANT game lets
+    // a previously-rejected user join normally, so this only locks the button for the approval flow.
+    const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
 
     const now = new Date();
     const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
@@ -63,6 +71,18 @@ export default function JoinGameButton({
         );
     }
 
+    if (isRejectedTerminal) {
+        return (
+            <TouchableOpacity
+                disabled
+                className="bg-gray-100 flex-row items-center justify-center p-3 rounded-xl border border-gray-200"
+            >
+                <Ionicons name="close-circle-outline" size={16} color="#6b7280" />
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 font-bold flex-shrink">{t("game.requestRejected")}</Text>
+            </TouchableOpacity>
+        );
+    }
+
     if (isRegistrationClosed && openDate) {
         const timeStr = openDate.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });
         return (
@@ -87,7 +107,9 @@ export default function JoinGameButton({
             ) : (
                 <>
                     <Ionicons name="add" size={20} color="white" />
-                    <Text numberOfLines={1} ellipsizeMode="tail" className="ml-1 text-white font-bold text-base flex-shrink">{t("game.join")}</Text>
+                    <Text numberOfLines={1} ellipsizeMode="tail" className="ml-1 text-white font-bold text-base flex-shrink">
+                        {joinPolicy === "REQUIRES_APPROVAL" ? t("game.requestToJoin") : t("game.join")}
+                    </Text>
                 </>
             )}
         </TouchableOpacity>

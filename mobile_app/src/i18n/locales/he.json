@@ -80,7 +80,12 @@
     "noJoinRequests": "אין בקשות הצטרפות ממתינות",
     "approve": "אשר",
     "reject": "דחה",
-    "requiresApproval": "דורש אישור הצטרפות"
+    "requiresApproval": "דורש אישור הצטרפות",
+    "requestToJoin": "בקש להצטרף",
+    "requestRejected": "הבקשה נדחתה",
+    "rejectedRequests": "בקשות שנדחו",
+    "approveAnyway": "אשר בכל זאת",
+    "noRejectedRequests": "אין בקשות שנדחו"
   },
   "newGame": {
     "sport": "ספורט",

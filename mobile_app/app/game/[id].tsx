@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal, Share, Linking } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { gamesApi } from '@/services/api';
@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSeriesLogic } from '@/hooks/useSeriesLogic';
 import { useTranslation } from 'react-i18next';
 import PendingRequestsList from '@/components/PendingRequestsList';
+import { useGameUpdatedListener } from '@/context/GameUpdateContext';
 
 export default function GameDetailsScreen() {
     const { t } = useTranslation();
@@ -32,6 +33,14 @@ export default function GameDetailsScreen() {
     useEffect(() => {
         fetchGame();
     }, [id]);
+
+    // Live roster sync: any join/leave/approve/reject anywhere pushes a fresh, personalized
+    // snapshot of this game to everyone with a stake in it (organizer, managers, participants).
+    useGameUpdatedListener(useCallback(({ game: updatedGame }) => {
+        if (updatedGame?.id === id) {
+            setGame(updatedGame);
+        }
+    }, [id]));
 
     const fetchGame = async () => {
         try {
@@ -62,7 +71,7 @@ export default function GameDetailsScreen() {
             } else {
                 Alert.alert("Success", "הצטרפת למשחק!");
             }
-            fetchGame(); // Refresh
+            setGame(result);
         } catch (err: any) {
             Alert.alert("Error", err.response?.data?.error || "Failed to join game");
         } finally {
@@ -305,7 +314,13 @@ export default function GameDetailsScreen() {
 
                 {/* Pending Join Requests (organizer/manager only) */}
                 {isOrganizer && game.joinPolicy === 'REQUIRES_APPROVAL' && (
-                    <PendingRequestsList gameId={game.id} onDecision={fetchGame} />
+                    <PendingRequestsList
+                        gameId={game.id}
+                        onDecision={(updatedGame) => {
+                            if (updatedGame) setGame(updatedGame);
+                            else fetchGame();
+                        }}
+                    />
                 )}
 
                 {/* Actions Section */}

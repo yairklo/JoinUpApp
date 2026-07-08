@@ -99,7 +99,7 @@ export const gamesApi = {
     },
 
     getJoinRequests: (gameId: string, token: string) => {
-        return apiClient<{ requests: JoinRequest[] }>(`/api/games/${gameId}/join-requests`, { token });
+        return apiClient<{ requests: JoinRequest[]; rejected: JoinRequest[] }>(`/api/games/${gameId}/join-requests`, { token });
     },
 
     approveJoinRequest: (gameId: string, userId: string, token: string) => {

@@ -24,11 +24,14 @@ export default function NotificationsScreen() {
             markAsRead(notification.id);
         }
 
-        if (notification.data?.link) {
-            // Need to parse string link to expo router path if necessary, 
-            // but for now assuming compatible paths like /game/[id]
+        // Prefer building the route from the notification's gameId — the raw `link` string is
+        // shared across platforms and web sends it as `/games/[id]` (plural), which doesn't match
+        // Expo Router's `/game/[id]`. Fall back to the raw link for non-game notification types.
+        const gameId = notification.data?.gameId;
+        const target = gameId ? `/game/${gameId}` : notification.data?.link;
+        if (target) {
             try {
-                router.push(notification.data.link);
+                router.push(target);
             } catch (e) {
                 console.error("Navigation failed", e);
             }

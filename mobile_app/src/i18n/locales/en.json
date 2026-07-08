@@ -80,7 +80,12 @@
     "noJoinRequests": "No pending join requests",
     "approve": "Approve",
     "reject": "Reject",
-    "requiresApproval": "Requires approval to join"
+    "requiresApproval": "Requires approval to join",
+    "requestToJoin": "Request to Join",
+    "requestRejected": "Request declined",
+    "rejectedRequests": "Rejected Requests",
+    "approveAnyway": "Approve Anyway",
+    "noRejectedRequests": "No rejected requests"
   },
   "newGame": {
     "sport": "Sport",

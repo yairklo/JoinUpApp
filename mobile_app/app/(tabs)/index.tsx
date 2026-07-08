@@ -60,6 +60,8 @@ export default function HomeScreen() {
               <JoinGameButton
                 gameId={item.id}
                 registrationOpensAt={item.registrationOpensAt}
+                joinPolicy={item.joinPolicy}
+                viewerParticipationStatus={item.viewerParticipationStatus}
                 onJoined={() => { }}
               />
             )}
