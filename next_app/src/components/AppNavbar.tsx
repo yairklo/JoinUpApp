@@ -22,6 +22,7 @@ import Brightness4Icon from "@mui/icons-material/Brightness4"; // Moon
 import Brightness7Icon from "@mui/icons-material/Brightness7"; // Sun
 import PersonIcon from "@mui/icons-material/Person";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import StadiumIcon from "@mui/icons-material/Stadium";
 import Badge from "@mui/material/Badge";
 
 // Internal Components & Context
@@ -89,6 +90,23 @@ export default function AppNavbar() {
                 }}
               >
                 Find Games
+              </Button>
+            </Link>
+
+            {/* Fields Link */}
+            <Link href="/fields" passHref style={{ textDecoration: "none" }}>
+              <Button
+                variant="text"
+                color="inherit"
+                startIcon={<StadiumIcon />}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 600,
+                  color: "text.secondary",
+                  "&:hover": { color: "primary.main", bgcolor: "transparent" }
+                }}
+              >
+                Fields
               </Button>
             </Link>
           </Stack>
