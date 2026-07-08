@@ -6,6 +6,7 @@ import { TouchableOpacity, Text, View, Appearance, useColorScheme, Image } from 
 import i18n, { changeLanguage } from '@/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
+import { useNotificationCounters } from '@/context/NotificationCountersContext';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
@@ -18,6 +19,7 @@ export default function TabLayout() {
   const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const { user } = useUser();
+  const { friendRequests, unreadMessages } = useNotificationCounters();
 
   // Memoized so it doesn't re-create on every render
   const HeaderRight = useCallback(() => (
@@ -82,6 +84,7 @@ export default function TabLayout() {
         options={{
           title: t('tabs.chats'),
           tabBarIcon: ({ color }) => <TabBarIcon name="comments" color={color} />,
+          tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
         }}
       />
       <Tabs.Screen
@@ -89,6 +92,7 @@ export default function TabLayout() {
         options={{
           title: t('tabs.friends'),
           tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+          tabBarBadge: friendRequests > 0 ? friendRequests : undefined,
         }}
       />
     </Tabs>

@@ -7,9 +7,18 @@ export interface UserProfile {
     // Add other fields
 }
 
+export interface NotificationCounters {
+    friendRequests: number;
+    unreadMessages: number;
+}
+
 export const usersApi = {
     getProfile: (userId: string, token?: string) => {
         return apiClient<UserProfile>(`/api/users/${userId}`, { token });
+    },
+
+    getNotificationCounters: (token: string) => {
+        return apiClient<NotificationCounters>('/api/users/notifications/counts', { token });
     },
 
     getFriends: (userId: string, token: string) => {

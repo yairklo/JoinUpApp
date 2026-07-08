@@ -14,9 +14,18 @@ export interface UserProfile {
     positions?: { id: string; name: string; sportId: string }[];
 }
 
+export interface NotificationCounters {
+    friendRequests: number;
+    unreadMessages: number;
+}
+
 export const usersApi = {
     getProfile: (userId: string, token: string) => {
         return apiClient<UserProfile>(`/api/users/${userId}`, { token });
+    },
+
+    getNotificationCounters: (token: string) => {
+        return apiClient<NotificationCounters>('/api/users/notifications/counts', { token });
     },
 
     updateProfile: (userId: string, data: any, token: string) => {

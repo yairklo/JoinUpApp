@@ -18,6 +18,7 @@ const notificationsRoutes = require('./routes/notifications');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission } = require('./utils/chatAuth');
 const { NotificationService } = require('./services/notificationService');
+const { broadcastCounters } = require('./services/counterService');
 
 // Moderation
 const { moderator } = require('./moderationInstance');
@@ -590,6 +591,10 @@ io.on('connection', async (socket) => {
           const online = isUserOnline(recipientId);
           console.log(`[DEBUG NOTIFICATIONS] Recipient ${recipientId} online=${online}`);
 
+          // Refresh the recipient's Navbar/Tab unread-messages badge regardless of
+          // online status (they may be connected but viewing a different screen).
+          broadcastCounters(io, prisma, recipientId).catch(() => {});
+
           // Data Sync Event (Decoupled from Notifications) - only meaningful to connected clients
           io.to(`user_${recipientId}`).emit('chat:sync', {
             chatId: roomId,
@@ -754,6 +759,9 @@ io.on('connection', async (socket) => {
         status: 'read',
         readByUserId: String(userId)
       });
+
+      // 3. Refresh the reader's own Navbar/Tab unread-messages badge
+      broadcastCounters(io, prisma, String(userId)).catch(() => {});
 
     } catch (e) {
       console.error('markAsRead error:', e);

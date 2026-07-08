@@ -2,6 +2,7 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../utils/auth');
 const { NotificationService } = require('../services/notificationService');
+const { getCounters, broadcastCounters } = require('../services/counterService');
 const router = express.Router();
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
@@ -124,6 +125,20 @@ router.get('/search', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('[Backend User Search] ❌ Error:', error);
     res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
+// GET /api/users/notifications/counts - Aggregated Navbar/Tab badge counters
+// (pending friend requests awaiting the caller's decision + unread chat messages
+// across all rooms the caller belongs to). Kept as a static route, registered
+// before any '/:id'-style routes below to avoid path collisions.
+router.get('/notifications/counts', authenticateToken, async (req, res) => {
+  try {
+    const counters = await getCounters(prisma, req.user.id);
+    res.json(counters);
+  } catch (e) {
+    console.error('Get notification counters error:', e);
+    res.status(500).json({ error: 'Failed to fetch notification counters' });
   }
 });
 
@@ -358,6 +373,8 @@ router.post('/requests', authenticateToken, async (req, res) => {
         req.app.get('io') // Get Socket.IO instance from app
       ).catch(err => console.error('[NOTIFICATION] Failed to send friend request notification:', err));
 
+      broadcastCounters(req.app.get('io'), prisma, receiverId).catch(() => {});
+
       res.status(201).json(fr);
     } catch (err) {
       // handle unique race condition
@@ -419,6 +436,9 @@ router.post('/requests/:id/accept', authenticateToken, async (req, res) => {
       req.app.get('io')
     ).catch(err => console.error('[NOTIFICATION] Failed to send friend accepted notification:', err));
 
+    // The accepter's pending-request badge count just dropped by one.
+    broadcastCounters(req.app.get('io'), prisma, req.user.id).catch(() => {});
+
     res.json({ ok: true });
   } catch (e) {
     console.error('Accept request error:', e);
@@ -432,6 +452,10 @@ router.post('/requests/:id/decline', authenticateToken, async (req, res) => {
     const reqRow = await prisma.friendRequest.findUnique({ where: { id: req.params.id } });
     if (!reqRow || reqRow.receiverId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
     await prisma.friendRequest.update({ where: { id: reqRow.id }, data: { status: 'DECLINED' } });
+
+    // The decliner's pending-request badge count just dropped by one.
+    broadcastCounters(req.app.get('io'), prisma, req.user.id).catch(() => {});
+
     res.json({ ok: true });
   } catch (e) {
     console.error('Decline request error:', e);
