@@ -10,6 +10,12 @@ export const SPORT_MAPPING: Record<string, string> = {
     TENNIS: "טניס"
 };
 
+export const SPORT_EMOJI: Record<string, string> = {
+    SOCCER: "⚽",
+    BASKETBALL: "🏀",
+    TENNIS: "🎾"
+};
+
 export type SportType = keyof typeof SPORT_IMAGES;
 export type SportFilter = SportType | "ALL";
 

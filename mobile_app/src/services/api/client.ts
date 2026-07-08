@@ -60,7 +60,9 @@ export async function apiClient<T>(endpoint: string, { token, data, ...customCon
             if (!customConfig.silent) {
                 console.error("API Error Details:", errorBody);
             }
-            throw new Error(errorBody.error || `API Error: ${response.statusText}`);
+            const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number };
+            err.status = response.status;
+            throw err;
         }
 
         // Return empty object for 204 No Content

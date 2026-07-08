@@ -37,6 +37,7 @@ import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import SearchIcon from "@mui/icons-material/Search";
+import SettingsIcon from "@mui/icons-material/Settings";
 
 // MUI Form
 
@@ -271,13 +272,21 @@ export default function ProfilePage() {
                       </Typography>
                     </Box>
                     {!editing && (
-                      <Button
-                        startIcon={<EditIcon />}
-                        variant="outlined"
-                        onClick={() => setEditing(true)}
-                      >
-                        Edit Profile
-                      </Button>
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          startIcon={<EditIcon />}
+                          variant="outlined"
+                          onClick={() => setEditing(true)}
+                        >
+                          Edit Profile
+                        </Button>
+                        <IconButton
+                          aria-label="privacy settings"
+                          onClick={() => router.push("/profile/settings")}
+                        >
+                          <SettingsIcon />
+                        </IconButton>
+                      </Stack>
                     )}
                   </Box>
 

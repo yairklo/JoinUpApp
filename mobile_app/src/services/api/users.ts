@@ -1,5 +1,38 @@
 import { apiClient } from './client';
 
+export type PrivacyLevel = 'EVERYONE' | 'FRIENDS_ONLY';
+
+export interface SportStat {
+    sport: string;
+    count: number;
+}
+
+export interface ProfileFriend {
+    id: string;
+    name: string | null;
+    imageUrl?: string | null;
+}
+
+export interface ProfileMatch {
+    id: string;
+    title?: string | null;
+    sport?: string | null;
+    start: string;
+    date?: string;
+    time?: string;
+}
+
+export interface PrivacySettings {
+    privacyFriends: PrivacyLevel | null;
+    privacyGames: PrivacyLevel | null;
+    privacyMessages: PrivacyLevel | null;
+    resolved: {
+        privacyFriends: PrivacyLevel;
+        privacyGames: PrivacyLevel;
+        privacyMessages: PrivacyLevel;
+    };
+}
+
 export interface UserProfile {
     id: string;
     name: string;
@@ -12,6 +45,11 @@ export interface UserProfile {
     birthDate?: string | null;
     sports?: { id: string; name: string; position?: string | null }[];
     positions?: { id: string; name: string; sportId: string }[];
+    sections?: { friends: boolean; matchHistory: boolean };
+    friends?: ProfileFriend[] | null;
+    matchHistory?: ProfileMatch[] | null;
+    sportStats?: SportStat[];
+    privacySettings?: PrivacySettings;
 }
 
 export interface NotificationCounters {
@@ -79,5 +117,23 @@ export const usersApi = {
 
     search: (query: string, token: string) => {
         return apiClient<any[]>(`/api/users/search?q=${encodeURIComponent(query)}`, { token });
+    },
+
+    updatePrivacySettings: (
+        data: Partial<Record<'privacyFriends' | 'privacyGames' | 'privacyMessages', PrivacyLevel | null>>,
+        token: string
+    ) => {
+        return apiClient<PrivacySettings>('/api/users/profile/settings', {
+            method: 'PUT',
+            data,
+            token,
+        });
+    },
+
+    getMatchHistory: (userId: string, skip: number, take: number, token: string) => {
+        return apiClient<ProfileMatch[]>(
+            `/api/users/${userId}/match-history?skip=${skip}&take=${take}`,
+            { token }
+        );
     }
 };

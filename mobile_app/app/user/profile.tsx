@@ -185,9 +185,15 @@ export default function ProfileScreen() {
                 <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
                     <FontAwesome name="chevron-right" size={18} color="#374151" />
                 </TouchableOpacity>
-                <Text className="flex-1 text-center font-extrabold text-lg mr-10 text-gray-900">
+                <Text className="flex-1 text-center font-extrabold text-lg text-gray-900">
                     {t('profile.personalDetails', 'הפרופיל שלי')}
                 </Text>
+                <TouchableOpacity
+                    onPress={() => router.push('/profile/settings')}
+                    className="w-10 h-10 items-center justify-center"
+                >
+                    <FontAwesome name="cog" size={20} color="#374151" />
+                </TouchableOpacity>
             </View>
 
             <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }}>

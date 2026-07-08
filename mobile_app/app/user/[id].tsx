@@ -2,10 +2,13 @@ import { View, Text, ActivityIndicator, Image, TouchableOpacity, ScrollView, Ale
 import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/clerk-expo';
-import { usersApi, UserProfile } from '../../src/services/api/users';
+import { usersApi, UserProfile, ProfileMatch } from '../../src/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
+
+const PAGE_SIZE = 5;
 
 export default function UserProfileScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,6 +23,11 @@ export default function UserProfileScreen() {
     // Relationship state: 'friends', 'pending_incoming', 'pending_outgoing', 'none', 'self'
     const [relationship, setRelationship] = useState<string>('none');
     const [actionLoading, setActionLoading] = useState(false);
+
+    // Match history pagination
+    const [matches, setMatches] = useState<ProfileMatch[]>([]);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     useEffect(() => {
         if (!id || !currentUser?.id) return;
@@ -43,6 +51,9 @@ export default function UserProfileScreen() {
             // Fetch profile
             const profileData = await usersApi.getProfile(id, token);
             setProfile(profileData);
+            const initialMatches = profileData.matchHistory || [];
+            setMatches(initialMatches);
+            setHasMore(initialMatches.length === PAGE_SIZE);
 
             // Fetch relationships to determine status
             const [friends, incoming, outgoing] = await Promise.all([
@@ -113,6 +124,21 @@ export default function UserProfileScreen() {
             Alert.alert(t('error', 'Error'), t('failedToAccept', 'Failed to accept request.'));
         } finally {
             setActionLoading(false);
+        }
+    };
+
+    const handleLoadMore = async () => {
+        setLoadingMore(true);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const next = await usersApi.getMatchHistory(id, matches.length, PAGE_SIZE, token);
+            setMatches((prev) => [...prev, ...next]);
+            setHasMore(next.length === PAGE_SIZE);
+        } catch (error) {
+            console.error('Failed to load more matches:', error);
+        } finally {
+            setLoadingMore(false);
         }
     };
 
@@ -218,9 +244,13 @@ export default function UserProfileScreen() {
                                         const res = await chatsApi.createPrivate(id, token);
                                         // navigate to the chat room
                                         router.push(`/chat/${res.chatId || res.id}`);
-                                    } catch (err) {
+                                    } catch (err: any) {
                                         console.error('Error starting chat', err);
-                                        Alert.alert(t('error', 'Error'), t('failedToStartChat', 'Failed to start chat.'));
+                                        if (err?.status === 403) {
+                                            Alert.alert(t('error', 'Error'), t('privacy.messagesBlocked', 'This user only accepts messages from friends'));
+                                        } else {
+                                            Alert.alert(t('error', 'Error'), t('failedToStartChat', 'Failed to start chat.'));
+                                        }
                                     } finally {
                                         setActionLoading(false);
                                     }
@@ -262,6 +292,93 @@ export default function UserProfileScreen() {
                         </View>
                     )}
                 </View>
+
+                {/* Friends (privacy-filtered) */}
+                {profile.sections?.friends && profile.friends && (
+                    <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
+                        <Text className="font-bold text-gray-900 text-lg mb-4">{t('privacy.friendsSection', 'Friends')}</Text>
+                        {profile.friends.length === 0 ? (
+                            <Text className="text-gray-400">{t('privacy.noFriends', 'No friends to show')}</Text>
+                        ) : (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled>
+                                {profile.friends.map((f) => (
+                                    <TouchableOpacity
+                                        key={f.id}
+                                        onPress={() => router.push(`/user/${f.id}`)}
+                                        className="items-center mr-4"
+                                        style={{ width: 72 }}
+                                    >
+                                        <Image
+                                            source={{ uri: f.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(f.name || 'U')}&size=100` }}
+                                            className="w-14 h-14 rounded-full mb-1 bg-gray-200"
+                                        />
+                                        <Text className="text-gray-700 text-xs text-center" numberOfLines={1}>{f.name || 'משתמש'}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        )}
+                    </View>
+                )}
+
+                {/* Match history (privacy-filtered) */}
+                {profile.sections?.matchHistory && profile.matchHistory && (
+                    <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
+                        <Text className="font-bold text-gray-900 text-lg mb-3">{t('privacy.matchHistory', 'Match History')}</Text>
+
+                        {/* Sport stats chips — contextualized right above the match feed */}
+                        {profile.sportStats && profile.sportStats.length > 0 && (
+                            <View className="flex-row flex-wrap mb-4">
+                                {profile.sportStats.map((s) => (
+                                    <View key={s.sport} className="bg-blue-50 px-3 py-1.5 rounded-full mr-2 mb-2 border border-blue-100">
+                                        <Text className="text-blue-700 text-sm font-semibold">
+                                            {(SPORT_EMOJI[s.sport] || '🏅')} {SPORT_MAPPING[s.sport] || s.sport} · {s.count}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+
+                        {matches.length === 0 ? (
+                            <Text className="text-gray-400">{t('privacy.noMatches', 'No past matches')}</Text>
+                        ) : (
+                            matches.map((m) => {
+                                const sportLabel = m.sport ? SPORT_MAPPING[m.sport] || m.sport : '';
+                                const emoji = m.sport ? SPORT_EMOJI[m.sport] || '🏅' : '🏅';
+                                const meta = [`${emoji} ${sportLabel}`, m.date, m.time].filter(Boolean).join(' · ');
+                                return (
+                                    <TouchableOpacity
+                                        key={m.id}
+                                        onPress={() => router.push(`/game/${m.id}`)}
+                                        className="flex-row items-center py-3 border-b border-gray-50"
+                                    >
+                                        <FontAwesome name="soccer-ball-o" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                                        <View className="flex-1">
+                                            <Text className="text-gray-800 font-medium">{m.title || sportLabel || 'משחק'}</Text>
+                                            <Text className="text-gray-500 text-xs mt-0.5">{meta}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })
+                        )}
+
+                        {hasMore && (
+                            <TouchableOpacity
+                                onPress={handleLoadMore}
+                                disabled={loadingMore}
+                                className="mt-4 py-3 rounded-xl border border-blue-200 bg-blue-50 items-center flex-row justify-center"
+                            >
+                                {loadingMore ? (
+                                    <ActivityIndicator size="small" color="#2563eb" />
+                                ) : (
+                                    <>
+                                        <FontAwesome name="chevron-down" size={13} color="#2563eb" style={{ marginRight: 8 }} />
+                                        <Text className="text-blue-600 font-bold">{t('privacy.loadMore', 'Load more games')}</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
 
             </ScrollView>
         </SafeAreaView>
