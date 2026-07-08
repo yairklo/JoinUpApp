@@ -1,5 +1,4 @@
 import { View, Text, RefreshControl, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useGamesByDate } from '@/hooks/useGamesByDate';
 import { Link, useRouter } from 'expo-router';
@@ -73,9 +72,9 @@ export default function HomeScreen() {
   }, [user]);
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-cyber-bg" edges={['top']}>
+    <View className="flex-1 bg-white dark:bg-cyber-bg">
       <ScrollView
-        className="flex-1 mt-2"
+        className="flex-1"
         contentContainerStyle={{ paddingVertical: 10, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
@@ -89,25 +88,28 @@ export default function HomeScreen() {
         {/* Global Search Omnibar — central discovery entry on the home feed */}
         <GlobalSearchOmnibar />
 
-        {/* Horizontal Sport Pills Filter */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4 pl-5 pr-5 flex-row">
-          <View className="flex-row pb-2">
-            {SPORTS.map((s) => {
-              const isActive = selectedSport === s.id;
-              return (
-                <TouchableOpacity
-                  key={s.id}
-                  onPress={() => setSelectedSport(s.id)}
-                  className={`px-4 py-2 rounded-full mr-3 border ${isActive ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'}`}
-                >
-                  <Text className={`font-bold text-sm ${isActive ? 'text-white' : 'text-gray-600'}`}>
-                    {s.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            <View className="w-5" />
-          </View>
+        {/* Horizontal Sport Pills Filter — rigid, static row that never stretches on scroll/re-render */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="mb-4"
+          contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 8 }}
+        >
+          {SPORTS.map((s) => {
+            const isActive = selectedSport === s.id;
+            return (
+              <TouchableOpacity
+                key={s.id}
+                onPress={() => setSelectedSport(s.id)}
+                style={{ flexShrink: 0, flexGrow: 0, alignSelf: 'center' }}
+                className={`w-auto px-4 py-2 rounded-full mr-3 border ${isActive ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'}`}
+              >
+                <Text className={`font-bold text-sm ${isActive ? 'text-white' : 'text-gray-600'}`}>
+                  {s.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         <MyGamesSection />
@@ -160,6 +162,6 @@ export default function HomeScreen() {
           <Ionicons name="add" size={36} color="white" />
         </TouchableOpacity>
       </Link>
-    </SafeAreaView>
+    </View>
   );
 }
