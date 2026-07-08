@@ -35,6 +35,13 @@
     "myGames": "My Games",
     "mySeries": "My Series"
   },
+  "omnibar": {
+    "placeholder": "Search people, fields or games...",
+    "people": "People",
+    "fields": "Fields",
+    "games": "Games",
+    "noResults": "No results found"
+  },
   "chats": {
     "players": "Players",
     "games": "Games",

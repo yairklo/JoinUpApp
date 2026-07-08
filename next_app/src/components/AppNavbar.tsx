@@ -30,6 +30,7 @@ import AuthButtons from "@/components/AuthButtons";
 import { ColorModeContext } from "@/components/theme/themeRegistry";
 import ChatList from "@/components/ChatList";
 import NotificationPanel from "@/components/NotificationPanel";
+import GlobalSearchOmnibar from "@/components/GlobalSearchOmnibar";
 import { useNotificationCounters } from "@/context/NotificationCountersContext";
 
 export default function AppNavbar() {
@@ -110,6 +111,24 @@ export default function AppNavbar() {
               </Button>
             </Link>
           </Stack>
+
+          {/* Global Search Omnibar — centered, capped at 400px, hidden on small viewports */}
+          {mounted && (
+            <ClerkLoaded>
+              <SignedIn>
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    display: { xs: "none", md: "flex" },
+                    justifyContent: "center",
+                    px: 2,
+                  }}
+                >
+                  <GlobalSearchOmnibar />
+                </Box>
+              </SignedIn>
+            </ClerkLoaded>
+          )}
 
           {/* Right Side Actions */}
           <Stack direction="row" alignItems="center" spacing={1}>
