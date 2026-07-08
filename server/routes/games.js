@@ -599,11 +599,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-<<<<<<< Updated upstream
-    const { time, date, start, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly, teamSize } = req.body || {};
-=======
-    const { time, date, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly, teamSize, joinPolicy } = req.body || {};
->>>>>>> Stashed changes
+    const { time, date, start, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly, teamSize, joinPolicy } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -1085,6 +1081,7 @@ router.post('/', authenticateToken, async (req, res) => {
                 maxPlayers: Number(maxPlayers),
                 isOpenToJoin: isOpenToJoin !== false,
                 isFriendsOnly: !!isFriendsOnly,
+                joinPolicy: joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 lotteryEnabled: !!lotteryEnabled,
                 ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
                 organizerInLottery: !!organizerInLottery,
@@ -1092,8 +1089,6 @@ router.post('/', authenticateToken, async (req, res) => {
                 organizerId: req.user.id,
                 participants: { create: participantsCreate },
                 roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
-                sport: sport || 'SOCCER',
-                registrationOpensAt: instanceRegOpen,
                 sport: sport || 'SOCCER',
                 registrationOpensAt: instanceRegOpen,
                 friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null,
@@ -1141,6 +1136,7 @@ router.post('/', authenticateToken, async (req, res) => {
                 maxPlayers: Number(maxPlayers),
                 isOpenToJoin: isOpenToJoin !== false,
                 isFriendsOnly: !!isFriendsOnly,
+                joinPolicy: joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 lotteryEnabled: !!lotteryEnabled,
                 ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
                 organizerInLottery: !!organizerInLottery,
