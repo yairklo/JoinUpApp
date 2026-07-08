@@ -46,6 +46,8 @@ export interface UserProfile {
     matchHistory?: ProfileMatch[] | null;
     sportStats?: SportStat[];
     privacySettings?: PrivacySettings;
+    ratingAverage?: number | null;
+    totalRatings?: number;
 }
 
 export interface NotificationCounters {

@@ -9,6 +9,12 @@ const {
   areConfirmedFriends,
   canViewSection,
 } = require('../utils/privacy');
+const {
+  isGameRatingEligible,
+  isConfirmedParticipant,
+  getUserRatingSummary,
+  validateScore,
+} = require('../utils/ratings');
 const router = express.Router();
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
@@ -286,6 +292,65 @@ function orderPair(a, b) {
   return a < b ? [a, b] : [b, a];
 }
 
+// POST /api/users/:id/rate — submit a one-shot 1–5 star rating for a teammate in a finished game.
+router.post('/:id/rate', authenticateToken, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const raterId = req.user.id;
+    const { gameId, score } = req.body || {};
+
+    if (!gameId) {
+      return res.status(400).json({ error: 'gameId is required' });
+    }
+    if (!validateScore(score)) {
+      return res.status(400).json({ error: 'score must be an integer between 1 and 5' });
+    }
+    if (raterId === targetId) {
+      return res.status(400).json({ error: 'Cannot rate yourself' });
+    }
+
+    const game = await prisma.game.findUnique({
+      where: { id: String(gameId) },
+      select: { id: true, start: true, status: true },
+    });
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    if (!isGameRatingEligible(game)) {
+      return res.status(400).json({ error: 'Game is not finished yet' });
+    }
+
+    const [raterOk, targetOk] = await Promise.all([
+      isConfirmedParticipant(gameId, raterId),
+      isConfirmedParticipant(gameId, targetId),
+    ]);
+    if (!raterOk || !targetOk) {
+      return res.status(403).json({ error: 'Both users must be confirmed participants in this game' });
+    }
+
+    try {
+      await prisma.userRating.create({
+        data: {
+          gameId: String(gameId),
+          raterId,
+          targetId,
+          score,
+        },
+      });
+    } catch (e) {
+      if (e.code === 'P2002') {
+        return res.status(409).json({ error: 'Already rated this player for this game' });
+      }
+      throw e;
+    }
+
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    console.error('Submit rating error:', error);
+    res.status(500).json({ error: 'Failed to submit rating' });
+  }
+});
+
 // Public user profile (safe fields) with privacy-aware Friends / Match History sections.
 router.get('/:id', attachOptionalUser, async (req, res) => {
   try {
@@ -316,8 +381,12 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     const showFriends = canViewSection({ effectivePrivacy: effFriends, isOwner, isFriend });
     const showGames = canViewSection({ effectivePrivacy: effGames, isOwner, isFriend });
 
+    const ratingSummary = await getUserRatingSummary(targetId);
+
     const payload = {
       ...mapUserPublic(user),
+      ratingAverage: ratingSummary.ratingAverage,
+      totalRatings: ratingSummary.totalRatings,
       sections: { friends: showFriends, matchHistory: showGames },
       friends: null,
       matchHistory: null,

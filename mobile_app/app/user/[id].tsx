@@ -177,6 +177,22 @@ export default function UserProfileScreen() {
                         className="w-32 h-32 rounded-full mb-4 bg-gray-200"
                     />
                     <Text className="text-2xl font-bold text-gray-900 mb-1">{profile.name}</Text>
+
+                    {/* Player rating aggregate */}
+                    {profile.totalRatings && profile.totalRatings > 0 && profile.ratingAverage != null ? (
+                        <View className="flex-row items-center justify-center mb-2">
+                            <Text className="text-amber-500 text-lg mr-1">★</Text>
+                            <Text className="text-gray-700 font-semibold">
+                                {t('ratings.average', {
+                                    score: profile.ratingAverage.toFixed(1),
+                                    count: profile.totalRatings,
+                                })}
+                            </Text>
+                        </View>
+                    ) : (
+                        <Text className="text-gray-400 text-sm mb-2">{t('ratings.noRatings')}</Text>
+                    )}
+
                     {profile.city && (
                         <View className="flex-row items-center">
                             <FontAwesome name="map-marker" size={16} color="#6b7280" className="mr-1" />

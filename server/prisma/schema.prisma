@@ -42,6 +42,8 @@ model User {
   notifications  Notification[]  @relation("UserNotifications")
   devices        UserDevice[]    @relation("UserDevices")
   notificationSettings UserNotificationSettings? @relation("UserNotificationSettings")
+  ratingsGiven         UserRating[] @relation("RatingsGiven")
+  ratingsReceived      UserRating[] @relation("RatingsReceived")
 }
 
 model Field {
@@ -140,6 +142,7 @@ model Game {
   participants Participation[]
   roles        GameRole[]
   teams        Team[]
+  ratings      UserRating[]
 
   @@index([start, status])
   @@index([sport])
@@ -173,7 +176,22 @@ model Participation {
   @@unique([gameId, userId])
 }
 
-// ... (Fields, Game, Participation models remain unchanged)
+/// Per-match player rating (1–5 stars). One row per rater→target per game.
+model UserRating {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  raterId   String
+  rater     User     @relation("RatingsGiven", fields: [raterId], references: [id], onDelete: Cascade)
+  targetId  String
+  target    User     @relation("RatingsReceived", fields: [targetId], references: [id], onDelete: Cascade)
+  score     Int
+  createdAt DateTime @default(now())
+
+  @@unique([gameId, raterId, targetId])
+  @@index([targetId])
+  @@index([gameId, raterId])
+}
 
 model ChatRoom {
   id           String            @id @default(cuid())
