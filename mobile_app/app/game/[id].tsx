@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSeriesLogic } from '@/hooks/useSeriesLogic';
 import { useTranslation } from 'react-i18next';
 import PendingRequestsList from '@/components/PendingRequestsList';
+import GameRatingsPanel from '@/components/GameRatingsPanel';
 import { useGameUpdatedListener } from '@/context/GameUpdateContext';
 
 export default function GameDetailsScreen() {
@@ -415,6 +416,10 @@ export default function GameDetailsScreen() {
                         </>
                     )}
                 </View>
+
+                {game.viewerParticipationStatus === 'CONFIRMED' && (
+                    <GameRatingsPanel gameId={game.id} />
+                )}
 
                 <View className="h-10" />
             </ScrollView>

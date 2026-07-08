@@ -4,6 +4,10 @@ const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { PrismaClient, SportType } = require('@prisma/client');
 const { NotificationService } = require('../services/notificationService');
 const { getActiveGameStartCutoff, buildActiveGameStartFilter } = require('../utils/timezone');
+const {
+  isGameRatingEligible,
+  isConfirmedParticipant,
+} = require('../utils/ratings');
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
@@ -1270,6 +1274,64 @@ router.post('/', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Create game error:', error);
     res.status(500).json({ error: 'Failed to create game' });
+  }
+});
+
+// GET /api/games/:id/ratings — teammates the viewer can rate + scores already submitted.
+router.get('/:id/ratings', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    const viewerId = req.user.id;
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      select: { id: true, start: true, status: true },
+    });
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    const viewerConfirmed = await isConfirmedParticipant(gameId, viewerId);
+    if (!viewerConfirmed) {
+      return res.status(403).json({ error: 'Only confirmed participants can view ratings' });
+    }
+
+    const eligible = isGameRatingEligible(game);
+    if (!eligible) {
+      return res.json({ eligible: false, teammates: [] });
+    }
+
+    const [parts, existing] = await Promise.all([
+      prisma.participation.findMany({
+        where: {
+          gameId,
+          status: 'CONFIRMED',
+          userId: { not: viewerId },
+        },
+        select: {
+          user: { select: { id: true, name: true, imageUrl: true } },
+        },
+      }),
+      prisma.userRating.findMany({
+        where: { gameId, raterId: viewerId },
+        select: { targetId: true, score: true },
+      }),
+    ]);
+
+    const scoreByTarget = Object.fromEntries(existing.map((r) => [r.targetId, r.score]));
+
+    res.json({
+      eligible: true,
+      teammates: parts.map((p) => ({
+        id: p.user.id,
+        name: p.user.name,
+        imageUrl: p.user.imageUrl,
+        myScore: scoreByTarget[p.user.id] ?? null,
+      })),
+    });
+  } catch (error) {
+    console.error('Get game ratings error:', error);
+    res.status(500).json({ error: 'Failed to load game ratings' });
   }
 });
 

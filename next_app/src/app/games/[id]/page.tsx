@@ -7,6 +7,7 @@ import GameActions from "@/components/GameActions";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
+import GameRatingsPanel from "@/components/GameRatingsPanel";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
 
 // MUI Imports
@@ -209,6 +210,9 @@ export default async function GameDetails(props: {
               }}
               waitlistParticipants={game.waitlistParticipants || []}
             />
+            {joined && (
+              <GameRatingsPanel gameId={game.id} />
+            )}
           </Grid>
 
           {/* Right Column: Chat */}

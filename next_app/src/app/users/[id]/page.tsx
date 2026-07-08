@@ -15,6 +15,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import UserProfileActions from "@/components/UserProfileActions";
 import UserProfileSections from "@/components/UserProfileSections";
+import UserProfileRating from "@/components/UserProfileRating";
 import { SPORT_MAPPING } from "@/utils/sports";
 
 type PublicUser = {
@@ -26,6 +27,8 @@ type PublicUser = {
     age?: number | null;
     sports?: { id: string; name: string; position?: string | null }[];
     positions?: { id: string; name: string; sportId: string }[];
+    ratingAverage?: number | null;
+    totalRatings?: number;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -91,6 +94,11 @@ export default async function UserPublicPage(props: {
                             <Typography variant="h4" fontWeight="bold" gutterBottom>
                                 {u.name || "Unknown User"}
                             </Typography>
+
+                            <UserProfileRating
+                                ratingAverage={u.ratingAverage}
+                                totalRatings={u.totalRatings}
+                            />
 
                             {u.city ? (
                                 <Stack direction="row" alignItems="center" justifyContent="center" gap={0.5} color="text.secondary">

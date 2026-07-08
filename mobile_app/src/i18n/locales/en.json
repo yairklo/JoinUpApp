@@ -61,6 +61,19 @@
     "loadMore": "Load more games",
     "messagesBlocked": "This user only accepts messages from friends"
   },
+  "ratings": {
+    "title": "Rate your teammates",
+    "hint": "Rate players you played with in this match (1–5 stars)",
+    "allDone": "Thanks! You rated all teammates",
+    "average": "{{score}} ({{count}} ratings)",
+    "noRatings": "No ratings yet",
+    "submitted": "Rating saved",
+    "alreadyRated": "You already rated this player for this game",
+    "submitFailed": "Failed to submit rating",
+    "cannotRateSelf": "You cannot rate yourself",
+    "gameNotFinished": "Ratings are only available after the game ends",
+    "notParticipant": "Only confirmed participants can rate"
+  },
   "chats": {
     "players": "Players",
     "games": "Games",
