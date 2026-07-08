@@ -21,18 +21,22 @@ import SearchIcon from "@mui/icons-material/Search";
 import Brightness4Icon from "@mui/icons-material/Brightness4"; // Moon
 import Brightness7Icon from "@mui/icons-material/Brightness7"; // Sun
 import PersonIcon from "@mui/icons-material/Person";
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import Badge from "@mui/material/Badge";
 
 // Internal Components & Context
 import AuthButtons from "@/components/AuthButtons";
 import { ColorModeContext } from "@/components/theme/themeRegistry";
 import ChatList from "@/components/ChatList";
 import NotificationPanel from "@/components/NotificationPanel";
+import { useNotificationCounters } from "@/context/NotificationCountersContext";
 
 export default function AppNavbar() {
   const [mounted, setMounted] = useState(false);
   const { mode, toggleColorMode } = useContext(ColorModeContext);
   const { user } = useUser();
   const router = useRouter();
+  const { friendRequests } = useNotificationCounters();
 
   useEffect(() => {
     setMounted(true);
@@ -110,6 +114,15 @@ export default function AppNavbar() {
                       userId={user.id}
                       onChatSelect={(chatId) => router.push(`/chat/${chatId}`)}
                     />
+                  )}
+
+                  {/* Friends (pending friend requests) */}
+                  {user && (
+                    <IconButton color="inherit" onClick={() => router.push("/profile")}>
+                      <Badge badgeContent={friendRequests} color="error">
+                        <PeopleAltIcon />
+                      </Badge>
+                    </IconButton>
                   )}
 
                   {/* User Profile Link */}

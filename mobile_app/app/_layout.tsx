@@ -9,6 +9,7 @@ import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
 import { tokenStorage } from "@/services/api/client.adapter";
 import { ChatProvider } from "@/context/ChatContext";
 import { NotificationProvider } from "@/context/NotificationContext";
+import { NotificationCountersProvider } from "@/context/NotificationCountersContext";
 import { GameUpdateProvider } from "@/context/GameUpdateContext";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "@/i18n";
@@ -69,9 +70,11 @@ export default function RootLayout() {
             <ThemeProvider value={colorScheme === 'dark' ? CyberDarkTheme : DefaultTheme}>
               <ChatProvider>
                 <NotificationProvider>
-                  <GameUpdateProvider>
-                    <Stack screenOptions={{ headerShown: false }} />
-                  </GameUpdateProvider>
+                  <NotificationCountersProvider>
+                    <GameUpdateProvider>
+                      <Stack screenOptions={{ headerShown: false }} />
+                    </GameUpdateProvider>
+                  </NotificationCountersProvider>
                 </NotificationProvider>
               </ChatProvider>
             </ThemeProvider>
