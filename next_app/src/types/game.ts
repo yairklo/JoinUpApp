@@ -4,6 +4,7 @@ export type Game = {
     fieldName: string;
     fieldLocation: string;
     city?: string | null;
+    start?: string;
     date: string;
     time: string;
     duration?: number;
