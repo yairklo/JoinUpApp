@@ -42,6 +42,24 @@
     "games": "Games",
     "noResults": "No results found"
   },
+  "privacy": {
+    "settings": "Privacy Settings",
+    "description": "Control who can see your info and contact you.",
+    "friends": "Who can see my friends",
+    "games": "Who can see my match history",
+    "messages": "Who can message me",
+    "default": "Default by age",
+    "everyone": "Everyone",
+    "friendsOnly": "Friends only",
+    "save": "Save",
+    "saved": "Saved successfully",
+    "saveFailed": "Failed to save settings",
+    "friendsSection": "Friends",
+    "matchHistory": "Match History",
+    "noFriends": "No friends to show",
+    "noMatches": "No past matches",
+    "messagesBlocked": "This user only accepts messages from friends"
+  },
   "chats": {
     "players": "Players",
     "games": "Games",

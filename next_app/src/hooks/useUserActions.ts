@@ -102,8 +102,12 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
             } else {
                 openChat(chatId, { name: targetUserName || "User", image: targetUserImage });
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Error starting chat:", e);
+            const status = e?.status || e?.response?.status;
+            if (status === 403) {
+                alert("משתמש זה מקבל הודעות מחברים בלבד");
+            }
         } finally {
             setActionLoading(false);
         }

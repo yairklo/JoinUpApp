@@ -1,8 +1,14 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { authenticateToken } = require('../utils/auth');
+const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { NotificationService } = require('../services/notificationService');
 const { getCounters, broadcastCounters } = require('../services/counterService');
+const {
+  VALID_LEVELS,
+  resolvePrivacyLevel,
+  areConfirmedFriends,
+  canViewSection,
+} = require('../utils/privacy');
 const router = express.Router();
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
@@ -142,6 +148,57 @@ router.get('/notifications/counts', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT /api/users/profile/settings - update the caller's privacy flags.
+// Static path registered before '/:id' routes to avoid param capture.
+router.put('/profile/settings', authenticateToken, async (req, res) => {
+  try {
+    const { privacyFriends, privacyGames, privacyMessages } = req.body || {};
+
+    const validate = (v, field) => {
+      if (typeof v === 'undefined') return undefined;
+      if (v === null) return null;
+      if (VALID_LEVELS.includes(v)) return v;
+      throw new Error(`Invalid value for ${field}`);
+    };
+
+    let data;
+    try {
+      data = {
+        ...(typeof privacyFriends !== 'undefined' ? { privacyFriends: validate(privacyFriends, 'privacyFriends') } : {}),
+        ...(typeof privacyGames !== 'undefined' ? { privacyGames: validate(privacyGames, 'privacyGames') } : {}),
+        ...(typeof privacyMessages !== 'undefined' ? { privacyMessages: validate(privacyMessages, 'privacyMessages') } : {}),
+      };
+    } catch (validationErr) {
+      return res.status(400).json({ error: validationErr.message });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data,
+      select: {
+        birthDate: true,
+        privacyFriends: true,
+        privacyGames: true,
+        privacyMessages: true,
+      },
+    });
+
+    res.json({
+      privacyFriends: updated.privacyFriends,
+      privacyGames: updated.privacyGames,
+      privacyMessages: updated.privacyMessages,
+      resolved: {
+        privacyFriends: resolvePrivacyLevel(updated.privacyFriends, updated.birthDate),
+        privacyGames: resolvePrivacyLevel(updated.privacyGames, updated.birthDate),
+        privacyMessages: resolvePrivacyLevel(updated.privacyMessages, updated.birthDate),
+      },
+    });
+  } catch (error) {
+    console.error('Update privacy settings error:', error);
+    res.status(500).json({ error: 'Failed to update privacy settings' });
+  }
+});
+
 // List users (public basic listing)
 router.get('/', async (req, res) => {
   try {
@@ -229,11 +286,12 @@ function orderPair(a, b) {
   return a < b ? [a, b] : [b, a];
 }
 
-// Public user profile (safe fields)
-router.get('/:id', async (req, res) => {
+// Public user profile (safe fields) with privacy-aware Friends / Match History sections.
+router.get('/:id', attachOptionalUser, async (req, res) => {
   try {
+    const targetId = req.params.id;
     let user = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id: targetId },
       include: {
         sports: { include: { sport: true } },
         positions: { include: { position: true } }
@@ -241,13 +299,83 @@ router.get('/:id', async (req, res) => {
     });
     if (!user) {
       // create a minimal placeholder so users appear in listings
-      await prisma.user.create({ data: { id: req.params.id } });
+      await prisma.user.create({ data: { id: targetId } });
       user = await prisma.user.findUnique({
-        where: { id: req.params.id },
+        where: { id: targetId },
         include: { sports: { include: { sport: true } }, positions: { include: { position: true } } }
       });
     }
-    res.json(mapUserPublic(user));
+
+    const viewerId = req.user?.id || null;
+    const isOwner = viewerId === targetId;
+    const isFriend = viewerId && !isOwner ? await areConfirmedFriends(viewerId, targetId) : false;
+
+    const effFriends = resolvePrivacyLevel(user.privacyFriends, user.birthDate);
+    const effGames = resolvePrivacyLevel(user.privacyGames, user.birthDate);
+
+    const showFriends = canViewSection({ effectivePrivacy: effFriends, isOwner, isFriend });
+    const showGames = canViewSection({ effectivePrivacy: effGames, isOwner, isFriend });
+
+    const payload = {
+      ...mapUserPublic(user),
+      sections: { friends: showFriends, matchHistory: showGames },
+      friends: null,
+      matchHistory: null,
+      sportStats: [],
+    };
+
+    // Friends list (id/name/imageUrl only) when visible.
+    if (showFriends) {
+      const friendIds = await getFriendIds(targetId);
+      payload.friends = friendIds.length
+        ? await prisma.user.findMany({
+            where: { id: { in: friendIds } },
+            select: { id: true, name: true, imageUrl: true },
+            take: 20,
+          })
+        : [];
+    }
+
+    // Match history + per-sport aggregation when visible.
+    if (showGames) {
+      const now = new Date();
+      const [participations, grouped] = await Promise.all([
+        prisma.participation.findMany({
+          where: { userId: targetId, status: 'CONFIRMED', game: { start: { lt: now } } },
+          select: { game: { select: { id: true, title: true, sport: true, start: true } } },
+          orderBy: { game: { start: 'desc' } },
+          take: 5,
+        }),
+        // Count all past CONFIRMED matches grouped by sport.
+        prisma.game.groupBy({
+          by: ['sport'],
+          where: {
+            start: { lt: now },
+            participants: { some: { userId: targetId, status: 'CONFIRMED' } },
+          },
+          _count: { _all: true },
+        }),
+      ]);
+
+      payload.matchHistory = participations.map((p) => p.game);
+      payload.sportStats = grouped.map((g) => ({ sport: g.sport, count: g._count._all }));
+    }
+
+    // Owner also receives their raw + resolved privacy settings for the settings UI.
+    if (isOwner) {
+      payload.privacySettings = {
+        privacyFriends: user.privacyFriends,
+        privacyGames: user.privacyGames,
+        privacyMessages: user.privacyMessages,
+        resolved: {
+          privacyFriends: effFriends,
+          privacyGames: effGames,
+          privacyMessages: resolvePrivacyLevel(user.privacyMessages, user.birthDate),
+        },
+      };
+    }
+
+    res.json(payload);
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user' });

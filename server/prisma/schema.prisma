@@ -19,6 +19,11 @@ model User {
   city           String?
   phone          String?
   reputation     Int             @default(50)
+  // Privacy visibility flags. Null = unset → age-based default applied at read time
+  // (under 18 → FRIENDS_ONLY, otherwise EVERYONE). A saved value always wins.
+  privacyFriends  PrivacyLevel?
+  privacyGames    PrivacyLevel?
+  privacyMessages PrivacyLevel?
   favoriteFields FavoriteField[]
   requestsRecv   FriendRequest[] @relation("Recv")
   requestsSent   FriendRequest[] @relation("Sent")
@@ -334,6 +339,11 @@ enum FieldType {
 enum FriendRequestStatus {
   PENDING
   DECLINED
+}
+
+enum PrivacyLevel {
+  EVERYONE
+  FRIENDS_ONLY
 }
 
 enum ParticipationStatus {

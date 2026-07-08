@@ -14,6 +14,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import EmailIcon from '@mui/icons-material/Email';
 import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
 import UserProfileActions from "@/components/UserProfileActions";
+import UserProfileSections from "@/components/UserProfileSections";
 import { SPORT_MAPPING } from "@/utils/sports";
 
 type PublicUser = {
@@ -171,6 +172,11 @@ export default async function UserPublicPage(props: {
                             </Box>
 
                         </Stack>
+
+                        <Divider sx={{ my: 3 }} />
+
+                        {/* Privacy-aware sport stats, friends & match history */}
+                        <UserProfileSections userId={id} />
 
                     </CardContent>
                 </Card>

@@ -6,6 +6,7 @@ import { usersApi, UserProfile } from '../../src/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 
 export default function UserProfileScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -157,6 +158,19 @@ export default function UserProfileScreen() {
                             <Text className="text-gray-600 text-base">{profile.city}</Text>
                         </View>
                     )}
+
+                    {/* Sport stats chips */}
+                    {profile.sportStats && profile.sportStats.length > 0 && (
+                        <View className="flex-row flex-wrap justify-center mt-3">
+                            {profile.sportStats.map((s) => (
+                                <View key={s.sport} className="bg-blue-50 px-3 py-1.5 rounded-full mx-1 mb-2 border border-blue-100">
+                                    <Text className="text-blue-700 text-sm font-semibold">
+                                        {(SPORT_EMOJI[s.sport] || '🏅')} {SPORT_MAPPING[s.sport] || s.sport} · {s.count}
+                                    </Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
                 </View>
 
                 {/* Social Actions */}
@@ -218,9 +232,13 @@ export default function UserProfileScreen() {
                                         const res = await chatsApi.createPrivate(id, token);
                                         // navigate to the chat room
                                         router.push(`/chat/${res.chatId || res.id}`);
-                                    } catch (err) {
+                                    } catch (err: any) {
                                         console.error('Error starting chat', err);
-                                        Alert.alert(t('error', 'Error'), t('failedToStartChat', 'Failed to start chat.'));
+                                        if (err?.status === 403) {
+                                            Alert.alert(t('error', 'Error'), t('privacy.messagesBlocked', 'This user only accepts messages from friends'));
+                                        } else {
+                                            Alert.alert(t('error', 'Error'), t('failedToStartChat', 'Failed to start chat.'));
+                                        }
                                     } finally {
                                         setActionLoading(false);
                                     }
@@ -262,6 +280,62 @@ export default function UserProfileScreen() {
                         </View>
                     )}
                 </View>
+
+                {/* Friends (privacy-filtered) */}
+                {profile.sections?.friends && profile.friends && (
+                    <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
+                        <Text className="font-bold text-gray-900 text-lg mb-4">{t('privacy.friendsSection', 'Friends')}</Text>
+                        {profile.friends.length === 0 ? (
+                            <Text className="text-gray-400">{t('privacy.noFriends', 'No friends to show')}</Text>
+                        ) : (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled>
+                                {profile.friends.map((f) => (
+                                    <TouchableOpacity
+                                        key={f.id}
+                                        onPress={() => router.push(`/user/${f.id}`)}
+                                        className="items-center mr-4"
+                                        style={{ width: 72 }}
+                                    >
+                                        <Image
+                                            source={{ uri: f.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(f.name || 'U')}&size=100` }}
+                                            className="w-14 h-14 rounded-full mb-1 bg-gray-200"
+                                        />
+                                        <Text className="text-gray-700 text-xs text-center" numberOfLines={1}>{f.name || 'משתמש'}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        )}
+                    </View>
+                )}
+
+                {/* Match history (privacy-filtered) */}
+                {profile.sections?.matchHistory && profile.matchHistory && (
+                    <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
+                        <Text className="font-bold text-gray-900 text-lg mb-4">{t('privacy.matchHistory', 'Match History')}</Text>
+                        {profile.matchHistory.length === 0 ? (
+                            <Text className="text-gray-400">{t('privacy.noMatches', 'No past matches')}</Text>
+                        ) : (
+                            profile.matchHistory.map((m) => {
+                                const sportLabel = m.sport ? SPORT_MAPPING[m.sport] || m.sport : '';
+                                const emoji = m.sport ? SPORT_EMOJI[m.sport] || '🏅' : '🏅';
+                                const meta = [`${emoji} ${sportLabel}`, m.date, m.time].filter(Boolean).join(' · ');
+                                return (
+                                    <TouchableOpacity
+                                        key={m.id}
+                                        onPress={() => router.push(`/game/${m.id}`)}
+                                        className="flex-row items-center py-3 border-b border-gray-50"
+                                    >
+                                        <FontAwesome name="soccer-ball-o" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                                        <View className="flex-1">
+                                            <Text className="text-gray-800 font-medium">{m.title || sportLabel || 'משחק'}</Text>
+                                            <Text className="text-gray-500 text-xs mt-0.5">{meta}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })
+                        )}
+                    </View>
+                )}
 
             </ScrollView>
         </SafeAreaView>

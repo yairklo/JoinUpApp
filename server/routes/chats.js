@@ -3,6 +3,7 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { authenticateToken } = require('../utils/auth');
+const { resolvePrivacyLevel, areConfirmedFriends } = require('../utils/privacy');
 
 // POST /api/chats/private - Get or Create a Private Chat
 router.post('/private', authenticateToken, async (req, res) => {
@@ -33,6 +34,22 @@ router.post('/private', authenticateToken, async (req, res) => {
 
         if (existingChat) {
             return res.json({ chatId: existingChat.id });
+        }
+
+        // Privacy guard: block NEW private chats when the target only accepts
+        // messages from friends (unless the initiator is a confirmed friend).
+        const target = await prisma.user.findUnique({
+            where: { id: targetUserId },
+            select: { birthDate: true, privacyMessages: true },
+        });
+        if (target) {
+            const effectiveMessages = resolvePrivacyLevel(target.privacyMessages, target.birthDate);
+            if (effectiveMessages === 'FRIENDS_ONLY') {
+                const friends = await areConfirmedFriends(currentUserId, targetUserId);
+                if (!friends) {
+                    return res.status(403).json({ error: 'This user only accepts messages from friends' });
+                }
+            }
         }
 
         // 2. Create new ChatRoom
