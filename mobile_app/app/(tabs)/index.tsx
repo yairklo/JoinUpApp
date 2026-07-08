@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import MyGamesSection from '@/components/MyGamesSection';
 import SeriesSection from '@/components/SeriesSection';
+import GlobalSearchOmnibar from '@/components/GlobalSearchOmnibar';
 import { SPORT_MAPPING } from '@/utils/sports';
 
 const SPORTS = [
@@ -84,6 +85,9 @@ export default function HomeScreen() {
           <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest">{t('home.welcomeBack')}</Text>
           <Text className="text-2xl font-black text-gray-900 dark:text-cyber-text">👋 {user?.firstName || t('home.friend')}</Text>
         </View>
+
+        {/* Global Search Omnibar — central discovery entry on the home feed */}
+        <GlobalSearchOmnibar />
 
         {/* Horizontal Sport Pills Filter */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4 pl-5 pr-5 flex-row">

@@ -15,6 +15,7 @@ const usersRoutes = require('./routes/users');
 const seriesRoutes = require('./routes/series');
 const messagesRoutes = require('./routes/messages');
 const notificationsRoutes = require('./routes/notifications');
+const searchRoutes = require('./routes/search');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission } = require('./utils/chatAuth');
 const { NotificationService } = require('./services/notificationService');
@@ -116,6 +117,7 @@ app.use('/api/series', seriesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/search', searchRoutes);
 console.log('✅ [ROUTES] Notification routes mounted at /api/notifications');
 app.use('/api/chats', require('./routes/chats'));
 

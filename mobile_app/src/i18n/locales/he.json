@@ -35,6 +35,13 @@
     "myGames": "המשחקים שלי",
     "mySeries": "הסדרות שלי"
   },
+  "omnibar": {
+    "placeholder": "חפש אנשים, מגרשים או משחקים...",
+    "people": "אנשים",
+    "fields": "מגרשים",
+    "games": "משחקים",
+    "noResults": "לא נמצאו תוצאות"
+  },
   "chats": {
     "players": "שחקנים",
     "games": "משחקים",
