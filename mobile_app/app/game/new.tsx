@@ -164,7 +164,7 @@ export default function NewGameScreen() {
                 price: parseInt(price) || 0,
                 description,
                 whatsappLink,
-                isPrivate,
+                isFriendsOnly: isPrivate,
                 sport,
                 title: title || undefined,
                 duration: parseInt(duration) || 1,

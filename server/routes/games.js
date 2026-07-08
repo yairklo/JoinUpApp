@@ -2,7 +2,9 @@ const express = require('express');
 const dataManager = require('../utils/dataManager');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { PrismaClient, SportType } = require('@prisma/client');
+const { NotificationService } = require('../services/notificationService');
 const prisma = new PrismaClient();
+const notificationService = new NotificationService(prisma);
 
 
 function mapGameForClient(game) {
@@ -1206,7 +1208,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Socket Notifications (Targeted Delta Update)
     if (req.io) {
-      // 1. Notify City
+      // 1. Notify City (live update for anyone currently connected & subscribed to the city room)
       if (created.field?.city) {
         req.io.to(`city_${created.field.city}`).emit('game:created', gamePayload);
       }
@@ -1227,6 +1229,31 @@ router.post('/', authenticateToken, async (req, res) => {
       } catch (e) {
         console.error("Error notifying friends", e);
       }
+    }
+
+    // 3. Notify every user whose profile city matches the game's city (DB record + Expo push),
+    // regardless of whether they're currently connected. Runs after the response-critical work above
+    // and never blocks game creation if it fails.
+    if (created.field?.city) {
+      const cityGameName = created.field.name || 'מגרש חדש';
+      prisma.user.findMany({
+        where: {
+          city: { equals: created.field.city, mode: 'insensitive' },
+          id: { not: req.user.id }
+        },
+        select: { id: true }
+      }).then(cityUsers => {
+        cityUsers.forEach(u => {
+          notificationService.sendNotification(
+            u.id,
+            'NEW_GAME_IN_CITY',
+            `משחק חדש ב${created.field.city}`,
+            `${req.user.name || 'מישהו'} פתח/ה משחק חדש ב${cityGameName}`,
+            { gameId: created.id, city: created.field.city, link: `/game/${created.id}` },
+            req.io
+          ).catch(err => console.error('[NOTIFICATIONS] Failed to notify city user', u.id, err));
+        });
+      }).catch(err => console.error('[NOTIFICATIONS] Failed to resolve city users for new game', err));
     }
 
     res.status(201).json(gamePayload);
@@ -1344,6 +1371,20 @@ router.put('/:id/teams', authenticateToken, async (req, res) => {
   }
 });
 
+// Notify the organizer when someone joins their private (friends-only) match.
+// Fire-and-forget: never blocks or fails the join itself.
+function notifyOrganizerOfJoin(game, joiningUser, io) {
+  if (!game.isFriendsOnly || game.organizerId === joiningUser.id) return;
+  notificationService.sendNotification(
+    game.organizerId,
+    'GAME_JOIN_REQUEST',
+    'מישהו הצטרף למשחק שלך',
+    `${joiningUser.name || 'משתמש'} הצטרף/ה למשחק הפרטי שלך`,
+    { gameId: game.id, userId: joiningUser.id, link: `/game/${game.id}` },
+    io
+  ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));
+}
+
 // Join game
 router.post('/:id/join', authenticateToken, async (req, res) => {
   try {
@@ -1386,6 +1427,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         const confirmedCountPre = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
         const status = confirmedCountPre < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
         await prisma.participation.create({ data: { gameId: game.id, userId: req.user.id, status } });
+        notifyOrganizerOfJoin(game, req.user, req.io);
 
         // Add to Chat
         try {
@@ -1422,6 +1464,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
     await prisma.participation.create({
       data: { gameId: game.id, userId: req.user.id, status: 'CONFIRMED' }
     });
+    notifyOrganizerOfJoin(game, req.user, req.io);
 
     // Add to Chat
     try {
