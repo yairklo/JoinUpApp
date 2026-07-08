@@ -112,5 +112,16 @@
     "reply": "Reply",
     "delete": "Delete",
     "edit": "Edit"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "readAll": "Read All",
+    "empty": "No notifications yet",
+    "emptyDesc": "We'll notify you when games are scheduled or friends message you.",
+    "newMessageTitle": "New Message",
+    "newGameInCityTitle": "New game in {{city}}",
+    "newGameInCityBody": "{{name}} created a new game at {{fieldName}}",
+    "joinRequestTitle": "Someone joined your game",
+    "joinRequestBody": "{{name}} joined your private game"
   }
 }

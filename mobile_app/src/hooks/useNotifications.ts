@@ -25,9 +25,14 @@ export function useNotifications() {
     // Fix #7: cache permission status so we don't call getPermissionsAsync on every notification
     const permissionGrantedRef = useRef<boolean | null>(null);
 
-    // 0. Request Push Permissions on Mount, then register the Expo push token with the server
+    const getTokenRef = useRef(getToken);
     useEffect(() => {
-        const requestPermissionsAndRegister = async () => {
+        getTokenRef.current = getToken;
+    }, [getToken]);
+
+    // 0. Request Push Permissions on Mount (once), then register the Expo push token with the backend
+    useEffect(() => {
+        const registerForPushNotifications = async () => {
             if (!Device.isDevice) return;
             const { status: existingStatus } = await Notifications.getPermissionsAsync();
             let finalStatus = existingStatus;
@@ -37,15 +42,15 @@ export function useNotifications() {
             }
             // Fix #7: cache result so we never call getPermissionsAsync again
             permissionGrantedRef.current = finalStatus === 'granted';
-
-            if (finalStatus !== 'granted' || !userId) return;
+            if (finalStatus !== 'granted') return;
+            if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
 
             try {
                 const projectId = Constants.expoConfig?.extra?.eas?.projectId;
                 const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync(
                     projectId ? { projectId } : undefined
                 );
-                const clerkToken = await getToken();
+                const clerkToken = await getTokenRef.current();
                 if (clerkToken) {
                     await notificationsApi.registerDevice(expoPushToken, Platform.OS, clerkToken);
                 }
@@ -53,7 +58,7 @@ export function useNotifications() {
                 console.error('[NOTIFICATIONS] Failed to register Expo push token:', error);
             }
         };
-        requestPermissionsAndRegister();
+        if (userId) registerForPushNotifications();
     }, [userId]);
 
     // 1. Fetch Notifications (Initial load only — real-time updates handled by socket)
@@ -79,11 +84,6 @@ export function useNotifications() {
         fetchNotifications();
         // No interval — the socket below pushes live updates
     }, [isLoaded, userId]);
-
-    const getTokenRef = useRef(getToken);
-    useEffect(() => {
-        getTokenRef.current = getToken;
-    }, [getToken]);
 
     // 2. Socket Connection via Singleton
     useEffect(() => {

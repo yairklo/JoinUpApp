@@ -206,6 +206,12 @@ function isUserOnline(userId) {
   return !!(room && room.size > 0);
 }
 
+// A user is "online" if they have at least one active socket in their personal room
+function isUserOnline(userId) {
+  const room = io.sockets.adapter.rooms.get(`user_${userId}`);
+  return !!(room && room.size > 0);
+}
+
 // Fix 4: Redis Subscriber for Worker Events
 if (process.env.REDIS_URL) {
   const Redis = require("ioredis");
@@ -578,9 +584,14 @@ io.on('connection', async (socket) => {
         }
 
         console.log(`[DEBUG NOTIFICATIONS] Resolved recipientIds for room ${roomId}:`, recipientIds);
+        const messagePreview = text.length > 80 ? `${text.slice(0, 77)}...` : text;
+
         recipientIds.forEach(recipientId => {
-          // Data Sync Event (Decoupled from Notifications) - only meaningful while the room is open
-          io.to(recipientId).emit('chat:sync', {
+          const online = isUserOnline(recipientId);
+          console.log(`[DEBUG NOTIFICATIONS] Recipient ${recipientId} online=${online}`);
+
+          // Data Sync Event (Decoupled from Notifications) - only meaningful to connected clients
+          io.to(`user_${recipientId}`).emit('chat:sync', {
             chatId: roomId,
             lastMessage: {
               text: text,
@@ -591,26 +602,24 @@ io.on('connection', async (socket) => {
             unreadCountIncrement: 1
           });
 
-          if (isUserOnline(recipientId)) {
-            // Online: lightweight real-time event, no DB persistence/push needed
-            console.log(`[DEBUG NOTIFICATIONS] Recipient ${recipientId} is online, emitting socket notification`);
-            io.to(recipientId).emit('notification', {
+          if (online) {
+            // User is actively connected: lightweight real-time in-app alert only
+            io.to(`user_${recipientId}`).emit('notification', {
               type: 'message',
               roomId: roomId,
               senderId: finalUserId,
               text: text
             });
           } else {
-            // Offline: persist to DB and send an Expo/FCM push
-            console.log(`[DEBUG NOTIFICATIONS] Recipient ${recipientId} is offline, sending push notification`);
+            // User is offline: persist to DB + fall back to Expo push via the shared NotificationService
             notificationService.sendNotification(
               recipientId,
               'NEW_MESSAGE',
-              msg.senderName || 'הודעה חדשה',
-              text,
+              senderUser?.name || senderName || 'הודעה חדשה',
+              messagePreview,
               { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` },
               io
-            ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message notification', recipientId, err));
+            ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message notification:', err));
           }
         });
       } catch (err) {

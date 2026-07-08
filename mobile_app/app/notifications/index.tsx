@@ -1,11 +1,13 @@
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
 import React, { useEffect } from 'react';
 import { useRouter, Stack } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useNotifications } from '@/context/NotificationContext';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function NotificationsScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
     const {
         notifications,
         unreadCount,
@@ -72,11 +74,11 @@ export default function NotificationsScreen() {
             <Stack.Screen
                 options={{
                     headerShown: true,
-                    title: 'Notifications',
+                    title: t('notifications.title'),
                     headerRight: () => (
                         unreadCount > 0 ? (
                             <TouchableOpacity onPress={markAllAsRead}>
-                                <Text className="text-blue-600 font-bold">Read All</Text>
+                                <Text className="text-blue-600 font-bold">{t('notifications.readAll')}</Text>
                             </TouchableOpacity>
                         ) : null
                     )
@@ -100,9 +102,9 @@ export default function NotificationsScreen() {
                                 <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-4">
                                     <FontAwesome name="bell-slash" size={24} color="#9ca3af" />
                                 </View>
-                                <Text className="text-gray-500 text-center text-lg">No notifications yet</Text>
+                                <Text className="text-gray-500 text-center text-lg">{t('notifications.empty')}</Text>
                                 <Text className="text-gray-400 text-center text-sm mt-2">
-                                    We'll notify you when games are scheduled or friends message you.
+                                    {t('notifications.emptyDesc')}
                                 </Text>
                             </View>
                         }

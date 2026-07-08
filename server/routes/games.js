@@ -1225,7 +1225,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Socket Notifications (Targeted Delta Update)
     if (req.io) {
-      // 1. Notify City
+      // 1. Notify City (live update for anyone currently connected & subscribed to the city room)
       if (created.field?.city) {
         req.io.to(`city_${created.field.city}`).emit('game:created', gamePayload);
       }

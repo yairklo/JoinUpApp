@@ -95,14 +95,11 @@ class NotificationService {
     }
 
     /**
-     * Send push notification to all registered devices of a user
+     * Send push notification to all registered devices of a user.
+     * Devices with an `expoPushToken` are sent via Expo's push service (mobile app);
+     * devices with only a legacy `fcmToken` are sent via Firebase (web app).
      */
     async sendPushToAllDevices(userId, type, title, body, data = {}) {
-        if (!firebaseInitialized) {
-            Logger.warn('NotificationService', 'Firebase not initialized, skipping push');
-            return;
-        }
-
         try {
             // 1. Check user notification settings (optional - use defaults if table doesn't exist)
             let settings = null;
@@ -144,9 +141,10 @@ class NotificationService {
                 return;
             }
 
-            // 4. Fan out by token type - mobile clients use Expo, legacy/web clients use Firebase
+            // 4. Fan out by token type - mobile clients use Expo, legacy/web clients use Firebase.
+            // A device with both tokens is only sent via Expo to avoid a duplicate push.
             const expoDevices = devices.filter(d => d.expoPushToken);
-            const fcmDevices = devices.filter(d => d.fcmToken);
+            const fcmDevices = devices.filter(d => !d.expoPushToken && d.fcmToken);
 
             await Promise.all([
                 this.sendExpoPush(expoDevices, type, title, body, data),
@@ -158,59 +156,57 @@ class NotificationService {
     }
 
     /**
-     * Send push notifications via Expo's push service (mobile app)
+     * Send push via Expo's push service (mobile app devices - expo-notifications)
      */
     async sendExpoPush(devices, type, title, body, data = {}) {
-        const messages = [];
-        const tokenToDevice = new Map();
+        if (devices.length === 0) return;
 
-        for (const device of devices) {
-            const token = device.expoPushToken;
-            if (!Expo.isExpoPushToken(token)) {
-                Logger.warn('NotificationService', `Skipping invalid Expo push token: ${token}`);
-                continue;
-            }
-            tokenToDevice.set(token, device);
-            messages.push({
-                to: token,
-                sound: 'default',
-                title,
-                body,
-                data: { ...data, type, notificationId: data.notificationId || '', link: data.link || '/' }
-            });
+        const validDevices = devices.filter(d => Expo.isExpoPushToken(d.expoPushToken));
+        const invalidTokens = devices
+            .filter(d => !Expo.isExpoPushToken(d.expoPushToken))
+            .map(d => d.expoPushToken);
+
+        if (invalidTokens.length > 0) {
+            Logger.warn('NotificationService', `Skipping ${invalidTokens.length} malformed Expo push token(s)`);
         }
 
-        if (messages.length === 0) return;
+        if (validDevices.length === 0) return;
+
+        const messages = validDevices.map(d => ({
+            to: d.expoPushToken,
+            sound: 'default',
+            title,
+            body,
+            data: { ...data, type, notificationId: data.notificationId || '', link: data.link || '/' }
+        }));
 
         const chunks = expo.chunkPushNotifications(messages);
-        const invalidTokens = [];
-
+        const tickets = [];
         for (const chunk of chunks) {
             try {
-                const tickets = await expo.sendPushNotificationsAsync(chunk);
-                tickets.forEach((ticket, i) => {
-                    if (ticket.status === 'error') {
-                        Logger.warn('NotificationService', `Expo push error: ${ticket.message}`);
-                        if (ticket.details?.error === 'DeviceNotRegistered') {
-                            invalidTokens.push(chunk[i].to);
-                        }
-                    }
-                });
+                const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+                tickets.push(...ticketChunk);
             } catch (error) {
                 Logger.error('NotificationService', 'Failed to send Expo push chunk:', error);
             }
         }
 
-        if (invalidTokens.length > 0) {
-            await this.prisma.userDevice.deleteMany({
-                where: { expoPushToken: { in: invalidTokens } }
-            });
-            Logger.info('NotificationService', `Cleaned up ${invalidTokens.length} stale Expo tokens`);
+        // Clean up tokens that Expo reports as no longer registered
+        const staleTokens = [];
+        tickets.forEach((ticket, i) => {
+            if (ticket.status === 'error' && ticket.details?.error === 'DeviceNotRegistered') {
+                staleTokens.push(validDevices[i].expoPushToken);
+            }
+        });
+
+        if (staleTokens.length > 0) {
+            await this.prisma.userDevice.deleteMany({ where: { expoPushToken: { in: staleTokens } } });
+            Logger.info('NotificationService', `Cleaned up ${staleTokens.length} stale Expo token(s)`);
         }
     }
 
     /**
-     * Send push notifications via Firebase Cloud Messaging (legacy/web clients)
+     * Send push via Firebase Admin (legacy web app devices - FCM tokens)
      */
     async sendFirebasePush(devices, type, title, body, data = {}) {
         if (devices.length === 0) return;
@@ -219,10 +215,10 @@ class NotificationService {
             return;
         }
 
-        const tokens = devices.map(d => d.fcmToken);
         const invalidTokens = [];
 
-        for (const token of tokens) {
+        for (const device of devices) {
+            const token = device.fcmToken;
             try {
                 await admin.messaging().send({
                     token,
