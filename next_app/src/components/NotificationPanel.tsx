@@ -31,8 +31,13 @@ export default function NotificationPanel() {
     const handleNotificationClick = (notif: Notification) => {
         markAsRead(notif.id);
         setAnchorEl(null);
-        if (notif.data?.link) {
-            router.push(notif.data.link);
+        // Build the route from gameId when present — the raw `link` string is shared across
+        // platforms and is generated mobile-style (`/game/[id]`), which 404s on Next.js since the
+        // real route is `/games/[id]` (plural). Fall back to the raw link for non-game notifications.
+        const gameId = notif.data?.gameId;
+        const target = gameId ? `/games/${gameId}` : notif.data?.link;
+        if (target) {
+            router.push(target);
         }
     };
 

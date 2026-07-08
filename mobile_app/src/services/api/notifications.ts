@@ -37,10 +37,10 @@ export const notificationsApi = {
         });
     },
 
-    registerDevice: (expoPushToken: string, deviceType: 'ios' | 'android', token: string) => {
+    registerDevice: (expoPushToken: string, deviceType: string, token: string) => {
         return apiClient('/api/notifications/register-device', {
-            token,
-            data: { expoPushToken, deviceType }
+            data: { expoPushToken, deviceType },
+            token
         });
     }
 };

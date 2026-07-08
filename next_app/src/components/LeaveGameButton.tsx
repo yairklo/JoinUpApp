@@ -18,7 +18,7 @@ import LoginIcon from "@mui/icons-material/Login";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: { gameId: string; onLeft?: () => void; currentPlayers?: number }) {
+export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: { gameId: string; onLeft?: (updatedGame?: any) => void; currentPlayers?: number }) {
   const { getToken } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -57,7 +57,7 @@ export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: 
         return;
       }
 
-      if (onLeft) onLeft();
+      if (onLeft) onLeft(data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to leave");
     } finally {

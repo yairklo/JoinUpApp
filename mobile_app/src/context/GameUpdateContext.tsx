@@ -19,6 +19,11 @@ interface GameCreatedEvent {
 interface GameDeletedEvent {
     gameIds: string[];
 }
+// Emitted by the server whenever a game's roster changes (join/leave/approve/reject), already
+// personalized with this viewer's `viewerParticipationStatus` — see broadcastGameUpdate on the server.
+interface GameUpdatedEvent {
+    game: Game;
+}
 
 // Types
 export interface SeriesPayload {
@@ -41,6 +46,7 @@ interface GameUpdateContextProps {
     subscribe: (callback: (event: GameUpdateEvent) => void) => () => void;
     subscribeToCreated: (callback: (event: GameCreatedEvent) => void) => () => void;
     subscribeToDeleted: (callback: (event: GameDeletedEvent) => void) => () => void;
+    subscribeToUpdated: (callback: (event: GameUpdatedEvent) => void) => () => void;
     subscribeToSeriesCreated: (callback: (series: SeriesPayload) => void) => () => void;
     subscribeToSeriesDeleted: (callback: (event: SeriesDeletedEvent) => void) => () => void;
 }
@@ -51,6 +57,7 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
     const [listeners] = useState(() => new Set<(event: GameUpdateEvent) => void>());
     const [createdListeners] = useState(() => new Set<(event: GameCreatedEvent) => void>());
     const [deletedListeners] = useState(() => new Set<(event: GameDeletedEvent) => void>());
+    const [updatedListeners] = useState(() => new Set<(event: GameUpdatedEvent) => void>());
     const [seriesCreatedListeners] = useState(() => new Set<(series: SeriesPayload) => void>());
     const [seriesDeletedListeners] = useState(() => new Set<(event: SeriesDeletedEvent) => void>());
 
@@ -65,6 +72,11 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
             deletedListeners.forEach(cb => cb(payload));
         });
 
+        const unsubscribeGameUpdated = SocketManager.on("game:updated", (game: Game) => {
+            const event: GameUpdatedEvent = { game };
+            updatedListeners.forEach(cb => cb(event));
+        });
+
         const unsubscribeSeriesCreated = SocketManager.on("series:created", (series: SeriesPayload) => {
             seriesCreatedListeners.forEach(cb => cb(series));
         });
@@ -76,10 +88,11 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             unsubscribeGameCreated();
             unsubscribeGameDeleted();
+            unsubscribeGameUpdated();
             unsubscribeSeriesCreated();
             unsubscribeSeriesDeleted();
         };
-    }, [createdListeners, deletedListeners, seriesCreatedListeners, seriesDeletedListeners]);
+    }, [createdListeners, deletedListeners, updatedListeners, seriesCreatedListeners, seriesDeletedListeners]);
 
     const notifyGameUpdate = useCallback((gameId: string, action: GameAction, userId: string) => {
         const event: GameUpdateEvent = { gameId, action, userId };
@@ -107,6 +120,13 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
         };
     }, [deletedListeners]);
 
+    const subscribeToUpdated = useCallback((callback: (event: GameUpdatedEvent) => void) => {
+        updatedListeners.add(callback);
+        return () => {
+            updatedListeners.delete(callback);
+        };
+    }, [updatedListeners]);
+
     const subscribeToSeriesCreated = useCallback((callback: (series: SeriesPayload) => void) => {
         seriesCreatedListeners.add(callback);
         return () => {
@@ -127,6 +147,7 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
             subscribe,
             subscribeToCreated,
             subscribeToDeleted,
+            subscribeToUpdated,
             subscribeToSeriesCreated,
             subscribeToSeriesDeleted
         }}>
@@ -171,6 +192,16 @@ export const useGameDeletedListener = (callback: (event: GameDeletedEvent) => vo
         const unsubscribe = subscribeToDeleted(callback);
         return () => unsubscribe();
     }, [subscribeToDeleted, callback]);
+};
+
+// Helper hook for live roster/status updates (join/leave/approve/reject)
+export const useGameUpdatedListener = (callback: (event: GameUpdatedEvent) => void) => {
+    const { subscribeToUpdated } = useGameUpdate();
+
+    useEffect(() => {
+        const unsubscribe = subscribeToUpdated(callback);
+        return () => unsubscribe();
+    }, [subscribeToUpdated, callback]);
 };
 
 // Helper hooks for Series

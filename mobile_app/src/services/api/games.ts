@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { Game } from '@/types/game';
+import { Game, JoinRequest } from '@/types/game';
 
 export interface UpdateGameDTO {
     time?: string;
@@ -10,8 +10,13 @@ export interface UpdateGameDTO {
     teamSize?: number | null;
     price?: number | null;
     isFriendsOnly?: boolean;
+    joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     registrationOpensAt?: string | null;
     friendsOnlyUntil?: string | null;
+}
+
+export interface JoinGameResponse extends Game {
+    pending?: boolean;
 }
 
 export const gamesApi = {
@@ -87,7 +92,25 @@ export const gamesApi = {
     },
 
     join: (gameId: string, token: string) => {
-        return apiClient<Game>(`/api/games/${gameId}/join`, {
+        return apiClient<JoinGameResponse>(`/api/games/${gameId}/join`, {
+            method: 'POST',
+            token
+        });
+    },
+
+    getJoinRequests: (gameId: string, token: string) => {
+        return apiClient<{ requests: JoinRequest[]; rejected: JoinRequest[] }>(`/api/games/${gameId}/join-requests`, { token });
+    },
+
+    approveJoinRequest: (gameId: string, userId: string, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/join-requests/${userId}/approve`, {
+            method: 'POST',
+            token
+        });
+    },
+
+    rejectJoinRequest: (gameId: string, userId: string, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/join-requests/${userId}/reject`, {
             method: 'POST',
             token
         });

@@ -78,6 +78,7 @@ function NewGamePageInner() {
     maxPlayers: 10,
     description: "",
     isFriendsOnly: false,
+    joinPolicy: "INSTANT" as "INSTANT" | "REQUIRES_APPROVAL",
     lotteryEnabled: false,
     organizerInLottery: false,
     lotteryDate: "",
@@ -502,6 +503,17 @@ function NewGamePageInner() {
                       <FormControlLabel
                         control={<Switch checked={form.isFriendsOnly} onChange={(e) => update("isFriendsOnly", e.target.checked)} />}
                         label="לחברים בלבד (פרטי)"
+                        sx={{ flexDirection: 'row-reverse', ml: 2 }}
+                      />
+
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={form.joinPolicy === "REQUIRES_APPROVAL"}
+                            onChange={(e) => update("joinPolicy", e.target.checked ? "REQUIRES_APPROVAL" : "INSTANT")}
+                          />
+                        }
+                        label="דורש אישור הצטרפות"
                         sx={{ flexDirection: 'row-reverse', ml: 2 }}
                       />
 

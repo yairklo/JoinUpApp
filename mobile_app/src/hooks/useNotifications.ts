@@ -107,7 +107,7 @@ export function useNotifications() {
                     content: {
                         title: data.title || 'JoinUp',
                         body: data.message || data.text || 'התקבלה התראה חדשה',
-                        data: { id: data.id, link: data.link },
+                        data: { id: data.id, link: data.link, gameId: data.data?.gameId },
                     },
                     trigger: null,
                 });

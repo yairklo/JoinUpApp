@@ -18,23 +18,34 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 export default function JoinGameButton({
   gameId,
   onJoined,
-  registrationOpensAt
+  onRequestSent,
+  registrationOpensAt,
+  joinPolicy,
+  viewerParticipationStatus
 }: {
   gameId: string;
-  onJoined?: () => void;
+  onJoined?: (updatedGame?: any) => void;
+  onRequestSent?: (updatedGame?: any) => void;
   registrationOpensAt?: string | null;
+  joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
 }) {
   const { getToken } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Seed from server-provided status so a hard refresh doesn't forget an in-flight request.
+  const [pending, setPending] = useState(viewerParticipationStatus === "PENDING");
+  // A REQUIRES_APPROVAL rejection is terminal (server blocks re-requesting); an INSTANT game lets
+  // a previously-rejected user join normally, so this only locks the button for the approval flow.
+  const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
 
   const now = new Date();
   const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
   const isRegistrationClosed = openDate && now < openDate;
 
   async function join() {
-    if (isRegistrationClosed) return;
+    if (isRegistrationClosed || pending) return;
     setError(null);
     setLoading(true);
     try {
@@ -51,7 +62,14 @@ export default function JoinGameButton({
         throw new Error(body.error || "Failed to join");
       }
 
-      if (onJoined) onJoined();
+      const body = await res.json().catch(() => ({}));
+      if (body.pending) {
+        setPending(true);
+        if (onRequestSent) onRequestSent(body);
+        return;
+      }
+
+      if (onJoined) onJoined(body);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to join");
     } finally {
@@ -81,7 +99,25 @@ export default function JoinGameButton({
       </SignedOut>
 
       <SignedIn>
-        {isRegistrationClosed ? (
+        {pending ? (
+          <Button
+            disabled
+            variant="outlined"
+            color="warning"
+            size="small"
+          >
+            ממתין לאישור המארגן
+          </Button>
+        ) : isRejectedTerminal ? (
+          <Button
+            disabled
+            variant="outlined"
+            color="inherit"
+            size="small"
+          >
+            הבקשה נדחתה
+          </Button>
+        ) : isRegistrationClosed ? (
           <Tooltip title={tooltipText} arrow placement="top">
             <span>
               <Button
@@ -110,7 +146,7 @@ export default function JoinGameButton({
             size="small"
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
           >
-            {loading ? "מצטרף..." : "הצטרף"}
+            {loading ? "מצטרף..." : joinPolicy === "REQUIRES_APPROVAL" ? "בקש להצטרף" : "הצטרף"}
           </Button>
         )}
 

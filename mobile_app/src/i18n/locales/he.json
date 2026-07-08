@@ -73,7 +73,19 @@
     "leaveGame": "עזוב משחק",
     "registrationOpensAt": "הרשמה תיפתח ב:",
     "opensAt": "נפתח ב- {{time}}",
-    "confirmLeave": "האם אתה בטוח שברצונך לעזוב את המשחק?"
+    "confirmLeave": "האם אתה בטוח שברצונך לעזוב את המשחק?",
+    "requestSent": "הבקשה נשלחה",
+    "requestPending": "ממתין לאישור",
+    "joinRequests": "בקשות הצטרפות",
+    "noJoinRequests": "אין בקשות הצטרפות ממתינות",
+    "approve": "אשר",
+    "reject": "דחה",
+    "requiresApproval": "דורש אישור הצטרפות",
+    "requestToJoin": "בקש להצטרף",
+    "requestRejected": "הבקשה נדחתה",
+    "rejectedRequests": "בקשות שנדחו",
+    "approveAnyway": "אשר בכל זאת",
+    "noRejectedRequests": "אין בקשות שנדחו"
   },
   "newGame": {
     "sport": "ספורט",

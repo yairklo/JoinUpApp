@@ -10,6 +10,7 @@ export interface UpdateGameDTO {
     teamSize?: number | null;
     price?: number | null;
     isFriendsOnly?: boolean;
+    joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     registrationOpensAt?: string | null;
     friendsOnlyUntil?: string | null;
 }

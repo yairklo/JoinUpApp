@@ -24,6 +24,8 @@ type Game = {
   totalSignups?: number;
   registrationOpensAt?: string | null;
   title?: string | null;
+  joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
 };
 
 export default function GameListClient({ games }: { games: Game[] }) {
@@ -67,7 +69,14 @@ export default function GameListClient({ games }: { games: Game[] }) {
                 >
                   View details
                 </Link>
-                {g.isOpenToJoin && !joined ? <JoinGameButton gameId={g.id} registrationOpensAt={g.registrationOpensAt} /> : null}
+                {g.isOpenToJoin && !joined ? (
+                  <JoinGameButton
+                    gameId={g.id}
+                    registrationOpensAt={g.registrationOpensAt}
+                    joinPolicy={g.joinPolicy}
+                    viewerParticipationStatus={g.viewerParticipationStatus}
+                  />
+                ) : null}
               </div>
             </div>
 

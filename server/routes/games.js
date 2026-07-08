@@ -7,14 +7,20 @@ const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
 
-function mapGameForClient(game) {
+function mapGameForClient(game, viewerId) {
   if (!game) return game;
   const allParts = Array.isArray(game?.participants) ? game.participants : [];
   const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
   const waitlisted = allParts.filter(p => p.status === 'WAITLISTED');
-  const totalSignups = allParts.length;
+  const pending = allParts.filter(p => p.status === 'PENDING');
+  const viewerParticipationStatus = viewerId
+    ? (allParts.find(p => p.userId === viewerId)?.status || null)
+    : null;
+  // Exclude PENDING/REJECTED join requests from roster/capacity accounting - they aren't on the roster yet.
+  const totalSignups = allParts.filter(p => p.status === 'CONFIRMED' || p.status === 'WAITLISTED' || p.status === 'NOT_SELECTED').length;
   const confirmedCount = confirmed.length;
   const waitlistCount = waitlisted.length;
+  const pendingRequestCount = pending.length;
   const now = new Date();
   const lotteryAtIso = game.lotteryAt ? new Date(game.lotteryAt).toISOString() : null;
   const lotteryPending = !!game.lotteryEnabled && !game.lotteryExecutedAt && !!game.lotteryAt && now < new Date(game.lotteryAt);
@@ -59,6 +65,9 @@ function mapGameForClient(game) {
     fieldLocation: game.field?.location || '',
     isFriendsOnly: !!game.isFriendsOnly,
     friendsOnlyUntil: game.friendsOnlyUntil ? new Date(game.friendsOnlyUntil).toISOString() : null,
+    joinPolicy: game.joinPolicy || 'INSTANT',
+    pendingRequestCount,
+    viewerParticipationStatus,
     lotteryEnabled: !!game.lotteryEnabled,
     lotteryAt: lotteryAtIso,
     organizerInLottery: !!game.organizerInLottery,
@@ -167,7 +176,7 @@ router.get('/public', async (req, res) => {
     });
 
     const deduped = deduplicateSeriesGames(games);
-    res.json(deduped.map(mapGameForClient));
+    res.json(deduped.map(g => mapGameForClient(g, req.user?.id)));
   } catch (error) {
     console.error('Public games error:', error);
     res.status(500).json({ error: 'Failed to get public games' });
@@ -198,7 +207,7 @@ router.get('/my', authenticateToken, async (req, res) => {
     });
 
     const deduped = deduplicateSeriesGames(games);
-    res.json(deduped.map(mapGameForClient));
+    res.json(deduped.map(g => mapGameForClient(g, req.user.id)));
   } catch (error) {
     console.error('My games error:', error);
     res.status(500).json({ error: 'Failed to fetch my games' });
@@ -221,7 +230,7 @@ router.get('/my/history', authenticateToken, async (req, res) => {
       orderBy: { start: 'desc' },
       take: 50
     });
-    res.json(games.map(mapGameForClient));
+    res.json(games.map(g => mapGameForClient(g, req.user.id)));
   } catch (error) {
     console.error('My history error:', error);
     res.status(500).json({ error: 'Failed to fetch history' });
@@ -268,7 +277,7 @@ router.get('/friends', authenticateToken, async (req, res) => {
     });
 
     const deduped = deduplicateSeriesGames(games);
-    res.json(deduped.map(mapGameForClient));
+    res.json(deduped.map(g => mapGameForClient(g, req.user.id)));
   } catch (error) {
     console.error('Friends games error:', error);
     res.status(500).json({ error: 'Failed to find games with friends' });
@@ -296,7 +305,7 @@ router.get('/city', attachOptionalUser, async (req, res) => {
     });
 
     const deduped = deduplicateSeriesGames(games);
-    res.json(deduped.map(mapGameForClient));
+    res.json(deduped.map(g => mapGameForClient(g, req.user?.id)));
   } catch (error) {
     console.error('City games error:', error);
     res.status(500).json({ error: 'Failed to get games by city' });
@@ -580,8 +589,8 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
     }
 
     return res.json({
-      game: mapGameForClient(updated),
-      created: createdGames.map(mapGameForClient),
+      game: mapGameForClient(updated, req.user.id),
+      created: createdGames.map(g => mapGameForClient(g, req.user.id)),
       seriesId: series.id
     });
   } catch (e) {
@@ -594,7 +603,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-    const { time, date, start, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly, teamSize } = req.body || {};
+    const { time, date, start, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly, teamSize, joinPolicy } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -678,6 +687,10 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       updates['isFriendsOnly'] = isFriendsOnly;
     }
 
+    if (joinPolicy === 'INSTANT' || joinPolicy === 'REQUIRES_APPROVAL') {
+      updates['joinPolicy'] = joinPolicy;
+    }
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
@@ -688,7 +701,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       include: { field: true, participants: { include: { user: true, team: true } }, roles: { include: { user: true } }, teams: true }
     });
 
-    return res.json(mapGameForClient(updated));
+    return res.json(mapGameForClient(updated, req.user.id));
   } catch (e) {
     console.error('Patch game error:', e);
     return res.status(500).json({ error: 'Failed to update game' });
@@ -704,7 +717,7 @@ router.get('/', attachOptionalUser, async (req, res) => {
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
-    res.json(games.map(mapGameForClient));
+    res.json(games.map(g => mapGameForClient(g, req.user?.id)));
   } catch (error) {
     console.error('Get games error:', error);
     res.status(500).json({ error: 'Failed to get games' });
@@ -823,7 +836,7 @@ router.get('/search', attachOptionalUser, async (req, res) => {
     });
 
     const deduped = deduplicateSeriesGames(games);
-    res.json(deduped.map(mapGameForClient));
+    res.json(deduped.map(g => mapGameForClient(g, req.user?.id)));
   } catch (error) {
     console.error('Search games error:', error);
     res.status(500).json({ error: 'Failed to search games' });
@@ -840,7 +853,7 @@ router.get('/field/:fieldId', attachOptionalUser, async (req, res) => {
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
-    res.json(games.map(mapGameForClient));
+    res.json(games.map(g => mapGameForClient(g, req.user?.id)));
   } catch (error) {
     console.error('Get games by field error:', error);
     res.status(500).json({ error: 'Failed to get games by field' });
@@ -859,7 +872,7 @@ router.get('/date/:date', attachOptionalUser, async (req, res) => {
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
-    res.json(games.map(mapGameForClient));
+    res.json(games.map(g => mapGameForClient(g, req.user?.id)));
   } catch (error) {
     console.error('Get games by date error:', error);
     res.status(500).json({ error: 'Failed to get games by date' });
@@ -883,7 +896,7 @@ router.get('/today-city', attachOptionalUser, async (req, res) => {
       include: { field: true, participants: { include: { user: true } } },
       orderBy: { start: 'asc' }
     });
-    res.json(games.map(mapGameForClient));
+    res.json(games.map(g => mapGameForClient(g, req.user?.id)));
   } catch (error) {
     console.error('Today-city games error:', error);
     res.status(500).json({ error: 'Failed to get games' });
@@ -916,7 +929,8 @@ router.post('/', authenticateToken, async (req, res) => {
       friendsOnlyUntil,
       teamSize,
       price,
-      customLat
+      customLat,
+      joinPolicy
     } = req.body;
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
@@ -1071,6 +1085,7 @@ router.post('/', authenticateToken, async (req, res) => {
                 maxPlayers: Number(maxPlayers),
                 isOpenToJoin: isOpenToJoin !== false,
                 isFriendsOnly: !!isFriendsOnly,
+                joinPolicy: joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 lotteryEnabled: !!lotteryEnabled,
                 ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
                 organizerInLottery: !!organizerInLottery,
@@ -1078,8 +1093,6 @@ router.post('/', authenticateToken, async (req, res) => {
                 organizerId: req.user.id,
                 participants: { create: participantsCreate },
                 roles: { create: { userId: req.user.id, role: 'ORGANIZER' } },
-                sport: sport || 'SOCCER',
-                registrationOpensAt: instanceRegOpen,
                 sport: sport || 'SOCCER',
                 registrationOpensAt: instanceRegOpen,
                 friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null,
@@ -1127,6 +1140,7 @@ router.post('/', authenticateToken, async (req, res) => {
                 maxPlayers: Number(maxPlayers),
                 isOpenToJoin: isOpenToJoin !== false,
                 isFriendsOnly: !!isFriendsOnly,
+                joinPolicy: joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 lotteryEnabled: !!lotteryEnabled,
                 ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
                 organizerInLottery: !!organizerInLottery,
@@ -1146,7 +1160,7 @@ router.post('/', authenticateToken, async (req, res) => {
       }
 
       const createdGames = await prisma.$transaction(createOps);
-      return res.status(201).json(mapGameForClient(createdGames[0]));
+      return res.status(201).json(mapGameForClient(createdGames[0], req.user.id));
     }
 
     // Single instance flow (original behavior) with basic conflict check
@@ -1168,6 +1182,7 @@ router.post('/', authenticateToken, async (req, res) => {
           price: price ? parseInt(price) : null,
           isOpenToJoin: isOpenToJoin !== false,
           isFriendsOnly: !!isFriendsOnly,
+          joinPolicy: joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT',
           lotteryEnabled: !!lotteryEnabled,
           ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
           organizerInLottery: !!organizerInLottery,
@@ -1204,6 +1219,8 @@ router.post('/', authenticateToken, async (req, res) => {
       return game;
     });
 
+    // Viewer-agnostic payload for broadcasting to other users (city/friends rooms) — must not
+    // carry the creator's own viewerParticipationStatus, since it would be misleading for them.
     const gamePayload = mapGameForClient(created);
 
     // Socket Notifications (Targeted Delta Update)
@@ -1231,9 +1248,9 @@ router.post('/', authenticateToken, async (req, res) => {
       }
     }
 
-    // 3. Notify every user whose profile city matches the game's city (DB record + Expo push),
-    // regardless of whether they're currently connected. Runs after the response-critical work above
-    // and never blocks game creation if it fails.
+    // 3. Notify every user whose profile city matches the game's city (DB record + push),
+    // regardless of whether they're currently connected. Runs after the response and never
+    // blocks game creation if it fails.
     if (created.field?.city) {
       const cityGameName = created.field.name || 'מגרש חדש';
       prisma.user.findMany({
@@ -1253,10 +1270,10 @@ router.post('/', authenticateToken, async (req, res) => {
             req.io
           ).catch(err => console.error('[NOTIFICATIONS] Failed to notify city user', u.id, err));
         });
-      }).catch(err => console.error('[NOTIFICATIONS] Failed to resolve city users for new game', err));
+      }).catch(err => console.error('[NOTIFICATIONS] Failed to query city users', err));
     }
 
-    res.status(201).json(gamePayload);
+    res.status(201).json(mapGameForClient(created, req.user.id));
   } catch (error) {
     console.error('Create game error:', error);
     res.status(500).json({ error: 'Failed to create game' });
@@ -1264,7 +1281,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Get game by ID (must be last to avoid conflicts)
-router.get('/:id', async (req, res) => {
+router.get('/:id', attachOptionalUser, async (req, res) => {
   try {
     const game = await prisma.game.findUnique({
       where: { id: req.params.id },
@@ -1295,7 +1312,7 @@ router.get('/:id', async (req, res) => {
       }
     }
 
-    res.json(mapGameForClient(game));
+    res.json(mapGameForClient(game, req.user?.id));
   } catch (error) {
     console.error('Get game error:', error);
     res.status(500).json({ error: 'Failed to get game' });
@@ -1364,16 +1381,16 @@ router.put('/:id/teams', authenticateToken, async (req, res) => {
         teams: true
       }
     });
-    return res.json(mapGameForClient(updated));
+    return res.json(mapGameForClient(updated, req.user.id));
   } catch (e) {
     console.error('Update teams error:', e);
     return res.status(500).json({ error: 'Failed to update teams' });
   }
 });
 
-// Notify the organizer when someone joins their private (friends-only) match.
+// Notify the organizer when someone joins their private (friends-only) match instantly.
 // Fire-and-forget: never blocks or fails the join itself.
-function notifyOrganizerOfJoin(game, joiningUser, io) {
+function notifyOrganizerOfInstantJoin(game, joiningUser, io) {
   if (!game.isFriendsOnly || game.organizerId === joiningUser.id) return;
   notificationService.sendNotification(
     game.organizerId,
@@ -1383,6 +1400,61 @@ function notifyOrganizerOfJoin(game, joiningUser, io) {
     { gameId: game.id, userId: joiningUser.id, link: `/game/${game.id}` },
     io
   ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));
+}
+
+// Notify the organizer that a join request is awaiting their approval (actionable).
+function notifyOrganizerOfPendingRequest(game, requestingUser, io) {
+  notificationService.sendNotification(
+    game.organizerId,
+    'GAME_JOIN_REQUEST',
+    'בקשת הצטרפות חדשה',
+    `${requestingUser.name || 'משתמש'} ביקש/ה להצטרף למשחק שלך וממתין/ה לאישורך`,
+    // Requests are reviewed inline on the existing game detail screen (organizer-only section),
+    // not a separate route — clients build their own platform path from data.gameId anyway.
+    { gameId: game.id, userId: requestingUser.id, link: `/game/${game.id}` },
+    io
+  ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of pending request', game.id, err));
+}
+
+// Push the freshest roster/game state to everyone with a stake in this game (organizer and all
+// current participants — managers are always participants too, per the /roles endpoint's own
+// invariant, so they're covered without a separate roles fetch), personalized per-recipient so
+// viewerParticipationStatus is correct for each of them. Uses each user's always-joined
+// `user_<id>` presence room — no client-side room subscription required. Fire-and-forget: never
+// blocks or fails the action that triggered it.
+//
+// Perf: every call site already re-fetches the game (with the same `field`+`participants.user`
+// include) to build its own HTTP response right after triggering this broadcast. Pass that
+// already-fetched game as `preFetchedGame` to skip this function's redundant duplicate query.
+async function broadcastGameUpdate(io, gameId, preFetchedGame) {
+  if (!io || !gameId) return;
+  const game = preFetchedGame || await prisma.game.findUnique({
+    where: { id: gameId },
+    include: { field: true, participants: { include: { user: true } } }
+  });
+  if (!game) return;
+
+  const recipients = new Set([game.organizerId]);
+  (game.participants || []).forEach(p => recipients.add(p.userId));
+  (game.roles || []).forEach(r => recipients.add(r.userId));
+
+  recipients.forEach(uid => {
+    io.to(`user_${uid}`).emit('game:updated', mapGameForClient(game, uid));
+  });
+}
+
+// Notify the requester once the organizer/manager has made a decision.
+function notifyRequesterOfDecision(game, requesterId, approved, io) {
+  notificationService.sendNotification(
+    requesterId,
+    approved ? 'GAME_JOIN_APPROVED' : 'GAME_JOIN_REJECTED',
+    approved ? 'הבקשה שלך אושרה' : 'הבקשה שלך נדחתה',
+    approved
+      ? `בקשתך להצטרף למשחק אושרה על ידי המארגן`
+      : `בקשתך להצטרף למשחק נדחתה על ידי המארגן`,
+    { gameId: game.id, link: `/game/${game.id}` },
+    io
+  ).catch(err => console.error('[NOTIFICATIONS] Failed to notify requester of decision', game.id, err));
 }
 
 // Join game
@@ -1401,6 +1473,39 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 
     if (game.registrationOpensAt && new Date() < new Date(game.registrationOpensAt)) {
       return res.status(400).json({ error: 'Registration is not yet open' });
+    }
+
+    // Approval-gated games (non-lottery only, for now): create a PENDING request instead of
+    // an instant CONFIRMED participation. The organizer bypasses approval on their own game.
+    if (game.joinPolicy === 'REQUIRES_APPROVAL' && !game.lotteryEnabled && game.organizerId !== req.user.id) {
+      const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
+      if (already) {
+        if (already.status === 'PENDING') {
+          return res.status(400).json({ error: 'Your join request is already pending approval' });
+        }
+        if (already.status === 'REJECTED') {
+          return res.status(400).json({ error: 'Your request to join this game was declined' });
+        }
+        return res.status(400).json({ error: 'You are already a participant' });
+      }
+
+      await prisma.user.upsert({
+        where: { id: req.user.id },
+        update: { name: req.user.name, imageUrl: req.user.avatar },
+        create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
+      });
+
+      await prisma.participation.create({
+        data: { gameId: game.id, userId: req.user.id, status: 'PENDING' }
+      });
+      notifyOrganizerOfPendingRequest(game, req.user, req.io);
+
+      const updated = await prisma.game.findUnique({
+        where: { id: game.id },
+        include: { field: true, participants: { include: { user: true } } }
+      });
+      broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
+      return res.json({ ...mapGameForClient(updated, req.user.id), pending: true });
     }
 
     // If lottery is enabled and hasn't executed yet, allow waitlist joins beyond capacity until lottery time
@@ -1427,7 +1532,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         const confirmedCountPre = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
         const status = confirmedCountPre < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
         await prisma.participation.create({ data: { gameId: game.id, userId: req.user.id, status } });
-        notifyOrganizerOfJoin(game, req.user, req.io);
+        notifyOrganizerOfInstantJoin(game, req.user, req.io);
 
         // Add to Chat
         try {
@@ -1440,7 +1545,8 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
           where: { id: game.id },
           include: { field: true, participants: { include: { user: true } } }
         });
-        return res.json(mapGameForClient(updated));
+        broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
+        return res.json(mapGameForClient(updated, req.user.id));
       }
       // If lottery already ran, fall through to capacity check based on confirmed count
     }
@@ -1452,7 +1558,27 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 
     const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
     if (already) {
-      return res.status(400).json({ error: 'You are already a participant' });
+      if (already.status === 'CONFIRMED' || already.status === 'WAITLISTED') {
+        return res.status(400).json({ error: 'You are already a participant' });
+      }
+      // PENDING/REJECTED row left over from a time when this game required approval. The game is
+      // now INSTANT, so cleanly upgrade the existing row instead of tripping over the
+      // (gameId, userId) unique constraint and bouncing the user with a stale error.
+      await prisma.participation.update({ where: { id: already.id }, data: { status: 'CONFIRMED' } });
+      notifyOrganizerOfInstantJoin(game, req.user, req.io);
+
+      try {
+        await prisma.chatParticipant.create({ data: { userId: req.user.id, chatId: game.id } });
+      } catch (e) {
+        // Ignore if already a chat participant
+      }
+
+      const updatedFromExisting = await prisma.game.findUnique({
+        where: { id: game.id },
+        include: { field: true, participants: { include: { user: true } } }
+      });
+      broadcastGameUpdate(req.io, game.id, updatedFromExisting).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
+      return res.json(mapGameForClient(updatedFromExisting, req.user.id));
     }
 
     await prisma.user.upsert({
@@ -1464,7 +1590,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
     await prisma.participation.create({
       data: { gameId: game.id, userId: req.user.id, status: 'CONFIRMED' }
     });
-    notifyOrganizerOfJoin(game, req.user, req.io);
+    notifyOrganizerOfInstantJoin(game, req.user, req.io);
 
     // Add to Chat
     try {
@@ -1477,10 +1603,121 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       where: { id: game.id },
       include: { field: true, participants: { include: { user: true } } }
     });
-    res.json(mapGameForClient(updated));
+    broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
+    res.json(mapGameForClient(updated, req.user.id));
   } catch (error) {
     console.error('Join game error:', error);
     res.status(500).json({ error: 'Failed to join game' });
+  }
+});
+
+// List pending join requests (organizer/manager only)
+router.get('/:id/join-requests', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    if (!(await canManageGame(gameId, req.user.id))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+    const [requests, rejected] = await Promise.all([
+      prisma.participation.findMany({
+        where: { gameId, status: 'PENDING' },
+        include: { user: true },
+        orderBy: { createdAt: 'asc' }
+      }),
+      prisma.participation.findMany({
+        where: { gameId, status: 'REJECTED' },
+        include: { user: true },
+        orderBy: { createdAt: 'asc' }
+      })
+    ]);
+    const toDTO = (p) => ({
+      userId: p.userId,
+      name: p.user?.name || null,
+      avatar: p.user?.imageUrl || null,
+      requestedAt: p.createdAt.toISOString()
+    });
+    return res.json({
+      requests: requests.map(toDTO),
+      rejected: rejected.map(toDTO)
+    });
+  } catch (e) {
+    console.error('List join requests error:', e);
+    return res.status(500).json({ error: 'Failed to list join requests' });
+  }
+});
+
+// Approve a pending join request (organizer/manager only)
+router.post('/:id/join-requests/:userId/approve', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    const targetUserId = req.params.userId;
+    if (!(await canManageGame(gameId, req.user.id))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    const game = await prisma.game.findUnique({ where: { id: gameId } });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+
+    // Allow approving from PENDING (normal flow) or REJECTED (organizer reversing a misclick via
+    // "Approve Anyway") — both are valid states to promote into the roster.
+    const request = await prisma.participation.findFirst({
+      where: { gameId, userId: targetUserId, status: { in: ['PENDING', 'REJECTED'] } }
+    });
+    if (!request) return res.status(404).json({ error: 'No pending or rejected request found for this user' });
+
+    const confirmedCount = await prisma.participation.count({ where: { gameId, status: 'CONFIRMED' } });
+    const newStatus = confirmedCount < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
+
+    await prisma.participation.update({ where: { id: request.id }, data: { status: newStatus } });
+
+    try {
+      await prisma.chatParticipant.create({ data: { userId: targetUserId, chatId: gameId } });
+    } catch (e) {
+      // Ignore if already a chat participant
+    }
+
+    notifyRequesterOfDecision(game, targetUserId, true, req.io);
+
+    const updated = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { field: true, participants: { include: { user: true } } }
+    });
+    broadcastGameUpdate(req.io, gameId, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', gameId, err));
+    return res.json(mapGameForClient(updated, req.user.id));
+  } catch (e) {
+    console.error('Approve join request error:', e);
+    return res.status(500).json({ error: 'Failed to approve join request' });
+  }
+});
+
+// Reject a pending join request (organizer/manager only)
+router.post('/:id/join-requests/:userId/reject', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    const targetUserId = req.params.userId;
+    if (!(await canManageGame(gameId, req.user.id))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    const game = await prisma.game.findUnique({ where: { id: gameId } });
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+
+    const request = await prisma.participation.findFirst({ where: { gameId, userId: targetUserId, status: 'PENDING' } });
+    if (!request) return res.status(404).json({ error: 'No pending request found for this user' });
+
+    await prisma.participation.update({ where: { id: request.id }, data: { status: 'REJECTED' } });
+
+    notifyRequesterOfDecision(game, targetUserId, false, req.io);
+
+    const updated = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { field: true, participants: { include: { user: true } } }
+    });
+    broadcastGameUpdate(req.io, gameId, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', gameId, err));
+    return res.json(mapGameForClient(updated, req.user.id));
+  } catch (e) {
+    console.error('Reject join request error:', e);
+    return res.status(500).json({ error: 'Failed to reject join request' });
   }
 });
 
@@ -1543,7 +1780,8 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
       where: { id: game.id },
       include: { field: true, participants: { include: { user: true } } }
     });
-    res.json(mapGameForClient(updated));
+    broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
+    res.json(mapGameForClient(updated, req.user.id));
   } catch (error) {
     console.error('Leave game error:', error);
     res.status(500).json({ error: 'Failed to leave game' });

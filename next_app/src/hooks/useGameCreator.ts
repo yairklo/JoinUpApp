@@ -30,6 +30,7 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
         maxPlayers: 10,
         description: "",
         isFriendsOnly: false,
+        joinPolicy: "INSTANT" as "INSTANT" | "REQUIRES_APPROVAL",
         lotteryEnabled: false,
         organizerInLottery: false,
         lotteryDate: "",

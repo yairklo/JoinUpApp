@@ -227,6 +227,15 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                         label="Friends Only (Private)"
                       />
                       <FormControlLabel
+                        control={
+                          <Switch
+                            checked={state.form.joinPolicy === "REQUIRES_APPROVAL"}
+                            onChange={(e) => actions.update("joinPolicy", e.target.checked ? "REQUIRES_APPROVAL" : "INSTANT")}
+                          />
+                        }
+                        label="Requires Approval to Join"
+                      />
+                      <FormControlLabel
                         control={<Switch checked={state.form.lotteryEnabled} onChange={(e) => actions.update("lotteryEnabled", e.target.checked)} />}
                         label="Enable Lottery"
                       />

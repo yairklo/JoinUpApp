@@ -141,6 +141,8 @@ class NotificationService {
                 return;
             }
 
+            // 4. Fan out by token type - mobile clients use Expo, legacy/web clients use Firebase.
+            // A device with both tokens is only sent via Expo to avoid a duplicate push.
             const expoDevices = devices.filter(d => d.expoPushToken);
             const fcmDevices = devices.filter(d => !d.expoPushToken && d.fcmToken);
 
@@ -278,14 +280,13 @@ class NotificationService {
     }
 
     /**
-     * Register or update a device for a user.
-     * Accepts either an Expo push token (mobile) or a legacy FCM token (web).
+     * Register or update a device for a user. Accepts either an Expo push token (mobile)
+     * or an FCM token (legacy/web); exactly one should be provided per call.
      */
     async registerDevice(userId, { expoPushToken = null, fcmToken = null } = {}, deviceType = 'web', deviceName = null) {
         if (!expoPushToken && !fcmToken) {
             throw new Error('Either expoPushToken or fcmToken is required');
         }
-
         try {
             const where = expoPushToken ? { expoPushToken } : { fcmToken };
             const device = await this.prisma.userDevice.upsert({

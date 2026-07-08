@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal, Share, Linking } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { gamesApi } from '@/services/api';
@@ -9,6 +9,8 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSeriesLogic } from '@/hooks/useSeriesLogic';
 import { useTranslation } from 'react-i18next';
+import PendingRequestsList from '@/components/PendingRequestsList';
+import { useGameUpdatedListener } from '@/context/GameUpdateContext';
 
 export default function GameDetailsScreen() {
     const { t } = useTranslation();
@@ -31,6 +33,14 @@ export default function GameDetailsScreen() {
     useEffect(() => {
         fetchGame();
     }, [id]);
+
+    // Live roster sync: any join/leave/approve/reject anywhere pushes a fresh, personalized
+    // snapshot of this game to everyone with a stake in it (organizer, managers, participants).
+    useGameUpdatedListener(useCallback(({ game: updatedGame }) => {
+        if (updatedGame?.id === id) {
+            setGame(updatedGame);
+        }
+    }, [id]));
 
     const fetchGame = async () => {
         try {
@@ -55,9 +65,13 @@ export default function GameDetailsScreen() {
                 Alert.alert("Error", "עליך להיות מחובר כדי להצטרף");
                 return;
             }
-            await gamesApi.join(game.id, token);
-            Alert.alert("Success", "הצטרפת למשחק!");
-            fetchGame(); // Refresh
+            const result = await gamesApi.join(game.id, token);
+            if (result.pending) {
+                Alert.alert(t('game.requestSent'), t('game.requestPending'));
+            } else {
+                Alert.alert("Success", "הצטרפת למשחק!");
+            }
+            setGame(result);
         } catch (err: any) {
             Alert.alert("Error", err.response?.data?.error || "Failed to join game");
         } finally {
@@ -109,6 +123,8 @@ export default function GameDetailsScreen() {
     const isParticipant = game.participants?.some(p => p.id === user?.id);
     const isFull = (game.currentPlayers || 0) >= game.maxPlayers;
     const isOrganizer = game.organizerId === user?.id;
+    const isPendingApproval = game.viewerParticipationStatus === 'PENDING';
+    const isRejected = game.viewerParticipationStatus === 'REJECTED';
 
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
@@ -296,6 +312,17 @@ export default function GameDetailsScreen() {
                     )}
                 </View>
 
+                {/* Pending Join Requests (organizer/manager only) */}
+                {isOrganizer && game.joinPolicy === 'REQUIRES_APPROVAL' && (
+                    <PendingRequestsList
+                        gameId={game.id}
+                        onDecision={(updatedGame) => {
+                            if (updatedGame) setGame(updatedGame);
+                            else fetchGame();
+                        }}
+                    />
+                )}
+
                 {/* Actions Section */}
                 <View className="p-6">
                     {isParticipant ? (
@@ -315,6 +342,14 @@ export default function GameDetailsScreen() {
                                 <Text className="text-red-600 font-bold text-lg">עזוב משחק</Text>
                             </TouchableOpacity>
                         </View>
+                    ) : isPendingApproval ? (
+                        <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200">
+                            <Text className="text-amber-700 font-bold text-lg">{t('game.requestPending')}</Text>
+                        </View>
+                    ) : isRejected ? (
+                        <View className="p-4 rounded-xl items-center bg-gray-100 border border-gray-200">
+                            <Text className="text-gray-500 font-bold text-lg">{t('game.reject')}</Text>
+                        </View>
                     ) : (
                         <TouchableOpacity
                             onPress={handleJoin}
@@ -322,7 +357,7 @@ export default function GameDetailsScreen() {
                             className={`p-4 rounded-xl items-center ${isFull ? 'bg-gray-300' : 'bg-blue-600'}`}
                         >
                             <Text className="text-white font-bold text-lg">
-                                {isFull ? "משחק מלא" : "הצטרף למשחק"}
+                                {isFull ? "משחק מלא" : game.joinPolicy === 'REQUIRES_APPROVAL' ? "בקש להצטרף" : "הצטרף למשחק"}
                             </Text>
                         </TouchableOpacity>
                     )}

@@ -189,6 +189,8 @@ export default function SearchPage() {
           <JoinGameButton
             gameId={g.id}
             registrationOpensAt={g.registrationOpensAt}
+            joinPolicy={g.joinPolicy}
+            viewerParticipationStatus={g.viewerParticipationStatus}
             onJoined={performSearch}
           />
         )}

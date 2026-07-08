@@ -4,6 +4,7 @@ export type Game = {
     fieldName: string;
     fieldLocation: string;
     city?: string | null;
+    start?: string;
     date: string;
     time: string;
     duration?: number;
@@ -21,6 +22,10 @@ export type Game = {
     fieldLng?: number | null;
     customLat?: number | null;
     customLng?: number | null;
+    isFriendsOnly?: boolean;
+    joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
+    pendingRequestCount?: number;
+    viewerParticipationStatus?: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'REJECTED' | null;
     field?: {
         lat?: number | null;
         lng?: number | null;
