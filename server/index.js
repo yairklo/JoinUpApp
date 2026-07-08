@@ -17,6 +17,7 @@ const messagesRoutes = require('./routes/messages');
 const notificationsRoutes = require('./routes/notifications');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission } = require('./utils/chatAuth');
+const { NotificationService } = require('./services/notificationService');
 
 // Moderation
 const { moderator } = require('./moderationInstance');
@@ -39,6 +40,7 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3005;
 const prisma = new PrismaClient();
+const notificationService = new NotificationService(prisma);
 
 // Middleware
 // Allow CORS (can be restricted via env CORS_ORIGINS="https://example.com,https://another.com")
@@ -199,6 +201,12 @@ io.use(async (socket, next) => {
 
 // Basic in-memory presence tracking
 const connectedUsers = new Set();
+
+// A user is "online" if they have at least one active socket in their personal room
+function isUserOnline(userId) {
+  const room = io.sockets.adapter.rooms.get(`user_${userId}`);
+  return !!(room && room.size > 0);
+}
 
 // Fix 4: Redis Subscriber for Worker Events
 if (process.env.REDIS_URL) {
@@ -572,11 +580,14 @@ io.on('connection', async (socket) => {
         }
 
         console.log(`[DEBUG NOTIFICATIONS] Resolved recipientIds for room ${roomId}:`, recipientIds);
+        const messagePreview = text.length > 80 ? `${text.slice(0, 77)}...` : text;
+
         recipientIds.forEach(recipientId => {
-          console.log(`[DEBUG NOTIFICATIONS] Emitting notification & sync to recipient ${recipientId} via room ${recipientId}`);
-          
-          // Data Sync Event (Decoupled from Notifications)
-          io.to(recipientId).emit('chat:sync', {
+          const online = isUserOnline(recipientId);
+          console.log(`[DEBUG NOTIFICATIONS] Recipient ${recipientId} online=${online}`);
+
+          // Data Sync Event (Decoupled from Notifications) - only meaningful to connected clients
+          io.to(`user_${recipientId}`).emit('chat:sync', {
             chatId: roomId,
             lastMessage: {
               text: text,
@@ -587,13 +598,25 @@ io.on('connection', async (socket) => {
             unreadCountIncrement: 1
           });
 
-          // Visual/Push Notification Event
-          io.to(recipientId).emit('notification', {
-            type: 'message',
-            roomId: roomId,
-            senderId: finalUserId,
-            text: text
-          });
+          if (online) {
+            // User is actively connected: lightweight real-time in-app alert only
+            io.to(`user_${recipientId}`).emit('notification', {
+              type: 'message',
+              roomId: roomId,
+              senderId: finalUserId,
+              text: text
+            });
+          } else {
+            // User is offline: persist to DB + fall back to Expo push via the shared NotificationService
+            notificationService.sendNotification(
+              recipientId,
+              'NEW_MESSAGE',
+              senderUser?.name || senderName || 'הודעה חדשה',
+              messagePreview,
+              { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` },
+              io
+            ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message notification:', err));
+          }
         });
       } catch (err) {
         console.error("[DEBUG NOTIFICATIONS] Notification error:", err);
@@ -925,18 +948,32 @@ runGameCompletionCheck().catch(() => { });
 
 // --- Weekly Series Rolling Generation ---
 function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
+  const { parseJerusalemTimeToUTC } = require('./utils/timezone');
   const [hh, mm] = String(hhmm).split(':').map(n => parseInt(n, 10));
-  const d = new Date(now);
-  const day = d.getDay();
+  
+  const tz = 'Asia/Jerusalem';
+  const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+  
+  const day = nowInTz.getDay();
   let addDays = (targetDay - day + 7) % 7;
-  // if today and time already passed, schedule next week
-  const candidate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-  candidate.setDate(candidate.getDate() + addDays);
-  candidate.setHours(Number.isInteger(hh) ? hh : 0, Number.isInteger(mm) ? mm : 0, 0, 0);
-  if (candidate <= now) {
-    candidate.setDate(candidate.getDate() + 7);
+  
+  const candidateYear = nowInTz.getFullYear();
+  const candidateMonth = nowInTz.getMonth();
+  const candidateDay = nowInTz.getDate() + addDays;
+  
+  const targetDate = new Date(candidateYear, candidateMonth, candidateDay);
+  const dateStr = targetDate.toISOString().split('T')[0];
+  const timeStr = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  
+  let candidateUtc = parseJerusalemTimeToUTC(dateStr, timeStr);
+  
+  if (candidateUtc <= now) {
+    const nextWeekDate = new Date(targetDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const nwDateStr = nextWeekDate.toISOString().split('T')[0];
+    candidateUtc = parseJerusalemTimeToUTC(nwDateStr, timeStr);
   }
-  return candidate;
+  
+  return candidateUtc;
 }
 
 let seriesGenRunning = false;

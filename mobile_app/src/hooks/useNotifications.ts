@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Platform } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { SocketManager } from '@/services/socketManager';
 import { notificationsApi, chatsApi, Notification as NotificationType, API_BASE } from '@/services/api';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -23,9 +25,14 @@ export function useNotifications() {
     // Fix #7: cache permission status so we don't call getPermissionsAsync on every notification
     const permissionGrantedRef = useRef<boolean | null>(null);
 
-    // 0. Request Push Permissions on Mount (once)
+    const getTokenRef = useRef(getToken);
     useEffect(() => {
-        const requestPermissions = async () => {
+        getTokenRef.current = getToken;
+    }, [getToken]);
+
+    // 0. Request Push Permissions on Mount (once), then register the Expo push token with the backend
+    useEffect(() => {
+        const registerForPushNotifications = async () => {
             if (!Device.isDevice) return;
             const { status: existingStatus } = await Notifications.getPermissionsAsync();
             let finalStatus = existingStatus;
@@ -35,9 +42,24 @@ export function useNotifications() {
             }
             // Fix #7: cache result so we never call getPermissionsAsync again
             permissionGrantedRef.current = finalStatus === 'granted';
+            if (finalStatus !== 'granted') return;
+            if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
+
+            try {
+                const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+                const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync(
+                    projectId ? { projectId } : undefined
+                );
+                const clerkToken = await getTokenRef.current();
+                if (clerkToken) {
+                    await notificationsApi.registerDevice(expoPushToken, Platform.OS, clerkToken);
+                }
+            } catch (error) {
+                console.error('[NOTIFICATIONS] Failed to register Expo push token:', error);
+            }
         };
-        requestPermissions();
-    }, []);
+        if (userId) registerForPushNotifications();
+    }, [userId]);
 
     // 1. Fetch Notifications (Initial load only — real-time updates handled by socket)
     const fetchNotifications = useCallback(async () => {
@@ -62,11 +84,6 @@ export function useNotifications() {
         fetchNotifications();
         // No interval — the socket below pushes live updates
     }, [isLoaded, userId]);
-
-    const getTokenRef = useRef(getToken);
-    useEffect(() => {
-        getTokenRef.current = getToken;
-    }, [getToken]);
 
     // 2. Socket Connection via Singleton
     useEffect(() => {

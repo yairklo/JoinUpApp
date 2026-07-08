@@ -9,6 +9,7 @@ import GameActions from "@/components/GameActions";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
+import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -29,6 +30,7 @@ type Game = {
   fieldId: string;
   fieldName: string;
   fieldLocation: string;
+  start: string;
   date: string;
   time: string;
   duration?: number;
@@ -66,7 +68,12 @@ async function fetchGame(id: string): Promise<Game | null> {
       cache: "no-store",
     });
     if (!res.ok) return null;
-    return res.json();
+    const game = await res.json();
+    if (game && game.start) {
+      game.date = formatJerusalemDate(game.start);
+      game.time = formatJerusalemTime(game.start);
+    }
+    return game;
   } catch (e) {
     return null;
   }

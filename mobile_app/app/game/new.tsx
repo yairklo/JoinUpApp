@@ -107,32 +107,41 @@ export default function NewGameScreen() {
             const token = await getToken();
             if (!token) return;
 
-            // Combine Date and Time
+            // Combine Date and Time safely using local timezone components
             const gameDate = new Date(date);
-            const dateStr = gameDate.toISOString().split('T')[0];
+            const year = gameDate.getFullYear();
+            const month = (gameDate.getMonth() + 1).toString().padStart(2, '0');
+            const day = gameDate.getDate().toString().padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
 
             // Format time string HH:mm
             const hours = time.getHours().toString().padStart(2, '0');
             const minutes = time.getMinutes().toString().padStart(2, '0');
             const timeString = `${hours}:${minutes}`;
 
+            // Create combined local datetime and cast to strict UTC ISO string
+            const start = new Date(`${dateStr}T${timeString}:00`).toISOString();
+
             let registrationOpensAt = undefined;
             if (futureRegistration) {
-                const frDate = new Date(futureRegDate).toISOString().split('T')[0];
+                const frGameDate = new Date(futureRegDate);
+                const frDate = `${frGameDate.getFullYear()}-${(frGameDate.getMonth() + 1).toString().padStart(2, '0')}-${frGameDate.getDate().toString().padStart(2, '0')}`;
                 const frTime = `${futureRegTime.getHours().toString().padStart(2, '0')}:${futureRegTime.getMinutes().toString().padStart(2, '0')}`;
                 registrationOpensAt = new Date(`${frDate}T${frTime}:00`).toISOString();
             }
 
             let friendsOnlyUntil = undefined;
             if (isPrivate && makePublicLater) {
-                const pdDate = new Date(publicDate).toISOString().split('T')[0];
+                const pdGameDate = new Date(publicDate);
+                const pdDate = `${pdGameDate.getFullYear()}-${(pdGameDate.getMonth() + 1).toString().padStart(2, '0')}-${pdGameDate.getDate().toString().padStart(2, '0')}`;
                 const pdTime = `${publicTime.getHours().toString().padStart(2, '0')}:${publicTime.getMinutes().toString().padStart(2, '0')}`;
                 friendsOnlyUntil = new Date(`${pdDate}T${pdTime}:00`).toISOString();
             }
 
             let lotteryAt = undefined;
             if (lotteryEnabled) {
-                const ldDate = new Date(lotteryDate).toISOString().split('T')[0];
+                const ldGameDate = new Date(lotteryDate);
+                const ldDate = `${ldGameDate.getFullYear()}-${(ldGameDate.getMonth() + 1).toString().padStart(2, '0')}-${ldGameDate.getDate().toString().padStart(2, '0')}`;
                 const ldTime = `${lotteryTime.getHours().toString().padStart(2, '0')}:${lotteryTime.getMinutes().toString().padStart(2, '0')}`;
                 lotteryAt = new Date(`${ldDate}T${ldTime}:00`).toISOString();
             }
@@ -150,11 +159,12 @@ export default function NewGameScreen() {
                 ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
                 date: dateStr,
                 time: timeString,
+                start,
                 maxPlayers: parseInt(maxPlayers) || 14,
                 price: parseInt(price) || 0,
                 description,
                 whatsappLink,
-                isPrivate,
+                isFriendsOnly: isPrivate,
                 sport,
                 title: title || undefined,
                 duration: parseInt(duration) || 1,

@@ -75,19 +75,19 @@ router.post('/read-all', authenticateToken, async (req, res) => {
     }
 });
 
-// POST /api/notifications/register-device - Register FCM token
+// POST /api/notifications/register-device - Register Expo push token (mobile) or legacy FCM token (web)
 router.post('/register-device', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { fcmToken, deviceType, deviceName } = req.body;
+        const { expoPushToken, fcmToken, deviceType, deviceName } = req.body;
 
-        if (!fcmToken) {
-            return res.status(400).json({ error: 'fcmToken is required' });
+        if (!expoPushToken && !fcmToken) {
+            return res.status(400).json({ error: 'expoPushToken or fcmToken is required' });
         }
 
         const device = await notificationService.registerDevice(
             userId,
-            fcmToken,
+            { expoPushToken, fcmToken },
             deviceType || 'web',
             deviceName
         );
@@ -99,11 +99,15 @@ router.post('/register-device', authenticateToken, async (req, res) => {
     }
 });
 
-// DELETE /api/notifications/device/:token - Remove device
+// DELETE /api/notifications/device/:token - Remove device (matches either token type)
 router.delete('/device/:token', authenticateToken, async (req, res) => {
     try {
-        const fcmToken = req.params.token;
-        await notificationService.removeDevice(fcmToken);
+        const token = req.params.token;
+        if (token.startsWith('ExponentPushToken')) {
+            await notificationService.removeDevice({ expoPushToken: token });
+        } else {
+            await notificationService.removeDevice({ fcmToken: token });
+        }
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Failed to remove device:', error);

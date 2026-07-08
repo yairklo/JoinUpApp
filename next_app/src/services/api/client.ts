@@ -1,4 +1,25 @@
+import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
+
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
+
+function mapGameTimezones(data: any): any {
+    if (!data) return data;
+    if (Array.isArray(data)) {
+        return data.map(mapGameTimezones);
+    }
+    if (typeof data === 'object') {
+        if (data.start && (data.date === undefined || data.time === undefined || data.date === "" || data.time === "")) {
+            data.date = formatJerusalemDate(data.start);
+            data.time = formatJerusalemTime(data.start);
+        }
+        for (const key in data) {
+            if (data[key] && typeof data[key] === 'object') {
+                data[key] = mapGameTimezones(data[key]);
+            }
+        }
+    }
+    return data;
+}
 
 interface RequestConfig extends RequestInit {
     token?: string;
@@ -35,7 +56,8 @@ export async function apiClient<T>(endpoint: string, { token, data, ...customCon
             return {} as T;
         }
 
-        return response.json();
+        const result = await response.json();
+        return mapGameTimezones(result) as T;
     } catch (error) {
         console.error(`API Call Failed [${url}]:`, error);
         throw error;

@@ -100,5 +100,16 @@
     "reply": "השב",
     "delete": "מחק",
     "edit": "ערוך"
+  },
+  "notifications": {
+    "title": "התראות",
+    "readAll": "סמן הכל כנקרא",
+    "empty": "אין התראות עדיין",
+    "emptyDesc": "נעדכן אותך כשיש משחקים חדשים או שחברים כותבים לך",
+    "newMessageTitle": "הודעה חדשה",
+    "newGameInCityTitle": "משחק חדש ב{{city}}",
+    "newGameInCityBody": "{{name}} פתח/ה משחק חדש ב{{fieldName}}",
+    "joinRequestTitle": "מישהו הצטרף למשחק שלך",
+    "joinRequestBody": "{{name}} הצטרף/ה למשחק הפרטי שלך"
   }
 }

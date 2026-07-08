@@ -2,19 +2,13 @@ const express = require('express');
 const dataManager = require('../utils/dataManager');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { PrismaClient, SportType } = require('@prisma/client');
+const { NotificationService } = require('../services/notificationService');
 const prisma = new PrismaClient();
+const notificationService = new NotificationService(prisma);
 
 
 function mapGameForClient(game) {
   if (!game) return game;
-  const start = new Date(game.start);
-  const yyyy = start.getFullYear();
-  const mm = String(start.getMonth() + 1).padStart(2, '0');
-  const dd = String(start.getDate()).padStart(2, '0');
-  const hh = String(start.getHours()).padStart(2, '0');
-  const mi = String(start.getMinutes()).padStart(2, '0');
-  const date = `${yyyy}-${mm}-${dd}`;
-  const time = `${hh}:${mi}`;
   const allParts = Array.isArray(game?.participants) ? game.participants : [];
   const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
   const waitlisted = allParts.filter(p => p.status === 'WAITLISTED');
@@ -73,8 +67,7 @@ function mapGameForClient(game) {
     customLat: typeof game.customLat === 'number' ? game.customLat : null,
     customLng: typeof game.customLng === 'number' ? game.customLng : null,
     customLocation: game.customLocation || null,
-    date,
-    time,
+    start: game.start.toISOString(),
     duration: game.duration,
     maxPlayers: game.maxPlayers,
     teamSize: game.teamSize || null,
@@ -601,7 +594,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
-    const { time, date, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly, teamSize } = req.body || {};
+    const { time, date, start, maxPlayers, sport, registrationOpensAt, title, friendsOnlyUntil, isFriendsOnly, teamSize } = req.body || {};
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
@@ -617,22 +610,29 @@ router.patch('/:id', authenticateToken, async (req, res) => {
     }
 
     const updates = {};
-    if (typeof time === 'string' && /^\d{2}:\d{2}$/.test(time)) {
-      const [hhStr, mmStr] = time.split(':');
-      const hh = parseInt(hhStr, 10);
-      const mm = parseInt(mmStr, 10);
-      if (Number.isInteger(hh) && Number.isInteger(mm)) {
-        const newStart = new Date(game.start);
-        newStart.setHours(hh, mm, 0, 0);
-        updates['start'] = newStart;
+    if (start) {
+      const parsedStart = new Date(start);
+      if (!Number.isNaN(parsedStart.getTime())) {
+        updates['start'] = parsedStart;
       }
-    }
-    if (typeof date === 'string') {
-      const d = new Date(date);
-      if (!Number.isNaN(d.getTime())) {
-        const newStart = new Date(updates['start'] || game.start);
-        newStart.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-        updates['start'] = newStart;
+    } else {
+      if (typeof time === 'string' && /^\d{2}:\d{2}$/.test(time)) {
+        const [hhStr, mmStr] = time.split(':');
+        const hh = parseInt(hhStr, 10);
+        const mm = parseInt(mmStr, 10);
+        if (Number.isInteger(hh) && Number.isInteger(mm)) {
+          const newStart = new Date(game.start);
+          newStart.setHours(hh, mm, 0, 0);
+          updates['start'] = newStart;
+        }
+      }
+      if (typeof date === 'string') {
+        const d = new Date(date);
+        if (!Number.isNaN(d.getTime())) {
+          const newStart = new Date(updates['start'] || game.start);
+          newStart.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+          updates['start'] = newStart;
+        }
       }
     }
 
@@ -898,6 +898,7 @@ router.post('/', authenticateToken, async (req, res) => {
       newField, // optional: { name, location }
       date,
       time,
+      start: payloadStart, // strict UTC ISO timestamp from new clients
       duration,
       maxPlayers,
       isOpenToJoin,
@@ -922,11 +923,12 @@ router.post('/', authenticateToken, async (req, res) => {
     const hasFieldId = !!fieldId;
     const hasNewFieldText = !!(newField && (String(newField.name || '').trim() || String(newField.location || '').trim()));
     const hasCoords = Number.isFinite(latNum) && Number.isFinite(lngNum);
+    const hasStart = !!payloadStart;
     const hasDate = !!date;
     const hasTime = !!time;
     const hasMaxPlayers = !!maxPlayers;
 
-    if (!(hasFieldId || hasNewFieldText || hasCoords) || !hasDate || !hasTime || !hasMaxPlayers) {
+    if (!(hasFieldId || hasNewFieldText || hasCoords) || (!hasStart && (!hasDate || !hasTime)) || !hasMaxPlayers) {
       console.warn('Create game validation failed', {
         bodyKeys: Object.keys(req.body || {}),
         fieldId,
@@ -984,7 +986,8 @@ router.post('/', authenticateToken, async (req, res) => {
       create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
     });
 
-    const start = new Date(`${date}T${time}:00`);
+    const { parseJerusalemTimeToUTC } = require('../utils/timezone');
+    const start = payloadStart ? new Date(payloadStart) : parseJerusalemTimeToUTC(date, time);
 
     // Recurrence handling (flexible: WEEKLY or CUSTOM)
     const isRecurring = !!recurrence && (recurrence.type || recurrence.isRecurring);
@@ -1205,7 +1208,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Socket Notifications (Targeted Delta Update)
     if (req.io) {
-      // 1. Notify City
+      // 1. Notify City (live update for anyone currently connected & subscribed to the city room)
       if (created.field?.city) {
         req.io.to(`city_${created.field.city}`).emit('game:created', gamePayload);
       }
@@ -1226,6 +1229,31 @@ router.post('/', authenticateToken, async (req, res) => {
       } catch (e) {
         console.error("Error notifying friends", e);
       }
+    }
+
+    // 3. Notify every user whose profile city matches the game's city (DB record + Expo push),
+    // regardless of whether they're currently connected. Runs after the response-critical work above
+    // and never blocks game creation if it fails.
+    if (created.field?.city) {
+      const cityGameName = created.field.name || 'מגרש חדש';
+      prisma.user.findMany({
+        where: {
+          city: { equals: created.field.city, mode: 'insensitive' },
+          id: { not: req.user.id }
+        },
+        select: { id: true }
+      }).then(cityUsers => {
+        cityUsers.forEach(u => {
+          notificationService.sendNotification(
+            u.id,
+            'NEW_GAME_IN_CITY',
+            `משחק חדש ב${created.field.city}`,
+            `${req.user.name || 'מישהו'} פתח/ה משחק חדש ב${cityGameName}`,
+            { gameId: created.id, city: created.field.city, link: `/game/${created.id}` },
+            req.io
+          ).catch(err => console.error('[NOTIFICATIONS] Failed to notify city user', u.id, err));
+        });
+      }).catch(err => console.error('[NOTIFICATIONS] Failed to resolve city users for new game', err));
     }
 
     res.status(201).json(gamePayload);
@@ -1343,6 +1371,20 @@ router.put('/:id/teams', authenticateToken, async (req, res) => {
   }
 });
 
+// Notify the organizer when someone joins their private (friends-only) match.
+// Fire-and-forget: never blocks or fails the join itself.
+function notifyOrganizerOfJoin(game, joiningUser, io) {
+  if (!game.isFriendsOnly || game.organizerId === joiningUser.id) return;
+  notificationService.sendNotification(
+    game.organizerId,
+    'GAME_JOIN_REQUEST',
+    'מישהו הצטרף למשחק שלך',
+    `${joiningUser.name || 'משתמש'} הצטרף/ה למשחק הפרטי שלך`,
+    { gameId: game.id, userId: joiningUser.id, link: `/game/${game.id}` },
+    io
+  ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));
+}
+
 // Join game
 router.post('/:id/join', authenticateToken, async (req, res) => {
   try {
@@ -1385,6 +1427,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         const confirmedCountPre = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
         const status = confirmedCountPre < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
         await prisma.participation.create({ data: { gameId: game.id, userId: req.user.id, status } });
+        notifyOrganizerOfJoin(game, req.user, req.io);
 
         // Add to Chat
         try {
@@ -1421,6 +1464,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
     await prisma.participation.create({
       data: { gameId: game.id, userId: req.user.id, status: 'CONFIRMED' }
     });
+    notifyOrganizerOfJoin(game, req.user, req.io);
 
     // Add to Chat
     try {
