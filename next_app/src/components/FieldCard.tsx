@@ -44,6 +44,13 @@ export default function FieldCard({ field }: { field: Field }) {
       </ListGroup>
       <Card.Body>
         <Link
+          href={`/fields/${field.id}`}
+          aria-label={`View profile of ${field.name}`}
+          className="btn btn-outline-primary btn-sm me-2"
+        >
+          Field profile
+        </Link>
+        <Link
           href={`/games?fieldId=${field.id}`}
           aria-label={`View games at ${field.name}`}
           className="btn btn-primary btn-sm"

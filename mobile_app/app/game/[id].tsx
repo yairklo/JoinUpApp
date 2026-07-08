@@ -137,7 +137,16 @@ export default function GameDetailsScreen() {
             <ScrollView className="flex-1 bg-gray-50">
                 {/* Header Section */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
-                    <Text className="text-2xl font-bold text-gray-800 mb-2 text-left">{game.field?.name || game.fieldName || t('game.unknownField')}</Text>
+                    <TouchableOpacity
+                        disabled={!game.fieldId}
+                        onPress={() => game.fieldId && router.push(`/field/${game.fieldId}`)}
+                        className="flex-row items-center mb-2"
+                    >
+                        <Text className="text-2xl font-bold text-gray-800 text-left">{game.field?.name || game.fieldName || t('game.unknownField')}</Text>
+                        {game.fieldId ? (
+                            <FontAwesome name="angle-left" size={20} color="#2563eb" style={{ marginLeft: 8 }} />
+                        ) : null}
+                    </TouchableOpacity>
                     <View className="flex-row items-center mb-2">
                         <FontAwesome name="calendar" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base">

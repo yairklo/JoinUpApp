@@ -65,8 +65,29 @@ model Field {
   streetNumber String?
   favorites    FavoriteField[]
   games        Game[]
+  reports      FieldReport[]
 
   @@index([lat, lng])
+}
+
+/// Crowdsourced crowd-level log submitted by players viewing a field.
+/// dayOfWeek/hour are stored as Jerusalem-local values computed server-side at
+/// write time (0 = Sunday, hour 0-23), so busy-profile aggregation is a plain
+/// integer groupBy with no timezone math at read time. createdAt remains UTC.
+model FieldReport {
+  id        String   @id @default(cuid())
+  fieldId   String
+  field     Field    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  /// Reporter — used for rate-limiting duplicate reports (nullable for legacy/anonymized rows)
+  userId    String?
+  dayOfWeek Int
+  hour      Int
+  /// 1=Empty, 2=Light, 3=Moderate, 4=Crowded, 5=Full (Int rather than enum so Prisma can _avg it)
+  busyLevel Int
+  createdAt DateTime @default(now())
+
+  @@index([fieldId, dayOfWeek, hour])
+  @@index([fieldId, userId, createdAt])
 }
 
 model Game {

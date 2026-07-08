@@ -2,6 +2,7 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const dataManager = require('../utils/dataManager');
+const { getJerusalemDayHour } = require('../utils/timezone');
 
 function mapFieldForClient(f) {
   if (!f) return f;
@@ -168,6 +169,138 @@ router.get('/type/:type', async (req, res) => {
       console.error('Fallback type filter fields.json failed:', fallbackErr);
       return res.status(500).json({ error: 'Failed to get fields by type' });
     }
+  }
+});
+
+// How far back crowd reports count toward the busy-times profile.
+// Keeps the chart responsive to seasonal/schedule changes at the field.
+const REPORT_WINDOW_DAYS = 90;
+// Minimum gap between two reports from the same user for the same field.
+const REPORT_THROTTLE_MINUTES = 60;
+
+// GET /api/fields/:id/analytics - Field profile analytics:
+// upcoming week's schedule + crowdsourced 7x24 busy-times profile.
+router.get('/:id/analytics', authenticateToken, async (req, res) => {
+  try {
+    const fieldId = req.params.id;
+    const field = await prisma.field.findUnique({ where: { id: fieldId }, select: { id: true } });
+    if (!field) {
+      return res.status(404).json({ error: 'Field not found' });
+    }
+
+    const now = new Date();
+    const weekAhead = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const windowStart = new Date(now.getTime() - REPORT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+    const [games, grouped] = await Promise.all([
+      // Upcoming week's schedule. Friends-only games are excluded so private
+      // matches never leak on a public field profile.
+      prisma.game.findMany({
+        where: {
+          fieldId,
+          status: 'OPEN',
+          isFriendsOnly: false,
+          start: { gte: now, lt: weekAhead }
+        },
+        orderBy: { start: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          start: true,
+          duration: true,
+          sport: true,
+          maxPlayers: true,
+          price: true,
+          joinPolicy: true,
+          participants: {
+            where: { status: 'CONFIRMED' },
+            select: { id: true }
+          }
+        }
+      }),
+      // Crowd density profile: average busyLevel per (dayOfWeek, hour) cell
+      // over the rolling report window.
+      prisma.fieldReport.groupBy({
+        by: ['dayOfWeek', 'hour'],
+        where: { fieldId, createdAt: { gte: windowStart } },
+        _avg: { busyLevel: true },
+        _count: { id: true }
+      })
+    ]);
+
+    // Dense 7x24 matrix. Cells without data stay { avg: null, samples: 0 } —
+    // "no data" is deliberately distinct from "empty field" on the clients.
+    const busyProfile = Array.from({ length: 7 }, () =>
+      Array.from({ length: 24 }, () => ({ avg: null, samples: 0 }))
+    );
+    let totalReports = 0;
+    grouped.forEach(cell => {
+      if (cell.dayOfWeek >= 0 && cell.dayOfWeek <= 6 && cell.hour >= 0 && cell.hour <= 23) {
+        busyProfile[cell.dayOfWeek][cell.hour] = {
+          avg: cell._avg.busyLevel !== null ? Math.round(cell._avg.busyLevel * 10) / 10 : null,
+          samples: cell._count.id
+        };
+        totalReports += cell._count.id;
+      }
+    });
+
+    res.json({
+      schedule: games.map(g => ({
+        id: g.id,
+        title: g.title,
+        start: g.start,
+        duration: g.duration,
+        sport: g.sport,
+        maxPlayers: g.maxPlayers,
+        price: g.price,
+        joinPolicy: g.joinPolicy,
+        confirmedCount: g.participants.length
+      })),
+      busyProfile,
+      totalReports,
+      reportWindowDays: REPORT_WINDOW_DAYS
+    });
+  } catch (error) {
+    console.error('Get field analytics error:', error);
+    res.status(500).json({ error: 'Failed to get field analytics' });
+  }
+});
+
+// POST /api/fields/:id/report - Submit a live crowd status for a field.
+// Throttled to one report per user per field per hour.
+router.post('/:id/report', authenticateToken, async (req, res) => {
+  try {
+    const fieldId = req.params.id;
+    const busyLevel = parseInt(req.body?.busyLevel, 10);
+
+    if (!Number.isInteger(busyLevel) || busyLevel < 1 || busyLevel > 5) {
+      return res.status(400).json({ error: 'busyLevel must be an integer between 1 and 5' });
+    }
+
+    const field = await prisma.field.findUnique({ where: { id: fieldId }, select: { id: true } });
+    if (!field) {
+      return res.status(404).json({ error: 'Field not found' });
+    }
+
+    const throttleCutoff = new Date(Date.now() - REPORT_THROTTLE_MINUTES * 60 * 1000);
+    const recent = await prisma.fieldReport.findFirst({
+      where: { fieldId, userId: req.user.id, createdAt: { gte: throttleCutoff } },
+      select: { id: true }
+    });
+    if (recent) {
+      // Soft response: the widget already showed its thank-you state; no need to error.
+      return res.json({ ok: true, throttled: true });
+    }
+
+    const { dayOfWeek, hour } = getJerusalemDayHour();
+    await prisma.fieldReport.create({
+      data: { fieldId, userId: req.user.id, dayOfWeek, hour, busyLevel }
+    });
+
+    res.status(201).json({ ok: true, throttled: false });
+  } catch (error) {
+    console.error('Submit field report error:', error);
+    res.status(500).json({ error: 'Failed to submit field report' });
   }
 });
 

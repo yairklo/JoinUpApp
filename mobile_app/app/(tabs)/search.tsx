@@ -542,6 +542,19 @@ export default function SearchScreen() {
                                         {selectedFieldGames?.[0]?.field?.name || selectedFieldGames?.[0]?.fieldName || 'משחקים במגרש'}
                                     </Text>
                                 </View>
+                                {(selectedFieldGames?.[0]?.field?.id || selectedFieldGames?.[0]?.fieldId) && (
+                                    <TouchableOpacity
+                                        className="flex-row items-center justify-center bg-blue-50 border border-blue-200 py-2.5 rounded-xl mb-4"
+                                        onPress={() => {
+                                            const fid = selectedFieldGames?.[0]?.field?.id || selectedFieldGames?.[0]?.fieldId;
+                                            setSelectedFieldGames(null);
+                                            router.push(`/field/${fid}`);
+                                        }}
+                                    >
+                                        <MaterialCommunityIcons name="chart-bar" size={16} color="#2563eb" style={{ marginRight: 6 }} />
+                                        <Text className="text-blue-700 font-bold text-sm">{t('field.viewProfile', 'לפרופיל המגרש')}</Text>
+                                    </TouchableOpacity>
+                                )}
                                 <FlatList
                                     showsVerticalScrollIndicator={false}
                                     data={selectedFieldGames}
@@ -608,6 +621,17 @@ export default function SearchScreen() {
                                     }}
                                 >
                                     <Text className="text-white font-bold text-base">פתח משחק במגרש זה</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    className="flex-row items-center justify-center bg-blue-50 border border-blue-200 py-3 rounded-xl mt-3"
+                                    onPress={() => {
+                                        const fieldId = selectedEmptyField?.id;
+                                        setSelectedEmptyField(null);
+                                        router.push(`/field/${fieldId}`);
+                                    }}
+                                >
+                                    <MaterialCommunityIcons name="chart-bar" size={16} color="#2563eb" style={{ marginRight: 6 }} />
+                                    <Text className="text-blue-700 font-bold text-base">{t('field.viewProfile', 'לפרופיל המגרש')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>

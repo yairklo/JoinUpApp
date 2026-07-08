@@ -139,6 +139,16 @@ export default async function GameDetails(props: {
             canManageSeries={canManageSeries}
           />
 
+          {game.fieldId && (
+            <Box mt={1.5} sx={{ direction: "rtl" }}>
+              <Link href={`/fields/${game.fieldId}`} style={{ textDecoration: "none" }}>
+                <Typography variant="body2" color="primary" fontWeight={600}>
+                  לפרופיל המגרש: לוח משחקים ושעות עומס ←
+                </Typography>
+              </Link>
+            </Box>
+          )}
+
           <Box mt={2}>
             <GameActions
               gameId={game.id}

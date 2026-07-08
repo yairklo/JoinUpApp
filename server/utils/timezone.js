@@ -33,6 +33,29 @@ function parseJerusalemTimeToUTC(dateStr, timeStr) {
   return new Date(utcDate.getTime() - offsetMs);
 }
 
+/**
+ * Returns { dayOfWeek, hour } for a given instant, expressed in Asia/Jerusalem
+ * local time. dayOfWeek follows JS convention: 0 = Sunday ... 6 = Saturday.
+ */
+function getJerusalemDayHour(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jerusalem',
+    weekday: 'short',
+    hour: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(date);
+  const partVal = (type) => parts.find(p => p.type === type)?.value;
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayOfWeek = dayNames.indexOf(partVal('weekday'));
+  // Intl can emit "24" for midnight with hour12: false in some engines
+  const hour = parseInt(partVal('hour'), 10) % 24;
+
+  return { dayOfWeek, hour };
+}
+
 module.exports = {
-  parseJerusalemTimeToUTC
+  parseJerusalemTimeToUTC,
+  getJerusalemDayHour
 };
