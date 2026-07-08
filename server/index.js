@@ -17,6 +17,7 @@ const messagesRoutes = require('./routes/messages');
 const notificationsRoutes = require('./routes/notifications');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission } = require('./utils/chatAuth');
+const { NotificationService } = require('./services/notificationService');
 
 // Moderation
 const { moderator } = require('./moderationInstance');
@@ -39,6 +40,7 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3005;
 const prisma = new PrismaClient();
+const notificationService = new NotificationService(prisma);
 
 // Middleware
 // Allow CORS (can be restricted via env CORS_ORIGINS="https://example.com,https://another.com")
@@ -199,6 +201,10 @@ io.use(async (socket, next) => {
 
 // Basic in-memory presence tracking
 const connectedUsers = new Set();
+function isUserOnline(userId) {
+  const room = io.sockets.adapter.rooms.get(`user_${userId}`);
+  return !!(room && room.size > 0);
+}
 
 // Fix 4: Redis Subscriber for Worker Events
 if (process.env.REDIS_URL) {
@@ -573,9 +579,7 @@ io.on('connection', async (socket) => {
 
         console.log(`[DEBUG NOTIFICATIONS] Resolved recipientIds for room ${roomId}:`, recipientIds);
         recipientIds.forEach(recipientId => {
-          console.log(`[DEBUG NOTIFICATIONS] Emitting notification & sync to recipient ${recipientId} via room ${recipientId}`);
-          
-          // Data Sync Event (Decoupled from Notifications)
+          // Data Sync Event (Decoupled from Notifications) - only meaningful while the room is open
           io.to(recipientId).emit('chat:sync', {
             chatId: roomId,
             lastMessage: {
@@ -587,13 +591,27 @@ io.on('connection', async (socket) => {
             unreadCountIncrement: 1
           });
 
-          // Visual/Push Notification Event
-          io.to(recipientId).emit('notification', {
-            type: 'message',
-            roomId: roomId,
-            senderId: finalUserId,
-            text: text
-          });
+          if (isUserOnline(recipientId)) {
+            // Online: lightweight real-time event, no DB persistence/push needed
+            console.log(`[DEBUG NOTIFICATIONS] Recipient ${recipientId} is online, emitting socket notification`);
+            io.to(recipientId).emit('notification', {
+              type: 'message',
+              roomId: roomId,
+              senderId: finalUserId,
+              text: text
+            });
+          } else {
+            // Offline: persist to DB and send an Expo/FCM push
+            console.log(`[DEBUG NOTIFICATIONS] Recipient ${recipientId} is offline, sending push notification`);
+            notificationService.sendNotification(
+              recipientId,
+              'NEW_MESSAGE',
+              msg.senderName || 'הודעה חדשה',
+              text,
+              { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` },
+              io
+            ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message notification', recipientId, err));
+          }
         });
       } catch (err) {
         console.error("[DEBUG NOTIFICATIONS] Notification error:", err);

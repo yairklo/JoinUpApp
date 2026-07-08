@@ -26,6 +26,9 @@ export type Game = {
     description?: string;
     isFriendsOnly?: boolean;
     friendsOnlyUntil?: string | null;
+    joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
+    pendingRequestCount?: number;
+    viewerParticipationStatus?: 'CONFIRMED' | 'WAITLISTED' | 'PENDING' | 'REJECTED' | null;
     isOpenToJoin?: boolean;
     lotteryEnabled?: boolean;
     lotteryAt?: string | null;
@@ -49,6 +52,13 @@ export type GameParticipant = {
     avatar?: string | null; // or image? Backend sends 'avatar'
     teamId?: string | null;
     status?: 'CONFIRMED' | 'WAITLISTED';
+};
+
+export type JoinRequest = {
+    userId: string;
+    name?: string | null;
+    avatar?: string | null;
+    requestedAt: string;
 };
 
 export type Team = {

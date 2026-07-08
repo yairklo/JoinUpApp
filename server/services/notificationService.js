@@ -1,6 +1,10 @@
 const admin = require('firebase-admin');
+const { Expo } = require('expo-server-sdk');
 const { PrismaClient } = require('@prisma/client');
 const { Logger } = require('../utils/logger');
+
+// Expo push client (no credentials required - Expo's push service handles APNs/FCM delivery internally)
+const expo = new Expo();
 
 // Initialize Firebase Admin (only once)
 let firebaseInitialized = false;
@@ -140,83 +144,160 @@ class NotificationService {
                 return;
             }
 
-            // 4. Send to all devices
-            const tokens = devices.map(d => d.fcmToken);
-            const invalidTokens = [];
+            // 4. Fan out by token type - mobile clients use Expo, legacy/web clients use Firebase
+            const expoDevices = devices.filter(d => d.expoPushToken);
+            const fcmDevices = devices.filter(d => d.fcmToken);
 
-            for (const token of tokens) {
-                try {
-                    await admin.messaging().send({
-                        token,
-                        // notification: { title, body }, // REMOVED to prevent double notification
-                        data: {
-                            ...data,
-                            type,
-                            title, // Send title in data
-                            body,  // Send body in data
-                            notificationId: data.notificationId || '',
-                            link: data.link || '/',
-                            icon: '/icons/web-app-manifest-192x192.png'
-                        },
-                        webpush: {
-                            fcmOptions: {
-                                link: data.link || '/'
-                            }
-                        },
-                        android: {
-                            priority: 'high',
-                            notification: {
-                                icon: 'icon_notification',
-                                color: '#000000',
-                                clickAction: 'FLUTTER_NOTIFICATION_CLICK' // Standard for many handlers, but we will handle in SW
-                            }
-                        },
-                        apns: {
-                            payload: {
-                                aps: {
-                                    contentAvailable: true,
-                                    sound: 'default'
-                                }
-                            }
-                        }
-                    });
-
-                    Logger.info('NotificationService', `Push sent to token ${token.substring(0, 20)}...`);
-                } catch (error) {
-                    // Handle invalid tokens
-                    if (error.code === 'messaging/invalid-registration-token' ||
-                        error.code === 'messaging/registration-token-not-registered') {
-                        invalidTokens.push(token);
-                        Logger.warn('NotificationService', `Invalid token: ${token.substring(0, 20)}...`);
-                    } else {
-                        Logger.error('NotificationService', `Failed to send push to token ${token.substring(0, 20)}:`, error);
-                    }
-                }
-            }
-
-            // 5. Clean up invalid tokens
-            if (invalidTokens.length > 0) {
-                await this.prisma.userDevice.deleteMany({
-                    where: {
-                        fcmToken: { in: invalidTokens }
-                    }
-                });
-                Logger.info('NotificationService', `Cleaned up ${invalidTokens.length} invalid tokens`);
-            }
+            await Promise.all([
+                this.sendExpoPush(expoDevices, type, title, body, data),
+                this.sendFirebasePush(fcmDevices, type, title, body, data)
+            ]);
         } catch (error) {
             Logger.error('NotificationService', 'Failed to send push notifications:', error);
         }
     }
 
     /**
-     * Register or update a device for a user
+     * Send push notifications via Expo's push service (mobile app)
      */
-    async registerDevice(userId, fcmToken, deviceType = 'web', deviceName = null) {
+    async sendExpoPush(devices, type, title, body, data = {}) {
+        const messages = [];
+        const tokenToDevice = new Map();
+
+        for (const device of devices) {
+            const token = device.expoPushToken;
+            if (!Expo.isExpoPushToken(token)) {
+                Logger.warn('NotificationService', `Skipping invalid Expo push token: ${token}`);
+                continue;
+            }
+            tokenToDevice.set(token, device);
+            messages.push({
+                to: token,
+                sound: 'default',
+                title,
+                body,
+                data: { ...data, type, notificationId: data.notificationId || '', link: data.link || '/' }
+            });
+        }
+
+        if (messages.length === 0) return;
+
+        const chunks = expo.chunkPushNotifications(messages);
+        const invalidTokens = [];
+
+        for (const chunk of chunks) {
+            try {
+                const tickets = await expo.sendPushNotificationsAsync(chunk);
+                tickets.forEach((ticket, i) => {
+                    if (ticket.status === 'error') {
+                        Logger.warn('NotificationService', `Expo push error: ${ticket.message}`);
+                        if (ticket.details?.error === 'DeviceNotRegistered') {
+                            invalidTokens.push(chunk[i].to);
+                        }
+                    }
+                });
+            } catch (error) {
+                Logger.error('NotificationService', 'Failed to send Expo push chunk:', error);
+            }
+        }
+
+        if (invalidTokens.length > 0) {
+            await this.prisma.userDevice.deleteMany({
+                where: { expoPushToken: { in: invalidTokens } }
+            });
+            Logger.info('NotificationService', `Cleaned up ${invalidTokens.length} stale Expo tokens`);
+        }
+    }
+
+    /**
+     * Send push notifications via Firebase Cloud Messaging (legacy/web clients)
+     */
+    async sendFirebasePush(devices, type, title, body, data = {}) {
+        if (devices.length === 0) return;
+        if (!firebaseInitialized) {
+            Logger.warn('NotificationService', 'Firebase not initialized, skipping FCM push');
+            return;
+        }
+
+        const tokens = devices.map(d => d.fcmToken);
+        const invalidTokens = [];
+
+        for (const token of tokens) {
+            try {
+                await admin.messaging().send({
+                    token,
+                    // notification: { title, body }, // REMOVED to prevent double notification
+                    data: {
+                        ...data,
+                        type,
+                        title, // Send title in data
+                        body,  // Send body in data
+                        notificationId: data.notificationId || '',
+                        link: data.link || '/',
+                        icon: '/icons/web-app-manifest-192x192.png'
+                    },
+                    webpush: {
+                        fcmOptions: {
+                            link: data.link || '/'
+                        }
+                    },
+                    android: {
+                        priority: 'high',
+                        notification: {
+                            icon: 'icon_notification',
+                            color: '#000000',
+                            clickAction: 'FLUTTER_NOTIFICATION_CLICK' // Standard for many handlers, but we will handle in SW
+                        }
+                    },
+                    apns: {
+                        payload: {
+                            aps: {
+                                contentAvailable: true,
+                                sound: 'default'
+                            }
+                        }
+                    }
+                });
+
+                Logger.info('NotificationService', `Push sent to token ${token.substring(0, 20)}...`);
+            } catch (error) {
+                // Handle invalid tokens
+                if (error.code === 'messaging/invalid-registration-token' ||
+                    error.code === 'messaging/registration-token-not-registered') {
+                    invalidTokens.push(token);
+                    Logger.warn('NotificationService', `Invalid token: ${token.substring(0, 20)}...`);
+                } else {
+                    Logger.error('NotificationService', `Failed to send push to token ${token.substring(0, 20)}:`, error);
+                }
+            }
+        }
+
+        // Clean up invalid tokens
+        if (invalidTokens.length > 0) {
+            await this.prisma.userDevice.deleteMany({
+                where: {
+                    fcmToken: { in: invalidTokens }
+                }
+            });
+            Logger.info('NotificationService', `Cleaned up ${invalidTokens.length} invalid tokens`);
+        }
+    }
+
+    /**
+     * Register or update a device for a user. Accepts either an Expo push token (mobile)
+     * or an FCM token (legacy/web); exactly one should be provided per call.
+     */
+    async registerDevice(userId, { expoPushToken = null, fcmToken = null } = {}, deviceType = 'web', deviceName = null) {
+        if (!expoPushToken && !fcmToken) {
+            throw new Error('Either expoPushToken or fcmToken is required');
+        }
         try {
+            const where = expoPushToken ? { expoPushToken } : { fcmToken };
             const device = await this.prisma.userDevice.upsert({
-                where: { fcmToken },
+                where,
                 create: {
                     userId,
+                    expoPushToken,
                     fcmToken,
                     deviceType,
                     deviceName,
@@ -239,14 +320,13 @@ class NotificationService {
     }
 
     /**
-     * Remove a device
+     * Remove a device by either token type
      */
-    async removeDevice(fcmToken) {
+    async removeDevice({ expoPushToken = null, fcmToken = null } = {}) {
         try {
-            await this.prisma.userDevice.delete({
-                where: { fcmToken }
-            });
-            Logger.info('NotificationService', `Removed device with token ${fcmToken.substring(0, 20)}...`);
+            const where = expoPushToken ? { expoPushToken } : { fcmToken };
+            await this.prisma.userDevice.delete({ where });
+            Logger.info('NotificationService', `Removed device with token ${(expoPushToken || fcmToken || '').substring(0, 20)}...`);
         } catch (error) {
             Logger.error('NotificationService', 'Failed to remove device:', error);
         }

@@ -18,23 +18,26 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 export default function JoinGameButton({
   gameId,
   onJoined,
-  registrationOpensAt
+  registrationOpensAt,
+  joinPolicy
 }: {
   gameId: string;
   onJoined?: () => void;
   registrationOpensAt?: string | null;
+  joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
 }) {
   const { getToken } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   const now = new Date();
   const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
   const isRegistrationClosed = openDate && now < openDate;
 
   async function join() {
-    if (isRegistrationClosed) return;
+    if (isRegistrationClosed || pending) return;
     setError(null);
     setLoading(true);
     try {
@@ -49,6 +52,12 @@ export default function JoinGameButton({
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to join");
+      }
+
+      const body = await res.json().catch(() => ({}));
+      if (body.pending) {
+        setPending(true);
+        return;
       }
 
       if (onJoined) onJoined();
@@ -81,7 +90,16 @@ export default function JoinGameButton({
       </SignedOut>
 
       <SignedIn>
-        {isRegistrationClosed ? (
+        {pending ? (
+          <Button
+            disabled
+            variant="outlined"
+            color="warning"
+            size="small"
+          >
+            ממתין לאישור המארגן
+          </Button>
+        ) : isRegistrationClosed ? (
           <Tooltip title={tooltipText} arrow placement="top">
             <span>
               <Button
@@ -110,7 +128,7 @@ export default function JoinGameButton({
             size="small"
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
           >
-            {loading ? "מצטרף..." : "הצטרף"}
+            {loading ? "מצטרף..." : joinPolicy === "REQUIRES_APPROVAL" ? "בקש להצטרף" : "הצטרף"}
           </Button>
         )}
 

@@ -36,6 +36,7 @@ export default function NewGameScreen() {
     const [description, setDescription] = useState('');
     const [whatsappLink, setWhatsappLink] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
+    const [requiresApproval, setRequiresApproval] = useState(false);
 
     // Advanced Options State
     const [makePublicLater, setMakePublicLater] = useState(false);
@@ -164,7 +165,8 @@ export default function NewGameScreen() {
                 price: parseInt(price) || 0,
                 description,
                 whatsappLink,
-                isPrivate,
+                isFriendsOnly: isPrivate,
+                joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 sport,
                 title: title || undefined,
                 duration: parseInt(duration) || 1,
@@ -375,9 +377,14 @@ export default function NewGameScreen() {
                         />
                     </View>
 
-                    <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center justify-between mb-4">
                         <Text className="text-gray-700 font-bold">משחק פרטי (לחברים בלבד)</Text>
                         <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#2563eb' }} />
+                    </View>
+
+                    <View className="flex-row items-center justify-between">
+                        <Text className="text-gray-700 font-bold">דורש אישור הצטרפות</Text>
+                        <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#2563eb' }} />
                     </View>
                 </View>
 

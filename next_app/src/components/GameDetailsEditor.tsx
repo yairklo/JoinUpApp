@@ -186,6 +186,12 @@ export default function GameDetailsEditor(props: ComponentProps) {
                     sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
                   />
 
+                  <FormControlLabel
+                    control={<Switch checked={state.requiresApproval} onChange={(e) => actions.setRequiresApproval(e.target.checked)} />}
+                    label="דורש אישור הצטרפות"
+                    sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                  />
+
                   <Collapse in={state.isFriendsOnly}>
                     <Box mt={2} p={2} bgcolor="grey.50" borderRadius={1} border={1} borderColor="divider">
                       <FormControlLabel

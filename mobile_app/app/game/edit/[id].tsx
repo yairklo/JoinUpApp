@@ -25,6 +25,7 @@ export default function EditGameScreen() {
     const [price, setPrice] = useState('0');
     const [description, setDescription] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
+    const [requiresApproval, setRequiresApproval] = useState(false);
 
     // Pickers visibility
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -55,6 +56,7 @@ export default function EditGameScreen() {
             setPrice(data.price?.toString() || '0');
             setDescription(data.description || '');
             setIsPrivate(data.isFriendsOnly || false); // Assuming isFriendsOnly matches "Private" concept or add separate field
+            setRequiresApproval(data.joinPolicy === 'REQUIRES_APPROVAL');
 
         } catch (error) {
             console.error("Failed to load game", error);
@@ -91,7 +93,8 @@ export default function EditGameScreen() {
                 maxPlayers: parseInt(maxPlayers),
                 price: parseInt(price),
                 description,
-                isFriendsOnly: isPrivate
+                isFriendsOnly: isPrivate,
+                joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT'
             };
 
             await gamesApi.update(id, payload, token);
@@ -198,9 +201,14 @@ export default function EditGameScreen() {
                         />
                     </View>
 
-                    <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center justify-between mb-4">
                         <Text className="text-gray-700">Private Game</Text>
                         <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#2563eb' }} />
+                    </View>
+
+                    <View className="flex-row items-center justify-between">
+                        <Text className="text-gray-700">Requires Approval to Join</Text>
+                        <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#2563eb' }} />
                     </View>
                 </View>
 

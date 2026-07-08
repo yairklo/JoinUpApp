@@ -9,30 +9,38 @@ import { useTranslation } from "react-i18next";
 export default function JoinGameButton({
     gameId,
     registrationOpensAt,
-    onJoined
+    onJoined,
+    onRequestSent
 }: {
     gameId: string;
     registrationOpensAt?: string | null;
     onJoined?: () => void;
+    onRequestSent?: () => void;
 }) {
     const { getToken } = useAuth();
     const { user } = useUser();
     const { t } = useTranslation();
     const { notifyGameUpdate } = useGameUpdate();
     const [loading, setLoading] = useState(false);
+    const [pending, setPending] = useState(false);
 
     const now = new Date();
     const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
     const isRegistrationClosed = openDate && now < openDate;
 
     const join = async () => {
-        if (isRegistrationClosed || loading) return;
+        if (isRegistrationClosed || loading || pending) return;
         setLoading(true);
         try {
             const token = await getToken().catch(() => "");
             if (!token) throw new Error("Unauthorized");
 
-            await gamesApi.join(gameId, token);
+            const result = await gamesApi.join(gameId, token);
+            if (result.pending) {
+                setPending(true);
+                if (onRequestSent) onRequestSent();
+                return;
+            }
             notifyGameUpdate(gameId, "join", user?.id || "");
             if (onJoined) onJoined();
         } catch (e: any) {
@@ -42,6 +50,18 @@ export default function JoinGameButton({
             setLoading(false);
         }
     };
+
+    if (pending) {
+        return (
+            <TouchableOpacity
+                disabled
+                className="bg-amber-50 flex-row items-center justify-center p-3 rounded-xl border border-amber-200"
+            >
+                <Ionicons name="time-outline" size={16} color="#b45309" />
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-amber-700 font-bold flex-shrink">{t("game.requestPending")}</Text>
+            </TouchableOpacity>
+        );
+    }
 
     if (isRegistrationClosed && openDate) {
         const timeStr = openDate.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });

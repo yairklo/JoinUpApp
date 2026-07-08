@@ -21,6 +21,9 @@ export type Game = {
     fieldLng?: number | null;
     customLat?: number | null;
     customLng?: number | null;
+    isFriendsOnly?: boolean;
+    joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
+    pendingRequestCount?: number;
     field?: {
         lat?: number | null;
         lng?: number | null;

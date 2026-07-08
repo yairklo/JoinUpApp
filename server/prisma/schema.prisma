@@ -83,6 +83,8 @@ model Game {
   isOpenToJoin Boolean         @default(true)
   // Visible only to organizer's friends and participants when true
   isFriendsOnly Boolean        @default(false)
+  // Whether joining requires organizer/manager approval before becoming CONFIRMED
+  joinPolicy   JoinPolicy      @default(INSTANT)
   // When set, game becomes public automatically at this time
   friendsOnlyUntil DateTime?
   // Allow signups beyond capacity and finalize participants by lottery
@@ -124,6 +126,11 @@ enum GameStatus {
   OPEN
   COMPLETED
   CANCELLED
+}
+
+enum JoinPolicy {
+  INSTANT
+  REQUIRES_APPROVAL
 }
 
 model Participation {
@@ -313,6 +320,10 @@ enum ParticipationStatus {
   CONFIRMED
   CANCELLED
   NOT_SELECTED
+  // Awaiting organizer/manager decision on a game with joinPolicy = REQUIRES_APPROVAL
+  PENDING
+  // Organizer/manager declined the join request (row kept to block instant re-requests)
+  REJECTED
 }
 
 enum GameRoleType {
@@ -395,6 +406,10 @@ enum NotificationType {
   GAME_REMINDER
   GAME_CANCELLED
   GAME_UPDATED
+  NEW_GAME_IN_CITY
+  GAME_JOIN_REQUEST
+  GAME_JOIN_APPROVED
+  GAME_JOIN_REJECTED
 }
 
 model Notification {
@@ -415,18 +430,20 @@ model Notification {
 }
 
 model UserDevice {
-  id         String   @id @default(cuid())
-  userId     String
-  fcmToken   String   @unique
-  deviceType String?  // "ios", "android", "web"
-  deviceName String?  // User-friendly name
-  lastUsed   DateTime @default(now())
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  fcmToken      String?  @unique
+  expoPushToken String?  @unique
+  deviceType    String?  // "ios", "android", "web"
+  deviceName    String?  // User-friendly name
+  lastUsed      DateTime @default(now())
+  createdAt     DateTime @default(now())
   
-  user       User     @relation("UserDevices", fields: [userId], references: [id], onDelete: Cascade)
+  user          User     @relation("UserDevices", fields: [userId], references: [id], onDelete: Cascade)
   
   @@index([userId])
   @@index([fcmToken])
+  @@index([expoPushToken])
 }
 
 model UserNotificationSettings {

@@ -30,6 +30,7 @@ export interface GameEditorProps {
     initialRegistrationOpensAt?: string | null;
     initialFriendsOnlyUntil?: string | null;
     initialIsFriendsOnly: boolean;
+    initialJoinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     initialTitle?: string | null;
     initialTeamSize?: number | null;
     initialPrice?: number | null;
@@ -44,6 +45,7 @@ export function useGameEditor({
     initialRegistrationOpensAt,
     initialFriendsOnlyUntil,
     initialIsFriendsOnly,
+    initialJoinPolicy = 'INSTANT',
     initialTitle,
     initialTeamSize,
     initialPrice
@@ -63,6 +65,7 @@ export function useGameEditor({
     const [teamSize, setTeamSize] = useState<number | null>(initialTeamSize ?? null);
     const [price, setPrice] = useState<number | null>(initialPrice ?? null);
     const [isFriendsOnly, setIsFriendsOnly] = useState(initialIsFriendsOnly);
+    const [requiresApproval, setRequiresApproval] = useState(initialJoinPolicy === 'REQUIRES_APPROVAL');
 
     // Future Registration State
     const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
@@ -83,6 +86,7 @@ export function useGameEditor({
         setTeamSize(initialTeamSize ?? null);
         setPrice(initialPrice ?? null);
         setIsFriendsOnly(initialIsFriendsOnly);
+        setRequiresApproval(initialJoinPolicy === 'REQUIRES_APPROVAL');
 
         setFutureRegEnabled(!!initialRegistrationOpensAt);
         if (initialRegistrationOpensAt) {
@@ -135,6 +139,7 @@ export function useGameEditor({
                 teamSize,
                 price,
                 isFriendsOnly,
+                joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 registrationOpensAt: futureRegEnabled ? registrationOpensAt : null,
                 friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null
             };
@@ -173,12 +178,12 @@ export function useGameEditor({
     return {
         state: {
             open, loading,
-            time, date, maxPlayers, sport, title, teamSize, price, isFriendsOnly,
+            time, date, maxPlayers, sport, title, teamSize, price, isFriendsOnly, requiresApproval,
             futureRegEnabled, regDate, regTime,
             makePublicLater, publicDate, publicTime
         },
         actions: {
-            setOpen, setTime, setDate, setMaxPlayers, setSport, setTitle, setTeamSize, setPrice, setIsFriendsOnly,
+            setOpen, setTime, setDate, setMaxPlayers, setSport, setTitle, setTeamSize, setPrice, setIsFriendsOnly, setRequiresApproval,
             setFutureRegEnabled, setRegDate, setRegTime,
             setMakePublicLater, setPublicDate, setPublicTime,
             handleOpen, handleClose, saveGame, deleteGame

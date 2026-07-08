@@ -35,5 +35,12 @@ export const notificationsApi = {
             method: 'POST',
             token
         });
+    },
+
+    registerDevice: (expoPushToken: string, deviceType: string, token: string) => {
+        return apiClient('/api/notifications/register-device', {
+            data: { expoPushToken, deviceType },
+            token
+        });
     }
 };

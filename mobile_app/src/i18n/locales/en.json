@@ -73,7 +73,14 @@
     "leaveGame": "Leave Game",
     "registrationOpensAt": "Registration opens at:",
     "opensAt": "Opens at {{time}}",
-    "confirmLeave": "Are you sure you want to leave the game?"
+    "confirmLeave": "Are you sure you want to leave the game?",
+    "requestSent": "Request sent",
+    "requestPending": "Awaiting approval",
+    "joinRequests": "Join Requests",
+    "noJoinRequests": "No pending join requests",
+    "approve": "Approve",
+    "reject": "Reject",
+    "requiresApproval": "Requires approval to join"
   },
   "newGame": {
     "sport": "Sport",

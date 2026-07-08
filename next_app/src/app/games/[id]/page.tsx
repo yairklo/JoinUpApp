@@ -10,6 +10,7 @@ import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
+import PendingJoinRequests from "@/components/PendingJoinRequests";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -55,6 +56,7 @@ type Game = {
   title?: string | null;
   friendsOnlyUntil?: string | null;
   isFriendsOnly?: boolean;
+  joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
   teamSize?: number | null;
   price?: number | null;
   chatRoomId?: string;
@@ -128,11 +130,16 @@ export default async function GameDetails(props: {
               <JoinGameButton
                 gameId={game.id}
                 registrationOpensAt={game.registrationOpensAt}
+                joinPolicy={game.joinPolicy}
               />
             )}
           </GameHeaderCard>
 
           <Box mt={2}>
+            {canManageSeries && game.joinPolicy === "REQUIRES_APPROVAL" && (
+              <PendingJoinRequests gameId={game.id} />
+            )}
+
             <GameActions
               gameId={game.id}
               fieldName={game.fieldName}
@@ -149,6 +156,7 @@ export default async function GameDetails(props: {
               initialRegistrationOpensAt={game.registrationOpensAt}
               initialFriendsOnlyUntil={game.friendsOnlyUntil}
               initialIsFriendsOnly={!!game.isFriendsOnly}
+              initialJoinPolicy={game.joinPolicy}
               initialTitle={game.title}
               initialTeamSize={game.teamSize}
               initialPrice={game.price}
