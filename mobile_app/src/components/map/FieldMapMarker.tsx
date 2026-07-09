@@ -16,7 +16,6 @@ export interface MapField {
 
 interface FieldMapMarkerProps {
     field: MapField;
-    preferredSport?: string;
     selected?: boolean;
     onPress: () => void;
     showCallout?: boolean;
@@ -24,7 +23,6 @@ interface FieldMapMarkerProps {
 
 const FieldMapMarker = React.memo(function FieldMapMarker({
     field,
-    preferredSport,
     selected = false,
     onPress,
     showCallout = false,
@@ -33,7 +31,7 @@ const FieldMapMarker = React.memo(function FieldMapMarker({
     const lng = field.lng;
     if (lat == null || lng == null) return null;
 
-    const visual = getFieldMarkerVisual(field, preferredSport);
+    const visual = getFieldMarkerVisual(field);
 
     return (
         <Marker

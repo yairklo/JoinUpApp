@@ -13,7 +13,7 @@ import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/componen
 import GameMapMarker from '@/components/map/GameMapMarker';
 import EmptyFieldMapMarker from '@/components/map/EmptyFieldMapMarker';
 import { MapBounds, MapMarkerItem } from '@/components/map/types';
-import { getSportColorHex, getSportIconName } from '@/utils/mapSport';
+import { getSportColorHex, getSportIconName, getFieldSportTags } from '@/utils/mapSport';
 
 type SearchMapPayload =
     | { kind: 'games'; games: Game[] }
@@ -274,6 +274,7 @@ export default function SearchScreen() {
                 latitude: lat,
                 longitude: lng,
                 payload: { kind: 'games', games: group },
+                sportTags: [...new Set(group.map((g) => (g.sport || '').toUpperCase()).filter(Boolean))],
             };
         });
 
@@ -285,6 +286,7 @@ export default function SearchScreen() {
                     latitude: field.lat,
                     longitude: field.lng,
                     payload: { kind: 'emptyField', field },
+                    sportTags: getFieldSportTags(field),
                 });
             });
         }

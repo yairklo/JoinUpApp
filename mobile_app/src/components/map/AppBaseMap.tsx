@@ -4,9 +4,11 @@ import React, {
     useImperativeHandle,
     useMemo,
     useRef,
+    useState,
 } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, ScrollView, TouchableOpacity, Text } from 'react-native';
 import ClusteredMapView from 'react-native-map-clustering';
+import { SPORT_MAPPING } from '@/utils/sports';
 import {
     DEFAULT_MAP_REGION,
     MapBounds,
@@ -15,6 +17,15 @@ import {
     MapRegion,
     regionToBounds,
 } from './types';
+
+export type MapSportFilter = 'SOCCER' | 'BASKETBALL' | 'TENNIS' | null;
+
+const MAP_SPORT_FILTER_CHIPS: { id: MapSportFilter; label: string }[] = [
+    { id: null, label: 'הכל' },
+    { id: 'SOCCER', label: SPORT_MAPPING.SOCCER },
+    { id: 'BASKETBALL', label: SPORT_MAPPING.BASKETBALL },
+    { id: 'TENNIS', label: SPORT_MAPPING.TENNIS },
+];
 
 export interface MapMarkerRenderContext<T> {
     item: MapMarkerItem<T>;
@@ -43,6 +54,7 @@ export interface AppBaseMapProps<T> {
     variant?: 'embedded' | 'fill';
     clusterColor?: string;
     className?: string;
+    showSportFilter?: boolean;
 }
 
 function AppBaseMapInner<T>(
@@ -61,10 +73,12 @@ function AppBaseMapInner<T>(
         variant = 'embedded',
         clusterColor = '#2563eb',
         className,
+        showSportFilter = false,
     }: AppBaseMapProps<T>,
     ref: React.Ref<AppBaseMapHandle>
 ) {
     const mapRef = useRef<any>(null);
+    const [mapSportFilter, setMapSportFilter] = useState<MapSportFilter>(null);
     const boundsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const onBoundsChangeRef = useRef(onBoundsChange);
     onBoundsChangeRef.current = onBoundsChange;
@@ -97,8 +111,17 @@ function AppBaseMapInner<T>(
         }, boundsDebounceMs);
     }, [boundsDebounceMs]);
 
+    const visibleMarkers = useMemo(() => {
+        if (!showSportFilter || !mapSportFilter) return markers;
+        return markers.filter((item) => {
+            const tags = item.sportTags || [];
+            if (tags.length === 0) return false;
+            return tags.includes(mapSportFilter);
+        });
+    }, [markers, mapSportFilter, showSportFilter]);
+
     const markerNodes = useMemo(() => {
-        return markers.map((item) => {
+        return visibleMarkers.map((item) => {
             const coordinate = { latitude: item.latitude, longitude: item.longitude };
             return renderMarker({
                 item,
@@ -107,7 +130,7 @@ function AppBaseMapInner<T>(
                 animateToCoordinate: () => animateToCoordinate(coordinate),
             });
         });
-    }, [markers, selectedMarkerId, renderMarker, onMarkerPress, animateToCoordinate]);
+    }, [visibleMarkers, selectedMarkerId, renderMarker, onMarkerPress, animateToCoordinate]);
 
     const containerClass =
         className ||
@@ -121,6 +144,38 @@ function AppBaseMapInner<T>(
                 {loading && (
                     <View className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-white p-2 rounded-full shadow-lg">
                         <ActivityIndicator size="small" color="#2563eb" />
+                    </View>
+                )}
+                {showSportFilter && (
+                    <View className="absolute top-3 left-3 right-3 z-10">
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{ paddingHorizontal: 2 }}
+                        >
+                            {MAP_SPORT_FILTER_CHIPS.map((chip) => {
+                                const isActive = mapSportFilter === chip.id;
+                                return (
+                                    <TouchableOpacity
+                                        key={chip.id ?? 'all'}
+                                        onPress={() => setMapSportFilter(chip.id)}
+                                        className={`mr-2 px-3 py-1.5 rounded-full border shadow-sm ${
+                                            isActive
+                                                ? 'bg-blue-600 border-blue-600'
+                                                : 'bg-white/95 border-gray-200'
+                                        }`}
+                                    >
+                                        <Text
+                                            className={`text-xs font-bold ${
+                                                isActive ? 'text-white' : 'text-gray-700'
+                                            }`}
+                                        >
+                                            {chip.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
                     </View>
                 )}
                 <ClusteredMapView

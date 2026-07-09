@@ -20,6 +20,8 @@ export interface MapMarkerItem<T = unknown> {
     latitude: number;
     longitude: number;
     payload: T;
+    /** Normalized sport keys from DB (e.g. SOCCER, BASKETBALL). Used by AppBaseMap sport filter. */
+    sportTags?: string[];
 }
 
 export const DEFAULT_MAP_REGION: MapRegion = {

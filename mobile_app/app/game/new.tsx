@@ -12,6 +12,7 @@ import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/componen
 import FieldMapMarker from '@/components/map/FieldMapMarker';
 import CustomPointMarker from '@/components/map/CustomPointMarker';
 import { DEFAULT_MAP_REGION, MapBounds, MapCoordinate, MapMarkerItem } from '@/components/map/types';
+import { getFieldSportTags } from '@/utils/mapSport';
 import * as Location from 'expo-location';
 
 export default function NewGameScreen() {
@@ -143,6 +144,7 @@ export default function NewGameScreen() {
                 latitude: field.lat!,
                 longitude: field.lng!,
                 payload: field,
+                sportTags: getFieldSportTags(field),
             }));
     }, [mapFields]);
 
@@ -153,13 +155,12 @@ export default function NewGameScreen() {
             <FieldMapMarker
                 key={ctx.item.id}
                 field={field}
-                preferredSport={sport}
                 selected={selected}
                 showCallout={selected}
                 onPress={() => handleSelectMapField(field)}
             />
         );
-    }, [mapSelectedField?.id, sport, handleSelectMapField]);
+    }, [mapSelectedField?.id, handleSelectMapField]);
 
     const handleMapPress = useCallback((coordinate: MapCoordinate) => {
         setCustomPoint(coordinate);
@@ -680,6 +681,7 @@ export default function NewGameScreen() {
                         initialRegion={mapInitialRegion}
                         overlayChildren={customPoint ? <CustomPointMarker coordinate={customPoint} /> : null}
                         bottomSheet={mapBottomSheet}
+                        showSportFilter
                     />
                 </View>
             </Modal>

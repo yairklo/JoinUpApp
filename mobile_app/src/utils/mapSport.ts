@@ -65,6 +65,19 @@ function normalizeSupportedSports(supportedSports?: string[]): string[] {
     return normalized;
 }
 
+/** Sport tags derived solely from venue DB metadata — never from form state. */
+export function getFieldSportTags(field: { supportedSports?: string[] }): string[] {
+    return normalizeSupportedSports(field.supportedSports);
+}
+
+export function fieldMatchesSportFilter(
+    field: { supportedSports?: string[] },
+    filter: string | null
+): boolean {
+    if (!filter) return true;
+    return getFieldSportTags(field).includes(filter);
+}
+
 export function getSportIconName(sport?: string) {
     const key = normalizeSportKey(sport);
     if (!key) return 'map-marker';
@@ -88,37 +101,15 @@ export function getSportMarkerVisual(sport?: string): MarkerVisual {
 }
 
 /**
- * Dedicated single-sport venues get a sport icon.
- * Multi-sport / unknown venues get a neutral stadium badge.
+ * Icon is derived exclusively from the venue's supportedSports DB field.
+ * Form/screen sport context is intentionally ignored.
  */
-export function getFieldMarkerVisual(
-    field: { supportedSports?: string[] },
-    preferredSport?: string
-): MarkerVisual {
+export function getFieldMarkerVisual(field: { supportedSports?: string[] }): MarkerVisual {
     const supported = normalizeSupportedSports(field.supportedSports);
 
     if (supported.length === 1) {
         return getSportMarkerVisual(supported[0]);
     }
 
-    if (supported.length > 1) {
-        return NEUTRAL_MARKER_VISUAL;
-    }
-
-    // No DB sport metadata — stay neutral even if the form has a preferred sport.
-    if (preferredSport && normalizeSportKey(preferredSport)) {
-        return NEUTRAL_MARKER_VISUAL;
-    }
-
     return NEUTRAL_MARKER_VISUAL;
-}
-
-/** @deprecated Use getFieldMarkerVisual for venue pins. */
-export function resolveFieldSport(field: { supportedSports?: string[] }, preferredSport?: string) {
-    const supported = normalizeSupportedSports(field.supportedSports);
-    if (supported.length === 1) return supported[0];
-    if (preferredSport && supported.includes(normalizeSportKey(preferredSport) || '')) {
-        return preferredSport.toUpperCase();
-    }
-    return supported[0] || preferredSport || undefined;
 }
