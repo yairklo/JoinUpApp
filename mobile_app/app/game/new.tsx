@@ -1,13 +1,18 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Platform, Modal } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { gamesApi, fieldsApi } from '@/services/api';
+import type { Field } from '@/services/api/fields';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
+import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/components/map/AppBaseMap';
+import FieldMapMarker from '@/components/map/FieldMapMarker';
+import CustomPointMarker from '@/components/map/CustomPointMarker';
+import { DEFAULT_MAP_REGION, MapBounds, MapCoordinate, MapMarkerItem } from '@/components/map/types';
+import * as Location from 'expo-location';
 
 export default function NewGameScreen() {
     const { t } = useTranslation();
@@ -61,12 +66,162 @@ export default function NewGameScreen() {
 
     // Map State
     const [showMapModal, setShowMapModal] = useState(false);
-    const [customPoint, setCustomPoint] = useState<{lat: number, lng: number} | null>(null);
+    const [customPoint, setCustomPoint] = useState<MapCoordinate | null>(null);
     const [customFieldName, setCustomFieldName] = useState('');
+    const [mapFields, setMapFields] = useState<Field[]>([]);
+    const [mapLoading, setMapLoading] = useState(false);
+    const [mapSelectedField, setMapSelectedField] = useState<Field | null>(null);
+    const [userLocation, setUserLocation] = useState<MapCoordinate | null>(null);
+    const mapRef = useRef<AppBaseMapHandle>(null);
 
     useEffect(() => {
         loadInitialData();
     }, []);
+
+    const fetchMapFields = useCallback(async (bounds: MapBounds) => {
+        setMapLoading(true);
+        try {
+            const params = new URLSearchParams();
+            params.append('minLat', bounds.minLat.toString());
+            params.append('maxLat', bounds.maxLat.toString());
+            params.append('minLng', bounds.minLng.toString());
+            params.append('maxLng', bounds.maxLng.toString());
+            const results = await fieldsApi.search(params);
+            setMapFields(results.filter((f) => f.lat != null && f.lng != null));
+        } catch (error) {
+            console.error('Failed to load map fields', error);
+        } finally {
+            setMapLoading(false);
+        }
+    }, []);
+
+    const handleMapBoundsChange = useCallback((bounds: MapBounds) => {
+        if (!showMapModal) return;
+        fetchMapFields(bounds);
+    }, [showMapModal, fetchMapFields]);
+
+    const openMapModal = async () => {
+        setMapSelectedField(selectedField);
+        setShowMapModal(true);
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status === 'granted') {
+                const location = await Location.getCurrentPositionAsync({});
+                const coords = {
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                };
+                setUserLocation(coords);
+                mapRef.current?.animateToRegion({
+                    ...coords,
+                    latitudeDelta: 0.1,
+                    longitudeDelta: 0.1,
+                });
+            }
+        } catch (error) {
+            console.error('Location permission error', error);
+        }
+    };
+
+    const handleSelectMapField = useCallback((field: Field) => {
+        setMapSelectedField(field);
+        setCustomPoint(null);
+        setCustomFieldName('');
+        if (field.lat != null && field.lng != null) {
+            mapRef.current?.animateToCoordinate({
+                latitude: field.lat,
+                longitude: field.lng,
+            });
+        }
+    }, []);
+
+    const gameMapMarkers = useMemo<MapMarkerItem<Field>[]>(() => {
+        return mapFields
+            .filter((field) => field.lat != null && field.lng != null)
+            .map((field) => ({
+                id: field.id,
+                latitude: field.lat!,
+                longitude: field.lng!,
+                payload: field,
+            }));
+    }, [mapFields]);
+
+    const renderGameFieldMarker = useCallback((ctx: MapMarkerRenderContext<Field>) => {
+        const field = ctx.item.payload;
+        const selected = mapSelectedField?.id === field.id;
+        return (
+            <FieldMapMarker
+                key={ctx.item.id}
+                field={field}
+                preferredSport={sport}
+                selected={selected}
+                showCallout={selected}
+                onPress={() => handleSelectMapField(field)}
+            />
+        );
+    }, [mapSelectedField?.id, sport, handleSelectMapField]);
+
+    const handleMapPress = useCallback((coordinate: MapCoordinate) => {
+        setCustomPoint(coordinate);
+        setMapSelectedField(null);
+    }, []);
+
+    const mapInitialRegion = useMemo(() => ({
+        latitude: userLocation?.latitude || selectedField?.lat || DEFAULT_MAP_REGION.latitude,
+        longitude: userLocation?.longitude || selectedField?.lng || DEFAULT_MAP_REGION.longitude,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1,
+    }), [userLocation, selectedField?.lat, selectedField?.lng]);
+
+    const confirmMapFieldSelection = useCallback(() => {
+        if (!mapSelectedField) return;
+        setSelectedField(mapSelectedField);
+        setCustomPoint(null);
+        setCustomFieldName('');
+        if (mapSelectedField.city) setSelectedCity(mapSelectedField.city);
+        setShowMapModal(false);
+    }, [mapSelectedField]);
+
+    const confirmCustomMapPoint = useCallback(() => {
+        setSelectedField(null);
+        setMapSelectedField(null);
+        setShowMapModal(false);
+    }, []);
+
+    const mapBottomSheet = useMemo(() => {
+        if (mapSelectedField) {
+            return (
+                <View className="p-4 bg-white border-t border-gray-200 pb-10">
+                    <Text className="font-bold text-lg text-center text-gray-900 mb-1">{mapSelectedField.name}</Text>
+                    <Text className="text-gray-500 text-center text-sm mb-4">
+                        {mapSelectedField.location || mapSelectedField.city || 'מגרש רשום'}
+                    </Text>
+                    <TouchableOpacity
+                        className="bg-blue-600 p-4 rounded-xl items-center"
+                        onPress={confirmMapFieldSelection}
+                    >
+                        <Text className="text-white font-bold">אשר מגרש</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        if (customPoint) {
+            return (
+                <View className="p-4 bg-white border-t border-gray-200 pb-10">
+                    <Text className="text-gray-600 text-center text-sm mb-3">מיקום מותאם אישית נבחר</Text>
+                    <TouchableOpacity
+                        className="bg-blue-600 p-4 rounded-xl items-center"
+                        onPress={confirmCustomMapPoint}
+                    >
+                        <Text className="text-white font-bold">אשר מיקום</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        return null;
+    }, [mapSelectedField, customPoint, confirmMapFieldSelection, confirmCustomMapPoint]);
 
     const loadInitialData = async () => {
         setLoading(true);
@@ -157,7 +312,7 @@ export default function NewGameScreen() {
                         type: 'open'
                     }
                 } : {}),
-                ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
+                ...(customPoint ? { customLat: customPoint.latitude, customLng: customPoint.longitude } : {}),
                 date: dateStr,
                 time: timeString,
                 start,
@@ -254,7 +409,7 @@ export default function NewGameScreen() {
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
                     <View className="flex-row justify-between items-center mb-2">
                         <Text className="text-lg font-bold text-gray-800">מיקום</Text>
-                        <TouchableOpacity onPress={() => setShowMapModal(true)} className="flex-row items-center bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                        <TouchableOpacity onPress={openMapModal} className="flex-row items-center bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
                             <FontAwesome name="map-marker" size={14} color="#2563eb" style={{ marginRight: 6 }} />
                             <Text className="text-blue-700 font-bold text-xs">בחר במפה</Text>
                         </TouchableOpacity>
@@ -510,31 +665,22 @@ export default function NewGameScreen() {
                             <Text className="text-blue-600 font-bold">סגור</Text>
                         </TouchableOpacity>
                     </View>
-                    <MapView 
-                        style={{ flex: 1 }}
-                        initialRegion={{
-                            latitude: 32.0853,
-                            longitude: 34.7818,
-                            latitudeDelta: 0.1,
-                            longitudeDelta: 0.1,
-                        }}
-                        onPress={(e) => {
-                            setCustomPoint(e.nativeEvent.coordinate);
-                            setSelectedField(null);
-                        }}
-                    >
-                        {customPoint && <Marker coordinate={customPoint} title="מיקום נבחר" />}
-                    </MapView>
-                    {customPoint && (
-                        <View className="p-4 bg-white pb-10">
-                            <TouchableOpacity 
-                                className="bg-blue-600 p-4 rounded-xl items-center"
-                                onPress={() => setShowMapModal(false)}
-                            >
-                                <Text className="text-white font-bold">אשר מיקום</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
+
+                    <AppBaseMap
+                        ref={mapRef}
+                        variant="fill"
+                        className="flex-1 mx-2 mb-2 rounded-3xl overflow-hidden shadow-sm border border-gray-200 relative"
+                        markers={gameMapMarkers}
+                        renderMarker={renderGameFieldMarker}
+                        selectedMarkerId={mapSelectedField?.id || null}
+                        onMapPress={handleMapPress}
+                        onBoundsChange={handleMapBoundsChange}
+                        boundsDebounceMs={300}
+                        loading={mapLoading}
+                        initialRegion={mapInitialRegion}
+                        overlayChildren={customPoint ? <CustomPointMarker coordinate={customPoint} /> : null}
+                        bottomSheet={mapBottomSheet}
+                    />
                 </View>
             </Modal>
         </>

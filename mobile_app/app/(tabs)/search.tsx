@@ -1,6 +1,4 @@
-import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView } from 'react-native';
-import { Marker, Callout } from 'react-native-maps';
-import MapView from 'react-native-map-clustering';
+import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -11,74 +9,15 @@ import { Game } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Location from 'expo-location';
+import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/components/map/AppBaseMap';
+import GameMapMarker from '@/components/map/GameMapMarker';
+import EmptyFieldMapMarker from '@/components/map/EmptyFieldMapMarker';
+import { MapBounds, MapMarkerItem } from '@/components/map/types';
+import { getSportColorHex, getSportIconName } from '@/utils/mapSport';
 
-const GameMarker = React.memo(({ group, onPress, mapRef }: { group: Game[], onPress: (g: Game[]) => void, mapRef: React.RefObject<any> }) => {
-    const firstGame = group[0];
-    const lat = firstGame.customLat || firstGame.fieldLat || firstGame.field?.lat;
-    const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng;
-    
-    // If multiple sports, show generic icon/color, else the specific sport
-    const uniqueSports = [...new Set(group.map(g => g.sport))];
-    const isMixed = uniqueSports.length > 1;
-    
-    // Quick helpers since they were inline. We recreate them here simply or use the ones from scope if we pass them.
-    // For simplicity, we just check the sport strings directly here
-    const getSportIcon = (s: string) => {
-        const sport = s.toUpperCase();
-        if (sport === 'BASKETBALL') return 'basketball';
-        if (sport === 'TENNIS') return 'tennis';
-        if (sport === 'VOLLEYBALL') return 'volleyball';
-        if (sport === 'PADEL') return 'tennis-ball';
-        return 'soccer';
-    };
-    const getSportColorHex = (s: string) => {
-        const sport = s.toUpperCase();
-        if (sport === 'BASKETBALL') return '#f97316';
-        if (sport === 'TENNIS') return '#eab308';
-        if (sport === 'VOLLEYBALL') return '#06b6d4';
-        if (sport === 'PADEL') return '#a855f7';
-        return '#16a34a';
-    };
-
-    const iconName = isMixed ? 'map-marker-multiple' : getSportIcon(firstGame.sport);
-    const hexColor = isMixed ? '#64748b' : getSportColorHex(firstGame.sport);
-    
-    return (
-        <Marker
-            coordinate={{ latitude: lat!, longitude: lng! }}
-            anchor={{ x: 0.5, y: 1.0 }}
-            hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            onPress={(e) => {
-                e.stopPropagation();
-                // Center the map
-                if (mapRef.current?.animateToRegion) {
-                    mapRef.current.animateToRegion({
-                        latitude: lat!,
-                        longitude: lng!,
-                        latitudeDelta: 0.05,
-                        longitudeDelta: 0.05
-                    }, 500);
-                }
-                onPress(group);
-            }}
-        >
-            <View style={{ backgroundColor: hexColor }} className="w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-lg">
-                <MaterialCommunityIcons name={iconName as any} size={20} color="white" />
-                {group.length > 1 && (
-                    <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-4 h-4 items-center justify-center">
-                        <Text className="text-white text-[10px] font-bold">{group.length}</Text>
-                    </View>
-                )}
-            </View>
-        </Marker>
-    );
-}, (prev, next) => {
-    // Custom comparison: only re-render if group changes significantly
-    if (prev.group.length !== next.group.length) return false;
-    const prevIds = prev.group.map(g => g.id).join(',');
-    const nextIds = next.group.map(g => g.id).join(',');
-    return prevIds === nextIds;
-});
+type SearchMapPayload =
+    | { kind: 'games'; games: Game[] }
+    | { kind: 'emptyField'; field: any };
 
 export default function SearchScreen() {
     const { t, i18n } = useTranslation();
@@ -93,9 +32,9 @@ export default function SearchScreen() {
     const [loading, setLoading] = useState(false);
     const [cityModalVisible, setCityModalVisible] = useState(false);
     const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
-    const mapRef = useRef<any>(null);
+    const mapRef = useRef<AppBaseMapHandle>(null);
     
-    const [mapBounds, setMapBounds] = useState<{minLat: number, maxLat: number, minLng: number, maxLng: number} | null>(null);
+    const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
     const searchTimeoutRef = useRef<any>(null);
     const [selectedFieldGames, setSelectedFieldGames] = useState<Game[] | null>(null);
 
@@ -133,8 +72,8 @@ export default function SearchScreen() {
                 const location = await Location.getCurrentPositionAsync({});
                 setUserLocation(location.coords);
                 // If map is already visible and no city selected, center on user
-                if (!selectedCity && mapRef.current) {
-                    mapRef.current.animateToRegion({
+                if (!selectedCity) {
+                    mapRef.current?.animateToRegion({
                         latitude: location.coords.latitude,
                         longitude: location.coords.longitude,
                         latitudeDelta: 0.1,
@@ -261,27 +200,6 @@ export default function SearchScreen() {
         }
     };
     
-    const getSportIcon = (sport?: string) => {
-        const s = sport?.toLowerCase() || '';
-        if (s.includes('כדורגל') || s.includes('soccer') || s.includes('football')) return 'soccer';
-        if (s.includes('כדורסל') || s.includes('basketball')) return 'basketball';
-        if (s.includes('טניס') || s.includes('tennis')) return 'tennis-ball';
-        if (s.includes('כדורעף') || s.includes('volleyball')) return 'volleyball';
-        if (s.includes('פדל') || s.includes('padel')) return 'racquetball';
-        return 'map-marker';
-    };
-    
-    // Returning explicit Hex colors ensures NativeWind doesn't purge them
-    const getSportColorHex = (sport?: string) => {
-        const s = sport?.toLowerCase() || '';
-        if (s.includes('כדורגל') || s.includes('soccer') || s.includes('football')) return '#16a34a'; // green-600
-        if (s.includes('כדורסל') || s.includes('basketball')) return '#f97316'; // orange-500
-        if (s.includes('טניס') || s.includes('tennis')) return '#eab308'; // yellow-500
-        if (s.includes('כדורעף') || s.includes('volleyball')) return '#60a5fa'; // blue-400
-        if (s.includes('פדל') || s.includes('padel')) return '#a855f7'; // purple-500
-        return '#2563eb'; // blue-600 (default)
-    };
-
     const translateCity = (city: string) => {
         if (i18n.language !== 'en') return city;
         const map: Record<string, string> = {
@@ -312,7 +230,7 @@ export default function SearchScreen() {
             onPress={() => router.push(`/game/${item.id}`)}
         >
             <View className="w-16 h-16 rounded-xl items-center justify-center mr-4" style={{ backgroundColor: getSportColorHex(item.sport) + '20' }}>
-                <MaterialCommunityIcons name={getSportIcon(item.sport) as any} size={28} color={getSportColorHex(item.sport)} />
+                <MaterialCommunityIcons name={getSportIconName(item.sport) as any} size={28} color={getSportColorHex(item.sport)} />
             </View>
             <View className="flex-1 justify-center">
                 <Text className="text-lg font-bold text-gray-800 mb-1">{item.field?.name || item.fieldName || t("search.game")}</Text>
@@ -334,7 +252,6 @@ export default function SearchScreen() {
         </TouchableOpacity>
     ), [i18n.language, t, router]);
 
-    // Pre-calculate map marker groups to avoid heavy recalculation during map pan/zoom
     const groupedMapGames = useMemo(() => {
         return Object.values(games.reduce((acc, game) => {
             const lat = game.customLat || game.fieldLat || game.field?.lat;
@@ -346,6 +263,61 @@ export default function SearchScreen() {
             return acc;
         }, {} as Record<string, Game[]>));
     }, [games]);
+
+    const searchMapMarkers = useMemo(() => {
+        const items: MapMarkerItem<SearchMapPayload>[] = groupedMapGames.map((group) => {
+            const firstGame = group[0];
+            const lat = firstGame.customLat || firstGame.fieldLat || firstGame.field?.lat!;
+            const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng!;
+            return {
+                id: `game-${firstGame.id}`,
+                latitude: lat,
+                longitude: lng,
+                payload: { kind: 'games', games: group },
+            };
+        });
+
+        if (showEmptyFields) {
+            emptyFields.forEach((field) => {
+                if (field.lat == null || field.lng == null) return;
+                items.push({
+                    id: `empty-${field.id}`,
+                    latitude: field.lat,
+                    longitude: field.lng,
+                    payload: { kind: 'emptyField', field },
+                });
+            });
+        }
+
+        return items;
+    }, [groupedMapGames, emptyFields, showEmptyFields]);
+
+    const renderSearchMapMarker = useCallback((ctx: MapMarkerRenderContext<SearchMapPayload>) => {
+        const { item, animateToCoordinate } = ctx;
+        if (item.payload.kind === 'games') {
+            return (
+                <GameMapMarker
+                    key={item.id}
+                    group={item.payload.games}
+                    onPress={setSelectedFieldGames}
+                    onAnimateTo={(lat, lng) => animateToCoordinate({ latitude: lat, longitude: lng })}
+                />
+            );
+        }
+
+        return (
+            <EmptyFieldMapMarker
+                key={item.id}
+                field={item.payload.field}
+                onPress={setSelectedEmptyField}
+                onAnimateTo={(lat, lng) => animateToCoordinate({ latitude: lat, longitude: lng })}
+            />
+        );
+    }, []);
+
+    const handleMapBoundsChange = useCallback((bounds: MapBounds) => {
+        setMapBounds(bounds);
+    }, []);
 
     return (
         <View className="flex-1 bg-gray-50 pt-4">
@@ -453,77 +425,21 @@ export default function SearchScreen() {
 
             {/* Results */}
             {isMapView ? (
-                <View className="flex-1 mt-2 mx-2 mb-2 rounded-3xl overflow-hidden shadow-sm border border-gray-200 relative">
-                    {loading && (
-                        <View className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-white p-2 rounded-full shadow-lg">
-                            <ActivityIndicator size="small" color="#2563eb" />
-                        </View>
-                    )}
-                    <MapView
-                        ref={mapRef as any}
-                        style={{ flex: 1 }}
-                        showsUserLocation={true}
-                        showsMyLocationButton={true}
-                        clusterColor="#2563eb"
+                <View className="flex-1">
+                    <AppBaseMap
+                        ref={mapRef}
+                        markers={searchMapMarkers}
+                        renderMarker={renderSearchMapMarker}
+                        onBoundsChange={handleMapBoundsChange}
+                        boundsDebounceMs={500}
+                        loading={loading}
                         initialRegion={{
                             latitude: userLocation?.latitude || 32.0853,
                             longitude: userLocation?.longitude || 34.7818,
                             latitudeDelta: 0.1,
                             longitudeDelta: 0.1,
                         }}
-                        onRegionChangeComplete={(region) => {
-                            if (!region) return;
-                            setMapBounds({
-                                minLat: region.latitude - (region.latitudeDelta / 2),
-                                maxLat: region.latitude + (region.latitudeDelta / 2),
-                                minLng: region.longitude - (region.longitudeDelta / 2),
-                                maxLng: region.longitude + (region.longitudeDelta / 2),
-                            });
-                        }}
-                    >
-                        {groupedMapGames.map(group => {
-                            const firstGame = group[0];
-                            return (
-                                <GameMarker 
-                                    key={firstGame.id} // Stable key based on game id
-                                    group={group}
-                                    onPress={setSelectedFieldGames}
-                                    mapRef={mapRef}
-                                />
-                            );
-                        })}
-
-                        {showEmptyFields && emptyFields.map(field => {
-                            const lat = field.lat;
-                            const lng = field.lng;
-                            if (!lat || !lng) return null;
-
-                            return (
-                                <Marker
-                                    key={`empty-${field.id}`}
-                                    coordinate={{ latitude: lat, longitude: lng }}
-                                    anchor={{ x: 0.5, y: 1.0 }}
-                                    hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
-                                    onPress={(e) => {
-                                        e.stopPropagation();
-                                        if (mapRef.current?.animateToRegion) {
-                                            mapRef.current.animateToRegion({
-                                                latitude: lat,
-                                                longitude: lng,
-                                                latitudeDelta: 0.05,
-                                                longitudeDelta: 0.05
-                                            }, 500);
-                                        }
-                                        setSelectedEmptyField(field);
-                                    }}
-                                >
-                                    <View style={{ backgroundColor: '#94a3b8' }} className="w-10 h-10 rounded-full items-center justify-center border-2 border-white shadow-lg">
-                                        <MaterialCommunityIcons name="map-marker-plus" size={20} color="white" />
-                                    </View>
-                                </Marker>
-                            );
-                        })}
-                    </MapView>
+                    />
 
                     {/* Games Modal for Map Markers */}
                     <Modal
@@ -579,7 +495,7 @@ export default function SearchScreen() {
                                                     <Text className="text-xs text-blue-600 font-medium ml-1">
                                                         {SPORTS.find(s => s.id === game.sport)?.label || game.sport}
                                                     </Text>
-                                                    <MaterialCommunityIcons name={getSportIcon(game.sport)} size={12} color="#2563eb" />
+                                                    <MaterialCommunityIcons name={getSportIconName(game.sport) as any} size={12} color="#2563eb" />
                                                 </View>
                                             </View>
                                         </TouchableOpacity>
