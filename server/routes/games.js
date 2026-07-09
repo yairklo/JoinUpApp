@@ -108,6 +108,67 @@ function mapGameForClient(game, viewerId) {
   };
 }
 
+/** Slim Prisma select for map + list search — avoids nested user joins. */
+const SEARCH_GAME_SELECT = {
+  id: true,
+  title: true,
+  sport: true,
+  start: true,
+  duration: true,
+  maxPlayers: true,
+  seriesId: true,
+  fieldId: true,
+  customLat: true,
+  customLng: true,
+  customLocation: true,
+  field: {
+    select: {
+      id: true,
+      name: true,
+      location: true,
+      city: true,
+      lat: true,
+      lng: true,
+    },
+  },
+  participants: {
+    select: { status: true },
+  },
+};
+
+function mapGameForSearchClient(game) {
+  const confirmedCount = (game.participants || []).filter((p) => p.status === 'CONFIRMED').length;
+  return {
+    id: game.id,
+    title: game.title || null,
+    seriesId: game.seriesId || null,
+    fieldId: game.fieldId,
+    fieldName: game.field?.name || '',
+    fieldLocation: game.field?.location || '',
+    fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
+    fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
+    customLat: typeof game.customLat === 'number' ? game.customLat : null,
+    customLng: typeof game.customLng === 'number' ? game.customLng : null,
+    customLocation: game.customLocation || null,
+    start: game.start.toISOString(),
+    duration: game.duration,
+    maxPlayers: game.maxPlayers,
+    currentPlayers: confirmedCount,
+    sport: game.sport,
+    city: game.field?.city || null,
+    field: game.field
+      ? {
+          id: game.field.id,
+          name: game.field.name,
+          location: game.field.location,
+          city: game.field.city,
+          lat: game.field.lat,
+          lng: game.field.lng,
+        }
+      : undefined,
+  };
+}
+
 // Deduplicate games by seriesId, keeping the first occurrence (nearest upcoming)
 function deduplicateSeriesGames(games) {
   const seenSeries = new Set();
@@ -832,12 +893,12 @@ router.get('/search', attachOptionalUser, async (req, res) => {
     
     const games = await prisma.game.findMany({
       where: finalWhere,
-      include: { field: true, participants: { include: { user: true } } },
+      select: SEARCH_GAME_SELECT,
       orderBy: { start: 'asc' }
     });
 
     const deduped = deduplicateSeriesGames(games);
-    res.json(deduped.map(g => mapGameForClient(g, req.user?.id)));
+    res.json(deduped.map((g) => mapGameForSearchClient(g)));
   } catch (error) {
     console.error('Search games error:', error);
     res.status(500).json({ error: 'Failed to search games' });
