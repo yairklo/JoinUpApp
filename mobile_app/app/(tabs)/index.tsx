@@ -38,7 +38,6 @@ export default function HomeScreen() {
     setTimeout(() => setRefreshing(false), 800);
   }, [refreshGames]);
 
-  // Memoize filtered games to prevent heavy loops in render
   const filteredGames = useMemo(() => {
     if (!games) return [];
     if (selectedSport === 'ALL') return games;
@@ -85,10 +84,8 @@ export default function HomeScreen() {
           <Text className="text-2xl font-black text-gray-900 dark:text-cyber-text">👋 {user?.firstName || t('home.friend')}</Text>
         </View>
 
-        {/* Global Search Omnibar — central discovery entry on the home feed */}
         <GlobalSearchOmnibar />
 
-        {/* Horizontal Sport Pills Filter — rigid, static row that never stretches on scroll/re-render */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -116,7 +113,6 @@ export default function HomeScreen() {
         <SeriesSection />
         <GamesDateNav selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
-        {/* Games List */}
         {loading && games.length === 0 ? (
           <View className="py-10 items-center justify-center">
             <ActivityIndicator size="large" color="#2563eb" />
@@ -153,7 +149,6 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* Floating Action Button */}
       <Link href="/game/new" asChild>
         <TouchableOpacity
           activeOpacity={0.8}
