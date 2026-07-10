@@ -11,9 +11,27 @@ import { SPORT_MAPPING } from '@/utils/sports';
 import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/components/map/AppBaseMap';
 import FieldMapMarker from '@/components/map/FieldMapMarker';
 import CustomPointMarker from '@/components/map/CustomPointMarker';
-import { DEFAULT_MAP_REGION, MapBounds, MapCoordinate, MapMarkerItem } from '@/components/map/types';
+import { DEFAULT_MAP_REGION, MapBounds, MapCoordinate, MapMarkerItem, MapRegion, regionToBounds } from '@/components/map/types';
 import { getFieldSportTags } from '@/utils/mapSport';
 import * as Location from 'expo-location';
+
+function filterFieldsWithCoords(fields: Field[]): Field[] {
+    return fields.filter((f) => f.lat != null && f.lng != null);
+}
+
+function filterFieldsInBounds(fields: Field[], bounds: MapBounds): Field[] {
+    return filterFieldsWithCoords(fields).filter(
+        (f) =>
+            f.lat! >= bounds.minLat &&
+            f.lat! <= bounds.maxLat &&
+            f.lng! >= bounds.minLng &&
+            f.lng! <= bounds.maxLng
+    );
+}
+
+function regionFromCoordinate(coordinate: MapCoordinate, delta = 0.1): MapRegion {
+    return { ...coordinate, latitudeDelta: delta, longitudeDelta: delta };
+}
 
 export default function NewGameScreen() {
     const { t } = useTranslation();
@@ -73,26 +91,40 @@ export default function NewGameScreen() {
     const [mapLoading, setMapLoading] = useState(false);
     const [mapSelectedField, setMapSelectedField] = useState<Field | null>(null);
     const [userLocation, setUserLocation] = useState<MapCoordinate | null>(null);
+    const [mapInitialRegion, setMapInitialRegion] = useState<MapRegion>(DEFAULT_MAP_REGION);
     const mapRef = useRef<AppBaseMapHandle>(null);
+    const mapFetchSeqRef = useRef(0);
+    const mapAbortRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         loadInitialData();
     }, []);
 
     const fetchMapFields = useCallback(async (bounds: MapBounds) => {
+        const seq = ++mapFetchSeqRef.current;
+        mapAbortRef.current?.abort();
+        const controller = new AbortController();
+        mapAbortRef.current = controller;
+
         setMapLoading(true);
         try {
-            const params = new URLSearchParams();
-            params.append('minLat', bounds.minLat.toString());
-            params.append('maxLat', bounds.maxLat.toString());
-            params.append('minLng', bounds.minLng.toString());
-            params.append('maxLng', bounds.maxLng.toString());
-            const results = await fieldsApi.search(params);
-            setMapFields(results.filter((f) => f.lat != null && f.lng != null));
-        } catch (error) {
+            const results = await fieldsApi.searchMap(bounds, controller.signal);
+            if (seq !== mapFetchSeqRef.current || controller.signal.aborted) return;
+            setMapFields(filterFieldsWithCoords(results));
+        } catch (error: any) {
+            if (controller.signal.aborted || error?.name === 'AbortError') return;
             console.error('Failed to load map fields', error);
         } finally {
-            setMapLoading(false);
+            if (seq === mapFetchSeqRef.current) {
+                setMapLoading(false);
+            }
+        }
+    }, []);
+
+    const seedMapFieldsForRegion = useCallback((region: MapRegion, cachedFields: Field[]) => {
+        const seeded = filterFieldsInBounds(cachedFields, regionToBounds(region));
+        if (seeded.length > 0) {
+            setMapFields(seeded);
         }
     }, []);
 
@@ -103,7 +135,13 @@ export default function NewGameScreen() {
 
     const openMapModal = async () => {
         setMapSelectedField(selectedField);
-        setShowMapModal(true);
+
+        let region: MapRegion = selectedField?.lat != null && selectedField?.lng != null
+            ? regionFromCoordinate({ latitude: selectedField.lat, longitude: selectedField.lng })
+            : userLocation
+                ? regionFromCoordinate(userLocation)
+                : DEFAULT_MAP_REGION;
+
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status === 'granted') {
@@ -113,16 +151,23 @@ export default function NewGameScreen() {
                     longitude: location.coords.longitude,
                 };
                 setUserLocation(coords);
-                mapRef.current?.animateToRegion({
-                    ...coords,
-                    latitudeDelta: 0.1,
-                    longitudeDelta: 0.1,
-                });
+                region = regionFromCoordinate(coords);
             }
         } catch (error) {
             console.error('Location permission error', error);
         }
+
+        setMapInitialRegion(region);
+        seedMapFieldsForRegion(region, fields);
+        setShowMapModal(true);
     };
+
+    useEffect(() => {
+        if (!showMapModal) {
+            mapAbortRef.current?.abort();
+            mapFetchSeqRef.current += 1;
+        }
+    }, [showMapModal]);
 
     const handleSelectMapField = useCallback((field: Field) => {
         setMapSelectedField(field);
@@ -166,13 +211,6 @@ export default function NewGameScreen() {
         setCustomPoint(coordinate);
         setMapSelectedField(null);
     }, []);
-
-    const mapInitialRegion = useMemo(() => ({
-        latitude: userLocation?.latitude || selectedField?.lat || DEFAULT_MAP_REGION.latitude,
-        longitude: userLocation?.longitude || selectedField?.lng || DEFAULT_MAP_REGION.longitude,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
-    }), [userLocation, selectedField?.lat, selectedField?.lng]);
 
     const confirmMapFieldSelection = useCallback(() => {
         if (!mapSelectedField) return;

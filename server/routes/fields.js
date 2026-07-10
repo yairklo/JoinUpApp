@@ -10,6 +10,52 @@ function mapFieldForClient(f) {
   const upcomingGamesCount = (f._count && typeof f._count.games === 'number') ? f._count.games : 0;
   return { ...f, type: f.type === 'CLOSED' ? 'closed' : 'open', favoritesCount, upcomingGamesCount };
 }
+
+const MAP_FIELD_SELECT = {
+  id: true,
+  name: true,
+  lat: true,
+  lng: true,
+  city: true,
+  location: true,
+  supportedSports: true,
+  type: true,
+};
+
+function mapFieldForMapClient(f) {
+  return {
+    id: f.id,
+    name: f.name,
+    lat: f.lat,
+    lng: f.lng,
+    city: f.city,
+    location: f.location,
+    supportedSports: f.supportedSports,
+    type: f.type === 'CLOSED' ? 'closed' : 'open',
+  };
+}
+
+function buildFieldSearchWhere(query) {
+  const { location, type, available, minLat, maxLat, minLng, maxLng } = query;
+  const where = {};
+  if (location) where.location = { contains: String(location), mode: 'insensitive' };
+  if (type) where.type = String(type).toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN';
+  if (typeof available === 'undefined') {
+    where.available = true;
+  } else {
+    where.available = String(available) === 'true';
+  }
+  if (minLat && maxLat && minLng && maxLng) {
+    where.lat = { gte: parseFloat(minLat), lte: parseFloat(maxLat) };
+    where.lng = { gte: parseFloat(minLng), lte: parseFloat(maxLng) };
+  }
+  return where;
+}
+
+function hasBoundingBox(query) {
+  const { minLat, maxLat, minLng, maxLng } = query;
+  return !!(minLat && maxLat && minLng && maxLng);
+}
 const { authenticateToken } = require('../utils/auth');
 
 const router = express.Router();
@@ -63,30 +109,45 @@ router.get('/cities', async (req, res) => {
   }
 });
 
+// Slim bbox query for map markers — no relational counts
+router.get('/map', async (req, res) => {
+  try {
+    if (!hasBoundingBox(req.query)) {
+      return res.status(400).json({ error: 'Bounding box (minLat, maxLat, minLng, maxLng) is required' });
+    }
+    const fields = await prisma.field.findMany({
+      where: buildFieldSearchWhere(req.query),
+      orderBy: { name: 'asc' },
+      select: MAP_FIELD_SELECT,
+    });
+    res.json(fields.map(mapFieldForMapClient));
+  } catch (error) {
+    console.error('Map fields error:', error);
+    return res.status(503).json({ error: 'Failed to load map fields' });
+  }
+});
+
 // Search fields
 router.get('/search', async (req, res) => {
   try {
-    const { location, type, available, minLat, maxLat, minLng, maxLng, date } = req.query;
-    const where = {};
-    if (location) where.location = { contains: String(location), mode: 'insensitive' };
-    if (type) where.type = String(type).toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN';
-    // Default to available=true unless explicitly requested otherwise
-    if (typeof available === 'undefined') {
-      where.available = true;
-    } else {
-      where.available = String(available) === 'true';
-    }
+    const { date, map } = req.query;
+    const where = buildFieldSearchWhere(req.query);
 
-    if (minLat && maxLat && minLng && maxLng) {
-      where.lat = { gte: parseFloat(minLat), lte: parseFloat(maxLat) };
-      where.lng = { gte: parseFloat(minLng), lte: parseFloat(maxLng) };
+    const useMapMode = map === '1' || map === 'true';
+    if (useMapMode) {
+      const fields = await prisma.field.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        select: MAP_FIELD_SELECT,
+      });
+      return res.json(fields.map(mapFieldForMapClient));
     }
 
     let startOfDay, endOfDay;
     if (date) {
       const d = new Date(String(date));
       startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-      const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+      endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
     }
 
     const fields = await prisma.field.findMany({
@@ -114,9 +175,12 @@ router.get('/search', async (req, res) => {
     res.json(fields.map(mapFieldForClient));
   } catch (error) {
     console.error('Search fields error:', error);
-    // Fallback: filter local JSON
+    if (hasBoundingBox(req.query)) {
+      return res.status(503).json({ error: 'Failed to search fields' });
+    }
+    // Fallback: filter local JSON (non-bbox text search only)
     try {
-      const { location, type, available, minLat, maxLat, minLng, maxLng } = req.query;
+      const { location, type, available } = req.query;
       const raw = await dataManager.readData('fields.json');
       const filtered = raw.filter((f) => {
         const matchLocation = location ? (f.location || '').toLowerCase().includes(String(location).toLowerCase()) : true;
@@ -124,14 +188,7 @@ router.get('/search', async (req, res) => {
         const matchAvail = typeof available !== 'undefined'
           ? (String(available) === 'true' ? f.available !== false : f.available === false)
           : f.available !== false;
-        
-        let matchBounds = true;
-        if (minLat && maxLat && minLng && maxLng) {
-          const lat = parseFloat(f.lat);
-          const lng = parseFloat(f.lng);
-          matchBounds = lat >= parseFloat(minLat) && lat <= parseFloat(maxLat) && lng >= parseFloat(minLng) && lng <= parseFloat(maxLng);
-        }
-        return matchLocation && matchType && matchAvail && matchBounds;
+        return matchLocation && matchType && matchAvail;
       });
       return res.json(filtered.map(mapFieldForClient));
     } catch (fallbackErr) {

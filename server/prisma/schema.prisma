@@ -75,6 +75,7 @@ model Field {
   reports      FieldReport[]
 
   @@index([lat, lng])
+  @@index([available, lat, lng])
 }
 
 /// Crowdsourced crowd-level log submitted by players viewing a field.

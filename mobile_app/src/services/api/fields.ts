@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { MapBounds } from '@/components/map/types';
 
 export interface Field {
     id: string;
@@ -63,6 +64,19 @@ export const fieldsApi = {
 
     search: (params: URLSearchParams) => {
         return apiClient<any[]>('/api/fields/search?' + params.toString());
+    },
+
+    /** Slim bbox-only query for map markers (no _count aggregations). */
+    searchMap: (bounds: MapBounds, signal?: AbortSignal) => {
+        const params = new URLSearchParams();
+        params.append('minLat', bounds.minLat.toString());
+        params.append('maxLat', bounds.maxLat.toString());
+        params.append('minLng', bounds.minLng.toString());
+        params.append('maxLng', bounds.maxLng.toString());
+        return apiClient<Field[]>('/api/fields/map?' + params.toString(), {
+            cache: 'no-store',
+            signal,
+        });
     },
 
     getAnalytics: (fieldId: string, token: string) => {
