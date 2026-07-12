@@ -988,8 +988,13 @@ router.post('/', authenticateToken, async (req, res) => {
       teamSize,
       price,
       customLat,
-      joinPolicy
+      joinPolicy,
+      invitedParticipantIds
     } = req.body;
+
+    const invitedUserIds = Array.isArray(invitedParticipantIds)
+      ? invitedParticipantIds.filter(id => typeof id === 'string' && id !== req.user.id)
+      : [];
     const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
     const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
     const hasFieldId = !!fieldId;
@@ -1116,8 +1121,19 @@ router.post('/', authenticateToken, async (req, res) => {
           });
           const alreadyConfirmed = organizerInLottery ? 0 : 1;
           let remainingSlots = Math.max(0, maxCap - alreadyConfirmed);
-          for (const uid of subscriberIds) {
+
+          for (const uid of invitedUserIds) {
             if (uid === req.user.id) continue;
+            if (remainingSlots > 0) {
+              participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
+              remainingSlots -= 1;
+            } else {
+              participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+            }
+          }
+
+          for (const uid of subscriberIds) {
+            if (uid === req.user.id || invitedUserIds.includes(uid)) continue;
             if (remainingSlots > 0) {
               participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
               remainingSlots -= 1;
@@ -1178,8 +1194,19 @@ router.post('/', authenticateToken, async (req, res) => {
           });
           const alreadyConfirmed = organizerInLottery ? 0 : 1;
           let remainingSlots = Math.max(0, maxCap - alreadyConfirmed);
-          for (const uid of subscriberIds) {
+
+          for (const uid of invitedUserIds) {
             if (uid === req.user.id) continue;
+            if (remainingSlots > 0) {
+              participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
+              remainingSlots -= 1;
+            } else {
+              participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+            }
+          }
+
+          for (const uid of subscriberIds) {
+            if (uid === req.user.id || invitedUserIds.includes(uid)) continue;
             if (remainingSlots > 0) {
               participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
               remainingSlots -= 1;
@@ -1248,10 +1275,16 @@ router.post('/', authenticateToken, async (req, res) => {
           organizerId: req.user.id,
           // Organizer: confirmed by default, or waitlisted if included in lottery
           participants: {
-            create: {
-              userId: req.user.id,
-              status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
-            }
+            create: [
+              {
+                userId: req.user.id,
+                status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
+              },
+              ...invitedUserIds.map(uid => ({
+                userId: uid,
+                status: 'CONFIRMED'
+              }))
+            ]
           },
           roles: {
             create: { userId: req.user.id, role: 'ORGANIZER' }
@@ -1269,7 +1302,10 @@ router.post('/', authenticateToken, async (req, res) => {
           id: game.id,
           type: 'GROUP',
           participants: {
-            create: { userId: req.user.id }
+            create: [
+              { userId: req.user.id },
+              ...invitedUserIds.map(uid => ({ userId: uid }))
+            ]
           }
         }
       });
