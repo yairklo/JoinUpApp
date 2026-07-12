@@ -43,7 +43,8 @@ export default function SeriesSection() {
                 const data = await apiClient<Series[]>(`/api/series/active`, { token: token || undefined });
                 
                 if (isMounted) {
-                    setSeries(data);
+                    const subscribedSeries = data.filter(s => s.isSubscribed);
+                    setSeries(subscribedSeries);
                 }
             } catch (err) {
                 console.error("Failed to fetch active series", err);
