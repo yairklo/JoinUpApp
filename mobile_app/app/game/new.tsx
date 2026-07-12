@@ -1,8 +1,8 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal, Image } from 'react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '@clerk/clerk-expo';
-import { gamesApi, fieldsApi } from '@/services/api';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { gamesApi, fieldsApi, usersApi } from '@/services/api';
 import type { Field } from '@/services/api/fields';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -36,6 +36,7 @@ function regionFromCoordinate(coordinate: MapCoordinate, delta = 0.1): MapRegion
 export default function NewGameScreen() {
     const { t } = useTranslation();
     const { getToken } = useAuth();
+    const { user } = useUser();
     const router = useRouter();
     const params = useLocalSearchParams<{ fieldId?: string }>();
     const prefilledFieldId = params.fieldId;
@@ -44,6 +45,11 @@ export default function NewGameScreen() {
     const [fields, setFields] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Friends State
+    const [friends, setFriends] = useState<any[]>([]);
+    const [invitedParticipantIds, setInvitedParticipantIds] = useState<string[]>([]);
+    const [searchFriendQuery, setSearchFriendQuery] = useState('');
 
     // Form State
     const [sport, setSport] = useState('SOCCER');
@@ -99,6 +105,23 @@ export default function NewGameScreen() {
     useEffect(() => {
         loadInitialData();
     }, []);
+
+    useEffect(() => {
+        if (user?.id) {
+            loadFriends();
+        }
+    }, [user?.id]);
+
+    const loadFriends = async () => {
+        try {
+            const token = await getToken();
+            if (!token || !user?.id) return;
+            const list = await usersApi.getFriends(user.id, token);
+            setFriends(list || []);
+        } catch (error) {
+            console.error("Failed to load friends", error);
+        }
+    };
 
     const fetchMapFields = useCallback(async (bounds: MapBounds) => {
         const seq = ++mapFetchSeqRef.current;
@@ -368,7 +391,8 @@ export default function NewGameScreen() {
                 registrationOpensAt,
                 friendsOnlyUntil,
                 lotteryAt,
-                organizerInLottery: lotteryEnabled ? organizerInLottery : false
+                organizerInLottery: lotteryEnabled ? organizerInLottery : false,
+                invitedParticipantIds
             };
 
             const result = await gamesApi.create(payload, token);
@@ -592,6 +616,56 @@ export default function NewGameScreen() {
                         multiline
                         className="bg-gray-100 p-3 rounded-lg h-24 text-top"
                     />
+                </View>
+
+                {/* צרף חברים */}
+                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
+                    <Text className="text-lg font-bold mb-2 text-gray-800">צרף חברים למשחק</Text>
+                    <TextInput
+                        value={searchFriendQuery}
+                        onChangeText={setSearchFriendQuery}
+                        placeholder="חפש חברים..."
+                        className="bg-gray-100 p-2 rounded-lg text-right mb-3 text-sm"
+                    />
+                    
+                    {friends.length === 0 ? (
+                        <Text className="text-gray-400 text-xs text-center my-2">אין חברים ברשימה</Text>
+                    ) : (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                            {friends
+                                .filter(f => !searchFriendQuery || f.name?.toLowerCase().includes(searchFriendQuery.toLowerCase()))
+                                .map(friend => {
+                                    const isSelected = invitedParticipantIds.includes(friend.id);
+                                    return (
+                                        <TouchableOpacity
+                                            key={friend.id}
+                                            onPress={() => {
+                                                if (isSelected) {
+                                                    setInvitedParticipantIds(prev => prev.filter(id => id !== friend.id));
+                                                } else {
+                                                    setInvitedParticipantIds(prev => [...prev, friend.id]);
+                                                }
+                                            }}
+                                            className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
+                                        >
+                                            <Image
+                                                source={{ uri: friend.imageUrl || "https://ui-avatars.com/api/?name=" + friend.name }}
+                                                className="w-10 h-10 rounded-full bg-gray-200 mb-1"
+                                            />
+                                            <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>
+                                                {friend.name?.split(' ')[0]}
+                                            </Text>
+                                            {isSelected && (
+                                                <View className="absolute top-1 right-1 bg-blue-500 w-4 h-4 rounded-full items-center justify-center">
+                                                    <FontAwesome name="check" size={8} color="white" />
+                                                </View>
+                                            )}
+                                        </TouchableOpacity>
+                                    );
+                                })
+                            }
+                        </ScrollView>
+                    )}
                 </View>
 
                 {/* Advanced Options */}

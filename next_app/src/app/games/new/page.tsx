@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { useAuth, SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
 import dynamic from "next/dynamic";
 
 // MUI Imports
@@ -49,6 +49,32 @@ function NewGamePageInner() {
   const urlFieldId = params?.get("fieldId") ?? "";
 
   const { getToken, isSignedIn } = useAuth();
+  const { user } = useUser();
+
+  // Friends State
+  const [friends, setFriends] = useState<{ id: string; name: string; imageUrl?: string | null }[]>([]);
+  const [invitedParticipantIds, setInvitedParticipantIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function loadFriends() {
+      if (!user?.id) return;
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_BASE}/api/users/${user.id}/friends`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (res.ok) {
+          const arr = await res.json();
+          setFriends(arr);
+        }
+      } catch (err) {
+        console.error("Failed to load friends", err);
+      }
+    }
+    loadFriends();
+  }, [user?.id, getToken]);
 
   // UI States
   const [submitting, setSubmitting] = useState(false);
@@ -232,7 +258,8 @@ function NewGamePageInner() {
           title: form.title || null,
           lotteryAt: form.lotteryEnabled ? new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).toISOString() : undefined,
           registrationOpensAt,
-          friendsOnlyUntil
+          friendsOnlyUntil,
+          invitedParticipantIds
         }),
       });
 
@@ -475,6 +502,41 @@ function NewGamePageInner() {
                   />
                 </Grid>
               </Grid>
+
+              {/* --- 4. INVITE FRIENDS --- */}
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" mb={1} align="right">
+                  צרף חברים למשחק (אופציונלי)
+                </Typography>
+                <Autocomplete
+                  multiple
+                  id="invite-friends-autocomplete"
+                  options={friends}
+                  getOptionLabel={(option) => option.name || ""}
+                  value={friends.filter(f => invitedParticipantIds.includes(f.id))}
+                  onChange={(event, newValue) => {
+                    setInvitedParticipantIds(newValue.map(v => v.id));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      variant="outlined"
+                      label="חפש ובחר חברים"
+                      placeholder="הקלד שם חבר..."
+                      dir="rtl"
+                    />
+                  )}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <li key={option.id} {...otherProps} style={{ direction: "rtl" }}>
+                        {option.name}
+                      </li>
+                    );
+                  }}
+                  noOptionsText="לא נמצאו חברים"
+                />
+              </Box>
 
               {/* --- 3. ADVANCED OPTIONS --- */}
               <Box>
