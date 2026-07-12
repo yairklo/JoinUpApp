@@ -18,9 +18,9 @@ function mapGameForClient(game, viewerId) {
   const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
   const waitlisted = allParts.filter(p => p.status === 'WAITLISTED');
   const pending = allParts.filter(p => p.status === 'PENDING');
-  const viewerParticipationStatus = viewerId
-    ? (allParts.find(p => p.userId === viewerId)?.status || null)
-    : null;
+  const viewerPart = viewerId ? allParts.find(p => p.userId === viewerId) : null;
+  const viewerParticipationStatus = viewerPart?.status || null;
+  const waitlistOfferPending = viewerPart ? !!viewerPart.isWaitlistOffer : false;
   // Exclude PENDING/REJECTED join requests from roster/capacity accounting - they aren't on the roster yet.
   const totalSignups = allParts.filter(p => p.status === 'CONFIRMED' || p.status === 'WAITLISTED' || p.status === 'NOT_SELECTED').length;
   const confirmedCount = confirmed.length;
@@ -73,6 +73,7 @@ function mapGameForClient(game, viewerId) {
     joinPolicy: game.joinPolicy || 'INSTANT',
     pendingRequestCount,
     viewerParticipationStatus,
+    waitlistOfferPending,
     lotteryEnabled: !!game.lotteryEnabled,
     lotteryAt: lotteryAtIso,
     organizerInLottery: !!game.organizerInLottery,
@@ -1540,6 +1541,35 @@ router.put('/:id/teams', authenticateToken, async (req, res) => {
   }
 });
 
+async function offerSpotToNextWaitlistUser(gameId, io) {
+  const firstWaitlist = await prisma.participation.findFirst({
+    where: { gameId, status: 'WAITLISTED' },
+    orderBy: { createdAt: 'asc' }
+  });
+
+  if (firstWaitlist) {
+    await prisma.participation.update({
+      where: { id: firstWaitlist.id },
+      data: { status: 'PENDING', isWaitlistOffer: true }
+    });
+
+    notificationService.sendNotification(
+      firstWaitlist.userId,
+      'GAME_WAITLIST_OFFER',
+      'התפנה מקום במשחק!',
+      'התפנה מקום במשחק! לחץ כאן כדי לאשר את הצטרפותך',
+      { gameId, userId: firstWaitlist.userId, link: `/game/${gameId}` },
+      io
+    ).catch(err => console.error('[NOTIFICATIONS] Failed to send waitlist offer notification', gameId, err));
+
+    const updated = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { field: true, participants: { include: { user: true } } }
+    });
+    broadcastGameUpdate(io, gameId, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', gameId, err));
+  }
+}
+
 // Notify the organizer when someone joins their private (friends-only) match instantly.
 // Fire-and-forget: never blocks or fails the join itself.
 function notifyOrganizerOfInstantJoin(game, joiningUser, io) {
@@ -1705,7 +1735,35 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 
     const confirmedCount = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
     if (confirmedCount >= game.maxPlayers) {
-      return res.status(400).json({ error: 'Game is full' });
+      const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
+      if (already) {
+        if (already.status === 'WAITLISTED') {
+          return res.status(400).json({ error: 'You are already on the waitlist' });
+        }
+        if (already.status === 'CONFIRMED') {
+          return res.status(400).json({ error: 'You are already a confirmed participant' });
+        }
+        if (already.status === 'PENDING') {
+          return res.status(400).json({ error: 'A spot is already offered to you' });
+        }
+        await prisma.participation.update({ where: { id: already.id }, data: { status: 'WAITLISTED' } });
+      } else {
+        await prisma.user.upsert({
+          where: { id: req.user.id },
+          update: { name: req.user.name, imageUrl: req.user.avatar },
+          create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
+        });
+        await prisma.participation.create({
+          data: { gameId: game.id, userId: req.user.id, status: 'WAITLISTED' }
+        });
+      }
+
+      const updated = await prisma.game.findUnique({
+        where: { id: game.id },
+        include: { field: true, participants: { include: { user: true } } }
+      });
+      broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
+      return res.json(mapGameForClient(updated, req.user.id));
     }
 
     const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
@@ -1912,6 +1970,9 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
       return res.json({ message: 'Game deleted because the last player left', deleted: true });
     }
 
+    const targetParticipation = participants.find(p => p.userId === req.user.id);
+    const wasConfirmed = targetParticipation && targetParticipation.status === 'CONFIRMED';
+
     // Normal leave logic
     await prisma.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
 
@@ -1919,6 +1980,11 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
     try {
       await prisma.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
     } catch (e) { /* Ignore */ }
+
+    // If a confirmed player left, offer the spot to the next waitlisted user
+    if (wasConfirmed) {
+      await offerSpotToNextWaitlistUser(game.id, req.io);
+    }
 
     // If organizer left (but others remain), reassign organizer
     const remaining = await prisma.participation.findMany({ where: { gameId: game.id } });
@@ -1937,6 +2003,58 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Leave game error:', error);
     res.status(500).json({ error: 'Failed to leave game' });
+  }
+});
+
+router.post('/:id/waitlist-confirm', authenticateToken, async (req, res) => {
+  try {
+    const { accept } = req.body;
+    const game = await prisma.game.findUnique({
+      where: { id: req.params.id },
+      include: { field: true }
+    });
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    const participation = await prisma.participation.findFirst({
+      where: { gameId: game.id, userId: req.user.id }
+    });
+
+    if (!participation || participation.status !== 'PENDING' || !participation.isWaitlistOffer) {
+      return res.status(400).json({ error: 'No pending waitlist offer found for you on this game' });
+    }
+
+    if (accept) {
+      // Shift status to CONFIRMED
+      await prisma.participation.update({
+        where: { id: participation.id },
+        data: { status: 'CONFIRMED', isWaitlistOffer: false }
+      });
+
+      // Add to ChatRoom
+      try {
+        await prisma.chatParticipant.create({ data: { userId: req.user.id, chatId: game.id } });
+      } catch (e) { /* Ignore */ }
+    } else {
+      // Decline: Delete their participation record and offer the spot to the next waitlisted user
+      await prisma.participation.delete({
+        where: { id: participation.id }
+      });
+
+      // Trigger next waitlisted user in line
+      await offerSpotToNextWaitlistUser(game.id, req.io);
+    }
+
+    const updated = await prisma.game.findUnique({
+      where: { id: game.id },
+      include: { field: true, participants: { include: { user: true } } }
+    });
+    broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
+    return res.json(mapGameForClient(updated, req.user.id));
+  } catch (error) {
+    console.error('Waitlist confirm error:', error);
+    res.status(500).json({ error: 'Failed to process waitlist confirmation' });
   }
 });
 

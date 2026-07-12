@@ -129,6 +129,14 @@ export const gamesApi = {
         });
     },
 
+    waitlistConfirm: (gameId: string, accept: boolean, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/waitlist-confirm`, {
+            method: 'POST',
+            data: { accept },
+            token
+        });
+    },
+
     getGameForChat: (gameId: string, token: string, silent: boolean = false) => {
         return apiClient<Game>(`/api/games/${gameId}`, { token, silent });
     }

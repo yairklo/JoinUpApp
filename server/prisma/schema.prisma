@@ -170,6 +170,7 @@ model Participation {
   teamId    String?
   status    ParticipationStatus @default(CONFIRMED)
   createdAt DateTime @default(now())
+  isWaitlistOffer Boolean @default(false)
   game      Game     @relation(fields: [gameId], references: [id])
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   team      Team?    @relation(fields: [teamId], references: [id])
@@ -460,6 +461,7 @@ enum NotificationType {
   GAME_JOIN_REQUEST
   GAME_JOIN_APPROVED
   GAME_JOIN_REJECTED
+  GAME_WAITLIST_OFFER
 }
 
 model Notification {
