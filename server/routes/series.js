@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateToken } = require('../utils/auth');
+const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -100,12 +100,15 @@ function mapGameForClient(game) {
 }
 
 // List all active series
-router.get('/active', async (req, res) => {
+router.get('/active', attachOptionalUser, async (req, res) => {
   try {
     const seriesList = await prisma.gameSeries.findMany({
       where: { isActive: true },
       include: {
         _count: { select: { subscribers: true } },
+        subscribers: {
+          select: { userId: true }
+        }
       }
     });
 
@@ -114,8 +117,10 @@ router.get('/active', async (req, res) => {
       select: { id: true, name: true, imageUrl: true }
     });
 
+    const userId = req.user?.id;
     const results = seriesList.map(s => {
       const org = organizers.find(u => u.id === s.organizerId);
+      const isSubscribed = userId ? s.subscribers.some(sub => sub.userId === userId) : false;
       return {
         id: s.id,
         title: s.title || null,
@@ -131,7 +136,8 @@ router.get('/active', async (req, res) => {
           avatar: org?.imageUrl || ''
         },
         subscriberCount: s._count.subscribers,
-        sport: s.sport
+        sport: s.sport,
+        isSubscribed
       };
     });
 

@@ -33,7 +33,7 @@
     "noGamesDesc": "נראה שאין משחקים זמינים כרגע. נסה לבחור תאריך אחר או צור משחק חדש!",
     "backToToday": "חזור להיום",
     "myGames": "המשחקים שלי",
-    "mySeries": "הסדרות שלי"
+    "mySeries": "המשחקים הקבועים שלי"
   },
   "omnibar": {
     "placeholder": "חפש אנשים, מגרשים או משחקים...",
@@ -105,8 +105,8 @@
     "players": "שחקנים",
     "leave": "עזוב",
     "join": "הצטרף",
-    "series": "סדרה",
-    "manageSeries": "נהל סדרה",
+    "series": "משחק קבוע",
+    "manageSeries": "נהל משחק קבוע",
     "full": "מלא",
     "joinGame": "הצטרף למשחק",
     "leaveGame": "עזוב משחק",
@@ -196,5 +196,30 @@
     "day4": "חמישי",
     "day5": "שישי",
     "day6": "שבת"
+  },
+  "series": {
+    "badge": "משחק קבוע"
+  },
+  "editGame": {
+    "title": "עריכת משחק",
+    "location": "מיקום",
+    "when": "מתי?",
+    "date": "תאריך",
+    "time": "שעה",
+    "details": "פרטי המשחק",
+    "maxPlayers": "מקסימום שחקנים",
+    "price": "מחיר (₪)",
+    "privateGame": "משחק פרטי",
+    "requiresApproval": "אישור הצטרפות נדרש",
+    "extraInfo": "מידע נוסף",
+    "instructionsPlaceholder": "הנחיות או פרטים מיוחדים?",
+    "saveChanges": "שמור שינויים",
+    "updating": "מעדכן...",
+    "error": "שגיאה",
+    "success": "הצלחה",
+    "loadError": "נכשל בטעינת פרטי המשחק",
+    "updateSuccess": "המשחק עודכן בהצלחה!",
+    "updateFailed": "עדכון המשחק נכשל",
+    "ok": "אישור"
   }
 }

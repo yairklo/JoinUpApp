@@ -33,7 +33,7 @@
     "noGamesDesc": "Looks like there are no available games right now. Try selecting another date or create a new game!",
     "backToToday": "Back to Today",
     "myGames": "My Games",
-    "mySeries": "My Series"
+    "mySeries": "My Fixed Games"
   },
   "omnibar": {
     "placeholder": "Search people, fields or games...",
@@ -105,8 +105,8 @@
     "players": "Players",
     "leave": "Leave",
     "join": "Join",
-    "series": "Series",
-    "manageSeries": "Manage Series",
+    "series": "Fixed Game",
+    "manageSeries": "Manage Fixed Game",
     "full": "Full",
     "joinGame": "Join Game",
     "leaveGame": "Leave Game",
@@ -196,5 +196,30 @@
     "day4": "Thu",
     "day5": "Fri",
     "day6": "Sat"
+  },
+  "series": {
+    "badge": "Fixed Game"
+  },
+  "editGame": {
+    "title": "Edit Game",
+    "location": "Location",
+    "when": "When?",
+    "date": "Date",
+    "time": "Time",
+    "details": "Details",
+    "maxPlayers": "Max Players",
+    "price": "Price (₪)",
+    "privateGame": "Private Game",
+    "requiresApproval": "Requires Approval to Join",
+    "extraInfo": "Extra Info",
+    "instructionsPlaceholder": "Any special instructions?",
+    "saveChanges": "Save Changes",
+    "updating": "Updating...",
+    "error": "Error",
+    "success": "Success",
+    "loadError": "Failed to load game details",
+    "updateSuccess": "Game updated successfully!",
+    "updateFailed": "Failed to update game",
+    "ok": "OK"
   }
 }
