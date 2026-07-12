@@ -199,5 +199,27 @@
   },
   "series": {
     "badge": "Fixed Game"
+  },
+  "editGame": {
+    "title": "Edit Game",
+    "location": "Location",
+    "when": "When?",
+    "date": "Date",
+    "time": "Time",
+    "details": "Details",
+    "maxPlayers": "Max Players",
+    "price": "Price (₪)",
+    "privateGame": "Private Game",
+    "requiresApproval": "Requires Approval to Join",
+    "extraInfo": "Extra Info",
+    "instructionsPlaceholder": "Any special instructions?",
+    "saveChanges": "Save Changes",
+    "updating": "Updating...",
+    "error": "Error",
+    "success": "Success",
+    "loadError": "Failed to load game details",
+    "updateSuccess": "Game updated successfully!",
+    "updateFailed": "Failed to update game",
+    "ok": "OK"
   }
 }

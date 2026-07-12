@@ -6,6 +6,7 @@ import { gamesApi, fieldsApi } from '@/services/api';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Game } from '@/types/game';
+import { useTranslation } from 'react-i18next';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,6 +14,8 @@ export default function EditGameScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getToken } = useAuth();
     const router = useRouter();
+    const { t, i18n } = useTranslation();
+    const isRtl = i18n.language === 'he';
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -60,7 +63,7 @@ export default function EditGameScreen() {
 
         } catch (error) {
             console.error("Failed to load game", error);
-            Alert.alert("Error", "Failed to load game details");
+            Alert.alert(t('editGame.error', 'Error'), t('editGame.loadError', 'Failed to load game details'));
             router.back();
         } finally {
             setLoading(false);
@@ -94,17 +97,17 @@ export default function EditGameScreen() {
                 price: parseInt(price),
                 description,
                 isFriendsOnly: isPrivate,
-                joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT'
+                joinPolicy: (requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT') as 'REQUIRES_APPROVAL' | 'INSTANT'
             };
 
             await gamesApi.update(id, payload, token);
 
-            Alert.alert("Success", "Game updated successfully!", [
-                { text: "OK", onPress: () => router.back() }
+            Alert.alert(t('editGame.success', 'Success'), t('editGame.updateSuccess', 'Game updated successfully!'), [
+                { text: t('editGame.ok', 'OK'), onPress: () => router.back() }
             ]);
         } catch (error: any) {
             console.error("Update game failed", error);
-            Alert.alert("Error", error.response?.data?.error || "Failed to update game");
+            Alert.alert(t('editGame.error', 'Error'), error.response?.data?.error || t('editGame.updateFailed', 'Failed to update game'));
         } finally {
             setSubmitting(false);
         }
@@ -132,39 +135,39 @@ export default function EditGameScreen() {
         <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
             <Stack.Screen options={{ headerShown: false }} />
             
-            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
-                    <FontAwesome name="arrow-left" size={20} color="#4b5563" />
+            <View className={`flex-row items-center px-4 py-3 bg-white border-b border-gray-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <TouchableOpacity onPress={() => router.back()} className={`p-2 ${isRtl ? 'ml-3' : 'mr-3'}`}>
+                    <FontAwesome name={isRtl ? 'arrow-right' : 'arrow-left'} size={20} color="#4b5563" />
                 </TouchableOpacity>
-                <Text className="text-xl font-bold text-gray-900">Edit Game</Text>
+                <Text className={`text-xl font-bold text-gray-900 flex-1 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.title', 'Edit Game')}</Text>
             </View>
 
             <ScrollView className="flex-1 p-4">
 
                 {/* Field Info (Read Only) */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">Location</Text>
-                    <Text className="text-gray-600">{game?.field?.name || game?.fieldName}</Text>
-                    <Text className="text-gray-500 text-sm">{game?.field?.location || game?.fieldLocation}</Text>
+                    <Text className={`text-lg font-bold mb-2 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.location', 'Location')}</Text>
+                    <Text className={`text-gray-600 ${isRtl ? 'text-right' : 'text-left'}`}>{game?.field?.name || game?.fieldName}</Text>
+                    <Text className={`text-gray-500 text-sm ${isRtl ? 'text-right' : 'text-left'}`}>{game?.field?.location || game?.fieldLocation}</Text>
                 </View>
 
                 {/* Date & Time */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-4 text-gray-800">When?</Text>
-                    <View className="flex-row justify-between">
+                    <Text className={`text-lg font-bold mb-4 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.when', 'When?')}</Text>
+                    <View className={`flex-row justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <TouchableOpacity
                             onPress={() => setShowDatePicker(true)}
-                            className="flex-1 bg-gray-100 p-3 rounded-lg mr-2 items-center"
+                            className="flex-1 bg-gray-100 p-3 rounded-lg mx-1 items-center"
                         >
-                            <Text className="text-gray-500 text-xs mb-1">Date</Text>
-                            <Text className="text-gray-800 font-medium">{date.toLocaleDateString()}</Text>
+                            <Text className="text-gray-500 text-xs mb-1">{t('editGame.date', 'Date')}</Text>
+                            <Text className="text-gray-800 font-medium">{date.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')}</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             onPress={() => setShowTimePicker(true)}
-                            className="flex-1 bg-gray-100 p-3 rounded-lg ml-2 items-center"
+                            className="flex-1 bg-gray-100 p-3 rounded-lg mx-1 items-center"
                         >
-                            <Text className="text-gray-500 text-xs mb-1">Time</Text>
+                            <Text className="text-gray-500 text-xs mb-1">{t('editGame.time', 'Time')}</Text>
                             <Text className="text-gray-800 font-medium">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                         </TouchableOpacity>
                     </View>
@@ -179,10 +182,10 @@ export default function EditGameScreen() {
 
                 {/* Config */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-4 text-gray-800">Details</Text>
+                    <Text className={`text-lg font-bold mb-4 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.details', 'Details')}</Text>
 
-                    <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700">Max Players</Text>
+                    <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <Text className="text-gray-700">{t('editGame.maxPlayers', 'Max Players')}</Text>
                         <TextInput
                             value={maxPlayers}
                             onChangeText={setMaxPlayers}
@@ -191,8 +194,8 @@ export default function EditGameScreen() {
                         />
                     </View>
 
-                    <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700">Price (₪)</Text>
+                    <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <Text className="text-gray-700">{t('editGame.price', 'Price (₪)')}</Text>
                         <TextInput
                             value={price}
                             onChangeText={setPrice}
@@ -201,26 +204,26 @@ export default function EditGameScreen() {
                         />
                     </View>
 
-                    <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700">Private Game</Text>
+                    <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <Text className="text-gray-700">{t('editGame.privateGame', 'Private Game')}</Text>
                         <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#2563eb' }} />
                     </View>
 
-                    <View className="flex-row items-center justify-between">
-                        <Text className="text-gray-700">Requires Approval to Join</Text>
+                    <View className={`flex-row items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <Text className="text-gray-700">{t('editGame.requiresApproval', 'Requires Approval to Join')}</Text>
                         <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#2563eb' }} />
                     </View>
                 </View>
 
                 {/* Optional Description */}
                 <View className="bg-white p-4 rounded-xl mb-6 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">Extra Info</Text>
+                    <Text className={`text-lg font-bold mb-2 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.extraInfo', 'Extra Info')}</Text>
                     <TextInput
                         value={description}
                         onChangeText={setDescription}
-                        placeholder="Any special instructions?"
+                        placeholder={t('editGame.instructionsPlaceholder', 'Any special instructions?')}
                         multiline
-                        className="bg-gray-100 p-3 rounded-lg h-24 text-top"
+                        className={`bg-gray-100 p-3 rounded-lg h-24 text-top ${isRtl ? 'text-right' : 'text-left'}`}
                     />
                 </View>
 
@@ -230,7 +233,7 @@ export default function EditGameScreen() {
                     className={`p-4 rounded-xl items-center mb-10 ${submitting ? 'bg-blue-400' : 'bg-blue-600'}`}
                 >
                     <Text className="text-white font-bold text-lg">
-                        {submitting ? 'Updating...' : 'Save Changes'}
+                        {submitting ? t('editGame.updating', 'Updating...') : t('editGame.saveChanges', 'Save Changes')}
                     </Text>
                 </TouchableOpacity>
 

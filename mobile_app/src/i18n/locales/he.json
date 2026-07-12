@@ -199,5 +199,27 @@
   },
   "series": {
     "badge": "משחק קבוע"
+  },
+  "editGame": {
+    "title": "עריכת משחק",
+    "location": "מיקום",
+    "when": "מתי?",
+    "date": "תאריך",
+    "time": "שעה",
+    "details": "פרטי המשחק",
+    "maxPlayers": "מקסימום שחקנים",
+    "price": "מחיר (₪)",
+    "privateGame": "משחק פרטי",
+    "requiresApproval": "אישור הצטרפות נדרש",
+    "extraInfo": "מידע נוסף",
+    "instructionsPlaceholder": "הנחיות או פרטים מיוחדים?",
+    "saveChanges": "שמור שינויים",
+    "updating": "מעדכן...",
+    "error": "שגיאה",
+    "success": "הצלחה",
+    "loadError": "נכשל בטעינת פרטי המשחק",
+    "updateSuccess": "המשחק עודכן בהצלחה!",
+    "updateFailed": "עדכון המשחק נכשל",
+    "ok": "אישור"
   }
 }

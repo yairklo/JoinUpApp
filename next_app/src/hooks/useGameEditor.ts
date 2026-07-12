@@ -151,7 +151,7 @@ export function useGameEditor({
             return true;
         } catch (error) {
             console.error(error);
-            alert("Failed to update game details");
+            alert("עדכון פרטי המשחק נכשל");
             return false;
         } finally {
             setLoading(false);
@@ -159,7 +159,7 @@ export function useGameEditor({
     };
 
     const deleteGame = async () => {
-        if (!confirm("Are you sure you want to delete this game? This action cannot be undone.")) return;
+        if (!confirm("האם אתה בטוח שברצונך למחוק את המשחק? לא ניתן לבטל פעולה זו.")) return;
         setLoading(true);
         try {
             const token = await getToken();
@@ -169,7 +169,7 @@ export function useGameEditor({
             router.push("/");
         } catch (error) {
             console.error(error);
-            alert("Failed to delete game");
+            alert("מחיקת המשחק נכשלה");
         } finally {
             setLoading(false);
         }
