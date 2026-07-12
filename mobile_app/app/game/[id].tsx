@@ -105,6 +105,23 @@ export default function GameDetailsScreen() {
         ]);
     };
 
+    const handleWaitlistConfirm = async (accept: boolean) => {
+        if (!game) return;
+        setActionLoading(true);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const result = await gamesApi.waitlistConfirm(game.id, accept, token);
+            setGame(result);
+            Alert.alert("Success", accept ? "הצטרפת למשחק בהצלחה!" : "ויתרת על המקום בהצלחה");
+            fetchGame();
+        } catch (err: any) {
+            Alert.alert("Error", err.response?.data?.error || "Failed to process waitlist confirmation");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center bg-white">
@@ -124,8 +141,10 @@ export default function GameDetailsScreen() {
     const isParticipant = game.participants?.some(p => p.id === user?.id);
     const isFull = (game.currentPlayers || 0) >= game.maxPlayers;
     const isOrganizer = game.organizerId === user?.id;
-    const isPendingApproval = game.viewerParticipationStatus === 'PENDING';
+    const isWaitlistOfferPending = game.viewerParticipationStatus === 'PENDING' && !!(game as any).waitlistOfferPending;
+    const isPendingApproval = game.viewerParticipationStatus === 'PENDING' && !(game as any).waitlistOfferPending;
     const isRejected = game.viewerParticipationStatus === 'REJECTED';
+    const isWaitlisted = game.viewerParticipationStatus === 'WAITLISTED';
 
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
@@ -352,6 +371,41 @@ export default function GameDetailsScreen() {
                                 <Text className="text-red-600 font-bold text-lg">עזוב משחק</Text>
                             </TouchableOpacity>
                         </View>
+                    ) : isWaitlistOfferPending ? (
+                        <View>
+                            <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200 mb-3">
+                                <Text className="text-amber-700 font-bold text-base text-center">התפנה מקום במשחק! האם ברצונך להצטרף?</Text>
+                            </View>
+                            <View className="flex-row gap-3">
+                                <TouchableOpacity
+                                    onPress={() => handleWaitlistConfirm(true)}
+                                    disabled={actionLoading}
+                                    className="flex-1 bg-green-600 p-4 rounded-xl items-center"
+                                >
+                                    <Text className="text-white font-bold text-lg">אישור</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleWaitlistConfirm(false)}
+                                    disabled={actionLoading}
+                                    className="flex-1 bg-red-600 p-4 rounded-xl items-center"
+                                >
+                                    <Text className="text-white font-bold text-lg">ויתור</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ) : isWaitlisted ? (
+                        <View>
+                            <View className="p-4 rounded-xl items-center bg-gray-100 border border-gray-200 mb-3">
+                                <Text className="text-gray-700 font-bold text-base text-center">הרשמת כמחליף (ברשימת המתנה)</Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={handleעזוב}
+                                disabled={actionLoading}
+                                className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
+                            >
+                                <Text className="text-red-600 font-bold text-lg">בטל הרשמה כמחליף</Text>
+                            </TouchableOpacity>
+                        </View>
                     ) : isPendingApproval ? (
                         <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200">
                             <Text className="text-amber-700 font-bold text-lg">{t('game.requestPending')}</Text>
@@ -363,11 +417,11 @@ export default function GameDetailsScreen() {
                     ) : (
                         <TouchableOpacity
                             onPress={handleJoin}
-                            disabled={actionLoading || (isFull && !isOrganizer)}
-                            className={`p-4 rounded-xl items-center ${isFull ? 'bg-gray-300' : 'bg-blue-600'}`}
+                            disabled={actionLoading}
+                            className="p-4 rounded-xl items-center bg-blue-600"
                         >
                             <Text className="text-white font-bold text-lg">
-                                {isFull ? "משחק מלא" : game.joinPolicy === 'REQUIRES_APPROVAL' ? "בקש להצטרף" : "הצטרף למשחק"}
+                                {isFull ? "להרשמה כמחליף (מזמין)" : game.joinPolicy === 'REQUIRES_APPROVAL' ? "בקש להצטרף" : "הצטרף למשחק"}
                             </Text>
                         </TouchableOpacity>
                     )}
