@@ -171,6 +171,8 @@ export default async function GameDetails(props: {
               initialTitle={game.title}
               initialTeamSize={game.teamSize}
               initialPrice={game.price}
+              initialDuration={game.duration}
+              initialDescription={game.description}
               canManage={canManageSeries}
             />
 

@@ -220,6 +220,17 @@
     "loadError": "נכשל בטעינת פרטי המשחק",
     "updateSuccess": "המשחק עודכן בהצלחה!",
     "updateFailed": "עדכון המשחק נכשל",
-    "ok": "אישור"
+    "ok": "אישור",
+    "min": "דק'",
+    "hour": "שעה",
+    "hours": "שעות",
+    "players": "שחקנים",
+    "none": "ללא",
+    "teamSize": "גודל קבוצה",
+    "advancedOptions": "אפשרויות מתקדמות",
+    "futureRegistration": "הרשמה עתידית",
+    "lotteryEnabled": "מערכת הגרלה",
+    "organizerInLottery": "כלול מארגן בהגרלה",
+    "makePublicLater": "פתח לציבור בהמשך"
   }
 }

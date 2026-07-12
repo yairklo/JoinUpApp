@@ -13,6 +13,12 @@ export interface UpdateGameDTO {
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     registrationOpensAt?: string | null;
     friendsOnlyUntil?: string | null;
+    duration?: number;
+    description?: string;
+    lotteryEnabled?: boolean;
+    lotteryAt?: string | null;
+    organizerInLottery?: boolean;
+    start?: string;
 }
 
 export interface JoinGameResponse extends Game {
