@@ -1914,7 +1914,24 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (game.organizerId !== req.user.id) {
       return res.status(403).json({ error: 'Only organizer can update game' });
     }
-    const { description, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt, organizerInLottery } = req.body;
+    const {
+      description,
+      isOpenToJoin,
+      maxPlayers,
+      lotteryEnabled,
+      lotteryAt,
+      organizerInLottery,
+      title,
+      sport,
+      duration,
+      teamSize,
+      price,
+      isFriendsOnly,
+      joinPolicy,
+      registrationOpensAt,
+      friendsOnlyUntil,
+      start
+    } = req.body;
 
     if (typeof maxPlayers !== 'undefined') {
       const confirmedCount = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
@@ -1926,16 +1943,26 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const updated = await prisma.game.update({
       where: { id: game.id },
       data: {
-        ...(typeof description !== 'undefined' ? { description } : {}),
-        ...(typeof isOpenToJoin !== 'undefined' ? { isOpenToJoin } : {}),
+        ...(typeof description !== 'undefined' ? { description: description || '' } : {}),
+        ...(typeof isOpenToJoin !== 'undefined' ? { isOpenToJoin: !!isOpenToJoin } : {}),
         ...(typeof maxPlayers !== 'undefined' ? { maxPlayers: Number(maxPlayers) } : {}),
         ...(typeof lotteryEnabled !== 'undefined' ? { lotteryEnabled: !!lotteryEnabled } : {}),
         ...(typeof organizerInLottery !== 'undefined' ? { organizerInLottery: !!organizerInLottery } : {}),
         ...(typeof lotteryAt !== 'undefined' ? { lotteryAt: lotteryAt ? new Date(String(lotteryAt)) : null } : {}),
+        ...(typeof title !== 'undefined' ? { title: title || null } : {}),
+        ...(typeof sport === 'string' ? { sport: sport.toUpperCase() } : {}),
+        ...(typeof duration !== 'undefined' ? { duration: Number(duration) } : {}),
+        ...(typeof teamSize !== 'undefined' ? { teamSize: teamSize ? Number(teamSize) : null } : {}),
+        ...(typeof price !== 'undefined' ? { price: price ? Number(price) : null } : {}),
+        ...(typeof isFriendsOnly !== 'undefined' ? { isFriendsOnly: !!isFriendsOnly } : {}),
+        ...(typeof joinPolicy !== 'undefined' ? { joinPolicy } : {}),
+        ...(typeof registrationOpensAt !== 'undefined' ? { registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null } : {}),
+        ...(typeof friendsOnlyUntil !== 'undefined' ? { friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null } : {}),
+        ...(typeof start !== 'undefined' ? { start: new Date(start) } : {}),
       },
       include: { field: true, participants: { include: { user: true } } }
     });
-    res.json(mapGameForClient(updated));
+    res.json(mapGameForClient(updated, req.user.id));
   } catch (error) {
     console.error('Update game error:', error);
     res.status(500).json({ error: 'Failed to update game' });

@@ -203,7 +203,7 @@ export default function GameDetailsScreen() {
                         onPress={() => {
                             const startStr = `${game.date}T${game.time || '00:00'}:00`;
                             const startDate = new Date(startStr);
-                            const endDate = new Date(startDate.getTime() + (game.duration || 60) * 60000);
+                            const endDate = new Date(startDate.getTime() + (game.duration || 1) * 3600000);
                             
                             const formatGoogleDate = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, '');
                             

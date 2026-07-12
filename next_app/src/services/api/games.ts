@@ -13,6 +13,8 @@ export interface UpdateGameDTO {
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     registrationOpensAt?: string | null;
     friendsOnlyUntil?: string | null;
+    duration?: number;
+    description?: string;
 }
 
 export const gamesApi = {

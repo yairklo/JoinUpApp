@@ -141,6 +141,27 @@ export default function GameDetailsEditor(props: ComponentProps) {
                   ))}
                 </TextField>
               </Grid>
+              <Grid size={{ xs: 6 }}>
+                <TextField
+                  label="משך זמן (שעות)"
+                  type="number"
+                  fullWidth
+                  value={state.duration}
+                  onChange={(e) => actions.setDuration(parseFloat(e.target.value) || 1)}
+                  InputProps={{ inputProps: { min: 0.5, step: 0.25 } }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  label="הנחיות או מידע נוסף"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  value={state.description}
+                  onChange={(e) => actions.setDescription(e.target.value)}
+                  placeholder="הוראות הגעה, ציוד נדרש וכו׳"
+                />
+              </Grid>
 
               {/* Future Registration Section */}
               <Grid size={{ xs: 12 }} mt={2}>

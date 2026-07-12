@@ -220,6 +220,17 @@
     "loadError": "Failed to load game details",
     "updateSuccess": "Game updated successfully!",
     "updateFailed": "Failed to update game",
-    "ok": "OK"
+    "ok": "OK",
+    "min": "min",
+    "hour": "hour",
+    "hours": "hours",
+    "players": "players",
+    "none": "None",
+    "teamSize": "Team Size",
+    "advancedOptions": "Advanced Options",
+    "futureRegistration": "Future Registration",
+    "lotteryEnabled": "Lottery",
+    "organizerInLottery": "Include organizer in lottery",
+    "makePublicLater": "Publish to public later"
   }
 }

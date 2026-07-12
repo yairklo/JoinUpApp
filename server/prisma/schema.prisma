@@ -105,7 +105,7 @@ model Game {
   /// Optional reference to a recurring series
   seriesId     String?
   start        DateTime
-  duration     Int             @default(1)
+  duration     Float           @default(1)
   maxPlayers   Int
   teamSize     Int?
   price        Int?
