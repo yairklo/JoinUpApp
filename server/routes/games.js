@@ -20,7 +20,7 @@ function mapGameForClient(game, viewerId) {
   const pending = allParts.filter(p => p.status === 'PENDING');
   const viewerPart = viewerId ? allParts.find(p => p.userId === viewerId) : null;
   const viewerParticipationStatus = viewerPart?.status || null;
-  const waitlistOfferPending = viewerPart ? !!viewerPart.isWaitlistOffer : false;
+  const waitlistOfferPending = viewerPart ? (viewerPart.status === 'PENDING' && !!viewerPart.isWaitlistOffer) : false;
   // Exclude PENDING/REJECTED join requests from roster/capacity accounting - they aren't on the roster yet.
   const totalSignups = allParts.filter(p => p.status === 'CONFIRMED' || p.status === 'WAITLISTED' || p.status === 'NOT_SELECTED').length;
   const confirmedCount = confirmed.length;
@@ -1736,8 +1736,16 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       // If lottery already ran, fall through to capacity check based on confirmed count
     }
 
-    const confirmedCount = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
-    if (confirmedCount >= game.maxPlayers) {
+    const allocatedSlotsCount = await prisma.participation.count({
+      where: {
+        gameId: game.id,
+        OR: [
+          { status: 'CONFIRMED' },
+          { status: 'PENDING', isWaitlistOffer: true }
+        ]
+      }
+    });
+    if (allocatedSlotsCount >= game.maxPlayers) {
       const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
       if (already) {
         if (already.status === 'WAITLISTED') {

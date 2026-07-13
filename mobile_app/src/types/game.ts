@@ -33,6 +33,7 @@ export type Game = {
     lotteryEnabled?: boolean;
     lotteryAt?: string | null;
     organizerInLottery?: boolean;
+    waitlistOfferPending?: boolean;
 
     // Computed/Client-side logic might add these
     isTeamFull?: boolean;

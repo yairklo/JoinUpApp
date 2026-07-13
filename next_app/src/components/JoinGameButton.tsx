@@ -21,7 +21,8 @@ export default function JoinGameButton({
   onRequestSent,
   registrationOpensAt,
   joinPolicy,
-  viewerParticipationStatus
+  viewerParticipationStatus,
+  waitlistOfferPending
 }: {
   gameId: string;
   onJoined?: (updatedGame?: any) => void;
@@ -29,13 +30,14 @@ export default function JoinGameButton({
   registrationOpensAt?: string | null;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
   viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  waitlistOfferPending?: boolean;
 }) {
   const { getToken } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Seed from server-provided status so a hard refresh doesn't forget an in-flight request.
-  const [pending, setPending] = useState(viewerParticipationStatus === "PENDING");
+  const [pending, setPending] = useState(viewerParticipationStatus === "PENDING" && !waitlistOfferPending);
   // A REQUIRES_APPROVAL rejection is terminal (server blocks re-requesting); an INSTANT game lets
   // a previously-rejected user join normally, so this only locks the button for the approval flow.
   const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
@@ -77,6 +79,57 @@ export default function JoinGameButton({
     }
   }
 
+  async function confirmWaitlist(accept: boolean) {
+    setError(null);
+    setLoading(true);
+    try {
+      const token = await getToken().catch(() => "");
+      const res = await fetch(`${API_BASE}/api/games/${gameId}/waitlist-confirm`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ accept })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to confirm waitlist offer");
+      }
+      const body = await res.json().catch(() => ({}));
+      if (onJoined) onJoined(body);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to process waitlist offer");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function leaveWaitlist() {
+    setError(null);
+    setLoading(true);
+    try {
+      const token = await getToken().catch(() => "");
+      const res = await fetch(`${API_BASE}/api/games/${gameId}/leave`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to leave waitlist");
+      }
+      const body = await res.json().catch(() => ({}));
+      if (onJoined) onJoined(body);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to cancel waitlist registration");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Formatting for Hebrew Tooltip
   let tooltipText = "";
   let dateStr = "";
@@ -99,7 +152,48 @@ export default function JoinGameButton({
       </SignedOut>
 
       <SignedIn>
-        {pending ? (
+        {waitlistOfferPending ? (
+          <Box display="flex" flexDirection="column" gap={1} alignItems="flex-end">
+            <Typography variant="body2" color="warning.main" fontWeight="bold" align="right" sx={{ mb: 0.5 }}>
+              התפנה מקום במשחק! המקום שמור לך. האם ברצונך להצטרף?
+            </Typography>
+            <Box display="flex" gap={1}>
+              <Button
+                onClick={() => confirmWaitlist(true)}
+                disabled={loading}
+                variant="contained"
+                color="success"
+                size="small"
+              >
+                אישור הצטרפות
+              </Button>
+              <Button
+                onClick={() => confirmWaitlist(false)}
+                disabled={loading}
+                variant="contained"
+                color="error"
+                size="small"
+              >
+                ויתור
+              </Button>
+            </Box>
+          </Box>
+        ) : viewerParticipationStatus === "WAITLISTED" ? (
+          <Box display="flex" flexDirection="column" gap={1} alignItems="flex-end">
+            <Typography variant="body2" color="text.secondary" fontWeight="bold" align="right" sx={{ mb: 0.5 }}>
+              הרשמת כמחליף (ברשימת המתנה)
+            </Typography>
+            <Button
+              onClick={leaveWaitlist}
+              disabled={loading}
+              variant="outlined"
+              color="error"
+              size="small"
+            >
+              בטל הרשמה כמחליף
+            </Button>
+          </Box>
+        ) : pending ? (
           <Button
             disabled
             variant="outlined"

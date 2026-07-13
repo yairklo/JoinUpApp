@@ -29,6 +29,7 @@ export type LiveGame = {
   registrationOpensAt?: string | null;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
   viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  waitlistOfferPending?: boolean;
   lotteryEnabled?: boolean;
   lotteryPending?: boolean;
   totalSignups?: number;
@@ -99,6 +100,7 @@ export default function GameLiveSection({
             registrationOpensAt={game.registrationOpensAt}
             joinPolicy={game.joinPolicy}
             viewerParticipationStatus={game.viewerParticipationStatus}
+            waitlistOfferPending={game.waitlistOfferPending}
             onJoined={mergeAndSet}
             onRequestSent={mergeAndSet}
           />
