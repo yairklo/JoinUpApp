@@ -56,6 +56,7 @@ type Game = {
   isFriendsOnly?: boolean;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
   viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  waitlistOfferPending?: boolean;
   teamSize?: number | null;
   price?: number | null;
   chatRoomId?: string;
@@ -132,6 +133,7 @@ export default async function GameDetails(props: {
               registrationOpensAt: game.registrationOpensAt,
               joinPolicy: game.joinPolicy,
               viewerParticipationStatus: game.viewerParticipationStatus,
+              waitlistOfferPending: game.waitlistOfferPending,
               lotteryEnabled: game.lotteryEnabled,
               lotteryPending: game.lotteryPending,
               totalSignups: game.totalSignups,

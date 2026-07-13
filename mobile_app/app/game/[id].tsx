@@ -141,8 +141,10 @@ export default function GameDetailsScreen() {
     const isParticipant = game.participants?.some(p => p.id === user?.id);
     const isFull = (game.currentPlayers || 0) >= game.maxPlayers;
     const isOrganizer = game.organizerId === user?.id;
-    const isWaitlistOfferPending = game.viewerParticipationStatus === 'PENDING' && !!(game as any).waitlistOfferPending;
-    const isPendingApproval = game.viewerParticipationStatus === 'PENDING' && !(game as any).waitlistOfferPending;
+    const isManager = game.managers?.some(m => m.id === user?.id) || false;
+    const canManage = isOrganizer || isManager;
+    const isWaitlistOfferPending = game.viewerParticipationStatus === 'PENDING' && !!game.waitlistOfferPending;
+    const isPendingApproval = game.viewerParticipationStatus === 'PENDING' && !game.waitlistOfferPending;
     const isRejected = game.viewerParticipationStatus === 'REJECTED';
     const isWaitlisted = game.viewerParticipationStatus === 'WAITLISTED';
 
@@ -341,8 +343,8 @@ export default function GameDetailsScreen() {
                     )}
                 </View>
 
-                {/* Pending Join Requests (organizer/manager only) */}
-                {isOrganizer && game.joinPolicy === 'REQUIRES_APPROVAL' && (
+                {/* Pending Join Requests & Waitlist (organizer/manager only) */}
+                {canManage && (
                     <PendingRequestsList
                         gameId={game.id}
                         onDecision={(updatedGame) => {
@@ -374,7 +376,7 @@ export default function GameDetailsScreen() {
                     ) : isWaitlistOfferPending ? (
                         <View>
                             <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200 mb-3">
-                                <Text className="text-amber-700 font-bold text-base text-center">התפנה מקום במשחק! האם ברצונך להצטרף?</Text>
+                                <Text className="text-amber-700 font-bold text-base text-center">התפנה מקום במשחק! המקום שמור לך. האם ברצונך להצטרף?</Text>
                             </View>
                             <View className="flex-row gap-3">
                                 <TouchableOpacity
@@ -382,7 +384,7 @@ export default function GameDetailsScreen() {
                                     disabled={actionLoading}
                                     className="flex-1 bg-green-600 p-4 rounded-xl items-center"
                                 >
-                                    <Text className="text-white font-bold text-lg">אישור</Text>
+                                    <Text className="text-white font-bold text-lg">אישור הצטרפות</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => handleWaitlistConfirm(false)}
