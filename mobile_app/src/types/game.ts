@@ -59,6 +59,9 @@ export type JoinRequest = {
     name?: string | null;
     avatar?: string | null;
     requestedAt: string;
+    status?: string;
+    isWaitlistOffer?: boolean;
+    queuePosition?: number;
 };
 
 export type Team = {

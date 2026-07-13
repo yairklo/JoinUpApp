@@ -105,7 +105,19 @@ export const gamesApi = {
     },
 
     getJoinRequests: (gameId: string, token: string) => {
-        return apiClient<{ requests: JoinRequest[]; rejected: JoinRequest[] }>(`/api/games/${gameId}/join-requests`, { token });
+        return apiClient<{
+            requests: JoinRequest[];
+            activeOffer: JoinRequest | null;
+            waitlist: JoinRequest[];
+            rejected: JoinRequest[];
+        }>(`/api/games/${gameId}/join-requests`, { token });
+    },
+
+    bypassWaitlistUser: (gameId: string, userId: string, token: string) => {
+        return apiClient<{ success: boolean; game: Game }>(`/api/games/${gameId}/waitlist-bypass/${userId}`, {
+            method: 'POST',
+            token
+        });
     },
 
     approveJoinRequest: (gameId: string, userId: string, token: string) => {
