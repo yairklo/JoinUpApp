@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
@@ -41,6 +41,10 @@ export default function JoinGameButton({
   // A REQUIRES_APPROVAL rejection is terminal (server blocks re-requesting); an INSTANT game lets
   // a previously-rejected user join normally, so this only locks the button for the approval flow.
   const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
+
+  useEffect(() => {
+    setPending(viewerParticipationStatus === "PENDING" && !waitlistOfferPending);
+  }, [viewerParticipationStatus, waitlistOfferPending]);
 
   const now = new Date();
   const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
