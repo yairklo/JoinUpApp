@@ -139,5 +139,27 @@ export const gamesApi = {
 
     getGameForChat: (gameId: string, token: string, silent: boolean = false) => {
         return apiClient<Game>(`/api/games/${gameId}`, { token, silent });
+    },
+
+    addParticipant: (gameId: string, userId: string, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/participants`, {
+            method: 'POST',
+            data: { userId },
+            token
+        });
+    },
+
+    removeParticipant: (gameId: string, userId: string, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/participants/${userId}`, {
+            method: 'DELETE',
+            token
+        });
+    },
+
+    toggleParticipantRole: (gameId: string, userId: string, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/participants/${userId}/toggle-role`, {
+            method: 'POST',
+            token
+        });
     }
 };

@@ -2192,4 +2192,253 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Add friend directly to existing game (organizer/manager only)
+router.post('/:id/participants', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    if (!(await canManageGame(gameId, req.user.id))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId }
+    });
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    // Ensure user exists in local User table
+    const userExists = await prisma.user.findUnique({ where: { id: userId } });
+    if (!userExists) {
+      return res.status(404).json({ error: 'User not found in local database' });
+    }
+
+    const already = await prisma.participation.findFirst({
+      where: { gameId, userId }
+    });
+
+    if (already) {
+      if (already.status === 'CONFIRMED') {
+        return res.status(400).json({ error: 'User is already a confirmed participant' });
+      }
+      await prisma.participation.update({
+        where: { id: already.id },
+        data: { status: 'CONFIRMED', isWaitlistOffer: false }
+      });
+    } else {
+      await prisma.participation.create({
+        data: {
+          gameId,
+          userId,
+          status: 'CONFIRMED'
+        }
+      });
+    }
+
+    // Add to ChatRoom
+    try {
+      await prisma.chatParticipant.upsert({
+        where: { userId_chatId: { userId, chatId: gameId } },
+        update: {},
+        create: { userId, chatId: gameId }
+      });
+    } catch (e) {
+      // Ignore
+    }
+
+    const updated = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { field: true, participants: { include: { user: true } } }
+    });
+    broadcastGameUpdate(req.io, gameId, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', gameId, err));
+
+    // Send a notification to the added user
+    notificationService.sendNotification(
+      userId,
+      'GAME_INVITATION',
+      'צורפת למשחק!',
+      `מנהל המשחק הוסיף אותך למשחק: ${game.title || 'משחק כדורגל'}`,
+      { gameId, link: `/game/${gameId}` },
+      req.io
+    ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of addition', gameId, err));
+
+    return res.json(mapGameForClient(updated, req.user.id));
+  } catch (error) {
+    console.error('Add participant error:', error);
+    res.status(500).json({ error: 'Failed to add participant' });
+  }
+});
+
+// Remove participant from game (organizer/manager only)
+router.delete('/:id/participants/:userId', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    const targetUserId = req.params.userId;
+
+    if (!(await canManageGame(gameId, req.user.id))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId }
+    });
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    if (game.organizerId === targetUserId) {
+      return res.status(400).json({ error: 'Cannot remove the game organizer' });
+    }
+
+    // Check hierarchy: can only remove users strictly below you
+    const actorLevel = await getRoleLevel(gameId, req.user.id);
+    const targetLevel = await getRoleLevel(gameId, targetUserId);
+    if (targetLevel >= actorLevel) {
+      return res.status(403).json({ error: 'Cannot remove a participant with peer or higher role' });
+    }
+
+    const participation = await prisma.participation.findFirst({
+      where: { gameId, userId: targetUserId }
+    });
+    if (!participation) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
+
+    const wasConfirmed = participation.status === 'CONFIRMED';
+
+    // Delete participation
+    await prisma.participation.delete({
+      where: { id: participation.id }
+    });
+
+    // Clean up manager role if any
+    await prisma.gameRole.deleteMany({
+      where: { gameId, userId: targetUserId }
+    });
+
+    // Remove from ChatRoom
+    try {
+      await prisma.chatParticipant.deleteMany({
+        where: { userId: targetUserId, chatId: gameId }
+      });
+    } catch (e) {
+      // Ignore
+    }
+
+    // Send a notification to the removed user
+    notificationService.sendNotification(
+      targetUserId,
+      'GAME_REMOVED_PEER',
+      'הוסרת מהמשחק',
+      `מנהל המשחק הסיר אותך מהמשחק: ${game.title || 'משחק כדורגל'}`,
+      { gameId },
+      req.io
+    ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of removal', gameId, err));
+
+    // Offer spot to next waitlisted user if a confirmed player was removed
+    if (wasConfirmed) {
+      await offerSpotToNextWaitlistUser(gameId, req.io);
+    }
+
+    const updated = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { field: true, participants: { include: { user: true } } }
+    });
+    broadcastGameUpdate(req.io, gameId, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', gameId, err));
+    return res.json(mapGameForClient(updated, req.user.id));
+  } catch (error) {
+    console.error('Remove participant error:', error);
+    res.status(500).json({ error: 'Failed to remove participant' });
+  }
+});
+
+// Toggle participant's manager role (organizer/manager only)
+router.post('/:id/participants/:userId/toggle-role', authenticateToken, async (req, res) => {
+  try {
+    const gameId = req.params.id;
+    const targetUserId = req.params.userId;
+
+    const actorLevel = await getRoleLevel(gameId, req.user.id);
+    if (actorLevel < ROLE_LEVEL.MODERATOR) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId }
+    });
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    if (game.organizerId === targetUserId) {
+      return res.status(400).json({ error: 'Cannot modify organizer role' });
+    }
+
+    // Ensure target is a participant
+    const isParticipant = await prisma.participation.findFirst({
+      where: { gameId, userId: targetUserId }
+    });
+    if (!isParticipant) {
+      return res.status(400).json({ error: 'Target user is not a participant' });
+    }
+
+    // Hierarchy check: can only affect users strictly below you
+    const targetLevel = await getRoleLevel(gameId, targetUserId);
+    if (targetLevel >= actorLevel) {
+      return res.status(403).json({ error: 'Cannot modify a peer or higher role' });
+    }
+
+    const existingRole = await prisma.gameRole.findUnique({
+      where: { gameId_userId: { gameId, userId: targetUserId } }
+    });
+
+    let newRole = null;
+    if (existingRole && existingRole.role === 'MANAGER') {
+      // Revoke
+      await prisma.gameRole.delete({
+        where: { id: existingRole.id }
+      });
+      newRole = 'PLAYER';
+    } else {
+      // Elevate
+      await prisma.gameRole.upsert({
+        where: { gameId_userId: { gameId, userId: targetUserId } },
+        create: { gameId, userId: targetUserId, role: 'MANAGER' },
+        update: { role: 'MANAGER' }
+      });
+      newRole = 'MANAGER';
+    }
+
+    // Notify user
+    const title = newRole === 'MANAGER' ? 'הועלית למנהל משחק!' : 'הוסרו הרשאות הניהול שלך';
+    const body = newRole === 'MANAGER' 
+      ? `מנהל המשחק העלה אותך לדרגת מנהל במשחק: ${game.title || 'משחק כדורגל'}`
+      : `הוסרו הרשאות הניהול שלך במשחק: ${game.title || 'משחק כדורגל'}`;
+
+    notificationService.sendNotification(
+      targetUserId,
+      'GAME_ROLE_UPDATE',
+      title,
+      body,
+      { gameId, newRole },
+      req.io
+    ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of role update', gameId, err));
+
+    const updated = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { field: true, participants: { include: { user: true } } }
+    });
+    broadcastGameUpdate(req.io, gameId, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', gameId, err));
+    return res.json(mapGameForClient(updated, req.user.id));
+  } catch (error) {
+    console.error('Toggle role error:', error);
+    res.status(500).json({ error: 'Failed to toggle participant role' });
+  }
+});
+
 module.exports = router;

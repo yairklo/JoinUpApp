@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -23,6 +23,10 @@ import AvatarGroup from "@mui/material/AvatarGroup";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Paper from "@mui/material/Paper";
+import Button from "@mui/material/Button";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
+import CircularProgress from "@mui/material/CircularProgress";
 
 // Icons
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -30,6 +34,7 @@ import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import StarIcon from "@mui/icons-material/Star";
 import PersonIcon from "@mui/icons-material/Person";
 import SecurityIcon from "@mui/icons-material/Security";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -78,6 +83,63 @@ export default function GameParticipantsList({
   const viewerIsOrganizer = userId === organizerId;
   const viewerIsManager = managers.some((m) => m.id === userId);
   const canManage = viewerIsOrganizer || viewerIsManager;
+
+  const [allFriends, setAllFriends] = useState<any[]>([]);
+  const [selectedFriends, setSelectedFriends] = useState<any[]>([]);
+  const [addingFriends, setAddingFriends] = useState(false);
+
+  useEffect(() => {
+    if (canManage && userId) {
+      fetch(`${API_BASE}/api/users/${userId}/friends`)
+        .then((r) => r.json())
+        .then((arr) => {
+          const existingIds = new Set(participants.map((p) => p.id));
+          setAllFriends((arr || []).filter((f: any) => !existingIds.has(f.id)));
+        })
+        .catch((e) => console.error("Failed to load friends", e));
+    }
+  }, [canManage, userId, participants]);
+
+  const handleAddFriends = async () => {
+    if (selectedFriends.length === 0) return;
+    setAddingFriends(true);
+    const token = await getToken();
+    try {
+      for (const friend of selectedFriends) {
+        await fetch(`${API_BASE}/api/games/${gameId}/participants`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ userId: friend.id }),
+        });
+      }
+      setSelectedFriends([]);
+      router.refresh();
+    } catch (e) {
+      console.error("Failed to add friends", e);
+    } finally {
+      setAddingFriends(false);
+    }
+  };
+
+  const handleRemovePlayer = async () => {
+    if (!selectedUser) return;
+    const token = await getToken();
+    try {
+      const res = await fetch(`${API_BASE}/api/games/${gameId}/participants/${selectedUser.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to remove participant");
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to remove participant", error);
+    } finally {
+      closeMenu();
+    }
+  };
 
   const handleToggleManager = async () => {
     if (!selectedUser) return;
@@ -129,18 +191,6 @@ export default function GameParticipantsList({
       <ListItem
         key={p.id}
         disablePadding
-        secondaryAction={
-          showMenu && (
-            <IconButton
-              edge="end"
-              aria-label="options"
-              onClick={(e) => openMenu(e, p)}
-              size="small"
-            >
-              <MoreVertIcon />
-            </IconButton>
-          )
-        }
         sx={{
           mb: 1,
           bgcolor: "background.paper",
@@ -149,27 +199,37 @@ export default function GameParticipantsList({
           borderColor: "divider",
         }}
       >
-        <Box sx={{ p: 1.5, display: "flex", alignItems: "center", width: '100%' }}>
+        <Box sx={{ p: 1.5, display: "flex", alignItems: "center", width: '100%', justifyContent: 'space-between', gap: 2 }}>
             <Link href={`/users/${p.id}`} passHref legacyBehavior>
-                <Box component="a" sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit', flex: 1 }}>
+                <Box component="a" sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0 }}>
                   <ListItemAvatar sx={{ minWidth: "auto", mr: 2 }}>
                     <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="md" />
                   </ListItemAvatar>
                   <ListItemText
                     primary={p.name || "Unknown User"}
-                    primaryTypographyProps={{ fontWeight: 500 }}
+                    primaryTypographyProps={{ fontWeight: 500, noWrap: true }}
                     secondary={isOrg ? "Organizer" : isMgr ? "Manager" : "Player"}
                   />
                 </Box>
             </Link>
-        </Box>
 
-        <Box sx={{ mr: showMenu ? 2 : 1 }}>
-          {isOrg ? (
-            <Chip icon={<StarIcon sx={{ fontSize: "16px !important" }} />} label="Host" size="small" color="primary" variant="filled" />
-          ) : isMgr ? (
-            <Chip icon={<AdminPanelSettingsIcon sx={{ fontSize: "16px !important" }} />} label="Manager" size="small" color="info" variant="outlined" sx={{ fontWeight: "bold" }} />
-          ) : null}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+              {isOrg ? (
+                <Chip icon={<StarIcon sx={{ fontSize: "16px !important" }} />} label="Host" size="small" color="primary" variant="filled" />
+              ) : isMgr ? (
+                <Chip icon={<AdminPanelSettingsIcon sx={{ fontSize: "16px !important" }} />} label="Manager" size="small" color="info" variant="outlined" sx={{ fontWeight: "bold" }} />
+              ) : null}
+
+              {showMenu && (
+                <IconButton
+                  aria-label="options"
+                  onClick={(e) => openMenu(e, p)}
+                  size="small"
+                >
+                  <MoreVertIcon />
+                </IconButton>
+              )}
+            </Box>
         </Box>
       </ListItem>
     );
@@ -205,6 +265,52 @@ export default function GameParticipantsList({
         </Box>
 
         <Divider sx={{ mb: 2 }} />
+
+        {canManage && (
+          <Box mb={3} dir="rtl">
+            <Typography variant="subtitle2" color="text.secondary" mb={1} align="right">
+              צרף חברים נוספים
+            </Typography>
+            <Box display="flex" gap={1}>
+              <Autocomplete
+                multiple
+                options={allFriends}
+                getOptionLabel={(option) => option.name || ""}
+                value={selectedFriends}
+                onChange={(event, newValue) => {
+                  setSelectedFriends(newValue);
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="outlined"
+                    size="small"
+                    placeholder="חפש חברים..."
+                  />
+                )}
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <li key={option.id} {...otherProps} style={{ direction: "rtl" }}>
+                      {option.name}
+                    </li>
+                  );
+                }}
+                noOptionsText="לא נמצאו חברים"
+                sx={{ flexGrow: 1 }}
+              />
+              <Button
+                variant="contained"
+                onClick={handleAddFriends}
+                disabled={addingFriends || selectedFriends.length === 0}
+                size="small"
+                sx={{ borderRadius: 2 }}
+              >
+                {addingFriends ? <CircularProgress size={20} color="inherit" /> : "צרף"}
+              </Button>
+            </Box>
+          </Box>
+        )}
 
         {/* --- VIEW MODE 1: TEAMS EXIST --- */}
         {hasTeams ? (
@@ -277,6 +383,14 @@ export default function GameParticipantsList({
                   </ListItemIcon>
                   <Typography variant="body2">
                     {isManager(selectedUser.id) ? "Remove Manager Role" : "Promote to Manager"}
+                  </Typography>
+                </MenuItem>
+                <MenuItem onClick={handleRemovePlayer} sx={{ color: "error.main" }}>
+                  <ListItemIcon>
+                    <DeleteForeverIcon fontSize="small" color="error" />
+                  </ListItemIcon>
+                  <Typography variant="body2">
+                    Remove from Game
                   </Typography>
                 </MenuItem>
             </Box>

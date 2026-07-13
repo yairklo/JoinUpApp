@@ -1,8 +1,8 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal, Image } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '@clerk/clerk-expo';
-import { gamesApi, fieldsApi } from '@/services/api';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { gamesApi, fieldsApi, usersApi } from '@/services/api';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Game } from '@/types/game';
@@ -140,6 +140,17 @@ export default function EditGameScreen() {
     const [showDurationPicker, setShowDurationPicker] = useState(false);
     const [showPricePicker, setShowPricePicker] = useState(false);
 
+    // Clerk & Roster/Friends States
+    const { user } = useUser();
+    const [friends, setFriends] = useState<any[]>([]);
+    const [searchFriendQuery, setSearchFriendQuery] = useState('');
+    const [invitedParticipantIds, setInvitedParticipantIds] = useState<string[]>([]);
+    const [addingFriends, setAddingFriends] = useState(false);
+
+    const isOrganizer = game ? game.organizerId === user?.id : false;
+    const isManager = game ? game.managers?.some((m: any) => m.id === user?.id) : false;
+    const canManage = isOrganizer || isManager;
+
     useEffect(() => {
         fetchGame();
     }, [id]);
@@ -148,7 +159,8 @@ export default function EditGameScreen() {
         try {
             const token = await getToken();
             const data = await gamesApi.getById(id, token || undefined);
-            setGame(game); // keep ref
+            setGame(data); // keep ref
+            loadFriends(data);
 
             // Populate form safely using local components
             const [y, m_part, d_part] = data.date.split('-').map(Number);
@@ -196,6 +208,102 @@ export default function EditGameScreen() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const loadFriends = async (currentGame: Game) => {
+        try {
+            const token = await getToken();
+            if (user?.id && token) {
+                const list = await usersApi.getFriends(user.id, token);
+                if (currentGame && currentGame.participants) {
+                    const existingIds = new Set(currentGame.participants.map((p: any) => p.id));
+                    setFriends((list || []).filter((f: any) => !existingIds.has(f.id)));
+                } else {
+                    setFriends(list || []);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to load friends", error);
+        }
+    };
+
+    const handleAddFriends = async () => {
+        if (invitedParticipantIds.length === 0) return;
+        setAddingFriends(true);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            for (const friendId of invitedParticipantIds) {
+                await gamesApi.addParticipant(id, friendId, token);
+            }
+            setInvitedParticipantIds([]);
+            setSearchFriendQuery('');
+            Alert.alert(t('common.success', 'הצלחה'), 'החברים נוספו למשחק בהצלחה!');
+            await fetchGame();
+        } catch (error) {
+            console.error("Failed to add friends to game", error);
+            Alert.alert(t('common.error', 'שגיאה'), 'הוספת חברים נכשלה. אנא נסה שנית.');
+        } finally {
+            setAddingFriends(false);
+        }
+    };
+
+    const handleRemovePlayer = async (userId: string) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await gamesApi.removeParticipant(id, userId, token);
+            Alert.alert(t('common.success', 'הצלחה'), 'השחקן הוסר מהמשחק בהצלחה!');
+            await fetchGame();
+        } catch (error) {
+            console.error("Failed to remove participant", error);
+            Alert.alert(t('common.error', 'שגיאה'), 'הסרת שחקן נכשלה.');
+        }
+    };
+
+    const handleToggleRole = async (userId: string) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await gamesApi.toggleParticipantRole(id, userId, token);
+            Alert.alert(t('common.success', 'הצלחה'), 'הרשאות השחקן עודכנו בהצלחה!');
+            await fetchGame();
+        } catch (error) {
+            console.error("Failed to toggle participant role", error);
+            Alert.alert(t('common.error', 'שגיאה'), 'עדכון הרשאות נכשל.');
+        }
+    };
+
+    const handleRosterOptions = (p: any) => {
+        const isTargetMgr = game?.managers?.some((m: any) => m.id === p.id);
+        Alert.alert(
+            p.name || 'שחקן',
+            'בחר פעולה עבור שחקן זה:',
+            [
+                {
+                    text: isTargetMgr ? 'הסר הרשאות ניהול' : 'הפוך למנהל משחק',
+                    onPress: () => handleToggleRole(p.id)
+                },
+                {
+                    text: 'הסר מהמשחק',
+                    style: 'destructive',
+                    onPress: () => {
+                        Alert.alert(
+                            'אישור הסרה',
+                            `האם אתה בטוח שברצונך להסיר את ${p.name || 'שחקן'} מהמשחק?`,
+                            [
+                                { text: 'ביטול', style: 'cancel' },
+                                { text: 'הסר', style: 'destructive', onPress: () => handleRemovePlayer(p.id) }
+                            ]
+                        );
+                    }
+                },
+                {
+                    text: 'ביטול',
+                    style: 'cancel'
+                }
+            ]
+        );
     };
 
     const handleSubmit = async () => {
@@ -535,6 +643,119 @@ export default function EditGameScreen() {
                         onChange={handleAdvancedDateChange}
                         minimumDate={activePicker.endsWith('Date') ? new Date() : undefined}
                     />
+                )}
+
+                {/* ניהול סגל השחקנים */}
+                {game && canManage && (
+                    <View className="bg-white p-4 rounded-xl mb-6 shadow-sm">
+                        <Text className={`text-lg font-bold mb-4 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>
+                            ניהול סגל השחקנים
+                        </Text>
+
+                        {/* צרף חברים */}
+                        <View className="mb-4">
+                            <Text className={`text-sm font-bold mb-2 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>
+                                צרף חברים למשחק
+                            </Text>
+                            <TextInput
+                                value={searchFriendQuery}
+                                onChangeText={setSearchFriendQuery}
+                                placeholder="חפש חברים..."
+                                className="bg-gray-100 p-2 rounded-lg text-right mb-3 text-sm"
+                            />
+                            
+                            {friends.length === 0 ? (
+                                <Text className="text-gray-400 text-xs text-center my-2">אין חברים נוספים לצירוף</Text>
+                            ) : (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-3">
+                                    {friends
+                                        .filter(f => !searchFriendQuery || f.name?.toLowerCase().includes(searchFriendQuery.toLowerCase()))
+                                        .map(friend => {
+                                            const isSelected = invitedParticipantIds.includes(friend.id);
+                                            return (
+                                                <TouchableOpacity
+                                                    key={friend.id}
+                                                    onPress={() => {
+                                                        if (isSelected) {
+                                                            setInvitedParticipantIds(prev => prev.filter(id => id !== friend.id));
+                                                        } else {
+                                                            setInvitedParticipantIds(prev => [...prev, friend.id]);
+                                                        }
+                                                    }}
+                                                    className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
+                                                >
+                                                    <Image
+                                                        source={{ uri: friend.imageUrl || "https://ui-avatars.com/api/?name=" + friend.name }}
+                                                        className="w-10 h-10 rounded-full bg-gray-200 mb-1"
+                                                    />
+                                                    <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>
+                                                        {friend.name?.split(' ')[0]}
+                                                    </Text>
+                                                    {isSelected && (
+                                                        <View className="absolute top-1 right-1 bg-blue-500 w-4 h-4 rounded-full items-center justify-center">
+                                                            <FontAwesome name="check" size={8} color="white" />
+                                                        </View>
+                                                    )}
+                                                </TouchableOpacity>
+                                            );
+                                        })
+                                    }
+                                </ScrollView>
+                            )}
+
+                            {invitedParticipantIds.length > 0 && (
+                                <TouchableOpacity
+                                    onPress={handleAddFriends}
+                                    disabled={addingFriends}
+                                    className="bg-blue-600 p-2.5 rounded-lg items-center"
+                                >
+                                    <Text className="text-white font-bold text-sm">
+                                        {addingFriends ? 'מצרף...' : `הוסף למשחק (${invitedParticipantIds.length})`}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <Text className={`text-sm font-bold mb-2 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>
+                            שחקנים רשומים ({game.participants?.length || 0})
+                        </Text>
+
+                        {/* רשימת שחקנים עם שלוש נקודות */}
+                        {(game.participants || []).map((p: any) => {
+                            const isOrg = p.id === game.organizerId;
+                            const isTargetMgr = game.managers?.some((m: any) => m.id === p.id);
+                            
+                            // A manager can manage any participant except themselves and the organizer
+                            // A manager cannot manage other managers. Only the organizer can toggle co-organizer roles.
+                            const showOptions = p.id !== user?.id && !isOrg && (isOrganizer || !isTargetMgr);
+
+                            return (
+                                <View key={p.id} className={`flex-row justify-between items-center py-2.5 border-b border-gray-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                    <View className={`flex-row items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
+                                        <Image
+                                            source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }}
+                                            className="w-9 h-9 rounded-full bg-gray-200"
+                                        />
+                                        <View className={`mx-3 ${isRtl ? 'items-end' : 'items-start'}`}>
+                                            <Text className="text-sm font-medium text-gray-900">{p.name || 'שחקן'}</Text>
+                                            <Text className="text-xs text-gray-500">
+                                                {isOrg ? 'מארגן' : isTargetMgr ? 'מנהל' : 'שחקן'}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {showOptions && (
+                                        <TouchableOpacity
+                                            onPress={() => handleRosterOptions(p)}
+                                            className="p-2"
+                                        >
+                                            <FontAwesome name="ellipsis-v" size={16} color="#6b7280" />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            );
+                        })}
+                    </View>
                 )}
 
                 <TouchableOpacity
