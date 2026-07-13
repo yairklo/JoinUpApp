@@ -141,6 +141,8 @@ export default function GameDetailsScreen() {
     const isParticipant = game.participants?.some(p => p.id === user?.id);
     const isFull = (game.currentPlayers || 0) >= game.maxPlayers;
     const isOrganizer = game.organizerId === user?.id;
+    const isManager = game.managers?.some(m => m.id === user?.id) || false;
+    const canManage = isOrganizer || isManager;
     const isWaitlistOfferPending = game.viewerParticipationStatus === 'PENDING' && !!(game as any).waitlistOfferPending;
     const isPendingApproval = game.viewerParticipationStatus === 'PENDING' && !(game as any).waitlistOfferPending;
     const isRejected = game.viewerParticipationStatus === 'REJECTED';
@@ -341,8 +343,8 @@ export default function GameDetailsScreen() {
                     )}
                 </View>
 
-                {/* Pending Join Requests (organizer/manager only) */}
-                {isOrganizer && game.joinPolicy === 'REQUIRES_APPROVAL' && (
+                {/* Pending Join Requests & Waitlist (organizer/manager only) */}
+                {canManage && (
                     <PendingRequestsList
                         gameId={game.id}
                         onDecision={(updatedGame) => {

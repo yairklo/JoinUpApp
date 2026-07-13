@@ -105,7 +105,7 @@ export default function GameLiveSection({
         )}
       </GameHeaderCard>
 
-      {canManageSeries && game.joinPolicy === "REQUIRES_APPROVAL" && (
+      {canManageSeries && (
         <Box mt={2}>
           <PendingJoinRequests gameId={game.id} onDecision={mergeAndSet} />
         </Box>
