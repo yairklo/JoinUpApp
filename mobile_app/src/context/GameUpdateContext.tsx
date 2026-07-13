@@ -5,7 +5,7 @@ import { SocketManager } from "@/services/socketManager";
 import { useAuth } from "@clerk/clerk-expo";
 import { Game } from "@/types/game";
 
-type GameAction = "join" | "leave";
+type GameAction = "join" | "leave" | "waitlist";
 
 interface GameUpdateEvent {
     gameId: string;

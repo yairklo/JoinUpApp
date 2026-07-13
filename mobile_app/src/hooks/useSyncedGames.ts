@@ -60,17 +60,43 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
                         ...game,
                         currentPlayers: game.currentPlayers + 1,
                         participants: [...participants, { id: userId, name }],
-                    };
-                } else {
-                    // LEAVE
-                    if (!userExists) return game;
-
-                    return {
-                        ...game,
-                        currentPlayers: Math.max(0, game.currentPlayers - 1),
-                        participants: participants.filter((p) => p.id !== userId),
+                        viewerParticipationStatus:
+                            userId === myId ? "CONFIRMED" : game.viewerParticipationStatus,
+                        waitlistOfferPending: userId === myId ? false : game.waitlistOfferPending,
                     };
                 }
+
+                if (action === "waitlist") {
+                    // Standby queue join — never bump the confirmed roster counter.
+                    return {
+                        ...game,
+                        waitlistCount: (game.waitlistCount || 0) + 1,
+                        viewerParticipationStatus:
+                            userId === myId ? "WAITLISTED" : game.viewerParticipationStatus,
+                    };
+                }
+
+                // LEAVE
+                if (!userExists) {
+                    // Leaving waitlist / declining offer — still clear local viewer status
+                    if (userId === myId && (game.viewerParticipationStatus === "WAITLISTED" || game.waitlistOfferPending)) {
+                        return {
+                            ...game,
+                            waitlistCount: Math.max(0, (game.waitlistCount || 1) - 1),
+                            viewerParticipationStatus: null,
+                            waitlistOfferPending: false,
+                        };
+                    }
+                    return game;
+                }
+
+                return {
+                    ...game,
+                    currentPlayers: Math.max(0, game.currentPlayers - 1),
+                    participants: participants.filter((p) => p.id !== userId),
+                    viewerParticipationStatus:
+                        userId === myId ? null : game.viewerParticipationStatus,
+                };
             })
         );
     });

@@ -56,13 +56,15 @@ export default function HomeScreen() {
             {isJoined ? (
               <LeaveGameButton gameId={item.id} onLeft={() => { }} />
             ) : (
-              <JoinGameButton
-                gameId={item.id}
-                registrationOpensAt={item.registrationOpensAt}
-                joinPolicy={item.joinPolicy}
-                viewerParticipationStatus={item.viewerParticipationStatus}
-                onJoined={() => { }}
-              />
+                            <JoinGameButton
+                                gameId={item.id}
+                                registrationOpensAt={item.registrationOpensAt}
+                                joinPolicy={item.joinPolicy}
+                                viewerParticipationStatus={item.viewerParticipationStatus}
+                                waitlistOfferPending={item.waitlistOfferPending}
+                                isFull={item.currentPlayers >= item.maxPlayers}
+                                onJoined={() => { }}
+                            />
             )}
           </View>
         </GameCard>

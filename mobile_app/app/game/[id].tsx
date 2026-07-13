@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal, Share, Linking } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import React, { useEffect, useState, useCallback } from 'react';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { gamesApi } from '@/services/api';
 import { Game } from '@/types/game';
@@ -12,11 +12,16 @@ import { useTranslation } from 'react-i18next';
 import PendingRequestsList from '@/components/PendingRequestsList';
 import GameRatingsPanel from '@/components/GameRatingsPanel';
 import { useGameUpdatedListener } from '@/context/GameUpdateContext';
+import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
+
+/** Visible proof that this Metro bundle is loaded (remove after waitlist QA). */
+const MOBILE_GAME_UI_BUILD = 'wl-accept-v3';
 
 export default function GameDetailsScreen() {
     const { t } = useTranslation();
-    const { id } = useLocalSearchParams<{ id: string }>();
-    const { getToken } = useAuth();
+    const params = useLocalSearchParams<{ id: string | string[] }>();
+    const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    const { getToken, isLoaded: isAuthLoaded, isSignedIn } = useAuth();
     const { user } = useUser();
     const router = useRouter();
 
@@ -31,31 +36,49 @@ export default function GameDetailsScreen() {
         initialTime: game?.time || "20:00"
     });
 
-    useEffect(() => {
-        fetchGame();
-    }, [id]);
-
-    // Live roster sync: any join/leave/approve/reject anywhere pushes a fresh, personalized
-    // snapshot of this game to everyone with a stake in it (organizer, managers, participants).
-    useGameUpdatedListener(useCallback(({ game: updatedGame }) => {
-        if (updatedGame?.id === id) {
-            setGame(updatedGame);
-        }
-    }, [id]));
-
-    const fetchGame = async () => {
+    // Web SSR always sends a Clerk token before first paint. On mobile, getToken() can briefly
+    // return null even when signed in — a guest GET omits waitlistOfferPending and hides CTAs.
+    const fetchGame = useCallback(async () => {
+        if (!id || !isAuthLoaded) return;
         try {
-            const token = await getToken();
-            // Since getById is now added to gamesApi
+            let token: string | null | undefined = null;
+            if (isSignedIn) {
+                token = await getToken();
+                if (!token) {
+                    await new Promise((r) => setTimeout(r, 400));
+                    token = await getToken();
+                }
+                if (!token) {
+                    // Keep spinner — never paint a guest snapshot that hides the offer.
+                    return;
+                }
+            }
             const data = await gamesApi.getById(id, token || undefined);
             setGame(data);
+            setLoading(false);
         } catch (err) {
             console.error("Failed to load game", err);
             Alert.alert("Error", "Failed to load game details");
-        } finally {
             setLoading(false);
         }
-    };
+    }, [id, isAuthLoaded, isSignedIn, getToken]);
+
+    useEffect(() => {
+        fetchGame();
+    }, [fetchGame]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchGame();
+        }, [fetchGame])
+    );
+
+    // Live roster sync — merge like web GameLiveSection so we never drop offer flags.
+    useGameUpdatedListener(useCallback(({ game: updatedGame }) => {
+        if (updatedGame?.id === id) {
+            setGame((prev) => (prev ? { ...prev, ...updatedGame } : updatedGame));
+        }
+    }, [id]));
 
     const handleJoin = async () => {
         if (!game) return;
@@ -69,6 +92,8 @@ export default function GameDetailsScreen() {
             const result = await gamesApi.join(game.id, token);
             if (result.pending) {
                 Alert.alert(t('game.requestSent'), t('game.requestPending'));
+            } else if (result.viewerParticipationStatus === 'WAITLISTED') {
+                Alert.alert("Success", "נרשמת לרשימת ההמתנה");
             } else {
                 Alert.alert("Success", "הצטרפת למשחק!");
             }
@@ -116,7 +141,15 @@ export default function GameDetailsScreen() {
             Alert.alert("Success", accept ? "הצטרפת למשחק בהצלחה!" : "ויתרת על המקום בהצלחה");
             fetchGame();
         } catch (err: any) {
-            Alert.alert("Error", err.response?.data?.error || "Failed to process waitlist confirmation");
+            const msg = err?.message || err?.response?.data?.error || "";
+            if (String(msg).includes('No pending waitlist offer') || String(msg).includes('waitlist')) {
+                Alert.alert(
+                    "ממתין לאישור המארגן",
+                    "אין הצעת מקום פעילה מרשימת ההמתנה. אם שלחת בקשת הצטרפות, המארגן צריך לאשר אותה."
+                );
+            } else {
+                Alert.alert("Error", msg || "Failed to process waitlist confirmation");
+            }
         } finally {
             setActionLoading(false);
         }
@@ -138,15 +171,19 @@ export default function GameDetailsScreen() {
         );
     }
 
-    const isParticipant = game.participants?.some(p => p.id === user?.id);
+    const isParticipant = game.viewerParticipationStatus === 'CONFIRMED'
+        || game.participants?.some(p => p.id === user?.id);
     const isFull = (game.currentPlayers || 0) >= game.maxPlayers;
     const isOrganizer = game.organizerId === user?.id;
     const isManager = game.managers?.some(m => m.id === user?.id) || false;
     const canManage = isOrganizer || isManager;
-    const isWaitlistOfferPending = game.viewerParticipationStatus === 'PENDING' && !!game.waitlistOfferPending;
-    const isPendingApproval = game.viewerParticipationStatus === 'PENDING' && !game.waitlistOfferPending;
+    const isWaitlistOfferPending = hasWaitlistOffer(game);
+    // Never show a dead-end "ממתין לאישור" for PENDING — offer CTAs always win.
+    // Organizer-approval-only is handled inside offer error handling if confirm fails.
+    const isPendingApproval = false;
     const isRejected = game.viewerParticipationStatus === 'REJECTED';
-    const isWaitlisted = game.viewerParticipationStatus === 'WAITLISTED';
+    const isWaitlisted = game.viewerParticipationStatus === 'WAITLISTED' && !isWaitlistOfferPending;
+    const approvalOnlyHint = isOrganizerApprovalPending(game);
 
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
@@ -154,9 +191,53 @@ export default function GameDetailsScreen() {
                 <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
                     <FontAwesome name="arrow-left" size={20} color="#4b5563" />
                 </TouchableOpacity>
-                <Text className="text-xl font-bold text-gray-900">{t('game.details')}</Text>
+                <Text className="flex-1 text-xl font-bold text-gray-900">פרטי משחק · v3</Text>
+                <Text className="text-[10px] text-red-500 font-bold">{MOBILE_GAME_UI_BUILD}</Text>
             </View>
             <ScrollView className="flex-1 bg-gray-50">
+                {/* Waitlist offer — top of page (same placement idea as web GameLiveSection) */}
+                {isWaitlistOfferPending && (
+                    <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-amber-50 border border-amber-300">
+                        <Text className="text-amber-900 font-bold text-lg text-center mb-1">
+                            התפנה מקום במשחק!
+                        </Text>
+                        <Text className="text-amber-800 text-sm text-center mb-4">
+                            {approvalOnlyHint
+                                ? "אם קיבלת הצעה מרשימת המתנה — אשר או וותר כאן. אם רק ביקשת להצטרף, המארגן צריך לאשר."
+                                : "המקום שמור לך. עליך לאשר את ההצטרפות כדי לתפוס אותו."}
+                        </Text>
+                        <View className="flex-row gap-3">
+                            <TouchableOpacity
+                                onPress={() => handleWaitlistConfirm(true)}
+                                disabled={actionLoading}
+                                className={`flex-1 p-4 rounded-xl items-center ${actionLoading ? 'bg-green-400' : 'bg-green-600'}`}
+                            >
+                                {actionLoading ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text className="text-white font-bold text-base">אישור הצטרפות</Text>
+                                )}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => handleWaitlistConfirm(false)}
+                                disabled={actionLoading}
+                                className={`flex-1 p-4 rounded-xl items-center border border-red-300 bg-white`}
+                            >
+                                <Text className="text-red-600 font-bold text-base">ויתור</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
+                {isWaitlisted && !isWaitlistOfferPending && (
+                    <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-blue-50 border border-blue-200">
+                        <Text className="text-blue-900 font-bold text-base text-center mb-1">ברשימת המתנה</Text>
+                        <Text className="text-blue-800 text-sm text-center">
+                            הרשמת כמחליף. אם יתפנה מקום, תקבל הודעה ותוכל לאשר כאן.
+                        </Text>
+                    </View>
+                )}
+
                 {/* Header Section */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
                     <TouchableOpacity
@@ -356,7 +437,36 @@ export default function GameDetailsScreen() {
 
                 {/* Actions Section */}
                 <View className="p-6">
-                    {isParticipant ? (
+                    {/* Waitlist offer must win over every other CTA — user has a reserved spot. */}
+                    {isWaitlistOfferPending ? (
+                        <View>
+                            <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200 mb-3">
+                                <Text className="text-amber-800 font-bold text-base text-center">
+                                    התפנה מקום במשחק! המקום שמור לך.
+                                </Text>
+                            </View>
+                            <View className="flex-row gap-3">
+                                <TouchableOpacity
+                                    onPress={() => handleWaitlistConfirm(true)}
+                                    disabled={actionLoading}
+                                    className={`flex-1 p-4 rounded-xl items-center ${actionLoading ? 'bg-green-400' : 'bg-green-600'}`}
+                                >
+                                    {actionLoading ? (
+                                        <ActivityIndicator color="white" />
+                                    ) : (
+                                        <Text className="text-white font-bold text-lg">אישור הצטרפות</Text>
+                                    )}
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleWaitlistConfirm(false)}
+                                    disabled={actionLoading}
+                                    className={`flex-1 p-4 rounded-xl items-center ${actionLoading ? 'bg-red-400' : 'bg-red-600'}`}
+                                >
+                                    <Text className="text-white font-bold text-lg">ויתור</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ) : isParticipant ? (
                         <View>
                             <TouchableOpacity
                                 onPress={() => router.push(`/chat/${game.id}`)}
@@ -372,28 +482,6 @@ export default function GameDetailsScreen() {
                             >
                                 <Text className="text-red-600 font-bold text-lg">עזוב משחק</Text>
                             </TouchableOpacity>
-                        </View>
-                    ) : isWaitlistOfferPending ? (
-                        <View>
-                            <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200 mb-3">
-                                <Text className="text-amber-700 font-bold text-base text-center">התפנה מקום במשחק! המקום שמור לך. האם ברצונך להצטרף?</Text>
-                            </View>
-                            <View className="flex-row gap-3">
-                                <TouchableOpacity
-                                    onPress={() => handleWaitlistConfirm(true)}
-                                    disabled={actionLoading}
-                                    className="flex-1 bg-green-600 p-4 rounded-xl items-center"
-                                >
-                                    <Text className="text-white font-bold text-lg">אישור הצטרפות</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => handleWaitlistConfirm(false)}
-                                    disabled={actionLoading}
-                                    className="flex-1 bg-red-600 p-4 rounded-xl items-center"
-                                >
-                                    <Text className="text-white font-bold text-lg">ויתור</Text>
-                                </TouchableOpacity>
-                            </View>
                         </View>
                     ) : isWaitlisted ? (
                         <View>
@@ -420,11 +508,19 @@ export default function GameDetailsScreen() {
                         <TouchableOpacity
                             onPress={handleJoin}
                             disabled={actionLoading}
-                            className="p-4 rounded-xl items-center bg-blue-600"
+                            className={`p-4 rounded-xl items-center ${actionLoading ? 'bg-blue-400' : 'bg-blue-600'}`}
                         >
-                            <Text className="text-white font-bold text-lg">
-                                {isFull ? "להרשמה כמחליף (מזמין)" : game.joinPolicy === 'REQUIRES_APPROVAL' ? "בקש להצטרף" : "הצטרף למשחק"}
-                            </Text>
+                            {actionLoading ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <Text className="text-white font-bold text-lg">
+                                    {isFull
+                                        ? "הצטרף לרשימת המתנה"
+                                        : game.joinPolicy === 'REQUIRES_APPROVAL'
+                                            ? "בקש להצטרף"
+                                            : "הצטרף למשחק"}
+                                </Text>
+                            )}
                         </TouchableOpacity>
                     )}
 
@@ -479,6 +575,30 @@ export default function GameDetailsScreen() {
 
                 <View className="h-10" />
             </ScrollView>
+
+            {/* Sticky accept/decline so offer actions stay visible without scrolling */}
+            {isWaitlistOfferPending && (
+                <View className="px-4 py-3 bg-white border-t border-amber-200 flex-row gap-3">
+                    <TouchableOpacity
+                        onPress={() => handleWaitlistConfirm(true)}
+                        disabled={actionLoading}
+                        className={`flex-1 p-3.5 rounded-xl items-center ${actionLoading ? 'bg-green-400' : 'bg-green-600'}`}
+                    >
+                        {actionLoading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text className="text-white font-bold text-base">אישור הצטרפות</Text>
+                        )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => handleWaitlistConfirm(false)}
+                        disabled={actionLoading}
+                        className="flex-1 p-3.5 rounded-xl items-center bg-red-600"
+                    >
+                        <Text className="text-white font-bold text-base">ויתור</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Series Creation Modal */}
             <Modal
