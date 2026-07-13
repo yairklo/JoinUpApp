@@ -1546,21 +1546,24 @@ async function offerSpotToNextWaitlistUser(gameId, io) {
     where: { gameId, status: 'WAITLISTED' },
     orderBy: { createdAt: 'asc' }
   });
-
   if (firstWaitlist) {
     await prisma.participation.update({
       where: { id: firstWaitlist.id },
       data: { status: 'PENDING', isWaitlistOffer: true }
     });
 
-    notificationService.sendNotification(
-      firstWaitlist.userId,
-      'GAME_WAITLIST_OFFER',
-      'התפנה מקום במשחק!',
-      'התפנה מקום במשחק! לחץ כאן כדי לאשר את הצטרפותך',
-      { gameId, userId: firstWaitlist.userId, link: `/game/${gameId}` },
-      io
-    ).catch(err => console.error('[NOTIFICATIONS] Failed to send waitlist offer notification', gameId, err));
+    try {
+      notificationService.sendNotification(
+        firstWaitlist.userId,
+        'GAME_WAITLIST_OFFER',
+        'התפנה מקום במשחק!',
+        'התפנה מקום במשחק! לחץ כאן כדי לאשר את הצטרפותך',
+        { gameId, userId: firstWaitlist.userId, link: `/game/${gameId}` },
+        io
+      ).catch(err => console.error('[NOTIFICATIONS] Failed to send waitlist offer notification', gameId, err));
+    } catch (err) {
+      console.error('[NOTIFICATIONS] Fatal validation exception in sendNotification call', gameId, err);
+    }
 
     const updated = await prisma.game.findUnique({
       where: { id: gameId },
@@ -1830,7 +1833,7 @@ router.get('/:id/join-requests', authenticateToken, async (req, res) => {
     }
     const [requests, rejected] = await Promise.all([
       prisma.participation.findMany({
-        where: { gameId, status: 'PENDING' },
+        where: { gameId, status: { in: ['PENDING', 'WAITLISTED'] } },
         include: { user: true },
         orderBy: { createdAt: 'asc' }
       }),
@@ -1844,7 +1847,8 @@ router.get('/:id/join-requests', authenticateToken, async (req, res) => {
       userId: p.userId,
       name: p.user?.name || null,
       avatar: p.user?.imageUrl || null,
-      requestedAt: p.createdAt.toISOString()
+      requestedAt: p.createdAt.toISOString(),
+      status: p.status
     });
     return res.json({
       requests: requests.map(toDTO),
@@ -2256,17 +2260,18 @@ router.post('/:id/participants', authenticateToken, async (req, res) => {
       include: { field: true, participants: { include: { user: true } } }
     });
     broadcastGameUpdate(req.io, gameId, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', gameId, err));
-
-    // Send a notification to the added user
-    notificationService.sendNotification(
-      userId,
-      'GAME_INVITATION',
-      'צורפת למשחק!',
-      `מנהל המשחק הוסיף אותך למשחק: ${game.title || 'משחק כדורגל'}`,
-      { gameId, link: `/game/${gameId}` },
-      req.io
-    ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of addition', gameId, err));
-
+    try {
+      notificationService.sendNotification(
+        userId,
+        'GAME_INVITATION',
+        'צורפת למשחק!',
+        `מנהל המשחק הוסיף אותך למשחק: ${game.title || 'משחק כדורגל'}`,
+        { gameId, link: `/game/${gameId}` },
+        req.io
+      ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of addition', gameId, err));
+    } catch (err) {
+      console.error('[NOTIFICATIONS] Fatal validation exception in sendNotification call', gameId, err);
+    }
     return res.json(mapGameForClient(updated, req.user.id));
   } catch (error) {
     console.error('Add participant error:', error);
@@ -2331,14 +2336,18 @@ router.delete('/:id/participants/:userId', authenticateToken, async (req, res) =
     }
 
     // Send a notification to the removed user
-    notificationService.sendNotification(
-      targetUserId,
-      'GAME_REMOVED_PEER',
-      'הוסרת מהמשחק',
-      `מנהל המשחק הסיר אותך מהמשחק: ${game.title || 'משחק כדורגל'}`,
-      { gameId },
-      req.io
-    ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of removal', gameId, err));
+    try {
+      notificationService.sendNotification(
+        targetUserId,
+        'GAME_REMOVED_PEER',
+        'הוסרת מהמשחק',
+        `מנהל המשחק הסיר אותך מהמשחק: ${game.title || 'משחק כדורגל'}`,
+        { gameId },
+        req.io
+      ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of removal', gameId, err));
+    } catch (err) {
+      console.error('[NOTIFICATIONS] Fatal validation exception in sendNotification call', gameId, err);
+    }
 
     // Offer spot to next waitlisted user if a confirmed player was removed
     if (wasConfirmed) {
@@ -2420,14 +2429,18 @@ router.post('/:id/participants/:userId/toggle-role', authenticateToken, async (r
       ? `מנהל המשחק העלה אותך לדרגת מנהל במשחק: ${game.title || 'משחק כדורגל'}`
       : `הוסרו הרשאות הניהול שלך במשחק: ${game.title || 'משחק כדורגל'}`;
 
-    notificationService.sendNotification(
-      targetUserId,
-      'GAME_ROLE_UPDATE',
-      title,
-      body,
-      { gameId, newRole },
-      req.io
-    ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of role update', gameId, err));
+    try {
+      notificationService.sendNotification(
+        targetUserId,
+        'GAME_ROLE_UPDATE',
+        title,
+        body,
+        { gameId, newRole },
+        req.io
+      ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of role update', gameId, err));
+    } catch (err) {
+      console.error('[NOTIFICATIONS] Fatal validation exception in sendNotification call', gameId, err);
+    }
 
     const updated = await prisma.game.findUnique({
       where: { id: gameId },
