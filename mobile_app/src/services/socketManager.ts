@@ -4,7 +4,10 @@ import { API_BASE } from './api/client';
 let socket: Socket | null = null;
 let isConnecting = false;
 let lastErrorLogAt = 0;
+let authRefresher: (() => Promise<string | null>) | null = null;
 const listeners: Map<string, Set<(...args: any[]) => void>> = new Map();
+
+const TRANSIENT_ERRORS = new Set(['timeout', 'xhr poll error', 'websocket error', 'transport error']);
 
 /**
  * Normalize API base for Socket.IO:
@@ -43,9 +46,42 @@ function handshakeLogLabel(url: string): string {
   return `${url}/api/socket/?EIO=4&transport=polling`;
 }
 
+async function refreshAuthToken(): Promise<void> {
+  if (!authRefresher || !socket) return;
+  try {
+    const token = await authRefresher();
+    const authToken = token ? normalizeAuthToken(token) : null;
+    if (authToken) {
+      socket.auth = { token: authToken };
+    }
+  } catch {
+    // Reconnect will retry with the last known auth token
+  }
+}
+
+function logConnectError(err: Error & { description?: string; type?: string }) {
+  const now = Date.now();
+  if (now - lastErrorLogAt < 8000) return;
+  lastErrorLogAt = now;
+
+  const msg = err.message || '';
+  const isTransient = TRANSIENT_ERRORS.has(msg) || msg.includes('timeout');
+  const detail = [err.description, err.type].filter(Boolean).join(' ');
+
+  if (isTransient) {
+    console.warn('[SocketManager] Transient disconnect, auto-reconnecting:', msg, detail);
+  } else {
+    console.error('[SocketManager] Connection Error:', msg, detail);
+  }
+}
+
 function attachCoreHandlers(active: Socket) {
   active.onAny((event, ...args) => {
     listeners.get(event)?.forEach((cb) => cb(...args));
+  });
+
+  active.io.on('reconnect_attempt', () => {
+    void refreshAuthToken();
   });
 
   active.on('connect', () => {
@@ -56,33 +92,36 @@ function attachCoreHandlers(active: Socket) {
 
   active.on('connect_error', (err: Error & { description?: string; type?: string }) => {
     isConnecting = false;
-    const now = Date.now();
-    if (now - lastErrorLogAt > 8000) {
-      lastErrorLogAt = now;
-      console.error(
-        '[SocketManager] Connection Error:',
-        err.message,
-        err.description || '',
-        err.type || ''
-      );
-    }
+    logConnectError(err);
+    void refreshAuthToken();
     listeners.get('connect_error')?.forEach((cb) => cb(err));
   });
 
   active.on('disconnect', (reason) => {
     isConnecting = false;
+    if (reason === 'ping timeout' || reason === 'transport close' || reason === 'transport error') {
+      console.warn('[SocketManager] Disconnected:', reason, '— will reconnect');
+    }
     listeners.get('disconnect')?.forEach((cb) => cb(reason));
     if (reason === 'io server disconnect') {
-      active.connect();
+      void refreshAuthToken().then(() => active.connect());
     }
   });
 }
 
+function isRenderHost(): boolean {
+  return socketServerUrl().includes('onrender.com');
+}
+
 export const SocketManager = {
+  /** Called once from AuthGuard so reconnect attempts always use a fresh Clerk JWT. */
+  setAuthRefresher(refresher: () => Promise<string | null>) {
+    authRefresher = refresher;
+  },
+
   /**
    * Idempotent singleton connect — never destroy/recreate on AppState or token refresh.
-   * Polling-first is required for Render sticky sessions on React Native; server must
-   * also allow polling transport (server/index.js).
+   * Polling-first is required for Render sticky sessions on React Native.
    */
   connect(token: string) {
     const authToken = normalizeAuthToken(token);
@@ -116,21 +155,23 @@ export const SocketManager = {
     isConnecting = true;
     console.log('[SocketManager] Creating socket →', handshakeLogLabel(url));
 
+    // Render free tier can take 30–50s to wake — use a longer handshake timeout in prod
+    const handshakeTimeout = isRenderHost() ? 45000 : 20000;
+
     socket = io(url, {
       path: '/api/socket',
-      // Polling handshake first (Render sticky session), then upgrade to websocket
       transports: ['polling', 'websocket'],
       upgrade: true,
       rememberUpgrade: true,
       forceNew: false,
       reconnection: true,
-      reconnectionAttempts: 8,
-      reconnectionDelay: 3000,
-      reconnectionDelayMax: 15000,
-      timeout: 20000,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 30000,
+      randomizationFactor: 0.5,
+      timeout: handshakeTimeout,
       autoConnect: false,
       auth: { token: authToken },
-      // Send Render session cookie on poll + upgrade (mirrors working web client)
       withCredentials: true,
     });
 
@@ -141,14 +182,16 @@ export const SocketManager = {
   ensureConnected() {
     if (!socket || socket.connected || isConnecting) return;
     isConnecting = true;
-    socket.connect();
+    void refreshAuthToken().then(() => socket?.connect());
   },
 
   disconnect() {
     isConnecting = false;
     lastErrorLogAt = 0;
+    authRefresher = null;
     if (socket) {
       socket.removeAllListeners();
+      socket.io.removeAllListeners();
       socket.disconnect();
       socket = null;
       listeners.clear();

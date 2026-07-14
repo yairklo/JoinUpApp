@@ -264,10 +264,6 @@ io.on('connection', async (socket) => {
   // 1. Auto-join User & City User Rooms & Presence
   if (socket.userId) {
     try {
-      connectedUsers.add(socket.userId);
-      // Notify anyone listening to this user's presence
-      io.to(`presence_listener_${socket.userId}`).emit('presence:update', { userId: socket.userId, isOnline: true });
-
       const user = await prisma.user.findUnique({ where: { id: socket.userId } });
       if (user) {
         // Join personal room for private notifications
@@ -280,6 +276,9 @@ io.on('connection', async (socket) => {
           socket.join(cityRoom);
           console.log(`User ${user.id} joined room: ${cityRoom}`);
         }
+
+        // Presence: online once the socket is in user_${id}
+        io.to(`presence_listener_${user.id}`).emit('presence:update', { userId: user.id, isOnline: true });
       }
     } catch (e) {
       console.error("Socket auto-join error:", e);
@@ -297,7 +296,6 @@ io.on('connection', async (socket) => {
       // For now, immediate.
       const room = io.sockets.adapter.rooms.get(`user_${socket.userId}`);
       if (!room || room.size === 0) {
-        connectedUsers.delete(socket.userId);
         io.to(`presence_listener_${socket.userId}`).emit('presence:update', { userId: socket.userId, isOnline: false });
       }
     }
