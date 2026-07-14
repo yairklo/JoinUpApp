@@ -2,74 +2,160 @@ import { io, Socket } from 'socket.io-client';
 import { API_BASE } from './api/client';
 
 let socket: Socket | null = null;
+let isConnecting = false;
+let lastErrorLogAt = 0;
 const listeners: Map<string, Set<(...args: any[]) => void>> = new Map();
 
+/**
+ * Normalize API base for Socket.IO:
+ * - strip trailing slash
+ * - strip trailing /api (would produce /api/api/socket with path option)
+ * - force https:// against Render in production (wss:// handshake)
+ */
+function socketServerUrl(): string {
+  let url = String(API_BASE || '').trim().replace(/\/+$/, '');
+  if (!url) return url;
+
+  if (url.endsWith('/api')) {
+    url = url.slice(0, -4);
+  }
+
+  if (url.includes('onrender.com') && url.startsWith('http://')) {
+    url = url.replace(/^http:\/\//i, 'https://');
+  }
+  if (__DEV__ && url.startsWith('http://')) {
+    return url;
+  }
+  if (!__DEV__ && url.startsWith('http://')) {
+    url = url.replace(/^http:\/\//i, 'https://');
+  }
+  return url;
+}
+
+/** Clerk JWT only — server calls verifyToken() on auth.token directly (no Bearer prefix). */
+function normalizeAuthToken(token: string): string | null {
+  const trimmed = String(token || '').trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+  return trimmed.startsWith('Bearer ') ? trimmed.slice(7).trim() : trimmed;
+}
+
+function handshakeLogLabel(url: string): string {
+  return `${url}/api/socket/?EIO=4&transport=polling`;
+}
+
+function attachCoreHandlers(active: Socket) {
+  active.onAny((event, ...args) => {
+    listeners.get(event)?.forEach((cb) => cb(...args));
+  });
+
+  active.on('connect', () => {
+    isConnecting = false;
+    console.log('[SocketManager] Connected:', active.id, 'transport:', active.io.engine?.transport?.name);
+    listeners.get('connect')?.forEach((cb) => cb());
+  });
+
+  active.on('connect_error', (err: Error & { description?: string; type?: string }) => {
+    isConnecting = false;
+    const now = Date.now();
+    if (now - lastErrorLogAt > 8000) {
+      lastErrorLogAt = now;
+      console.error(
+        '[SocketManager] Connection Error:',
+        err.message,
+        err.description || '',
+        err.type || ''
+      );
+    }
+    listeners.get('connect_error')?.forEach((cb) => cb(err));
+  });
+
+  active.on('disconnect', (reason) => {
+    isConnecting = false;
+    listeners.get('disconnect')?.forEach((cb) => cb(reason));
+    if (reason === 'io server disconnect') {
+      active.connect();
+    }
+  });
+}
+
 export const SocketManager = {
+  /**
+   * Idempotent singleton connect — never destroy/recreate on AppState or token refresh.
+   * Polling-first is required for Render sticky sessions on React Native; server must
+   * also allow polling transport (server/index.js).
+   */
   connect(token: string) {
+    const authToken = normalizeAuthToken(token);
+    if (!authToken) {
+      console.warn('[SocketManager] connect() skipped — missing or invalid token');
+      return;
+    }
+
+    const url = socketServerUrl();
+    if (!url) {
+      console.error('[SocketManager] Missing EXPO_PUBLIC_API_URL / API_BASE');
+      return;
+    }
+
+    if (socket?.connected) {
+      socket.auth = { token: authToken };
+      return;
+    }
+
     if (socket) {
-      // Keep a single instance: refresh auth for future reconnects and wake a dead socket.
-      socket.auth = { token };
-      if (!socket.connected) {
+      socket.auth = { token: authToken };
+      if (!socket.connected && !isConnecting) {
+        isConnecting = true;
         socket.connect();
       }
       return;
     }
 
-    socket = io(API_BASE, {
+    if (isConnecting) return;
+
+    isConnecting = true;
+    console.log('[SocketManager] Creating socket →', handshakeLogLabel(url));
+
+    socket = io(url, {
       path: '/api/socket',
-      transports: ['websocket'],
-      auth: { token },
-      autoConnect: true,
+      // Polling handshake first (Render sticky session), then upgrade to websocket
+      transports: ['polling', 'websocket'],
+      upgrade: true,
+      rememberUpgrade: true,
+      forceNew: false,
       reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 10000,
+      reconnectionAttempts: 8,
+      reconnectionDelay: 3000,
+      reconnectionDelayMax: 15000,
+      timeout: 20000,
+      autoConnect: false,
+      auth: { token: authToken },
+      // Send Render session cookie on poll + upgrade (mirrors working web client)
+      withCredentials: true,
     });
 
-    // Pub/Sub Engine: Route all incoming events to registered listeners
-    socket.onAny((event, ...args) => {
-      listeners.get(event)?.forEach((cb) => cb(...args));
-    });
-
-    // Explicitly route reserved socket.io events (onAny doesn't catch these)
-    socket.on('connect', () => {
-      console.log("[SocketManager] Connected:", socket?.id);
-      listeners.get('connect')?.forEach((cb) => cb());
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error("[SocketManager] Connection Error:", err.message);
-      listeners.get('connect_error')?.forEach((cb) => cb(err));
-    });
-
-    socket.on('disconnect', (reason) => {
-      listeners.get('disconnect')?.forEach((cb) => cb(reason));
-      if (reason === 'io server disconnect') {
-        socket?.connect();
-      }
-    });
+    attachCoreHandlers(socket);
+    socket.connect();
   },
 
-  /**
-   * Wake the existing socket after background / network drops.
-   * Server-side rooms are lost on disconnect — callers must rejoin after reconnect.
-   */
   ensureConnected() {
-    if (socket && !socket.connected) {
-      socket.connect();
-    }
+    if (!socket || socket.connected || isConnecting) return;
+    isConnecting = true;
+    socket.connect();
   },
 
   disconnect() {
+    isConnecting = false;
+    lastErrorLogAt = 0;
     if (socket) {
+      socket.removeAllListeners();
       socket.disconnect();
       socket = null;
-      listeners.clear(); // CRITICAL: Clear all dynamic listeners to prevent memory leaks on logout
+      listeners.clear();
     }
   },
 
   emit(event: string, ...args: any[]) {
-    // Rely on socket.io's internal offline queue rather than blocking emits
     if (socket) {
       socket.emit(event, ...args);
     } else {
@@ -83,7 +169,6 @@ export const SocketManager = {
     }
     listeners.get(event)!.add(cb);
 
-    // Return an explicit unsubscribe cleanup function
     return () => {
       const eventListeners = listeners.get(event);
       if (eventListeners) {
@@ -92,6 +177,8 @@ export const SocketManager = {
       }
     };
   },
-  
-  get connected() { return socket?.connected ?? false; }
+
+  get connected() {
+    return socket?.connected ?? false;
+  },
 };

@@ -111,31 +111,37 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoaded) return;
 
-    if (isSignedIn) {
-      // Connect socket once. ChatContext will send 'setup' with the actual userId.
-      // No cleanup return here — socket must stay alive across re-renders.
-      const connectWithToken = () => {
-        getToken().then((token) => {
-          if (token) SocketManager.connect(token);
-        });
-      };
-      connectWithToken();
-
-      // After background, OS may drop the TCP connection — refresh token + wake socket.
-      // ChatContext / useChatLogic rejoin rooms on 'connect' and AppState themselves.
-      const onAppStateChange = (next: AppStateStatus) => {
-        if (next === 'active') {
-          connectWithToken();
-          SocketManager.ensureConnected();
-        }
-      };
-      const appSub = AppState.addEventListener('change', onAppStateChange);
-      return () => appSub.remove();
-    } else {
-      // Only disconnect on actual sign-out
+    if (!isSignedIn) {
       SocketManager.disconnect();
+      return;
     }
-  }, [isLoaded, isSignedIn, getToken]);
+
+    // Wait until Clerk is fully loaded AND user is signed in before opening the socket.
+    let cancelled = false;
+    const connectWhenReady = async () => {
+      try {
+        const token = await getToken();
+        if (cancelled || !token) return;
+        SocketManager.connect(token);
+      } catch (e) {
+        console.error('[AuthGuard] Socket connect failed — token not ready', e);
+      }
+    };
+
+    connectWhenReady();
+
+    const onAppStateChange = (next: AppStateStatus) => {
+      if (next !== 'active' || cancelled) return;
+      connectWhenReady();
+    };
+    const appSub = AppState.addEventListener('change', onAppStateChange);
+
+    return () => {
+      cancelled = true;
+      appSub.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- getToken identity churn must not remount mid-handshake
+  }, [isLoaded, isSignedIn]);
 
   if (!isLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Loading Clerk...</Text></View>;
 

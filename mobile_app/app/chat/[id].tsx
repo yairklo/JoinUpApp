@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MessageBubble from '@/components/chat/MessageBubble';
 import ReplyPreview from '@/components/chat/ReplyPreview';
+import { ChatMessage } from '@/types/chat';
 
 export default function ChatScreen() {
     const { t } = useTranslation();
@@ -31,45 +32,10 @@ export default function ChatScreen() {
     const flatListRef = useRef<FlatList>(null);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const isNearBottomRef = useRef(true);
-    const prevMessagesLengthRef = useRef(0);
-    const didInitialScrollRef = useRef(false);
 
-    // Reset sticky-scroll state when switching chats
     useEffect(() => {
         isNearBottomRef.current = true;
-        prevMessagesLengthRef.current = 0;
-        didInitialScrollRef.current = false;
     }, [id]);
-
-    const scrollToBottom = useCallback((animated = true) => {
-        requestAnimationFrame(() => {
-            flatListRef.current?.scrollToEnd({ animated });
-        });
-    }, []);
-
-    const handleScroll = useCallback((event: any) => {
-        const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-        const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
-        isNearBottomRef.current = distanceFromBottom < 120;
-    }, []);
-
-    // Initial jump to bottom once messages first arrive; only follow new messages if already near bottom
-    useEffect(() => {
-        if (messages.length === 0) return;
-
-        const grew = messages.length > prevMessagesLengthRef.current;
-        prevMessagesLengthRef.current = messages.length;
-
-        if (!didInitialScrollRef.current) {
-            didInitialScrollRef.current = true;
-            scrollToBottom(false);
-            return;
-        }
-
-        if (grew && isNearBottomRef.current) {
-            scrollToBottom(true);
-        }
-    }, [messages.length, scrollToBottom]);
 
     useEffect(() => {
         const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -87,19 +53,13 @@ export default function ChatScreen() {
         };
     }, []);
 
-    useEffect(() => {
-        if (keyboardHeight > 0 && isNearBottomRef.current) {
-            scrollToBottom(true);
-        }
-    }, [keyboardHeight, scrollToBottom]);
-
     const handlePressUser = useCallback((userId: string) => {
         if (!userId) return;
         router.push(`/user/${userId}`);
     }, [router]);
 
-    const handleLongPress = useCallback((message: any) => {
-        const isMe = message.userId === user?.id;
+    const handleLongPress = useCallback((message: ChatMessage) => {
+        const isMe = message.userId === user?.id || message.senderId === user?.id;
 
         Alert.alert(
             "אפשרויות הודעה",
@@ -110,7 +70,7 @@ export default function ChatScreen() {
                     {
                         text: "ערוך", onPress: () => {
                             setEditingMessage(message);
-                            setInputValue(message.text || message.content);
+                            setInputValue(message.text || message.content || '');
                         }
                     },
                     {
@@ -127,39 +87,39 @@ export default function ChatScreen() {
         );
     }, [user?.id, setReplyToMessage, setEditingMessage, setInputValue, handleDelete]);
 
-    const enrichedMessages = useMemo(() => (
-        messages.map((item) => {
-            const uid = item.userId || item.senderId;
-            return {
-                ...item,
-                senderName: item.senderName || item.sender?.name || (uid ? nameByUserId[uid] : undefined) || "User",
-                sender: {
-                    ...item.sender,
-                    id: item.sender?.id || uid,
-                    image: item.sender?.image || (uid ? avatarByUserId[uid] : undefined) || undefined,
-                    name: item.sender?.name || (uid ? nameByUserId[uid] : undefined),
-                }
-            };
-        })
-    ), [messages, avatarByUserId, nameByUserId]);
+    // Newest-first for inverted FlatList — copy+reverse once, never mutate `messages`
+    const listData = useMemo(() => {
+        if (messages.length <= 1) return messages;
+        return messages.slice().reverse();
+    }, [messages]);
 
-    const renderMessage = useCallback(({ item, index }: { item: any, index: number }) => {
-        const isMe = item.userId === user?.id || item.senderId === user?.id;
-        const prev = enrichedMessages[index - 1];
-        const showAvatar = !isMe && (index === 0 || prev?.userId !== item.userId);
+    const handleScroll = useCallback((event: any) => {
+        // Inverted list: offset near 0 means visually at the bottom (latest messages)
+        const { contentOffset } = event.nativeEvent;
+        isNearBottomRef.current = contentOffset.y < 80;
+    }, []);
+
+    const renderMessage = useCallback(({ item, index }: { item: ChatMessage; index: number }) => {
+        const uid = item.userId || item.senderId;
+        const isMe = uid === user?.id;
+        // Newest-first: previous index is a newer message — avatar on start of each sender streak
+        const newer = listData[index - 1];
+        const showAvatar = !isMe && (index === 0 || (newer?.userId || newer?.senderId) !== uid);
 
         return (
             <MessageBubble
                 message={item}
                 isMe={!!isMe}
                 showAvatar={showAvatar}
-                onLongPress={() => handleLongPress(item)}
+                displayName={item.senderName || item.sender?.name || (uid ? nameByUserId[uid] : undefined) || 'User'}
+                displayAvatar={item.sender?.image || (uid ? avatarByUserId[uid] : null) || null}
+                onLongPress={handleLongPress}
                 onPressUser={handlePressUser}
             />
         );
-    }, [enrichedMessages, user?.id, handleLongPress, handlePressUser]);
+    }, [listData, user?.id, nameByUserId, avatarByUserId, handleLongPress, handlePressUser]);
 
-    const keyExtractor = useCallback((item: any) => String(item.id), []);
+    const keyExtractor = useCallback((item: ChatMessage) => String(item.id), []);
 
     if (isLoading && messages.length === 0) {
         return (
@@ -211,26 +171,25 @@ export default function ChatScreen() {
             >
                 <FlatList
                     ref={flatListRef}
-                    data={enrichedMessages}
+                    data={listData}
+                    inverted
                     keyExtractor={keyExtractor}
                     renderItem={renderMessage}
                     contentContainerStyle={{ paddingVertical: 20 }}
                     initialNumToRender={20}
-                    maxToRenderPerBatch={15}
-                    windowSize={10}
-                    removeClippedSubviews={Platform.OS === 'android'}
+                    maxToRenderPerBatch={20}
+                    windowSize={11}
+                    removeClippedSubviews={true}
                     onScroll={handleScroll}
                     scrollEventThrottle={16}
-                    maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-                    onContentSizeChange={() => {
-                        // Only stick to bottom when the user is already there — don't yank while reading history
-                        if (isNearBottomRef.current) {
-                            scrollToBottom(false);
-                        }
+                    maintainVisibleContentPosition={{
+                        minIndexForVisible: 0,
+                        autoscrollToTopThreshold: 80,
                     }}
+                    keyboardShouldPersistTaps="handled"
+                    // No scrollToEnd on content size — inverted list already anchors at latest messages
                 />
 
-                {/* Typing Indicator */}
                 {typingUsers.size > 0 && (
                     <View className="px-5 py-1">
                         <Text className="text-[10px] italic text-gray-400 font-medium">
@@ -278,7 +237,10 @@ export default function ChatScreen() {
                         onPress={() => {
                             isNearBottomRef.current = true;
                             handleSendMessage();
-                            scrollToBottom(true);
+                            // Inverted: offset 0 is the latest messages
+                            requestAnimationFrame(() => {
+                                flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                            });
                         }}
                         disabled={!inputValue.trim()}
                         style={{ width: 48, height: 48 }}

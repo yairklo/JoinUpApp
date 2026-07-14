@@ -95,10 +95,12 @@ async function initializeDataFiles() {
   }
 }
 
-// --- Socket.IO on backend (for production) — same origin allowlist as Express ---
+// Render's load balancer needs an HTTP polling handshake (sticky session cookie) before
+// WebSocket upgrade works for React Native clients. Web-only clients can connect via WS
+// directly, but mobile RN WebSocket fails without the polling step ("websocket error").
 const io = new Server(server, {
   path: '/api/socket',
-  transports: ['websocket'],
+  transports: ['polling', 'websocket'],
   cors: {
     // Mirror Express: allow listed web origins; allow missing Origin (mobile / native)
     origin: (origin, callback) => {

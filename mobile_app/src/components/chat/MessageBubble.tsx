@@ -7,16 +7,27 @@ interface MessageBubbleProps {
     message: ChatMessage;
     isMe: boolean;
     showAvatar: boolean;
-    onLongPress?: () => void;
+    displayName?: string;
+    displayAvatar?: string | null;
+    onLongPress?: (message: ChatMessage) => void;
     onPressUser?: (userId: string) => void;
 }
 
-function MessageBubble({ message, isMe, showAvatar, onLongPress, onPressUser }: MessageBubbleProps) {
+function MessageBubble({
+    message,
+    isMe,
+    showAvatar,
+    displayName,
+    displayAvatar,
+    onLongPress,
+    onPressUser,
+}: MessageBubbleProps) {
     const reactionsList = Object.entries(message.reactions || {});
     const hasReactions = reactionsList.length > 0;
     const senderId = message.userId || message.senderId || message.sender?.id;
-    const senderName = message.senderName || message.sender?.name || "User";
+    const senderName = displayName || message.senderName || message.sender?.name || "User";
     const avatarUri =
+        displayAvatar ||
         message.sender?.image ||
         "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
 
@@ -40,14 +51,13 @@ function MessageBubble({ message, isMe, showAvatar, onLongPress, onPressUser }: 
             )}
 
             <TouchableOpacity
-                onLongPress={onLongPress}
+                onLongPress={() => onLongPress?.(message)}
                 activeOpacity={0.9}
                 className={`max-w-[75%] px-4 py-3 rounded-3xl ${isMe
                         ? 'bg-blue-600 rounded-tr-none shadow-sm shadow-blue-200'
                         : 'bg-gray-100 rounded-tl-none border border-gray-50'
                     }`}
             >
-                {/* Reply Section */}
                 {message.replyTo && (
                     <View className={`mb-2 p-2 rounded-xl border-l-4 ${isMe ? 'bg-blue-700/50 border-blue-300' : 'bg-gray-200 border-gray-400'}`}>
                         <Text className={`text-[10px] font-bold ${isMe ? 'text-blue-100' : 'text-gray-500'}`}>
@@ -89,13 +99,12 @@ function MessageBubble({ message, isMe, showAvatar, onLongPress, onPressUser }: 
                     )}
                 </View>
 
-                {/* Reactions */}
                 {hasReactions && (
                     <View className="flex-row flex-wrap mt-2 -mb-1">
                         {reactionsList.map(([emoji, users]) => (
                             <View
                                 key={emoji}
-                                className={`flex-row items-center bg-white/90 px-2 py-0.5 rounded-full mr-1 mb-1 border border-gray-200 shadow-sm`}
+                                className="flex-row items-center bg-white/90 px-2 py-0.5 rounded-full mr-1 mb-1 border border-gray-200 shadow-sm"
                             >
                                 <Text className="text-xs">{emoji}</Text>
                                 <Text className="text-[10px] ml-1 font-bold text-gray-500">{(users as any[]).length}</Text>
@@ -111,15 +120,14 @@ function MessageBubble({ message, isMe, showAvatar, onLongPress, onPressUser }: 
 export default memo(MessageBubble, (prev, next) => (
     prev.isMe === next.isMe &&
     prev.showAvatar === next.showAvatar &&
+    prev.displayName === next.displayName &&
+    prev.displayAvatar === next.displayAvatar &&
     prev.message.id === next.message.id &&
     prev.message.text === next.message.text &&
     prev.message.content === next.message.content &&
     prev.message.status === next.message.status &&
     prev.message.isEdited === next.message.isEdited &&
     prev.message.isDeleted === next.message.isDeleted &&
-    prev.message.senderName === next.message.senderName &&
-    prev.message.sender?.name === next.message.sender?.name &&
-    prev.message.sender?.image === next.message.sender?.image &&
     prev.message.reactions === next.message.reactions &&
     prev.onPressUser === next.onPressUser &&
     prev.onLongPress === next.onLongPress
