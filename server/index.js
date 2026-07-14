@@ -202,13 +202,6 @@ io.use(async (socket, next) => {
   }
 });
 
-// Basic in-memory presence tracking
-const connectedUsers = new Set();
-function isUserOnline(userId) {
-  const room = io.sockets.adapter.rooms.get(`user_${userId}`);
-  return !!(room && room.size > 0);
-}
-
 // A user is "online" if they have at least one active socket in their personal room
 function isUserOnline(userId) {
   const room = io.sockets.adapter.rooms.get(`user_${userId}`);
