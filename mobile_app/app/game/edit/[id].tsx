@@ -9,7 +9,7 @@ import { Game } from '@/types/game';
 import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ScrollSelectionModalProps<T> {
     visible: boolean;
@@ -97,6 +97,7 @@ export default function EditGameScreen() {
     const router = useRouter();
     const { t, i18n } = useTranslation();
     const isRtl = i18n.language === 'he';
+    const insets = useSafeAreaInsets();
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -427,7 +428,10 @@ export default function EditGameScreen() {
                 <Text className={`text-xl font-bold text-gray-900 flex-1 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.title', 'Edit Game')}</Text>
             </View>
 
-            <ScrollView className="flex-1 p-4">
+            <ScrollView
+                className="flex-1 p-4"
+                contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 48 }}
+            >
 
                 {/* Sport Selection */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
@@ -758,15 +762,17 @@ export default function EditGameScreen() {
                     </View>
                 )}
 
-                <TouchableOpacity
-                    onPress={handleSubmit}
-                    disabled={submitting}
-                    className={`p-4 rounded-xl items-center mb-10 ${submitting ? 'bg-blue-400' : 'bg-blue-600'}`}
-                >
-                    <Text className="text-white font-bold text-lg">
-                        {submitting ? t('editGame.updating', 'Updating...') : t('editGame.saveChanges', 'Save Changes')}
-                    </Text>
-                </TouchableOpacity>
+                <View style={{ marginBottom: 24 }}>
+                    <TouchableOpacity
+                        onPress={handleSubmit}
+                        disabled={submitting}
+                        className={`p-4 rounded-xl items-center ${submitting ? 'bg-blue-400' : 'bg-blue-600'}`}
+                    >
+                        <Text className="text-white font-bold text-lg">
+                            {submitting ? t('editGame.updating', 'Updating...') : t('editGame.saveChanges', 'Save Changes')}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
 
             </ScrollView>
 
