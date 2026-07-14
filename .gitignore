@@ -26,3 +26,5 @@ dist-ssr
 server/*env
 server/firebase-service-account.json
 .env
+server/.env.production
+server/.env.development
