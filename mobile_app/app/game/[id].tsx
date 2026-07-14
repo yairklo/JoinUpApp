@@ -11,11 +11,8 @@ import { useSeriesLogic } from '@/hooks/useSeriesLogic';
 import { useTranslation } from 'react-i18next';
 import PendingRequestsList from '@/components/PendingRequestsList';
 import GameRatingsPanel from '@/components/GameRatingsPanel';
-import { useGameUpdatedListener } from '@/context/GameUpdateContext';
+import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
-
-/** Visible proof that this Metro bundle is loaded (remove after waitlist QA). */
-const MOBILE_GAME_UI_BUILD = 'wl-accept-v3';
 
 export default function GameDetailsScreen() {
     const { t } = useTranslation();
@@ -24,6 +21,7 @@ export default function GameDetailsScreen() {
     const { getToken, isLoaded: isAuthLoaded, isSignedIn } = useAuth();
     const { user } = useUser();
     const router = useRouter();
+    const { notifyGameUpdate } = useGameUpdate();
 
     const [game, setGame] = useState<Game | null>(null);
     const [loading, setLoading] = useState(true);
@@ -58,7 +56,7 @@ export default function GameDetailsScreen() {
             setLoading(false);
         } catch (err) {
             console.error("Failed to load game", err);
-            Alert.alert("Error", "Failed to load game details");
+            Alert.alert("שגיאה", "לא הצלחנו לטעון את פרטי המשחק");
             setLoading(false);
         }
     }, [id, isAuthLoaded, isSignedIn, getToken]);
@@ -86,20 +84,22 @@ export default function GameDetailsScreen() {
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert("Error", "עליך להיות מחובר כדי להצטרף");
+                Alert.alert("שגיאה", "עליך להיות מחובר כדי להצטרף");
                 return;
             }
             const result = await gamesApi.join(game.id, token);
             if (result.pending) {
                 Alert.alert(t('game.requestSent'), t('game.requestPending'));
             } else if (result.viewerParticipationStatus === 'WAITLISTED') {
-                Alert.alert("Success", "נרשמת לרשימת ההמתנה");
+                Alert.alert("הצלחה", "נרשמת לרשימת ההמתנה");
+                notifyGameUpdate(game.id, "waitlist", user?.id || "");
             } else {
-                Alert.alert("Success", "הצטרפת למשחק!");
+                Alert.alert("הצלחה", "הצטרפת למשחק!");
+                notifyGameUpdate(game.id, "join", user?.id || "");
             }
             setGame(result);
         } catch (err: any) {
-            Alert.alert("Error", err.response?.data?.error || "Failed to join game");
+            Alert.alert("שגיאה", err?.message || err?.response?.data?.error || "ההצטרפות למשחק נכשלה");
         } finally {
             setActionLoading(false);
         }
@@ -107,8 +107,8 @@ export default function GameDetailsScreen() {
 
     const handleעזוב = async () => {
         if (!game) return;
-        Alert.alert("עזוב Game", "האם אתה בטוח שברצונך לעזוב?", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert("עזיבת משחק", "האם אתה בטוח שברצונך לעזוב?", [
+            { text: "ביטול", style: "cancel" },
             {
                 text: t('game.leave'),
                 style: "destructive",
@@ -118,10 +118,11 @@ export default function GameDetailsScreen() {
                         const token = await getToken();
                         if (!token) return;
                         await gamesApi.leave(game.id, token);
-                        Alert.alert("Success", "עזבת את המשחק.");
-                        fetchGame(); // Refresh
+                        notifyGameUpdate(game.id, "leave", user?.id || "");
+                        Alert.alert("הצלחה", "עזבת את המשחק.");
+                        fetchGame();
                     } catch (err: any) {
-                        Alert.alert("Error", err.response?.data?.error || "Failed to leave game");
+                        Alert.alert("שגיאה", err?.message || err?.response?.data?.error || "היציאה מהמשחק נכשלה");
                     } finally {
                         setActionLoading(false);
                     }
@@ -135,11 +136,19 @@ export default function GameDetailsScreen() {
         setActionLoading(true);
         try {
             const token = await getToken();
-            if (!token) return;
+            if (!token) {
+                Alert.alert("שגיאה", "עליך להיות מחובר כדי לאשר או לוותר");
+                return;
+            }
             const result = await gamesApi.waitlistConfirm(game.id, accept, token);
             setGame(result);
-            Alert.alert("Success", accept ? "הצטרפת למשחק בהצלחה!" : "ויתרת על המקום בהצלחה");
-            fetchGame();
+            if (accept) {
+                notifyGameUpdate(game.id, "join", user?.id || "");
+            } else {
+                notifyGameUpdate(game.id, "leave", user?.id || "");
+            }
+            Alert.alert("הצלחה", accept ? "הצטרפת למשחק בהצלחה!" : "ויתרת על המקום בהצלחה");
+            await fetchGame();
         } catch (err: any) {
             const msg = err?.message || err?.response?.data?.error || "";
             if (String(msg).includes('No pending waitlist offer') || String(msg).includes('waitlist')) {
@@ -148,7 +157,7 @@ export default function GameDetailsScreen() {
                     "אין הצעת מקום פעילה מרשימת ההמתנה. אם שלחת בקשת הצטרפות, המארגן צריך לאשר אותה."
                 );
             } else {
-                Alert.alert("Error", msg || "Failed to process waitlist confirmation");
+                Alert.alert("שגיאה", msg || "לא הצלחנו לעבד את אישור רשימת ההמתנה");
             }
         } finally {
             setActionLoading(false);
@@ -191,8 +200,7 @@ export default function GameDetailsScreen() {
                 <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
                     <FontAwesome name="arrow-left" size={20} color="#4b5563" />
                 </TouchableOpacity>
-                <Text className="flex-1 text-xl font-bold text-gray-900">פרטי משחק · v3</Text>
-                <Text className="text-[10px] text-red-500 font-bold">{MOBILE_GAME_UI_BUILD}</Text>
+                <Text className="flex-1 text-xl font-bold text-gray-900">{t('game.details')}</Text>
             </View>
             <ScrollView className="flex-1 bg-gray-50">
                 {/* Waitlist offer — top of page (same placement idea as web GameLiveSection) */}
@@ -245,26 +253,26 @@ export default function GameDetailsScreen() {
                         onPress={() => game.fieldId && router.push(`/field/${game.fieldId}`)}
                         className="flex-row items-center mb-2"
                     >
-                        <Text className="text-2xl font-bold text-gray-800 text-left">{game.field?.name || game.fieldName || t('game.unknownField')}</Text>
+                        <Text className="text-2xl font-bold text-gray-800 text-right">{game.field?.name || game.fieldName || t('game.unknownField')}</Text>
                         {game.fieldId ? (
                             <FontAwesome name="angle-left" size={20} color="#2563eb" style={{ marginLeft: 8 }} />
                         ) : null}
                     </TouchableOpacity>
                     <View className="flex-row items-center mb-2">
                         <FontAwesome name="calendar" size={16} color="#6b7280" style={{ width: 24 }} />
-                        <Text className="text-gray-600 text-base">
-                            {new Date(game.date).toLocaleDateString()} at {game.time}
+                        <Text className="text-gray-600 text-base text-right">
+                            {new Date(game.date).toLocaleDateString('he-IL')} בשעה {game.time}
                         </Text>
                     </View>
                     <View className="flex-row items-center mb-2">
                         <FontAwesome name="map-marker" size={16} color="#6b7280" style={{ width: 24 }} />
-                        <Text className="text-gray-600 text-base">
+                        <Text className="text-gray-600 text-base text-right flex-1">
                             {game.field?.location || game.fieldLocation || t('game.unknownLocation')}
                         </Text>
                     </View>
                     <View className="flex-row items-center">
                         <FontAwesome name="money" size={16} color="#6b7280" style={{ width: 24 }} />
-                        <Text className="text-gray-600 text-base">
+                        <Text className="text-gray-600 text-base text-right">
                             {game.price ? `₪${game.price}` : t('game.free')}
                         </Text>
                     </View>
@@ -309,8 +317,8 @@ export default function GameDetailsScreen() {
                             
                             const formatGoogleDate = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, '');
                             
-                            const title = encodeURIComponent(game.title || game.fieldName || 'Sports Game');
-                            const details = encodeURIComponent(`JoinUp Game\n\nLink: https://joinup.app/game/${game.id}`);
+                            const title = encodeURIComponent(game.title || game.fieldName || 'משחק JoinUp');
+                            const details = encodeURIComponent(`משחק JoinUp\n\nקישור: https://joinup.app/game/${game.id}`);
                             const location = encodeURIComponent(game.field?.location || game.fieldLocation || '');
                             
                             const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${details}&location=${location}`;
@@ -413,7 +421,7 @@ export default function GameDetailsScreen() {
                                         className="text-xs text-center text-gray-600"
                                         numberOfLines={1}
                                     >
-                                        {p.name || "User"}
+                                        {p.name || "משתמש"}
                                     </Text>
                                     {p.id === game.organizerId && (
                                         <Text className="text-[10px] text-blue-600 font-bold">מארגן</Text>
@@ -435,38 +443,9 @@ export default function GameDetailsScreen() {
                     />
                 )}
 
-                {/* Actions Section */}
+                {/* Actions Section — waitlist offer CTAs live in the top banner only */}
                 <View className="p-6">
-                    {/* Waitlist offer must win over every other CTA — user has a reserved spot. */}
-                    {isWaitlistOfferPending ? (
-                        <View>
-                            <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200 mb-3">
-                                <Text className="text-amber-800 font-bold text-base text-center">
-                                    התפנה מקום במשחק! המקום שמור לך.
-                                </Text>
-                            </View>
-                            <View className="flex-row gap-3">
-                                <TouchableOpacity
-                                    onPress={() => handleWaitlistConfirm(true)}
-                                    disabled={actionLoading}
-                                    className={`flex-1 p-4 rounded-xl items-center ${actionLoading ? 'bg-green-400' : 'bg-green-600'}`}
-                                >
-                                    {actionLoading ? (
-                                        <ActivityIndicator color="white" />
-                                    ) : (
-                                        <Text className="text-white font-bold text-lg">אישור הצטרפות</Text>
-                                    )}
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => handleWaitlistConfirm(false)}
-                                    disabled={actionLoading}
-                                    className={`flex-1 p-4 rounded-xl items-center ${actionLoading ? 'bg-red-400' : 'bg-red-600'}`}
-                                >
-                                    <Text className="text-white font-bold text-lg">ויתור</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    ) : isParticipant ? (
+                    {isWaitlistOfferPending ? null : isParticipant ? (
                         <View>
                             <TouchableOpacity
                                 onPress={() => router.push(`/chat/${game.id}`)}
@@ -576,30 +555,6 @@ export default function GameDetailsScreen() {
                 <View className="h-10" />
             </ScrollView>
 
-            {/* Sticky accept/decline so offer actions stay visible without scrolling */}
-            {isWaitlistOfferPending && (
-                <View className="px-4 py-3 bg-white border-t border-amber-200 flex-row gap-3">
-                    <TouchableOpacity
-                        onPress={() => handleWaitlistConfirm(true)}
-                        disabled={actionLoading}
-                        className={`flex-1 p-3.5 rounded-xl items-center ${actionLoading ? 'bg-green-400' : 'bg-green-600'}`}
-                    >
-                        {actionLoading ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text className="text-white font-bold text-base">אישור הצטרפות</Text>
-                        )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => handleWaitlistConfirm(false)}
-                        disabled={actionLoading}
-                        className="flex-1 p-3.5 rounded-xl items-center bg-red-600"
-                    >
-                        <Text className="text-white font-bold text-base">ויתור</Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-
             {/* Series Creation Modal */}
             <Modal
                 animationType="slide"
@@ -633,17 +588,18 @@ export default function GameDetailsScreen() {
 
                         {series.state.tabValue === 0 ? (
                             <View>
-                                <Text className="text-gray-600 mb-4 leading-6">
-                                    • Creates a game every week at <Text className="font-bold">{game.time}</Text>.{'\n'}
-                                    • Generates the next 4 games immediately.{'\n'}
-                                    • Players can subscribe to auto-join.
+                                <Text className="text-gray-600 mb-4 leading-6 text-right">
+                                    • יוצר משחק בכל שבוע בשעה <Text className="font-bold">{game.time}</Text>.{'\n'}
+                                    • מייצר מיד את 4 המשחקים הבאים.{'\n'}
+                                    • שחקנים יכולים להירשם להצטרפות אוטומטית.
                                 </Text>
                             </View>
                         ) : (
                             <View>
-                                <Text className="text-gray-600 mb-4">Select specific dates for this series.</Text>
-                                {/* Date picker logic simplified for mobile MVP - perhaps just suggest Weekly for now */}
-                                <Text className="text-orange-500 italic">Custom dates feature is optimized for web. Please use Weekly for best experience on mobile.</Text>
+                                <Text className="text-gray-600 mb-4 text-right">בחר תאריכים ספציפיים לסדרה זו.</Text>
+                                <Text className="text-orange-500 italic text-right">
+                                    בחירת תאריכים מותאמים אישית מותאמת יותר לשימוש באתר. באפליקציה מומלץ להשתמש באפשרות השבועית.
+                                </Text>
                             </View>
                         )}
 

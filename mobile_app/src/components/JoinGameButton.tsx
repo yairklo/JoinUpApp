@@ -90,7 +90,7 @@ export default function JoinGameButton({
             if (onJoined) onJoined();
         } catch (e: any) {
             console.error("Join Failed:", e);
-            alert(e.message || "Failed to join game");
+            alert(e.message || "ההצטרפות נכשלה");
         } finally {
             setLoading(false);
         }
@@ -109,11 +109,11 @@ export default function JoinGameButton({
             } else {
                 setWaitlisted(false);
             }
-            Alert.alert("Success", accept ? "הצטרפת למשחק בהצלחה!" : "ויתרת על המקום בהצלחה");
+            Alert.alert("הצלחה", accept ? "הצטרפת למשחק בהצלחה!" : "ויתרת על המקום בהצלחה");
             if (onJoined) onJoined();
         } catch (e: any) {
             console.error("Waitlist confirm failed:", e);
-            alert(e.message || "Failed to process waitlist offer");
+            Alert.alert("שגיאה", e.message || "לא הצלחנו לעבד את הצעת ההמתנה");
         } finally {
             setLoading(false);
         }

@@ -47,11 +47,13 @@ export default function HomeScreen() {
   const cappedGames = useMemo(() => filteredGames.slice(0, 3), [filteredGames]);
 
   const renderGameItem = useCallback((item: Game) => {
-    const isJoined = item.participants?.some(p => p.id === user?.id);
+    const isJoined =
+      item.viewerParticipationStatus === 'CONFIRMED' ||
+      item.participants?.some(p => p.id === user?.id);
 
     return (
       <View key={item.id} className="px-5 mb-4">
-        <GameCard game={item} isJoined={isJoined}>
+        <GameCard game={item} isJoined={!!isJoined}>
           <View className="flex-1">
             {isJoined ? (
               <LeaveGameButton gameId={item.id} onLeft={() => { }} />
