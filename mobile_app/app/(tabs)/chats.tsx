@@ -92,6 +92,18 @@ export default function ChatsScreen() {
         [chats, tabValue]
     );
 
+    const { playersUnread, gamesUnread } = useMemo(() => {
+        let players = 0;
+        let games = 0;
+        for (const chat of chats) {
+            const count = chat.unreadCount || 0;
+            if (count <= 0) continue;
+            if (chat.type === 'private') players += count;
+            else if (chat.type === 'group') games += count;
+        }
+        return { playersUnread: players, gamesUnread: games };
+    }, [chats]);
+
     const youLabel = t('chats.you');
     const noMessagesLabel = t('chats.noMessages');
 
@@ -103,8 +115,14 @@ export default function ChatsScreen() {
             youLabel={youLabel}
             noMessagesLabel={noMessagesLabel}
             onPress={() => {
-                const route = item.type === 'group' ? `/games/${item.id}` : `/chat/${item.id}`;
-                router.push(route as any);
+                // Same route as Game Details: chat room id === game id for group/game chats
+                router.push({
+                    pathname: '/chat/[id]',
+                    params: {
+                        id: item.id,
+                        name: item.name || '',
+                    },
+                });
             }}
         />
     ), [user?.id, typingStatus, youLabel, noMessagesLabel, router]);
@@ -125,6 +143,8 @@ export default function ChatsScreen() {
         );
     }
 
+    const formatBadge = (count: number) => (count > 99 ? '99+' : String(count));
+
     return (
         <View className="flex-1 bg-gray-50">
             {/* Custom Tabs */}
@@ -133,17 +153,31 @@ export default function ChatsScreen() {
                     className={`flex-1 py-4 items-center border-b-2 ${tabValue === 0 ? 'border-blue-600' : 'border-transparent'}`}
                     onPress={() => setTabValue(0)}
                 >
-                    <Text className={`font-bold ${tabValue === 0 ? 'text-blue-600' : 'text-gray-500'}`}>
-                        {t('chats.players')}
-                    </Text>
+                    <View className="flex-row items-center">
+                        <Text className={`font-bold ${tabValue === 0 ? 'text-blue-600' : 'text-gray-500'}`}>
+                            {t('chats.players')}
+                        </Text>
+                        {playersUnread > 0 && (
+                            <View className="bg-red-500 rounded-full min-w-[18px] h-[18px] px-1 ml-1.5 items-center justify-center">
+                                <Text className="text-white text-[10px] font-bold">{formatBadge(playersUnread)}</Text>
+                            </View>
+                        )}
+                    </View>
                 </TouchableOpacity>
                 <TouchableOpacity
                     className={`flex-1 py-4 items-center border-b-2 ${tabValue === 1 ? 'border-blue-600' : 'border-transparent'}`}
                     onPress={() => setTabValue(1)}
                 >
-                    <Text className={`font-bold ${tabValue === 1 ? 'text-blue-600' : 'text-gray-500'}`}>
-                        {t('chats.games')}
-                    </Text>
+                    <View className="flex-row items-center">
+                        <Text className={`font-bold ${tabValue === 1 ? 'text-blue-600' : 'text-gray-500'}`}>
+                            {t('chats.games')}
+                        </Text>
+                        {gamesUnread > 0 && (
+                            <View className="bg-red-500 rounded-full min-w-[18px] h-[18px] px-1 ml-1.5 items-center justify-center">
+                                <Text className="text-white text-[10px] font-bold">{formatBadge(gamesUnread)}</Text>
+                            </View>
+                        )}
+                    </View>
                 </TouchableOpacity>
             </View>
 

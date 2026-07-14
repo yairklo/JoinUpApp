@@ -1,5 +1,5 @@
 import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Alert, Keyboard, Image } from 'react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useChatLogic } from '@/hooks/useChatLogic';
 import { useUser } from '@clerk/clerk-expo';
@@ -19,25 +19,57 @@ export default function ChatScreen() {
         state: {
             messages, isLoading, inputValue, effectiveChatName,
             typingUsers, replyToMessage, editingMessage, isOtherUserOnline,
-            avatarByUserId, nameByUserId, otherUserId
+            avatarByUserId, nameByUserId, otherUserId, isPrivate
         },
         actions: {
             handleSendMessage, setInputValue, setReplyToMessage,
-            setEditingMessage, handleDelete, handleReact,
+            setEditingMessage, handleDelete,
             handleTyping, handleStopTyping
         }
-    } = useChatLogic({ roomId: id, chatName: name });
+    } = useChatLogic({ roomId: id, chatName: typeof name === 'string' ? name : Array.isArray(name) ? name[0] : undefined });
 
     const flatListRef = useRef<FlatList>(null);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const isNearBottomRef = useRef(true);
+    const prevMessagesLengthRef = useRef(0);
+    const didInitialScrollRef = useRef(false);
 
+    // Reset sticky-scroll state when switching chats
     useEffect(() => {
-        if (messages.length > 0) {
-            setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
+        isNearBottomRef.current = true;
+        prevMessagesLengthRef.current = 0;
+        didInitialScrollRef.current = false;
+    }, [id]);
+
+    const scrollToBottom = useCallback((animated = true) => {
+        requestAnimationFrame(() => {
+            flatListRef.current?.scrollToEnd({ animated });
+        });
+    }, []);
+
+    const handleScroll = useCallback((event: any) => {
+        const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+        const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+        isNearBottomRef.current = distanceFromBottom < 120;
+    }, []);
+
+    // Initial jump to bottom once messages first arrive; only follow new messages if already near bottom
+    useEffect(() => {
+        if (messages.length === 0) return;
+
+        const grew = messages.length > prevMessagesLengthRef.current;
+        prevMessagesLengthRef.current = messages.length;
+
+        if (!didInitialScrollRef.current) {
+            didInitialScrollRef.current = true;
+            scrollToBottom(false);
+            return;
         }
-    }, [messages]);
+
+        if (grew && isNearBottomRef.current) {
+            scrollToBottom(true);
+        }
+    }, [messages.length, scrollToBottom]);
 
     useEffect(() => {
         const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -56,21 +88,18 @@ export default function ChatScreen() {
     }, []);
 
     useEffect(() => {
-        if (keyboardHeight > 0 && messages.length > 0) {
-            setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
+        if (keyboardHeight > 0 && isNearBottomRef.current) {
+            scrollToBottom(true);
         }
-    }, [keyboardHeight, messages.length]);
+    }, [keyboardHeight, scrollToBottom]);
 
-    const handleLongPress = (message: any) => {
+    const handlePressUser = useCallback((userId: string) => {
+        if (!userId) return;
+        router.push(`/user/${userId}`);
+    }, [router]);
+
+    const handleLongPress = useCallback((message: any) => {
         const isMe = message.userId === user?.id;
-
-        const options = ["השב"];
-        if (isMe) {
-            options.push("ערוך", "מחק");
-        }
-        options.push("ביטול");
 
         Alert.alert(
             "אפשרויות הודעה",
@@ -96,31 +125,41 @@ export default function ChatScreen() {
                 { text: "ביטול", style: 'cancel' }
             ]
         );
-    };
+    }, [user?.id, setReplyToMessage, setEditingMessage, setInputValue, handleDelete]);
 
-    const renderMessage = ({ item, index }: { item: any, index: number }) => {
-        const isMe = item.userId === user?.id;
-        const showAvatar = !isMe && (index === 0 || messages[index - 1].userId !== item.userId);
+    const enrichedMessages = useMemo(() => (
+        messages.map((item) => {
+            const uid = item.userId || item.senderId;
+            return {
+                ...item,
+                senderName: item.senderName || item.sender?.name || (uid ? nameByUserId[uid] : undefined) || "User",
+                sender: {
+                    ...item.sender,
+                    id: item.sender?.id || uid,
+                    image: item.sender?.image || (uid ? avatarByUserId[uid] : undefined) || undefined,
+                    name: item.sender?.name || (uid ? nameByUserId[uid] : undefined),
+                }
+            };
+        })
+    ), [messages, avatarByUserId, nameByUserId]);
 
-        const enrichedMessage = {
-            ...item,
-            senderName: item.senderName || item.sender?.name || nameByUserId[item.userId] || "User",
-            sender: {
-                ...item.sender,
-                image: item.sender?.image || avatarByUserId[item.userId],
-                name: item.sender?.name || nameByUserId[item.userId]
-            }
-        };
+    const renderMessage = useCallback(({ item, index }: { item: any, index: number }) => {
+        const isMe = item.userId === user?.id || item.senderId === user?.id;
+        const prev = enrichedMessages[index - 1];
+        const showAvatar = !isMe && (index === 0 || prev?.userId !== item.userId);
 
         return (
             <MessageBubble
-                message={enrichedMessage}
-                isMe={isMe}
+                message={item}
+                isMe={!!isMe}
                 showAvatar={showAvatar}
                 onLongPress={() => handleLongPress(item)}
+                onPressUser={handlePressUser}
             />
         );
-    };
+    }, [enrichedMessages, user?.id, handleLongPress, handlePressUser]);
+
+    const keyExtractor = useCallback((item: any) => String(item.id), []);
 
     if (isLoading && messages.length === 0) {
         return (
@@ -140,12 +179,17 @@ export default function ChatScreen() {
                     <Ionicons name="arrow-back" size={26} color="#111827" />
                 </TouchableOpacity>
 
-                <View className="flex-row items-center flex-1">
+                <TouchableOpacity
+                    className="flex-row items-center flex-1"
+                    disabled={!isPrivate || !otherUserId}
+                    onPress={() => otherUserId && handlePressUser(otherUserId)}
+                    activeOpacity={0.7}
+                >
                     {otherUserId && avatarByUserId[otherUserId] ? (
                         <Image source={{ uri: avatarByUserId[otherUserId]! }} style={{ width: 44, height: 44, borderRadius: 22, marginLeft: 12 }} />
                     ) : (
                         <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E5E7EB', marginLeft: 12, alignItems: 'center', justifyContent: 'center' }}>
-                            <Ionicons name="chatbubbles" size={24} color="#9CA3AF" />
+                            <Ionicons name={isPrivate ? "person" : "chatbubbles"} size={24} color="#9CA3AF" />
                         </View>
                     )}
                     <View className="justify-center flex-1">
@@ -157,7 +201,7 @@ export default function ChatScreen() {
                             </View>
                         )}
                     </View>
-                </View>
+                </TouchableOpacity>
             </View>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -167,11 +211,23 @@ export default function ChatScreen() {
             >
                 <FlatList
                     ref={flatListRef}
-                    data={messages}
-                    keyExtractor={(item) => String(item.id || Math.random())}
+                    data={enrichedMessages}
+                    keyExtractor={keyExtractor}
                     renderItem={renderMessage}
                     contentContainerStyle={{ paddingVertical: 20 }}
-                    onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                    initialNumToRender={20}
+                    maxToRenderPerBatch={15}
+                    windowSize={10}
+                    removeClippedSubviews={Platform.OS === 'android'}
+                    onScroll={handleScroll}
+                    scrollEventThrottle={16}
+                    maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                    onContentSizeChange={() => {
+                        // Only stick to bottom when the user is already there — don't yank while reading history
+                        if (isNearBottomRef.current) {
+                            scrollToBottom(false);
+                        }
+                    }}
                 />
 
                 {/* Typing Indicator */}
@@ -219,7 +275,11 @@ export default function ChatScreen() {
                     </View>
 
                     <TouchableOpacity
-                        onPress={handleSendMessage}
+                        onPress={() => {
+                            isNearBottomRef.current = true;
+                            handleSendMessage();
+                            scrollToBottom(true);
+                        }}
                         disabled={!inputValue.trim()}
                         style={{ width: 48, height: 48 }}
                         className={`rounded-full items-center justify-center shadow-lg ${inputValue.trim() ? 'bg-blue-600 shadow-blue-200' : 'bg-gray-200 shadow-none'

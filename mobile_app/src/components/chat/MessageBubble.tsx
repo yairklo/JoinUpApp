@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, Image, TouchableOpacity, ViewStyle } from "react-native";
+import React, { memo } from "react";
+import { View, Text, Image, TouchableOpacity } from "react-native";
 import { ChatMessage } from "@/types/chat";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -8,21 +8,33 @@ interface MessageBubbleProps {
     isMe: boolean;
     showAvatar: boolean;
     onLongPress?: () => void;
+    onPressUser?: (userId: string) => void;
 }
 
-export default function MessageBubble({ message, isMe, showAvatar, onLongPress }: MessageBubbleProps) {
+function MessageBubble({ message, isMe, showAvatar, onLongPress, onPressUser }: MessageBubbleProps) {
     const reactionsList = Object.entries(message.reactions || {});
     const hasReactions = reactionsList.length > 0;
+    const senderId = message.userId || message.senderId || message.sender?.id;
+    const senderName = message.senderName || message.sender?.name || "User";
+    const avatarUri =
+        message.sender?.image ||
+        "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
+
+    const handlePressUser = () => {
+        if (senderId && onPressUser) onPressUser(String(senderId));
+    };
 
     return (
         <View className={`flex-row mb-3 px-4 ${isMe ? 'justify-end' : 'justify-start'}`}>
             {!isMe && (
                 <View className="w-8 mr-2 justify-end pb-1">
                     {showAvatar ? (
-                        <Image
-                            source={{ uri: message.sender?.image || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
-                            className="w-8 h-8 rounded-full bg-gray-100 border border-gray-100"
-                        />
+                        <TouchableOpacity onPress={handlePressUser} disabled={!senderId || !onPressUser} activeOpacity={0.7}>
+                            <Image
+                                source={{ uri: avatarUri }}
+                                className="w-8 h-8 rounded-full bg-gray-100 border border-gray-100"
+                            />
+                        </TouchableOpacity>
                     ) : null}
                 </View>
             )}
@@ -48,9 +60,11 @@ export default function MessageBubble({ message, isMe, showAvatar, onLongPress }
                 )}
 
                 {!isMe && showAvatar && (
-                    <Text className="text-[10px] font-black text-gray-400 mb-1 uppercase tracking-tighter">
-                        {message.senderName || message.sender?.name || "User"}
-                    </Text>
+                    <TouchableOpacity onPress={handlePressUser} disabled={!senderId || !onPressUser} activeOpacity={0.7}>
+                        <Text className="text-[10px] font-black text-gray-400 mb-1 uppercase tracking-tighter">
+                            {senderName}
+                        </Text>
+                    </TouchableOpacity>
                 )}
 
                 <Text className={`text-base leading-5 ${isMe ? 'text-white' : 'text-gray-900'}`}>
@@ -93,3 +107,20 @@ export default function MessageBubble({ message, isMe, showAvatar, onLongPress }
         </View>
     );
 }
+
+export default memo(MessageBubble, (prev, next) => (
+    prev.isMe === next.isMe &&
+    prev.showAvatar === next.showAvatar &&
+    prev.message.id === next.message.id &&
+    prev.message.text === next.message.text &&
+    prev.message.content === next.message.content &&
+    prev.message.status === next.message.status &&
+    prev.message.isEdited === next.message.isEdited &&
+    prev.message.isDeleted === next.message.isDeleted &&
+    prev.message.senderName === next.message.senderName &&
+    prev.message.sender?.name === next.message.sender?.name &&
+    prev.message.sender?.image === next.message.sender?.image &&
+    prev.message.reactions === next.message.reactions &&
+    prev.onPressUser === next.onPressUser &&
+    prev.onLongPress === next.onLongPress
+));

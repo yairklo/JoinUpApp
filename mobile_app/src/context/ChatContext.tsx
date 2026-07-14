@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef, useMemo } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { ChatMessage } from "@/types/chat";
 import { chatsApi } from "@/services/api/chats";
@@ -74,37 +75,61 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // Fix #3: ref-based guard so loadChats has a stable reference
     const chatsLoadedRef = useRef(false);
     const chatsRef = useRef<ChatPreview[]>([]);
+    const activeChatIdRef = useRef<string | null>(null);
+    const updateChatListRef = useRef<(newMessage: any) => void>(() => {});
+    const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     useEffect(() => {
         chatsRef.current = chats;
     }, [chats]);
 
+    useEffect(() => {
+        activeChatIdRef.current = activeChatId;
+    }, [activeChatId]);
+
     // API Client handles base URL
 
 
     // Send 'setup' to join personal notification room.
-    // Called on mount (socket may already be connected) AND on every reconnect.
+    // Called on mount (socket may already be connected) AND on every reconnect / foreground.
     useEffect(() => {
-        const sendSetup = () => {
-            if (user?.id) SocketManager.emit('setup', { id: user.id });
-        };
-        sendSetup();
-        const unsubSetup = SocketManager.on('connect', sendSetup);
-        return () => unsubSetup();
-    }, [user?.id]);
+        if (!user?.id) return;
 
-    // 0. Join Chat Rooms for Real-time Typing Indicators
-    useEffect(() => {
-        if (!user?.id || chats.length === 0) return;
-        const chatIds = chats.map(c => c.id);
-        
-        const joinAll = () => {
+        const sendSetup = () => {
+            SocketManager.emit('setup', { id: user.id });
+        };
+
+        const rejoinAllChats = () => {
+            const chatIds = chatsRef.current.map(c => c.id).filter(Boolean);
+            if (chatIds.length === 0) return;
             SocketManager.emit('joinChats', chatIds);
         };
-        joinAll();
 
-        const unsubConnect = SocketManager.on('connect', joinAll);
-        return () => unsubConnect();
+        const restoreRealtime = () => {
+            // After background/network drops, server rooms are empty until we rejoin.
+            SocketManager.ensureConnected();
+            sendSetup();
+            rejoinAllChats();
+        };
+
+        restoreRealtime();
+        const unsubConnect = SocketManager.on('connect', restoreRealtime);
+
+        const onAppStateChange = (next: AppStateStatus) => {
+            if (next === 'active') restoreRealtime();
+        };
+        const appSub = AppState.addEventListener('change', onAppStateChange);
+
+        return () => {
+            unsubConnect();
+            appSub.remove();
+        };
+    }, [user?.id]);
+
+    // Also rejoin when the chat list first populates / length changes (ids via ref stay fresh on connect)
+    useEffect(() => {
+        if (!user?.id || chats.length === 0) return;
+        SocketManager.emit('joinChats', chats.map(c => c.id).filter(Boolean));
     }, [user?.id, chats.length]);
 
     // 1. Load Chats
@@ -151,10 +176,18 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             const mapped: ChatMessage[] = arr.map((m: any) => ({
                 id: m.id ?? Date.parse(m.ts),
                 text: m.text,
-                senderId: m.userId || "",
+                senderId: m.userId || m.senderId || "",
                 ts: m.ts,
                 roomId: chatId,
                 userId: m.userId,
+                senderName: m.senderName || m.sender?.name,
+                sender: m.sender
+                    ? {
+                        id: m.sender.id || m.userId,
+                        name: m.sender.name,
+                        image: m.sender.image || m.sender.imageUrl,
+                    }
+                    : undefined,
                 replyTo: m.replyTo,
                 reactions: m.reactions,
                 status: m.status || "sent",
@@ -204,7 +237,9 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // 3. Socket Update Handler
     const updateChatList = useCallback((newMessage: any) => {
         const roomId = newMessage.chatId || newMessage.roomId;
-        const isActiveChat = activeChatId === roomId;
+        const isActiveChat = !!activeChatIdRef.current && (
+            activeChatIdRef.current === roomId
+        );
 
         const chatExists = chatsRef.current.some(c => c.id === roomId);
         if (!chatExists) {
@@ -268,6 +303,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                     ts: newMessage.ts || new Date().toISOString(),
                     roomId: roomId,
                     userId: newMessage.userId || newMessage.senderId,
+                    senderName: newMessage.senderName || newMessage.sender?.name,
+                    sender: newMessage.sender,
                     status: newMessage.status || 'sent',
                     reactions: {},
                     isEdited: false,
@@ -280,33 +317,44 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                 };
             });
         }
-    }, [user?.id, activeChatId, loadChats]); // Ensure activeChatId and loadChats are in deps
+    }, [user?.id, loadChats]);
 
-    // 4. Socket Listeners for Global Chat State
+    useEffect(() => {
+        updateChatListRef.current = updateChatList;
+    }, [updateChatList]);
+
+    // 4. Socket Listeners for Global Chat State — stable deps so we never tear down on chat open/close
     useEffect(() => {
         if (!user?.id) return;
         
         const handleIncoming = (incomingMsg: any) => {
-            updateChatList(incomingMsg);
+            updateChatListRef.current(incomingMsg);
         };
         const unsubSync = SocketManager.on('chat:sync', handleIncoming);
         const unsubMsg = SocketManager.on('message', handleIncoming);
 
         const unsubTypingStart = SocketManager.on('typing:start', ({ chatId, userName, senderId }) => {
+            if (!chatId) return;
             if (String(senderId) === String(user?.id)) return;
             const name = userName || "Someone";
+            if (typingTimeoutsRef.current[chatId]) clearTimeout(typingTimeoutsRef.current[chatId]);
             setTypingStatus(prev => ({ ...prev, [chatId]: `${name} מקליד...` }));
-            // Clear after 3 seconds
-            setTimeout(() => {
+            typingTimeoutsRef.current[chatId] = setTimeout(() => {
                 setTypingStatus(prev => {
                     const newState = { ...prev };
                     delete newState[chatId];
                     return newState;
                 });
+                delete typingTimeoutsRef.current[chatId];
             }, 3000);
         });
 
         const unsubTypingStop = SocketManager.on('typing:stop', ({ chatId }) => {
+            if (!chatId) return;
+            if (typingTimeoutsRef.current[chatId]) {
+                clearTimeout(typingTimeoutsRef.current[chatId]);
+                delete typingTimeoutsRef.current[chatId];
+            }
             setTypingStatus(prev => {
                 const newState = { ...prev };
                 delete newState[chatId];
@@ -319,15 +367,17 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             unsubMsg();
             unsubTypingStart();
             unsubTypingStop();
+            Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
+            typingTimeoutsRef.current = {};
         };
-    }, [user?.id, updateChatList]);
+    }, [user?.id]);
 
     // 5. Update OS Badge Count
     useEffect(() => {
         Notifications.setBadgeCountAsync(totalUnread).catch(e => console.warn('Failed to set badge count:', e));
     }, [totalUnread]);
 
-    const openChat = (chatId: string, info?: HeaderInfo) => {
+    const openChat = useCallback((chatId: string, info?: HeaderInfo) => {
         setActiveChatId(chatId);
         if (info) {
             setHeaderInfo(info);
@@ -336,7 +386,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }
         setIsWidgetOpen(true);
         setIsMinimized(false);
-    };
+    }, []);
 
     const openWidget = () => {
         setActiveChatId(null);
@@ -344,12 +394,12 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         setIsMinimized(false);
     };
 
-    const closeChat = () => {
+    const closeChat = useCallback(() => {
         setIsWidgetOpen(false);
         setActiveChatId(null);
         setIsMinimized(false);
         setHeaderInfo(null);
-    };
+    }, []);
 
     const minimizeChat = () => {
         setIsMinimized(true);
