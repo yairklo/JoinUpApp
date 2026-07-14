@@ -118,6 +118,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Wait until Clerk is fully loaded AND user is signed in before opening the socket.
     let cancelled = false;
+
+    SocketManager.setAuthRefresher(() => getToken());
+
     const connectWhenReady = async () => {
       try {
         const token = await getToken();
