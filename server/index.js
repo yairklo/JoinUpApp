@@ -44,19 +44,30 @@ const PORT = process.env.PORT || 3005;
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
-// Middleware
-// Allow CORS (can be restricted via env CORS_ORIGINS="https://example.com,https://another.com")
-const corsOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+// Middleware — CORS for Web (Vercel/local) + no-origin clients (mobile / Postman)
+const allowedOrigins = [
+  'https://join-up-app.vercel.app', // Vercel Web App
+  'http://localhost:3000',          // Local Web development
+  // Optional extras from env (comma-separated), e.g. preview deployments
+  ...(process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
+].filter((origin, i, arr) => arr.indexOf(origin) === i); // dedupe
+
 app.use(
   cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-      if (corsOrigins.length === 0 || corsOrigins.includes('*') || corsOrigins.includes(origin)) {
-        return cb(null, true);
+    origin: function (origin, callback) {
+      // Mobile apps, Expo, Postman, and same-origin tools often send no Origin header
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        return callback(
+          new Error('The CORS policy for this site does not allow access from the specified Origin.'),
+          false
+        );
       }
-      return cb(new Error('Not allowed by CORS'));
+      return callback(null, true);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 app.use(express.json());
@@ -84,18 +95,17 @@ async function initializeDataFiles() {
   }
 }
 
-// --- Socket.IO on backend (for production) ---
-const socketAllowedOrigin =
-  process.env.SOCKET_CORS_ORIGIN ||
-  process.env.FRONTEND_ORIGIN ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
-  (corsOrigins.length ? corsOrigins : '*');
-
+// --- Socket.IO on backend (for production) — same origin allowlist as Express ---
 const io = new Server(server, {
   path: '/api/socket',
   transports: ['websocket'],
   cors: {
-    origin: Array.isArray(socketAllowedOrigin) ? socketAllowedOrigin : (socketAllowedOrigin || '*'),
+    // Mirror Express: allow listed web origins; allow missing Origin (mobile / native)
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'), false);
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -1101,7 +1111,7 @@ server.listen(PORT, async () => {
   await initializeDataFiles();
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔌 Socket.IO ready on /api/socket (CORS origin: ${JSON.stringify(socketAllowedOrigin)})`);
+  console.log(`🔌 Socket.IO ready on /api/socket (CORS origins: ${JSON.stringify(allowedOrigins)})`);
 
   // Start notification workers
   startGameReminderWorker(io);
