@@ -8,7 +8,7 @@
     "db:push:prod": "dotenv -e .env.production -- npx prisma db push",
     "db:studio:dev": "dotenv -e .env.development -- npx prisma studio",
     "db:studio:prod": "dotenv -e .env.production -- npx prisma studio",
-    "start": "npx prisma migrate deploy && node index.js",
+    "start": "node scripts/render-start.js",
     "dev": "nodemon index.js",
     "test": "jest --runInBand --detectOpenHandles",
     "prisma:generate": "prisma generate",

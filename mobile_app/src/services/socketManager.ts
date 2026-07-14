@@ -4,10 +4,15 @@ import { API_BASE } from './api/client';
 let socket: Socket | null = null;
 let isConnecting = false;
 let lastErrorLogAt = 0;
+let consecutiveFailures = 0;
+let reconnectCooldownUntil = 0;
 let authRefresher: (() => Promise<string | null>) | null = null;
 const listeners: Map<string, Set<(...args: any[]) => void>> = new Map();
 
 const TRANSIENT_ERRORS = new Set(['timeout', 'xhr poll error', 'websocket error', 'transport error']);
+const MAX_RECONNECT_ATTEMPTS = 12;
+const COOLDOWN_AFTER_FAILURES_MS = 60_000;
+const COOLDOWN_FAILURE_THRESHOLD = 4;
 
 /**
  * Normalize API base for Socket.IO:
@@ -46,6 +51,15 @@ function handshakeLogLabel(url: string): string {
   return `${url}/api/socket/?EIO=4&transport=polling`;
 }
 
+function isInCooldown(): boolean {
+  return Date.now() < reconnectCooldownUntil;
+}
+
+function enterCooldown(reason: string) {
+  reconnectCooldownUntil = Date.now() + COOLDOWN_AFTER_FAILURES_MS;
+  console.warn(`[SocketManager] Backing off ${COOLDOWN_AFTER_FAILURES_MS / 1000}s (${reason})`);
+}
+
 async function refreshAuthToken(): Promise<void> {
   if (!authRefresher || !socket) return;
   try {
@@ -75,17 +89,38 @@ function logConnectError(err: Error & { description?: string; type?: string }) {
   }
 }
 
+function handleConnectFailure() {
+  consecutiveFailures += 1;
+  if (consecutiveFailures >= COOLDOWN_FAILURE_THRESHOLD && !isInCooldown()) {
+    enterCooldown(`${consecutiveFailures} consecutive failures`);
+    socket?.io.reconnection(false);
+    setTimeout(() => {
+      consecutiveFailures = 0;
+      socket?.io.reconnection(true);
+      void refreshAuthToken().then(() => {
+        if (socket && !socket.connected && !isConnecting) {
+          isConnecting = true;
+          socket.connect();
+        }
+      });
+    }, COOLDOWN_AFTER_FAILURES_MS);
+  }
+}
+
 function attachCoreHandlers(active: Socket) {
   active.onAny((event, ...args) => {
     listeners.get(event)?.forEach((cb) => cb(...args));
   });
 
   active.io.on('reconnect_attempt', () => {
+    if (isInCooldown()) return;
     void refreshAuthToken();
   });
 
   active.on('connect', () => {
     isConnecting = false;
+    consecutiveFailures = 0;
+    reconnectCooldownUntil = 0;
     console.log('[SocketManager] Connected:', active.id, 'transport:', active.io.engine?.transport?.name);
     listeners.get('connect')?.forEach((cb) => cb());
   });
@@ -94,6 +129,7 @@ function attachCoreHandlers(active: Socket) {
     isConnecting = false;
     logConnectError(err);
     void refreshAuthToken();
+    handleConnectFailure();
     listeners.get('connect_error')?.forEach((cb) => cb(err));
   });
 
@@ -124,6 +160,8 @@ export const SocketManager = {
    * Polling-first is required for Render sticky sessions on React Native.
    */
   connect(token: string) {
+    if (isInCooldown()) return;
+
     const authToken = normalizeAuthToken(token);
     if (!authToken) {
       console.warn('[SocketManager] connect() skipped — missing or invalid token');
@@ -155,7 +193,6 @@ export const SocketManager = {
     isConnecting = true;
     console.log('[SocketManager] Creating socket →', handshakeLogLabel(url));
 
-    // Render free tier can take 30–50s to wake — use a longer handshake timeout in prod
     const handshakeTimeout = isRenderHost() ? 45000 : 20000;
 
     socket = io(url, {
@@ -165,8 +202,8 @@ export const SocketManager = {
       rememberUpgrade: true,
       forceNew: false,
       reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 2000,
+      reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+      reconnectionDelay: 3000,
       reconnectionDelayMax: 30000,
       randomizationFactor: 0.5,
       timeout: handshakeTimeout,
@@ -180,7 +217,7 @@ export const SocketManager = {
   },
 
   ensureConnected() {
-    if (!socket || socket.connected || isConnecting) return;
+    if (!socket || socket.connected || isConnecting || isInCooldown()) return;
     isConnecting = true;
     void refreshAuthToken().then(() => socket?.connect());
   },
@@ -188,6 +225,8 @@ export const SocketManager = {
   disconnect() {
     isConnecting = false;
     lastErrorLogAt = 0;
+    consecutiveFailures = 0;
+    reconnectCooldownUntil = 0;
     authRefresher = null;
     if (socket) {
       socket.removeAllListeners();
@@ -199,8 +238,11 @@ export const SocketManager = {
   },
 
   emit(event: string, ...args: any[]) {
-    if (socket) {
+    if (socket?.connected) {
       socket.emit(event, ...args);
+    } else if (socket) {
+      // Queue nothing — avoid emit storms while server is down
+      console.warn(`[SocketManager] Skipped emit "${event}" — socket not connected`);
     } else {
       console.warn(`[SocketManager] Missed emit: "${event}". Socket null.`);
     }
