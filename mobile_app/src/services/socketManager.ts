@@ -6,12 +6,24 @@ const listeners: Map<string, Set<(...args: any[]) => void>> = new Map();
 
 export const SocketManager = {
   connect(token: string) {
-    if (socket) return; // Prevent creating multiple instances
+    if (socket) {
+      // Keep a single instance: refresh auth for future reconnects and wake a dead socket.
+      socket.auth = { token };
+      if (!socket.connected) {
+        socket.connect();
+      }
+      return;
+    }
+
     socket = io(API_BASE, {
       path: '/api/socket',
       transports: ['websocket'],
       auth: { token },
       autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
     });
 
     // Pub/Sub Engine: Route all incoming events to registered listeners
@@ -36,6 +48,16 @@ export const SocketManager = {
         socket?.connect();
       }
     });
+  },
+
+  /**
+   * Wake the existing socket after background / network drops.
+   * Server-side rooms are lost on disconnect — callers must rejoin after reconnect.
+   */
+  ensureConnected() {
+    if (socket && !socket.connected) {
+      socket.connect();
+    }
   },
 
   disconnect() {

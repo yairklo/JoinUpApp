@@ -24,6 +24,7 @@ router.get('/', authenticateToken, async (req, res) => {
       orderBy: { createdAt: 'asc' },
       take,
       include: {
+        user: { select: { id: true, name: true, imageUrl: true } },
         replyTo: {
           include: {
             user: { select: { id: true, name: true, imageUrl: true } }
@@ -52,6 +53,10 @@ router.get('/', authenticateToken, async (req, res) => {
         roomId: m.chatRoomId, // Map back to roomId for client compatibility
         userId: m.userId || null,
         ts: m.createdAt,
+        senderName: m.user?.name || undefined,
+        sender: m.user
+          ? { id: m.user.id, name: m.user.name, image: m.user.imageUrl }
+          : undefined,
         replyTo: m.replyTo ? {
           id: m.replyTo.id,
           text: m.replyTo.text,

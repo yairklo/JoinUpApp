@@ -1,7 +1,7 @@
 import { Slot, SplashScreen, Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import { useColorScheme, LogBox, View, Text } from "react-native";
+import { useColorScheme, LogBox, View, Text, AppState, AppStateStatus } from "react-native";
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
 import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native";
@@ -114,14 +114,28 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (isSignedIn) {
       // Connect socket once. ChatContext will send 'setup' with the actual userId.
       // No cleanup return here — socket must stay alive across re-renders.
-      getToken().then((token) => {
-        if (token) SocketManager.connect(token);
-      });
+      const connectWithToken = () => {
+        getToken().then((token) => {
+          if (token) SocketManager.connect(token);
+        });
+      };
+      connectWithToken();
+
+      // After background, OS may drop the TCP connection — refresh token + wake socket.
+      // ChatContext / useChatLogic rejoin rooms on 'connect' and AppState themselves.
+      const onAppStateChange = (next: AppStateStatus) => {
+        if (next === 'active') {
+          connectWithToken();
+          SocketManager.ensureConnected();
+        }
+      };
+      const appSub = AppState.addEventListener('change', onAppStateChange);
+      return () => appSub.remove();
     } else {
       // Only disconnect on actual sign-out
       SocketManager.disconnect();
     }
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, getToken]);
 
   if (!isLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Loading Clerk...</Text></View>;
 

@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import { SocketManager } from "@/services/socketManager";
 import { useUser, useAuth } from "@clerk/clerk-expo";
-import { useRouter } from "./useRouter.adapter";
 import { useChat } from "@/context/ChatContext";
-import { chatsApi, usersApi, gamesApi, API_BASE } from "@/services/api";
-import { ChatMessage, Reaction, MessageStatus } from "@/types/chat";
+import { chatsApi, usersApi, gamesApi } from "@/services/api";
+import { ChatMessage } from "@/types/chat";
 
 // NOTE: We import API_BASE from services, but socket still needs it.
 // We might want to move socket logic to a service later, but for now hook is fine.
@@ -33,6 +33,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
     const [avatarByUserId, setAvatarByUserId] = useState<Record<string, string | null>>({});
     const [nameByUserId, setNameByUserId] = useState<Record<string, string>>({});
+    const [gameChatTitle, setGameChatTitle] = useState<string | null>(null);
 
     const messagesEndRef = useRef<any>(null);
     const scrollContainerRef = useRef<any>(null);
@@ -41,6 +42,50 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const typingTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
     // Fix #5: track fetched user IDs to prevent re-fetching and cascading re-renders
     const fetchedUserIdsRef = useRef<Set<string>>(new Set());
+    const otherUserIdRef = useRef<string | undefined>(undefined);
+
+    const mergeUserCaches = useCallback((
+        entries: Array<{ id?: string | null; name?: string | null; image?: string | null; imageUrl?: string | null }>
+    ) => {
+        const newAvatars: Record<string, string | null> = {};
+        const newNames: Record<string, string> = {};
+        for (const entry of entries) {
+            const id = entry?.id;
+            if (!id) continue;
+            const name = entry.name ? String(entry.name) : null;
+            const image = entry.image ?? entry.imageUrl;
+            if (!name && image === undefined) continue;
+            if (name || image !== undefined) fetchedUserIdsRef.current.add(id);
+            if (name) newNames[id] = name;
+            if (image !== undefined) newAvatars[id] = image ?? null;
+        }
+        if (Object.keys(newAvatars).length) {
+            setAvatarByUserId(prev => {
+                let changed = false;
+                const next = { ...prev };
+                for (const [id, image] of Object.entries(newAvatars)) {
+                    if (prev[id] !== image) {
+                        next[id] = image;
+                        changed = true;
+                    }
+                }
+                return changed ? next : prev;
+            });
+        }
+        if (Object.keys(newNames).length) {
+            setNameByUserId(prev => {
+                let changed = false;
+                const next = { ...prev };
+                for (const [id, name] of Object.entries(newNames)) {
+                    if (prev[id] !== name) {
+                        next[id] = name;
+                        changed = true;
+                    }
+                }
+                return changed ? next : prev;
+            });
+        }
+    }, []);
 
     // 0. Register Active Chat globally
     // Use chatDetails.id (resolved ChatRoom UUID) when available, else raw roomId
@@ -65,8 +110,18 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
                 try {
                     // Use silent=true to avoid logging 404s if it's a private chat ID (not a game)
                     const game = await gamesApi.getGameForChat(roomId, token, true);
-                    if (game && game.chatRoomId) {
-                        targetId = game.chatRoomId;
+                    if (game) {
+                        if (game.chatRoomId) targetId = game.chatRoomId;
+                        const title = game.title || game.fieldName || null;
+                        if (title) setGameChatTitle(String(title));
+
+                        // Seed participant names/avatars from the game roster (no per-user API calls)
+                        const roster = (game.participants || []).map((p: any) => ({
+                            id: p.id || p.userId,
+                            name: p.name,
+                            image: p.avatar || p.imageUrl,
+                        }));
+                        mergeUserCaches(roster);
                     }
                 } catch (e) {
                     // Not a game or failed to fetch, stick with roomId
@@ -78,6 +133,14 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
                 const data = await chatsApi.getDetails(targetId, token);
                 setChatDetails(data);
+
+                // Seed from chat room participants
+                const chatPeople = (data?.participants || []).map((p: any) => ({
+                    id: p.userId || p.user?.id,
+                    name: p.user?.name,
+                    image: p.user?.imageUrl,
+                }));
+                mergeUserCaches(chatPeople);
             } catch (e: any) {
                 // Ignore expected 404 errors to prevent them from showing as popups in LogBox
                 if (!e.message?.includes('Route not found') && !e.message?.includes('Chat not found')) {
@@ -86,7 +149,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             }
         };
         fetchDetails();
-    }, [roomId]); // Removed getToken to prevent re-fetching on every re-render
+    }, [roomId, mergeUserCaches]); // Removed getToken to prevent re-fetching on every re-render
 
     // 2. Load Messages
     useEffect(() => {
@@ -115,6 +178,15 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roomId]);
 
+    // Derived before socket effect — avoid TDZ and keep presence via ref so listeners don't remount
+    const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
+    const otherParticipant = isPrivate
+        ? chatDetails?.participants?.find((p: any) => p.userId !== user?.id)
+        : null;
+    const otherUserId = otherParticipant?.userId as string | undefined;
+    const otherUserAvatar = otherParticipant?.user?.imageUrl;
+    otherUserIdRef.current = otherUserId;
+
     // 3. Socket Logic via Singleton
     useEffect(() => {
         if (!user?.id || !roomId) return;
@@ -123,36 +195,51 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         // the correct socket room. Falls back to raw roomId on first render (before
         // chatDetails loads), and re-runs when chatDetails resolves.
         const joinRoom = () => {
+            SocketManager.ensureConnected();
             SocketManager.emit("joinRoom", effectiveRoomId);
+            if (effectiveRoomId !== roomId) {
+                // Also join raw route id (game id) when it differs — matches emit/filter dual-id pattern
+                SocketManager.emit("joinRoom", roomId);
+            }
             SocketManager.emit("markAsRead", { roomId: effectiveRoomId, userId: user?.id });
             markChatAsRead(effectiveRoomId);
+            if (roomId !== effectiveRoomId) markChatAsRead(roomId);
         };
 
-        joinRoom(); // Initial join
+        joinRoom();
 
         const unsubscribeConnect = SocketManager.on("connect", joinRoom);
 
+        const onAppStateChange = (next: AppStateStatus) => {
+            // Server rooms are empty after disconnect/background — rejoin without tearing listeners down
+            if (next === 'active') joinRoom();
+        };
+        const appSub = AppState.addEventListener('change', onAppStateChange);
+
         const unsubscribePresence = SocketManager.on('presence:update', ({ userId: uid, isOnline }) => {
-            if (uid === otherUserId) setIsOtherUserOnline(isOnline);
+            if (uid === otherUserIdRef.current) setIsOtherUserOnline(isOnline);
         });
 
         const unsubscribeTypingStart = SocketManager.on('typing:start', ({ chatId, userName, senderId }) => {
-            if (String(chatId) !== String(roomId)) return;
+            // Allow both roomId and effectiveRoomId to prevent typing events from being ignored
+            if (String(chatId) !== String(roomId) && String(chatId) !== String(effectiveRoomId)) return;
             if (String(senderId) === String(user?.id)) return;
             const name = userName || "Someone";
             if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
             setTypingUsers(prev => { const next = new Set(prev); next.add(name); return next; });
             typingTimeoutsRef.current[senderId] = setTimeout(() => {
                 setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
+                delete typingTimeoutsRef.current[senderId];
             }, 3000);
         });
 
         const unsubscribeTypingStop = SocketManager.on('typing:stop', ({ chatId, userName, senderId }) => {
-            if (String(chatId) !== String(roomId)) return;
+            if (String(chatId) !== String(roomId) && String(chatId) !== String(effectiveRoomId)) return;
             if (String(senderId) === String(user?.id)) return;
             const name = userName || "Someone";
             if (typingTimeoutsRef.current[senderId]) clearTimeout(typingTimeoutsRef.current[senderId]);
             setTypingUsers(prev => { const next = new Set(prev); next.delete(name); return next; });
+            delete typingTimeoutsRef.current[senderId];
         });
 
         const unsubscribeMessage = SocketManager.on("message", (incomingMsg: ChatMessage) => {
@@ -178,36 +265,38 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
                 }
             });
             if (incomingMsg.userId !== user?.id) {
-                SocketManager.emit("markAsRead", { roomId, userId: user?.id });
-                markChatAsRead(roomId);
+                SocketManager.emit("markAsRead", { roomId: effectiveRoomId, userId: user?.id });
+                markChatAsRead(effectiveRoomId);
+                if (roomId !== effectiveRoomId) markChatAsRead(roomId);
             }
         });
 
         const unsubscribeMessageUpdated = SocketManager.on("messageUpdated", (payload) => {
-            if (!payload.roomId || payload.roomId === roomId) {
+            if (!payload.roomId || payload.roomId === roomId || payload.roomId === effectiveRoomId) {
                 setMessages(prev => prev.map(m => m.id === payload.id ? { ...m, text: payload.text, isEdited: payload.isEdited } : m));
             }
         });
 
         const unsubscribeMessageDeleted = SocketManager.on("messageDeleted", (payload) => {
-            if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
+            if (payload.roomId && String(payload.roomId) !== String(roomId) && String(payload.roomId) !== String(effectiveRoomId)) return;
             setMessages(prev => prev.map(msg => String(msg.id) === String(payload.id) ? { ...msg, isDeleted: true, text: "[Content Removed]", status: 'rejected' } : msg));
         });
 
         const unsubscribeMessageReaction = SocketManager.on("messageReaction", (payload) => {
-            if (!payload.roomId || payload.roomId === roomId) {
+            if (!payload.roomId || payload.roomId === roomId || payload.roomId === effectiveRoomId) {
                 setMessages((prev) => prev.map(m => (String(m.id) === String(payload.messageId)) ? { ...m, reactions: payload.reactions } : m));
             }
         });
 
         const unsubscribeMessageStatusUpdate = SocketManager.on("messageStatusUpdate", (payload) => {
-            if (payload.roomId === roomId) {
+            if (payload.roomId === roomId || payload.roomId === effectiveRoomId) {
                 setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read') ? { ...m, status: payload.status } : m));
             }
         });
 
         return () => {
             unsubscribeConnect();
+            appSub.remove();
             unsubscribePresence();
             unsubscribeTypingStart();
             unsubscribeTypingStop();
@@ -216,29 +305,52 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             unsubscribeMessageDeleted();
             unsubscribeMessageReaction();
             unsubscribeMessageStatusUpdate();
+            Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
+            typingTimeoutsRef.current = {};
             // Do NOT emit leaveRoom here — that would eject the user from the Socket.io
             // room entirely, breaking ChatContext typing indicators on the chat list.
             // The user should stay passively joined (via joinChats) even when not
             // actively viewing this chat screen.
         };
-    }, [effectiveRoomId, roomId, user?.id, otherUserId]); // effectiveRoomId re-runs when chatDetails resolves
+    }, [effectiveRoomId, roomId, user?.id, markChatAsRead]); // otherUserId via ref — no remount on presence target resolve
 
-    // 4. Hydrate Users — Fix #5: batch update, ref guard, no cascading re-renders
+    // Keep local message list in sync when ChatContext cache receives socket updates for this room
     useEffect(() => {
+        const cached = messagesCache[roomId] || messagesCache[effectiveRoomId];
+        if (!cached || cached.length === 0) return;
+        setMessages(prev => {
+            if (cached.length <= prev.length) return prev;
+            // Prefer cache only when it grew (missed live event); avoid clobbering optimistic sends
+            const prevIds = new Set(prev.map(m => String(m.id)));
+            const hasNew = cached.some(m => !prevIds.has(String(m.id)));
+            return hasNew && cached.length >= prev.length ? cached : prev;
+        });
+    }, [messagesCache, roomId, effectiveRoomId]);
+
+    // 4. Hydrate Users from message payload / participants cache.
+    // Only fall back to profile API for IDs still missing after seeding.
+    useEffect(() => {
+        // Prefer sender data already embedded on each message
+        mergeUserCaches(
+            messages.map(m => ({
+                id: m.userId || m.senderId || m.sender?.id,
+                name: m.senderName || m.sender?.name,
+                image: m.sender?.image,
+            }))
+        );
+
         const missing = [...new Set(
-            messages.map(m => m.userId).filter((id): id is string => !!id)
+            messages.map(m => m.userId || m.senderId).filter((id): id is string => !!id)
         )].filter(id => !fetchedUserIdsRef.current.has(id));
 
         if (missing.length === 0) return;
 
-        // Mark all as in-flight immediately to prevent duplicate fetches
         missing.forEach(id => fetchedUserIdsRef.current.add(id));
 
         const hydrateUsers = async () => {
             const token = await getToken();
             if (!token) return;
 
-            // Fetch all missing users in parallel, then do ONE batch state update
             const results = await Promise.allSettled(
                 missing.map(uid => usersApi.getProfile(uid, token).then(u => ({ uid, u })))
             );
@@ -253,21 +365,19 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
                 }
             });
 
-            // Single state update per batch — no cascading effect triggers
             setAvatarByUserId(prev => ({ ...prev, ...newAvatars }));
             setNameByUserId(prev => ({ ...prev, ...newNames }));
         };
         hydrateUsers();
-    }, [messages]); // Fix #5: only messages in deps, no avatarByUserId
+    }, [messages, mergeUserCaches, getToken]);
 
 
-    // Helper Props for UI
-    const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
-    const otherParticipant = isPrivate ? chatDetails?.participants?.find((p: any) => p.userId !== user?.id) : null;
-    const otherUserId = otherParticipant?.userId;
-    const otherUserAvatar = otherParticipant?.user?.imageUrl;
-    const effectiveChatName = chatName || (isPrivate ? otherParticipant?.user?.name : "Game Chat") || (roomId === "global" ? "Global Chat" : "Chat");
-
+    const effectiveChatName =
+        chatName
+        || gameChatTitle
+        || (isPrivate ? otherParticipant?.user?.name : null)
+        || (roomId === "global" ? "Global Chat" : null)
+        || (isPrivate ? "Chat" : "Game Chat");
 
     // Actions
     const handleSendMessage = () => {

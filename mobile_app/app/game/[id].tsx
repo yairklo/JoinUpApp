@@ -448,7 +448,13 @@ export default function GameDetailsScreen() {
                     {isWaitlistOfferPending ? null : isParticipant ? (
                         <View>
                             <TouchableOpacity
-                                onPress={() => router.push(`/chat/${game.id}`)}
+                                onPress={() => router.push({
+                                    pathname: '/chat/[id]',
+                                    params: {
+                                        id: game.id,
+                                        name: game.title || game.fieldName || '',
+                                    },
+                                })}
                                 className="bg-blue-100 p-4 rounded-xl items-center mb-3 border border-blue-200"
                             >
                                 <Text className="text-blue-700 font-bold text-lg">פתח צ'אט</Text>
