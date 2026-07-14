@@ -1,4 +1,13 @@
 require('dotenv').config();
+
+// Surface fatal errors in Render logs instead of silent 502s
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] uncaughtException:', err?.stack || err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] unhandledRejection:', reason);
+});
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -101,6 +110,8 @@ async function initializeDataFiles() {
 const io = new Server(server, {
   path: '/api/socket',
   transports: ['polling', 'websocket'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
   cors: {
     // Mirror Express: allow listed web origins; allow missing Origin (mobile / native)
     origin: (origin, callback) => {
@@ -183,12 +194,7 @@ app.get('/api/debug/chatAuth/:chatId', async (req, res) => {
     }
 });
 
-// 404 handler (no path pattern to avoid path-to-regexp issues)
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
-
-
+// 404 handler moved below Socket.IO handlers — registered just before global error handler
 
 io.use(async (socket, next) => {
   try {
@@ -1097,6 +1103,11 @@ setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
 // Kick once on boot (non-blocking)
 runWeeklySeriesGeneration().catch(() => { });
 
+// 404 handler (must be after all routes, before error handler)
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
 // Global Error handling middleware (Must be last before server start)
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -1106,8 +1117,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server (HTTP + Socket.IO)
-server.listen(PORT, async () => {
+// Start server (HTTP + Socket.IO) — bind 0.0.0.0 for Render's proxy
+server.listen(PORT, '0.0.0.0', async () => {
   await initializeDataFiles();
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
