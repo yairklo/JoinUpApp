@@ -90,8 +90,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // API Client handles base URL
 
 
-    // Send 'setup' to join personal notification room.
-    // Called on mount (socket may already be connected) AND on every reconnect / foreground.
+    // Restore personal room + chat rooms on socket (re)connect.
+    // Soft AppState wake only — never tear down / forceNew the singleton.
     useEffect(() => {
         if (!user?.id) return;
 
@@ -105,18 +105,28 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             SocketManager.emit('joinChats', chatIds);
         };
 
-        const restoreRealtime = () => {
-            // After background/network drops, server rooms are empty until we rejoin.
-            SocketManager.ensureConnected();
+        // Called only after a successful connect — rooms were cleared server-side
+        const onSocketConnected = () => {
             sendSetup();
             rejoinAllChats();
         };
 
-        restoreRealtime();
-        const unsubConnect = SocketManager.on('connect', restoreRealtime);
+        // If already connected (AuthGuard connected first), join immediately
+        if (SocketManager.connected) {
+            onSocketConnected();
+        }
+
+        const unsubConnect = SocketManager.on('connect', onSocketConnected);
 
         const onAppStateChange = (next: AppStateStatus) => {
-            if (next === 'active') restoreRealtime();
+            if (next !== 'active') return;
+            // Soft wake only. Room rejoin happens via the 'connect' listener once up.
+            // If still connected after background, rejoin rooms now (no disconnect event).
+            if (SocketManager.connected) {
+                onSocketConnected();
+            } else {
+                SocketManager.ensureConnected();
+            }
         };
         const appSub = AppState.addEventListener('change', onAppStateChange);
 

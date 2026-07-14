@@ -195,10 +195,9 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         // the correct socket room. Falls back to raw roomId on first render (before
         // chatDetails loads), and re-runs when chatDetails resolves.
         const joinRoom = () => {
-            SocketManager.ensureConnected();
+            // Soft room join only — do NOT ensureConnected() here (that raced AuthGuard connect)
             SocketManager.emit("joinRoom", effectiveRoomId);
             if (effectiveRoomId !== roomId) {
-                // Also join raw route id (game id) when it differs — matches emit/filter dual-id pattern
                 SocketManager.emit("joinRoom", roomId);
             }
             SocketManager.emit("markAsRead", { roomId: effectiveRoomId, userId: user?.id });
@@ -206,13 +205,20 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             if (roomId !== effectiveRoomId) markChatAsRead(roomId);
         };
 
-        joinRoom();
+        if (SocketManager.connected) {
+            joinRoom();
+        }
 
         const unsubscribeConnect = SocketManager.on("connect", joinRoom);
 
         const onAppStateChange = (next: AppStateStatus) => {
-            // Server rooms are empty after disconnect/background — rejoin without tearing listeners down
-            if (next === 'active') joinRoom();
+            if (next !== 'active') return;
+            if (SocketManager.connected) {
+                joinRoom();
+            } else {
+                // Soft wake; joinRoom runs from the 'connect' listener
+                SocketManager.ensureConnected();
+            }
         };
         const appSub = AppState.addEventListener('change', onAppStateChange);
 
