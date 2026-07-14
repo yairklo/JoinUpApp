@@ -28,6 +28,7 @@ export type Game = {
     friendsOnlyUntil?: string | null;
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     pendingRequestCount?: number;
+    waitlistCount?: number;
     viewerParticipationStatus?: 'CONFIRMED' | 'WAITLISTED' | 'PENDING' | 'REJECTED' | null;
     isOpenToJoin?: boolean;
     lotteryEnabled?: boolean;
