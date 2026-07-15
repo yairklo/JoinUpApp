@@ -618,24 +618,15 @@ io.on('connection', async (socket) => {
             unreadCountIncrement: 1
           });
 
-          if (online) {
-            // User is actively connected: lightweight real-time in-app alert only
-            io.to(`user_${recipientId}`).emit('notification', {
-              type: 'message',
-              roomId: roomId,
-              senderId: finalUserId,
-              text: text
-            });
-          } else {
-            // User is offline: persist to DB + fall back to Expo push via the shared NotificationService
-            notificationService.sendNotification(
+          if (!online) {
+            // Offline only: push to device — never persist chat to Notification table
+            notificationService.sendPushOnly(
               recipientId,
               'NEW_MESSAGE',
               senderUser?.name || senderName || 'הודעה חדשה',
               messagePreview,
-              { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` },
-              io
-            ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message notification:', err));
+              { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` }
+            ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
           }
         });
       } catch (err) {

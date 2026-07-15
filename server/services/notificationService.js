@@ -56,6 +56,19 @@ class NotificationService {
     }
 
     /**
+     * Push-only delivery — no DB row, no in-app notifications feed socket event.
+     * Used for chat messages (handled via chat:sync + message counters separately).
+     */
+    async sendPushOnly(userId, type, title, body, data = {}) {
+        try {
+            await this.sendPushToAllDevices(userId, type, title, body, data);
+        } catch (error) {
+            Logger.error('NotificationService', 'Failed to send push-only notification:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Send notification to user (DB + Push + WebSocket)
      * @param {string} userId - Recipient user ID
      * @param {string} type - NotificationType enum value
@@ -341,7 +354,11 @@ class NotificationService {
      */
     async getNotifications(userId, limit = 50, offset = 0) {
         return this.prisma.notification.findMany({
-            where: { userId },
+            where: {
+                userId,
+                // Chat messages use chat:sync + counters — never belong in the general feed
+                type: { not: 'NEW_MESSAGE' },
+            },
             orderBy: { createdAt: 'desc' },
             take: limit,
             skip: offset
@@ -353,7 +370,11 @@ class NotificationService {
      */
     async getUnreadCount(userId) {
         return this.prisma.notification.count({
-            where: { userId, read: false }
+            where: {
+                userId,
+                read: false,
+                type: { not: 'NEW_MESSAGE' },
+            }
         });
     }
 
