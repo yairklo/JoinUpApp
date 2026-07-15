@@ -5,7 +5,7 @@ import { usersApi, NotificationCounters } from '@/services/api';
 
 const EMPTY_COUNTERS: NotificationCounters = { friendRequests: 0, unreadMessages: 0 };
 
-// Drives the live Navbar badges (pending friend requests + unread chat messages).
+// Drives the live Navbar badges (pending friend requests + unread chat rooms).
 // Fetches the aggregated snapshot once on mount/reconnect, then stays in sync via the
 // server-pushed 'countersUpdated' socket event — no client-side incrementing, so the
 // badge can never drift out of sync with the database.

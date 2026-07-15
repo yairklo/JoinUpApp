@@ -53,27 +53,64 @@ const PORT = process.env.PORT || 3005;
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
-// Middleware — CORS for Web (Vercel/local) + no-origin clients (mobile / Postman)
+// Middleware — CORS for Web (Vercel/local) + no-origin clients (mobile / Postman / Expo)
 const allowedOrigins = [
-  'https://join-up-app.vercel.app', // Vercel Web App
-  'http://localhost:3000',          // Local Web development
-  // Optional extras from env (comma-separated), e.g. preview deployments
+  'https://join-up-app.vercel.app', // Vercel Web App (production)
+  'http://localhost:3000',          // Local Next.js dev
   ...(process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
-].filter((origin, i, arr) => arr.indexOf(origin) === i); // dedupe
+].filter((origin, i, arr) => arr.indexOf(origin) === i);
+
+const isProduction = process.env.NODE_ENV === 'production';
+// Staging on Render may still set NODE_ENV=production — opt in via CORS_PERMISSIVE=true
+const corsPermissive =
+  process.env.CORS_PERMISSIVE === 'true' || process.env.CORS_PERMISSIVE === '1' || !isProduction;
+
+const LOCAL_DEV_ORIGIN_PATTERNS = [
+  /^https?:\/\/localhost(:\d+)?$/i,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?$/i,
+  /^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
+  /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
+  /^https?:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
+  /^exp:\/\/[\w.-]+(:\d+)?$/i,
+  /^https?:\/\/[\w-]+\.vercel\.app$/i, // Vercel preview / staging deployments
+];
+
+function isLocalDevOrigin(origin) {
+  return LOCAL_DEV_ORIGIN_PATTERNS.some((re) => re.test(origin));
+}
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (isLocalDevOrigin(origin)) return true;
+  if (corsPermissive) return true;
+  return false;
+}
+
+function corsOriginCallback(origin, callback) {
+  // React Native, Expo, Postman, curl — no Origin header
+  if (!origin) return callback(null, true);
+
+  if (isOriginAllowed(origin)) {
+    return callback(null, true);
+  }
+
+  console.warn('[CORS] Rejected origin:', origin, {
+    NODE_ENV: process.env.NODE_ENV,
+    corsPermissive,
+    hint: 'Add to CORS_ORIGINS env (comma-separated) or set CORS_PERMISSIVE=true on staging',
+    allowedOrigins,
+  });
+
+  return callback(
+    new Error('The CORS policy for this site does not allow access from the specified Origin.'),
+    false
+  );
+}
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Mobile apps, Expo, Postman, and same-origin tools often send no Origin header
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        return callback(
-          new Error('The CORS policy for this site does not allow access from the specified Origin.'),
-          false
-        );
-      }
-      return callback(null, true);
-    },
+    origin: corsOriginCallback,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -113,12 +150,7 @@ const io = new Server(server, {
   pingTimeout: 60000,
   pingInterval: 25000,
   cors: {
-    // Mirror Express: allow listed web origins; allow missing Origin (mobile / native)
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error('Not allowed by CORS'), false);
-    },
+    origin: corsOriginCallback,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -1113,7 +1145,7 @@ server.listen(PORT, '0.0.0.0', async () => {
   await initializeDataFiles();
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔌 Socket.IO ready on /api/socket (CORS origins: ${JSON.stringify(allowedOrigins)})`);
+  console.log(`🔌 Socket.IO ready on /api/socket (CORS allowlist: ${JSON.stringify(allowedOrigins)}, permissive: ${corsPermissive})`);
 
   // Start notification workers
   startGameReminderWorker(io);
