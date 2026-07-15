@@ -809,7 +809,9 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
       };
     });
 
-    const parsedChats = results.filter(Boolean);
+    const parsedChats = Array.from(
+      new Map(results.filter(Boolean).map((c) => [c.id, c])).values()
+    );
 
     // Sort by last message time
     parsedChats.sort((a, b) => {

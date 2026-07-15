@@ -54,6 +54,31 @@ interface ChatContextProps {
 
 const ChatContext = createContext<ChatContextProps | undefined>(undefined);
 
+/** Keep one row per chat id — last writer wins; merge unread + newest preview when colliding. */
+export function dedupeChatsById(chats: ChatPreview[]): ChatPreview[] {
+    const byId = new Map<string, ChatPreview>();
+    for (const chat of chats) {
+        if (!chat?.id) continue;
+        const existing = byId.get(chat.id);
+        if (!existing) {
+            byId.set(chat.id, chat);
+            continue;
+        }
+        const existingTs = existing.lastMessage?.createdAt
+            ? new Date(existing.lastMessage.createdAt).getTime()
+            : 0;
+        const chatTs = chat.lastMessage?.createdAt
+            ? new Date(chat.lastMessage.createdAt).getTime()
+            : 0;
+        const newer = chatTs >= existingTs ? chat : existing;
+        byId.set(chat.id, {
+            ...newer,
+            unreadCount: Math.max(existing.unreadCount || 0, chat.unreadCount || 0),
+        });
+    }
+    return Array.from(byId.values());
+}
+
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useUser();
     const { getToken } = useAuth();
@@ -74,6 +99,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
     // Fix #3: ref-based guard so loadChats has a stable reference
     const chatsLoadedRef = useRef(false);
+    const loadChatsInFlightRef = useRef(false);
     const chatsRef = useRef<ChatPreview[]>([]);
     const activeChatIdRef = useRef<string | null>(null);
     const updateChatListRef = useRef<(newMessage: any) => void>(() => {});
@@ -145,27 +171,29 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // 1. Load Chats
     const loadChats = useCallback(async (forceRefresh = false) => {
         if (!user?.id) return;
-        // Fix #3: use ref instead of chats.length to avoid stale closure rebuild
         if (!forceRefresh && chatsLoadedRef.current) return;
+        if (loadChatsInFlightRef.current) return;
 
+        loadChatsInFlightRef.current = true;
         setLoadingChats(true);
         try {
             const token = await getToken();
             if (!token) return;
 
             const data = await chatsApi.getUserChats(user.id, token);
-            setChats(data);
+            const unique = dedupeChatsById(data);
+            setChats(unique);
 
-            // Global badge = distinct rooms with unread (not total message count)
-            const total = data.filter((chat: ChatPreview) => (chat.unreadCount || 0) > 0).length;
+            const total = unique.filter((chat: ChatPreview) => (chat.unreadCount || 0) > 0).length;
             setTotalUnread(total);
             chatsLoadedRef.current = true;
         } catch (error) {
             console.error("Failed to load chats", error);
         } finally {
             setLoadingChats(false);
+            loadChatsInFlightRef.current = false;
         }
-    }, [user?.id, getToken]); // Fix #3: removed chats.length — stable reference now
+    }, [user?.id, getToken]);
 
     // 2. Load Messages (Prefetch/Cache)
     const loadMessages = useCallback(async (chatId: string, forceFetch = false): Promise<ChatMessage[]> => {
@@ -227,11 +255,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                                 status: lastMsg.status || 'sent'
                             }
                         };
-                        return newChats.sort((a, b) => {
-                            const dateA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : new Date(a.createdAt).getTime();
-                            const dateB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : new Date(b.createdAt).getTime();
+                        return dedupeChatsById(newChats.sort((a, b) => {
+                            const dateA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+                            const dateB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
                             return dateB - dateA;
-                        });
+                        }));
                     }
                     return prevChats;
                 });
@@ -293,9 +321,9 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                 setTotalUnread(prev => prev + 1);
             }
 
-            // Move to top
-            const otherChats = prevChats.filter((_, i) => i !== chatIndex);
-            return [updatedChat, ...otherChats];
+            // Move to top — always dedupe in case a stale duplicate id was already in state
+            const otherChats = prevChats.filter((c) => c.id !== roomId);
+            return dedupeChatsById([updatedChat, ...otherChats]);
         });
 
         // B. Update Messages Cache
@@ -341,8 +369,9 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         const handleIncoming = (incomingMsg: any) => {
             updateChatListRef.current(incomingMsg);
         };
+        // chat:sync is the canonical feed update — do not also listen to `message` here
+        // (room `message` + user `chat:sync` double-fire caused redundant state churn / dupes)
         const unsubSync = SocketManager.on('chat:sync', handleIncoming);
-        const unsubMsg = SocketManager.on('message', handleIncoming);
 
         const unsubTypingStart = SocketManager.on('typing:start', ({ chatId, userName, senderId }) => {
             if (!chatId) return;
@@ -375,7 +404,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
         return () => {
             unsubSync();
-            unsubMsg();
             unsubTypingStart();
             unsubTypingStop();
             Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
@@ -433,7 +461,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
             const newChats = [...prevChats];
             newChats[chatIndex] = { ...newChats[chatIndex], unreadCount: 0 };
-            return newChats;
+            return dedupeChatsById(newChats);
         });
     }, []);
 

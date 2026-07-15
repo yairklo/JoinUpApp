@@ -2,7 +2,7 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshContr
 import { Image } from 'expo-image';
 import React, { useState, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/clerk-expo';
-import { useChat, ChatPreview } from '@/context/ChatContext';
+import { useChat, ChatPreview, dedupeChatsById } from '@/context/ChatContext';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -88,7 +88,7 @@ export default function ChatsScreen() {
     }, [loadChats]);
 
     const filteredChats = useMemo(
-        () => chats.filter(chat => tabValue === 0 ? chat.type === 'private' : chat.type === 'group'),
+        () => dedupeChatsById(chats.filter(chat => tabValue === 0 ? chat.type === 'private' : chat.type === 'group')),
         [chats, tabValue]
     );
 
@@ -182,7 +182,7 @@ export default function ChatsScreen() {
 
             <FlatList
                 data={filteredChats}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, index) => (item.id ? String(item.id) : `chat-row-${index}`)}
                 renderItem={renderItem}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
