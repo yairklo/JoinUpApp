@@ -1,7 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useSocket } from '@/context/SocketContext';
-import { notificationsApi, Notification as NotificationType, API_BASE } from '@/services/api';
+import { notificationsApi, Notification as NotificationType } from '@/services/api';
+
+const CHAT_NOTIFICATION_TYPES = new Set(['message', 'NEW_MESSAGE', 'CHAT_MESSAGE', 'chat_message']);
+
+function isChatNotification(data: { type?: string; roomId?: string; data?: Record<string, unknown> }): boolean {
+    const type = String(data.type || '').trim();
+    const typeUpper = type.toUpperCase();
+    if (CHAT_NOTIFICATION_TYPES.has(type) || typeUpper === 'NEW_MESSAGE' || typeUpper === 'MESSAGE') {
+        return true;
+    }
+    return !!(data.roomId || data.data?.chatId || data.data?.roomId);
+}
+
+function filterFeedNotifications(items: NotificationType[]): NotificationType[] {
+    return items.filter((n) => !isChatNotification({ type: n.type, data: n.data }));
+}
 
 export function useNotifications() {
     const { userId, isLoaded, getToken } = useAuth();
@@ -10,91 +25,86 @@ export function useNotifications() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
     const { socket, isConnected } = useSocket();
+    const getTokenRef = useRef(getToken);
 
-    // 1. Fetch Notifications (Initial + Polling)
+    useEffect(() => {
+        getTokenRef.current = getToken;
+    }, [getToken]);
+
     const fetchNotifications = useCallback(async () => {
         if (!userId) return;
-        setLoading(prev => prev === false ? true : prev); // Only set true if not already loading to avoid flicker? Or maybe just set true.
-        // Actually, for polling we might not want to set loading=true every time, but for initial load yes.
-        // Let's stick to simple logic: Only set loading on first fetch? 
-        // For now, let's just set it.
-
+        setLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             const data = await notificationsApi.getAll(token);
-            setNotifications(data.notifications || []);
+            setNotifications(filterFeedNotifications(data.notifications || []));
             setUnreadCount(data.unreadCount || 0);
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to fetch:', error);
         } finally {
             setLoading(false);
         }
-    }, [userId]); // Removed getToken to prevent infinite re-renders
+    }, [userId]);
 
-    // Initial Fetch & Polling
     useEffect(() => {
         if (!isLoaded || !userId) return;
-
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
-    }, [isLoaded, userId]); // Removed fetchNotifications to prevent infinite loop
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoaded, userId]);
 
-    // 2. Socket Connection
     useEffect(() => {
         if (!userId || !socket || !isConnected) return;
 
-        // Emit initial join
         socket.emit('join', `user_${userId}`);
 
-        // Event Handlers
-        const handleNotification = (data: NotificationType) => {
-            console.log('[NOTIFICATIONS] Received real-time notification:', data);
-            setNotifications(prev => [data, ...prev]);
-            setUnreadCount(prev => prev + 1);
+        const handleNotification = (data: NotificationType & { roomId?: string }) => {
+            if (isChatNotification(data)) return;
 
-            if (Notification.permission === 'granted') {
+            setNotifications((prev) => {
+                if (data.id && prev.some((n) => n.id === data.id)) return prev;
+                return [data, ...prev];
+            });
+            setUnreadCount((prev) => prev + 1);
+
+            if (typeof window !== 'undefined' && Notification.permission === 'granted') {
                 new Notification(data.title, {
                     body: data.body,
-                    icon: '/icon-192x192.png'
+                    icon: '/icon-192x192.png',
                 });
             }
         };
 
         socket.on('notification', handleNotification);
-
         return () => {
             socket.off('notification', handleNotification);
         };
     }, [userId, socket, isConnected]);
 
-
-    // 3. Actions
     const markAsRead = async (id: string) => {
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
 
-            // Optimistic update
-            setNotifications(prev =>
-                prev.map(n => (n.id === id ? { ...n, read: true } : n))
+            setNotifications((prev) =>
+                prev.map((n) => (n.id === id ? { ...n, read: true } : n))
             );
-            setUnreadCount(prev => Math.max(0, prev - 1));
+            setUnreadCount((prev) => Math.max(0, prev - 1));
 
             await notificationsApi.markAsRead(id, token);
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to mark as read:', error);
-            // Revert on error? For now, keep simple.
         }
     };
 
     const markAllAsRead = async () => {
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
 
-            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
             setUnreadCount(0);
 
             await notificationsApi.markAllAsRead(token);
@@ -108,6 +118,6 @@ export function useNotifications() {
         unreadCount,
         loading,
         markAsRead,
-        markAllAsRead
+        markAllAsRead,
     };
 }
