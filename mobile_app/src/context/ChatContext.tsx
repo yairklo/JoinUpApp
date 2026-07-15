@@ -156,8 +156,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             const data = await chatsApi.getUserChats(user.id, token);
             setChats(data);
 
-            // Calculate total unread
-            const total = data.reduce((acc: number, chat: ChatPreview) => acc + (chat.unreadCount || 0), 0);
+            // Global badge = distinct rooms with unread (not total message count)
+            const total = data.filter((chat: ChatPreview) => (chat.unreadCount || 0) > 0).length;
             setTotalUnread(total);
             chatsLoadedRef.current = true;
         } catch (error) {
@@ -274,6 +274,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             const incrementAmount = newMessage.unreadCountIncrement || 1;
             const shouldIncrementUnread = (!isActiveChat && senderId !== user?.id);
 
+            const prevUnread = prevChats[chatIndex].unreadCount || 0;
             const updatedChat = {
                 ...prevChats[chatIndex],
                 lastMessage: {
@@ -283,13 +284,13 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
                     status
                 },
                 unreadCount: shouldIncrementUnread
-                    ? (prevChats[chatIndex].unreadCount || 0) + incrementAmount
-                    : prevChats[chatIndex].unreadCount
+                    ? prevUnread + incrementAmount
+                    : prevUnread
             };
 
-            // Update Global Unread if needed
-            if (shouldIncrementUnread) {
-                setTotalUnread(prev => prev + incrementAmount);
+            // Global badge: +1 only when this room newly gains unread (was 0 before)
+            if (shouldIncrementUnread && prevUnread === 0) {
+                setTotalUnread(prev => prev + 1);
             }
 
             // Move to top
@@ -428,8 +429,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             const chatIndex = prevChats.findIndex(c => c.id === chatId);
             if (chatIndex === -1 || !prevChats[chatIndex].unreadCount) return prevChats;
 
-            const unreadCount = prevChats[chatIndex].unreadCount;
-            setTotalUnread(prev => Math.max(0, prev - unreadCount));
+            setTotalUnread(prev => Math.max(0, prev - 1));
 
             const newChats = [...prevChats];
             newChats[chatIndex] = { ...newChats[chatIndex], unreadCount: 0 };

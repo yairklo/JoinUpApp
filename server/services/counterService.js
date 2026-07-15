@@ -1,5 +1,5 @@
 // Aggregates the lightweight "badge" counters shown on the global Navbar/Tab bar
-// (pending friend requests + unread chat messages) and keeps them live via sockets.
+// (pending friend requests + unread chat *rooms*) and keeps them live via sockets.
 // Kept separate from NotificationService (DB-persisted notification feed) since these
 // counters are derived/ephemeral — always recomputed from source-of-truth rows.
 
@@ -10,9 +10,7 @@ async function getPendingFriendRequestCount(prisma, userId) {
 }
 
 async function getUnreadMessageCount(prisma, userId) {
-  // Resolve the user's joined room IDs first (indexed lookup on ChatParticipant.userId)
-  // rather than filtering Message via a relational `chatRoom: { participants: { some } }`
-  // join, which would force a join/scan against the entire Message table as it grows.
+  // Global chat tab badge = number of distinct rooms with unread messages (not total message count).
   const participations = await prisma.chatParticipant.findMany({
     where: { userId },
     select: { chatId: true }
@@ -20,13 +18,17 @@ async function getUnreadMessageCount(prisma, userId) {
   const joinedRoomIds = participations.map(p => p.chatId);
   if (joinedRoomIds.length === 0) return 0;
 
-  return prisma.message.count({
+  const roomsWithUnread = await prisma.message.groupBy({
+    by: ['chatRoomId'],
     where: {
       chatRoomId: { in: joinedRoomIds },
       userId: { not: userId },
       status: { not: 'read' }
-    }
+    },
+    _count: { id: true }
   });
+
+  return roomsWithUnread.length;
 }
 
 async function getCounters(prisma, userId) {

@@ -96,10 +96,9 @@ export default function ChatsScreen() {
         let players = 0;
         let games = 0;
         for (const chat of chats) {
-            const count = chat.unreadCount || 0;
-            if (count <= 0) continue;
-            if (chat.type === 'private') players += count;
-            else if (chat.type === 'group') games += count;
+            if ((chat.unreadCount || 0) <= 0) continue;
+            if (chat.type === 'private') players += 1;
+            else if (chat.type === 'group') games += 1;
         }
         return { playersUnread: players, gamesUnread: games };
     }, [chats]);

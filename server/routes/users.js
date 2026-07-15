@@ -141,7 +141,7 @@ router.get('/search', authenticateToken, async (req, res) => {
 });
 
 // GET /api/users/notifications/counts - Aggregated Navbar/Tab badge counters
-// (pending friend requests awaiting the caller's decision + unread chat messages
+// (pending friend requests awaiting the caller's decision + unread chat *rooms*
 // across all rooms the caller belongs to). Kept as a static route, registered
 // before any '/:id'-style routes below to avoid path collisions.
 router.get('/notifications/counts', authenticateToken, async (req, res) => {
