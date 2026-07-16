@@ -4,6 +4,8 @@ FROM node:20-alpine
 # 2. התקנת תלויות מערכת ש-Prisma צריכה בשביל לרוץ על Alpine (כמו openssl)
 RUN apk add --no-cache openssl
 
+RUN apk add --no-cache curl
+
 # 3. הגדרת תיקיית העבודה בקונטיינר
 WORKDIR /app
 
