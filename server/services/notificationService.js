@@ -22,17 +22,13 @@ function initializeFirebase() {
         }
         // Option 2: Using environment variables (works on both local dotenv and Render)
         else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
-            // Render stores the key with literal \n sequences; dotenv may double-escape them.
-            // This handles both: replace \\n (double-escaped) first, then any remaining \n literals.
-            const rawKey = process.env.FIREBASE_PRIVATE_KEY;
-            const privateKey = rawKey.includes('\\n')
-                ? rawKey.replace(/\\n/g, '\n')
-                : rawKey;
             if (!admin.apps.length) {
                 admin.initializeApp({
                     credential: admin.credential.cert({
                         projectId: process.env.FIREBASE_PROJECT_ID,
-                        privateKey,
+                        privateKey: process.env.FIREBASE_PRIVATE_KEY
+                            ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+                            : undefined,
                         clientEmail: process.env.FIREBASE_CLIENT_EMAIL
                     })
                 });
