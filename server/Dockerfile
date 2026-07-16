@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 5. התקנת התלויות (כולל devDependencies כדי שנוכל להשתמש ב-CLI של Prisma בבנייה)
-RUN npm ci
+RUN npm install
 
 # 6. העתקת תיקיית ה-prisma (שם נמצא ה-schema.prisma)
 COPY prisma ./prisma/
