@@ -22,6 +22,15 @@ function initializeFirebase() {
         }
         // Option 2: Using environment variables (works on both local dotenv and Render)
         else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+            const rawKey = process.env.FIREBASE_PRIVATE_KEY;
+            if (rawKey) {
+                console.log('[DEBUG KEY] Starts with:', JSON.stringify(rawKey.substring(0, 40)));
+                console.log('[DEBUG KEY] Ends with:', JSON.stringify(rawKey.substring(rawKey.length - 40)));
+                console.log('[DEBUG KEY] Contains raw newlines (\\n as text):', rawKey.includes('\\n'));
+                console.log('[DEBUG KEY] Contains real newlines:', rawKey.includes('\n'));
+            } else {
+                console.log('[DEBUG KEY] FIREBASE_PRIVATE_KEY is undefined');
+            }
             if (!admin.apps.length) {
                 admin.initializeApp({
                     credential: admin.credential.cert({
