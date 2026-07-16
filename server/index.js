@@ -54,9 +54,13 @@ const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
 // Middleware — CORS for Web (Vercel/local) + no-origin clients (mobile / Postman / Expo)
+const WEB_ALLOWED_ORIGINS = [
+  'https://join-up-app.vercel.app',
+  'http://localhost:3000',
+];
+
 const allowedOrigins = [
-  'https://join-up-app.vercel.app', // Vercel Web App (production)
-  'http://localhost:3000',          // Local Next.js dev
+  ...WEB_ALLOWED_ORIGINS,
   ...(process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
 ].filter((origin, i, arr) => arr.indexOf(origin) === i);
 
@@ -92,13 +96,13 @@ function corsOriginCallback(origin, callback) {
   if (!origin) return callback(null, true);
 
   if (isOriginAllowed(origin)) {
-    return callback(null, true);
+    // Must echo the exact origin (not *) when credentials: true
+    return callback(null, origin);
   }
 
   console.warn('[CORS] Rejected origin:', origin, {
     NODE_ENV: process.env.NODE_ENV,
     corsPermissive,
-    hint: 'Add to CORS_ORIGINS env (comma-separated) or set CORS_PERMISSIVE=true on staging',
     allowedOrigins,
   });
 
@@ -151,7 +155,8 @@ const io = new Server(server, {
   pingInterval: 25000,
   cors: {
     origin: corsOriginCallback,
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   },
 });
