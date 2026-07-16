@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/clerk-expo';
 import { requestForToken, onMessageListener } from '../utils/firebase';
+import { API_BASE } from '@/services/api/client';
 
 const useNotification = () => {
     const { getToken } = useAuth();
@@ -40,7 +41,7 @@ const useNotification = () => {
 
     const registerDevice = async (token: string) => {
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
+            const apiUrl = API_BASE;
             console.log('[NOTIFICATION] Registering device to:', `${apiUrl}/api/notifications/register-device`);
 
             const response = await fetch(`${apiUrl}/api/notifications/register-device`, {

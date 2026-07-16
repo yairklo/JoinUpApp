@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import { API_BASE } from './api/client';
+import { SOCKET_BASE } from './api/client';
 
 let socket: Socket | null = null;
 let isConnecting = false;
@@ -15,22 +15,19 @@ const COOLDOWN_AFTER_FAILURES_MS = 60_000;
 const COOLDOWN_FAILURE_THRESHOLD = 4;
 
 /**
- * Normalize API base for Socket.IO:
+ * Normalize base URL for Socket.IO:
  * - strip trailing slash
  * - strip trailing /api (would produce /api/api/socket with path option)
- * - force https:// against Render in production (wss:// handshake)
+ * - force https:// for remote production hosts (wss:// handshake)
  */
 function socketServerUrl(): string {
-  let url = String(API_BASE || '').trim().replace(/\/+$/, '');
+  let url = String(SOCKET_BASE || '').trim().replace(/\/+$/, '');
   if (!url) return url;
 
   if (url.endsWith('/api')) {
     url = url.slice(0, -4);
   }
 
-  if (url.includes('onrender.com') && url.startsWith('http://')) {
-    url = url.replace(/^http:\/\//i, 'https://');
-  }
   if (__DEV__ && url.startsWith('http://')) {
     return url;
   }
@@ -145,8 +142,13 @@ function attachCoreHandlers(active: Socket) {
   });
 }
 
-function isRenderHost(): boolean {
-  return socketServerUrl().includes('onrender.com');
+function isRemoteProductionHost(): boolean {
+  const url = socketServerUrl();
+  if (!url || __DEV__) return false;
+  return (
+    url.startsWith('https://') &&
+    !/^https:\/\/(localhost|127\.0\.0\.1|10\.|192\.168\.)/i.test(url)
+  );
 }
 
 export const SocketManager = {
@@ -157,7 +159,7 @@ export const SocketManager = {
 
   /**
    * Idempotent singleton connect — never destroy/recreate on AppState or token refresh.
-   * Polling-first is required for Render sticky sessions on React Native.
+   * Polling-first helps behind reverse proxies / load balancers on React Native.
    */
   connect(token: string) {
     if (isInCooldown()) return;
@@ -170,7 +172,7 @@ export const SocketManager = {
 
     const url = socketServerUrl();
     if (!url) {
-      console.error('[SocketManager] Missing EXPO_PUBLIC_API_URL / API_BASE');
+      console.error('[SocketManager] Missing EXPO_PUBLIC_SOCKET_URL / EXPO_PUBLIC_API_URL');
       return;
     }
 
@@ -193,7 +195,7 @@ export const SocketManager = {
     isConnecting = true;
     console.log('[SocketManager] Creating socket →', handshakeLogLabel(url));
 
-    const handshakeTimeout = isRenderHost() ? 45000 : 20000;
+    const handshakeTimeout = isRemoteProductionHost() ? 45000 : 20000;
 
     socket = io(url, {
       path: '/api/socket',

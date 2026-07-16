@@ -1,8 +1,9 @@
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
 
-// API base URL — set via EXPO_PUBLIC_API_URL in .env
-// Production: https://joinupapp-1.onrender.com | Dev fallback: http://10.0.2.2:3005 (Android emulator)
-export const API_BASE = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3005";
+// API base URL — set via EXPO_PUBLIC_API_URL in .env / eas.json
+// Optional override for Socket.IO: EXPO_PUBLIC_SOCKET_URL (defaults to API URL)
+export const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3005';
+export const SOCKET_BASE = process.env.EXPO_PUBLIC_SOCKET_URL || API_BASE;
 
 function mapGameTimezones(data: any): any {
     if (!data) return data;
