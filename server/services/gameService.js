@@ -268,7 +268,7 @@ function notifyOrganizerOfInstantJoin(game, joiningUser, io) {
   if (game.organizerId === joiningUser.id) return;
   notificationService.sendNotification(
     game.organizerId,
-    'GAME_PLAYER_JOINED',
+    'GAME_JOIN_REQUEST',
     'מישהו הצטרף למשחק שלך',
     `${joiningUser.name || 'משתמש'} הצטרף/ה למשחק שלך`,
     { gameId: game.id, userId: joiningUser.id, link: `/game/${game.id}` },
