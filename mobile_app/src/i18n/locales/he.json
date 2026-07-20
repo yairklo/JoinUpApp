@@ -161,7 +161,8 @@
     "newGameInCityTitle": "משחק חדש ב{{city}}",
     "newGameInCityBody": "{{name}} פתח/ה משחק חדש ב{{fieldName}}",
     "joinRequestTitle": "מישהו הצטרף למשחק שלך",
-    "joinRequestBody": "{{name}} הצטרף/ה למשחק הפרטי שלך"
+    "joinRequestBody": "{{name}} הצטרף/ה למשחק הפרטי שלך",
+    "sendMessage": "שלח הודעה"
   },
   "field": {
     "profile": "פרופיל מגרש",

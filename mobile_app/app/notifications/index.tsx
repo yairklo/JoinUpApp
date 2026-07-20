@@ -2,14 +2,17 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react
 import React, { useCallback } from 'react';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@clerk/clerk-expo';
 import { useNotifications } from '@/context/NotificationContext';
 import type { Notification } from '@/services/api/notifications';
+import { chatsApi } from '@/services/api/chats';
 import { formatNotificationDate, getNotificationKey } from '@/utils/notificationDisplay';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function NotificationsScreen() {
     const router = useRouter();
     const { t } = useTranslation();
+    const { getToken } = useAuth();
     const {
         notifications,
         unreadCount,
@@ -18,6 +21,19 @@ export default function NotificationsScreen() {
         markAllAsRead,
         refreshNotifications
     } = useNotifications();
+
+    const handleDirectMessage = async (userId: string) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const res = await chatsApi.createPrivate(userId, token);
+            if (res && res.chatId) {
+                router.push(`/chat/${res.chatId}` as any);
+            }
+        } catch (error) {
+            console.error('Failed to create/open private chat:', error);
+        }
+    };
 
     const handleNotificationPress = async (notification: Notification) => {
         if (!notification.read) {
@@ -82,6 +98,17 @@ export default function NotificationsScreen() {
                     <Text className="text-gray-600 text-sm leading-5" numberOfLines={2}>
                         {body}
                     </Text>
+                    {item.data?.userId && (
+                        <TouchableOpacity
+                            className="mt-2 bg-blue-50 py-1.5 px-3 rounded self-start border border-blue-100"
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                handleDirectMessage(item.data.userId);
+                            }}
+                        >
+                            <Text className="text-blue-700 text-sm font-medium">{t('notifications.sendMessage', 'שלח הודעה')}</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
                 {!item.read && (
                     <View className="justify-center pl-2">

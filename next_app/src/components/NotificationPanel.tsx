@@ -18,13 +18,29 @@ import {
 import { Notifications as NotificationsIcon } from '@mui/icons-material';
 import { useAuth } from '@clerk/nextjs';
 import { useNotifications } from '@/hooks/useNotifications';
-import { Notification } from '@/services/api';
+import { Notification } from '@/services/api/notifications';
+import { chatsApi } from '@/services/api/chats';
 
 export default function NotificationPanel() {
     const router = useRouter();
-    const { userId } = useAuth(); // Just to check if we should render
+    const { userId, getToken } = useAuth(); // Just to check if we should render
     const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+    const handleDirectMessage = async (e: React.MouseEvent, targetUserId: string) => {
+        e.stopPropagation();
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const res = await chatsApi.createPrivate(targetUserId, token);
+            if (res && res.chatId) {
+                setAnchorEl(null);
+                router.push(`/chat/${res.chatId}`);
+            }
+        } catch (error) {
+            console.error('Failed to create/open private chat:', error);
+        }
+    };
 
     const open = Boolean(anchorEl);
 
@@ -131,6 +147,17 @@ export default function NotificationPanel() {
                                             <Typography variant="body2" color="text.secondary">
                                                 {notif.body}
                                             </Typography>
+                                            {notif.data?.userId && (
+                                                <Box sx={{ mt: 1 }}>
+                                                    <Button
+                                                        variant="outlined"
+                                                        size="small"
+                                                        onClick={(e) => handleDirectMessage(e, notif.data.userId)}
+                                                    >
+                                                        שלח הודעה
+                                                    </Button>
+                                                </Box>
+                                            )}
                                             {!notif.read && (
                                                 <Chip label="חדש" color="primary" size="small" sx={{ mt: 0.5, height: 20, fontSize: '0.65rem' }} />
                                             )}
