@@ -17,7 +17,9 @@ import {
   Clock,
   ArrowRight,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Plus,
+  X
 } from "lucide-react";
 
 interface TaskSummary {
@@ -97,6 +99,78 @@ export default function MamsDashboard() {
   const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
   const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Task creation form state
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [newObjective, setNewObjective] = useState<string>("");
+  const [newExecutionTier, setNewExecutionTier] = useState<string>("TIER2_STANDARD");
+  const [newCriteriaText, setNewCriteriaText] = useState<string>("");
+  const [newPreferredProvider, setNewPreferredProvider] = useState<string>("AUTO");
+  const [newModelOverride, setNewModelOverride] = useState<string>("");
+  const [newDeadlineHours, setNewDeadlineHours] = useState<string>("1");
+  const [submittingForm, setSubmittingForm] = useState<boolean>(false);
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newObjective.trim()) return;
+    setSubmittingForm(true);
+
+    const criteria = newCriteriaText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    const deadlineMs = Math.round(Number(newDeadlineHours || 1) * 3600 * 1000);
+
+    const body: any = {
+      objective: newObjective.trim(),
+      executionTier: newExecutionTier,
+      acceptanceCriteria: criteria,
+      deadlineMs: isNaN(deadlineMs) || deadlineMs <= 0 ? 3600000 : deadlineMs,
+    };
+
+    if (newPreferredProvider !== "AUTO") {
+      body.preferredProvider = newPreferredProvider;
+    }
+    if (newModelOverride.trim()) {
+      body.modelOverride = newModelOverride.trim();
+    }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/mams/task/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Failed to launch pipeline");
+      }
+
+      const data = await res.json();
+      const newTaskId = data.taskId;
+
+      // Close modal & reset fields
+      setShowCreateModal(false);
+      setNewObjective("");
+      setNewCriteriaText("");
+      setNewExecutionTier("TIER2_STANDARD");
+      setNewPreferredProvider("AUTO");
+      setNewModelOverride("");
+      setNewDeadlineHours("1");
+
+      // Refresh list & select the newly created task
+      await fetchTaskList();
+      setSelectedTaskId(newTaskId);
+    } catch (err: any) {
+      alert(`Error starting task: ${err.message}`);
+    } finally {
+      setSubmittingForm(false);
+    }
+  };
 
   // Load task list
   const fetchTaskList = async () => {
@@ -277,6 +351,12 @@ export default function MamsDashboard() {
               title="Refresh Task List"
             >
               <RefreshCw className={`h-4 w-4 text-gray-400 ${loadingList ? "animate-spin" : ""}`} />
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition flex items-center gap-1.5 shadow"
+            >
+              <Plus className="h-4 w-4" /> Launch Pipeline
             </button>
           </div>
         </div>
@@ -672,6 +752,146 @@ export default function MamsDashboard() {
               </div>
             </div>
           </>
+        )}
+        {/* Create Task Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Play className="text-blue-500 h-5 w-5 fill-current" />
+                  Launch New Agent Pipeline
+                </h2>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="p-1 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <form onSubmit={handleCreateTask} className="flex-1 overflow-y-auto p-6 space-y-4">
+                {/* Objective */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block">
+                    Task Objective *
+                  </label>
+                  <textarea
+                    required
+                    value={newObjective}
+                    onChange={(e) => setNewObjective(e.target.value)}
+                    placeholder="Describe exactly what the developer agent should do (e.g., 'Fix game ratings panel styling to match layout.tsx...')"
+                    className="w-full bg-gray-950 border border-gray-800 rounded-lg p-3 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                  />
+                </div>
+
+                {/* Execution Tier & Deadline */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block">
+                      Execution Tier
+                    </label>
+                    <select
+                      value={newExecutionTier}
+                      onChange={(e) => setNewExecutionTier(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="TIER1_FAST_TRACK">Tier 1: Fast Track (Single Coder turn)</option>
+                      <option value="TIER2_STANDARD">Tier 2: Standard (Planning + Coder)</option>
+                      <option value="TIER3_CRITICAL">Tier 3: Critical (Architect + Planning + E2E)</option>
+                      <option value="TIER4_ENTERPRISE_E2E">Tier 4: Enterprise E2E (Full hardening)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block">
+                      Deadline (Hours)
+                    </label>
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={newDeadlineHours}
+                      onChange={(e) => setNewDeadlineHours(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Acceptance Criteria */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block">
+                    Acceptance Criteria (one per line)
+                  </label>
+                  <textarea
+                    value={newCriteriaText}
+                    onChange={(e) => setNewCriteriaText(e.target.value)}
+                    placeholder="e.g.&#10;Verify user rating persists on Neon&#10;No compile errors in next_app lint"
+                    className="w-full bg-gray-950 border border-gray-800 rounded-lg p-3 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
+                  />
+                </div>
+
+                {/* Advanced Providers */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-850 pt-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block">
+                      Preferred Provider
+                    </label>
+                    <select
+                      value={newPreferredProvider}
+                      onChange={(e) => setNewPreferredProvider(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-850 rounded-lg p-2.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="AUTO">Auto (Balanced routing)</option>
+                      <option value="GOOGLE">Google Generative AI (Flash/Pro)</option>
+                      <option value="ANTHROPIC">Anthropic (Claude Sonnet 3.5)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block">
+                      Model Override (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newModelOverride}
+                      onChange={(e) => setNewModelOverride(e.target.value)}
+                      placeholder="e.g. claude-3-5-sonnet-latest"
+                      className="w-full bg-gray-950 border border-gray-850 rounded-lg p-2.5 text-sm text-gray-200 placeholder-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex items-center justify-end gap-3 border-t border-gray-850 pt-4 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm font-semibold transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingForm}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition flex items-center gap-1.5 shadow"
+                  >
+                    {submittingForm ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" /> Launching...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4 fill-current" /> Launch Pipeline
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </div>
     </div>
