@@ -33,6 +33,7 @@ To prevent context bloat, exhaustive edge cases are offloaded to sub-documents. 
 | **User Profiles, JWTs & Friends** | `/server/utils/auth.js`<br>`/server/routes/users.js` | `clerk`, `jwt`, `upsert user`, `req.user`, `friendship`, `orderPair` | [`server/docs/agents/auth_pitfalls.md`](./docs/agents/auth_pitfalls.md) |
 | **Migrations, Schema & Tx** | `/server/prisma/schema.prisma`<br>`/server/services/gameService.js` | `migration`, `pooler`, `directUrl`, `transaction`, `PrismaClient` | [`server/docs/agents/database_rules.md`](./docs/agents/database_rules.md) |
 | **WebSockets, Push & Workers** | `/server/index.js`<br>`/server/services/notificationService.js` | `socket.io`, `firebase`, `chat:sync`, `useEffect`, `cleanupWorker` | [`server/docs/agents/realtime_rules.md`](./docs/agents/realtime_rules.md) |
+| **Next.js PWA Front-end, Styling & Client Caching** | `/next_app/src/app/*`<br>`/next_app/src/components/*`<br>`/next_app/src/context/*` | `next.js`, `tailwind`, `hydration`, `useSyncedGames`, `apiClient`, `leaflet` | [`server/docs/agents/frontend_rules.md`](./docs/agents/frontend_rules.md) |
 
 ---
 
