@@ -152,7 +152,7 @@ export default function NotificationPanel() {
                                                     <Button
                                                         variant="outlined"
                                                         size="small"
-                                                        onClick={(e) => handleDirectMessage(e, notif.data.userId)}
+                                                        onClick={(e) => handleDirectMessage(e, notif.data!.userId)}
                                                     >
                                                         שלח הודעה
                                                     </Button>
