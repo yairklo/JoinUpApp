@@ -21,9 +21,9 @@ function ymd(d: Date): string {
 }
 
 function getDayLabel(d: Date, isToday: boolean, isTomorrow: boolean) {
-  if (isToday) return "Today";
-  if (isTomorrow) return "Tomorrow";
-  return d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
+  if (isToday) return "היום";
+  if (isTomorrow) return "מחר";
+  return d.toLocaleDateString("he-IL", { weekday: "short", day: "numeric" });
 }
 
 // Styled Tab for "Pill" look
@@ -33,17 +33,22 @@ const StyledTab = styled(Tab)(({ theme }) => ({
   fontSize: "0.9rem",
   fontWeight: 600,
   color: theme.palette.text.secondary,
-  borderRadius: 20, // Rounded pill shape
-  marginRight: theme.spacing(1),
+  borderRadius: 999,
+  marginInlineEnd: theme.spacing(1),
   padding: "6px 16px",
   minHeight: 36,
+  border: `1px solid ${theme.palette.divider}`,
+  backgroundColor: theme.palette.background.paper,
+  transition: "all 0.15s ease",
   "&.Mui-selected": {
     color: theme.palette.primary.contrastText,
     backgroundColor: theme.palette.primary.main,
+    borderColor: theme.palette.primary.main,
     boxShadow: theme.shadows[2],
   },
-  "&:hover": {
+  "&:hover:not(.Mui-selected)": {
     backgroundColor: theme.palette.action.hover,
+    borderColor: theme.palette.primary.light,
   },
 }));
 
@@ -113,8 +118,8 @@ export default function GamesDateNav({
           })}
         </Tabs>
 
-        <Box px={1} sx={{ borderLeft: "1px solid", borderColor: "divider", ml: 1 }}>
-          <Tooltip title="Pick Date">
+        <Box px={1} sx={{ borderInlineStart: "1px solid", borderColor: "divider", marginInlineStart: 1 }}>
+          <Tooltip title="בחר תאריך">
             <IconButton 
                 size="small"
                 onClick={() => dateInputRef.current?.showPicker?.() || dateInputRef.current?.focus()}

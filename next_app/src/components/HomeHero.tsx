@@ -5,8 +5,13 @@ import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
+import Chip from "@mui/material/Chip";
 import Link from "next/link";
-import { Add, DirectionsRun } from "@mui/icons-material";
+import AddIcon from "@mui/icons-material/Add";
+import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
+import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
+import SportsTennisIcon from "@mui/icons-material/SportsTennis";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 
 export default function HomeHero() {
     const scrollToGames = () => {
@@ -20,114 +25,146 @@ export default function HomeHero() {
         <Box
             sx={{
                 position: "relative",
-                bgcolor: "#0047AB", // Fallback blue
-                backgroundImage: "url(/hero_bg.jpg)",
+                overflow: "hidden",
+                color: "white",
+                mb: 5,
+                borderRadius: { xs: 0, md: "0 0 40px 40px" },
+                // Layered background: brand gradient + photo + darkening scrim
+                backgroundImage: `
+                    linear-gradient(160deg, rgba(4,47,36,0.88) 0%, rgba(6,78,59,0.72) 45%, rgba(5,150,105,0.55) 100%),
+                    url(/hero_bg.jpg)
+                `,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
-                minHeight: "500px", // Adjust based on image aspect
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                textAlign: "center",
-                color: "white",
-                mb: 4,
-                borderRadius: { xs: 0, md: "0 0 32px 32px" },
-                overflow: "hidden",
-                pt: 8,
-                pb: 12,
             }}
         >
-            {/* Overlay to ensure text readability if needed, though image provided looks clean. 
-          Assuming image text is sufficient or we write over it. 
-          User image has text "JoinUp". I should recreate it or use image as background?
-          "I want the top part ... to look like this [image with text]".
-          Usually better to maintain text in HTML for SEO/A11y. 
-          I will render the text. 
-      */}
+            {/* Decorative glow */}
+            <Box
+                aria-hidden
+                sx={{
+                    position: "absolute",
+                    width: 480,
+                    height: 480,
+                    borderRadius: "50%",
+                    background: "radial-gradient(circle, rgba(52,211,153,0.35) 0%, transparent 70%)",
+                    top: -160,
+                    insetInlineEnd: -120,
+                    pointerEvents: "none",
+                }}
+            />
 
-            <Container maxWidth="sm">
+            <Container maxWidth="md" sx={{ position: "relative", textAlign: "center", pt: { xs: 8, md: 11 }, pb: { xs: 9, md: 12 } }}>
+                <Chip
+                    label="קהילת הספורט של ישראל"
+                    size="small"
+                    sx={{
+                        mb: 3,
+                        color: "#a7f3d0",
+                        bgcolor: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(167,243,208,0.35)",
+                        backdropFilter: "blur(6px)",
+                        fontWeight: 600,
+                        letterSpacing: 0.3,
+                    }}
+                />
+
                 <Typography
                     variant="h1"
                     component="h1"
                     sx={{
                         fontWeight: 800,
-                        fontSize: { xs: "3.5rem", md: "5rem" },
-                        mb: 1,
-                        textShadow: "0px 4px 10px rgba(0,0,0,0.3)"
+                        fontSize: { xs: "2.6rem", md: "4rem" },
+                        lineHeight: 1.15,
+                        mb: 2,
+                        textShadow: "0 4px 24px rgba(0,0,0,0.35)",
                     }}
                 >
-                    JoinUp
+                    מוצאים משחק.
+                    <br />
+                    <Box component="span" sx={{ color: "#6ee7b7" }}>
+                        מצטרפים. משחקים.
+                    </Box>
                 </Typography>
 
                 <Typography
-                    variant="h5"
+                    variant="h6"
                     component="h2"
                     sx={{
-                        fontWeight: 500,
-                        mb: 6,
-                        opacity: 0.95,
-                        direction: "rtl",
-                        textShadow: "0px 2px 5px rgba(0,0,0,0.3)"
+                        fontWeight: 400,
+                        mb: 4,
+                        color: "rgba(255,255,255,0.85)",
+                        maxWidth: 520,
+                        mx: "auto",
                     }}
                 >
-                    קהילת הספורט של ישראל
+                    כדורגל, כדורסל וטניס ליד הבית – מצאו משחקים פתוחים או פתחו משחק משלכם תוך שניות.
                 </Typography>
 
-                <Stack spacing={2} width="100%" maxWidth="300px" mx="auto">
-                    {/* Create Game Button - Green */}
+                {/* Sport icons row */}
+                <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ mb: 4 }}>
+                    {[SportsSoccerIcon, SportsBasketballIcon, SportsTennisIcon].map((Icon, i) => (
+                        <Box
+                            key={i}
+                            sx={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: "14px",
+                                display: "grid",
+                                placeItems: "center",
+                                bgcolor: "rgba(255,255,255,0.1)",
+                                border: "1px solid rgba(255,255,255,0.18)",
+                                backdropFilter: "blur(6px)",
+                            }}
+                        >
+                            <Icon sx={{ fontSize: 24, color: "#d1fae5" }} />
+                        </Box>
+                    ))}
+                </Stack>
+
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1.5}
+                    justifyContent="center"
+                    alignItems="center"
+                >
                     <Button
                         component={Link}
                         href="/games/new"
                         variant="contained"
                         size="large"
+                        startIcon={<AddIcon />}
                         sx={{
-                            borderRadius: "50px",
+                            minWidth: 220,
                             py: 1.5,
-                            bgcolor: "#2e7d32", // Adjust to match image green
-                            backgroundImage: "linear-gradient(45deg, #43a047, #2e7d32)",
-                            fontSize: "1.1rem",
-                            fontWeight: "bold",
-                            textTransform: "none",
-                            display: "flex",
-                            justifyContent: "center",
-                            gap: 1,
-                            direction: "rtl",
-                            "&:hover": {
-                                bgcolor: "#1b5e20",
-                            }
+                            fontSize: "1.05rem",
+                            bgcolor: "#10b981",
+                            color: "#022c22",
+                            boxShadow: "0 10px 30px rgba(16,185,129,0.45)",
+                            "&:hover": { bgcolor: "#34d399" },
                         }}
                     >
-                        צור משחק <Add />
+                        צור משחק חדש
                     </Button>
 
-                    {/* Join Game Button - Outlined/Transparent */}
                     <Button
                         variant="outlined"
                         size="large"
                         onClick={scrollToGames}
+                        endIcon={<KeyboardArrowDownIcon />}
                         sx={{
-                            borderRadius: "50px",
+                            minWidth: 220,
                             py: 1.5,
-                            borderColor: "rgba(255,255,255,0.8)",
+                            fontSize: "1.05rem",
                             color: "white",
-                            borderWidth: "1px",
-                            fontSize: "1.1rem",
-                            fontWeight: "bold",
-                            textTransform: "none",
-                            display: "flex",
-                            justifyContent: "center",
-                            gap: 1,
-                            direction: "rtl",
+                            borderColor: "rgba(255,255,255,0.5)",
                             backdropFilter: "blur(4px)",
                             "&:hover": {
                                 borderColor: "white",
                                 bgcolor: "rgba(255,255,255,0.1)",
-                                borderWidth: "1px",
-                            }
+                            },
                         }}
                     >
-                        הצטרף למשחק <DirectionsRun />
+                        הצטרף למשחק
                     </Button>
                 </Stack>
             </Container>

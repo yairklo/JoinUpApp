@@ -14,16 +14,18 @@ import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
+import Badge from "@mui/material/Badge";
+import { alpha, useTheme } from "@mui/material/styles";
 
 // Icons
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import SearchIcon from "@mui/icons-material/Search";
-import Brightness4Icon from "@mui/icons-material/Brightness4"; // Moon
-import Brightness7Icon from "@mui/icons-material/Brightness7"; // Sun
-import PersonIcon from "@mui/icons-material/Person";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
-import StadiumIcon from "@mui/icons-material/Stadium";
-import Badge from "@mui/material/Badge";
+import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
+import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
+import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import StadiumOutlinedIcon from "@mui/icons-material/StadiumOutlined";
+import AddIcon from "@mui/icons-material/Add";
 
 // Internal Components & Context
 import AuthButtons from "@/components/AuthButtons";
@@ -38,6 +40,7 @@ export default function AppNavbar() {
   const { mode, toggleColorMode } = useContext(ColorModeContext);
   const { user } = useUser();
   const router = useRouter();
+  const theme = useTheme();
   const { friendRequests } = useNotificationCounters();
 
   useEffect(() => {
@@ -47,29 +50,44 @@ export default function AppNavbar() {
   return (
     <AppBar
       position="sticky"
-      color="inherit"
-      elevation={1}
+      color="transparent"
+      elevation={0}
       sx={{
-        bgcolor: "background.paper",
+        bgcolor: alpha(theme.palette.background.paper, 0.82),
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
         borderBottom: 1,
-        borderColor: "divider"
+        borderColor: "divider",
       }}
     >
       <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ justifyContent: "space-between" }}>
+        <Toolbar disableGutters sx={{ justifyContent: "space-between", minHeight: { xs: 60, md: 68 } }}>
 
-          {/* Left Side Actions */}
-          <Stack direction="row" alignItems="center" spacing={3}>
-            <Link href="/" passHref style={{ textDecoration: "none", color: "inherit" }}>
+          {/* Start: Logo + desktop nav links */}
+          <Stack direction="row" alignItems="center" spacing={{ xs: 1, md: 2.5 }}>
+            <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer" }}>
-                <SportsSoccerIcon color="primary" />
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: "12px",
+                    display: "grid",
+                    placeItems: "center",
+                    color: "#fff",
+                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    boxShadow: "0 4px 12px rgba(5,150,105,0.35)",
+                  }}
+                >
+                  <SportsSoccerIcon fontSize="small" />
+                </Box>
                 <Typography
                   variant="h6"
                   component="div"
                   sx={{
                     fontWeight: 800,
                     letterSpacing: "-0.5px",
-                    color: "text.primary"
+                    color: "text.primary",
                   }}
                 >
                   JoinUp
@@ -77,42 +95,28 @@ export default function AppNavbar() {
               </Stack>
             </Link>
 
-            {/* Find Games / Search Link */}
-            <Link href="/search" passHref style={{ textDecoration: "none" }}>
+            {/* Desktop navigation */}
+            <Stack direction="row" spacing={0.5} sx={{ display: { xs: "none", md: "flex" } }}>
               <Button
-                variant="text"
-                color="inherit"
+                component={Link}
+                href="/search"
                 startIcon={<SearchIcon />}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  color: "text.secondary",
-                  "&:hover": { color: "primary.main", bgcolor: "transparent" }
-                }}
+                sx={navLinkSx}
               >
-                Find Games
+                חיפוש משחקים
               </Button>
-            </Link>
-
-            {/* Fields Link */}
-            <Link href="/fields" passHref style={{ textDecoration: "none" }}>
               <Button
-                variant="text"
-                color="inherit"
-                startIcon={<StadiumIcon />}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 600,
-                  color: "text.secondary",
-                  "&:hover": { color: "primary.main", bgcolor: "transparent" }
-                }}
+                component={Link}
+                href="/fields"
+                startIcon={<StadiumOutlinedIcon />}
+                sx={navLinkSx}
               >
-                Fields
+                מגרשים
               </Button>
-            </Link>
+            </Stack>
           </Stack>
 
-          {/* Global Search Omnibar — centered, capped at 400px, hidden on small viewports */}
+          {/* Center: Global search (desktop, signed-in) */}
           {mounted && (
             <ClerkLoaded>
               <SignedIn>
@@ -130,22 +134,33 @@ export default function AppNavbar() {
             </ClerkLoaded>
           )}
 
-          {/* Right Side Actions */}
-          <Stack direction="row" alignItems="center" spacing={1}>
+          {/* End: actions */}
+          <Stack direction="row" alignItems="center" spacing={{ xs: 0.25, md: 0.75 }}>
+            <Button
+              component={Link}
+              href="/games/new"
+              variant="contained"
+              startIcon={<AddIcon />}
+              sx={{
+                display: { xs: "none", md: "inline-flex" },
+                px: 2.25,
+                boxShadow: "0 4px 14px rgba(5,150,105,0.3)",
+              }}
+            >
+              צור משחק
+            </Button>
 
-            {/* Theme Toggle Button */}
-            <IconButton onClick={toggleColorMode} color="inherit">
-              {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
-            </IconButton>
+            <Tooltip title={mode === "dark" ? "מצב בהיר" : "מצב כהה"}>
+              <IconButton onClick={toggleColorMode} color="inherit" size="small" sx={{ p: 1 }}>
+                {mode === "dark" ? <LightModeOutlinedIcon fontSize="small" /> : <DarkModeOutlinedIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
 
-            {/* Authenticated Actions (Chat + Profile) */}
             {mounted && (
               <ClerkLoaded>
                 <SignedIn>
-                  {/* Notification Panel */}
                   {user && <NotificationPanel />}
 
-                  {/* Chat List Dropdown */}
                   {user && (
                     <ChatList
                       userId={user.id}
@@ -153,38 +168,38 @@ export default function AppNavbar() {
                     />
                   )}
 
-                  {/* Friends (pending friend requests) */}
                   {user && (
-                    <IconButton color="inherit" onClick={() => router.push("/profile")}>
-                      <Badge badgeContent={friendRequests} color="error">
-                        <PeopleAltIcon />
-                      </Badge>
-                    </IconButton>
+                    <Tooltip title="חברים">
+                      <IconButton
+                        color="inherit"
+                        size="small"
+                        sx={{ p: 1, display: { xs: "none", md: "inline-flex" } }}
+                        onClick={() => router.push("/profile")}
+                      >
+                        <Badge badgeContent={friendRequests} color="error">
+                          <PeopleAltOutlinedIcon fontSize="small" />
+                        </Badge>
+                      </IconButton>
+                    </Tooltip>
                   )}
-
-                  {/* User Profile Link */}
-                  <Link href="/profile" passHref style={{ textDecoration: 'none' }}>
-                    <Button
-                      variant="text"
-                      color="inherit"
-                      startIcon={<PersonIcon />}
-                      sx={{ textTransform: 'none', fontWeight: 600 }}
-                    >
-                      My Profile
-                    </Button>
-                  </Link>
                 </SignedIn>
               </ClerkLoaded>
             )}
 
-            {/* Auth Buttons (Login/Signup - usually hidden if SignedIn handled by AuthButtons logic) */}
-            <Box ml={1}>
+            <Box sx={{ marginInlineStart: 0.5, display: "flex", alignItems: "center" }}>
               <AuthButtons />
             </Box>
-
           </Stack>
         </Toolbar>
       </Container>
     </AppBar>
   );
 }
+
+const navLinkSx = {
+  color: "text.secondary",
+  fontWeight: 600,
+  px: 1.5,
+  borderRadius: 2.5,
+  "&:hover": { color: "primary.main", bgcolor: "action.hover" },
+} as const;

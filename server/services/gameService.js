@@ -265,12 +265,12 @@ async function offerSpotToNextWaitlistUser(gameId, io) {
 }
 
 function notifyOrganizerOfInstantJoin(game, joiningUser, io) {
-  if (!game.isFriendsOnly || game.organizerId === joiningUser.id) return;
+  if (game.organizerId === joiningUser.id) return;
   notificationService.sendNotification(
     game.organizerId,
     'GAME_JOIN_REQUEST',
     'מישהו הצטרף למשחק שלך',
-    `${joiningUser.name || 'משתמש'} הצטרף/ה למשחק הפרטי שלך`,
+    `${joiningUser.name || 'משתמש'} הצטרף/ה למשחק שלך`,
     { gameId: game.id, userId: joiningUser.id, link: `/game/${game.id}` },
     io
   ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));

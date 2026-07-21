@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
+import IconButton from "@mui/material/IconButton";
+import StarRoundedIcon from "@mui/icons-material/StarRounded";
+import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -41,37 +44,22 @@ export default function FavoriteButton({ fieldId }: { fieldId: string }) {
   if (!userId) return null;
 
   return (
-    <button
+    <IconButton
       onClick={toggle}
       disabled={loading}
       aria-pressed={isFav}
-      aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
-      style={{
-        width: 36,
-        height: 36,
-        borderRadius: '50%',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: '1px solid rgba(0,0,0,0.15)',
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        backdropFilter: 'saturate(180%) blur(2px)',
-        cursor: loading ? 'not-allowed' : 'pointer'
+      aria-label={isFav ? "הסר ממועדפים" : "הוסף למועדפים"}
+      size="small"
+      sx={{
+        bgcolor: "rgba(255,255,255,0.9)",
+        backdropFilter: "blur(4px)",
+        boxShadow: "0 2px 8px rgba(2,6,23,0.25)",
+        "&:hover": { bgcolor: "#fff" },
       }}
-      title={isFav ? 'Unfavorite' : 'Favorite'}
     >
-      <span
-        aria-hidden
-        style={{
-          fontSize: 16,
-          lineHeight: 1,
-          color: isFav ? '#f59e0b' : '#666'
-        }}
-      >
-        {isFav ? '★' : '☆'}
-      </span>
-    </button>
+      {isFav
+        ? <StarRoundedIcon sx={{ fontSize: 20, color: "#f59e0b" }} />
+        : <StarBorderRoundedIcon sx={{ fontSize: 20, color: "#475569" }} />}
+    </IconButton>
   );
 }
-
-

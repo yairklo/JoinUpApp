@@ -22,7 +22,8 @@ import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import MenuItem from "@mui/material/MenuItem";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+// RTL: "forward" points left
+import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
 import GroupIcon from "@mui/icons-material/Group";
 
@@ -204,15 +205,24 @@ export default function SearchPage() {
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: { xs: "column-reverse", md: "row" }, height: "calc(100vh - 64px)" }}>
-      {/* LEFT PANE: List & Filters (40%) */}
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: { xs: "column-reverse", md: "row" },
+        height: {
+          xs: "calc(100vh - 60px - 64px - env(safe-area-inset-bottom))",
+          md: "calc(100vh - 68px)",
+        },
+      }}
+    >
+      {/* Filters + results pane */}
       <Box
         sx={{
           width: { xs: "100%", md: "40%" },
           height: { xs: "50%", md: "100%" },
           overflowY: "auto",
           bgcolor: "background.default",
-          borderRight: { md: 1 },
+          borderInlineEnd: { md: 1 },
           borderColor: "divider",
           p: 2,
         }}
@@ -220,7 +230,7 @@ export default function SearchPage() {
         {/* Search Header */}
         <Stack spacing={2} mb={3}>
           <Typography variant="h5" fontWeight={800}>
-            Find Games
+            חיפוש משחקים
           </Typography>
 
           <TextField
@@ -228,7 +238,7 @@ export default function SearchPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             InputProps={{
-              startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
+              startAdornment: <SearchIcon color="action" sx={{ marginInlineEnd: 1 }} />
             }}
             fullWidth
             size="small"
@@ -299,7 +309,7 @@ export default function SearchPage() {
         {/* Sport Filters */}
         <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: 1, mb: 2 }}>
           <Chip
-            label="All Sports"
+            label="כל הענפים"
             onClick={() => setSelectedSport(null)}
             color={!selectedSport ? "primary" : "default"}
             variant={!selectedSport ? "filled" : "outlined"}

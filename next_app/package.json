@@ -23,6 +23,7 @@
     "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
     "bootstrap": "^5.3.8",
+    "caniuse-lite": "^1.0.30001806",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
@@ -31,7 +32,7 @@
     "firebase": "^12.7.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.468.0",
-    "next": "^15.4.8",
+    "next": "^15.5.20",
     "next-pwa": "^5.6.0",
     "next-themes": "^0.4.6",
     "react": "19.1.0",
@@ -42,6 +43,8 @@
     "recharts": "^3.1.2",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "stylis": "^4.4.0",
+    "stylis-plugin-rtl": "^2.1.1",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
@@ -55,11 +58,12 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/stylis": "^4.2.7",
     "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "^15.4.8",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.12",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

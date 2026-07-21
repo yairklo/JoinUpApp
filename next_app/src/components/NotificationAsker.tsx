@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import useNotification from "@/hooks/useNotification";
-import Button from "react-bootstrap/Button";
-import Toast from "react-bootstrap/Toast";
-import ToastContainer from "react-bootstrap/ToastContainer";
-import { useState } from "react";
+
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
+import Fab from "@mui/material/Fab";
+import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
 
 export default function NotificationAsker() {
     const { user } = useUser();
@@ -20,39 +22,49 @@ export default function NotificationAsker() {
     }, [notification]);
 
     if (fcmToken) {
-        // Already enabled
+        // Notifications enabled – surface incoming foreground messages
         return (
-            <>
-                <ToastContainer position="top-end" className="p-3" style={{ zIndex: 9999 }}>
-                    <Toast onClose={() => setShowToast(false)} show={showToast} delay={5000} autohide>
-                        <Toast.Header>
-                            <strong className="me-auto">{notification.title}</strong>
-                            <small>Just now</small>
-                        </Toast.Header>
-                        <Toast.Body>{notification.body}</Toast.Body>
-                    </Toast>
-                </ToastContainer>
-            </>
+            <Snackbar
+                open={showToast}
+                autoHideDuration={5000}
+                onClose={() => setShowToast(false)}
+                anchorOrigin={{ vertical: "top", horizontal: "left" }}
+            >
+                <Alert
+                    onClose={() => setShowToast(false)}
+                    severity="info"
+                    variant="filled"
+                    icon={<NotificationsActiveOutlinedIcon fontSize="small" />}
+                    sx={{ borderRadius: 3, boxShadow: 4 }}
+                >
+                    <AlertTitle sx={{ fontWeight: 700, mb: 0.25 }}>{notification?.title}</AlertTitle>
+                    {notification?.body}
+                </Alert>
+            </Snackbar>
         );
     }
 
-    // If not enabled, show a discreet button (or explicit as requested)
-    // User asked for "Enable Notifications" button in main layout.
-    // Let's put it in a fixed position bottom-right for visibility.
-    // Only show if user is logged in
     if (!user) return null;
 
     return (
-        <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999 }}>
-            <Button
-                variant="primary"
-                onClick={() => {
-                    requestPermission();
-                }}
-                className="shadow-sm rounded-pill px-3"
-            >
-                🔔 Enable Notifications
-            </Button>
-        </div>
+        <Fab
+            variant="extended"
+            color="primary"
+            size="medium"
+            onClick={() => requestPermission()}
+            sx={{
+                position: "fixed",
+                bottom: { xs: "calc(76px + env(safe-area-inset-bottom))", md: 24 },
+                insetInlineStart: 20,
+                zIndex: 1200,
+                textTransform: "none",
+                fontWeight: 700,
+                gap: 1,
+                boxShadow: "0 8px 20px rgba(5,150,105,0.4)",
+            }}
+        >
+            <NotificationsActiveOutlinedIcon fontSize="small" />
+            הפעל התראות
+        </Fab>
     );
 }

@@ -1,7 +1,26 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Form, Button, Card, Alert, Spinner } from 'react-bootstrap';
 import { useAuth } from '@clerk/nextjs';
+
+// MUI
+import Container from '@mui/material/Container';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
+import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Divider from '@mui/material/Divider';
+
+// Icons
+import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import AlarmOutlinedIcon from '@mui/icons-material/AlarmOutlined';
+import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
 
 interface NotificationSettings {
     pushEnabled: boolean;
@@ -88,136 +107,149 @@ export default function NotificationSettingsPage() {
 
     if (!userId) {
         return (
-            <div className="container mt-5">
-                <Alert variant="warning">
+            <Container maxWidth="sm" sx={{ py: 6 }}>
+                <Alert severity="warning" sx={{ borderRadius: 3 }}>
                     עליך להתחבר כדי לנהל הגדרות התראות
                 </Alert>
-            </div>
+            </Container>
         );
     }
 
     if (loading) {
         return (
-            <div className="container mt-5 text-center">
-                <Spinner animation="border" />
-            </div>
+            <Container maxWidth="sm" sx={{ py: 8, textAlign: 'center' }}>
+                <CircularProgress />
+            </Container>
         );
     }
 
+    const rows: Array<{
+        key: keyof NotificationSettings;
+        title: string;
+        subtitle: string;
+        icon: React.ReactNode;
+        dependsOnPush?: boolean;
+    }> = [
+        {
+            key: 'friendRequestsEnabled',
+            title: 'בקשות חברות',
+            subtitle: 'קבל התראה כשמישהו שולח לך בקשת חברות',
+            icon: <PeopleAltOutlinedIcon />,
+            dependsOnPush: true,
+        },
+        {
+            key: 'messagesEnabled',
+            title: 'הודעות חדשות',
+            subtitle: "קבל התראה כשמגיעה הודעה חדשה בצ'אט",
+            icon: <ChatBubbleOutlineIcon />,
+            dependsOnPush: true,
+        },
+        {
+            key: 'gameRemindersEnabled',
+            title: 'תזכורות משחקים',
+            subtitle: 'קבל תזכורת שעה לפני משחק שנרשמת אליו',
+            icon: <AlarmOutlinedIcon />,
+            dependsOnPush: true,
+        },
+    ];
+
     return (
-        <div className="container mt-5" style={{ maxWidth: '600px' }}>
-            <h2 className="mb-4">הגדרות התראות</h2>
+        <Container maxWidth="sm" sx={{ py: { xs: 3, md: 5 } }}>
+            <Typography variant="h4" component="h1" fontWeight={800} mb={3}>
+                הגדרות התראות
+            </Typography>
 
             {message && (
-                <Alert variant={message.type === 'success' ? 'success' : 'danger'} dismissible onClose={() => setMessage(null)}>
+                <Alert
+                    severity={message.type}
+                    onClose={() => setMessage(null)}
+                    sx={{ mb: 2, borderRadius: 3 }}
+                >
                     {message.text}
                 </Alert>
             )}
 
-            <Card>
-                <Card.Header className="bg-primary text-white">
-                    <h5 className="mb-0">העדפות התראות</h5>
-                </Card.Header>
-                <Card.Body>
-                    <Form>
-                        <div className="mb-4">
-                            <Form.Check
-                                type="switch"
-                                id="pushEnabled"
-                                label={
-                                    <div>
-                                        <strong>הפעל התראות Push</strong>
-                                        <div className="text-muted small">קבל התראות בזמן אמת במכשיר שלך</div>
-                                    </div>
-                                }
-                                checked={settings.pushEnabled}
-                                onChange={() => handleToggle('pushEnabled')}
-                                className="mb-3"
-                            />
-                        </div>
+            <Card elevation={0}>
+                <CardContent sx={{ p: 3 }}>
+                    {/* Master switch */}
+                    <Stack direction="row" alignItems="center" justifyContent="space-between">
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Box sx={{ color: 'primary.main', display: 'flex' }}>
+                                <NotificationsActiveOutlinedIcon />
+                            </Box>
+                            <Box>
+                                <Typography fontWeight={700}>הפעל התראות Push</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    קבל התראות בזמן אמת במכשיר שלך
+                                </Typography>
+                            </Box>
+                        </Stack>
+                        <Switch
+                            checked={settings.pushEnabled}
+                            onChange={() => handleToggle('pushEnabled')}
+                        />
+                    </Stack>
 
-                        <hr />
+                    <Divider sx={{ my: 2.5 }} />
 
-                        <div className="mb-3">
-                            <h6 className="text-muted mb-3">סוגי התראות</h6>
+                    <Typography variant="subtitle2" color="text.secondary" mb={1.5}>
+                        סוגי התראות
+                    </Typography>
 
-                            <Form.Check
-                                type="switch"
-                                id="friendRequestsEnabled"
-                                label={
-                                    <div>
-                                        <strong>בקשות חברות</strong>
-                                        <div className="text-muted small">קבל התראה כשמישהו שולח לך בקשת חברות</div>
-                                    </div>
-                                }
-                                checked={settings.friendRequestsEnabled}
-                                onChange={() => handleToggle('friendRequestsEnabled')}
-                                disabled={!settings.pushEnabled}
-                                className="mb-3"
-                            />
-
-                            <Form.Check
-                                type="switch"
-                                id="messagesEnabled"
-                                label={
-                                    <div>
-                                        <strong>הודעות חדשות</strong>
-                                        <div className="text-muted small">קבל התראה כשמגיעה הודעה חדשה בצ'אט</div>
-                                    </div>
-                                }
-                                checked={settings.messagesEnabled}
-                                onChange={() => handleToggle('messagesEnabled')}
-                                disabled={!settings.pushEnabled}
-                                className="mb-3"
-                            />
-
-                            <Form.Check
-                                type="switch"
-                                id="gameRemindersEnabled"
-                                label={
-                                    <div>
-                                        <strong>תזכורות משחקים</strong>
-                                        <div className="text-muted small">קבל תזכורת שעה לפני משחק שנרשמת אליו</div>
-                                    </div>
-                                }
-                                checked={settings.gameRemindersEnabled}
-                                onChange={() => handleToggle('gameRemindersEnabled')}
-                                disabled={!settings.pushEnabled}
-                                className="mb-3"
-                            />
-                        </div>
-
-                        <div className="d-grid gap-2 mt-4">
-                            <Button
-                                variant="primary"
-                                size="lg"
-                                onClick={handleSave}
-                                disabled={saving}
+                    <Stack spacing={2}>
+                        {rows.map((row) => (
+                            <Stack
+                                key={row.key}
+                                direction="row"
+                                alignItems="center"
+                                justifyContent="space-between"
+                                sx={{ opacity: settings.pushEnabled ? 1 : 0.5 }}
                             >
-                                {saving ? (
-                                    <>
-                                        <Spinner animation="border" size="sm" className="me-2" />
-                                        שומר...
-                                    </>
-                                ) : (
-                                    'שמור הגדרות'
-                                )}
-                            </Button>
-                        </div>
-                    </Form>
-                </Card.Body>
+                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                    <Box sx={{ color: 'text.secondary', display: 'flex' }}>{row.icon}</Box>
+                                    <Box>
+                                        <Typography fontWeight={600}>{row.title}</Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {row.subtitle}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                                <Switch
+                                    checked={settings[row.key]}
+                                    onChange={() => handleToggle(row.key)}
+                                    disabled={row.dependsOnPush && !settings.pushEnabled}
+                                />
+                            </Stack>
+                        ))}
+                    </Stack>
+
+                    <Button
+                        variant="contained"
+                        size="large"
+                        fullWidth
+                        onClick={handleSave}
+                        disabled={saving}
+                        startIcon={saving ? <CircularProgress size={18} color="inherit" /> : undefined}
+                        sx={{ mt: 3.5 }}
+                    >
+                        {saving ? 'שומר...' : 'שמור הגדרות'}
+                    </Button>
+                </CardContent>
             </Card>
 
-            <Card className="mt-4">
-                <Card.Body>
-                    <h6 className="mb-3">💡 טיפים</h6>
-                    <ul className="text-muted small mb-0">
-                        <li>כדי לקבל התראות, עליך לאשר הרשאות בדפדפן</li>
-                        <li>ההתראות יישלחו לכל המכשירים המחוברים שלך</li>
-                        <li>ניתן לכבות התראות ספציפיות בכל עת</li>
-                    </ul>
-                </Card.Body>
+            <Card elevation={0} sx={{ mt: 2.5, bgcolor: 'action.hover', border: 'none' }}>
+                <CardContent sx={{ p: 3 }}>
+                    <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
+                        <LightbulbOutlinedIcon fontSize="small" color="warning" />
+                        <Typography fontWeight={700}>טיפים</Typography>
+                    </Stack>
+                    <Stack component="ul" spacing={0.75} sx={{ m: 0, paddingInlineStart: 2.5, color: 'text.secondary' }}>
+                        <Typography component="li" variant="body2">כדי לקבל התראות, עליך לאשר הרשאות בדפדפן</Typography>
+                        <Typography component="li" variant="body2">ההתראות יישלחו לכל המכשירים המחוברים שלך</Typography>
+                        <Typography component="li" variant="body2">ניתן לכבות התראות ספציפיות בכל עת</Typography>
+                    </Stack>
+                </CardContent>
             </Card>
-        </div>
+        </Container>
     );
 }

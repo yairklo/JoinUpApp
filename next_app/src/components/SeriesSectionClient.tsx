@@ -6,7 +6,8 @@ import Link from "next/link";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+// RTL: "forward" points left
+import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 
 import SeriesHeaderCard from "@/components/SeriesHeaderCard";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
@@ -130,7 +131,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                             fullWidth
                             endIcon={<ArrowForwardIcon />}
                         >
-                            View Series
+                            לעמוד הסדרה
                         </Button>
                     </SeriesHeaderCard>
                 ))}
@@ -161,7 +162,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                                 fullWidth
                                 endIcon={<ArrowForwardIcon />}
                             >
-                                View Series
+                                לעמוד הסדרה
                             </Button>
                         </Link>
                     </SeriesHeaderCard>

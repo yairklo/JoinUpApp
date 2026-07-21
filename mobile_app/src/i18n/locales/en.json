@@ -161,7 +161,8 @@
     "newGameInCityTitle": "New game in {{city}}",
     "newGameInCityBody": "{{name}} created a new game at {{fieldName}}",
     "joinRequestTitle": "Someone joined your game",
-    "joinRequestBody": "{{name}} joined your private game"
+    "joinRequestBody": "{{name}} joined your private game",
+    "sendMessage": "Send Message"
   },
   "field": {
     "profile": "Field Profile",

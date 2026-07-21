@@ -2,33 +2,20 @@
 import React, { useState } from "react";
 import GameLocationMap from "@/components/GameLocationMap";
 
-function buildMapLinks(lat: number, lng: number, label?: string) {
-  const encLabel = encodeURIComponent(label || "Destination");
-  return {
-    wazeApp: `waze://?ll=${lat},${lng}&navigate=yes`,
-    wazeWeb: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
-    gmapsApp: `google.navigation:q=${lat},${lng}`,
-    gmapsWeb: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-    appleApp: `maps://?daddr=${lat},${lng}&q=${encLabel}`,
-    appleWeb: `https://maps.apple.com/?daddr=${lat},${lng}&q=${encLabel}`,
-  };
-}
+// MUI
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import IconButton from "@mui/material/IconButton";
 
-function tryOpenAppThenWeb(appUrl: string, webUrl: string) {
-  try {
-    const now = Date.now();
-    // Attempt to open the app via URL scheme
-    window.location.href = appUrl;
-    // If the browser stays visible after a short delay, fall back to web
-    setTimeout(() => {
-      if (document.visibilityState === "visible") {
-        window.location.href = webUrl;
-      }
-    }, 1200);
-  } catch {
-    window.location.href = webUrl;
-  }
-}
+// Icons
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
+import NavigationOutlinedIcon from "@mui/icons-material/NavigationOutlined";
+import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
+import CloseIcon from "@mui/icons-material/Close";
 
 export default function GameActions({
   gameId,
@@ -46,7 +33,7 @@ export default function GameActions({
     typeof window !== "undefined" && window.location ? window.location.origin : "";
   const gameUrl = origin ? `${origin}/games/${gameId}` : `/games/${gameId}`;
 
-  const shareText = `${fieldName ? `${fieldName} – ` : ""}Join this game: ${gameUrl}`;
+  const shareText = `${fieldName ? `${fieldName} – ` : ""}הצטרפו למשחק: ${gameUrl}`;
   const [mapOpen, setMapOpen] = useState(false);
 
   // Compute a native-friendly navigation URL (iOS -> Apple Maps; others -> Google Maps)
@@ -83,7 +70,7 @@ export default function GameActions({
     }
     try {
       await navigator.clipboard.writeText(shareText);
-      alert("Link copied to clipboard");
+      alert("הקישור הועתק");
     } catch {
       // last resort: open a simple WhatsApp web share
       const web = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
@@ -91,66 +78,67 @@ export default function GameActions({
     }
   };
 
-  // Single Navigate button: use a generic Google Maps URL to trigger OS intent/chooser
-  const navigateToDest = () => {
-    if (!isLoc) return;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-    window.open(url, "_blank");
-  };
-
   return (
-    <section className="mb-4">
-      <div className="d-flex flex-wrap align-items-center gap-2">
-        {isLoc ? (
-          <button className="btn btn-outline-primary btn-sm" onClick={() => setMapOpen(true)}>
-            View on map
-          </button>
-        ) : null}
-
-        {isLoc ? (
-          <a className="btn btn-light btn-sm" href={navHref} target="_blank" rel="noreferrer">
-            Navigate
-          </a>
-        ) : null}
-
-        <button className="btn btn-secondary btn-sm" onClick={share}>
-          Share
-        </button>
-      </div>
-
-      {/* Map modal */}
-      {isLoc && mapOpen ? (
-        <div
-          className="position-fixed top-0 start-0 w-100 h-100"
-          style={{ background: "rgba(0,0,0,0.45)", zIndex: 1050 }}
-          onClick={() => setMapOpen(false)}
-        >
-          <div
-            className="position-absolute bg-white rounded shadow"
-            style={{
-              left: "50%",
-              top: "50%",
-              transform: "translate(-50%, -50%)",
-              width: "min(92vw, 720px)",
-            }}
-            onClick={(e) => e.stopPropagation()}
+    <Box component="section" dir="rtl" sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        {isLoc && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<MapOutlinedIcon fontSize="small" />}
+            onClick={() => setMapOpen(true)}
           >
-            <div className="d-flex align-items-center justify-content-between border-bottom p-2">
-              <div className="fw-semibold">{fieldName || "Game location"}</div>
-              <button className="btn btn-sm btn-light" onClick={() => setMapOpen(false)}>
-                Close
-              </button>
-            </div>
-            <div className="p-2">
-              <GameLocationMap lat={lat as number} lng={lng as number} title={fieldName} height={360} />
-            </div>
-          </div>
-        </div>
-      ) : null}
+            הצג במפה
+          </Button>
+        )}
 
-      {/* No custom navigation chooser modal – native OS handles app selection */}
-    </section>
+        {isLoc && navHref && (
+          <Button
+            component="a"
+            variant="outlined"
+            size="small"
+            startIcon={<NavigationOutlinedIcon fontSize="small" />}
+            href={navHref}
+            target="_blank"
+            rel="noreferrer"
+          >
+            ניווט
+          </Button>
+        )}
+
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<ShareOutlinedIcon fontSize="small" />}
+          onClick={share}
+        >
+          שיתוף
+        </Button>
+      </Stack>
+
+      {/* Map dialog */}
+      {isLoc && (
+        <Dialog open={mapOpen} onClose={() => setMapOpen(false)} fullWidth maxWidth="md" dir="rtl">
+          <DialogTitle
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontWeight: 700,
+            }}
+          >
+            {fieldName || "מיקום המשחק"}
+            <IconButton onClick={() => setMapOpen(false)} aria-label="סגור">
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent sx={{ pt: 0 }}>
+            <Box sx={{ borderRadius: 3, overflow: "hidden" }}>
+              <GameLocationMap lat={lat as number} lng={lng as number} title={fieldName} height={360} />
+            </Box>
+          </DialogContent>
+        </Dialog>
+      )}
+    </Box>
   );
 }
-
-

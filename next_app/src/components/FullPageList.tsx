@@ -63,7 +63,7 @@ export default function FullPageList<T>({
                     {items.length === 0 ? (
                         <Box textAlign="center" mt={4}>
                             <Typography variant="body1" color="text.secondary">
-                                No items found.
+                                לא נמצאו תוצאות.
                             </Typography>
                         </Box>
                     ) : (

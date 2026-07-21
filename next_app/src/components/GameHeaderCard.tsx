@@ -9,10 +9,12 @@ import Stack from "@mui/material/Stack";
 import LinearProgress from "@mui/material/LinearProgress";
 import Chip from "@mui/material/Chip";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import PeopleIcon from "@mui/icons-material/People";
+import PeopleAltRoundedIcon from "@mui/icons-material/PeopleAltRounded";
+import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 
 import CardMedia from "@mui/material/CardMedia";
-import { SPORT_IMAGES, SportType } from "@/utils/sports";
+import { SPORT_IMAGES, SPORT_MAPPING, SPORT_EMOJI, SportType } from "@/utils/sports";
 
 export default function GameHeaderCard({
   time,
@@ -54,123 +56,158 @@ export default function GameHeaderCard({
   const end = formatEndTime(time, durationHours);
   const occupancyPercentage = Math.min((currentPlayers / maxPlayers) * 100, 100);
   const isFull = currentPlayers >= maxPlayers;
+  const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
+  const almostFull = !isFull && spotsLeft <= 2;
 
-  // Resolve image
   const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
     ? SPORT_IMAGES[sport as SportType]
     : SPORT_IMAGES.SOCCER;
+  const sportLabel = sport ? SPORT_MAPPING[sport] : undefined;
+  const sportEmoji = sport ? SPORT_EMOJI[sport] : undefined;
 
   return (
     <Card
-      elevation={3}
+      elevation={0}
+      dir="rtl"
       sx={{
         minWidth: { xs: 280, sm: 300 },
         maxWidth: { xs: 280, sm: 320 },
         flexShrink: 0,
-        height: 360,
         display: "flex",
         flexDirection: "column",
-        borderRadius: 4,
+        borderRadius: 5,
         overflow: "hidden",
-        transition: "transform 0.2s, box-shadow 0.2s",
-        border: "none",
-        backgroundColor: "background.paper",
+        position: "relative",
+        border: "1px solid",
+        borderColor: isJoined ? "success.light" : "divider",
+        boxShadow: isJoined
+          ? "0 0 0 2px rgba(16,185,129,0.25), 0 4px 14px rgba(15,23,42,0.06)"
+          : "0 1px 3px rgba(15,23,42,0.06)",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease",
         "&:hover": {
           transform: "translateY(-4px)",
-          boxShadow: 8,
-          "& .reveal-media": {
-            height: 140,
-          },
-          "& .reveal-content": {
-            maxHeight: 200,
-            opacity: 1,
-            mt: 2
-          }
+          boxShadow: "0 14px 32px rgba(15,23,42,0.14)",
         },
       }}
     >
-      <CardMedia
-        className="reveal-media"
-        component="img"
-        height="220"
-        image={imageSrc}
-        alt={title}
-        sx={{
-          filter: "brightness(0.9)",
-          transition: "height 0.3s ease",
-          objectPosition: "center top"
-        }}
-      />
-      <CardContent sx={{
-        p: 2.5,
-        flexGrow: 1,
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: isJoined ? "#e8f5e9" : "inherit", // Green layout for joined
-        color: isJoined ? "success.dark" : "inherit"
-      }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-          <Stack
-            direction="row"
-            spacing={0.5}
-            alignItems="center"
+      {/* ── Image header with overlays ── */}
+      <Box sx={{ position: "relative" }}>
+        <CardMedia
+          component="img"
+          height="132"
+          image={imageSrc}
+          alt={title}
+          sx={{ objectPosition: "center 30%" }}
+        />
+        {/* Bottom scrim for legibility */}
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg, rgba(2,6,23,0.15) 0%, transparent 35%, rgba(2,6,23,0.55) 100%)",
+          }}
+        />
+
+        {/* Sport tag */}
+        {sportLabel && (
+          <Chip
+            size="small"
+            label={sportEmoji ? `${sportEmoji} ${sportLabel}` : sportLabel}
             sx={{
-              color: "text.secondary",
-              bgcolor: "action.hover",
-              px: 1,
-              py: 0.5,
-              borderRadius: 1.5,
+              position: "absolute",
+              top: 10,
+              insetInlineStart: 10,
+              height: 24,
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              color: "#fff",
+              bgcolor: "rgba(2,6,23,0.55)",
+              backdropFilter: "blur(6px)",
             }}
-          >
-            <AccessTimeIcon sx={{ fontSize: 16 }} />
-            <Typography variant="caption" fontWeight="bold">
-              {date ? `${date} • ` : ""}{time} – {end}
-            </Typography>
-          </Stack>
+          />
+        )}
 
-          <Stack direction="row" spacing={1} alignItems="center">
-            {price && (
-              <Chip
-                label={`${price}₪`}
-                size="small"
-                variant="outlined"
-                sx={{
-                  fontWeight: "bold",
-                  height: 24,
-                  fontSize: "0.75rem",
-                  bgcolor: "background.paper",
-                  borderColor: "success.light",
-                  color: "success.main"
-                }}
-              />
-            )}
-            {teamSize && (
-              <Chip
-                label={`${teamSize}X${teamSize}`}
-                size="small"
-                variant="outlined"
-                sx={{ fontWeight: "bold", height: 24, fontSize: "0.75rem", bgcolor: "background.paper" }}
-              />
-            )}
-            <Chip
-              icon={<PeopleIcon sx={{ fontSize: "16px !important" }} />}
-              label={`${currentPlayers}/${maxPlayers}`}
-              size="small"
-              color={isFull ? "error" : "default"}
-              variant={isFull ? "filled" : "outlined"}
-              sx={{ fontWeight: "bold", height: 24, fontSize: "0.75rem" }}
-            />
-          </Stack>
-        </Box>
+        {/* Joined badge */}
+        {isJoined && (
+          <Chip
+            size="small"
+            icon={<CheckCircleRoundedIcon sx={{ fontSize: "15px !important", color: "#fff !important" }} />}
+            label="רשום"
+            sx={{
+              position: "absolute",
+              top: 10,
+              insetInlineEnd: 10,
+              height: 24,
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              color: "#fff",
+              bgcolor: "rgba(5,150,105,0.9)",
+            }}
+          />
+        )}
 
-        <Box sx={{ mb: 1, flexGrow: 1 }}>
+        {/* Time pill – anchored to image bottom */}
+        <Stack
+          direction="row"
+          spacing={0.5}
+          alignItems="center"
+          sx={{
+            position: "absolute",
+            bottom: 10,
+            insetInlineStart: 10,
+            color: "#fff",
+            px: 1,
+            py: 0.4,
+            borderRadius: 999,
+            bgcolor: "rgba(2,6,23,0.55)",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          <AccessTimeIcon sx={{ fontSize: 14 }} />
+          <Typography variant="caption" fontWeight={700} sx={{ direction: "ltr" }}>
+            {time}–{end}{date ? ` • ${date}` : ""}
+          </Typography>
+        </Stack>
+
+        {/* Price pill */}
+        {typeof price === "number" && price > 0 && (
+          <Chip
+            size="small"
+            label={`₪${price}`}
+            sx={{
+              position: "absolute",
+              bottom: 10,
+              insetInlineEnd: 10,
+              height: 24,
+              fontSize: "0.75rem",
+              fontWeight: 800,
+              color: "#022c22",
+              bgcolor: "rgba(167,243,208,0.95)",
+            }}
+          />
+        )}
+      </Box>
+
+      {/* ── Content ── */}
+      <CardContent
+        sx={{
+          p: 2,
+          pt: 1.75,
+          flexGrow: 1,
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+          "&:last-child": { pb: 2 },
+        }}
+      >
+        <Box>
           <Typography
             variant="h6"
             component="h3"
-            fontWeight="bold"
+            fontWeight={700}
             sx={{
-              lineHeight: 1.2,
-              fontSize: "1.1rem",
+              lineHeight: 1.25,
+              fontSize: "1.05rem",
               display: "-webkit-box",
               overflow: "hidden",
               WebkitBoxOrient: "vertical",
@@ -180,59 +217,63 @@ export default function GameHeaderCard({
             {title || "משחק ללא שם"}
           </Typography>
           {subtitle && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                mt: 0.5,
-                fontSize: "0.85rem",
-                display: "-webkit-box",
-                overflow: "hidden",
-                WebkitBoxOrient: "vertical",
-                WebkitLineClamp: 1,
-              }}
-            >
-              {subtitle}
-            </Typography>
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5, color: "text.secondary" }}>
+              <PlaceOutlinedIcon sx={{ fontSize: 15, flexShrink: 0 }} />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: "0.82rem",
+                  display: "-webkit-box",
+                  overflow: "hidden",
+                  WebkitBoxOrient: "vertical",
+                  WebkitLineClamp: 1,
+                }}
+              >
+                {subtitle}
+              </Typography>
+            </Stack>
           )}
         </Box>
 
-        <Box
-          className="reveal-content"
-          sx={{
-            maxHeight: 0,
-            opacity: 0,
-            overflow: "hidden",
-            transition: "all 0.4s ease",
-            mt: 0 // animate margin too
-          }}
-        >
-          <Box sx={{ mt: "auto", mb: 2 }}>
-            <Box display="flex" justifyContent="space-between" mb={0.5}>
-              <Typography variant="caption" color="text.secondary" fontSize={10}>
-                תפוסה
+        {/* Occupancy */}
+        <Box sx={{ mt: "auto" }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "text.secondary" }}>
+              <PeopleAltRoundedIcon sx={{ fontSize: 15 }} />
+              <Typography variant="caption" fontWeight={700}>
+                {currentPlayers}/{maxPlayers}
+                {teamSize ? ` • ${teamSize}X${teamSize}` : ""}
               </Typography>
-              <Typography
-                variant="caption"
-                color={isFull ? "error.main" : "text.secondary"}
-                fontSize={10}
-              >
-                {isFull ? "מלא" : `נשארו ${maxPlayers - currentPlayers} מקומות`}
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={occupancyPercentage}
-              color={isFull ? "error" : "primary"}
-              sx={{ height: 6, borderRadius: 4 }}
-            />
+            </Stack>
+            <Typography
+              variant="caption"
+              fontWeight={600}
+              color={isFull ? "error.main" : almostFull ? "warning.main" : "text.secondary"}
+            >
+              {isFull ? "מלא" : `נשארו ${spotsLeft} מקומות`}
+            </Typography>
           </Box>
+          <LinearProgress
+            variant="determinate"
+            value={occupancyPercentage}
+            color={isFull ? "error" : almostFull ? "warning" : "primary"}
+            sx={{ height: 6, borderRadius: 999, bgcolor: "action.hover" }}
+          />
+        </Box>
 
-          <Stack direction="row" spacing={1} mt={0}>
+        {/* Actions – always visible */}
+        {children && (
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}
+          >
             {children}
           </Stack>
-        </Box>
+        )}
       </CardContent>
-    </Card >
+    </Card>
   );
 }

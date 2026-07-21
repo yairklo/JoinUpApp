@@ -143,7 +143,7 @@ export default async function GameDetails(props: {
           />
 
           {game.fieldId && (
-            <Box mt={1.5} sx={{ direction: "rtl" }}>
+            <Box mt={1.5}>
               <Link href={`/fields/${game.fieldId}`} style={{ textDecoration: "none" }}>
                 <Typography variant="body2" color="primary" fontWeight={600}>
                   לפרופיל המגרש: לוח משחקים ושעות עומס ←
@@ -222,10 +222,10 @@ export default async function GameDetails(props: {
           {/* Right Column: Chat */}
           {joined ? (
             <Grid size={{ xs: 12, md: 5 }}>
-              <Card elevation={2} sx={{ height: "100%", minHeight: 400 }}>
+              <Card elevation={0} sx={{ height: "100%", minHeight: 400 }}>
                 <Box p={2} height="100%">
                   <Typography variant="h6" gutterBottom>
-                    Chat
+                    צ&apos;אט המשחק
                   </Typography>
                   <Box sx={{ height: 1, borderTop: 1, borderColor: 'divider', pt: 2 }}>
                     <Chat roomId={game.chatRoomId || game.id} chatName={game.title || "Game Chat"} />

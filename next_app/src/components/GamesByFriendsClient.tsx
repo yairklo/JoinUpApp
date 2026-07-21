@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+// RTL: "forward" points left
+import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 
 import { useGamesByFriends } from "@/hooks/useGamesByFriends";
 import { useGameUpdate } from "@/context/GameUpdateContext";
