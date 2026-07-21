@@ -4,8 +4,9 @@ import React from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import Button from "@mui/material/Button";
+// In RTL "forward" points left, so ArrowBack is the visually-correct glyph
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 export default function GamesHorizontalList({
   title,
@@ -23,13 +24,24 @@ export default function GamesHorizontalList({
   return (
     <Box sx={{ mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} px={1}>
-        <Box display="flex" alignItems="center">
+        <Box display="flex" alignItems="center" gap={1}>
+          {/* Accent bar */}
+          <Box
+            sx={{
+              width: 4,
+              height: 22,
+              borderRadius: 999,
+              bgcolor: isOnColoredBackground ? "common.white" : "primary.main",
+              flexShrink: 0,
+            }}
+          />
           <Typography
-            variant="h5" // Slightly larger for better hierarchy
+            variant="h5"
             fontWeight="800"
             sx={{
-              color: isOnColoredBackground ? 'common.white' : 'text.primary',
-              textShadow: isOnColoredBackground ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+              fontSize: { xs: "1.2rem", sm: "1.4rem" },
+              color: isOnColoredBackground ? "common.white" : "text.primary",
+              textShadow: isOnColoredBackground ? "0 2px 4px rgba(0,0,0,0.1)" : "none",
             }}
           >
             {title}
@@ -41,16 +53,17 @@ export default function GamesHorizontalList({
           <Button
             size="small"
             onClick={onSeeAll}
-            endIcon={<ArrowForwardIcon fontSize="small" />}
+            endIcon={<ArrowBackIcon fontSize="small" />}
             sx={{
-              color: isOnColoredBackground ? 'rgba(255,255,255,0.9)' : 'text.secondary',
-              '&:hover': {
-                color: isOnColoredBackground ? 'common.white' : 'primary.main',
-                bgcolor: isOnColoredBackground ? 'rgba(255,255,255,0.1)' : 'transparent'
-              }
+              fontWeight: 600,
+              color: isOnColoredBackground ? "rgba(255,255,255,0.9)" : "text.secondary",
+              "&:hover": {
+                color: isOnColoredBackground ? "common.white" : "primary.main",
+                bgcolor: isOnColoredBackground ? "rgba(255,255,255,0.1)" : "action.hover",
+              },
             }}
           >
-            See all
+            הצג הכל
           </Button>
         )}
       </Box>

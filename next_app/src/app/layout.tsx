@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Heebo } from "next/font/google";
 
-import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 
 import { ClerkProvider } from "@clerk/nextjs";
 import AppNavbar from "@/components/AppNavbar";
+import BottomNav from "@/components/BottomNav";
 import ThemeRegistry from "@/components/theme/themeRegistry";
 import NotificationAsker from "@/components/NotificationAsker";
 
@@ -14,18 +14,15 @@ import FloatingChatWindow from "@/components/FloatingChatWindow";
 import { SocketProvider } from "@/context/SocketContext";
 import { NotificationCountersProvider } from "@/context/NotificationCountersContext";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const heebo = Heebo({
+  variable: "--font-heebo",
+  subsets: ["hebrew", "latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
 export const viewport: Viewport = {
-  themeColor: "#1976d2",
+  themeColor: "#059669",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -34,7 +31,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "JoinUp",
-  description: "Social Sports Application",
+  description: "קהילת הספורט של ישראל – מצאו משחקים, הצטרפו וקבעו בעצמכם",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -58,24 +55,23 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="he" dir="rtl">
         <head>
           <link rel="icon" href="/favicon.svg" />
         </head>
-        <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <body className={heebo.variable}>
           <SocketProvider>
-            {/* ThemeRegistry דואג שקומפוננטות MUI יראו טוב */}
             <ThemeRegistry>
               <ChatProvider>
                 <NotificationCountersProvider>
-                  {/* AppNavbar עדיין מסתמך על Bootstrap ולכן חייב את ה-CSS למעלה */}
                   <AppNavbar />
 
-                  {/* הורדתי את ה-container של בוטסטראפ כדי לאפשר רוחב מלא לדפים החדשים */}
-                  <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+                  {/* padding-bottom clears the mobile bottom navigation */}
+                  <main className="app-main">
                     {children}
                   </main>
 
+                  <BottomNav />
                   <FloatingChatWindow />
                   <NotificationAsker />
                 </NotificationCountersProvider>

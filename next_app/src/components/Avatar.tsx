@@ -1,14 +1,26 @@
 "use client";
-import Image from "react-bootstrap/Image";
+import MuiAvatar from "@mui/material/Avatar";
 
 type AvatarSize = "xs" | "sm" | "md" | "lg";
 
 const sizePx: Record<AvatarSize, number> = {
-  xs: 12,  // chat – קטן מאוד
-  sm: 20,  // רשימות קצרות (friends/participants)
-  md: 32,  // כותרות משתמש
-  lg: 40,  // אווטאר פרופיל
+  xs: 16,  // chat – very small
+  sm: 24,  // short lists (friends/participants)
+  md: 36,  // user headers
+  lg: 48,  // profile avatar
 };
+
+// Deterministic pastel color from a name, for pleasant initials fallbacks
+const FALLBACK_COLORS = [
+  "#059669", "#6366f1", "#f59e0b", "#0ea5e9",
+  "#ec4899", "#8b5cf6", "#14b8a6", "#f97316",
+];
+
+function colorFor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return FALLBACK_COLORS[Math.abs(hash) % FALLBACK_COLORS.length];
+}
 
 function getInitials(name: string): string {
   const parts = (name || "").trim().split(/\s+/).filter(Boolean);
@@ -31,20 +43,25 @@ export default function Avatar({
   className?: string;
 }) {
   const px = sizePx[size] ?? sizePx.sm;
-  const initials = getInitials(name || alt || "");
-
-  const url =
-    (src && src.trim().length > 0 ? src : `https://placehold.co/${px}x${px}?text=${encodeURIComponent(initials)}`);
+  const display = name || alt || "";
+  const initials = getInitials(display);
+  const hasImage = !!(src && src.trim().length > 0);
 
   return (
-    <Image
-      src={url}
+    <MuiAvatar
+      src={hasImage ? (src as string) : undefined}
       alt={alt}
-      roundedCircle
       className={className}
-      style={{ width: px, height: px, objectFit: "cover" }}
-    />
+      sx={{
+        width: px,
+        height: px,
+        fontSize: px * 0.4,
+        fontWeight: 700,
+        bgcolor: hasImage ? undefined : colorFor(display),
+        color: "#fff",
+      }}
+    >
+      {!hasImage ? initials : null}
+    </MuiAvatar>
   );
 }
-
-

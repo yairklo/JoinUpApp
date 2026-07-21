@@ -1,4 +1,7 @@
 import FieldCard from "@/components/FieldCard";
+import Container from "@mui/material/Container";
+import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
 
 type Field = {
   id: string;
@@ -30,19 +33,47 @@ export default async function FieldsPage() {
   const fields = await fetchFields();
 
   return (
-    <main className="container">
-      <h1 className="text-2xl font-bold mb-4">Football Fields</h1>
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-          gap: "1.25rem",
-        }}
-      >
-        {fields.map((f) => (
-          <FieldCard key={f.id} field={f} />
-        ))}
-      </section>
-    </main>
+    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+      <Box mb={4}>
+        <Typography variant="h4" component="h1" fontWeight={800} gutterBottom>
+          מגרשים
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          מצאו את המגרש הקרוב אליכם – לוחות זמנים, שעות עומס ומשחקים פתוחים
+        </Typography>
+      </Box>
+
+      {fields.length === 0 ? (
+        <Box
+          sx={{
+            textAlign: "center",
+            py: 8,
+            borderRadius: 4,
+            bgcolor: "action.hover",
+          }}
+        >
+          <Typography variant="body1" color="text.secondary">
+            לא נמצאו מגרשים כרגע. נסו שוב מאוחר יותר.
+          </Typography>
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "repeat(2, 1fr)",
+              md: "repeat(3, 1fr)",
+              lg: "repeat(4, 1fr)",
+            },
+            gap: 2.5,
+          }}
+        >
+          {fields.map((f) => (
+            <FieldCard key={f.id} field={f} />
+          ))}
+        </Box>
+      )}
+    </Container>
   );
 }

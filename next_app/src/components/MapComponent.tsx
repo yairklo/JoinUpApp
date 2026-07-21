@@ -95,7 +95,7 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
       }));
   }, [fields]);
 
-  if (!userLocation) return <div className="text-muted">Loading map…</div>;
+  if (!userLocation) return <div style={{ color: "#64748b", fontSize: 14 }}>טוען מפה…</div>;
 
   return (
     <div style={{ width: "100%", height: 450 }}>
@@ -110,9 +110,9 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
         <ClusteredFieldMarkers points={fieldMarkers} onSelect={onSelect} />
         {pickMode ? <PickLocationLayer picked={picked} onPick={onPick} /> : null}
       </MapContainer>
-      {loading ? <div className="text-muted small mt-2">Loading fields…</div> : null}
+      {loading ? <div style={{ color: "#64748b", fontSize: 13, marginTop: 8 }}>טוען מגרשים…</div> : null}
       {!loading && fieldMarkers.length === 0 ? (
-        <div className="text-muted small mt-2">No fields with coordinates to display.</div>
+        <div style={{ color: "#64748b", fontSize: 13, marginTop: 8 }}>אין מגרשים עם מיקום להצגה.</div>
       ) : null}
     </div>
   );
@@ -247,10 +247,19 @@ function ClusteredFieldMarkers({
                   <div style={{ marginTop: 8 }}>
                     <button
                       type="button"
-                      className="btn btn-primary btn-sm"
+                      style={{
+                        background: "#059669",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 999,
+                        padding: "6px 14px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
                       onClick={() => onSelect?.({ id: f.id, name: f.name, location: f.location })}
                     >
-                      Select this field
+                      בחר מגרש זה
                     </button>
                   </div>
                 </div>
@@ -290,8 +299,8 @@ function ClusteredFieldMarkers({
 function clusterHtml(count: number) {
   // Simple responsive cluster appearance
   const size = count > 100 ? 44 : count > 25 ? 40 : 36;
-  const bg = count > 100 ? "#d32f2f" : count > 25 ? "#f57c00" : "#1976d2";
-  const shadow = "0 0 0 4px rgba(25, 118, 210, 0.15)";
+  const bg = count > 100 ? "#dc2626" : count > 25 ? "#f59e0b" : "#059669";
+  const shadow = "0 0 0 4px rgba(5, 150, 105, 0.18)";
   return `<div style="
     width:${size}px;
     height:${size}px;

@@ -11,7 +11,7 @@ import GamesByDateClient from "@/components/GamesByDateClient";
 import GamesByFriendsClient from "@/components/GamesByFriendsClient";
 import GamesByCityClient from "@/components/GamesByCityClient";
 import SeriesSectionClient from "@/components/SeriesSectionClient";
-import { SportFilter, SPORT_MAPPING } from "@/utils/sports";
+import { SportFilter, SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 
 const FILTERS: { label: string; value: SportFilter }[] = [
     { label: "הכל", value: "ALL" },
@@ -38,16 +38,27 @@ export default function GamesPageContent({
 
                     {/* Filter Section */}
                     <Box display="flex" gap={1} flexWrap="wrap" sx={{ mb: -2 }}>
-                        {FILTERS.map((f) => (
-                            <Chip
-                                key={f.value}
-                                label={f.label}
-                                clickable
-                                color={sportFilter === f.value ? "primary" : "default"}
-                                onClick={() => setSportFilter(f.value)}
-                                variant={sportFilter === f.value ? "filled" : "outlined"}
-                            />
-                        ))}
+                        {FILTERS.map((f) => {
+                            const selected = sportFilter === f.value;
+                            const emoji = f.value !== "ALL" ? SPORT_EMOJI[f.value] : undefined;
+                            return (
+                                <Chip
+                                    key={f.value}
+                                    label={emoji ? `${emoji} ${f.label}` : f.label}
+                                    clickable
+                                    color={selected ? "primary" : "default"}
+                                    onClick={() => setSportFilter(f.value)}
+                                    variant={selected ? "filled" : "outlined"}
+                                    sx={{
+                                        px: 0.5,
+                                        height: 34,
+                                        fontSize: "0.9rem",
+                                        bgcolor: selected ? undefined : "background.paper",
+                                        boxShadow: selected ? 2 : 0,
+                                    }}
+                                />
+                            );
+                        })}
                     </Box>
 
                     {/* My Games */}
