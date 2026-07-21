@@ -53,33 +53,41 @@ export default function AppNavbar() {
       color="transparent"
       elevation={0}
       sx={{
-        bgcolor: alpha(theme.palette.background.paper, 0.82),
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
+        bgcolor: alpha(theme.palette.background.paper, 0.88),
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
         borderBottom: 1,
         borderColor: "divider",
+        pt: "env(safe-area-inset-top, 0px)",
       }}
     >
-      <Container maxWidth="lg">
-        <Toolbar disableGutters sx={{ justifyContent: "space-between", minHeight: { xs: 60, md: 68 } }}>
-
+      <Container maxWidth="lg" sx={{ px: { xs: 1.5, sm: 2 } }}>
+        <Toolbar
+          disableGutters
+          sx={{
+            justifyContent: "space-between",
+            minHeight: { xs: 56, md: 68 },
+            gap: 1,
+          }}
+        >
           {/* Start: Logo + desktop nav links */}
-          <Stack direction="row" alignItems="center" spacing={{ xs: 1, md: 2.5 }}>
+          <Stack direction="row" alignItems="center" spacing={{ xs: 0.75, md: 2.5 }} sx={{ minWidth: 0 }}>
             <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer" }}>
                 <Box
                   sx={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: "12px",
+                    width: { xs: 34, md: 38 },
+                    height: { xs: 34, md: 38 },
+                    borderRadius: "11px",
                     display: "grid",
                     placeItems: "center",
                     color: "#fff",
                     background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                     boxShadow: "0 4px 12px rgba(5,150,105,0.35)",
+                    flexShrink: 0,
                   }}
                 >
-                  <SportsSoccerIcon fontSize="small" />
+                  <SportsSoccerIcon sx={{ fontSize: { xs: 18, md: 20 } }} />
                 </Box>
                 <Typography
                   variant="h6"
@@ -88,6 +96,7 @@ export default function AppNavbar() {
                     fontWeight: 800,
                     letterSpacing: "-0.5px",
                     color: "text.primary",
+                    fontSize: { xs: "1.05rem", md: "1.25rem" },
                   }}
                 >
                   JoinUp
@@ -134,8 +143,8 @@ export default function AppNavbar() {
             </ClerkLoaded>
           )}
 
-          {/* End: actions */}
-          <Stack direction="row" alignItems="center" spacing={{ xs: 0.25, md: 0.75 }}>
+          {/* End: actions – keep lean on mobile (BottomNav covers primary destinations) */}
+          <Stack direction="row" alignItems="center" spacing={{ xs: 0, md: 0.75 }}>
             <Button
               component={Link}
               href="/games/new"
@@ -151,7 +160,12 @@ export default function AppNavbar() {
             </Button>
 
             <Tooltip title={mode === "dark" ? "מצב בהיר" : "מצב כהה"}>
-              <IconButton onClick={toggleColorMode} color="inherit" size="small" sx={{ p: 1 }}>
+              <IconButton
+                onClick={toggleColorMode}
+                color="inherit"
+                size="small"
+                sx={{ p: { xs: 0.75, md: 1 }, display: { xs: "none", sm: "inline-flex" } }}
+              >
                 {mode === "dark" ? <LightModeOutlinedIcon fontSize="small" /> : <DarkModeOutlinedIcon fontSize="small" />}
               </IconButton>
             </Tooltip>
@@ -186,7 +200,7 @@ export default function AppNavbar() {
               </ClerkLoaded>
             )}
 
-            <Box sx={{ marginInlineStart: 0.5, display: "flex", alignItems: "center" }}>
+            <Box sx={{ marginInlineStart: 0.25, display: "flex", alignItems: "center" }}>
               <AuthButtons />
             </Box>
           </Stack>

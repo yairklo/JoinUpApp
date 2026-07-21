@@ -43,23 +43,40 @@ export default function FullPageList<T>({
             onClose={onClose}
             TransitionComponent={Transition}
         >
-            <AppBar sx={{ position: "relative" }}>
-                <Toolbar>
+            <AppBar
+                sx={{
+                    position: "sticky",
+                    top: 0,
+                    bgcolor: "background.paper",
+                    color: "text.primary",
+                    borderBottom: 1,
+                    borderColor: "divider",
+                    boxShadow: "none",
+                }}
+            >
+                <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
                     <IconButton
                         edge="start"
                         color="inherit"
                         onClick={onClose}
-                        aria-label="close"
+                        aria-label="סגור"
                     >
                         <CloseIcon />
                     </IconButton>
-                    <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+                    <Typography sx={{ marginInlineStart: 1.5, flex: 1 }} variant="h6" component="div" fontWeight={700} noWrap>
                         {title}
                     </Typography>
                 </Toolbar>
             </AppBar>
-            <Box sx={{ bgcolor: "background.default", minHeight: "100vh", py: 3 }}>
-                <Container maxWidth="md">
+            <Box
+                sx={{
+                    bgcolor: "background.default",
+                    minHeight: "100%",
+                    py: { xs: 2, md: 3 },
+                    pb: { xs: "calc(24px + env(safe-area-inset-bottom))", md: 3 },
+                }}
+            >
+                <Container maxWidth="md" sx={{ px: { xs: 2, sm: 3 } }}>
                     {items.length === 0 ? (
                         <Box textAlign="center" mt={4}>
                             <Typography variant="body1" color="text.secondary">
@@ -67,12 +84,27 @@ export default function FullPageList<T>({
                             </Typography>
                         </Box>
                     ) : (
-                        <Box display="flex" flexWrap="wrap" gap={2}>
-                            {items.map((item, index) => (
-                                <Box key={index} sx={{ width: { xs: "100%", sm: "calc(50% - 8px)" } }}>
-                                    {renderItem(item)}
-                                </Box>
-                            ))}
+                        <Box
+                            display="grid"
+                            gap={2}
+                            sx={{
+                                gridTemplateColumns: {
+                                    xs: "1fr",
+                                    sm: "repeat(2, 1fr)",
+                                },
+                            }}
+                        >
+                            {items.map((item, index) => {
+                                const node = renderItem(item);
+                                const card = React.isValidElement(node)
+                                    ? React.cloneElement(node as React.ReactElement<{ fullWidth?: boolean }>, { fullWidth: true })
+                                    : node;
+                                return (
+                                    <Box key={index} sx={{ minWidth: 0 }}>
+                                        {card}
+                                    </Box>
+                                );
+                            })}
                         </Box>
                     )}
                 </Container>

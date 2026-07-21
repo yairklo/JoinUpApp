@@ -27,44 +27,53 @@ export default function HomeHero() {
                 position: "relative",
                 overflow: "hidden",
                 color: "white",
-                mb: 5,
+                mb: { xs: 3, md: 5 },
                 borderRadius: { xs: 0, md: "0 0 40px 40px" },
-                // Layered background: brand gradient + photo + darkening scrim
                 backgroundImage: `
-                    linear-gradient(160deg, rgba(4,47,36,0.88) 0%, rgba(6,78,59,0.72) 45%, rgba(5,150,105,0.55) 100%),
+                    linear-gradient(160deg, rgba(4,47,36,0.9) 0%, rgba(6,78,59,0.75) 45%, rgba(5,150,105,0.55) 100%),
                     url(/hero_bg.jpg)
                 `,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
             }}
         >
-            {/* Decorative glow */}
             <Box
                 aria-hidden
                 sx={{
                     position: "absolute",
-                    width: 480,
-                    height: 480,
+                    width: { xs: 280, md: 480 },
+                    height: { xs: 280, md: 480 },
                     borderRadius: "50%",
                     background: "radial-gradient(circle, rgba(52,211,153,0.35) 0%, transparent 70%)",
-                    top: -160,
-                    insetInlineEnd: -120,
+                    top: { xs: -100, md: -160 },
+                    insetInlineEnd: { xs: -80, md: -120 },
                     pointerEvents: "none",
                 }}
             />
 
-            <Container maxWidth="md" sx={{ position: "relative", textAlign: "center", pt: { xs: 8, md: 11 }, pb: { xs: 9, md: 12 } }}>
+            <Container
+                maxWidth="md"
+                sx={{
+                    position: "relative",
+                    textAlign: "center",
+                    // Compact first viewport on phones – CTAs sit above the fold
+                    pt: { xs: 5, sm: 7, md: 11 },
+                    pb: { xs: 5.5, sm: 8, md: 12 },
+                    px: { xs: 2.5, sm: 3 },
+                }}
+            >
                 <Chip
                     label="קהילת הספורט של ישראל"
                     size="small"
                     sx={{
-                        mb: 3,
+                        mb: { xs: 2, md: 3 },
                         color: "#a7f3d0",
                         bgcolor: "rgba(255,255,255,0.08)",
                         border: "1px solid rgba(167,243,208,0.35)",
                         backdropFilter: "blur(6px)",
                         fontWeight: 600,
                         letterSpacing: 0.3,
+                        fontSize: { xs: "0.7rem", md: "0.8125rem" },
                     }}
                 />
 
@@ -73,9 +82,9 @@ export default function HomeHero() {
                     component="h1"
                     sx={{
                         fontWeight: 800,
-                        fontSize: { xs: "2.6rem", md: "4rem" },
+                        fontSize: { xs: "2rem", sm: "2.6rem", md: "4rem" },
                         lineHeight: 1.15,
-                        mb: 2,
+                        mb: { xs: 1.25, md: 2 },
                         textShadow: "0 4px 24px rgba(0,0,0,0.35)",
                     }}
                 >
@@ -91,17 +100,25 @@ export default function HomeHero() {
                     component="h2"
                     sx={{
                         fontWeight: 400,
-                        mb: 4,
+                        mb: { xs: 2.5, md: 4 },
                         color: "rgba(255,255,255,0.85)",
                         maxWidth: 520,
                         mx: "auto",
+                        fontSize: { xs: "0.95rem", sm: "1.1rem", md: "1.25rem" },
+                        lineHeight: 1.45,
+                        px: { xs: 0.5, md: 0 },
                     }}
                 >
-                    כדורגל, כדורסל וטניס ליד הבית – מצאו משחקים פתוחים או פתחו משחק משלכם תוך שניות.
+                    כדורגל, כדורסל וטניס ליד הבית – מצאו משחק או פתחו אחד תוך שניות.
                 </Typography>
 
-                {/* Sport icons row */}
-                <Stack direction="row" spacing={1.5} justifyContent="center" sx={{ mb: 4 }}>
+                {/* Sport icons – hidden on the narrowest phones to keep the hero lean */}
+                <Stack
+                    direction="row"
+                    spacing={1.5}
+                    justifyContent="center"
+                    sx={{ mb: { xs: 2.5, md: 4 }, display: { xs: "none", sm: "flex" } }}
+                >
                     {[SportsSoccerIcon, SportsBasketballIcon, SportsTennisIcon].map((Icon, i) => (
                         <Box
                             key={i}
@@ -123,9 +140,10 @@ export default function HomeHero() {
 
                 <Stack
                     direction={{ xs: "column", sm: "row" }}
-                    spacing={1.5}
+                    spacing={1.25}
                     justifyContent="center"
-                    alignItems="center"
+                    alignItems="stretch"
+                    sx={{ width: "100%", maxWidth: { xs: 320, sm: "none" }, mx: "auto" }}
                 >
                     <Button
                         component={Link}
@@ -134,9 +152,10 @@ export default function HomeHero() {
                         size="large"
                         startIcon={<AddIcon />}
                         sx={{
-                            minWidth: 220,
-                            py: 1.5,
-                            fontSize: "1.05rem",
+                            width: { xs: "100%", sm: "auto" },
+                            minWidth: { sm: 200 },
+                            py: { xs: 1.35, md: 1.5 },
+                            fontSize: { xs: "1rem", md: "1.05rem" },
                             bgcolor: "#10b981",
                             color: "#022c22",
                             boxShadow: "0 10px 30px rgba(16,185,129,0.45)",
@@ -152,9 +171,10 @@ export default function HomeHero() {
                         onClick={scrollToGames}
                         endIcon={<KeyboardArrowDownIcon />}
                         sx={{
-                            minWidth: 220,
-                            py: 1.5,
-                            fontSize: "1.05rem",
+                            width: { xs: "100%", sm: "auto" },
+                            minWidth: { sm: 200 },
+                            py: { xs: 1.35, md: 1.5 },
+                            fontSize: { xs: "1rem", md: "1.05rem" },
                             color: "white",
                             borderColor: "rgba(255,255,255,0.5)",
                             backdropFilter: "blur(4px)",

@@ -29,6 +29,7 @@ export default function GameHeaderCard({
   price,
   children,
   isJoined,
+  fullWidth = false,
 }: {
   time: string;
   date?: string;
@@ -42,6 +43,8 @@ export default function GameHeaderCard({
   price?: number | null;
   children?: React.ReactNode;
   isJoined?: boolean;
+  /** Stretch to parent width (search list / detail / see-all). Default: carousel card. */
+  fullWidth?: boolean;
 }) {
   function formatEndTime(startTime: string, hours: number | undefined): string {
     const dur = typeof hours === "number" && Number.isFinite(hours) ? hours : 1;
@@ -70,12 +73,13 @@ export default function GameHeaderCard({
       elevation={0}
       dir="rtl"
       sx={{
-        minWidth: { xs: 280, sm: 300 },
-        maxWidth: { xs: 280, sm: 320 },
+        width: fullWidth ? "100%" : undefined,
+        minWidth: fullWidth ? 0 : { xs: 252, sm: 300 },
+        maxWidth: fullWidth ? "100%" : { xs: 268, sm: 320 },
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
-        borderRadius: 5,
+        borderRadius: { xs: 4, sm: 5 },
         overflow: "hidden",
         position: "relative",
         border: "1px solid",
@@ -84,9 +88,12 @@ export default function GameHeaderCard({
           ? "0 0 0 2px rgba(16,185,129,0.25), 0 4px 14px rgba(15,23,42,0.06)"
           : "0 1px 3px rgba(15,23,42,0.06)",
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
-        "&:hover": {
-          transform: "translateY(-4px)",
-          boxShadow: "0 14px 32px rgba(15,23,42,0.14)",
+        WebkitTapHighlightColor: "transparent",
+        "@media (hover: hover)": {
+          "&:hover": {
+            transform: "translateY(-4px)",
+            boxShadow: "0 14px 32px rgba(15,23,42,0.14)",
+          },
         },
       }}
     >
@@ -94,7 +101,7 @@ export default function GameHeaderCard({
       <Box sx={{ position: "relative" }}>
         <CardMedia
           component="img"
-          height="132"
+          height={fullWidth ? 148 : 132}
           image={imageSrc}
           alt={title}
           sx={{ objectPosition: "center 30%" }}

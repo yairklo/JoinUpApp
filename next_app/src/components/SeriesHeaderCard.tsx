@@ -28,6 +28,7 @@ export default function SeriesHeaderCard({
     sport,
     children,
     isSubscribed,
+    fullWidth = false,
 }: {
     name: string;
     fieldName: string;
@@ -37,6 +38,7 @@ export default function SeriesHeaderCard({
     sport?: string;
     children?: React.ReactNode;
     isSubscribed?: boolean;
+    fullWidth?: boolean;
 }) {
     const dayName = typeof dayOfWeek === 'number' ? DAYS[dayOfWeek] : 'שבועי';
     const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
@@ -48,12 +50,13 @@ export default function SeriesHeaderCard({
             elevation={0}
             dir="rtl"
             sx={{
-                minWidth: { xs: 280, sm: 300 },
-                maxWidth: { xs: 280, sm: 320 },
+                width: fullWidth ? "100%" : undefined,
+                minWidth: fullWidth ? 0 : { xs: 252, sm: 300 },
+                maxWidth: fullWidth ? "100%" : { xs: 268, sm: 320 },
                 flexShrink: 0,
                 display: "flex",
                 flexDirection: "column",
-                borderRadius: 5,
+                borderRadius: { xs: 4, sm: 5 },
                 overflow: "hidden",
                 position: "relative",
                 border: "1px solid",
@@ -62,9 +65,12 @@ export default function SeriesHeaderCard({
                     ? "0 0 0 2px rgba(16,185,129,0.25), 0 4px 14px rgba(15,23,42,0.06)"
                     : "0 1px 3px rgba(15,23,42,0.06)",
                 transition: "transform 0.2s ease, box-shadow 0.2s ease",
-                "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 14px 32px rgba(15,23,42,0.14)",
+                WebkitTapHighlightColor: "transparent",
+                "@media (hover: hover)": {
+                    "&:hover": {
+                        transform: "translateY(-4px)",
+                        boxShadow: "0 14px 32px rgba(15,23,42,0.14)",
+                    },
                 },
             }}
         >

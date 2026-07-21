@@ -27,11 +27,13 @@ export default function BottomNav() {
   const pathname = usePathname();
   const theme = useTheme();
 
-  // Hide inside full-screen chat threads to leave room for the composer
+  // Hide on immersive full-screen surfaces
   if (pathname?.startsWith("/chat/")) return null;
+  if (pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up")) return null;
 
   const isActive = (href: string) => {
     if (href === "/games") return pathname === "/" || pathname === "/games";
+    if (href === "/games/new") return pathname === "/games/new";
     return pathname === href || pathname?.startsWith(`${href}/`);
   };
 
@@ -46,12 +48,14 @@ export default function BottomNav() {
         insetInlineEnd: 0,
         zIndex: (t) => t.zIndex.appBar,
         display: { xs: "block", md: "none" },
-        bgcolor: alpha(theme.palette.background.paper, 0.92),
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
+        bgcolor: alpha(theme.palette.background.paper, 0.94),
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
         borderTop: 1,
         borderColor: "divider",
-        pb: "env(safe-area-inset-bottom)",
+        pb: "env(safe-area-inset-bottom, 0px)",
+        // Soft lift so content doesn't feel glued to the bar
+        boxShadow: "0 -8px 24px rgba(15,23,42,0.06)",
       }}
     >
       <Box
@@ -62,6 +66,7 @@ export default function BottomNav() {
           height: 64,
           maxWidth: 480,
           mx: "auto",
+          px: 0.5,
         }}
       >
         {ITEMS.map((item) => {
@@ -76,22 +81,22 @@ export default function BottomNav() {
                   href={item.href}
                   aria-label="צור משחק"
                   sx={{
-                    width: 50,
-                    height: 50,
-                    mt: -3,
+                    width: 52,
+                    height: 52,
+                    mt: -3.25,
                     borderRadius: "50%",
                     display: "grid",
                     placeItems: "center",
                     color: "#fff",
                     textDecoration: "none",
                     background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                    boxShadow: "0 8px 20px rgba(5,150,105,0.45)",
+                    boxShadow: "0 10px 24px rgba(5,150,105,0.45)",
                     border: `4px solid ${theme.palette.background.default}`,
                     transition: "transform 0.15s ease",
                     "&:active": { transform: "scale(0.94)" },
                   }}
                 >
-                  <Icon sx={{ fontSize: 26 }} />
+                  <Icon sx={{ fontSize: 28 }} />
                 </Box>
               </Box>
             );
@@ -107,14 +112,38 @@ export default function BottomNav() {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 0.25,
+                gap: 0.35,
                 height: "100%",
                 textDecoration: "none",
                 color: active ? "primary.main" : "text.secondary",
+                position: "relative",
+                WebkitTapHighlightColor: "transparent",
+                "&:active": { opacity: 0.75 },
               }}
             >
+              {/* Active indicator */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 6,
+                  width: 18,
+                  height: 3,
+                  borderRadius: 999,
+                  bgcolor: "primary.main",
+                  opacity: active ? 1 : 0,
+                  transition: "opacity 0.15s ease",
+                }}
+              />
               <Icon sx={{ fontSize: 24 }} />
-              <Typography variant="caption" sx={{ fontSize: 11, fontWeight: active ? 700 : 500, lineHeight: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize: 11,
+                  fontWeight: active ? 700 : 500,
+                  lineHeight: 1,
+                  letterSpacing: 0.1,
+                }}
+              >
                 {item.label}
               </Typography>
             </Box>

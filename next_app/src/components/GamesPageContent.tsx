@@ -33,55 +33,82 @@ export default function GamesPageContent({
 
     return (
         <GameUpdateProvider>
-            <Container maxWidth="md">
-                <Stack spacing={4} id="games-feed" sx={{ scrollMarginTop: "20px" }}>
+            <Container
+                maxWidth="md"
+                sx={{
+                    px: { xs: 2, sm: 3 },
+                    pb: { xs: 2, md: 4 },
+                }}
+            >
+                <Stack spacing={{ xs: 2.5, md: 4 }} id="games-feed" sx={{ scrollMarginTop: "72px" }}>
 
-                    {/* Filter Section */}
-                    <Box display="flex" gap={1} flexWrap="wrap" sx={{ mb: -2 }}>
-                        {FILTERS.map((f) => {
-                            const selected = sportFilter === f.value;
-                            const emoji = f.value !== "ALL" ? SPORT_EMOJI[f.value] : undefined;
-                            return (
-                                <Chip
-                                    key={f.value}
-                                    label={emoji ? `${emoji} ${f.label}` : f.label}
-                                    clickable
-                                    color={selected ? "primary" : "default"}
-                                    onClick={() => setSportFilter(f.value)}
-                                    variant={selected ? "filled" : "outlined"}
-                                    sx={{
-                                        px: 0.5,
-                                        height: 34,
-                                        fontSize: "0.9rem",
-                                        bgcolor: selected ? undefined : "background.paper",
-                                        boxShadow: selected ? 2 : 0,
-                                    }}
-                                />
-                            );
-                        })}
+                    {/* Sticky sport filters on mobile */}
+                    <Box
+                        sx={{
+                            position: { xs: "sticky", md: "static" },
+                            top: { xs: 56, md: "auto" },
+                            zIndex: 5,
+                            mx: { xs: -2, sm: 0 },
+                            px: { xs: 2, sm: 0 },
+                            py: { xs: 1, md: 0 },
+                            bgcolor: { xs: "background.default", md: "transparent" },
+                            borderBottom: { xs: 1, md: 0 },
+                            borderColor: "divider",
+                            mb: { xs: 0, md: -2 },
+                        }}
+                    >
+                        <Box
+                            display="flex"
+                            gap={1}
+                            sx={{
+                                overflowX: "auto",
+                                scrollbarWidth: "none",
+                                "&::-webkit-scrollbar": { display: "none" },
+                                WebkitOverflowScrolling: "touch",
+                                pb: 0.25,
+                            }}
+                        >
+                            {FILTERS.map((f) => {
+                                const selected = sportFilter === f.value;
+                                const emoji = f.value !== "ALL" ? SPORT_EMOJI[f.value] : undefined;
+                                return (
+                                    <Chip
+                                        key={f.value}
+                                        label={emoji ? `${emoji} ${f.label}` : f.label}
+                                        clickable
+                                        color={selected ? "primary" : "default"}
+                                        onClick={() => setSportFilter(f.value)}
+                                        variant={selected ? "filled" : "outlined"}
+                                        sx={{
+                                            flexShrink: 0,
+                                            px: 0.5,
+                                            height: 34,
+                                            fontSize: "0.875rem",
+                                            bgcolor: selected ? undefined : "background.paper",
+                                            boxShadow: selected ? 2 : 0,
+                                        }}
+                                    />
+                                );
+                            })}
+                        </Box>
                     </Box>
 
-                    {/* My Games */}
                     <Box>
                         <MyJoinedGames sportFilter={sportFilter} />
                     </Box>
 
-                    {/* Series List */}
                     <Box>
                         <SeriesSectionClient sportFilter={sportFilter} />
                     </Box>
 
-                    {/* Games by City */}
                     <Box>
                         <GamesByCityClient sportFilter={sportFilter} />
                     </Box>
 
-                    {/* Games with Friends */}
                     <Box>
                         <GamesByFriendsClient sportFilter={sportFilter} />
                     </Box>
 
-                    {/* All Games List */}
                     <Box>
                         <GamesByDateClient
                             initialDate={initialDate}

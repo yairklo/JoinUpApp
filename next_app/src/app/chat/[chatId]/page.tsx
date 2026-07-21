@@ -15,7 +15,7 @@ export default async function ChatPage({ params }: PageProps) {
             sx={{
                 // Lock container to viewport to prevent body scroll (overscroll)
                 position: "fixed",
-                top: { xs: "60px", md: "68px" }, // Navbar height
+                top: { xs: "calc(56px + env(safe-area-inset-top, 0px))", md: "68px" },
                 bottom: 0,
                 left: 0,
                 right: 0,
@@ -25,7 +25,7 @@ export default async function ChatPage({ params }: PageProps) {
                 bgcolor: { xs: "background.paper", md: "background.default" },
                 p: { xs: 0, md: 3 },
                 overflow: "hidden",
-                zIndex: 0 // Ensure it sits below overlay elements but locks scroll
+                zIndex: 0
             }}
         >
             {/* Wrapper for Desktop View */}

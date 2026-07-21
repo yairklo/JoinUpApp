@@ -112,7 +112,7 @@ export default async function GameDetails(props: {
 
   return (
     <main>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 2.5, md: 4 }, px: { xs: 2, sm: 3 } }}>
         {/* Header Section */}
         <Box mb={4}>
           <GameLiveSection
