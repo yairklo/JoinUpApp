@@ -92,8 +92,9 @@ export default function GameActions({
           </Button>
         )}
 
-        {isLoc && (
+        {isLoc && navHref && (
           <Button
+            component="a"
             variant="outlined"
             size="small"
             startIcon={<NavigationOutlinedIcon fontSize="small" />}
