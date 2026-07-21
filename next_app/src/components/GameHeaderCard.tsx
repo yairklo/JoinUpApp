@@ -16,6 +16,22 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import CardMedia from "@mui/material/CardMedia";
 import { SPORT_IMAGES, SPORT_MAPPING, SPORT_EMOJI, SportType } from "@/utils/sports";
 
+const chipOverlaySx = {
+  height: 24,
+  maxWidth: "100%",
+  fontSize: "0.72rem",
+  fontWeight: 700,
+  "& .MuiChip-label": {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    px: 1,
+  },
+  "& .MuiChip-icon": {
+    marginInlineStart: "6px",
+    marginInlineEnd: "-2px",
+  },
+} as const;
+
 export default function GameHeaderCard({
   time,
   date,
@@ -38,12 +54,11 @@ export default function GameHeaderCard({
   currentPlayers: number;
   maxPlayers: number;
   durationHours?: number;
-  sport?: string; // loosely typed string to match API, or strict SportType
+  sport?: string;
   teamSize?: number | null;
   price?: number | null;
   children?: React.ReactNode;
   isJoined?: boolean;
-  /** Stretch to parent width (search list / detail / see-all). Default: carousel card. */
   fullWidth?: boolean;
 }) {
   function formatEndTime(startTime: string, hours: number | undefined): string {
@@ -81,6 +96,7 @@ export default function GameHeaderCard({
         flexDirection: "column",
         borderRadius: { xs: 4, sm: 5 },
         overflow: "hidden",
+        isolation: "isolate",
         position: "relative",
         border: "1px solid",
         borderColor: isJoined ? "success.light" : "divider",
@@ -97,105 +113,112 @@ export default function GameHeaderCard({
         },
       }}
     >
-      {/* ── Image header with overlays ── */}
-      <Box sx={{ position: "relative" }}>
+      {/* Image + overlays constrained inside padded flex layer (no absolute edge bleed) */}
+      <Box sx={{ position: "relative", overflow: "hidden", flexShrink: 0 }}>
         <CardMedia
           component="img"
           height={fullWidth ? 148 : 132}
           image={imageSrc}
           alt={title}
-          sx={{ objectPosition: "center 30%" }}
+          sx={{ objectPosition: "center 30%", display: "block", width: "100%" }}
         />
-        {/* Bottom scrim for legibility */}
         <Box
           sx={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(180deg, rgba(2,6,23,0.15) 0%, transparent 35%, rgba(2,6,23,0.55) 100%)",
+            background: "linear-gradient(180deg, rgba(2,6,23,0.2) 0%, transparent 40%, rgba(2,6,23,0.6) 100%)",
+            pointerEvents: "none",
           }}
         />
 
-        {/* Sport tag */}
-        {sportLabel && (
-          <Chip
-            size="small"
-            label={sportEmoji ? `${sportEmoji} ${sportLabel}` : sportLabel}
-            sx={{
-              position: "absolute",
-              top: 10,
-              insetInlineStart: 10,
-              height: 24,
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              color: "#fff",
-              bgcolor: "rgba(2,6,23,0.55)",
-              backdropFilter: "blur(6px)",
-            }}
-          />
-        )}
-
-        {/* Joined badge */}
-        {isJoined && (
-          <Chip
-            size="small"
-            icon={<CheckCircleRoundedIcon sx={{ fontSize: "15px !important", color: "#fff !important" }} />}
-            label="רשום"
-            sx={{
-              position: "absolute",
-              top: 10,
-              insetInlineEnd: 10,
-              height: 24,
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              color: "#fff",
-              bgcolor: "rgba(5,150,105,0.9)",
-            }}
-          />
-        )}
-
-        {/* Time pill – anchored to image bottom */}
-        <Stack
-          direction="row"
-          spacing={0.5}
-          alignItems="center"
+        <Box
           sx={{
             position: "absolute",
-            bottom: 10,
-            insetInlineStart: 10,
-            color: "#fff",
-            px: 1,
-            py: 0.4,
-            borderRadius: 999,
-            bgcolor: "rgba(2,6,23,0.55)",
-            backdropFilter: "blur(6px)",
+            inset: 0,
+            p: 1.25,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            minWidth: 0,
+            pointerEvents: "none",
+            "& > *": { pointerEvents: "auto", minWidth: 0 },
           }}
         >
-          <AccessTimeIcon sx={{ fontSize: 14 }} />
-          <Typography variant="caption" fontWeight={700} sx={{ direction: "ltr" }}>
-            {time}–{end}{date ? ` • ${date}` : ""}
-          </Typography>
-        </Stack>
+          {/* Top row */}
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
+            {sportLabel ? (
+              <Chip
+                size="small"
+                label={sportEmoji ? `${sportEmoji} ${sportLabel}` : sportLabel}
+                sx={{
+                  ...chipOverlaySx,
+                  maxWidth: isJoined ? "58%" : "100%",
+                  color: "#fff",
+                  bgcolor: "rgba(2,6,23,0.55)",
+                  backdropFilter: "blur(6px)",
+                }}
+              />
+            ) : (
+              <Box />
+            )}
+            {isJoined && (
+              <Chip
+                size="small"
+                icon={<CheckCircleRoundedIcon sx={{ fontSize: "15px !important", color: "#fff !important" }} />}
+                label="רשום"
+                sx={{
+                  ...chipOverlaySx,
+                  flexShrink: 0,
+                  color: "#fff",
+                  bgcolor: "rgba(5,150,105,0.92)",
+                }}
+              />
+            )}
+          </Stack>
 
-        {/* Price pill */}
-        {typeof price === "number" && price > 0 && (
-          <Chip
-            size="small"
-            label={`₪${price}`}
-            sx={{
-              position: "absolute",
-              bottom: 10,
-              insetInlineEnd: 10,
-              height: 24,
-              fontSize: "0.75rem",
-              fontWeight: 800,
-              color: "#022c22",
-              bgcolor: "rgba(167,243,208,0.95)",
-            }}
-          />
-        )}
+          {/* Bottom row */}
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-end" spacing={1} sx={{ minWidth: 0 }}>
+            <Stack
+              direction="row"
+              spacing={0.5}
+              alignItems="center"
+              sx={{
+                minWidth: 0,
+                color: "#fff",
+                px: 1,
+                py: 0.4,
+                borderRadius: 999,
+                bgcolor: "rgba(2,6,23,0.55)",
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              <AccessTimeIcon sx={{ fontSize: 14, flexShrink: 0 }} />
+              <Typography
+                variant="caption"
+                fontWeight={700}
+                noWrap
+                sx={{ direction: "ltr", unicodeBidi: "isolate" }}
+              >
+                {time}–{end}{date ? ` • ${date}` : ""}
+              </Typography>
+            </Stack>
+
+            {typeof price === "number" && price > 0 && (
+              <Chip
+                size="small"
+                label={`₪${price}`}
+                sx={{
+                  ...chipOverlaySx,
+                  flexShrink: 0,
+                  color: "#022c22",
+                  bgcolor: "rgba(167,243,208,0.95)",
+                }}
+              />
+            )}
+          </Stack>
+        </Box>
       </Box>
 
-      {/* ── Content ── */}
       <CardContent
         sx={{
           p: 2,
@@ -204,10 +227,11 @@ export default function GameHeaderCard({
           display: "flex",
           flexDirection: "column",
           gap: 1,
+          minWidth: 0,
           "&:last-child": { pb: 2 },
         }}
       >
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="h6"
             component="h3"
@@ -219,12 +243,13 @@ export default function GameHeaderCard({
               overflow: "hidden",
               WebkitBoxOrient: "vertical",
               WebkitLineClamp: 2,
+              wordBreak: "break-word",
             }}
           >
             {title || "משחק ללא שם"}
           </Typography>
           {subtitle && (
-            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5, color: "text.secondary" }}>
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5, color: "text.secondary", minWidth: 0 }}>
               <PlaceOutlinedIcon sx={{ fontSize: 15, flexShrink: 0 }} />
               <Typography
                 variant="body2"
@@ -234,6 +259,7 @@ export default function GameHeaderCard({
                   overflow: "hidden",
                   WebkitBoxOrient: "vertical",
                   WebkitLineClamp: 1,
+                  wordBreak: "break-word",
                 }}
               >
                 {subtitle}
@@ -242,12 +268,11 @@ export default function GameHeaderCard({
           )}
         </Box>
 
-        {/* Occupancy */}
-        <Box sx={{ mt: "auto" }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "text.secondary" }}>
-              <PeopleAltRoundedIcon sx={{ fontSize: 15 }} />
-              <Typography variant="caption" fontWeight={700}>
+        <Box sx={{ mt: "auto", minWidth: 0 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" gap={1} mb={0.5} sx={{ minWidth: 0 }}>
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "text.secondary", minWidth: 0 }}>
+              <PeopleAltRoundedIcon sx={{ fontSize: 15, flexShrink: 0 }} />
+              <Typography variant="caption" fontWeight={700} noWrap>
                 {currentPlayers}/{maxPlayers}
                 {teamSize ? ` • ${teamSize}X${teamSize}` : ""}
               </Typography>
@@ -255,6 +280,7 @@ export default function GameHeaderCard({
             <Typography
               variant="caption"
               fontWeight={600}
+              noWrap
               color={isFull ? "error.main" : almostFull ? "warning.main" : "text.secondary"}
             >
               {isFull ? "מלא" : `נשארו ${spotsLeft} מקומות`}
@@ -268,14 +294,15 @@ export default function GameHeaderCard({
           />
         </Box>
 
-        {/* Actions – always visible */}
         {children && (
           <Stack
             direction="row"
             spacing={1}
             alignItems="center"
             justifyContent="space-between"
-            sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}
+            flexWrap="wrap"
+            useFlexGap
+            sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider", minWidth: 0 }}
           >
             {children}
           </Stack>

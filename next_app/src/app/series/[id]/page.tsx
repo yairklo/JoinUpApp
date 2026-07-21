@@ -68,15 +68,15 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
     if (!series) {
         return (
             <Container sx={{ py: 4 }}>
-                <Alert severity="error">Series not found</Alert>
+                <Alert severity="error">הקבוצה לא נמצאה</Alert>
             </Container>
         );
     }
 
     const isSubscribed = user ? series.subscribers.some(s => s.userId === user.id) : false;
     const isOrganizer = user?.id === series.organizer.id;
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const dayName = series.dayOfWeek !== null ? days[series.dayOfWeek] : "Custom Dates";
+    const days = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+    const dayName = series.dayOfWeek !== null ? days[series.dayOfWeek] : "תאריכים מותאמים";
 
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -107,7 +107,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                 )}
                                 <Box display="flex" alignItems="center" gap={0.5}>
                                     <AccessTimeIcon fontSize="small" />
-                                    <Typography variant="body2">{dayName} at {series.time}</Typography>
+                                    <Typography variant="body2">יום {dayName} בשעה {series.time}</Typography>
                                 </Box>
                                 <Box display="flex" alignItems="center" gap={0.5}>
                                     <LocationOnIcon fontSize="small" />
@@ -140,7 +140,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                 <Grid size={{ xs: 12, md: 7 }}>
                     <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
                         <GroupsIcon color="primary" />
-                        The Regulars ({series.subscribers.length})
+                        חברי הקבוצה ({series.subscribers.length})
                     </Typography>
                     <Card elevation={2}>
                         <CardContent>
@@ -149,7 +149,6 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     {series.subscribers.map((sub) => (
                                         <Grid size={{ xs: 6, sm: 4 }} key={sub.userId}>
                                             <Box display="flex" alignItems="center" gap={1.5} p={1} borderRadius={2} sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
-                                                {/* תיקון: שימוש ב-size ו-name במקום sx */}
                                                 <Avatar
                                                     src={sub.user.avatar}
                                                     name={sub.user.name || "User"}
@@ -165,7 +164,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                 </Grid>
                             ) : (
                                 <Typography variant="body2" color="text.secondary" align="center" py={3}>
-                                    No regulars yet. Be the first to join!
+                                    עדיין אין חברים בקבוצה. היו הראשונים!
                                 </Typography>
                             )}
                         </CardContent>
@@ -176,7 +175,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                 <Grid size={{ xs: 12, md: 5 }}>
                     <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
                         <EventIcon color="primary" />
-                        Upcoming Games
+                        משחקים קרובים
                     </Typography>
                     <Card elevation={2}>
                         <List disablePadding>
@@ -192,7 +191,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                                     }}
                                                 >
                                                     <Typography variant="caption" fontWeight="bold" sx={{ lineHeight: 1 }}>
-                                                        {new Date(game.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+                                                        {new Date(game.date).toLocaleDateString('he-IL', { month: 'short' })}
                                                     </Typography>
                                                     <Typography variant="h6" fontWeight="bold" sx={{ lineHeight: 1 }}>
                                                         {new Date(game.date).getDate()}
@@ -200,8 +199,8 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                                 </Box>
                                             </ListItemAvatar>
                                             <ListItemText
-                                                primary={new Date(game.date).toLocaleDateString('en-US', { weekday: 'long' })}
-                                                secondary={`${game.currentPlayers} / ${game.maxPlayers} Players`}
+                                                primary={new Date(game.date).toLocaleDateString('he-IL', { weekday: 'long' })}
+                                                secondary={`${game.currentPlayers} / ${game.maxPlayers} שחקנים`}
                                                 primaryTypographyProps={{ fontWeight: 'bold' }}
                                             />
                                             <ArrowForwardIcon color="action" fontSize="small" />
@@ -213,7 +212,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                             {series.upcomingGames.length === 0 && (
                                 <Box p={3} textAlign="center">
                                     <Typography variant="body2" color="text.secondary">
-                                        No upcoming games scheduled.
+                                        אין משחקים קרובים מתוזמנים.
                                     </Typography>
                                 </Box>
                             )}

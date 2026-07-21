@@ -53,7 +53,7 @@ export default function SeriesSubscribeButton({ seriesId, initialSubscribed }: {
             size="large"
             sx={{ borderRadius: 4, px: 3 }}
         >
-            {isSubscribed ? "רשום כקבוע" : "הצטרף לקבועים"}
+            {isSubscribed ? "חבר בקבוצה" : "הצטרף לקבוצה"}
         </Button>
     );
 }

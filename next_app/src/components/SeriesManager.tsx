@@ -53,8 +53,8 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
           <Box display="flex" alignItems="center" gap={1}>
             <EventRepeatIcon color="primary" />
             <Box>
-              <Typography variant="subtitle2" fontWeight="bold">משחק חוזר (סדרה)</Typography>
-              <Typography variant="caption" color="text.secondary">חלק מסדרה קבועה</Typography>
+              <Typography variant="subtitle2" fontWeight="bold">משחק חוזר (קבוצה)</Typography>
+              <Typography variant="caption" color="text.secondary">חלק מקבוצה קבועה</Typography>
             </Box>
           </Box>
 
@@ -67,7 +67,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
                 disabled={state.subLoading}
               />
             }
-            label={<Typography variant="caption">הרשמה קבועה</Typography>}
+            label={<Typography variant="caption">חברות בקבוצה</Typography>}
           />
         </Stack>
 
@@ -81,7 +81,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
             fullWidth={!canManage}
             sx={{ justifyContent: canManage ? "flex-start" : "center" }}
           >
-            View Full Series Page
+            לעמוד הקבוצה
           </Button>
         </Box>
 
@@ -94,15 +94,15 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
             sx={{ mt: 1 }}
             onClick={() => actions.setOpen(true)}
           >
-            Manage Series Settings
+            הגדרות קבוצה
           </Button>
         )}
 
         <Dialog open={state.open} onClose={() => actions.setOpen(false)} fullWidth maxWidth="xs">
-          <DialogTitle>הגדרות סדרה</DialogTitle>
+          <DialogTitle>הגדרות קבוצה</DialogTitle>
           <DialogContent>
             <Alert severity="info" sx={{ mb: 2 }}>
-              השינויים יחולו על כל המשחקים העתידיים בסדרה זו.
+              השינויים יחולו על כל המשחקים העתידיים בקבוצה זו.
             </Alert>
 
             <TextField
@@ -130,7 +130,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
                 startIcon={<DeleteForeverIcon />}
                 onClick={() => actions.setDeleteDialogOpen(true)}
               >
-                מחק סדרה ומשחקים עתידיים
+                מחק קבוצה ומשחקים עתידיים
               </Button>
             </Box>
           </DialogContent>
@@ -146,7 +146,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
           open={state.deleteDialogOpen}
           onClose={() => actions.setDeleteDialogOpen(false)}
           seriesId={seriesId}
-          seriesName="Series"
+          seriesName="קבוצה"
           onSuccess={actions.handleDeleteSeriesSuccess}
         />
       </Box>
@@ -165,11 +165,11 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
         fullWidth
         sx={{ mt: 1, justifyContent: "flex-start" }}
       >
-        Make Recurring / Series
+        הפוך לקבוצה שבועית
       </Button>
 
       <Dialog open={state.open} onClose={() => actions.setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>הפוך לסדרה</DialogTitle>
+        <DialogTitle>יצירת קבוצה</DialogTitle>
         <DialogContent>
           <Tabs value={state.tabValue} onChange={(e, v) => actions.setTabValue(v)} sx={{ mb: 2 }}>
             <Tab label="אוטומטי שבועי" />
@@ -183,14 +183,14 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
               </Alert>
               <Typography variant="body2">
                 • המערכת תיצור את 4 המשחקים הבאים מיד.<br />
-                • שחקנים נוכחיים ירשמו אוטומטית אם הם מנויים לסדרה.<br />
+                • שחקנים נוכחיים ירשמו אוטומטית אם הם חברים בקבוצה.<br />
                 • ניתן לבטל או לערוך בכל עת.
               </Typography>
             </Box>
           ) : (
             <Box>
               <Alert severity="info" sx={{ mb: 2 }}>
-                בחר תאריכים ספציפיים ליצירת סדרה מרוכזת.
+                בחר תאריכים ספציפיים ליצירת קבוצה מרוכזת.
               </Alert>
 
               <Stack direction="row" spacing={1} alignItems="center" mb={2}>
@@ -226,7 +226,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
             onClick={actions.handleMakeRecurring}
             disabled={state.loading || (state.tabValue === 1 && state.customDates.length === 0)}
           >
-            {state.loading ? <CircularProgress size={24} /> : "צור סדרה"}
+            {state.loading ? <CircularProgress size={24} /> : "צור קבוצה"}
           </Button>
         </DialogActions>
       </Dialog>
