@@ -1,0 +1,57 @@
+# =============================================================================
+# mobile_app/.easignore
+# Used when building with EAS_NO_VCS=1 / EAS_PROJECT_ROOT pointing here.
+# Prefer the repo-root .easignore for normal `eas build` from a monorepo.
+# =============================================================================
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native (regenerated on EAS via Prebuild)
+android/
+ios/
+.kotlin/
+.gradle/
+.cxx/
+Pods/
+
+# Metro
+.metro-health-check*
+
+# debug / logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# macOS / editor
+.DS_Store
+.idea/
+.vscode/
+*.pem
+
+# local env & secrets
+.env
+.env.*
+!.env.example
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+credentials.json
+
+# typescript / build
+*.tsbuildinfo
+build/
+coverage/
+*.apk
+*.aab
+*.ipa
+*.map
