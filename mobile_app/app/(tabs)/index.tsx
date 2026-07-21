@@ -1,7 +1,7 @@
 import { View, Text, RefreshControl, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useGamesByDate } from '@/hooks/useGamesByDate';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Game } from '@/types/game';
 import { useUser } from '@clerk/clerk-expo';
 import GameCard from '@/components/GameCard';
@@ -22,6 +22,8 @@ const SPORTS = [
       label: SPORT_MAPPING[key]
   }))
 ];
+
+const BRAND = '#059669';
 
 export default function HomeScreen() {
   const { t } = useTranslation();
@@ -75,17 +77,25 @@ export default function HomeScreen() {
   }, [user]);
 
   return (
-    <View className="flex-1 bg-white dark:bg-cyber-bg">
+    <View className="flex-1 bg-brand-mist/40 dark:bg-cyber-bg">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingVertical: 10, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingVertical: 10, paddingBottom: 110 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />
         }
       >
-        <View className="px-6 mb-4">
-          <Text className="text-gray-400 font-bold text-xs uppercase tracking-widest">{t('home.welcomeBack')}</Text>
-          <Text className="text-2xl font-black text-gray-900 dark:text-cyber-text">👋 {user?.firstName || t('home.friend')}</Text>
+        {/* Compact welcome / brand hero */}
+        <View className="mx-5 mb-4 rounded-3xl overflow-hidden bg-brand-dark px-5 py-5">
+          <Text className="text-brand-pale font-bold text-xs uppercase tracking-widest mb-1">
+            {t('home.welcomeBack')}
+          </Text>
+          <Text className="text-2xl font-black text-white mb-1">
+            היי {user?.firstName || t('home.friend')}
+          </Text>
+          <Text className="text-brand-pale/90 text-sm leading-5">
+            מוצאים משחק. מצטרפים. משחקים.
+          </Text>
         </View>
 
         <GlobalSearchOmnibar />
@@ -103,9 +113,13 @@ export default function HomeScreen() {
                 key={s.id}
                 onPress={() => setSelectedSport(s.id)}
                 style={{ flexShrink: 0, flexGrow: 0, alignSelf: 'center' }}
-                className={`w-auto px-4 py-2 rounded-full mr-3 border ${isActive ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-200'}`}
+                className={`w-auto px-4 py-2 rounded-full mr-3 border ${
+                  isActive
+                    ? 'bg-brand border-brand'
+                    : 'bg-white dark:bg-cyber-card border-gray-200 dark:border-cyber-border'
+                }`}
               >
-                <Text className={`font-bold text-sm ${isActive ? 'text-white' : 'text-gray-600'}`}>
+                <Text className={`font-bold text-sm ${isActive ? 'text-white' : 'text-gray-600 dark:text-cyber-muted'}`}>
                   {s.label}
                 </Text>
               </TouchableOpacity>
@@ -119,7 +133,7 @@ export default function HomeScreen() {
 
         {loading && games.length === 0 ? (
           <View className="py-10 items-center justify-center">
-            <ActivityIndicator size="large" color="#2563eb" />
+            <ActivityIndicator size="large" color={BRAND} />
           </View>
         ) : cappedGames.length > 0 ? (
           <View className="mt-2">
@@ -128,39 +142,30 @@ export default function HomeScreen() {
             {filteredGames.length > 3 && (
               <TouchableOpacity
                 onPress={() => router.push({ pathname: '/(tabs)/search', params: { date: selectedDate, hideMap: 'true', sport: selectedSport !== 'ALL' ? selectedSport : undefined } })}
-                className="mx-5 mb-4 p-4 rounded-2xl border border-blue-100 bg-blue-50 items-center"
+                className="mx-5 mb-4 p-4 rounded-2xl border border-brand-pale bg-brand-mist items-center"
               >
-                <Text className="text-blue-600 font-bold text-center">הצג הכל ({filteredGames.length})</Text>
+                <Text className="text-brand-dark font-bold text-center">הצג הכל ({filteredGames.length})</Text>
               </TouchableOpacity>
             )}
           </View>
         ) : (
           <View className="items-center justify-center py-20 px-10">
-            <View className="w-20 h-20 bg-gray-50 rounded-full items-center justify-center mb-4">
-              <Ionicons name="calendar-outline" size={32} color="#9ca3af" />
+            <View className="w-20 h-20 bg-brand-mist rounded-full items-center justify-center mb-4">
+              <Ionicons name="calendar-outline" size={32} color={BRAND} />
             </View>
-            <Text className="text-gray-900 font-black text-xl text-center">{t("home.noGamesToday")}</Text>
-            <Text className="text-gray-500 text-center mt-2 leading-5">
+            <Text className="text-gray-900 dark:text-cyber-text font-black text-xl text-center">{t("home.noGamesToday")}</Text>
+            <Text className="text-gray-500 dark:text-cyber-muted text-center mt-2 leading-5">
               {t("home.noGamesDesc")}
             </Text>
             <TouchableOpacity
               onPress={() => setSelectedDate(today)}
-              className="mt-6 bg-blue-50 px-6 py-3 rounded-2xl"
+              className="mt-6 bg-brand-mist px-6 py-3 rounded-2xl"
             >
-              <Text className="text-blue-600 font-bold">{t("home.backToToday")}</Text>
+              <Text className="text-brand-dark font-bold">{t("home.backToToday")}</Text>
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
-
-      <Link href="/game/new" asChild>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          className="absolute bottom-8 right-6 w-16 h-16 bg-blue-600 rounded-3xl items-center justify-center shadow-xl shadow-blue-200 border-4 border-white"
-        >
-          <Ionicons name="add" size={36} color="white" />
-        </TouchableOpacity>
-      </Link>
     </View>
   );
 }

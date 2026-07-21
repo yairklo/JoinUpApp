@@ -76,10 +76,10 @@ export default function NotificationsScreen() {
 
         return (
             <TouchableOpacity
-                className={`flex-row p-3 border-b border-gray-100 ${!item.read ? 'bg-blue-50' : 'bg-white'}`}
+                className={`flex-row p-3 border-b border-gray-100 ${!item.read ? 'bg-brand-mist' : 'bg-white'}`}
                 onPress={() => handleNotificationPress(item)}
             >
-                <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${!item.read ? 'bg-blue-200' : 'bg-gray-100'}`}>
+                <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${!item.read ? 'bg-brand-pale' : 'bg-gray-100'}`}>
                     <FontAwesome
                         name={item.type === 'NEW_MESSAGE' ? 'comment' : 'bell'}
                         size={16}
@@ -100,19 +100,19 @@ export default function NotificationsScreen() {
                     </Text>
                     {item.data?.userId && (
                         <TouchableOpacity
-                            className="mt-2 bg-blue-50 py-1.5 px-3 rounded self-start border border-blue-100"
+                            className="mt-2 bg-brand-mist py-1.5 px-3 rounded self-start border border-brand-pale"
                             onPress={(e) => {
                                 e.stopPropagation();
                                 handleDirectMessage(item.data.userId);
                             }}
                         >
-                            <Text className="text-blue-700 text-sm font-medium">{t('notifications.sendMessage', 'שלח הודעה')}</Text>
+                            <Text className="text-brand-dark text-sm font-medium">{t('notifications.sendMessage', 'שלח הודעה')}</Text>
                         </TouchableOpacity>
                     )}
                 </View>
                 {!item.read && (
                     <View className="justify-center pl-2">
-                        <View className="w-2 h-2 rounded-full bg-blue-600" />
+                        <View className="w-2 h-2 rounded-full bg-brand" />
                     </View>
                 )}
             </TouchableOpacity>
@@ -128,7 +128,7 @@ export default function NotificationsScreen() {
                     headerRight: () => (
                         unreadCount > 0 ? (
                             <TouchableOpacity onPress={markAllAsRead}>
-                                <Text className="text-blue-600 font-bold">{t('notifications.readAll')}</Text>
+                                <Text className="text-brand font-bold">{t('notifications.readAll')}</Text>
                             </TouchableOpacity>
                         ) : null
                     )
@@ -137,7 +137,7 @@ export default function NotificationsScreen() {
             <View className="flex-1 bg-white">
                 {loading && notifications.length === 0 ? (
                     <View className="flex-1 justify-center items-center">
-                        <ActivityIndicator size="large" color="#2563eb" />
+                        <ActivityIndicator size="large" color="#059669" />
                     </View>
                 ) : (
                     <FlatList

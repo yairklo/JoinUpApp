@@ -40,7 +40,7 @@ const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel
             </View>
             <View className="flex-row justify-between items-center">
                 <Text
-                    className={`text-sm flex-1 ml-2 text-left ${isTyping ? 'text-blue-500 italic' : item.unreadCount > 0 ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}
+                    className={`text-sm flex-1 ml-2 text-left ${isTyping ? 'text-brand italic' : item.unreadCount > 0 ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}
                     numberOfLines={1}
                 >
                     {isTyping
@@ -50,7 +50,7 @@ const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel
                             : noMessagesLabel)}
                 </Text>
                 {item.unreadCount > 0 && (
-                    <View className="bg-blue-600 rounded-full px-2 py-0.5 ml-2">
+                    <View className="bg-brand rounded-full px-2 py-0.5 ml-2">
                         <Text className="text-white text-xs font-bold">{item.unreadCount}</Text>
                     </View>
                 )}
@@ -137,7 +137,7 @@ export default function ChatsScreen() {
     if (loadingChats && !refreshing) {
         return (
             <View className="flex-1 justify-center items-center">
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#059669" />
             </View>
         );
     }
@@ -149,11 +149,11 @@ export default function ChatsScreen() {
             {/* Custom Tabs */}
             <View className="flex-row bg-white border-b border-gray-200">
                 <TouchableOpacity
-                    className={`flex-1 py-4 items-center border-b-2 ${tabValue === 0 ? 'border-blue-600' : 'border-transparent'}`}
+                    className={`flex-1 py-4 items-center border-b-2 ${tabValue === 0 ? 'border-brand' : 'border-transparent'}`}
                     onPress={() => setTabValue(0)}
                 >
                     <View className="flex-row items-center">
-                        <Text className={`font-bold ${tabValue === 0 ? 'text-blue-600' : 'text-gray-500'}`}>
+                        <Text className={`font-bold ${tabValue === 0 ? 'text-brand' : 'text-gray-500'}`}>
                             {t('chats.players')}
                         </Text>
                         {playersUnread > 0 && (
@@ -164,11 +164,11 @@ export default function ChatsScreen() {
                     </View>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    className={`flex-1 py-4 items-center border-b-2 ${tabValue === 1 ? 'border-blue-600' : 'border-transparent'}`}
+                    className={`flex-1 py-4 items-center border-b-2 ${tabValue === 1 ? 'border-brand' : 'border-transparent'}`}
                     onPress={() => setTabValue(1)}
                 >
                     <View className="flex-row items-center">
-                        <Text className={`font-bold ${tabValue === 1 ? 'text-blue-600' : 'text-gray-500'}`}>
+                        <Text className={`font-bold ${tabValue === 1 ? 'text-brand' : 'text-gray-500'}`}>
                             {t('chats.games')}
                         </Text>
                         {gamesUnread > 0 && (

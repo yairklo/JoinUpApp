@@ -71,7 +71,7 @@ function AppBaseMapInner<T>(
         loading = false,
         initialRegion = DEFAULT_MAP_REGION,
         variant = 'embedded',
-        clusterColor = '#2563eb',
+        clusterColor = '#059669',
         className,
         showSportFilter = false,
     }: AppBaseMapProps<T>,
@@ -143,7 +143,7 @@ function AppBaseMapInner<T>(
             <View className={containerClass}>
                 {loading && (
                     <View className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-white p-2 rounded-full shadow-lg">
-                        <ActivityIndicator size="small" color="#2563eb" />
+                        <ActivityIndicator size="small" color="#059669" />
                     </View>
                 )}
                 {showSportFilter && (
@@ -161,7 +161,7 @@ function AppBaseMapInner<T>(
                                         onPress={() => setMapSportFilter(chip.id)}
                                         className={`mr-2 px-3 py-1.5 rounded-full border shadow-sm ${
                                             isActive
-                                                ? 'bg-blue-600 border-blue-600'
+                                                ? 'bg-brand border-brand'
                                                 : 'bg-white/95 border-gray-200'
                                         }`}
                                     >

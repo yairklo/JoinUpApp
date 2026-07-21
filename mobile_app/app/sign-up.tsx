@@ -69,7 +69,7 @@ export default function SignUpScreen() {
                     {!pendingVerification ? (
                         <View className="flex-1 justify-center py-10">
                             <View className="items-center mb-10">
-                                <View className="w-16 h-16 bg-blue-600 rounded-2xl items-center justify-center shadow-lg shadow-blue-200 mb-6">
+                                <View className="w-16 h-16 bg-brand rounded-2xl items-center justify-center shadow-lg shadow-brand-pale mb-6">
                                     <Text className="text-white text-3xl font-black">J</Text>
                                 </View>
                                 <Text className="text-4xl font-black text-gray-900 mb-2">Create Account</Text>
@@ -102,7 +102,7 @@ export default function SignUpScreen() {
                                 <TouchableOpacity
                                     onPress={onSignUpPress}
                                     disabled={loading}
-                                    className={`w-full p-5 rounded-2xl items-center mt-4 bg-blue-600 shadow-lg shadow-blue-200 ${loading ? 'opacity-70' : ''}`}
+                                    className={`w-full p-5 rounded-2xl items-center mt-4 bg-brand shadow-lg shadow-brand-pale ${loading ? 'opacity-70' : ''}`}
                                 >
                                     <Text className="text-white font-bold text-lg">
                                         {loading ? "Creating account..." : "Sign Up"}
@@ -114,7 +114,7 @@ export default function SignUpScreen() {
                                 <View className="flex-row justify-center mt-8 pb-10">
                                     <Text className="text-gray-500 font-medium">Already have an account? </Text>
                                     <Link href="/sign-in">
-                                        <Text className="text-blue-600 font-bold">Sign In</Text>
+                                        <Text className="text-brand font-bold">Sign In</Text>
                                     </Link>
                                 </View>
                             </View>
@@ -122,8 +122,8 @@ export default function SignUpScreen() {
                     ) : (
                         <View className="flex-1 justify-center py-10">
                             <View className="items-center mb-10">
-                                <View className="w-16 h-16 bg-blue-100 rounded-2xl items-center justify-center mb-6">
-                                    <Text className="text-blue-600 text-3xl font-black">✉️</Text>
+                                <View className="w-16 h-16 bg-brand-pale rounded-2xl items-center justify-center mb-6">
+                                    <Text className="text-brand text-3xl font-black">✉️</Text>
                                 </View>
                                 <Text className="text-3xl font-black text-gray-900 mb-2">Verify Email</Text>
                                 <Text className="text-center text-gray-500 font-medium text-lg">
@@ -145,7 +145,7 @@ export default function SignUpScreen() {
                                 <TouchableOpacity
                                     onPress={onPressVerify}
                                     disabled={loading}
-                                    className={`w-full p-5 rounded-2xl items-center bg-blue-600 shadow-lg shadow-blue-200 ${loading ? 'opacity-70' : ''}`}
+                                    className={`w-full p-5 rounded-2xl items-center bg-brand shadow-lg shadow-brand-pale ${loading ? 'opacity-70' : ''}`}
                                 >
                                     <Text className="text-white font-bold text-lg">
                                         {loading ? "Checking..." : "Verify Email"}
@@ -156,7 +156,7 @@ export default function SignUpScreen() {
                                     onPress={() => setPendingVerification(false)}
                                     className="items-center mt-4"
                                 >
-                                    <Text className="text-blue-600 font-bold">Change Email</Text>
+                                    <Text className="text-brand font-bold">Change Email</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>

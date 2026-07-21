@@ -86,7 +86,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
     if (loading) {
         return (
             <View className="py-6 items-center">
-                <ActivityIndicator size="small" color="#2563eb" />
+                <ActivityIndicator size="small" color="#059669" />
             </View>
         );
     }
@@ -128,7 +128,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
                         />
                     </View>
                     {submittingId === tm.id && (
-                        <ActivityIndicator size="small" color="#2563eb" />
+                        <ActivityIndicator size="small" color="#059669" />
                     )}
                 </View>
             ))}

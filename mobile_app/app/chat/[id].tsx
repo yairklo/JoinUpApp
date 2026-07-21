@@ -124,7 +124,7 @@ export default function ChatScreen() {
     if (isLoading && messages.length === 0) {
         return (
             <View className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#059669" />
             </View>
         );
     }
@@ -204,11 +204,11 @@ export default function ChatScreen() {
                 />
 
                 {editingMessage && (
-                    <View className="flex-row items-center bg-blue-50 p-3 border-t border-blue-100">
-                        <Ionicons name="pencil" size={16} color="#2563eb" />
-                        <Text className="flex-1 mr-2 text-blue-600 text-left text-xs font-bold">עורך הודעה</Text>
+                    <View className="flex-row items-center bg-brand-mist p-3 border-t border-brand-pale">
+                        <Ionicons name="pencil" size={16} color="#059669" />
+                        <Text className="flex-1 mr-2 text-brand text-left text-xs font-bold">עורך הודעה</Text>
                         <TouchableOpacity onPress={() => { setEditingMessage(null); setInputValue(""); }}>
-                            <Ionicons name="close-circle" size={20} color="#2563eb" />
+                            <Ionicons name="close-circle" size={20} color="#059669" />
                         </TouchableOpacity>
                     </View>
                 )}
@@ -244,7 +244,7 @@ export default function ChatScreen() {
                         }}
                         disabled={!inputValue.trim()}
                         style={{ width: 48, height: 48 }}
-                        className={`rounded-full items-center justify-center shadow-lg ${inputValue.trim() ? 'bg-blue-600 shadow-blue-200' : 'bg-gray-200 shadow-none'
+                        className={`rounded-full items-center justify-center shadow-lg ${inputValue.trim() ? 'bg-brand shadow-brand-pale' : 'bg-gray-200 shadow-none'
                             }`}
                     >
                         <Ionicons

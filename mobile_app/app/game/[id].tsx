@@ -167,7 +167,7 @@ export default function GameDetailsScreen() {
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#059669" />
             </View>
         );
     }
@@ -238,9 +238,9 @@ export default function GameDetailsScreen() {
                 )}
 
                 {isWaitlisted && !isWaitlistOfferPending && (
-                    <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-blue-50 border border-blue-200">
-                        <Text className="text-blue-900 font-bold text-base text-center mb-1">ברשימת המתנה</Text>
-                        <Text className="text-blue-800 text-sm text-center">
+                    <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
+                        <Text className="text-brand-ink font-bold text-base text-center mb-1">ברשימת המתנה</Text>
+                        <Text className="text-brand-dark text-sm text-center">
                             הרשמת כמחליף. אם יתפנה מקום, תקבל הודעה ותוכל לאשר כאן.
                         </Text>
                     </View>
@@ -255,7 +255,7 @@ export default function GameDetailsScreen() {
                     >
                         <Text className="text-2xl font-bold text-gray-800 text-right">{game.field?.name || game.fieldName || t('game.unknownField')}</Text>
                         {game.fieldId ? (
-                            <FontAwesome name="angle-left" size={20} color="#2563eb" style={{ marginLeft: 8 }} />
+                            <FontAwesome name="angle-left" size={20} color="#059669" style={{ marginLeft: 8 }} />
                         ) : null}
                     </TouchableOpacity>
                     <View className="flex-row items-center mb-2">
@@ -289,8 +289,8 @@ export default function GameDetailsScreen() {
                             });
                         }}
                     >
-                        <View className="w-12 h-12 bg-blue-50 rounded-full items-center justify-center mb-1">
-                            <FontAwesome name="share-alt" size={20} color="#2563eb" />
+                        <View className="w-12 h-12 bg-brand-mist rounded-full items-center justify-center mb-1">
+                            <FontAwesome name="share-alt" size={20} color="#059669" />
                         </View>
                         <Text className="text-xs text-gray-600 font-bold">{t('game.share', 'שתף')}</Text>
                     </TouchableOpacity>
@@ -424,7 +424,7 @@ export default function GameDetailsScreen() {
                                         {p.name || "משתמש"}
                                     </Text>
                                     {p.id === game.organizerId && (
-                                        <Text className="text-[10px] text-blue-600 font-bold">מארגן</Text>
+                                        <Text className="text-[10px] text-brand font-bold">מארגן</Text>
                                     )}
                                 </TouchableOpacity>
                             ))}
@@ -455,9 +455,9 @@ export default function GameDetailsScreen() {
                                         name: game.title || game.fieldName || '',
                                     },
                                 })}
-                                className="bg-blue-100 p-4 rounded-xl items-center mb-3 border border-blue-200"
+                                className="bg-brand-pale p-4 rounded-xl items-center mb-3 border border-brand-pale"
                             >
-                                <Text className="text-blue-700 font-bold text-lg">פתח צ'אט</Text>
+                                <Text className="text-brand-dark font-bold text-lg">פתח צ'אט</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -493,7 +493,7 @@ export default function GameDetailsScreen() {
                         <TouchableOpacity
                             onPress={handleJoin}
                             disabled={actionLoading}
-                            className={`p-4 rounded-xl items-center ${actionLoading ? 'bg-blue-400' : 'bg-blue-600'}`}
+                            className={`p-4 rounded-xl items-center ${actionLoading ? 'bg-brand-soft' : 'bg-brand'}`}
                         >
                             {actionLoading ? (
                                 <ActivityIndicator color="white" />
@@ -520,11 +520,11 @@ export default function GameDetailsScreen() {
 
                             <TouchableOpacity
                                 onPress={() => router.push(`/game/teams/${game.id}`)}
-                                className="mt-4 p-4 rounded-xl items-center border border-indigo-200 bg-indigo-50"
+                                className="mt-4 p-4 rounded-xl items-center border border-brand-pale bg-brand-mist"
                             >
                                 <View className="flex-row items-center">
                                     <FontAwesome name="users" size={16} color="#4f46e5" style={{ marginLeft: 8 }} />
-                                    <Text className="text-indigo-700 font-bold">נהל קבוצות</Text>
+                                    <Text className="text-brand-dark font-bold">נהל קבוצות</Text>
                                 </View>
                             </TouchableOpacity>
 
@@ -532,11 +532,11 @@ export default function GameDetailsScreen() {
                             {game.seriesId ? (
                                 <TouchableOpacity
                                     onPress={() => router.push(`/series/${game.seriesId}`)}
-                                    className="mt-3 p-4 rounded-xl items-center border border-blue-200 bg-blue-50"
+                                    className="mt-3 p-4 rounded-xl items-center border border-brand-pale bg-brand-mist"
                                 >
                                     <View className="flex-row items-center">
-                                        <FontAwesome name="calendar-check-o" size={16} color="#2563eb" style={{ marginLeft: 8 }} />
-                                        <Text className="text-blue-700 font-bold">נהל סדרה</Text>
+                                        <FontAwesome name="calendar-check-o" size={16} color="#059669" style={{ marginLeft: 8 }} />
+                                        <Text className="text-brand-dark font-bold">נהל קבוצה</Text>
                                     </View>
                                 </TouchableOpacity>
                             ) : (
@@ -546,7 +546,7 @@ export default function GameDetailsScreen() {
                                 >
                                     <View className="flex-row items-center">
                                         <FontAwesome name="repeat" size={16} color="#9333ea" style={{ marginLeft: 8 }} />
-                                        <Text className="text-purple-700 font-bold">הפוך לסדרה</Text>
+                                        <Text className="text-purple-700 font-bold">הפוך לקבוצה</Text>
                                     </View>
                                 </TouchableOpacity>
                             )}
@@ -571,9 +571,9 @@ export default function GameDetailsScreen() {
                 <View className="flex-1 justify-end bg-black/50">
                     <View className="bg-white rounded-t-3xl p-6 h-[70%]">
                         <View className="flex-row justify-between items-center mb-6">
-                            <Text className="text-xl font-bold text-gray-800">צור סדרה</Text>
+                            <Text className="text-xl font-bold text-gray-800">צור קבוצה</Text>
                             <TouchableOpacity onPress={() => series.actions.setOpen(false)}>
-                                <Text className="text-blue-600 font-bold">ביטול</Text>
+                                <Text className="text-brand font-bold">ביטול</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -582,13 +582,13 @@ export default function GameDetailsScreen() {
                                 onPress={() => series.actions.setTabValue(0)}
                                 className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 0 ? 'bg-white shadow-sm' : ''}`}
                             >
-                                <Text className={`font-bold ${series.state.tabValue === 0 ? 'text-blue-600' : 'text-gray-500'}`}>שבועי</Text>
+                                <Text className={`font-bold ${series.state.tabValue === 0 ? 'text-brand' : 'text-gray-500'}`}>שבועי</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => series.actions.setTabValue(1)}
                                 className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 1 ? 'bg-white shadow-sm' : ''}`}
                             >
-                                <Text className={`font-bold ${series.state.tabValue === 1 ? 'text-blue-600' : 'text-gray-500'}`}>תאריכים מותאמים אישית</Text>
+                                <Text className={`font-bold ${series.state.tabValue === 1 ? 'text-brand' : 'text-gray-500'}`}>תאריכים מותאמים אישית</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -602,7 +602,7 @@ export default function GameDetailsScreen() {
                             </View>
                         ) : (
                             <View>
-                                <Text className="text-gray-600 mb-4 text-right">בחר תאריכים ספציפיים לסדרה זו.</Text>
+                                <Text className="text-gray-600 mb-4 text-right">בחר תאריכים ספציפיים לקבוצה זו.</Text>
                                 <Text className="text-orange-500 italic text-right">
                                     בחירת תאריכים מותאמים אישית מותאמת יותר לשימוש באתר. באפליקציה מומלץ להשתמש באפשרות השבועית.
                                 </Text>
@@ -614,12 +614,12 @@ export default function GameDetailsScreen() {
                         <TouchableOpacity
                             onPress={series.actions.handleMakeRecurring}
                             disabled={series.state.loading}
-                            className={`p-4 rounded-xl items-center mb-6 ${series.state.loading ? 'bg-gray-400' : 'bg-blue-600'}`}
+                            className={`p-4 rounded-xl items-center mb-6 ${series.state.loading ? 'bg-gray-400' : 'bg-brand'}`}
                         >
                             {series.state.loading ? (
                                 <ActivityIndicator color="white" />
                             ) : (
-                                <Text className="text-white font-bold text-lg">צור סדרה</Text>
+                                <Text className="text-white font-bold text-lg">צור קבוצה</Text>
                             )}
                         </TouchableOpacity>
                     </View>

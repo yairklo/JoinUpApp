@@ -13,9 +13,9 @@ export default function ReplyPreview({ message, onCancel }: ReplyPreviewProps) {
 
     return (
         <View className="flex-row items-center bg-gray-50 p-3 border-t border-gray-100">
-            <View className="w-1 bg-blue-600 h-full rounded-full mr-3" />
+            <View className="w-1 bg-brand h-full rounded-full mr-3" />
             <View className="flex-1">
-                <Text className="text-xs font-black text-blue-600 uppercase tracking-tighter">
+                <Text className="text-xs font-black text-brand uppercase tracking-tighter">
                     Replying to {message.sender?.name || message.senderName || "User"}
                 </Text>
                 <Text className="text-gray-500 text-xs" numberOfLines={1}>

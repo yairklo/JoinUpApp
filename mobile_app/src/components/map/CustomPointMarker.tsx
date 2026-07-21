@@ -5,7 +5,7 @@ import type { MapCoordinate } from './types';
 
 const CUSTOM_POINT_VISUAL = {
     iconName: 'map-marker',
-    colorHex: '#2563eb',
+    colorHex: '#059669',
     variant: 'neutral' as const,
 };
 

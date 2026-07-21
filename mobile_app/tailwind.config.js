@@ -6,17 +6,27 @@ module.exports = {
     theme: {
         extend: {
             colors: {
+                // Brand aligned with next_app MUI theme
+                brand: {
+                    DEFAULT: '#059669',
+                    soft: '#10b981',
+                    light: '#34d399',
+                    pale: '#a7f3d0',
+                    dark: '#047857',
+                    ink: '#022c22',
+                    mist: '#ecfdf5',
+                },
                 cyber: {
-                    bg: '#0a0a0a',
-                    card: '#171717',
-                    border: '#262626',
-                    text: '#f8fafc',
-                    muted: '#a3a3a3',
-                    accent: '#2563eb', // electric blue
-                    neon: '#0ea5e9'
-                }
-            }
+                    bg: '#0b1220',
+                    card: '#111a2c',
+                    border: '#1e293b',
+                    text: '#f1f5f9',
+                    muted: '#94a3b8',
+                    accent: '#059669',
+                    neon: '#34d399',
+                },
+            },
         },
     },
     plugins: [],
-}
+};

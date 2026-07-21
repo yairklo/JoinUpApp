@@ -17,7 +17,7 @@ export default function MarkerPin({ visual, selected = false, badgeCount }: Mark
                 transform: selected ? [{ scale: 1.15 }] : undefined,
             }}
             className={`w-10 h-10 rounded-full items-center justify-center border-2 shadow-lg ${
-                selected ? 'border-blue-400' : 'border-white'
+                selected ? 'border-brand-light' : 'border-white'
             }`}
         >
             <MaterialCommunityIcons name={visual.iconName as any} size={20} color="white" />

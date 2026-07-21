@@ -169,7 +169,7 @@ export default function ProfileScreen() {
     if (loading) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#059669" />
             </SafeAreaView>
         );
     }
@@ -201,7 +201,7 @@ export default function ProfileScreen() {
                 <View className="items-center py-6 bg-white rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
                     <Image
                         source={{ uri: user?.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}` }}
-                        className="w-24 h-24 rounded-full bg-gray-200 mb-3 border-2 border-blue-50"
+                        className="w-24 h-24 rounded-full bg-gray-200 mb-3 border-2 border-brand-mist"
                     />
                     <Text className="text-xl font-black text-gray-900">{user?.fullName || 'User'}</Text>
                     <Text className="text-gray-400 text-sm mt-1">{user?.primaryEmailAddress?.emailAddress}</Text>
@@ -214,10 +214,10 @@ export default function ProfileScreen() {
                         {!isEditing && (
                             <TouchableOpacity
                                 onPress={() => setIsEditing(true)}
-                                className="flex-row items-center bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"
+                                className="flex-row items-center bg-brand-mist px-3 py-1.5 rounded-lg border border-brand-pale"
                             >
-                                <FontAwesome name="edit" size={14} color="#2563eb" style={{ marginRight: 5 }} />
-                                <Text className="text-blue-600 font-bold text-sm">{t('profile.editProfile', 'ערוך')}</Text>
+                                <FontAwesome name="edit" size={14} color="#059669" style={{ marginRight: 5 }} />
+                                <Text className="text-brand font-bold text-sm">{t('profile.editProfile', 'ערוך')}</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -282,7 +282,7 @@ export default function ProfileScreen() {
                             <TouchableOpacity
                                 onPress={handleSave}
                                 disabled={saving}
-                                className={`flex-1 py-3 rounded-xl items-center ${saving ? 'bg-blue-300' : 'bg-blue-600'}`}
+                                className={`flex-1 py-3 rounded-xl items-center ${saving ? 'bg-brand-soft' : 'bg-brand'}`}
                             >
                                 {saving ? <ActivityIndicator color="white" /> : <Text className="text-white font-bold">שמור</Text>}
                             </TouchableOpacity>
@@ -297,7 +297,7 @@ export default function ProfileScreen() {
                         {isEditing && (
                             <TouchableOpacity
                                 onPress={() => setSportModalVisible(true)}
-                                className="flex-row items-center bg-blue-600 px-3 py-1.5 rounded-lg"
+                                className="flex-row items-center bg-brand px-3 py-1.5 rounded-lg"
                                 disabled={unaddedSports.length === 0}
                             >
                                 <FontAwesome name="plus" size={12} color="white" style={{ marginRight: 5 }} />
@@ -322,8 +322,8 @@ export default function ProfileScreen() {
                                     <View key={s.sportId} className="mb-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
                                         <View className="flex-row justify-between items-center mb-2">
                                             <View className="flex-row items-center">
-                                                <View className="w-8 h-8 bg-blue-100 rounded-full items-center justify-center mr-2">
-                                                    <FontAwesome name="futbol-o" size={14} color="#2563eb" />
+                                                <View className="w-8 h-8 bg-brand-pale rounded-full items-center justify-center mr-2">
+                                                    <FontAwesome name="futbol-o" size={14} color="#059669" />
                                                 </View>
                                                 <Text className="font-bold text-gray-800">{sportName}</Text>
                                             </View>
@@ -339,7 +339,7 @@ export default function ProfileScreen() {
                                             return (
                                                 <View className="flex-row flex-wrap mb-2">
                                                     {selectedPositions.map(pos => (
-                                                        <View key={pos} className="flex-row items-center bg-blue-600 px-2.5 py-1 rounded-full mr-1.5 mb-1.5">
+                                                        <View key={pos} className="flex-row items-center bg-brand px-2.5 py-1 rounded-full mr-1.5 mb-1.5">
                                                             <Text className="text-white text-xs font-medium mr-1">{pos}</Text>
                                                             <TouchableOpacity onPress={() => removePositionTag(s.sportId, pos)} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
                                                                 <FontAwesome name="times" size={10} color="rgba(255,255,255,0.8)" />
@@ -362,9 +362,9 @@ export default function ProfileScreen() {
                                                                 <TouchableOpacity
                                                                     key={pos}
                                                                     onPress={() => togglePosition(s.sportId, pos)}
-                                                                    className={`px-3 py-1.5 rounded-full mr-2 border ${selected ? 'bg-blue-100 border-blue-400' : 'bg-white border-gray-200'}`}
+                                                                    className={`px-3 py-1.5 rounded-full mr-2 border ${selected ? 'bg-brand-pale border-brand-light' : 'bg-white border-gray-200'}`}
                                                                 >
-                                                                    <Text className={`text-xs font-medium ${selected ? 'text-blue-700' : 'text-gray-600'}`}>{pos}</Text>
+                                                                    <Text className={`text-xs font-medium ${selected ? 'text-brand-dark' : 'text-gray-600'}`}>{pos}</Text>
                                                                 </TouchableOpacity>
                                                             );
                                                         })}
@@ -395,7 +395,7 @@ export default function ProfileScreen() {
                                                         setCustomTexts(prev => ({ ...prev, [s.sportId]: '' }));
                                                     }}
                                                     disabled={!(customTexts[s.sportId] || '').trim()}
-                                                    className={`px-3 rounded-lg items-center justify-center ${(customTexts[s.sportId] || '').trim() ? 'bg-blue-600' : 'bg-gray-200'}`}
+                                                    className={`px-3 rounded-lg items-center justify-center ${(customTexts[s.sportId] || '').trim() ? 'bg-brand' : 'bg-gray-200'}`}
                                                 >
                                                     <FontAwesome name="plus" size={14} color={(customTexts[s.sportId] || '').trim() ? 'white' : '#9ca3af'} />
                                                 </TouchableOpacity>
@@ -413,16 +413,16 @@ export default function ProfileScreen() {
                                 return (
                                     <View key={s.id} className="mb-3 last:mb-0">
                                         <View className="flex-row items-center mb-1.5">
-                                            <View className="w-7 h-7 bg-blue-100 rounded-full items-center justify-center mr-2">
-                                                <FontAwesome name="futbol-o" size={12} color="#2563eb" />
+                                            <View className="w-7 h-7 bg-brand-pale rounded-full items-center justify-center mr-2">
+                                                <FontAwesome name="futbol-o" size={12} color="#059669" />
                                             </View>
                                             <Text className="font-bold text-gray-800">{hebrewName}</Text>
                                         </View>
                                         {positions.length > 0 ? (
                                             <View className="flex-row flex-wrap mr-9">
                                                 {positions.map(pos => (
-                                                    <View key={pos} className="bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 mr-1.5 mb-1">
-                                                        <Text className="text-blue-700 text-xs font-medium">{pos}</Text>
+                                                    <View key={pos} className="bg-brand-mist px-2.5 py-1 rounded-full border border-brand-pale mr-1.5 mb-1">
+                                                        <Text className="text-brand-dark text-xs font-medium">{pos}</Text>
                                                     </View>
                                                 ))}
                                             </View>
@@ -468,8 +468,8 @@ export default function ProfileScreen() {
                                     onPress={() => addSport(item.id)}
                                     className="flex-row items-center py-4 border-b border-gray-100"
                                 >
-                                    <View className="w-10 h-10 bg-blue-50 rounded-full items-center justify-center mr-3">
-                                        <FontAwesome name="futbol-o" size={18} color="#2563eb" />
+                                    <View className="w-10 h-10 bg-brand-mist rounded-full items-center justify-center mr-3">
+                                        <FontAwesome name="futbol-o" size={18} color="#059669" />
                                     </View>
                                     <Text className="text-gray-800 font-semibold text-base">
                                         {SPORT_MAPPING[item.id] || SPORT_MAPPING[item.name] || item.name}

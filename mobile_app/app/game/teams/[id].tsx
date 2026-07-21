@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Mock colors for teams
 const TEAM_COLORS = [
     { name: "Orange", hex: "#f97316" },
-    { name: "Blue", hex: "#3b82f6" },
+    { name: "Blue", hex: "#059669" },
     { name: "Red", hex: "#ef4444" },
     { name: "Green", hex: "#22c55e" },
     { name: "Yellow", hex: "#eab308" },
@@ -52,7 +52,7 @@ export default function TeamBuilderScreen() {
             setManagers(data.managers || []);
             setTeams(data.teams && data.teams.length > 0 ? data.teams : [
                 { id: "t1", name: "Team A", color: "#f97316", playerIds: [] },
-                { id: "t2", name: "Team B", color: "#3b82f6", playerIds: [] },
+                { id: "t2", name: "Team B", color: "#059669", playerIds: [] },
             ]);
         } catch (error) {
             console.error("Failed to load game", error);
@@ -149,7 +149,7 @@ export default function TeamBuilderScreen() {
                     <Text className="text-xl font-bold text-gray-900">{t('teams.title', 'ניהול קבוצות')}</Text>
                 </View>
                 <TouchableOpacity onPress={handleSave} disabled={saving} className="p-2">
-                    <Text className="text-blue-600 font-bold text-lg">{saving ? "..." : t('teams.save', 'שמור')}</Text>
+                    <Text className="text-brand font-bold text-lg">{saving ? "..." : t('teams.save', 'שמור')}</Text>
                 </TouchableOpacity>
             </View>
             <View className="flex-1 bg-gray-50">
@@ -172,7 +172,7 @@ export default function TeamBuilderScreen() {
                                 <TouchableOpacity
                                     key={p.id}
                                     onPress={() => setSelectedPlayerId(selectedPlayerId === p.id ? null : p.id)}
-                                    className={`mr-2 mb-2 px-3 py-1 rounded-full border ${selectedPlayerId === p.id ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                                    className={`mr-2 mb-2 px-3 py-1 rounded-full border ${selectedPlayerId === p.id ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                                 >
                                     <View className="flex-row items-center">
                                         {/* <Image source={{ uri: p.avatar }} className="w-4 h-4 rounded-full mr-1 bg-gray-200" /> */}
@@ -184,7 +184,7 @@ export default function TeamBuilderScreen() {
                             ))}
                         </View>
                         {selectedPlayerId && (
-                            <Text className="mt-2 text-center text-blue-600 text-sm font-bold">
+                            <Text className="mt-2 text-center text-brand text-sm font-bold">
                                 {t('teams.tapToAssign', 'לחץ על קבוצה כדי לשבץ את')} {getP(selectedPlayerId)?.name?.split(' ')[0]}
                             </Text>
                         )}
@@ -227,7 +227,7 @@ export default function TeamBuilderScreen() {
                                                         onPress={() => {
                                                             setSelectedPlayerId(pid); // Select to move
                                                         }}
-                                                        className={`w-[48%] mb-2 mr-[2%] flex-row items-center p-2 rounded-lg ${selectedPlayerId === pid ? 'bg-blue-100' : 'bg-gray-50'}`}
+                                                        className={`w-[48%] mb-2 mr-[2%] flex-row items-center p-2 rounded-lg ${selectedPlayerId === pid ? 'bg-brand-pale' : 'bg-gray-50'}`}
                                                     >
                                                         <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-6 h-6 rounded-full mr-2 bg-gray-200" />
                                                         <Text numberOfLines={1} className="flex-1 text-sm font-medium text-gray-800">{p.name?.split(' ')[0]}</Text>
@@ -270,9 +270,9 @@ export default function TeamBuilderScreen() {
                                         </View>
                                         <TouchableOpacity 
                                             onPress={() => handleToggleManager(p.id, isManager)}
-                                            className={`px-3 py-1 rounded-full ${isManager ? 'bg-red-100' : 'bg-blue-100'}`}
+                                            className={`px-3 py-1 rounded-full ${isManager ? 'bg-red-100' : 'bg-brand-pale'}`}
                                         >
-                                            <Text className={isManager ? 'text-red-600 text-xs font-bold' : 'text-blue-600 text-xs font-bold'}>
+                                            <Text className={isManager ? 'text-red-600 text-xs font-bold' : 'text-brand text-xs font-bold'}>
                                                 {isManager ? t('teams.removeAdmin', 'הסר מנהל') : t('teams.makeAdmin', 'מנה משחק')}
                                             </Text>
                                         </TouchableOpacity>

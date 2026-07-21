@@ -81,7 +81,7 @@ export default function GlobalSearchOmnibar() {
                     className="flex-1 text-base text-gray-800 dark:text-cyber-text"
                     returnKeyType="search"
                 />
-                {loading && <ActivityIndicator size="small" color="#2563eb" />}
+                {loading && <ActivityIndicator size="small" color="#059669" />}
             </View>
 
             {showDropdown && (
@@ -159,7 +159,7 @@ export default function GlobalSearchOmnibar() {
                                                 onPress={() => go(`/game/${g.id}`)}
                                                 className="flex-row items-center px-4 py-3 border-b border-gray-50 dark:border-gray-800"
                                             >
-                                                <FontAwesome name="soccer-ball-o" size={16} color="#2563eb" style={{ marginRight: 12 }} />
+                                                <FontAwesome name="soccer-ball-o" size={16} color="#059669" style={{ marginRight: 12 }} />
                                                 <View className="flex-1">
                                                     <Text className="text-gray-800 dark:text-cyber-text font-medium">{title}</Text>
                                                     {!!meta && <Text className="text-gray-500 text-xs mt-0.5">{meta}</Text>}

@@ -33,7 +33,7 @@
     "noGamesDesc": "Looks like there are no available games right now. Try selecting another date or create a new game!",
     "backToToday": "Back to Today",
     "myGames": "My Games",
-    "mySeries": "My Fixed Games"
+    "mySeries": "My Groups"
   },
   "omnibar": {
     "placeholder": "Search people, fields or games...",
@@ -105,8 +105,8 @@
     "players": "Players",
     "leave": "Leave",
     "join": "Join",
-    "series": "Fixed Game",
-    "manageSeries": "Manage Fixed Game",
+    "series": "Group",
+    "manageSeries": "Group page",
     "full": "Full",
     "joinGame": "Join Game",
     "leaveGame": "Leave Game",
@@ -199,7 +199,7 @@
     "day6": "Sat"
   },
   "series": {
-    "badge": "Fixed Game"
+    "badge": "Weekly group"
   },
   "editGame": {
     "title": "Edit Game",
