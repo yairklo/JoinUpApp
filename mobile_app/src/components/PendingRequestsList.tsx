@@ -81,7 +81,7 @@ export default function PendingRequestsList({
     if (loading) {
         return (
             <View className="bg-white p-6 mb-4 shadow-sm items-center">
-                <ActivityIndicator color="#2563eb" />
+                <ActivityIndicator color="#059669" />
             </View>
         );
     }
@@ -92,8 +92,8 @@ export default function PendingRequestsList({
         <View className="bg-white p-6 mb-4 shadow-sm rounded-xl">
             {/* Active Offer Section */}
             {activeOffer && (
-                <View className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                    <Text className="text-xs font-bold text-blue-800 mb-3 text-right">
+                <View className="mb-6 p-4 bg-brand-mist rounded-lg border border-brand-pale">
+                    <Text className="text-xs font-bold text-brand-dark mb-3 text-right">
                         הוצע מקום אוטומטית (ממתין לאישור השחקן)
                     </Text>
                     <View className="flex-row items-center justify-between">

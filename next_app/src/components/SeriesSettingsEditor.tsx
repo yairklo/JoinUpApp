@@ -104,23 +104,23 @@ export default function SeriesSettingsEditor({
                 onClick={handleOpen}
                 size="small"
             >
-                הגדרות סדרה
+                הגדרות קבוצה
             </Button>
 
             <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
                 <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, direction: "rtl" }}>
                     <SettingsIcon color="primary" />
-                    הגדרות סדרה
+                    הגדרות קבוצה
                 </DialogTitle>
                 <DialogContent dir="rtl">
                     <Alert severity="info" sx={{ mb: 3 }}>
-                        עדכון הגדרות אלו יחול על כל המשחקים העתידיים בסדרה זו.
+                        עדכון הגדרות אלו יחול על כל המשחקים העתידיים בקבוצה זו.
                     </Alert>
 
                     <Grid container spacing={2}>
                         <Grid size={{ xs: 12 }}>
                             <TextField
-                                label="שם הסדרה (אופציונלי)"
+                                label="שם הקבוצה (אופציונלי)"
                                 fullWidth
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
@@ -152,7 +152,7 @@ export default function SeriesSettingsEditor({
                             onClick={() => setDeleteDialogOpen(true)}
                             fullWidth
                         >
-                            מחק סדרה ומשחקים עתידיים
+                            מחק קבוצה ומשחקים עתידיים
                         </Button>
                     </Box>
 
@@ -174,7 +174,7 @@ export default function SeriesSettingsEditor({
                 open={deleteDialogOpen}
                 onClose={() => setDeleteDialogOpen(false)}
                 seriesId={seriesId}
-                seriesName={title || initialTitle || "Series"}
+                seriesName={title || initialTitle || "קבוצה"}
                 onSuccess={handleDeleteSuccess}
             />
         </>

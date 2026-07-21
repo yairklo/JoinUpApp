@@ -30,7 +30,7 @@ function ScrollSelectionModal<T>({ visible, onClose, title, options, selectedVal
                     <View className={`flex-row justify-between items-center mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <Text className="text-lg font-bold text-gray-800">{title}</Text>
                         <TouchableOpacity onPress={onClose}>
-                            <Text className="text-blue-600 font-bold">{t('common.confirm', 'אישור')}</Text>
+                            <Text className="text-brand font-bold">{t('common.confirm', 'אישור')}</Text>
                         </TouchableOpacity>
                     </View>
                     <ScrollView className="flex-1">
@@ -40,10 +40,10 @@ function ScrollSelectionModal<T>({ visible, onClose, title, options, selectedVal
                                 <TouchableOpacity
                                     key={idx}
                                     onPress={() => onSelect(opt.value)}
-                                    className={`py-3 px-4 rounded-xl mb-1 flex-row justify-between items-center ${isSelected ? 'bg-blue-50' : ''} ${isRtl ? 'flex-row-reverse' : ''}`}
+                                    className={`py-3 px-4 rounded-xl mb-1 flex-row justify-between items-center ${isSelected ? 'bg-brand-mist' : ''} ${isRtl ? 'flex-row-reverse' : ''}`}
                                 >
-                                    <Text className={`text-base ${isSelected ? 'text-blue-700 font-bold' : 'text-gray-700'}`}>{opt.label}</Text>
-                                    {isSelected && <FontAwesome name="check" size={16} color="#2563eb" />}
+                                    <Text className={`text-base ${isSelected ? 'text-brand-dark font-bold' : 'text-gray-700'}`}>{opt.label}</Text>
+                                    {isSelected && <FontAwesome name="check" size={16} color="#059669" />}
                                 </TouchableOpacity>
                             );
                         })}
@@ -412,7 +412,7 @@ export default function EditGameScreen() {
     if (loading) {
         return (
             <SafeAreaView className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#059669" />
             </SafeAreaView>
         );
     }
@@ -443,7 +443,7 @@ export default function EditGameScreen() {
                                 <TouchableOpacity
                                     key={s}
                                     onPress={() => setSport(s)}
-                                    className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                                    className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                                 >
                                     <Text className={`${isSelected ? 'text-white' : 'text-gray-700'} font-medium`}>
                                         {SPORT_MAPPING[s]}
@@ -538,12 +538,12 @@ export default function EditGameScreen() {
 
                     <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <Text className="text-gray-700 font-bold">{t('editGame.privateGame', 'Private Game')}</Text>
-                        <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#2563eb' }} />
+                        <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#059669' }} />
                     </View>
 
                     <View className={`flex-row items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <Text className="text-gray-700 font-bold">{t('editGame.requiresApproval', 'Requires Approval to Join')}</Text>
-                        <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#2563eb' }} />
+                        <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#059669' }} />
                     </View>
                 </View>
 
@@ -573,7 +573,7 @@ export default function EditGameScreen() {
                             <View className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
                                 <View className={`flex-row items-center justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
                                     <Text className="text-gray-800 font-bold text-sm">{t('editGame.futureRegistration', 'Future Registration')}</Text>
-                                    <Switch value={futureRegistration} onValueChange={setFutureRegistration} trackColor={{ true: '#2563eb' }} />
+                                    <Switch value={futureRegistration} onValueChange={setFutureRegistration} trackColor={{ true: '#059669' }} />
                                 </View>
                                 {futureRegistration && (
                                     <View className={`flex-row justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
@@ -686,7 +686,7 @@ export default function EditGameScreen() {
                                                             setInvitedParticipantIds(prev => [...prev, friend.id]);
                                                         }
                                                     }}
-                                                    className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
+                                                    className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
                                                 >
                                                     <Image
                                                         source={{ uri: friend.imageUrl || "https://ui-avatars.com/api/?name=" + friend.name }}
@@ -696,7 +696,7 @@ export default function EditGameScreen() {
                                                         {friend.name?.split(' ')[0]}
                                                     </Text>
                                                     {isSelected && (
-                                                        <View className="absolute top-1 right-1 bg-blue-500 w-4 h-4 rounded-full items-center justify-center">
+                                                        <View className="absolute top-1 right-1 bg-brand w-4 h-4 rounded-full items-center justify-center">
                                                             <FontAwesome name="check" size={8} color="white" />
                                                         </View>
                                                     )}
@@ -711,7 +711,7 @@ export default function EditGameScreen() {
                                 <TouchableOpacity
                                     onPress={handleAddFriends}
                                     disabled={addingFriends}
-                                    className="bg-blue-600 p-2.5 rounded-lg items-center"
+                                    className="bg-brand p-2.5 rounded-lg items-center"
                                 >
                                     <Text className="text-white font-bold text-sm">
                                         {addingFriends ? 'מצרף...' : `הוסף למשחק (${invitedParticipantIds.length})`}
@@ -766,7 +766,7 @@ export default function EditGameScreen() {
                     <TouchableOpacity
                         onPress={handleSubmit}
                         disabled={submitting}
-                        className={`p-4 rounded-xl items-center ${submitting ? 'bg-blue-400' : 'bg-blue-600'}`}
+                        className={`p-4 rounded-xl items-center ${submitting ? 'bg-brand-soft' : 'bg-brand'}`}
                     >
                         <Text className="text-white font-bold text-lg">
                             {submitting ? t('editGame.updating', 'Updating...') : t('editGame.saveChanges', 'Save Changes')}

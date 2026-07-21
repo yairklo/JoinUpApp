@@ -71,7 +71,7 @@ export default function MyGamesSection() {
     if (loading && games.length === 0) {
         return (
             <View className="py-6 items-center">
-                <ActivityIndicator size="small" color="#2563eb" />
+                <ActivityIndicator size="small" color="#059669" />
             </View>
         );
     }
@@ -96,10 +96,10 @@ export default function MyGamesSection() {
                                 />
                                 <TouchableOpacity
                                     onPress={() => router.push(`/game/${game.id}`)}
-                                    className="bg-blue-50 py-2 px-3 rounded-xl items-center flex-row justify-center border border-blue-100"
+                                    className="bg-brand-mist py-2 px-3 rounded-xl items-center flex-row justify-center border border-brand-pale"
                                 >
-                                    <Ionicons name="information-circle-outline" size={16} color="#2563eb" />
-                                    <Text className="text-blue-600 font-bold ml-1">{t('game.details')}</Text>
+                                    <Ionicons name="information-circle-outline" size={16} color="#059669" />
+                                    <Text className="text-brand font-bold ml-1">{t('game.details')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </GameCard>

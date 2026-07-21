@@ -341,7 +341,7 @@ export default function SearchScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
                     <TouchableOpacity
                         onPress={() => setIsMapView(!isMapView)}
-                        className={`mr-2 px-4 py-2 rounded-full border ${isMapView ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}
+                        className={`mr-2 px-4 py-2 rounded-full border ${isMapView ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                     >
                         <View className="flex-row items-center">
                             <FontAwesome name={isMapView ? "list" : "map"} size={12} color={isMapView ? "white" : "#4b5563"} style={{ marginRight: 6 }} />
@@ -353,7 +353,7 @@ export default function SearchScreen() {
 
                     <TouchableOpacity
                         onPress={() => setNetworkGames(!networkGames)}
-                        className={`mr-2 px-4 py-2 rounded-full border ${networkGames ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}
+                        className={`mr-2 px-4 py-2 rounded-full border ${networkGames ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                     >
                         <View className="flex-row items-center">
                             <FontAwesome name="users" size={12} color={networkGames ? "white" : "#4b5563"} style={{ marginRight: 6 }} />
@@ -365,7 +365,7 @@ export default function SearchScreen() {
 
                     <TouchableOpacity
                         onPress={() => setShowEmptyFields(!showEmptyFields)}
-                        className={`mr-2 px-4 py-2 rounded-full border ${showEmptyFields ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}
+                        className={`mr-2 px-4 py-2 rounded-full border ${showEmptyFields ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                     >
                         <View className="flex-row items-center">
                             <FontAwesome name="map-marker" size={12} color={showEmptyFields ? "white" : "#4b5563"} style={{ marginRight: 6 }} />
@@ -377,7 +377,7 @@ export default function SearchScreen() {
 
                     <TouchableOpacity
                         onPress={() => setCityModalVisible(true)}
-                        className={`mr-2 px-4 py-2 rounded-full border ${selectedCity ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                        className={`mr-2 px-4 py-2 rounded-full border ${selectedCity ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                     >
                         <Text className={`font-medium ${selectedCity ? 'text-white' : 'text-gray-600'}`}>
                             {selectedCity ? translateCity(selectedCity) : t("search.allCities", "כל הערים")} ▾
@@ -386,7 +386,7 @@ export default function SearchScreen() {
 
                     <TouchableOpacity
                         onPress={() => setSportModalVisible(true)}
-                        className={`mr-2 px-4 py-2 rounded-full border ${selectedSport ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                        className={`mr-2 px-4 py-2 rounded-full border ${selectedSport ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                     >
                         <Text className={`font-medium ${selectedSport ? 'text-white' : 'text-gray-600'}`}>
                             {selectedSport ? SPORTS.find(s => s.id === selectedSport)?.label || selectedSport : t("search.sport", "ספורט")} ▾
@@ -401,7 +401,7 @@ export default function SearchScreen() {
                                 setShowDatePicker(true);
                             }
                         }}
-                        className={`mr-2 px-4 py-2 rounded-full border flex-row items-center ${selectedDate ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                        className={`mr-2 px-4 py-2 rounded-full border flex-row items-center ${selectedDate ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                     >
                         <Text className={`font-medium ${selectedDate ? 'text-white' : 'text-gray-600'}`}>
                             {selectedDate ? selectedDate.toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL') : t("search.upcomingWeek", "השבוע הקרוב")}
@@ -462,15 +462,15 @@ export default function SearchScreen() {
                                 </View>
                                 {(selectedFieldGames?.[0]?.field?.id || selectedFieldGames?.[0]?.fieldId) && (
                                     <TouchableOpacity
-                                        className="flex-row items-center justify-center bg-blue-50 border border-blue-200 py-2.5 rounded-xl mb-4"
+                                        className="flex-row items-center justify-center bg-brand-mist border border-brand-pale py-2.5 rounded-xl mb-4"
                                         onPress={() => {
                                             const fid = selectedFieldGames?.[0]?.field?.id || selectedFieldGames?.[0]?.fieldId;
                                             setSelectedFieldGames(null);
                                             router.push(`/field/${fid}`);
                                         }}
                                     >
-                                        <MaterialCommunityIcons name="chart-bar" size={16} color="#2563eb" style={{ marginRight: 6 }} />
-                                        <Text className="text-blue-700 font-bold text-sm">{t('field.viewProfile', 'לפרופיל המגרש')}</Text>
+                                        <MaterialCommunityIcons name="chart-bar" size={16} color="#059669" style={{ marginRight: 6 }} />
+                                        <Text className="text-brand-dark font-bold text-sm">{t('field.viewProfile', 'לפרופיל המגרש')}</Text>
                                     </TouchableOpacity>
                                 )}
                                 <FlatList
@@ -485,8 +485,8 @@ export default function SearchScreen() {
                                                 router.push(`/game/${game.id}`);
                                             }}
                                         >
-                                            <View className="bg-blue-100 p-2 rounded-full">
-                                                <MaterialCommunityIcons name="chevron-left" size={24} color="#2563eb" />
+                                            <View className="bg-brand-pale p-2 rounded-full">
+                                                <MaterialCommunityIcons name="chevron-left" size={24} color="#059669" />
                                             </View>
                                             <View className="flex-1 items-end mr-3">
                                                 <Text className="text-base font-bold text-gray-800 text-right">{game.title || 'משחק'}</Text>
@@ -494,10 +494,10 @@ export default function SearchScreen() {
                                                     {new Date(game.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} {t('search.atTime', 'בשעה')} {game.time}
                                                 </Text>
                                                 <View className="flex-row items-center justify-end mt-2">
-                                                    <Text className="text-xs text-blue-600 font-medium ml-1">
+                                                    <Text className="text-xs text-brand font-medium ml-1">
                                                         {SPORTS.find(s => s.id === game.sport)?.label || game.sport}
                                                     </Text>
-                                                    <MaterialCommunityIcons name={getSportIconName(game.sport) as any} size={12} color="#2563eb" />
+                                                    <MaterialCommunityIcons name={getSportIconName(game.sport) as any} size={12} color="#059669" />
                                                 </View>
                                             </View>
                                         </TouchableOpacity>
@@ -528,7 +528,7 @@ export default function SearchScreen() {
                                     {selectedEmptyField?.location || 'אין מידע על מיקום'}
                                 </Text>
                                 <TouchableOpacity
-                                    className="bg-blue-600 py-3 rounded-xl items-center justify-center shadow-lg"
+                                    className="bg-brand py-3 rounded-xl items-center justify-center shadow-lg"
                                     onPress={() => {
                                         const fieldId = selectedEmptyField?.id;
                                         setSelectedEmptyField(null);
@@ -541,15 +541,15 @@ export default function SearchScreen() {
                                     <Text className="text-white font-bold text-base">פתח משחק במגרש זה</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    className="flex-row items-center justify-center bg-blue-50 border border-blue-200 py-3 rounded-xl mt-3"
+                                    className="flex-row items-center justify-center bg-brand-mist border border-brand-pale py-3 rounded-xl mt-3"
                                     onPress={() => {
                                         const fieldId = selectedEmptyField?.id;
                                         setSelectedEmptyField(null);
                                         router.push(`/field/${fieldId}`);
                                     }}
                                 >
-                                    <MaterialCommunityIcons name="chart-bar" size={16} color="#2563eb" style={{ marginRight: 6 }} />
-                                    <Text className="text-blue-700 font-bold text-base">{t('field.viewProfile', 'לפרופיל המגרש')}</Text>
+                                    <MaterialCommunityIcons name="chart-bar" size={16} color="#059669" style={{ marginRight: 6 }} />
+                                    <Text className="text-brand-dark font-bold text-base">{t('field.viewProfile', 'לפרופיל המגרש')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -581,7 +581,7 @@ export default function SearchScreen() {
                         <View className="flex-row justify-between items-center mb-4">
                             <Text className="text-xl font-bold">{t('search.selectCity')}</Text>
                             <TouchableOpacity onPress={() => setCityModalVisible(false)}>
-                                <Text className="text-blue-600 font-bold">{t('search.close')}</Text>
+                                <Text className="text-brand font-bold">{t('search.close')}</Text>
                             </TouchableOpacity>
                         </View>
                         <FlatList
@@ -595,7 +595,7 @@ export default function SearchScreen() {
                                         setCityModalVisible(false);
                                     }}
                                 >
-                                    <Text className={`text-lg ${selectedCity === item ? 'text-blue-600 font-bold' : (item === t("search.allCities") && !selectedCity ? 'text-blue-600 font-bold' : 'text-gray-800')}`}>
+                                    <Text className={`text-lg ${selectedCity === item ? 'text-brand font-bold' : (item === t("search.allCities") && !selectedCity ? 'text-brand font-bold' : 'text-gray-800')}`}>
                                         {item === t("search.allCities") ? item : translateCity(item)}
                                     </Text>
                                 </TouchableOpacity>
@@ -616,7 +616,7 @@ export default function SearchScreen() {
                         <View className="flex-row justify-between items-center mb-4">
                             <Text className="text-xl font-bold">{t('search.selectSport', 'בחר ספורט')}</Text>
                             <TouchableOpacity onPress={() => setSportModalVisible(false)}>
-                                <Text className="text-blue-600 font-bold">{t('search.close', 'סגור')}</Text>
+                                <Text className="text-brand font-bold">{t('search.close', 'סגור')}</Text>
                             </TouchableOpacity>
                         </View>
                         <FlatList
@@ -630,7 +630,7 @@ export default function SearchScreen() {
                                         setSportModalVisible(false);
                                     }}
                                 >
-                                    <Text className={`text-lg ${selectedSport === item.id ? 'text-blue-600 font-bold' : 'text-gray-800'}`}>
+                                    <Text className={`text-lg ${selectedSport === item.id ? 'text-brand font-bold' : 'text-gray-800'}`}>
                                         {item.label}
                                     </Text>
                                 </TouchableOpacity>
@@ -643,7 +643,7 @@ export default function SearchScreen() {
                                         setSportModalVisible(false);
                                     }}
                                 >
-                                    <Text className={`text-lg ${!selectedSport ? 'text-blue-600 font-bold' : 'text-gray-800'}`}>
+                                    <Text className={`text-lg ${!selectedSport ? 'text-brand font-bold' : 'text-gray-800'}`}>
                                         {t("search.allSports", "כל סוגי הספורט")}
                                     </Text>
                                 </TouchableOpacity>

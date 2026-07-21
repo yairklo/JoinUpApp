@@ -110,7 +110,7 @@ export default function SeriesScreen() {
                     <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Series Details')}</Text>
                 </View>
                 <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#2563eb" />
+                    <ActivityIndicator size="large" color="#059669" />
                 </View>
             </SafeAreaView>
         );
@@ -167,8 +167,8 @@ export default function SeriesScreen() {
                         {series.organizer?.avatar ? (
                             <Image source={{ uri: series.organizer.avatar }} className="w-12 h-12 rounded-full mr-3 border border-gray-200" />
                         ) : (
-                            <View className="w-12 h-12 rounded-full bg-blue-100 items-center justify-center mr-3">
-                                <FontAwesome name="user" size={20} color="#2563eb" />
+                            <View className="w-12 h-12 rounded-full bg-brand-pale items-center justify-center mr-3">
+                                <FontAwesome name="user" size={20} color="#059669" />
                             </View>
                         )}
                         <View className="flex-1">
@@ -196,15 +196,15 @@ export default function SeriesScreen() {
                     {/* Subscribe button */}
                     <TouchableOpacity
                         onPress={toggleSubscribe}
-                        className={`py-4 rounded-xl items-center flex-row justify-center ${isSubscribed ? 'bg-blue-50 border border-blue-200' : 'bg-blue-600'}`}
+                        className={`py-4 rounded-xl items-center flex-row justify-center ${isSubscribed ? 'bg-brand-mist border border-brand-pale' : 'bg-brand'}`}
                     >
                         <FontAwesome
                             name={isSubscribed ? "check" : "bell"}
                             size={16}
-                            color={isSubscribed ? "#2563eb" : "white"}
+                            color={isSubscribed ? "#059669" : "white"}
                             style={{ marginRight: 8 }}
                         />
-                        <Text className={`font-bold text-base ${isSubscribed ? 'text-blue-700' : 'text-white'}`}>
+                        <Text className={`font-bold text-base ${isSubscribed ? 'text-brand-dark' : 'text-white'}`}>
                             {isSubscribed ? t('series.subscribed', 'Subscribed ✓') : t('series.subscribe', 'Subscribe to Series')}
                         </Text>
                     </TouchableOpacity>
@@ -213,8 +213,8 @@ export default function SeriesScreen() {
                 {/* Quick Stats Bar — same pattern as game utility actions */}
                 <View className="bg-white mb-4 shadow-sm flex-row justify-around border-y border-gray-100 py-4">
                     <View className="items-center">
-                        <View className="w-12 h-12 bg-blue-50 rounded-full items-center justify-center mb-1">
-                            <FontAwesome name="users" size={20} color="#2563eb" />
+                        <View className="w-12 h-12 bg-brand-mist rounded-full items-center justify-center mb-1">
+                            <FontAwesome name="users" size={20} color="#059669" />
                         </View>
                         <Text className="text-xs text-gray-600 font-bold">{series.subscribers?.length || 0}</Text>
                         <Text className="text-xs text-gray-400">{t('series.regulars', 'Regulars')}</Text>
@@ -278,9 +278,9 @@ export default function SeriesScreen() {
                                         onPress={() => router.push(`/game/${game.id}`)}
                                         className={`flex-row items-center p-4 bg-white ${index !== series.upcomingGames.length - 1 ? 'border-b border-gray-100' : ''}`}
                                     >
-                                        <View className="bg-blue-50 rounded-xl w-12 h-12 items-center justify-center mr-4 border border-blue-100">
-                                            <Text className="text-blue-800 font-bold text-lg leading-tight">{gDate.getDate()}</Text>
-                                            <Text className="text-blue-600 text-[10px] font-bold uppercase">{gDate.toLocaleDateString('en-US', { month: 'short' })}</Text>
+                                        <View className="bg-brand-mist rounded-xl w-12 h-12 items-center justify-center mr-4 border border-brand-pale">
+                                            <Text className="text-brand-dark font-bold text-lg leading-tight">{gDate.getDate()}</Text>
+                                            <Text className="text-brand text-[10px] font-bold uppercase">{gDate.toLocaleDateString('en-US', { month: 'short' })}</Text>
                                         </View>
                                         <View className="flex-1">
                                             <Text className="font-bold text-gray-800 text-base">{gDate.toLocaleDateString('he-IL', { weekday: 'long' })}</Text>
@@ -331,14 +331,14 @@ export default function SeriesScreen() {
                                         value={updateFuture}
                                         onValueChange={setUpdateFuture}
                                         trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
-                                        thumbColor={updateFuture ? '#2563eb' : '#f3f4f6'}
+                                        thumbColor={updateFuture ? '#059669' : '#f3f4f6'}
                                     />
                                 </View>
 
                                 <TouchableOpacity
                                     onPress={handleUpdate}
                                     disabled={updating}
-                                    className={`p-4 rounded-xl items-center mb-3 ${updating ? 'bg-gray-400' : 'bg-blue-600'}`}
+                                    className={`p-4 rounded-xl items-center mb-3 ${updating ? 'bg-gray-400' : 'bg-brand'}`}
                                 >
                                     <Text className="text-white font-bold text-base">
                                         {updating ? t('saving', 'Saving...') : t('saveChanges', 'Save Changes')}

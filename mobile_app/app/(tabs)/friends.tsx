@@ -99,7 +99,7 @@ export default function FriendsScreen() {
     if (loading && !refreshing) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#059669" />
             </SafeAreaView>
         );
     }
@@ -110,13 +110,13 @@ export default function FriendsScreen() {
                 className="flex-1 mt-2"
                 contentContainerStyle={{ paddingBottom: 40 }}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#059669" />
                 }
             >
                 {/* Search Players Call-to-Action */}
                 <View className="bg-white p-5 rounded-2xl mx-4 shadow-sm border border-gray-100 mb-4 items-center">
-                    <View className="w-12 h-12 bg-blue-50 rounded-full items-center justify-center mb-3">
-                        <FontAwesome name="user-plus" size={20} color="#2563eb" />
+                    <View className="w-12 h-12 bg-brand-mist rounded-full items-center justify-center mb-3">
+                        <FontAwesome name="user-plus" size={20} color="#059669" />
                     </View>
                     <Text className="text-lg font-black text-gray-900 mb-1 text-center">מצא חברים חדשים</Text>
                     <Text className="text-gray-500 text-sm text-center mb-4 leading-5">
@@ -124,7 +124,7 @@ export default function FriendsScreen() {
                     </Text>
                     <TouchableOpacity
                         onPress={() => router.push('/user/search-players')}
-                        className="bg-blue-600 px-6 py-3 rounded-xl flex-row items-center justify-center w-full shadow-sm"
+                        className="bg-brand px-6 py-3 rounded-xl flex-row items-center justify-center w-full shadow-sm"
                     >
                         <FontAwesome name="search" size={14} color="white" style={{ marginRight: 8 }} />
                         <Text className="text-white font-bold text-base">חפש שחקנים</Text>
@@ -169,7 +169,7 @@ export default function FriendsScreen() {
                 {/* Friends List */}
                 <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mx-4">
                     <Text className="font-extrabold text-gray-900 mb-4 flex-row items-center text-right">
-                        <FontAwesome name="users" size={16} color="#3b82f6" style={{ marginRight: 6 }} />
+                        <FontAwesome name="users" size={16} color="#059669" style={{ marginRight: 6 }} />
                         {' '}{t('profile.myFriends', 'החברים שלי')} ({friends.length})
                     </Text>
                     {friends.length === 0 ? (

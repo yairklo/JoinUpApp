@@ -11,6 +11,9 @@ expo-env.d.ts
 
 # Native
 .kotlin/
+.gradle/
+.cxx/
+Pods/
 *.orig.*
 *.jks
 *.p8
@@ -25,17 +28,29 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
 
-# macOS
+# macOS / editor
 .DS_Store
+.idea/
+.vscode/
 *.pem
 
 # local env files
+.env
 .env*.local
+.env.*
+!.env.example
 
-# typescript
+# typescript / build artifacts
 *.tsbuildinfo
+build/
+coverage/
+*.apk
+*.aab
+*.ipa
+*.map
 
-# generated native folders
+# generated native folders (Prebuild regenerates these on EAS)
 /ios
 /android

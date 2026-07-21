@@ -11,7 +11,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 export default function GamesHorizontalList({
   title,
   children,
-  isOnColoredBackground = false, // New prop to handle dark backgrounds
+  isOnColoredBackground = false,
   onSeeAll,
   customHeaderAction,
 }: {
@@ -22,14 +22,19 @@ export default function GamesHorizontalList({
   customHeaderAction?: React.ReactNode;
 }) {
   return (
-    <Box sx={{ mb: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} px={1}>
-        <Box display="flex" alignItems="center" gap={1}>
-          {/* Accent bar */}
+    <Box sx={{ mb: { xs: 3, md: 4 }, mx: { xs: -2, sm: 0 } }}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={1.5}
+        px={{ xs: 2, sm: 1 }}
+      >
+        <Box display="flex" alignItems="center" gap={1} minWidth={0}>
           <Box
             sx={{
               width: 4,
-              height: 22,
+              height: 20,
               borderRadius: 999,
               bgcolor: isOnColoredBackground ? "common.white" : "primary.main",
               flexShrink: 0,
@@ -38,8 +43,9 @@ export default function GamesHorizontalList({
           <Typography
             variant="h5"
             fontWeight="800"
+            noWrap
             sx={{
-              fontSize: { xs: "1.2rem", sm: "1.4rem" },
+              fontSize: { xs: "1.1rem", sm: "1.35rem" },
               color: isOnColoredBackground ? "common.white" : "text.primary",
               textShadow: isOnColoredBackground ? "0 2px 4px rgba(0,0,0,0.1)" : "none",
             }}
@@ -55,7 +61,9 @@ export default function GamesHorizontalList({
             onClick={onSeeAll}
             endIcon={<ArrowBackIcon fontSize="small" />}
             sx={{
+              flexShrink: 0,
               fontWeight: 600,
+              fontSize: { xs: "0.8rem", sm: "0.875rem" },
               color: isOnColoredBackground ? "rgba(255,255,255,0.9)" : "text.secondary",
               "&:hover": {
                 color: isOnColoredBackground ? "common.white" : "primary.main",
@@ -63,21 +71,24 @@ export default function GamesHorizontalList({
               },
             }}
           >
-            הצג הכל
+            הכל
           </Button>
         )}
       </Box>
 
       <Stack
         direction="row"
-        spacing={2}
+        spacing={1.5}
+        className="carousel-edge"
         sx={{
           overflowX: "auto",
-          pb: 2,
-          px: 1,
+          pb: 1.5,
+          px: { xs: 2, sm: 1 },
           scrollbarWidth: "none",
           "&::-webkit-scrollbar": { display: "none" },
           scrollSnapType: "x mandatory",
+          scrollPaddingInline: { xs: 16, sm: 8 },
+          WebkitOverflowScrolling: "touch",
           "& > *": {
             scrollSnapAlign: "start",
           },

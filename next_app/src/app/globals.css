@@ -24,6 +24,7 @@
   --input: 216 34% 91%;
   --ring: 161 94% 30%;
   --radius: 1rem;
+  --bottom-nav-height: 64px;
 }
 
 @layer base {
@@ -34,10 +35,13 @@
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Prevent rubber-band overscroll from feeling broken under fixed chrome */
+  overscroll-behavior-y: none;
 }
 
 html,
@@ -49,9 +53,10 @@ body,
 /* Main content area – clears the fixed bottom navigation on mobile */
 .app-main {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 900px) {
@@ -60,24 +65,31 @@ body,
   }
 }
 
-/* Subtle, modern scrollbars */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+/* Soft horizontal edge fade for carousel rows on mobile */
+.carousel-edge {
+  -webkit-overflow-scrolling: touch;
 }
 
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
+/* Subtle, modern scrollbars (desktop) */
+@media (hover: hover) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+  }
 
-*::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.35);
-  border-radius: 999px;
-}
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
+  *::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 /* Reduce motion for users who prefer it */

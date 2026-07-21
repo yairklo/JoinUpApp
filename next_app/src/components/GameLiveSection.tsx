@@ -235,6 +235,7 @@ export default function GameLiveSection({
         sport={game.sport}
         teamSize={game.teamSize}
         price={game.price}
+        fullWidth
       >
         {joined ? (
           <LeaveGameButton

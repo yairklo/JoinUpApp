@@ -25,7 +25,7 @@ const CyberDarkTheme = {
     card: '#171717',
     text: '#f8fafc',
     border: '#262626',
-    primary: '#2563eb',
+    primary: '#059669',
   },
 };
 

@@ -40,8 +40,8 @@ export default function SettingsScreen() {
                 <View className="bg-white mx-4 rounded-xl mb-4 shadow-sm overflow-hidden">
                     <View className="p-4 border-b border-gray-100 flex-row justify-between items-center">
                         <View className="flex-row items-center">
-                            <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-3">
-                                <FontAwesome name="bell" size={14} color="#2563eb" />
+                            <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
+                                <FontAwesome name="bell" size={14} color="#059669" />
                             </View>
                             <Text className="text-base text-gray-800 font-medium">Push Notifications</Text>
                         </View>

@@ -210,7 +210,7 @@ export default function JoinGameButton({
         <TouchableOpacity
             onPress={join}
             disabled={loading}
-            className={`flex-row items-center justify-center p-3 rounded-xl shadow-sm ${loading ? 'bg-blue-400' : 'bg-blue-600'}`}
+            className={`flex-row items-center justify-center p-3 rounded-xl shadow-sm ${loading ? 'bg-brand-soft' : 'bg-brand'}`}
         >
             {loading ? (
                 <ActivityIndicator size="small" color="white" />

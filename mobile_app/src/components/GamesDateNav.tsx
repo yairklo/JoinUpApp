@@ -48,7 +48,7 @@ export default function GamesDateNav({ selectedDate, onSelectDate }: GamesDateNa
                             key={dateStr}
                             onPress={() => onSelectDate(dateStr)}
                             className={`mr-3 px-5 py-2.5 rounded-full border ${isSelected
-                                ? 'bg-blue-600 border-blue-600'
+                                ? 'bg-brand border-brand'
                                 : 'bg-white border-gray-100'
                                 }`}
                         >

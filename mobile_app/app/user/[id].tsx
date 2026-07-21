@@ -145,7 +145,7 @@ export default function UserProfileScreen() {
     if (loading) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#059669" />
             </SafeAreaView>
         );
     }
@@ -219,7 +219,7 @@ export default function UserProfileScreen() {
                             <TouchableOpacity
                                 onPress={handleAddFriend}
                                 disabled={actionLoading}
-                                className="bg-blue-600 px-6 py-3 rounded-xl flex-row items-center"
+                                className="bg-brand px-6 py-3 rounded-xl flex-row items-center"
                             >
                                 <FontAwesome name="user-plus" size={16} color="#ffffff" style={{ marginRight: 8 }} />
                                 <Text className="text-white font-bold">{actionLoading ? '...' : t('addFriend', 'Add Friend')}</Text>
@@ -272,10 +272,10 @@ export default function UserProfileScreen() {
                                     }
                                 }}
                                 disabled={actionLoading}
-                                className="bg-white px-6 py-3 rounded-xl border border-blue-200 flex-row items-center shadow-sm"
+                                className="bg-white px-6 py-3 rounded-xl border border-brand-pale flex-row items-center shadow-sm"
                             >
-                                <FontAwesome name="paper-plane" size={16} color="#2563eb" style={{ marginRight: 8 }} />
-                                <Text className="text-blue-600 font-bold">{t('sendMessage', 'Send Message')}</Text>
+                                <FontAwesome name="paper-plane" size={16} color="#059669" style={{ marginRight: 8 }} />
+                                <Text className="text-brand font-bold">{t('sendMessage', 'Send Message')}</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -298,8 +298,8 @@ export default function UserProfileScreen() {
                             <Text className="font-bold text-gray-800 mb-2">{t('favoriteSports', 'Favorite Sports')}</Text>
                             <View className="flex-row flex-wrap">
                                 {profile.sports.map((sport, index) => (
-                                    <View key={index} className="bg-blue-50 px-3 py-1 rounded-full mr-2 mb-2 border border-blue-100">
-                                        <Text className="text-blue-700 text-sm">
+                                    <View key={index} className="bg-brand-mist px-3 py-1 rounded-full mr-2 mb-2 border border-brand-pale">
+                                        <Text className="text-brand-dark text-sm">
                                             {sport.name} {sport.position ? `- ${sport.position}` : ''}
                                         </Text>
                                     </View>
@@ -345,8 +345,8 @@ export default function UserProfileScreen() {
                         {profile.sportStats && profile.sportStats.length > 0 && (
                             <View className="flex-row flex-wrap mb-4">
                                 {profile.sportStats.map((s) => (
-                                    <View key={s.sport} className="bg-blue-50 px-3 py-1.5 rounded-full mr-2 mb-2 border border-blue-100">
-                                        <Text className="text-blue-700 text-sm font-semibold">
+                                    <View key={s.sport} className="bg-brand-mist px-3 py-1.5 rounded-full mr-2 mb-2 border border-brand-pale">
+                                        <Text className="text-brand-dark text-sm font-semibold">
                                             {(SPORT_EMOJI[s.sport] || '🏅')} {SPORT_MAPPING[s.sport] || s.sport} · {s.count}
                                         </Text>
                                     </View>
@@ -367,7 +367,7 @@ export default function UserProfileScreen() {
                                         onPress={() => router.push(`/game/${m.id}`)}
                                         className="flex-row items-center py-3 border-b border-gray-50"
                                     >
-                                        <FontAwesome name="soccer-ball-o" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                                        <FontAwesome name="soccer-ball-o" size={18} color="#059669" style={{ marginRight: 12 }} />
                                         <View className="flex-1">
                                             <Text className="text-gray-800 font-medium">{m.title || sportLabel || 'משחק'}</Text>
                                             <Text className="text-gray-500 text-xs mt-0.5">{meta}</Text>
@@ -381,14 +381,14 @@ export default function UserProfileScreen() {
                             <TouchableOpacity
                                 onPress={handleLoadMore}
                                 disabled={loadingMore}
-                                className="mt-4 py-3 rounded-xl border border-blue-200 bg-blue-50 items-center flex-row justify-center"
+                                className="mt-4 py-3 rounded-xl border border-brand-pale bg-brand-mist items-center flex-row justify-center"
                             >
                                 {loadingMore ? (
-                                    <ActivityIndicator size="small" color="#2563eb" />
+                                    <ActivityIndicator size="small" color="#059669" />
                                 ) : (
                                     <>
-                                        <FontAwesome name="chevron-down" size={13} color="#2563eb" style={{ marginRight: 8 }} />
-                                        <Text className="text-blue-600 font-bold">{t('privacy.loadMore', 'Load more games')}</Text>
+                                        <FontAwesome name="chevron-down" size={13} color="#059669" style={{ marginRight: 8 }} />
+                                        <Text className="text-brand font-bold">{t('privacy.loadMore', 'Load more games')}</Text>
                                     </>
                                 )}
                             </TouchableOpacity>

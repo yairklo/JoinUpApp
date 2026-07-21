@@ -259,7 +259,7 @@ export default function NewGameScreen() {
                         {mapSelectedField.location || mapSelectedField.city || 'מגרש רשום'}
                     </Text>
                     <TouchableOpacity
-                        className="bg-blue-600 p-4 rounded-xl items-center"
+                        className="bg-brand p-4 rounded-xl items-center"
                         onPress={confirmMapFieldSelection}
                     >
                         <Text className="text-white font-bold">אשר מגרש</Text>
@@ -273,7 +273,7 @@ export default function NewGameScreen() {
                 <View className="p-4 bg-white border-t border-gray-200 pb-10">
                     <Text className="text-gray-600 text-center text-sm mb-3">מיקום מותאם אישית נבחר</Text>
                     <TouchableOpacity
-                        className="bg-blue-600 p-4 rounded-xl items-center"
+                        className="bg-brand p-4 rounded-xl items-center"
                         onPress={confirmCustomMapPoint}
                     >
                         <Text className="text-white font-bold">אשר מיקום</Text>
@@ -426,7 +426,7 @@ export default function NewGameScreen() {
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center">
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color="#059669" />
             </View>
         );
     }
@@ -446,7 +446,7 @@ export default function NewGameScreen() {
                                 <TouchableOpacity
                                     key={s}
                                     onPress={() => setSport(s)}
-                                    className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                                    className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                                 >
                                     <Text className={`${isSelected ? 'text-white' : 'text-gray-700'} font-medium`}>
                                         {SPORT_MAPPING[s]}
@@ -472,9 +472,9 @@ export default function NewGameScreen() {
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
                     <View className="flex-row justify-between items-center mb-2">
                         <Text className="text-lg font-bold text-gray-800">מיקום</Text>
-                        <TouchableOpacity onPress={openMapModal} className="flex-row items-center bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                            <FontAwesome name="map-marker" size={14} color="#2563eb" style={{ marginRight: 6 }} />
-                            <Text className="text-blue-700 font-bold text-xs">בחר במפה</Text>
+                        <TouchableOpacity onPress={openMapModal} className="flex-row items-center bg-brand-mist px-3 py-1 rounded-full border border-brand-pale">
+                            <FontAwesome name="map-marker" size={14} color="#059669" style={{ marginRight: 6 }} />
+                            <Text className="text-brand-dark font-bold text-xs">בחר במפה</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -499,7 +499,7 @@ export default function NewGameScreen() {
                             <TouchableOpacity
                                 key={city}
                                 onPress={() => { setSelectedCity(city); setSelectedField(null); }}
-                                className={`mr-2 px-4 py-2 rounded-full border ${selectedCity === city ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                                className={`mr-2 px-4 py-2 rounded-full border ${selectedCity === city ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                             >
                                 <Text className={selectedCity === city ? 'text-white' : 'text-gray-700'}>{city}</Text>
                             </TouchableOpacity>
@@ -512,9 +512,9 @@ export default function NewGameScreen() {
                             <TouchableOpacity
                                 key={field.id}
                                 onPress={() => setSelectedField(field)}
-                                className={`mr-3 p-3 rounded-xl border w-40 ${selectedField?.id === field.id ? 'bg-blue-50 border-blue-600' : 'bg-white border-gray-200'}`}
+                                className={`mr-3 p-3 rounded-xl border w-40 ${selectedField?.id === field.id ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
                             >
-                                <Text className={`font-bold ${selectedField?.id === field.id ? 'text-blue-700' : 'text-gray-800'}`} numberOfLines={1}>{field.name}</Text>
+                                <Text className={`font-bold ${selectedField?.id === field.id ? 'text-brand-dark' : 'text-gray-800'}`} numberOfLines={1}>{field.name}</Text>
                                 <Text className="text-xs text-gray-500" numberOfLines={1}>{field.location}</Text>
                             </TouchableOpacity>
                         ))}
@@ -597,12 +597,12 @@ export default function NewGameScreen() {
 
                     <View className="flex-row items-center justify-between mb-4">
                         <Text className="text-gray-700 font-bold">משחק פרטי (לחברים בלבד)</Text>
-                        <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#2563eb' }} />
+                        <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#059669' }} />
                     </View>
 
                     <View className="flex-row items-center justify-between">
                         <Text className="text-gray-700 font-bold">דורש אישור הצטרפות</Text>
-                        <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#2563eb' }} />
+                        <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#059669' }} />
                     </View>
                 </View>
 
@@ -646,7 +646,7 @@ export default function NewGameScreen() {
                                                     setInvitedParticipantIds(prev => [...prev, friend.id]);
                                                 }
                                             }}
-                                            className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-blue-50 border-blue-500' : 'bg-white border-gray-200'}`}
+                                            className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
                                         >
                                             <Image
                                                 source={{ uri: friend.imageUrl || "https://ui-avatars.com/api/?name=" + friend.name }}
@@ -656,7 +656,7 @@ export default function NewGameScreen() {
                                                 {friend.name?.split(' ')[0]}
                                             </Text>
                                             {isSelected && (
-                                                <View className="absolute top-1 right-1 bg-blue-500 w-4 h-4 rounded-full items-center justify-center">
+                                                <View className="absolute top-1 right-1 bg-brand w-4 h-4 rounded-full items-center justify-center">
                                                     <FontAwesome name="check" size={8} color="white" />
                                                 </View>
                                             )}
@@ -682,7 +682,7 @@ export default function NewGameScreen() {
                             <View className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
                                 <View className="flex-row items-center justify-between mb-4">
                                     <Text className="text-gray-800 font-bold text-sm">הרשמה עתידית</Text>
-                                    <Switch value={futureRegistration} onValueChange={setFutureRegistration} trackColor={{ true: '#2563eb' }} />
+                                    <Switch value={futureRegistration} onValueChange={setFutureRegistration} trackColor={{ true: '#059669' }} />
                                 </View>
                                 {futureRegistration && (
                                     <View className="flex-row justify-between">
@@ -761,7 +761,7 @@ export default function NewGameScreen() {
                 <TouchableOpacity
                     onPress={handleSubmit}
                     disabled={submitting}
-                    className={`p-4 rounded-xl items-center mb-10 ${submitting ? 'bg-blue-400' : 'bg-blue-600'}`}
+                    className={`p-4 rounded-xl items-center mb-10 ${submitting ? 'bg-brand-soft' : 'bg-brand'}`}
                 >
                     <Text className="text-white font-bold text-lg">
                         {submitting ? 'יוצר...' : 'צור משחק'}
@@ -775,7 +775,7 @@ export default function NewGameScreen() {
                     <View className="flex-row justify-between items-center p-4 border-b border-gray-200 pt-10">
                         <Text className="text-lg font-bold">בחר מיקום</Text>
                         <TouchableOpacity onPress={() => setShowMapModal(false)}>
-                            <Text className="text-blue-600 font-bold">סגור</Text>
+                            <Text className="text-brand font-bold">סגור</Text>
                         </TouchableOpacity>
                     </View>
 

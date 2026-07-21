@@ -54,16 +54,16 @@ function MessageBubble({
                 onLongPress={() => onLongPress?.(message)}
                 activeOpacity={0.9}
                 className={`max-w-[75%] px-4 py-3 rounded-3xl ${isMe
-                        ? 'bg-blue-600 rounded-tr-none shadow-sm shadow-blue-200'
+                        ? 'bg-brand rounded-tr-none shadow-sm shadow-brand-pale'
                         : 'bg-gray-100 rounded-tl-none border border-gray-50'
                     }`}
             >
                 {message.replyTo && (
-                    <View className={`mb-2 p-2 rounded-xl border-l-4 ${isMe ? 'bg-blue-700/50 border-blue-300' : 'bg-gray-200 border-gray-400'}`}>
-                        <Text className={`text-[10px] font-bold ${isMe ? 'text-blue-100' : 'text-gray-500'}`}>
+                    <View className={`mb-2 p-2 rounded-xl border-l-4 ${isMe ? 'bg-brand-dark/50 border-brand-light' : 'bg-gray-200 border-gray-400'}`}>
+                        <Text className={`text-[10px] font-bold ${isMe ? 'text-brand-pale' : 'text-gray-500'}`}>
                             {message.replyTo.senderName || "User"}
                         </Text>
-                        <Text className={`text-xs ${isMe ? 'text-blue-50' : 'text-gray-600'}`} numberOfLines={1}>
+                        <Text className={`text-xs ${isMe ? 'text-brand-mist' : 'text-gray-600'}`} numberOfLines={1}>
                             {message.replyTo.text}
                         </Text>
                     </View>
@@ -83,9 +83,9 @@ function MessageBubble({
 
                 <View className="flex-row items-center justify-end mt-1">
                     {message.isEdited && !message.isDeleted && (
-                        <Text className={`text-[9px] mr-1 ${isMe ? 'text-blue-200' : 'text-gray-400'}`}>Edited</Text>
+                        <Text className={`text-[9px] mr-1 ${isMe ? 'text-brand-pale' : 'text-gray-400'}`}>Edited</Text>
                     )}
-                    <Text className={`text-[9px] font-medium ${isMe ? 'text-blue-200' : 'text-gray-400'}`}>
+                    <Text className={`text-[9px] font-medium ${isMe ? 'text-brand-pale' : 'text-gray-400'}`}>
                         {new Date(message.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                     {isMe && (

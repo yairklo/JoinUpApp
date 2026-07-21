@@ -136,7 +136,7 @@ export default function SearchPlayersScreen() {
                         <TouchableOpacity
                             onPress={() => handleAddFriend(item.id)}
                             disabled={actionLoadingId === item.id}
-                            className="bg-blue-600 px-3 py-1.5 rounded-lg flex-row items-center"
+                            className="bg-brand px-3 py-1.5 rounded-lg flex-row items-center"
                         >
                             {actionLoadingId === item.id ? (
                                 <ActivityIndicator size="small" color="#ffffff" />
@@ -182,7 +182,7 @@ export default function SearchPlayersScreen() {
 
             {loading && (
                 <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#2563eb" />
+                    <ActivityIndicator size="large" color="#059669" />
                 </View>
             )}
 

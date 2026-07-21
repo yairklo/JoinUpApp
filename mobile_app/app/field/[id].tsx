@@ -100,7 +100,7 @@ export default function FieldProfileScreen() {
             <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50">
                 <FieldProfileHeader title={t('field.profile')} onBack={() => router.back()} />
                 <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#2563eb" />
+                    <ActivityIndicator size="large" color="#059669" />
                 </View>
             </SafeAreaView>
         );
@@ -172,8 +172,8 @@ export default function FieldProfileScreen() {
                         ) : null}
 
                         <View className="flex-row flex-wrap mt-3" style={{ gap: 6 }}>
-                            <View className="px-3 py-1 rounded-full bg-blue-50 border border-blue-200">
-                                <Text className="text-blue-700 text-xs font-bold">
+                            <View className="px-3 py-1 rounded-full bg-brand-mist border border-brand-pale">
+                                <Text className="text-brand-dark text-xs font-bold">
                                     {field.type === 'closed' ? t('field.closedField') : t('field.openField')}
                                 </Text>
                             </View>
@@ -223,7 +223,7 @@ export default function FieldProfileScreen() {
                                     <TouchableOpacity
                                         key={d}
                                         onPress={() => setSelectedDay(d)}
-                                        className={`mr-2 px-3 py-1.5 rounded-full border ${selectedDay === d ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}
+                                        className={`mr-2 px-3 py-1.5 rounded-full border ${selectedDay === d ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                                     >
                                         <Text className={selectedDay === d ? 'text-white font-bold text-xs' : 'text-gray-700 text-xs'}>
                                             {t(`field.day${d}`)}

@@ -86,7 +86,7 @@ export function getSportIconName(sport?: string) {
 
 export function getSportColorHex(sport?: string) {
     const key = normalizeSportKey(sport);
-    if (!key) return '#2563eb';
+    if (!key) return '#059669';
     return SPORT_COLOR_MAP[key];
 }
 

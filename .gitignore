@@ -6,11 +6,35 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+agent_watcher*.log
 
-node_modules
-dist
-dist-ssr
-*.local
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+**/dist/
+**/build/
+**/.next/
+**/out/
+.turbo/
+.vercel/
+coverage/
+*.tsbuildinfo
+
+# Expo / React Native (mobile_app)
+.expo/
+**/web-build/
+android/
+ios/
+**/android/
+**/ios/
+.kotlin/
+.gradle/
+.cxx/
+Pods/
 
 # Editor directories and files
 .vscode/*
@@ -22,9 +46,29 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Secrets & env
 *.env
-server/*env
-server/firebase-service-account.json
 .env
+.env.*
+!**/.env.example
+server/*env
 server/.env.production
 server/.env.development
+server/firebase-service-account.json
+**/firebase-service-account.json
+*.local
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Heavy / scratch files at repo root (not needed in VCS or EAS)
+*.csv
+pexels-*.jpg
+*.zip
+translate_*.py
+fix_*.py
+Mission_report*.txt

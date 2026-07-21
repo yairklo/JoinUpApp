@@ -108,7 +108,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
     return (
         <>
             <GamesHorizontalList
-                title="הצטרף לסדרה"
+                title="הצטרפו לקבוצה"
                 onSeeAll={() => setIsSeeAllOpen(true)}
             >
                 {filteredSeries.map((s) => (
@@ -131,7 +131,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                             fullWidth
                             endIcon={<ArrowForwardIcon />}
                         >
-                            לעמוד הסדרה
+                            לעמוד הקבוצה
                         </Button>
                     </SeriesHeaderCard>
                 ))}
@@ -140,7 +140,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
             <FullPageList
                 open={isSeeAllOpen}
                 onClose={() => setIsSeeAllOpen(false)}
-                title="הצטרף לסדרה"
+                title="קבוצות"
                 items={filteredSeries}
                 renderItem={(s) => (
                     <SeriesHeaderCard
@@ -162,7 +162,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                                 fullWidth
                                 endIcon={<ArrowForwardIcon />}
                             >
-                                לעמוד הסדרה
+                                לעמוד הקבוצה
                             </Button>
                         </Link>
                     </SeriesHeaderCard>

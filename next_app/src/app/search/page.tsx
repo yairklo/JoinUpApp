@@ -56,6 +56,7 @@ const CITY_COORDS: Record<string, [number, number]> = {
 };
 
 import MapIcon from "@mui/icons-material/Map";
+import ViewListIcon from "@mui/icons-material/ViewList";
 
 type Bounds = { minLat: number; maxLat: number; minLng: number; maxLng: number };
 
@@ -78,6 +79,8 @@ export default function SearchPage() {
   
   const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
   const [targetLocation, setTargetLocation] = useState<[number, number] | null>(null);
+  // Mobile-only: switch between results list and full-screen map
+  const [mobileView, setMobileView] = useState<"list" | "map">("list");
 
   useEffect(() => {
     fieldsApi.getCities().then(res => setCities(res)).catch(console.error);
@@ -179,6 +182,7 @@ export default function SearchPage() {
         teamSize={g.teamSize}
         price={g.price}
         isJoined={joined}
+        fullWidth
       >
         {joined ? (
           <LeaveGameButton
@@ -207,8 +211,9 @@ export default function SearchPage() {
   return (
     <Box
       sx={{
-        display: "flex",
-        flexDirection: { xs: "column-reverse", md: "row" },
+        display: { xs: "block", md: "flex" },
+        position: "relative",
+        flexDirection: { md: "row" },
         height: {
           xs: "calc(100vh - 60px - 64px - env(safe-area-inset-bottom))",
           md: "calc(100vh - 68px)",
@@ -219,17 +224,25 @@ export default function SearchPage() {
       <Box
         sx={{
           width: { xs: "100%", md: "40%" },
-          height: { xs: "50%", md: "100%" },
+          height: "100%",
+          // Mobile: keep both panes mounted (Leaflet needs real dimensions),
+          // reveal only the active one
+          position: { xs: "absolute", md: "static" },
+          inset: { xs: 0, md: "auto" },
+          visibility: { xs: mobileView === "list" ? "visible" : "hidden", md: "visible" },
+          zIndex: { xs: mobileView === "list" ? 2 : 1, md: "auto" },
           overflowY: "auto",
           bgcolor: "background.default",
           borderInlineEnd: { md: 1 },
           borderColor: "divider",
-          p: 2,
+          p: { xs: 1.5, sm: 2 },
+          // Mobile: leave room above bottom nav for the floating toggle
+          pb: { xs: 10, md: 2 },
         }}
       >
         {/* Search Header */}
         <Stack spacing={2} mb={3}>
-          <Typography variant="h5" fontWeight={800}>
+          <Typography variant="h5" fontWeight={800} sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" } }}>
             חיפוש משחקים
           </Typography>
 
@@ -347,12 +360,15 @@ export default function SearchPage() {
         )}
       </Box>
 
-      {/* RIGHT PANE: Map (60%) */}
+      {/* Map pane */}
       <Box
         sx={{
           width: { xs: "100%", md: "60%" },
-          height: { xs: "50%", md: "100%" },
-          position: { md: "sticky" },
+          height: "100%",
+          position: { xs: "absolute", md: "sticky" },
+          inset: { xs: 0, md: "auto" },
+          visibility: { xs: mobileView === "map" ? "visible" : "hidden", md: "visible" },
+          zIndex: { xs: mobileView === "map" ? 2 : 1, md: "auto" },
           top: 0,
         }}
       >
@@ -364,6 +380,31 @@ export default function SearchPage() {
           targetLocation={targetLocation}
         />
       </Box>
+
+      {/* Mobile: floating list/map toggle */}
+      <Button
+        variant="contained"
+        onClick={() => setMobileView((v) => (v === "list" ? "map" : "list"))}
+        startIcon={mobileView === "list" ? <MapIcon /> : <ViewListIcon />}
+        sx={{
+          display: { xs: "inline-flex", md: "none" },
+          position: "fixed",
+          bottom: "calc(80px + env(safe-area-inset-bottom))",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 1100,
+          px: 2.75,
+          py: 1.1,
+          minWidth: 128,
+          bgcolor: "text.primary",
+          color: "background.paper",
+          boxShadow: "0 10px 28px rgba(2,6,23,0.35)",
+          fontWeight: 700,
+          "&:hover": { bgcolor: "text.primary" },
+        }}
+      >
+        {mobileView === "list" ? "מפה" : "רשימה"}
+      </Button>
     </Box>
   );
 }

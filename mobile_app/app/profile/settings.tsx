@@ -92,7 +92,7 @@ export default function PrivacySettingsScreen() {
 
             {loading ? (
                 <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#2563eb" />
+                    <ActivityIndicator size="large" color="#059669" />
                 </View>
             ) : (
                 <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
@@ -110,10 +110,10 @@ export default function PrivacySettingsScreen() {
                                             onPress={() => setValues((prev) => ({ ...prev, [f.key]: opt.value }))}
                                             className={`flex-row items-center justify-between px-4 py-3 ${idx > 0 ? 'border-t border-gray-50' : ''}`}
                                         >
-                                            <Text className={`text-base ${active ? 'text-blue-600 font-bold' : 'text-gray-700'}`}>
+                                            <Text className={`text-base ${active ? 'text-brand font-bold' : 'text-gray-700'}`}>
                                                 {opt.label}
                                             </Text>
-                                            {active && <FontAwesome name="check" size={16} color="#2563eb" />}
+                                            {active && <FontAwesome name="check" size={16} color="#059669" />}
                                         </TouchableOpacity>
                                     );
                                 })}
@@ -124,7 +124,7 @@ export default function PrivacySettingsScreen() {
                     <TouchableOpacity
                         onPress={handleSave}
                         disabled={saving}
-                        className="bg-blue-600 rounded-2xl py-4 items-center mt-2"
+                        className="bg-brand rounded-2xl py-4 items-center mt-2"
                     >
                         {saving ? (
                             <ActivityIndicator color="#ffffff" />
