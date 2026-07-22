@@ -235,8 +235,8 @@ export default function ProfilePage() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <SignedOut>
-        <Alert severity="warning" action={<SignInButton mode="modal"><Button color="inherit" size="small">Sign in</Button></SignInButton>}>
-          You must sign in to view and edit your profile.
+        <Alert severity="warning" action={<SignInButton mode="modal"><Button color="inherit" size="small">התחבר</Button></SignInButton>}>
+          עליך להתחבר כדי לצפות ולערוך את הפרופיל שלך.
         </Alert>
       </SignedOut>
 
@@ -265,10 +265,10 @@ export default function ProfilePage() {
                     />
                     <Box flexGrow={1}>
                       <Typography variant="h4" component="h1" fontWeight="bold">
-                        {profile.name || "Unnamed User"}
+                        {profile.name || "משתמש ללא שם"}
                       </Typography>
                       <Typography variant="body1" color="text.secondary">
-                        {profile.city || "Unknown City"}
+                        {profile.city || "עיר לא ידועה"}
                       </Typography>
                     </Box>
                     {!editing && (
@@ -278,7 +278,7 @@ export default function ProfilePage() {
                           variant="outlined"
                           onClick={() => setEditing(true)}
                         >
-                          Edit Profile
+                          ערוך פרופיל
                         </Button>
                         <IconButton
                           aria-label="privacy settings"
@@ -296,19 +296,19 @@ export default function ProfilePage() {
                   {!editing ? (
                     <Grid container spacing={2}>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <Typography variant="caption" color="text.secondary">Email</Typography>
+                        <Typography variant="caption" color="text.secondary">אימייל</Typography>
                         <Typography variant="body1">{profile.email || '-'}</Typography>
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <Typography variant="caption" color="text.secondary">Phone</Typography>
+                        <Typography variant="caption" color="text.secondary">טלפון</Typography>
                         <Typography variant="body1">{profile.phone || '-'}</Typography>
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <Typography variant="caption" color="text.secondary">Age</Typography>
+                        <Typography variant="caption" color="text.secondary">גיל</Typography>
                         <Typography variant="body1">{calculateAge(profile.birthDate) || '-'}</Typography>
                       </Grid>
                       <Grid size={12}>
-                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Sports & Positions</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>ספורט ועמדות</Typography>
                         {(profile.sports && profile.sports.length > 0) ? (
                           <Stack spacing={2}>
                             {profile.sports.map(s => {
@@ -332,20 +332,20 @@ export default function ProfilePage() {
                     // טופס עריכה
                     <Grid container spacing={2}>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} size="small" />
+                        <TextField fullWidth label="שם" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} size="small" />
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} size="small" />
+                        <TextField fullWidth label="עיר" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} size="small" />
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} size="small" />
+                        <TextField fullWidth label="אימייל" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} size="small" />
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} size="small" />
+                        <TextField fullWidth label="טלפון" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} size="small" />
                       </Grid>
                       {/* Sports Editing */}
                       <Grid size={12}>
-                        <Typography variant="subtitle2" gutterBottom>Sports & Positions</Typography>
+                        <Typography variant="subtitle2" gutterBottom>ספורט ועמדות</Typography>
                         <Stack spacing={2}>
                           {form.sportsData.map((s, idx) => {
                             // Using simplified logic assuming s.sportId is the key (or even if it is ID, we show it if not in mapping)
@@ -434,10 +434,10 @@ export default function ProfilePage() {
 
                           <Box display="flex" gap={1}>
                             <FormControl size="small" sx={{ minWidth: 150, flexGrow: 1 }}>
-                              <InputLabel>Add Sport</InputLabel>
+                              <InputLabel>הוסף ספורט</InputLabel>
                               <Select
                                 value={newSportId}
-                                label="Add Sport"
+                                label="הוסף ספורט"
                                 onChange={(e) => setNewSportId(e.target.value)}
                               >
                                 {Object.keys(SPORT_MAPPING)
@@ -462,7 +462,7 @@ export default function ProfilePage() {
                               }}
                               disabled={!newSportId}
                             >
-                              Add
+                              הוסף
                             </Button>
                           </Box>
                         </Stack>
@@ -471,7 +471,7 @@ export default function ProfilePage() {
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                           fullWidth
-                          label="Birth Date"
+                          label="תאריך לידה"
                           type="date"
                           value={form.birthDate}
                           onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
@@ -480,14 +480,14 @@ export default function ProfilePage() {
                         />
                       </Grid>
                       <Grid size={12}>
-                        <TextField fullWidth label="Avatar URL" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} size="small" helperText="Paste a link to an image" />
+                        <TextField fullWidth label="קישור לתמונת פרופיל" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} size="small" helperText="הדבק קישור לתמונה" />
                       </Grid>
                       <Grid size={12} sx={{ mt: 2, display: 'flex', gap: 2 }}>
                         <Button variant="contained" startIcon={<SaveIcon />} onClick={save} disabled={saving}>
-                          {saving ? 'Saving...' : 'Save Changes'}
+                          {saving ? 'שומר...' : 'שמור שינויים'}
                         </Button>
                         <Button variant="outlined" color="inherit" startIcon={<CancelIcon />} onClick={() => setEditing(false)}>
-                          Cancel
+                          ביטול
                         </Button>
                       </Grid>
                     </Grid>
@@ -503,7 +503,7 @@ export default function ProfilePage() {
                 {/* 0. Search Players Bar */}
                 <Card elevation={2}>
                   <CardContent>
-                    <Typography variant="h6" mb={2}>Search Players</Typography>
+                    <Typography variant="h6" mb={2}>חיפוש שחקנים</Typography>
                     <TextField
                       placeholder="חפש שחקנים לפי שם או אימייל..."
                       size="small"
@@ -525,13 +525,13 @@ export default function ProfilePage() {
                 <Card elevation={2}>
                   <CardContent>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                      <Typography variant="h6">Friends</Typography>
+                      <Typography variant="h6">חברים</Typography>
                       <Link href="/profile/friends" passHref>
-                        <Button size="small">Show all</Button>
+                        <Button size="small">הצג הכל</Button>
                       </Link>
                     </Box>
                     <List dense>
-                      {friends.length === 0 && <Typography variant="body2" color="text.secondary">No friends yet.</Typography>}
+                      {friends.length === 0 && <Typography variant="body2" color="text.secondary">עדיין אין חברים.</Typography>}
                       {friends.slice(0, 5).map((f) => (
                         <ListItem key={f.id} secondaryAction={
                           <IconButton edge="end" aria-label="remove" size="small" onClick={() => removeFriend(f.id)}>
@@ -542,8 +542,8 @@ export default function ProfilePage() {
                             <Avatar src={f.imageUrl} name={f.name || ""} alt={f.name || ""} size="sm" />
                           </ListItemAvatar>
                           <ListItemText
-                            primary={<Link href={`/users/${f.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>{f.name || "Unknown"}</Link>}
-                            secondary={f.mutualCount ? `${f.mutualCount} mutual` : null}
+                            primary={<Link href={`/users/${f.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>{f.name || "לא ידוע"}</Link>}
+                            secondary={f.mutualCount ? `${f.mutualCount} משותפים` : null}
                           />
                         </ListItem>
                       ))}
@@ -555,7 +555,7 @@ export default function ProfilePage() {
                 {incoming.length > 0 && (
                   <Card elevation={2} sx={{ bgcolor: 'action.hover' }}>
                     <CardContent>
-                      <Typography variant="h6" gutterBottom>Friend Requests</Typography>
+                      <Typography variant="h6" gutterBottom>בקשות חברות</Typography>
                       <List dense>
                         {incoming.map((r) => (
                           <ListItem key={r.id}>
@@ -577,7 +577,7 @@ export default function ProfilePage() {
                 {/* 3. People You May Know */}
                 <Card elevation={2}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>People</Typography>
+                    <Typography variant="h6" gutterBottom>אנשים</Typography>
                     <List dense>
                       {allUsers.filter(u => u.id !== profile.id).slice(0, 6).map((u) => {
                         const isFriend = friendIdSet.has(u.id);
@@ -587,17 +587,17 @@ export default function ProfilePage() {
                               <Avatar src={u.imageUrl} name={u.name || ""} alt="" size="sm" />
                             </ListItemAvatar>
                             <ListItemText
-                              primary={<Link href={`/users/${u.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>{u.name || "Unknown"}</Link>}
+                              primary={<Link href={`/users/${u.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>{u.name || "לא ידוע"}</Link>}
                             />
                             {isFriend ? (
-                              <Chip label="Friends" size="small" color="success" variant="outlined" />
+                              <Chip label="חברים" size="small" color="success" variant="outlined" />
                             ) : (
                               <AddFriendButton receiverId={u.id} />
                             )}
                           </ListItem>
                         );
                       })}
-                      {allUsers.length <= 1 && <Typography variant="body2" color="text.secondary">No other users found.</Typography>}
+                      {allUsers.length <= 1 && <Typography variant="body2" color="text.secondary">לא נמצאו משתמשים נוספים.</Typography>}
                     </List>
                   </CardContent>
                 </Card>
