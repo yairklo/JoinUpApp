@@ -73,6 +73,10 @@ export default function GlobalSearchOmnibar() {
     const handleChange = (val: string) => {
         setQuery(val);
         setOpen(true);
+        if (val.trim().length < 2) {
+            setResults(EMPTY);
+        }
+        setLoading(true);
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => performSearch(val), 300);
     };
@@ -96,7 +100,9 @@ export default function GlobalSearchOmnibar() {
         results.users.length > 0 ||
         results.fields.length > 0 ||
         results.games.length > 0;
-    const showDropdown = open && trimmed.length >= 2;
+    
+    // Only show dropdown if we have results, OR if we finished loading and found nothing
+    const showDropdown = open && trimmed.length >= 2 && (hasResults || !loading);
 
     return (
         <ClickAwayListener onClickAway={() => setOpen(false)}>
@@ -153,7 +159,7 @@ export default function GlobalSearchOmnibar() {
                                 </Typography>
                             </Box>
                         ) : (
-                            <List dense disablePadding>
+                            <List dense disablePadding sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 0.2s" }}>
                                 {results.users.length > 0 && (
                                     <>
                                         <SectionHeader label="אנשים" />
