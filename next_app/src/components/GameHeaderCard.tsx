@@ -135,7 +135,7 @@ export default function GameHeaderCard({
           sx={{
             position: "absolute",
             inset: 0,
-            p: 1.25,
+            p: 2,
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
