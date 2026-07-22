@@ -288,7 +288,7 @@ function NewGamePageInner() {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <IconButton onClick={() => router.back()} aria-label="חזור" edge="start" sx={{ bgcolor: 'action.hover' }}>
+        <IconButton onClick={() => router.push('/')} aria-label="חזור" edge="start" sx={{ bgcolor: 'action.hover' }}>
           <ArrowForwardIcon />
         </IconButton>
         <Typography variant="h4" component="h1" fontWeight="bold">
