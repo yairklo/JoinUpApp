@@ -35,6 +35,8 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import IconButton from "@mui/material/IconButton";
 
 import { SPORT_MAPPING, SportType } from "@/utils/sports";
 
@@ -285,9 +287,14 @@ function NewGamePageInner() {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom align="right">
-        משחק חדש
-      </Typography>
+      <Box display="flex" alignItems="center" gap={2} mb={3}>
+        <IconButton onClick={() => router.back()} aria-label="חזור" edge="start" sx={{ bgcolor: 'action.hover' }}>
+          <ArrowForwardIcon />
+        </IconButton>
+        <Typography variant="h4" component="h1" fontWeight="bold">
+          משחק חדש
+        </Typography>
+      </Box>
 
       {/* Display pre-selected info if exists */}
       {urlFieldId && selectedField && (
