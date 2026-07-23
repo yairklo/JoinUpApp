@@ -9,6 +9,7 @@ const {
   isGameRatingEligible,
   isConfirmedParticipant,
 } = require('../utils/ratings');
+const { safeUpsertUserFromAuth } = require('../utils/userSync');
 
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
@@ -466,11 +467,7 @@ async function createGame(payload, creatorUser, io) {
   const field = await prisma.field.findUnique({ where: { id: useFieldId } });
   if (!field) throw httpError('Field not found', 404);
 
-  await prisma.user.upsert({
-    where: { id: creatorUser.id },
-    update: { name: creatorUser.name, imageUrl: creatorUser.avatar },
-    create: { id: creatorUser.id, name: creatorUser.name, imageUrl: creatorUser.avatar, email: undefined }
-  });
+  await safeUpsertUserFromAuth(prisma, creatorUser);
 
   const start = payloadStart ? new Date(payloadStart) : parseJerusalemTimeToUTC(date, time);
 

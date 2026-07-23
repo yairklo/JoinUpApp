@@ -1,5 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../utils/auth');
+const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const {
   prisma,
   notificationService,
@@ -34,37 +35,48 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Registration is not yet open' });
     }
 
+    const existing = await prisma.participation.findFirst({
+      where: { gameId: game.id, userId: req.user.id }
+    });
+
+    const finishJoinResponse = async (extra = {}) => {
+      const updated = await prisma.game.findUnique({
+        where: { id: game.id },
+        include: { field: true, participants: { include: { user: true } } }
+      });
+      broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
+      return res.json({ ...mapGameForClient(updated, req.user.id), ...extra });
+    };
+
+    // Idempotent re-join: resync roster for the client without DB profile writes or duplicate notifications
+    if (existing) {
+      if (existing.status === 'CONFIRMED' || existing.status === 'WAITLISTED') {
+        return finishJoinResponse();
+      }
+      if (existing.status === 'PENDING' && existing.isWaitlistOffer) {
+        return res.status(400).json({ error: 'A spot is already offered to you' });
+      }
+      if (existing.status === 'PENDING') {
+        return finishJoinResponse({ pending: true });
+      }
+      // REJECTED falls through — handled per join-policy below
+    }
+
     // Approval-gated games (non-lottery only, for now): create a PENDING request instead of
     // an instant CONFIRMED participation. The organizer bypasses approval on their own game.
     if (game.joinPolicy === 'REQUIRES_APPROVAL' && !game.lotteryEnabled && game.organizerId !== req.user.id) {
-      const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
-      if (already) {
-        if (already.status === 'PENDING') {
-          return res.status(400).json({ error: 'Your join request is already pending approval' });
-        }
-        if (already.status === 'REJECTED') {
-          return res.status(400).json({ error: 'Your request to join this game was declined' });
-        }
-        return res.status(400).json({ error: 'You are already a participant' });
+      if (existing?.status === 'REJECTED') {
+        return res.status(400).json({ error: 'Your request to join this game was declined' });
       }
 
-      await prisma.user.upsert({
-        where: { id: req.user.id },
-        update: { name: req.user.name, imageUrl: req.user.avatar },
-        create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
-      });
+      await safeUpsertUserFromAuth(prisma, req.user);
 
       await prisma.participation.create({
         data: { gameId: game.id, userId: req.user.id, status: 'PENDING' }
       });
       notifyOrganizerOfPendingRequest(game, req.user, req.io);
 
-      const updated = await prisma.game.findUnique({
-        where: { id: game.id },
-        include: { field: true, participants: { include: { user: true } } }
-      });
-      broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
-      return res.json({ ...mapGameForClient(updated, req.user.id), pending: true });
+      return finishJoinResponse({ pending: true });
     }
 
     // If lottery is enabled and hasn't executed yet, allow waitlist joins beyond capacity until lottery time
@@ -78,15 +90,11 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         if (now >= cutoff) {
           return res.status(400).json({ error: 'Lottery window is closed for this game' });
         }
-        const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
-        if (already) {
+        if (existing) {
           return res.status(400).json({ error: 'You are already a participant' });
         }
-        await prisma.user.upsert({
-          where: { id: req.user.id },
-          update: { name: req.user.name, imageUrl: req.user.avatar },
-          create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
-        });
+
+        await safeUpsertUserFromAuth(prisma, req.user);
         // Confirm up to capacity; beyond capacity -> waitlist
         const confirmedCountPre = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
         const status = confirmedCountPre < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
@@ -104,12 +112,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
           // Ignore if chat room doesn't exist or already participant
         }
 
-        const updated = await prisma.game.findUnique({
-          where: { id: game.id },
-          include: { field: true, participants: { include: { user: true } } }
-        });
-        broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
-        return res.json(mapGameForClient(updated, req.user.id));
+        return finishJoinResponse();
       }
       // If lottery already ran, fall through to capacity check based on confirmed count
     }
@@ -124,48 +127,25 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       }
     });
     if (allocatedSlotsCount >= game.maxPlayers) {
-      const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
-      if (already) {
-        if (already.status === 'WAITLISTED') {
-          return res.status(400).json({ error: 'You are already on the waitlist' });
-        }
-        if (already.status === 'CONFIRMED') {
-          return res.status(400).json({ error: 'You are already a confirmed participant' });
-        }
-        if (already.status === 'PENDING') {
-          return res.status(400).json({ error: 'A spot is already offered to you' });
-        }
-        await prisma.participation.update({ where: { id: already.id }, data: { status: 'WAITLISTED' } });
+      if (existing?.status === 'REJECTED') {
+        await safeUpsertUserFromAuth(prisma, req.user);
+        await prisma.participation.update({ where: { id: existing.id }, data: { status: 'WAITLISTED' } });
         notifyOrganizerOfWaitlistJoin(game, req.user, req.io);
-      } else {
-        await prisma.user.upsert({
-          where: { id: req.user.id },
-          update: { name: req.user.name, imageUrl: req.user.avatar },
-          create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
-        });
+      } else if (!existing) {
+        await safeUpsertUserFromAuth(prisma, req.user);
         await prisma.participation.create({
           data: { gameId: game.id, userId: req.user.id, status: 'WAITLISTED' }
         });
         notifyOrganizerOfWaitlistJoin(game, req.user, req.io);
       }
 
-      const updated = await prisma.game.findUnique({
-        where: { id: game.id },
-        include: { field: true, participants: { include: { user: true } } }
-      });
-      broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
-      return res.json(mapGameForClient(updated, req.user.id));
+      return finishJoinResponse();
     }
 
-    const already = await prisma.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
-    if (already) {
-      if (already.status === 'CONFIRMED' || already.status === 'WAITLISTED') {
-        return res.status(400).json({ error: 'You are already a participant' });
-      }
-      // PENDING/REJECTED row left over from a time when this game required approval. The game is
-      // now INSTANT, so cleanly upgrade the existing row instead of tripping over the
-      // (gameId, userId) unique constraint and bouncing the user with a stale error.
-      await prisma.participation.update({ where: { id: already.id }, data: { status: 'CONFIRMED' } });
+    if (existing?.status === 'REJECTED') {
+      // Stale rejected row on an instant-join game — promote cleanly without duplicate side effects
+      await safeUpsertUserFromAuth(prisma, req.user);
+      await prisma.participation.update({ where: { id: existing.id }, data: { status: 'CONFIRMED' } });
       notifyOrganizerOfInstantJoin(game, req.user, req.io);
 
       try {
@@ -174,19 +154,10 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         // Ignore if already a chat participant
       }
 
-      const updatedFromExisting = await prisma.game.findUnique({
-        where: { id: game.id },
-        include: { field: true, participants: { include: { user: true } } }
-      });
-      broadcastGameUpdate(req.io, game.id, updatedFromExisting).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
-      return res.json(mapGameForClient(updatedFromExisting, req.user.id));
+      return finishJoinResponse();
     }
 
-    await prisma.user.upsert({
-      where: { id: req.user.id },
-      update: { name: req.user.name, imageUrl: req.user.avatar },
-      create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar, email: undefined }
-    });
+    await safeUpsertUserFromAuth(prisma, req.user);
 
     await prisma.participation.create({
       data: { gameId: game.id, userId: req.user.id, status: 'CONFIRMED' }
@@ -200,12 +171,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       // Ignore
     }
 
-    const updated = await prisma.game.findUnique({
-      where: { id: game.id },
-      include: { field: true, participants: { include: { user: true } } }
-    });
-    broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
-    res.json(mapGameForClient(updated, req.user.id));
+    return finishJoinResponse();
   } catch (error) {
     console.error('Join game error:', error);
     res.status(500).json({ error: 'Failed to join game' });
