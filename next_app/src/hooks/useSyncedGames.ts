@@ -32,12 +32,11 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
 
             const newGames = [...prev, normalizedGame];
             // Sort by Date/Time
-            newGames.sort((a, b) => {
-                const dateA = new Date(`${a.date}T${a.time}`);
-                const dateB = new Date(`${b.date}T${b.time}`);
-                return dateA.getTime() - dateB.getTime();
+            return newGames.sort((a, b) => {
+                const timeA = (a.date && a.time) ? new Date(`${a.date}T${a.time}`).getTime() : 0;
+                const timeB = (b.date && b.time) ? new Date(`${b.date}T${b.time}`).getTime() : 0;
+                return timeA - timeB;
             });
-            return newGames;
         });
     }, []);
 

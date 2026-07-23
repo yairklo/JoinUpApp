@@ -38,7 +38,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
 
                 currentSocket = io(API_URL, {
                     path: "/api/socket",
-                    transports: ["websocket"], // STRICT WEBSOCKETS ONLY
+                    // Match server transport order — Render/proxies need polling before WS upgrade
+                    transports: ["polling", "websocket"],
                     withCredentials: true,
                     auth: { token }
                 });

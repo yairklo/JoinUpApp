@@ -12,6 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import MyGamesSection from '@/components/MyGamesSection';
 import SeriesSection from '@/components/SeriesSection';
+import GamesByCitySection from '@/components/GamesByCitySection';
+import GamesByFriendsSection from '@/components/GamesByFriendsSection';
 import GlobalSearchOmnibar from '@/components/GlobalSearchOmnibar';
 import { SPORT_MAPPING } from '@/utils/sports';
 
@@ -129,6 +131,8 @@ export default function HomeScreen() {
 
         <MyGamesSection />
         <SeriesSection />
+        <GamesByCitySection sportFilter={selectedSport !== 'ALL' ? selectedSport : undefined} />
+        <GamesByFriendsSection sportFilter={selectedSport !== 'ALL' ? selectedSport : undefined} />
         <GamesDateNav selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
         {loading && games.length === 0 ? (

@@ -10,6 +10,7 @@ const {
   offerSpotToNextWaitlistUser,
   notifyOrganizerOfInstantJoin,
   notifyOrganizerOfPendingRequest,
+  notifyOrganizerOfWaitlistJoin,
   broadcastGameUpdate,
   notifyRequesterOfDecision,
 } = require('../services/gameService');
@@ -90,7 +91,11 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         const confirmedCountPre = await prisma.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
         const status = confirmedCountPre < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
         await prisma.participation.create({ data: { gameId: game.id, userId: req.user.id, status } });
-        notifyOrganizerOfInstantJoin(game, req.user, req.io);
+        if (status === 'WAITLISTED') {
+          notifyOrganizerOfWaitlistJoin(game, req.user, req.io);
+        } else {
+          notifyOrganizerOfInstantJoin(game, req.user, req.io);
+        }
 
         // Add to Chat
         try {
@@ -131,6 +136,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
           return res.status(400).json({ error: 'A spot is already offered to you' });
         }
         await prisma.participation.update({ where: { id: already.id }, data: { status: 'WAITLISTED' } });
+        notifyOrganizerOfWaitlistJoin(game, req.user, req.io);
       } else {
         await prisma.user.upsert({
           where: { id: req.user.id },
@@ -140,6 +146,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         await prisma.participation.create({
           data: { gameId: game.id, userId: req.user.id, status: 'WAITLISTED' }
         });
+        notifyOrganizerOfWaitlistJoin(game, req.user, req.io);
       }
 
       const updated = await prisma.game.findUnique({

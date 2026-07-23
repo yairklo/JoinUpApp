@@ -13,9 +13,14 @@ export function useGamesByDate(initialDate: string, fieldId?: string) {
 
     // Predicate for real-time updates (from useSyncedGames)
     const predicate = useCallback((game: Game) => {
-        const gameDate = new Date(game.date).toISOString().split('T')[0];
-        const targetDate = new Date(selectedDate).toISOString().split('T')[0];
-        return gameDate === targetDate;
+        if (!game || !game.date) return false;
+        try {
+            const gameDate = new Date(game.date).toISOString().split('T')[0];
+            const targetDate = new Date(selectedDate).toISOString().split('T')[0];
+            return gameDate === targetDate;
+        } catch (e) {
+            return game.date === selectedDate;
+        }
     }, [selectedDate]);
 
     const { games, setGames } = useSyncedGames([], predicate);
@@ -34,6 +39,7 @@ export function useGamesByDate(initialDate: string, fieldId?: string) {
         async function fetchGames() {
             console.log(`[useGamesByDate] Fetching games for ${selectedDate}, refreshTrigger: ${refreshTrigger}`);
             setLoading(true);
+            setGames([]);
             try {
                 const qs = new URLSearchParams();
                 qs.set("date", selectedDate);
