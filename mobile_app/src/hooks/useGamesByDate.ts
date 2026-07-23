@@ -34,6 +34,7 @@ export function useGamesByDate(initialDate: string, fieldId?: string) {
         async function fetchGames() {
             console.log(`[useGamesByDate] Fetching games for ${selectedDate}, refreshTrigger: ${refreshTrigger}`);
             setLoading(true);
+            setGames([]);
             try {
                 const qs = new URLSearchParams();
                 qs.set("date", selectedDate);

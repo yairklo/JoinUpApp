@@ -81,8 +81,8 @@ export default function NotificationPanel() {
                 onClose={handleClose}
                 PaperProps={{
                     sx: {
-                        width: 380,
-                        maxHeight: 500,
+                        width: { xs: '100%', sm: 380 },
+                        maxHeight: { xs: '80vh', sm: 500 },
                         overflow: 'hidden',
                         display: 'flex',
                         flexDirection: 'column'
@@ -108,7 +108,7 @@ export default function NotificationPanel() {
                         <Typography color="text.secondary">אין התראות חדשות</Typography>
                     </Box>
                 ) : (
-                    <List sx={{ overflow: 'auto', flex: 1 }}>
+                    <List sx={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
                         {notifications.map((notif) => (
                             <ListItemButton
                                 key={notif.id}
