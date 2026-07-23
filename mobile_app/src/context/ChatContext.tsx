@@ -2,12 +2,13 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef, useMemo } from "react";
 import { AppState, AppStateStatus } from "react-native";
-import { useAuth, useUser } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/clerk-expo";
 import { ChatMessage } from "@/types/chat";
 import { chatsApi } from "@/services/api/chats";
 import { apiClient } from "@/services/api/client";
 import { SocketManager } from "@/services/socketManager";
 import * as Notifications from 'expo-notifications';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 
 export interface HeaderInfo {
     name: string;
@@ -81,7 +82,7 @@ export function dedupeChatsById(chats: ChatPreview[]): ChatPreview[] {
 
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useUser();
-    const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
 
     // UI State
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -177,7 +178,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         loadChatsInFlightRef.current = true;
         setLoadingChats(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
 
             const data = await chatsApi.getUserChats(user.id, token);
@@ -193,7 +194,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             setLoadingChats(false);
             loadChatsInFlightRef.current = false;
         }
-    }, [user?.id, getToken]);
+    }, [user?.id, getTokenRef]);
 
     // 2. Load Messages (Prefetch/Cache)
     const loadMessages = useCallback(async (chatId: string, forceFetch = false): Promise<ChatMessage[]> => {
@@ -205,7 +206,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }
 
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return [];
 
             // Fetch messages using apiClient
@@ -270,7 +271,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             console.error("Failed to load messages:", error);
             return [];
         }
-    }, [messagesCache, getToken]);
+    }, [messagesCache, getTokenRef]);
 
     // 3. Socket Update Handler
     const updateChatList = useCallback((newMessage: any) => {
