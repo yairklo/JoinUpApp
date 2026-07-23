@@ -1,8 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useMemo } from "react";
+import { useUser } from "@clerk/nextjs";
 import { ChatMessage } from "@/components/types";
+import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 
 export interface HeaderInfo {
     name: string;
@@ -50,7 +51,7 @@ const ChatContext = createContext<ChatContextProps | undefined>(undefined);
 
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useUser();
-    const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
 
     // UI State
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -98,7 +99,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }
 
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             const res = await fetch(`${API_BASE}/api/users/${user.id}/chats`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -114,7 +115,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             setLoadingChats(false);
         }
-    }, [user?.id, getToken, API_BASE]);
+    }, [user?.id, getTokenRef]);
 
     // 2. Load Messages (Prefetch/Cache)
     const loadMessages = useCallback(async (chatId: string): Promise<ChatMessage[]> => {
@@ -126,7 +127,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         }
 
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             const res = await fetch(`${API_BASE}/api/messages?roomId=${encodeURIComponent(chatId)}&limit=200`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -155,7 +156,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             console.error(error);
             return [];
         }
-    }, [messagesCache, getToken, API_BASE]);
+    }, [messagesCache, getTokenRef, API_BASE]);
 
     // 3. Socket Update Handler (CRITICAL FIX: Updates Cache too)
     const updateChatList = useCallback((newMessage: any) => {
