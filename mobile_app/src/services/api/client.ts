@@ -28,9 +28,10 @@ interface RequestConfig extends RequestInit {
     token?: string;
     data?: any;
     silent?: boolean;
+    signal?: AbortSignal;
 }
 
-export async function apiClient<T>(endpoint: string, { token, data, ...customConfig }: RequestConfig = {}): Promise<T> {
+export async function apiClient<T>(endpoint: string, { token, data, signal, silent, ...customConfig }: RequestConfig = {}): Promise<T> {
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -41,6 +42,7 @@ export async function apiClient<T>(endpoint: string, { token, data, ...customCon
         method: data ? 'POST' : 'GET',
         body: data ? JSON.stringify(data) : undefined,
         headers,
+        signal,
         ...customConfig,
     };
 
@@ -58,7 +60,7 @@ export async function apiClient<T>(endpoint: string, { token, data, ...customCon
             } catch {
                 errorBody = { error: `API Error: ${response.status} ${response.statusText}`, details: errorText };
             }
-            if (!customConfig.silent) {
+            if (!silent) {
                 console.error("API Error Details:", errorBody);
             }
             const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number };
@@ -74,7 +76,7 @@ export async function apiClient<T>(endpoint: string, { token, data, ...customCon
         const result = await response.json();
         return mapGameTimezones(result) as T;
     } catch (error: any) {
-        if (!customConfig.silent) {
+        if (!silent) {
             console.error(`API Call Failed [${url}]:`, error);
         }
         throw error;

@@ -27,23 +27,22 @@ export interface JoinGameResponse extends Game {
 
 export const gamesApi = {
     // GET Methods
-    search: (params: URLSearchParams, token?: string) => {
+    search: (params: URLSearchParams, token?: string, signal?: AbortSignal) => {
         const endpoint = token ? '/api/games/search' : '/api/games/public';
         const search = params.toString();
-        // Prevent appending ? if params empty, though unlikely here
-        return apiClient<Game[]>(search ? `${endpoint}?${search}` : endpoint, { token });
+        return apiClient<Game[]>(search ? `${endpoint}?${search}` : endpoint, { token, signal });
     },
 
-    getMyGames: (token: string) => {
-        return apiClient<Game[]>('/api/games/my', { token });
+    getMyGames: (token: string, signal?: AbortSignal) => {
+        return apiClient<Game[]>('/api/games/my', { token, signal });
     },
 
-    getByCity: (city: string, token?: string) => {
-        return apiClient<Game[]>(`/api/games/city?city=${encodeURIComponent(city)}`, { token });
+    getByCity: (city: string, token?: string, signal?: AbortSignal) => {
+        return apiClient<Game[]>(`/api/games/city?city=${encodeURIComponent(city)}`, { token, signal });
     },
 
-    getByFriends: (token: string) => {
-        return apiClient<Game[]>('/api/games/friends', { token });
+    getByFriends: (token: string, signal?: AbortSignal) => {
+        return apiClient<Game[]>('/api/games/friends', { token, signal });
     },
 
     // Mutation Methods

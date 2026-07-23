@@ -22,7 +22,8 @@ Notifications.setNotificationHandler({
     });
     const suppressForegroundChat = isChat && AppState.currentState === 'active';
     return {
-      shouldShowAlert: !suppressForegroundChat,
+      shouldShowBanner: !suppressForegroundChat,
+      shouldShowList: !suppressForegroundChat,
       shouldPlaySound: !suppressForegroundChat,
       shouldSetBadge: true,
     };

@@ -38,13 +38,22 @@ export default function JoinGameButton({
   const [error, setError] = useState<string | null>(null);
   // Seed from server-provided status so a hard refresh doesn't forget an in-flight request.
   const [pending, setPending] = useState(viewerParticipationStatus === "PENDING" && !waitlistOfferPending);
+  const [offerPending, setOfferPending] = useState(waitlistOfferPending);
+  const [waitlisted, setWaitlisted] = useState(viewerParticipationStatus === "WAITLISTED" && !waitlistOfferPending);
   // A REQUIRES_APPROVAL rejection is terminal (server blocks re-requesting); an INSTANT game lets
   // a previously-rejected user join normally, so this only locks the button for the approval flow.
   const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
 
   useEffect(() => {
-    setPending(viewerParticipationStatus === "PENDING" && !waitlistOfferPending);
-  }, [viewerParticipationStatus, waitlistOfferPending]);
+    const isOffer = !!waitlistOfferPending;
+    setOfferPending(isOffer);
+    
+    // If it's PENDING and not an offer, the user is waiting for organizer approval.
+    const isWaitingForApproval = viewerParticipationStatus === "PENDING" && !isOffer;
+    setPending(isWaitingForApproval);
+    
+    setWaitlisted(viewerParticipationStatus === "WAITLISTED" && !isOffer);
+  }, [viewerParticipationStatus, waitlistOfferPending, joinPolicy]);
 
   const now = new Date();
   const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;

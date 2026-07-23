@@ -1,48 +1,60 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useFocusEffect } from 'expo-router';
 import { Game } from '@/types/game';
-import { apiClient } from '@/services/api/client';
+import { gamesApi } from '@/services/api';
 import GameCard from './GameCard';
 import LeaveGameButton from './LeaveGameButton';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSyncedGames } from '@/hooks/useSyncedGames';
 import { useTranslation } from 'react-i18next';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
 
 function isMyGame(game: Game, userId?: string | null) {
     if (!userId) return false;
     if (game.organizerId === userId) return true;
     if (game.participants?.some((p) => p.id === userId)) return true;
-    // Waitlist / offer / confirmed — API may omit non-confirmed from participants[]
     const status = game.viewerParticipationStatus;
     return status === 'CONFIRMED' || status === 'WAITLISTED' || status === 'PENDING';
 }
 
 export default function MyGamesSection() {
-    const { getToken, isLoaded: isAuthLoaded, isSignedIn } = useAuth();
+    const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
     const { user, isLoaded } = useUser();
     const { t } = useTranslation();
     const userId = user?.id;
+    const getTokenRef = useAuthTokenRef();
     const { games, setGames } = useSyncedGames([], (game) => isMyGame(game, userId));
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
     const router = useRouter();
+    const abortRef = useRef<AbortController | null>(null);
 
     const fetchMyGames = useCallback(async () => {
         if (!isLoaded || !isAuthLoaded || !userId) return;
+
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+
         try {
+            setError(null);
             let token: string | null = null;
             if (isSignedIn) {
-                token = await getToken();
+                token = await getTokenRef.current();
                 if (!token) {
                     await new Promise((r) => setTimeout(r, 400));
-                    token = await getToken();
+                    token = await getTokenRef.current();
                 }
             }
-            if (!token) return;
+            if (!token || controller.signal.aborted) return;
 
-            const data = await apiClient<Game[]>(`/api/games/my`, { token });
+            const data = await gamesApi.getMyGames(token, controller.signal);
+            if (controller.signal.aborted) return;
+
             const active = (data || []).filter((g) => {
                 try {
                     return new Date(`${g.date}T${g.time}`) >= new Date();
@@ -52,19 +64,18 @@ export default function MyGamesSection() {
             });
             setGames(active);
         } catch (err) {
-            console.error('Failed to fetch my games', err);
+            if (isAbortError(err) || controller.signal.aborted) return;
+            const message = getFriendlyFetchError(err, 'שגיאה בטעינת המשחקים שלי');
+            if (message) setError(message);
         } finally {
-            setLoading(false);
+            if (!controller.signal.aborted) setLoading(false);
         }
-    }, [isLoaded, isAuthLoaded, isSignedIn, userId, getToken, setGames]);
-
-    useEffect(() => {
-        fetchMyGames();
-    }, [fetchMyGames]);
+    }, [isLoaded, isAuthLoaded, isSignedIn, userId, getTokenRef, setGames]);
 
     useFocusEffect(
         useCallback(() => {
             fetchMyGames();
+            return () => abortRef.current?.abort();
         }, [fetchMyGames])
     );
 
@@ -72,6 +83,14 @@ export default function MyGamesSection() {
         return (
             <View className="py-6 items-center">
                 <ActivityIndicator size="small" color="#059669" />
+            </View>
+        );
+    }
+
+    if (error && games.length === 0) {
+        return (
+            <View className="mx-5 mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+                <Text className="text-amber-900 text-sm text-center">{error}</Text>
             </View>
         );
     }

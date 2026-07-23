@@ -44,14 +44,17 @@ export default function JoinGameButton({
     );
 
     useEffect(() => {
-        // Any PENDING row gets accept/decline — same as game detail (never dead-end on "ממתין לאישור").
         const offer = hasWaitlistOffer({
             waitlistOfferPending,
             viewerParticipationStatus,
             joinPolicy,
         });
         setOfferPending(offer);
-        setPending(false);
+        
+        // If it's PENDING and not an offer, the user is waiting for organizer approval.
+        const isWaitingForApproval = viewerParticipationStatus === "PENDING" && !offer;
+        setPending(isWaitingForApproval);
+        
         setWaitlisted(viewerParticipationStatus === "WAITLISTED" && !offer);
     }, [viewerParticipationStatus, waitlistOfferPending, joinPolicy]);
 
