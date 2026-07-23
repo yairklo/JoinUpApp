@@ -306,13 +306,15 @@ if (process.env.REDIS_URL) {
 io.on('connection', async (socket) => {
   // 1. Auto-join User & City User Rooms & Presence
   if (socket.userId) {
+    // Always join the personal notification room from the Clerk ID — do not gate this on a DB
+    // lookup. Organizers often connect their socket before their first upsert, and notifications
+    // are addressed to user_${clerkId} regardless of whether a User row exists yet.
+    socket.join(`user_${socket.userId}`);
+    console.log(`User ${socket.userId} joined room: user_${socket.userId}`);
+
     try {
       const user = await prisma.user.findUnique({ where: { id: socket.userId } });
       if (user) {
-        // Join personal room for private notifications
-        socket.join(`user_${user.id}`);
-        console.log(`User ${user.id} joined room: user_${user.id}`);
-
         // Join city room for local game updates
         if (user.city) {
           const cityRoom = `city_${user.city}`;
@@ -377,11 +379,20 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // 1. User Setup: Join personal room for notifications
+  // Client-initiated room join (web/mobile call this after connect as a safety net)
+  socket.on('join', (room) => {
+    if (typeof room === 'string' && room.startsWith('user_')) {
+      socket.join(room);
+      console.log(`Socket ${socket.id} joined room: ${room}`);
+    }
+  });
+
+  // Legacy setup event — normalize to user_${id} so it matches notification emit targets
   socket.on('setup', (userData) => {
-    if (userData?.id) {
-      socket.join(String(userData.id));
-      console.log(`User ${userData.id} joined their notification room`);
+    const uid = userData?.id || socket.userId;
+    if (uid) {
+      socket.join(`user_${uid}`);
+      console.log(`User ${uid} joined their notification room via setup`);
     }
   });
 

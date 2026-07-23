@@ -275,7 +275,6 @@ function notifyOrganizerOfInstantJoin(game, joiningUser, io) {
     io
   ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));
 }
-
 function notifyOrganizerOfPendingRequest(game, requestingUser, io) {
   notificationService.sendNotification(
     game.organizerId,
@@ -285,6 +284,18 @@ function notifyOrganizerOfPendingRequest(game, requestingUser, io) {
     { gameId: game.id, userId: requestingUser.id, link: `/game/${game.id}` },
     io
   ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of pending request', game.id, err));
+}
+
+function notifyOrganizerOfWaitlistJoin(game, joiningUser, io) {
+  if (game.organizerId === joiningUser.id) return;
+  notificationService.sendNotification(
+    game.organizerId,
+    'GAME_JOIN_REQUEST',
+    'מישהו נוסף לרשימת ההמתנה',
+    `${joiningUser.name || 'משתמש'} הצטרף/ה לרשימת ההמתנה של המשחק שלך`,
+    { gameId: game.id, userId: joiningUser.id, link: `/game/${game.id}`, waitlisted: true },
+    io
+  ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of waitlist join', game.id, err));
 }
 
 async function broadcastGameUpdate(io, gameId, preFetchedGame) {
@@ -1409,6 +1420,7 @@ module.exports = {
   offerSpotToNextWaitlistUser,
   notifyOrganizerOfInstantJoin,
   notifyOrganizerOfPendingRequest,
+  notifyOrganizerOfWaitlistJoin,
   broadcastGameUpdate,
   notifyRequesterOfDecision,
   createGame,
