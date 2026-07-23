@@ -13,11 +13,21 @@ export function useGamesByDate(initialDate: string, fieldId?: string) {
 
     // Predicate for real-time updates (from useSyncedGames)
     const predicate = useCallback((game: Game) => {
-        if (!game || !game.date) return false;
+        if (!game) return false;
+        
         try {
-            const gameDate = new Date(game.date).toISOString().split('T')[0];
+            // WebSocket game:updated events often only have `start` (ISO string), while REST API results have `date` (YYYY-MM-DD).
+            let gameDateStr = "";
+            if (game.date) {
+                gameDateStr = new Date(game.date).toISOString().split('T')[0];
+            } else if (game.start) {
+                gameDateStr = new Date(game.start).toISOString().split('T')[0];
+            } else {
+                return false;
+            }
+            
             const targetDate = new Date(selectedDate).toISOString().split('T')[0];
-            return gameDate === targetDate;
+            return gameDateStr === targetDate;
         } catch (e) {
             return game.date === selectedDate;
         }

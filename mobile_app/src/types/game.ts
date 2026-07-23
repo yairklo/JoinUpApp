@@ -8,6 +8,7 @@ export type Game = {
     city?: string | null;
     date: string;
     time: string;
+    start?: string; // Often returned in mapGameForClient (ISO string)
     duration?: number;
     fieldLat?: number | null;
     fieldLng?: number | null;
