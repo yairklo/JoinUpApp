@@ -31,15 +31,18 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const today = new Date().toISOString().split('T')[0];
-  const { games, loading, refreshGames, selectedDate, setSelectedDate } = useGamesByDate(today);
+  const { games, loading, refreshGames, selectedDate, setSelectedDate, error } = useGamesByDate(today);
   const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSport, setSelectedSport] = useState('ALL');
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    refreshGames();
-    setTimeout(() => setRefreshing(false), 800);
+    try {
+      await refreshGames();
+    } finally {
+      setRefreshing(false);
+    }
   }, [refreshGames]);
 
   const filteredGames = useMemo(() => {
@@ -134,6 +137,12 @@ export default function HomeScreen() {
         <GamesByCitySection sportFilter={selectedSport !== 'ALL' ? selectedSport : undefined} />
         <GamesByFriendsSection sportFilter={selectedSport !== 'ALL' ? selectedSport : undefined} />
         <GamesDateNav selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+
+        {error && games.length === 0 && !loading ? (
+          <View className="mx-5 mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+            <Text className="text-amber-900 text-sm text-center">{error}</Text>
+          </View>
+        ) : null}
 
         {loading && games.length === 0 ? (
           <View className="py-10 items-center justify-center">

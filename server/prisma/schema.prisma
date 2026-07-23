@@ -76,6 +76,7 @@ model Field {
 
   @@index([lat, lng])
   @@index([available, lat, lng])
+  @@index([city])
 }
 
 /// Crowdsourced crowd-level log submitted by players viewing a field.
@@ -146,6 +147,7 @@ model Game {
   ratings      UserRating[]
 
   @@index([start, status])
+  @@index([status, start])
   @@index([sport])
   @@index([fieldId])
   @@index([organizerId])
@@ -176,6 +178,8 @@ model Participation {
   team      Team?    @relation(fields: [teamId], references: [id])
 
   @@unique([gameId, userId])
+  @@index([userId])
+  @@index([gameId, status])
 }
 
 /// Per-match player rating (1–5 stars). One row per rater→target per game.
@@ -275,6 +279,8 @@ model Friendship {
   userB     User     @relation("B", fields: [userBId], references: [id])
 
   @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
 }
 
 model FriendRequest {
@@ -407,6 +413,8 @@ model GameSeries {
 
   games          Game[]
   subscribers    SeriesParticipant[]
+
+  @@index([isActive])
 }
 
 model SeriesParticipant {

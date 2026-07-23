@@ -1,23 +1,55 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useUser } from '@clerk/clerk-expo';
 import { gamesApi } from '@/services/api';
 import { Game } from '@/types/game';
 import { useSyncedGames } from './useSyncedGames';
+import { useDebouncedValue } from './useDebouncedValue';
+import { useAuthTokenRef } from './useAuthTokenRef';
+import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
+
+const DATE_DEBOUNCE_MS = 300;
+
+function filterFutureGames(data: Game[]): Game[] {
+    const now = new Date();
+    const filtered = (data || []).filter((g) => {
+        try {
+            const start = new Date(`${g.date}T${g.time}:00`);
+            const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
+            return end >= now;
+        } catch {
+            return false;
+        }
+    });
+
+    filtered.sort(
+        (a, b) =>
+            new Date(`${a.date}T${a.time}:00`).getTime() -
+            new Date(`${b.date}T${b.time}:00`).getTime()
+    );
+
+    return filtered;
+}
 
 export function useGamesByDate(initialDate: string, fieldId?: string) {
     const { isLoaded } = useUser();
-    const { getToken } = useAuth();
-    const [selectedDate, setSelectedDate] = useState<string>(initialDate);
-    const [loading, setLoading] = useState(false);
-    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const getTokenRef = useAuthTokenRef();
 
-    // Predicate for real-time updates (from useSyncedGames)
+    const [selectedDate, setSelectedDate] = useState<string>(initialDate);
+    const debouncedDate = useDebouncedValue(selectedDate, DATE_DEBOUNCE_MS);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchGenerationRef = useRef(0);
+    const fieldIdRef = useRef(fieldId);
+    useEffect(() => {
+        fieldIdRef.current = fieldId;
+    }, [fieldId]);
+
     const predicate = useCallback((game: Game) => {
         if (!game) return false;
-        
+
         try {
-            // WebSocket game:updated events often only have `start` (ISO string), while REST API results have `date` (YYYY-MM-DD).
-            let gameDateStr = "";
+            let gameDateStr = '';
             if (game.date) {
                 gameDateStr = new Date(game.date).toISOString().split('T')[0];
             } else if (game.start) {
@@ -25,76 +57,67 @@ export function useGamesByDate(initialDate: string, fieldId?: string) {
             } else {
                 return false;
             }
-            
-            const targetDate = new Date(selectedDate).toISOString().split('T')[0];
+
+            const targetDate = new Date(debouncedDate).toISOString().split('T')[0];
             return gameDateStr === targetDate;
-        } catch (e) {
-            return game.date === selectedDate;
+        } catch {
+            return game.date === debouncedDate;
         }
-    }, [selectedDate]);
+    }, [debouncedDate]);
 
     const { games, setGames } = useSyncedGames([], predicate);
 
-    const refreshGames = useCallback(() => {
-        setRefreshTrigger(prev => prev + 1);
-    }, []);
-
-    useEffect(() => {
-        let ignore = false;
-        if (!isLoaded) {
-            console.log("[useGamesByDate] User not loaded yet, skipping fetch");
-            return;
-        }
-
-        async function fetchGames() {
-            console.log(`[useGamesByDate] Fetching games for ${selectedDate}, refreshTrigger: ${refreshTrigger}`);
+    const runFetch = useCallback(
+        async (date: string, signal: AbortSignal, generation: number) => {
             setLoading(true);
-            setGames([]);
+            setError(null);
+
             try {
                 const qs = new URLSearchParams();
-                qs.set("date", selectedDate);
-                if (fieldId) qs.set("fieldId", fieldId);
+                qs.set('date', date);
+                if (fieldIdRef.current) qs.set('fieldId', fieldIdRef.current);
 
-                const token = await getToken({ template: undefined }).catch(() => "");
-                console.log(`[useGamesByDate] Token obtained: ${token ? "YES" : "NO"}`);
+                const token = await getTokenRef.current({ template: undefined }).catch(() => '');
+                const data = await gamesApi.search(qs, token || undefined, signal);
 
-                const data = await gamesApi.search(qs, token || undefined);
-                console.log(`[useGamesByDate] API returned ${data?.length || 0} games`);
+                if (signal.aborted || generation !== fetchGenerationRef.current) return;
 
-                // App-specific filtering (future games only)
-                const now = new Date();
-                const filtered = (data || []).filter((g) => {
-                    try {
-                        const start = new Date(`${g.date}T${g.time}:00`);
-                        const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
-                        return end >= now;
-                    } catch (e) {
-                        console.error("Invalid game date/time:", g.date, g.time);
-                        return false;
-                    }
-                });
+                setGames(filterFutureGames(data));
+            } catch (err: unknown) {
+                if (signal.aborted || isAbortError(err)) return;
+                if (generation !== fetchGenerationRef.current) return;
 
-                filtered.sort(
-                    (a, b) =>
-                        new Date(`${a.date}T${a.time}:00`).getTime() -
-                        new Date(`${b.date}T${b.time}:00`).getTime()
-                );
-
-                if (!ignore) {
-                    console.log(`[useGamesByDate] Setting ${filtered.length} games to state`);
-                    setGames(filtered);
-                }
-            } catch (err: any) {
-                console.error("[useGamesByDate] API Error Details:", err);
-                if (!ignore) setGames([]);
+                const message = getFriendlyFetchError(err, 'שגיאה בטעינת משחקים');
+                if (message) setError(message);
             } finally {
-                if (!ignore) setLoading(false);
+                if (!signal.aborted && generation === fetchGenerationRef.current) {
+                    setLoading(false);
+                }
             }
-        }
+        },
+        [getTokenRef, setGames]
+    );
 
-        fetchGames();
-        return () => { ignore = true; };
-    }, [selectedDate, fieldId, isLoaded, setGames, refreshTrigger]);
+    useEffect(() => {
+        if (!isLoaded) return;
+
+        const generation = ++fetchGenerationRef.current;
+        const controller = new AbortController();
+
+        runFetch(debouncedDate, controller.signal, generation);
+
+        return () => {
+            controller.abort();
+        };
+    }, [debouncedDate, isLoaded, runFetch]);
+
+    const refreshGames = useCallback(async () => {
+        if (!isLoaded) return;
+
+        const generation = ++fetchGenerationRef.current;
+        const controller = new AbortController();
+        await runFetch(debouncedDate, controller.signal, generation);
+    }, [debouncedDate, isLoaded, runFetch]);
 
     const groups = useMemo(() => {
         return games.reduce<Record<string, Game[]>>((acc, g) => {
@@ -108,7 +131,8 @@ export function useGamesByDate(initialDate: string, fieldId?: string) {
         setSelectedDate,
         games,
         loading,
+        error,
         groups,
-        refreshGames
+        refreshGames,
     };
 }
