@@ -36,6 +36,11 @@ export type Game = {
     lotteryAt?: string | null;
     organizerInLottery?: boolean;
     waitlistOfferPending?: boolean;
+    pickDrawAt?: string | null;
+    pickingStartsAt?: string | null;
+    pickSessionStatus?: string;
+    pickTurnOrder?: string[];
+    managerPickChatId?: string | null;
 
     // Computed/Client-side logic might add these
     isTeamFull?: boolean;
@@ -72,6 +77,7 @@ export type Team = {
     name: string;
     color: string;
     playerIds: string[];
+    managerId?: string | null;
 };
 
 export type Manager = {

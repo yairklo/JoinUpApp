@@ -19,6 +19,8 @@ export interface UpdateGameDTO {
     lotteryAt?: string | null;
     organizerInLottery?: boolean;
     start?: string;
+    pickDrawAt?: string | null;
+    pickingStartsAt?: string | null;
 }
 
 export interface JoinGameResponse extends Game {
@@ -172,5 +174,61 @@ export const gamesApi = {
             method: 'POST',
             token
         });
-    }
+    },
+
+    getPickSession: (gameId: string, token: string) => {
+        return apiClient<any>(`/api/games/${gameId}/pick-session`, { token });
+    },
+
+    updatePickSchedule: (
+        gameId: string,
+        data: { pickDrawAt?: string | null; pickingStartsAt?: string | null },
+        token: string
+    ) => {
+        return apiClient<any>(`/api/games/${gameId}/pick-session/schedule`, {
+            method: 'PUT',
+            data,
+            token,
+        });
+    },
+
+    reorderPickOrder: (gameId: string, order: string[], token: string) => {
+        return apiClient<any>(`/api/games/${gameId}/pick-session/order`, {
+            method: 'PUT',
+            data: { order },
+            token,
+        });
+    },
+
+    makePick: (
+        gameId: string,
+        data: { playerId: string; onBehalfOfManagerId?: string },
+        token: string
+    ) => {
+        return apiClient<any>(`/api/games/${gameId}/pick-session/pick`, {
+            method: 'POST',
+            data,
+            token,
+        });
+    },
+
+    proposeTrade: (
+        gameId: string,
+        data: { receiverId: string; offeredPlayerIds: string[]; requestedPlayerIds: string[] },
+        token: string
+    ) => {
+        return apiClient<any>(`/api/games/${gameId}/pick-session/trades`, {
+            method: 'POST',
+            data,
+            token,
+        });
+    },
+
+    resolveTrade: (gameId: string, tradeId: string, approve: boolean, token: string) => {
+        return apiClient<any>(`/api/games/${gameId}/pick-session/trades/${tradeId}/resolve`, {
+            method: 'POST',
+            data: { approve },
+            token,
+        });
+    },
 };

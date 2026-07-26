@@ -37,7 +37,12 @@ router.put('/:id/teams', authenticateToken, async (req, res) => {
       const color = String(t.color || '').trim();
       if (!name || !color) continue;
       const created = await prisma.team.create({
-        data: { gameId, name, color }
+        data: {
+          gameId,
+          name,
+          color,
+          ...(t.managerId ? { managerId: String(t.managerId) } : {}),
+        }
       });
       createdTeams.push({ ...created, playerIds: Array.isArray(t.playerIds) ? t.playerIds : [] });
     }

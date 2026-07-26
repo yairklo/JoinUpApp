@@ -283,6 +283,63 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                       </Paper>
                     </Collapse>
 
+                    <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
+                      <Stack spacing={2}>
+                        <Typography variant="caption" fontWeight="bold">
+                          TEAM PICK SCHEDULE (managers)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Optional. Draw time randomizes manager turn order; picking start opens the live session automatically. Editable later.
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid size={6}>
+                            <TextField
+                              label="Manager draw date"
+                              type="date"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={state.form.pickDrawDate}
+                              onChange={(e) => actions.update("pickDrawDate", e.target.value)}
+                            />
+                          </Grid>
+                          <Grid size={6}>
+                            <TextField
+                              label="Manager draw time"
+                              type="time"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={state.form.pickDrawTime}
+                              onChange={(e) => actions.update("pickDrawTime", e.target.value)}
+                            />
+                          </Grid>
+                          <Grid size={6}>
+                            <TextField
+                              label="Picking start date"
+                              type="date"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={state.form.pickingStartDate}
+                              onChange={(e) => actions.update("pickingStartDate", e.target.value)}
+                            />
+                          </Grid>
+                          <Grid size={6}>
+                            <TextField
+                              label="Picking start time"
+                              type="time"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={state.form.pickingStartTime}
+                              onChange={(e) => actions.update("pickingStartTime", e.target.value)}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Stack>
+                    </Paper>
+
                     <Collapse in={state.form.futureRegistration}>
                       <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.light', borderColor: 'info.main', mt: 2 }}>
                         <Stack spacing={2}>
