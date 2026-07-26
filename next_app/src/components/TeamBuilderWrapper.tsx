@@ -84,14 +84,14 @@ export default function TeamBuilderWrapper({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to save teams");
+        throw new Error("שמירת הקבוצות נכשלה");
       }
 
       router.refresh();
       setIsDialogOpen(false);
     } catch (error) {
       console.error("Error saving teams:", error);
-      alert("Failed to save teams. Please try again.");
+      alert("שמירת הקבוצות נכשלה. נסה שוב.");
     } finally {
       setSaving(false);
     }
@@ -102,7 +102,7 @@ export default function TeamBuilderWrapper({
       {canManage && (
         <Box mb={2} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
           <Typography variant="h6" fontWeight="bold">
-            Game Squad
+            סגל המשחק
           </Typography>
           <Box display="flex" gap={1} flexWrap="wrap">
             <Button
@@ -114,7 +114,7 @@ export default function TeamBuilderWrapper({
               size="small"
               sx={{ borderRadius: 2, textTransform: "none" }}
             >
-              Live team management
+              ניהול קבוצות חי
             </Button>
             <Button
               variant="outlined"
@@ -124,7 +124,7 @@ export default function TeamBuilderWrapper({
               disabled={saving}
               sx={{ borderRadius: 2, textTransform: "none" }}
             >
-              {saving ? "Saving..." : "Quick assign"}
+              {saving ? "שומר..." : "שיבוץ מהיר"}
             </Button>
           </Box>
         </Box>
@@ -132,9 +132,17 @@ export default function TeamBuilderWrapper({
 
       {canManage && pickSessionStatus && pickSessionStatus !== "IDLE" && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Pick session status: <strong>{pickSessionStatus}</strong>
+          סטטוס בחירה: <strong>{
+            ({
+              IDLE: "ממתין",
+              DRAW_SCHEDULED: "הגרלה מתוזמנת",
+              ORDER_SET: "סדר נקבע",
+              PICKING: "בחירה פעילה",
+              COMPLETED: "הושלם",
+            } as Record<string, string>)[pickSessionStatus] || pickSessionStatus
+          }</strong>
           {" — "}
-          <Link href={`/games/${gameId}/team-management`}>Open live screen</Link>
+          <Link href={`/games/${gameId}/team-management`}>פתח מסך חי</Link>
         </Alert>
       )}
 
@@ -151,13 +159,13 @@ export default function TeamBuilderWrapper({
       {lotteryData?.enabled && lotteryData.pending && lotteryData.overbooked && (
         <Alert severity="warning" icon={<AccessTimeIcon />} sx={{ mb: 3 }}>
           <Typography variant="subtitle2" fontWeight="bold">
-            Lottery Pending
+            הגרלה ממתינה
           </Typography>
           <Typography variant="body2">
-            Draw at: {lotteryData.at ? new Date(lotteryData.at).toLocaleString() : "—"}
+            הגרלה ב: {lotteryData.at ? new Date(lotteryData.at).toLocaleString("he-IL") : "—"}
           </Typography>
           <Typography variant="caption">
-            Registered: {lotteryData.signups ?? 0} (Max: {maxPlayers})
+            רשומים: {lotteryData.signups ?? 0} (מקסימום: {maxPlayers})
           </Typography>
         </Alert>
       )}
@@ -179,7 +187,7 @@ export default function TeamBuilderWrapper({
             <Card elevation={2} sx={{ bgcolor: "warning.50" }}>
               <CardContent>
                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="warning.dark">
-                  Waitlist / Lottery Pool
+                  רשימת המתנה / מאגר הגרלה
                 </Typography>
                 <List disablePadding>
                   {waitlistParticipants.map((p) => (
@@ -188,8 +196,8 @@ export default function TeamBuilderWrapper({
                         <ListItemAvatar>
                           <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
                         </ListItemAvatar>
-                        <ListItemText primary={p.name || p.id} secondary="Waiting for lottery" />
-                        <Chip label="Waitlist" size="small" color="warning" variant="outlined" />
+                        <ListItemText primary={p.name || p.id} secondary="ממתין להגרלה" />
+                        <Chip label="רשימת המתנה" size="small" color="warning" variant="outlined" />
                       </ListItemButton>
                     </Link>
                   ))}

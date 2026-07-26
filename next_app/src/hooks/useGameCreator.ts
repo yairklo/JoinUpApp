@@ -109,10 +109,10 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
             const fieldIdToUse = selectedField?.id || "";
 
             if (form.lotteryEnabled) {
-                if (!form.lotteryDate || !form.lotteryTime) throw new Error("Please select lottery date and time");
+                if (!form.lotteryDate || !form.lotteryTime) throw new Error("יש לבחור תאריך ושעת הגרלה");
                 const startTs = new Date(`${form.date}T${form.time}:00`).getTime();
                 const lotteryTs = new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).getTime();
-                if (lotteryTs >= startTs) throw new Error("Lottery time must be before game start");
+                if (lotteryTs >= startTs) throw new Error("שעת ההגרלה חייבת להיות לפני תחילת המשחק");
             }
 
             const pickDrawAt =
@@ -125,7 +125,7 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
                     : undefined;
             if (pickDrawAt && pickingStartsAt) {
                 if (new Date(pickingStartsAt).getTime() < new Date(pickDrawAt).getTime()) {
-                    throw new Error("Picking start must be at or after the manager draw time");
+                    throw new Error("תחילת הבחירה חייבת להיות בזמן ההגרלה או אחריה");
                 }
             }
 
@@ -144,11 +144,11 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
 
             const created = await gamesApi.create(payload, token);
 
-            setSuccess("Game created successfully!");
+            setSuccess("המשחק נוצר בהצלחה!");
             if (onCreated && created.fieldId) onCreated(created.fieldId);
 
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "Failed to create game");
+            setError(err instanceof Error ? err.message : "יצירת המשחק נכשלה");
         } finally {
             setSubmitting(false);
         }

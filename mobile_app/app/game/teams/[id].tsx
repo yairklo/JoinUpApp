@@ -45,6 +45,17 @@ function toLocalInput(iso: string | null) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function pickStatusLabel(status: string, t: (key: string) => string) {
+  const map: Record<string, string> = {
+    IDLE: t('teams.statusIdle'),
+    DRAW_SCHEDULED: t('teams.statusDrawScheduled'),
+    ORDER_SET: t('teams.statusOrderSet'),
+    PICKING: t('teams.statusPicking'),
+    COMPLETED: t('teams.statusCompleted'),
+  };
+  return map[status] || status;
+}
+
 export default function LiveTeamManagementScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getToken } = useAuth();
@@ -85,7 +96,7 @@ export default function LiveTeamManagementScreen() {
       setPickLocal(toLocalInput(data.pickingStartsAt));
     } catch (e) {
       console.error(e);
-      Alert.alert(t('error', 'שגיאה'), t('teams.loadFailed', 'Failed to load team management'));
+      Alert.alert(t('teams.error'), t('teams.loadFailed'));
       router.back();
     } finally {
       setLoading(false);
@@ -149,7 +160,7 @@ export default function LiveTeamManagementScreen() {
     try {
       await fn();
     } catch (e: any) {
-      Alert.alert(t('error', 'שגיאה'), e?.message || 'Failed');
+      Alert.alert(t('teams.error'), e?.message || t('teams.failed'));
     } finally {
       setBusy(false);
     }
@@ -168,7 +179,7 @@ export default function LiveTeamManagementScreen() {
         token
       );
       setState(data);
-      Alert.alert(t('success', 'הצלחה'), t('teams.scheduleSaved', 'Schedule saved'));
+      Alert.alert(t('teams.success'), t('teams.scheduleSaved'));
     });
 
   const moveOrder = (index: number, dir: -1 | 1) =>
@@ -205,7 +216,7 @@ export default function LiveTeamManagementScreen() {
   const submitTrade = () =>
     run(async () => {
       if (!tradeReceiverId || !offeredId || !requestedId) {
-        throw new Error('Select trade partners and players');
+        throw new Error(t('teams.selectTradePartners'));
       }
       const token = await getToken();
       if (!token) return;
@@ -233,7 +244,7 @@ export default function LiveTeamManagementScreen() {
   if (loading || !state) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Stack.Screen options={{ title: t('teams.live', 'Live team management') }} />
+        <Stack.Screen options={{ title: t('teams.live') }} />
         <ActivityIndicator size="large" />
       </SafeAreaView>
     );
@@ -241,22 +252,20 @@ export default function LiveTeamManagementScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <Stack.Screen options={{ title: t('teams.live', 'Live team management') }} />
+      <Stack.Screen options={{ title: t('teams.live') }} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
         {isOrganizer && (
           <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, gap: 8 }}>
-            <Text style={{ fontWeight: '700', fontSize: 16 }}>Schedule draw & picking</Text>
-            <Text style={{ color: '#6b7280', fontSize: 12 }}>
-              Draw randomizes manager turn order. Picking opens automatically at start time.
-            </Text>
-            <Text style={{ fontSize: 12, fontWeight: '600' }}>Lottery / draw time (YYYY-MM-DDTHH:mm)</Text>
+            <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.scheduleTitle')}</Text>
+            <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.scheduleHint')}</Text>
+            <Text style={{ fontSize: 12, fontWeight: '600' }}>{t('teams.drawTime')}</Text>
             <TextInput
               value={drawLocal}
               onChangeText={setDrawLocal}
               placeholder="2026-07-26T18:00"
               style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10 }}
             />
-            <Text style={{ fontSize: 12, fontWeight: '600' }}>Picking start time</Text>
+            <Text style={{ fontSize: 12, fontWeight: '600' }}>{t('teams.pickingStartTime')}</Text>
             <TextInput
               value={pickLocal}
               onChangeText={setPickLocal}
@@ -268,14 +277,14 @@ export default function LiveTeamManagementScreen() {
               disabled={busy}
               style={{ backgroundColor: '#2563eb', padding: 12, borderRadius: 8, alignItems: 'center' }}
             >
-              <Text style={{ color: '#fff', fontWeight: '700' }}>Save schedule</Text>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>{t('teams.saveSchedule')}</Text>
             </TouchableOpacity>
           </View>
         )}
 
         <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12 }}>
           <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
-            Status: {state.pickSessionStatus}
+            {t('teams.status', { status: pickStatusLabel(state.pickSessionStatus, t) })}
           </Text>
           {(state.pickTurnOrder.length ? state.pickTurnOrder : state.managers.map((m) => m.id)).map(
             (mid, idx) => {
@@ -298,9 +307,11 @@ export default function LiveTeamManagementScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: isCurrent ? '800' : '500' }}>
                       {idx + 1}. {managerName[mid]}
-                      {isCurrent ? ' — turn' : ''}
+                      {isCurrent ? t('teams.currentTurn') : ''}
                     </Text>
-                    <Text style={{ color: '#6b7280', fontSize: 12 }}>{online ? 'Online' : 'Offline'}</Text>
+                    <Text style={{ color: '#6b7280', fontSize: 12 }}>
+                      {online ? t('teams.online') : t('teams.offline')}
+                    </Text>
                   </View>
                   {isOrganizer && !!state.pickDrawExecutedAt && (
                     <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -322,23 +333,23 @@ export default function LiveTeamManagementScreen() {
 
           {showOfflineControls && (
             <View style={{ marginTop: 10, padding: 10, backgroundColor: '#fff7ed', borderRadius: 8 }}>
-              <Text style={{ fontWeight: '600', marginBottom: 6 }}>Current manager is offline</Text>
+              <Text style={{ fontWeight: '600', marginBottom: 6 }}>{t('teams.managerOffline')}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity
                   onPress={() => setWaitingOffline(false)}
                   style={{ backgroundColor: '#ea580c', padding: 8, borderRadius: 6 }}
                 >
-                  <Text style={{ color: '#fff' }}>Pick for them</Text>
+                  <Text style={{ color: '#fff' }}>{t('teams.pickForThem')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setWaitingOffline(true)}
                   style={{ borderWidth: 1, borderColor: '#ea580c', padding: 8, borderRadius: 6 }}
                 >
-                  <Text style={{ color: '#ea580c' }}>Wait</Text>
+                  <Text style={{ color: '#ea580c' }}>{t('teams.wait')}</Text>
                 </TouchableOpacity>
               </View>
               <Text style={{ marginTop: 6, fontSize: 12, color: '#9a3412' }}>
-                No skip/forfeit. {waitingOffline ? 'Waiting…' : 'Select a bench player below.'}
+                {waitingOffline ? t('teams.noSkipWaiting') : t('teams.noSkipSelectBench')}
               </Text>
             </View>
           )}
@@ -346,7 +357,7 @@ export default function LiveTeamManagementScreen() {
 
         <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12 }}>
           <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
-            Bench ({state.bench.length})
+            {t('teams.bench', { count: state.bench.length })}
           </Text>
           {state.bench.map((p) => {
             const canPick =
@@ -369,11 +380,13 @@ export default function LiveTeamManagementScreen() {
               </TouchableOpacity>
             );
           })}
-          {state.bench.length === 0 && <Text style={{ color: '#6b7280' }}>No unassigned players</Text>}
+          {state.bench.length === 0 && (
+            <Text style={{ color: '#6b7280' }}>{t('teams.noUnassigned')}</Text>
+          )}
         </View>
 
         <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, gap: 10 }}>
-          <Text style={{ fontWeight: '700', fontSize: 16 }}>Teams (live)</Text>
+          <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.teamsLive')}</Text>
           {state.teams.map((team) => (
             <View key={team.id} style={{ borderLeftWidth: 4, borderLeftColor: team.color, paddingLeft: 10 }}>
               <Text style={{ fontWeight: '700' }}>
@@ -381,18 +394,16 @@ export default function LiveTeamManagementScreen() {
                 {team.managerId ? ` · ${managerName[team.managerId] || ''}` : ''}
               </Text>
               <Text style={{ color: '#4b5563', marginTop: 4 }}>
-                {(team.players || []).map((p) => p.name || p.id).join(', ') || 'No picks yet'}
+                {(team.players || []).map((p) => p.name || p.id).join(', ') || t('teams.noPicksYet')}
               </Text>
             </View>
           ))}
         </View>
 
         <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, gap: 8 }}>
-          <Text style={{ fontWeight: '700', fontSize: 16 }}>Player swaps</Text>
-          <Text style={{ color: '#6b7280', fontSize: 12 }}>
-            Manager-only. Players are not notified. Requires explicit approval.
-          </Text>
-          <Text style={{ fontWeight: '600' }}>Trade with</Text>
+          <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.playerSwaps')}</Text>
+          <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.swapsHint')}</Text>
+          <Text style={{ fontWeight: '600' }}>{t('teams.tradeWith')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {(state.managers || [])
               .filter((m) => m.id !== userId)
@@ -411,7 +422,7 @@ export default function LiveTeamManagementScreen() {
                 </TouchableOpacity>
               ))}
           </View>
-          <Text style={{ fontWeight: '600' }}>You offer</Text>
+          <Text style={{ fontWeight: '600' }}>{t('teams.youOffer')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {(myTeam?.players || []).map((p) => (
               <TouchableOpacity
@@ -428,7 +439,7 @@ export default function LiveTeamManagementScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={{ fontWeight: '600' }}>You request</Text>
+          <Text style={{ fontWeight: '600' }}>{t('teams.youRequest')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {(receiverTeam?.players || []).map((p) => (
               <TouchableOpacity
@@ -450,7 +461,7 @@ export default function LiveTeamManagementScreen() {
             disabled={busy}
             style={{ backgroundColor: '#111827', padding: 12, borderRadius: 8, alignItems: 'center' }}
           >
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Propose swap</Text>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{t('teams.proposeSwap')}</Text>
           </TouchableOpacity>
 
           {(state.pendingTrades || []).map((tr) => (
@@ -462,16 +473,16 @@ export default function LiveTeamManagementScreen() {
                 {tr.receiverId === userId && (
                   <>
                     <TouchableOpacity onPress={() => resolve(tr.id, true)} style={{ backgroundColor: '#16a34a', padding: 8, borderRadius: 6 }}>
-                      <Text style={{ color: '#fff' }}>Approve</Text>
+                      <Text style={{ color: '#fff' }}>{t('teams.approve')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => resolve(tr.id, false)} style={{ backgroundColor: '#e5e7eb', padding: 8, borderRadius: 6 }}>
-                      <Text>Reject</Text>
+                      <Text>{t('teams.reject')}</Text>
                     </TouchableOpacity>
                   </>
                 )}
                 {tr.proposerId === userId && (
                   <TouchableOpacity onPress={() => resolve(tr.id, false)} style={{ backgroundColor: '#e5e7eb', padding: 8, borderRadius: 6 }}>
-                    <Text>Cancel</Text>
+                    <Text>{t('teams.cancel')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -489,12 +500,13 @@ export default function LiveTeamManagementScreen() {
 
 function ManagerPickChat({ roomId }: { roomId: string }) {
   const { user } = useUser();
-  const { state, actions } = useChatLogic({ roomId, chatName: 'Managers' });
+  const { t } = useTranslation();
+  const { state, actions } = useChatLogic({ roomId, chatName: t('teams.managersChatName') });
   const [text, setText] = useState('');
 
   return (
     <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, minHeight: 220 }}>
-      <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>Managers group chat</Text>
+      <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>{t('teams.managersChat')}</Text>
       <ScrollView style={{ maxHeight: 160, marginBottom: 8 }}>
         {(state.messages || []).slice(-30).map((m: any) => (
           <Text key={m.id || m.tempId} style={{ marginBottom: 4 }}>
@@ -510,7 +522,7 @@ function ManagerPickChat({ roomId }: { roomId: string }) {
             setText(v);
             actions.setInputValue(v);
           }}
-          placeholder="Message managers…"
+          placeholder={t('teams.messageManagers')}
           style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10 }}
         />
         <TouchableOpacity
@@ -523,7 +535,7 @@ function ManagerPickChat({ roomId }: { roomId: string }) {
           }}
           style={{ backgroundColor: '#2563eb', paddingHorizontal: 14, justifyContent: 'center', borderRadius: 8 }}
         >
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Send</Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{t('teams.send')}</Text>
         </TouchableOpacity>
       </View>
     </View>
