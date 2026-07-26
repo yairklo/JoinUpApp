@@ -58,11 +58,21 @@ function mapGameForClient(game, viewerId) {
       avatar: r.user?.imageUrl || null,
       role: r.role
     }));
+  // Organizer is also a drafting manager — include for client-side bench filters.
+  const draftingManagerIds = new Set([
+    game.organizerId,
+    ...managers.map((m) => m.id),
+  ].filter(Boolean).map(String));
   const teams = (game?.teams ? game.teams : []).map(t => {
     const playerIds = allParts
       .filter(p => p && p.teamId === t.id)
       .map(p => p.userId)
       .filter(Boolean);
+    // Display safety: if a team has a managerId, ensure they appear on the roster
+    // even if a stale participation row has not been healed yet.
+    if (t.managerId && !playerIds.includes(t.managerId)) {
+      playerIds.unshift(t.managerId);
+    }
     return {
       id: t.id,
       name: t.name,
@@ -114,6 +124,7 @@ function mapGameForClient(game, viewerId) {
     waitlistParticipants: waitlistParticipants || [],
     organizerId: game.organizerId,
     managers: managers || [],
+    draftingManagerIds: [...draftingManagerIds],
     teams: teams || [],
     sport: game.sport,
     city: game.field?.city || null,

@@ -40,6 +40,7 @@ export type Team = {
   name: string;
   color: string;
   playerIds: string[];
+  managerId?: string | null;
 };
 
 // Transition for the full-screen dialog (slides up like a native app)

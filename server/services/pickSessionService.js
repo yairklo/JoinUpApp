@@ -99,6 +99,66 @@ async function ensureManagerTeams(gameId, managerIds) {
   return byManager;
 }
 
+/**
+ * Managers always play and belong on their own team from the start of drafting.
+ * Ensures each manager is a CONFIRMED participant assigned to their manager team.
+ * Returns true if any participation row was created/updated.
+ */
+async function assignManagersToOwnTeams(gameId, managerIds) {
+  if (!managerIds || managerIds.length === 0) return false;
+  const byManager = await ensureManagerTeams(gameId, managerIds);
+  let changed = false;
+
+  for (const mid of managerIds) {
+    const team = byManager.get(mid);
+    if (!team) continue;
+
+    const part = await prisma.participation.findUnique({
+      where: { gameId_userId: { gameId, userId: mid } },
+    });
+
+    if (!part) {
+      await prisma.participation.create({
+        data: {
+          gameId,
+          userId: mid,
+          status: 'CONFIRMED',
+          teamId: team.id,
+        },
+      });
+      changed = true;
+      continue;
+    }
+
+    const needsUpdate =
+      part.status !== 'CONFIRMED' || part.teamId !== team.id;
+    if (needsUpdate) {
+      await prisma.participation.update({
+        where: { id: part.id },
+        data: { status: 'CONFIRMED', teamId: team.id },
+      });
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+/** Pure helper: bench = confirmed & unassigned & not a game manager. */
+function computeBench(confirmedParticipants, managerIds) {
+  const managerSet = new Set((managerIds || []).map(String));
+  const assigned = new Set(
+    (confirmedParticipants || []).filter((p) => p.teamId).map((p) => p.userId)
+  );
+  return (confirmedParticipants || [])
+    .filter((p) => !assigned.has(p.userId) && !managerSet.has(String(p.userId)))
+    .map((p) => ({
+      id: p.userId,
+      name: p.user?.name || null,
+      avatar: p.user?.imageUrl || null,
+    }));
+}
+
 async function ensureManagerPickChat(gameId, managerIds) {
   const game = await prisma.game.findUnique({
     where: { id: gameId },
@@ -150,6 +210,26 @@ function mapTrade(t) {
 }
 
 async function buildPickSessionState(gameId, viewerId) {
+  // Self-heal live/broken sessions: once a draw has run (or picking opened),
+  // managers must already sit on their own team and never appear on the bench.
+  const lite = await prisma.game.findUnique({
+    where: { id: gameId },
+    include: { roles: true },
+  });
+  if (!lite) throw httpError('Game not found', 404);
+
+  const managerIdsEarly = await getManagerIdsForGame(gameId, lite);
+  const shouldSeatManagers =
+    !!lite.pickDrawExecutedAt ||
+    !!lite.pickingOpenedAt ||
+    lite.pickSessionStatus === 'ORDER_SET' ||
+    lite.pickSessionStatus === 'PICKING' ||
+    lite.pickSessionStatus === 'COMPLETED';
+
+  if (shouldSeatManagers && managerIdsEarly.length > 0) {
+    await assignManagersToOwnTeams(gameId, managerIdsEarly);
+  }
+
   const game = await prisma.game.findUnique({
     where: { id: gameId },
     include: {
@@ -199,14 +279,9 @@ async function buildPickSessionState(gameId, viewerId) {
       })),
   }));
 
-  const assigned = new Set(confirmed.filter((p) => p.teamId).map((p) => p.userId));
-  const bench = confirmed
-    .filter((p) => !assigned.has(p.userId))
-    .map((p) => ({
-      id: p.userId,
-      name: p.user?.name || null,
-      avatar: p.user?.imageUrl || null,
-    }));
+  // Defense in depth: never put managers on the selectable bench, even if a
+  // participation row somehow lacks teamId.
+  const bench = computeBench(confirmed, managerIds);
 
   return {
     gameId,
@@ -311,7 +386,7 @@ async function executePickDraw(gameId, io, { force = false } = {}) {
   }
 
   const order = shuffle(managerIds);
-  await ensureManagerTeams(gameId, managerIds);
+  await assignManagersToOwnTeams(gameId, managerIds);
   const chatId = await ensureManagerPickChat(gameId, managerIds);
 
   await prisma.game.update({
@@ -345,7 +420,7 @@ async function openPicking(gameId, io) {
   }
 
   const managerIds = await getManagerIdsForGame(gameId, game);
-  await ensureManagerTeams(gameId, managerIds);
+  await assignManagersToOwnTeams(gameId, managerIds);
   const chatId = await ensureManagerPickChat(gameId, managerIds);
 
   await prisma.game.update({
@@ -421,6 +496,11 @@ async function makePick(gameId, actorUserId, { playerId, onBehalfOfManagerId }, 
 
   if (!playerId) throw httpError('playerId is required', 400);
 
+  const managerIds = await getManagerIdsForGame(gameId, game);
+  if (managerIds.includes(String(playerId))) {
+    throw httpError('Managers are pre-assigned to their own team and cannot be picked', 400);
+  }
+
   const part = await prisma.participation.findUnique({
     where: { gameId_userId: { gameId, userId: playerId } },
   });
@@ -443,9 +523,12 @@ async function makePick(gameId, actorUserId, { playerId, onBehalfOfManagerId }, 
     data: { teamId: team.id },
   });
 
-  const remaining = await prisma.participation.count({
+  const managerSet = new Set(managerIds.map(String));
+  const unassigned = await prisma.participation.findMany({
     where: { gameId, status: 'CONFIRMED', teamId: null },
+    select: { userId: true },
   });
+  const remaining = unassigned.filter((p) => !managerSet.has(String(p.userId))).length;
 
   const nextIndex = ((game.pickCurrentTurnIndex || 0) + 1) % turnOrder.length;
   await prisma.game.update({
@@ -499,11 +582,17 @@ async function proposeTrade(gameId, proposerId, { receiverId, offeredPlayerIds, 
   const byUser = Object.fromEntries(parts.map((p) => [p.userId, p]));
 
   for (const pid of offered) {
+    if (managerIds.includes(String(pid))) {
+      throw httpError('Managers cannot be traded', 400);
+    }
     if (!byUser[pid] || byUser[pid].teamId !== proposerTeam.id) {
       throw httpError('Offered players must be on your team', 400);
     }
   }
   for (const pid of requested) {
+    if (managerIds.includes(String(pid))) {
+      throw httpError('Managers cannot be traded', 400);
+    }
     if (!byUser[pid] || byUser[pid].teamId !== receiverTeam.id) {
       throw httpError('Requested players must be on the receiver team', 400);
     }
@@ -631,6 +720,8 @@ module.exports = {
   httpError,
   parseTurnOrder,
   getManagerIdsForGame,
+  assignManagersToOwnTeams,
+  computeBench,
   buildPickSessionState,
   emitPickState,
   updatePickSchedule,
@@ -641,6 +732,7 @@ module.exports = {
   proposeTrade,
   resolveTrade,
   ensureManagerPickChat,
+  ensureManagerTeams,
   runPickDrawSweep,
   runPickingOpenSweep,
   mapTrade,

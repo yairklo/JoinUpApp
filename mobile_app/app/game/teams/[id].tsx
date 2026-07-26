@@ -155,6 +155,27 @@ export default function LiveTeamManagementScreen() {
   const myTeam = state?.teams.find((t) => t.managerId === userId);
   const receiverTeam = state?.teams.find((t) => t.managerId === tradeReceiverId);
 
+  const managerIdSet = useMemo(() => {
+    const ids = new Set((state?.managers || []).map((m) => m.id));
+    if (state?.organizerId) ids.add(state.organizerId);
+    return ids;
+  }, [state?.managers, state?.organizerId]);
+
+  const pickableBench = useMemo(
+    () => (state?.bench || []).filter((p) => !managerIdSet.has(p.id)),
+    [state?.bench, managerIdSet]
+  );
+
+  const tradableMyPlayers = useMemo(
+    () => (myTeam?.players || []).filter((p) => !managerIdSet.has(p.id)),
+    [myTeam?.players, managerIdSet]
+  );
+
+  const tradableReceiverPlayers = useMemo(
+    () => (receiverTeam?.players || []).filter((p) => !managerIdSet.has(p.id)),
+    [receiverTeam?.players, managerIdSet]
+  );
+
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     try {
@@ -357,9 +378,9 @@ export default function LiveTeamManagementScreen() {
 
         <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12 }}>
           <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
-            {t('teams.bench', { count: state.bench.length })}
+            {t('teams.bench', { count: pickableBench.length })}
           </Text>
-          {state.bench.map((p) => {
+          {pickableBench.map((p) => {
             const canPick =
               pickingActive &&
               ((myTurn && !showOfflineControls) || (showOfflineControls && !waitingOffline));
@@ -380,7 +401,7 @@ export default function LiveTeamManagementScreen() {
               </TouchableOpacity>
             );
           })}
-          {state.bench.length === 0 && (
+          {pickableBench.length === 0 && (
             <Text style={{ color: '#6b7280' }}>{t('teams.noUnassigned')}</Text>
           )}
         </View>
@@ -424,7 +445,7 @@ export default function LiveTeamManagementScreen() {
           </View>
           <Text style={{ fontWeight: '600' }}>{t('teams.youOffer')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {(myTeam?.players || []).map((p) => (
+            {tradableMyPlayers.map((p) => (
               <TouchableOpacity
                 key={p.id}
                 onPress={() => setOfferedId(p.id)}
@@ -441,7 +462,7 @@ export default function LiveTeamManagementScreen() {
           </View>
           <Text style={{ fontWeight: '600' }}>{t('teams.youRequest')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {(receiverTeam?.players || []).map((p) => (
+            {tradableReceiverPlayers.map((p) => (
               <TouchableOpacity
                 key={p.id}
                 onPress={() => setRequestedId(p.id)}

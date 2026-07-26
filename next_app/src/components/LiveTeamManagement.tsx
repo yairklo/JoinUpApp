@@ -147,6 +147,25 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   const myTeam = state?.teams.find((t) => t.managerId === currentUserId);
   const receiverTeam = state?.teams.find((t) => t.managerId === tradeReceiverId);
 
+  // Defense in depth: managers are never pickable even if a stale payload includes them.
+  const pickableBench = useMemo(() => {
+    const managerIds = new Set((state?.managers || []).map((m) => m.id));
+    if (state?.organizerId) managerIds.add(state.organizerId);
+    return (state?.bench || []).filter((p) => !managerIds.has(p.id));
+  }, [state?.bench, state?.managers, state?.organizerId]);
+
+  const tradableMyPlayers = useMemo(() => {
+    const managerIds = new Set((state?.managers || []).map((m) => m.id));
+    if (state?.organizerId) managerIds.add(state.organizerId);
+    return (myTeam?.players || []).filter((p) => !managerIds.has(p.id));
+  }, [myTeam?.players, state?.managers, state?.organizerId]);
+
+  const tradableReceiverPlayers = useMemo(() => {
+    const managerIds = new Set((state?.managers || []).map((m) => m.id));
+    if (state?.organizerId) managerIds.add(state.organizerId);
+    return (receiverTeam?.players || []).filter((p) => !managerIds.has(p.id));
+  }, [receiverTeam?.players, state?.managers, state?.organizerId]);
+
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError(null);
@@ -365,7 +384,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
               <Button
                 size="small"
                 variant="contained"
-                disabled={busy || waitingOffline || !state.bench[0]}
+                disabled={busy || waitingOffline || !pickableBench[0]}
                 onClick={() => {
                   /* pick mode: next bench click uses onBehalf */
                   setWaitingOffline(false);
@@ -394,13 +413,13 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="stretch">
         <Paper sx={{ p: 2, flex: 1 }}>
           <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-            ספסל ({state.bench.length})
+            ספסל ({pickableBench.length})
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" mb={1}>
             אין הגבלת זמן לבחירה. חי לכל המנהלים.
           </Typography>
           <Stack spacing={1}>
-            {state.bench.map((p) => {
+            {pickableBench.map((p) => {
               const canPick =
                 pickingActive &&
                 ((myTurn && !showOfflineControls) ||
@@ -420,7 +439,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
                 </Button>
               );
             })}
-            {state.bench.length === 0 && (
+            {pickableBench.length === 0 && (
               <Typography color="text.secondary">אין שחקנים לא משובצים</Typography>
             )}
           </Stack>
@@ -484,7 +503,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
             fullWidth
             disabled={!myTeam}
           >
-            {(myTeam?.players || []).map((p) => (
+            {(tradableMyPlayers || []).map((p) => (
               <MenuItem key={p.id} value={p.id}>
                 {p.name || p.id}
               </MenuItem>
@@ -498,7 +517,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
             fullWidth
             disabled={!receiverTeam}
           >
-            {(receiverTeam?.players || []).map((p) => (
+            {(tradableReceiverPlayers || []).map((p) => (
               <MenuItem key={p.id} value={p.id}>
                 {p.name || p.id}
               </MenuItem>
