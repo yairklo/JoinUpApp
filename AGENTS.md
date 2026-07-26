@@ -35,3 +35,4 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 ## Lessons learned (auto)
 - Type error on untyped `apiClient` result (`state` on `{}`) — always pass an explicit generic matching the server JSON (e.g. `proposeTrade` → `{ trade; state: PickSessionState }`).
 - Missing required `alt` on joinUp `Avatar` — always pass `alt={name || id}` in Next.js UI.
+- Telegram completion must send the Vercel **Dev preview** URL (PR-style Visit Preview), never production `join-up-app.vercel.app`. Requires `VERCEL_TOKEN` + `VERCEL_PROJECT_ID` (or `GITHUB_TOKEN`) in the agent `.env`.
