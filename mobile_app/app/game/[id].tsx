@@ -367,48 +367,61 @@ export default function GameDetailsScreen() {
                     </View>
 
                     {game.teams && game.teams.length > 0 ? (
-                        <View className="flex-col gap-4">
-                            {game.teams.map(team => {
-                                if (!team.playerIds || team.playerIds.length === 0) return null;
-                                return (
-                                    <View key={team.id} className="border border-gray-100 rounded-xl p-3 bg-gray-50" style={{ borderRightWidth: 4, borderRightColor: team.color }}>
-                                        <Text className="font-bold text-gray-800 mb-2">{team.name} ({team.playerIds.length})</Text>
-                                        <View className="flex-row flex-wrap">
-                                            {team.playerIds.map(pid => {
-                                                const p = game.participants?.find(part => part.id === pid);
-                                                if (!p) return null;
-                                                return (
-                                                    <TouchableOpacity key={pid} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
-                                                        <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
-                                                        <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
-                                                    </TouchableOpacity>
-                                                )
-                                            })}
-                                        </View>
-                                    </View>
-                                )
-                            })}
-                            
-                            {/* Unassigned Players (Bench) */}
                             {(() => {
-                                const assignedPlayerIds = new Set(game.teams.flatMap(t => t.playerIds || []));
+                                const draftingManagerIds = new Set<string>([
+                                    game.organizerId,
+                                    ...(game.managers || []).map((m) => m.id),
+                                    ...(game.draftingManagerIds || []),
+                                ].filter(Boolean) as string[]);
+                                const displayTeams = (game.teams || []).map((team) => {
+                                    const playerIds = [...(team.playerIds || [])];
+                                    if (team.managerId && !playerIds.includes(team.managerId)) {
+                                        playerIds.unshift(team.managerId);
+                                    }
+                                    return { ...team, playerIds };
+                                });
+                                const assignedPlayerIds = new Set(displayTeams.flatMap(t => t.playerIds || []));
+                                for (const mid of draftingManagerIds) assignedPlayerIds.add(mid);
                                 const bench = game.participants?.filter(p => !assignedPlayerIds.has(p.id)) || [];
-                                if (bench.length === 0) return null;
                                 return (
-                                    <View className="border border-gray-100 rounded-xl p-3 bg-white">
-                                        <Text className="font-bold text-gray-500 mb-2">לא שובצו ({bench.length})</Text>
-                                        <View className="flex-row flex-wrap">
-                                            {bench.map(p => (
-                                                <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
-                                                    <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
-                                                    <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
+                                    <View className="flex-col gap-4">
+                                        {displayTeams.map(team => {
+                                            if (!team.playerIds || team.playerIds.length === 0) return null;
+                                            return (
+                                                <View key={team.id} className="border border-gray-100 rounded-xl p-3 bg-gray-50" style={{ borderRightWidth: 4, borderRightColor: team.color }}>
+                                                    <Text className="font-bold text-gray-800 mb-2">{team.name} ({team.playerIds.length})</Text>
+                                                    <View className="flex-row flex-wrap">
+                                                        {team.playerIds.map(pid => {
+                                                            const p = game.participants?.find(part => part.id === pid);
+                                                            if (!p) return null;
+                                                            return (
+                                                                <TouchableOpacity key={pid} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
+                                                                    <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
+                                                                    <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
+                                                                </TouchableOpacity>
+                                                            )
+                                                        })}
+                                                    </View>
+                                                </View>
+                                            )
+                                        })}
+
+                                        {bench.length > 0 && (
+                                            <View className="border border-gray-100 rounded-xl p-3 bg-white">
+                                                <Text className="font-bold text-gray-500 mb-2">לא שובצו ({bench.length})</Text>
+                                                <View className="flex-row flex-wrap">
+                                                    {bench.map(p => (
+                                                        <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
+                                                            <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
+                                                            <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                            </View>
+                                        )}
                                     </View>
-                                )
+                                );
                             })()}
-                        </View>
                     ) : (
                         <View className="flex-row flex-wrap">
                             {game.participants?.map((p) => (

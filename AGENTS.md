@@ -35,3 +35,4 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 ## Lessons learned (auto)
 - Type error on untyped `apiClient` result (`state` on `{}`) — always pass an explicit generic matching the server JSON (e.g. `proposeTrade` → `{ trade; state: PickSessionState }`).
 - Missing required `alt` on joinUp `Avatar` — always pass `alt={name || id}` in Next.js UI.
+- Live pick bench must never include managers/captains: `ensureManagerTeams` alone is not enough — also `assignManagersToOwnTeams` (set `participation.teamId`), filter managers out of `computeBench`, block `makePick` of managers, and mirror the filter on web/mobile derived bench/unassigned lists.
