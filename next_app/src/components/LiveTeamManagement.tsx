@@ -209,7 +209,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
         },
         token
       );
-      if (result?.state) setState(result.state as PickSessionState);
+      if (result?.state) setState(result.state);
       else await load();
       setOfferedId("");
       setRequestedId("");
@@ -311,7 +311,12 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
                   }}
                 >
                   <CircleIcon sx={{ fontSize: 12, color: online ? "success.main" : "grey.400" }} />
-                  <Avatar src={state.managers.find((m) => m.id === mid)?.avatar} name={managerName[mid]} size="sm" />
+                  <Avatar
+                    src={state.managers.find((m) => m.id === mid)?.avatar}
+                    alt={managerName[mid] || mid}
+                    name={managerName[mid]}
+                    size="sm"
+                  />
                   <Box flex={1}>
                     <Typography fontWeight={isCurrent ? 700 : 500}>
                       {idx + 1}. {managerName[mid] || mid}
@@ -395,7 +400,9 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
                   disabled={busy || !canPick}
                   onClick={() => pickPlayer(p.id, !!(showOfflineControls && !waitingOffline))}
                   sx={{ justifyContent: "flex-start", textTransform: "none" }}
-                  startIcon={<Avatar src={p.avatar} name={p.name || p.id} size="sm" />}
+                  startIcon={
+                    <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
+                  }
                 >
                   {p.name || p.id}
                 </Button>

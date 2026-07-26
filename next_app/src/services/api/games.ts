@@ -137,11 +137,14 @@ export const gamesApi = {
         data: { receiverId: string; offeredPlayerIds: string[]; requestedPlayerIds: string[] },
         token: string
     ) => {
-        return apiClient(`/api/games/${gameId}/pick-session/trades`, {
-            method: 'POST',
-            data,
-            token,
-        });
+        return apiClient<{ trade: unknown; state: PickSessionState }>(
+            `/api/games/${gameId}/pick-session/trades`,
+            {
+                method: 'POST',
+                data,
+                token,
+            }
+        );
     },
 
     resolveTrade: (gameId: string, tradeId: string, approve: boolean, token: string) => {
