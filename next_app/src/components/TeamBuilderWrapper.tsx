@@ -7,6 +7,7 @@ import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import GroupsIcon from "@mui/icons-material/Groups";
+import SportsEsportsIcon from "@mui/icons-material/SportsEsports";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import List from "@mui/material/List";
@@ -44,6 +45,7 @@ interface WrapperProps {
     signups: number;
   };
   waitlistParticipants?: Participant[];
+  pickSessionStatus?: string | null;
 }
 
 export default function TeamBuilderWrapper({
@@ -56,10 +58,11 @@ export default function TeamBuilderWrapper({
   initialTeams = [],
   lotteryData,
   waitlistParticipants = [],
+  pickSessionStatus,
 }: WrapperProps) {
   const { getToken } = useAuth();
   const router = useRouter();
-  
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -81,14 +84,14 @@ export default function TeamBuilderWrapper({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to save teams");
+        throw new Error("שמירת הקבוצות נכשלה");
       }
 
       router.refresh();
       setIsDialogOpen(false);
     } catch (error) {
       console.error("Error saving teams:", error);
-      alert("Failed to save teams. Please try again.");
+      alert("שמירת הקבוצות נכשלה. נסה שוב.");
     } finally {
       setSaving(false);
     }
@@ -97,54 +100,83 @@ export default function TeamBuilderWrapper({
   return (
     <>
       {canManage && (
-         <Box mb={2} display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6" fontWeight="bold">
-                Game Squad
-            </Typography>
-            <Button 
-                variant="contained" 
-                startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <GroupsIcon />} 
-                onClick={() => setIsDialogOpen(true)}
-                size="small"
-                disabled={saving}
-                sx={{ borderRadius: 2, textTransform: 'none' }}
+        <Box mb={2} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+          <Typography variant="h6" fontWeight="bold">
+            סגל המשחק
+          </Typography>
+          <Box display="flex" gap={1} flexWrap="wrap">
+            <Button
+              component={Link}
+              href={`/games/${gameId}/team-management`}
+              variant="contained"
+              color="secondary"
+              startIcon={<SportsEsportsIcon />}
+              size="small"
+              sx={{ borderRadius: 2, textTransform: "none" }}
             >
-                {saving ? "Saving..." : "Manage Teams"}
+              ניהול קבוצות חי
             </Button>
-         </Box>
+            <Button
+              variant="outlined"
+              startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <GroupsIcon />}
+              onClick={() => setIsDialogOpen(true)}
+              size="small"
+              disabled={saving}
+              sx={{ borderRadius: 2, textTransform: "none" }}
+            >
+              {saving ? "שומר..." : "שיבוץ מהיר"}
+            </Button>
+          </Box>
+        </Box>
+      )}
+
+      {canManage && pickSessionStatus && pickSessionStatus !== "IDLE" && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          סטטוס בחירה: <strong>{
+            ({
+              IDLE: "ממתין",
+              DRAW_SCHEDULED: "הגרלה מתוזמנת",
+              ORDER_SET: "סדר נקבע",
+              PICKING: "בחירה פעילה",
+              COMPLETED: "הושלם",
+            } as Record<string, string>)[pickSessionStatus] || pickSessionStatus
+          }</strong>
+          {" — "}
+          <Link href={`/games/${gameId}/team-management`}>פתח מסך חי</Link>
+        </Alert>
       )}
 
       {canManage && (
-        <TeamBuilderDialog 
-            open={isDialogOpen}
-            onClose={() => setIsDialogOpen(false)}
-            participants={participants}
-            initialTeams={initialTeams}
-            onSave={handleSaveTeams}
+        <TeamBuilderDialog
+          open={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          participants={participants}
+          initialTeams={initialTeams}
+          onSave={handleSaveTeams}
         />
       )}
 
       {lotteryData?.enabled && lotteryData.pending && lotteryData.overbooked && (
         <Alert severity="warning" icon={<AccessTimeIcon />} sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" fontWeight="bold">
-                Lottery Pending
-            </Typography>
-            <Typography variant="body2">
-                Draw at: {lotteryData.at ? new Date(lotteryData.at).toLocaleString() : "—"}
-            </Typography>
-            <Typography variant="caption">
-                Registered: {lotteryData.signups ?? 0} (Max: {maxPlayers})
-            </Typography>
+          <Typography variant="subtitle2" fontWeight="bold">
+            הגרלה ממתינה
+          </Typography>
+          <Typography variant="body2">
+            הגרלה ב: {lotteryData.at ? new Date(lotteryData.at).toLocaleString("he-IL") : "—"}
+          </Typography>
+          <Typography variant="caption">
+            רשומים: {lotteryData.signups ?? 0} (מקסימום: {maxPlayers})
+          </Typography>
         </Alert>
       )}
 
-      <GameParticipantsList 
+      <GameParticipantsList
         gameId={gameId}
         participants={participants}
         organizerId={organizerId}
         initialManagers={initialManagers}
         maxPlayers={maxPlayers}
-        teams={initialTeams} 
+        teams={initialTeams}
       />
 
       {lotteryData?.enabled &&
@@ -152,36 +184,28 @@ export default function TeamBuilderWrapper({
         lotteryData.overbooked &&
         waitlistParticipants.length > 0 && (
           <Box mt={3}>
-            <Card elevation={2} sx={{ bgcolor: 'warning.50' }}>
-                <CardContent>
-                  <Typography
-                    variant="subtitle1"
-                    fontWeight="bold"
-                    gutterBottom
-                    color="warning.dark"
-                  >
-                    Waitlist / Lottery Pool
-                  </Typography>
-                  <List disablePadding>
-                    {waitlistParticipants.map((p) => (
-                      <Link key={p.id} href={`/users/${p.id}`} passHref legacyBehavior>
-                        <ListItemButton component="a" sx={{ borderRadius: 2 }}>
-                          <ListItemAvatar>
-                            <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={p.name || p.id}
-                            secondary="Waiting for lottery"
-                          />
-                          <Chip label="Waitlist" size="small" color="warning" variant="outlined" />
-                        </ListItemButton>
-                      </Link>
-                    ))}
-                  </List>
-                </CardContent>
+            <Card elevation={2} sx={{ bgcolor: "warning.50" }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="warning.dark">
+                  רשימת המתנה / מאגר הגרלה
+                </Typography>
+                <List disablePadding>
+                  {waitlistParticipants.map((p) => (
+                    <Link key={p.id} href={`/users/${p.id}`} passHref legacyBehavior>
+                      <ListItemButton component="a" sx={{ borderRadius: 2 }}>
+                        <ListItemAvatar>
+                          <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
+                        </ListItemAvatar>
+                        <ListItemText primary={p.name || p.id} secondary="ממתין להגרלה" />
+                        <Chip label="רשימת המתנה" size="small" color="warning" variant="outlined" />
+                      </ListItemButton>
+                    </Link>
+                  ))}
+                </List>
+              </CardContent>
             </Card>
           </Box>
-      )}
+        )}
     </>
   );
 }

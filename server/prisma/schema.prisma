@@ -125,6 +125,15 @@ model Game {
   organizerInLottery Boolean  @default(false)
   // Set when the lottery has executed
   lotteryExecutedAt DateTime?
+  // Manager turn-order draw + live team picking (distinct from player capacity lottery)
+  pickDrawAt            DateTime?
+  pickDrawExecutedAt    DateTime?
+  pickingStartsAt       DateTime?
+  pickingOpenedAt       DateTime?
+  pickSessionStatus     PickSessionStatus @default(IDLE)
+  pickTurnOrder         Json?   // string[] of manager user IDs in draft order
+  pickCurrentTurnIndex  Int     @default(0)
+  managerPickChatId     String?
   description  String?
   // Optional custom location for games not tied to a mapped field
   customLat    Float?
@@ -145,6 +154,7 @@ model Game {
   roles        GameRole[]
   teams        Team[]
   ratings      UserRating[]
+  playerTrades PlayerTrade[]
 
   @@index([start, status])
   @@index([status, start])
@@ -152,11 +162,28 @@ model Game {
   @@index([fieldId])
   @@index([organizerId])
   @@index([customLat, customLng])
+  @@index([pickDrawAt, pickDrawExecutedAt])
+  @@index([pickingStartsAt, pickingOpenedAt])
 }
 
 enum GameStatus {
   OPEN
   COMPLETED
+  CANCELLED
+}
+
+enum PickSessionStatus {
+  IDLE
+  DRAW_SCHEDULED
+  ORDER_SET
+  PICKING
+  COMPLETED
+}
+
+enum TradeStatus {
+  PENDING
+  APPROVED
+  REJECTED
   CANCELLED
 }
 
@@ -350,11 +377,31 @@ model Team {
   gameId    String
   name      String
   color     String   // hex color
+  managerId String?  // manager who drafts for this team during live picking
   createdAt DateTime @default(now())
   game      Game     @relation(fields: [gameId], references: [id])
   players   Participation[]
 
   @@index([gameId])
+  @@index([gameId, managerId])
+}
+
+/// Manager-only player swap proposals. Players are never notified.
+model PlayerTrade {
+  id                 String      @id @default(cuid())
+  gameId             String
+  proposerId         String
+  receiverId         String
+  offeredPlayerIds   String[]
+  requestedPlayerIds String[]
+  status             TradeStatus @default(PENDING)
+  createdAt          DateTime    @default(now())
+  resolvedAt         DateTime?
+  game               Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, status])
+  @@index([receiverId, status])
+  @@index([proposerId])
 }
 
 enum FieldType {

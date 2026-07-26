@@ -1,0 +1,27 @@
+---
+description: Prevent Vercel/Next TypeScript build failures (lessons from production deploys)
+globs: next_app/**/*.{ts,tsx}
+alwaysApply: true
+---
+
+# TypeScript / Vercel quality (joinUp)
+
+These failures already broke a Vercel deploy. Do not repeat them.
+
+## API client generics
+- Every `apiClient(...)` call that returns JSON **must** have an explicit generic type.
+- Never leave the default `{}` if you later read properties (`result.state`, `result.trade`, etc.).
+- If the server returns `{ trade, state }`, type it as `{ trade: ...; state: PickSessionState }` (or equivalent).
+- Prefer returning / typing the same shape the route actually `res.json(...)`.
+
+## Component required props
+- Custom `Avatar` requires `alt: string` — always pass `alt={name || id}` (or similar). Do not omit `alt`.
+- When adding UI that reuses shared components, check the component prop types before calling them.
+
+## Local verify before done (mandatory)
+- Run `cd next_app && npm run build` after TypeScript/UI changes.
+- Fix every type error locally; do not rely on Vercel to discover them.
+- If build fails: fix → rebuild → repeat until green, then commit.
+
+## Merge / deploy
+- After gates are green, merge into `Dev` and push so Vercel builds from `Dev`.

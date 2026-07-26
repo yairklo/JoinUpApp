@@ -387,6 +387,43 @@ io.on('connection', async (socket) => {
     }
   });
 
+  // Live team-management pick room (managers)
+  socket.on('joinPickSession', async (gameId) => {
+    try {
+      if (!socket.userId || !gameId) return;
+      const { getManagerIdsForGame, buildPickSessionState } = require('./services/pickSessionService');
+      const managerIds = await getManagerIdsForGame(String(gameId));
+      if (!managerIds.includes(String(socket.userId))) {
+        socket.emit('error', 'Unauthorized: managers only');
+        return;
+      }
+      const room = `game_pick_${gameId}`;
+      socket.join(room);
+      io.to(room).emit('pick:presence', {
+        userId: socket.userId,
+        isOnline: true,
+        gameId: String(gameId),
+      });
+      const state = await buildPickSessionState(String(gameId), socket.userId);
+      socket.emit('pick:state', state);
+    } catch (e) {
+      console.error('joinPickSession error:', e);
+    }
+  });
+
+  socket.on('leavePickSession', (gameId) => {
+    if (!gameId) return;
+    const room = `game_pick_${gameId}`;
+    socket.leave(room);
+    if (socket.userId) {
+      io.to(room).emit('pick:presence', {
+        userId: socket.userId,
+        isOnline: false,
+        gameId: String(gameId),
+      });
+    }
+  });
+
   // Legacy setup event — normalize to user_${id} so it matches notification emit targets
   socket.on('setup', (userData) => {
     const uid = userData?.id || socket.userId;
@@ -967,6 +1004,29 @@ async function runLotterySweep() {
 }
 
 setInterval(runLotterySweep, 60_000);
+
+// --- Manager pick-session scheduler (turn-order draw + auto-open picking) ---
+const {
+  runPickDrawSweep,
+  runPickingOpenSweep,
+} = require('./services/pickSessionService');
+
+let pickSessionSweepRunning = false;
+async function runPickSessionSweep() {
+  if (pickSessionSweepRunning) return;
+  pickSessionSweepRunning = true;
+  try {
+    await runPickDrawSweep(io);
+    await runPickingOpenSweep(io);
+  } catch (e) {
+    console.error('Pick session sweep error:', e);
+  } finally {
+    pickSessionSweepRunning = false;
+  }
+}
+setInterval(runPickSessionSweep, 30_000);
+// Kick once shortly after boot so overdue sessions open without waiting a full tick
+setTimeout(runPickSessionSweep, 5_000);
 
 // --- Game Auto-Completion (Passive) ---
 let completionCheckRunning = false;

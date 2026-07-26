@@ -213,6 +213,7 @@ export default async function GameDetails(props: {
                 signups: game.totalSignups || 0
               }}
               waitlistParticipants={game.waitlistParticipants || []}
+              pickSessionStatus={(game as { pickSessionStatus?: string }).pickSessionStatus || null}
             />
             {joined && (
               <GameRatingsPanel gameId={game.id} />

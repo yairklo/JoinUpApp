@@ -24,6 +24,7 @@ const {
 const gameRosterRouter = require('./gameRoster');
 const gameTeamsRouter = require('./gameTeams');
 const gameRolesRouter = require('./gameRoles');
+const gamePickSessionRouter = require('./gamePickSession');
 
 const router = express.Router();
 
@@ -182,9 +183,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Sub-domain routers (roster / teams / roles)
+// Sub-domain routers (roster / teams / roles / pick session)
 router.use(gameRosterRouter);
 router.use(gameTeamsRouter);
 router.use(gameRolesRouter);
+router.use(gamePickSessionRouter);
 
 module.exports = router;

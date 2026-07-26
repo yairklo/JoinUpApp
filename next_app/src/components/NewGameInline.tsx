@@ -206,13 +206,13 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                   size="small"
                   color="inherit"
                 >
-                  {showAdvanced ? "Hide Options" : "More Options (Description, Lottery, Private)"}
+                  {showAdvanced ? "הסתר אפשרויות" : "אפשרויות נוספות (תיאור, הגרלה, פרטי)"}
                 </Button>
 
                 <Collapse in={showAdvanced}>
                   <Stack spacing={2} mt={2}>
                     <TextField
-                      label="Description / Notes"
+                      label="תיאור / הערות"
                       multiline
                       rows={2}
                       fullWidth
@@ -224,7 +224,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                     <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
                       <FormControlLabel
                         control={<Switch checked={state.form.isFriendsOnly} onChange={(e) => actions.update("isFriendsOnly", e.target.checked)} />}
-                        label="Friends Only (Private)"
+                        label="חברים בלבד (פרטי)"
                       />
                       <FormControlLabel
                         control={
@@ -233,15 +233,15 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                             onChange={(e) => actions.update("joinPolicy", e.target.checked ? "REQUIRES_APPROVAL" : "INSTANT")}
                           />
                         }
-                        label="Requires Approval to Join"
+                        label="דורש אישור הצטרפות"
                       />
                       <FormControlLabel
                         control={<Switch checked={state.form.lotteryEnabled} onChange={(e) => actions.update("lotteryEnabled", e.target.checked)} />}
-                        label="Enable Lottery"
+                        label="אפשר הגרלה"
                       />
                       <FormControlLabel
                         control={<Switch checked={state.form.futureRegistration} onChange={(e) => actions.update("futureRegistration", e.target.checked)} />}
-                        label="Future Registration"
+                        label="פתיחת הרשמה עתידית"
                       />
                     </Stack>
 
@@ -249,12 +249,12 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                       <Paper variant="outlined" sx={{ p: 2, bgcolor: 'warning.light', borderColor: 'warning.main' }}>
                         <Stack spacing={2}>
                           <Typography variant="caption" fontWeight="bold" color="warning.contrastText">
-                            LOTTERY SETTINGS
+                            הגדרות הגרלה
                           </Typography>
                           <Grid container spacing={2}>
                             <Grid size={6}>
                               <TextField
-                                label="Lottery Date"
+                                label="תאריך הגרלה"
                                 type="date"
                                 fullWidth
                                 size="small"
@@ -265,7 +265,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                             </Grid>
                             <Grid size={6}>
                               <TextField
-                                label="Lottery Time"
+                                label="שעת הגרלה"
                                 type="time"
                                 fullWidth
                                 size="small"
@@ -277,22 +277,79 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                           </Grid>
                           <FormControlLabel
                             control={<Checkbox checked={state.form.organizerInLottery} onChange={(e) => actions.update("organizerInLottery", e.target.checked)} />}
-                            label="Include me (organizer) in the lottery draw"
+                            label="כלול אותי (מארגן) בהגרלה"
                           />
                         </Stack>
                       </Paper>
                     </Collapse>
 
+                    <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
+                      <Stack spacing={2}>
+                        <Typography variant="caption" fontWeight="bold">
+                          לוח זמנים לבחירת קבוצות (מנהלים)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          אופציונלי. זמן ההגרלה מערבב את סדר תור המנהלים; תחילת הבחירה פותחת את המסך החי אוטומטית. ניתן לערוך מאוחר יותר.
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid size={6}>
+                            <TextField
+                              label="תאריך הגרלת מנהלים"
+                              type="date"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={state.form.pickDrawDate}
+                              onChange={(e) => actions.update("pickDrawDate", e.target.value)}
+                            />
+                          </Grid>
+                          <Grid size={6}>
+                            <TextField
+                              label="שעת הגרלת מנהלים"
+                              type="time"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={state.form.pickDrawTime}
+                              onChange={(e) => actions.update("pickDrawTime", e.target.value)}
+                            />
+                          </Grid>
+                          <Grid size={6}>
+                            <TextField
+                              label="תאריך תחילת בחירה"
+                              type="date"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={state.form.pickingStartDate}
+                              onChange={(e) => actions.update("pickingStartDate", e.target.value)}
+                            />
+                          </Grid>
+                          <Grid size={6}>
+                            <TextField
+                              label="שעת תחילת בחירה"
+                              type="time"
+                              fullWidth
+                              size="small"
+                              InputLabelProps={{ shrink: true }}
+                              value={state.form.pickingStartTime}
+                              onChange={(e) => actions.update("pickingStartTime", e.target.value)}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Stack>
+                    </Paper>
+
                     <Collapse in={state.form.futureRegistration}>
                       <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.light', borderColor: 'info.main', mt: 2 }}>
                         <Stack spacing={2}>
                           <Typography variant="caption" fontWeight="bold" color="info.contrastText">
-                            REGISTRATION OPENS AT
+                            מועד פתיחת הרשמה
                           </Typography>
                           <Grid container spacing={2}>
                             <Grid size={6}>
                               <TextField
-                                label="Open Date"
+                                label="תאריך פתיחה"
                                 type="date"
                                 fullWidth
                                 size="small"
@@ -303,7 +360,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                             </Grid>
                             <Grid size={6}>
                               <TextField
-                                label="Open Time"
+                                label="שעת פתיחה"
                                 type="time"
                                 fullWidth
                                 size="small"
@@ -328,7 +385,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                   disabled={!state.canSubmit || state.submitting}
                   startIcon={state.submitting ? null : <AddIcon />}
                 >
-                  {state.submitting ? "Creating..." : "Create Game"}
+                  {state.submitting ? "יוצר..." : "צור משחק"}
                 </Button>
               </Box>
 
