@@ -67,9 +67,15 @@ function mapGameForClient(game, viewerId) {
       id: t.id,
       name: t.name,
       color: t.color,
+      managerId: t.managerId || null,
       playerIds: playerIds || []
     };
   });
+  const pickTurnOrder = Array.isArray(game.pickTurnOrder)
+    ? game.pickTurnOrder.map(String)
+    : (typeof game.pickTurnOrder === 'string'
+      ? (() => { try { const p = JSON.parse(game.pickTurnOrder); return Array.isArray(p) ? p.map(String) : []; } catch { return []; } })()
+      : []);
   return {
     id: game.id,
     title: game.title || null,
@@ -113,7 +119,15 @@ function mapGameForClient(game, viewerId) {
     city: game.field?.city || null,
     registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null,
     chatRoomId: game.id,
-    status: game.status
+    status: game.status,
+    pickDrawAt: game.pickDrawAt ? new Date(game.pickDrawAt).toISOString() : null,
+    pickDrawExecutedAt: game.pickDrawExecutedAt ? new Date(game.pickDrawExecutedAt).toISOString() : null,
+    pickingStartsAt: game.pickingStartsAt ? new Date(game.pickingStartsAt).toISOString() : null,
+    pickingOpenedAt: game.pickingOpenedAt ? new Date(game.pickingOpenedAt).toISOString() : null,
+    pickSessionStatus: game.pickSessionStatus || 'IDLE',
+    pickTurnOrder,
+    pickCurrentTurnIndex: game.pickCurrentTurnIndex || 0,
+    managerPickChatId: game.managerPickChatId || null,
   };
 }
 
@@ -406,6 +420,8 @@ async function createGame(payload, creatorUser, io) {
     customLat,
     joinPolicy,
     invitedParticipantIds,
+    pickDrawAt,
+    pickingStartsAt,
   } = payload || {};
 
   const invitedUserIds = Array.isArray(invitedParticipantIds)
@@ -630,6 +646,8 @@ async function createGame(payload, creatorUser, io) {
         lotteryEnabled: !!lotteryEnabled,
         ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
         organizerInLottery: !!organizerInLottery,
+        ...(pickDrawAt ? { pickDrawAt: new Date(String(pickDrawAt)), pickSessionStatus: 'DRAW_SCHEDULED' } : {}),
+        ...(pickingStartsAt ? { pickingStartsAt: new Date(String(pickingStartsAt)) } : {}),
         description: description || '',
         organizerId: creatorUser.id,
         // Organizer: confirmed by default, or waitlisted if included in lottery
@@ -991,6 +1009,7 @@ async function patchGame(gameId, body, userId) {
   const {
     time, date, start, maxPlayers, sport, registrationOpensAt,
     title, friendsOnlyUntil, isFriendsOnly, teamSize, joinPolicy,
+    pickDrawAt, pickingStartsAt,
   } = body || {};
 
   const game = await prisma.game.findUnique({
@@ -1060,6 +1079,29 @@ async function patchGame(gameId, body, userId) {
     updates.joinPolicy = joinPolicy;
   }
 
+  // Organizer-only pick schedule (also editable via dedicated pick-session route)
+  if (isOrganizer) {
+    if (typeof pickDrawAt !== 'undefined') {
+      updates.pickDrawAt = pickDrawAt ? new Date(String(pickDrawAt)) : null;
+      if (updates.pickDrawAt && updates.pickDrawAt > new Date()) {
+        updates.pickDrawExecutedAt = null;
+        updates.pickSessionStatus = 'DRAW_SCHEDULED';
+        updates.pickTurnOrder = null;
+        updates.pickCurrentTurnIndex = 0;
+      } else if (updates.pickDrawAt) {
+        updates.pickSessionStatus = 'DRAW_SCHEDULED';
+      } else if (!game.pickDrawExecutedAt) {
+        updates.pickSessionStatus = 'IDLE';
+      }
+    }
+    if (typeof pickingStartsAt !== 'undefined') {
+      updates.pickingStartsAt = pickingStartsAt ? new Date(String(pickingStartsAt)) : null;
+      if (updates.pickingStartsAt && updates.pickingStartsAt > new Date()) {
+        updates.pickingOpenedAt = null;
+      }
+    }
+  }
+
   if (Object.keys(updates).length === 0) {
     throw httpError('No valid fields to update', 400);
   }
@@ -1083,6 +1125,7 @@ async function updateGame(gameId, body, userId) {
     description, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt,
     organizerInLottery, title, sport, duration, teamSize, price,
     isFriendsOnly, joinPolicy, registrationOpensAt, friendsOnlyUntil, start,
+    pickDrawAt, pickingStartsAt,
   } = body || {};
 
   if (typeof maxPlayers !== 'undefined') {
@@ -1091,6 +1134,27 @@ async function updateGame(gameId, body, userId) {
     });
     if (Number(maxPlayers) < confirmedCount) {
       throw httpError('Max players cannot be less than current players', 400);
+    }
+  }
+
+  const pickScheduleUpdates = {};
+  if (typeof pickDrawAt !== 'undefined') {
+    pickScheduleUpdates.pickDrawAt = pickDrawAt ? new Date(String(pickDrawAt)) : null;
+    if (pickScheduleUpdates.pickDrawAt && pickScheduleUpdates.pickDrawAt > new Date()) {
+      pickScheduleUpdates.pickDrawExecutedAt = null;
+      pickScheduleUpdates.pickSessionStatus = 'DRAW_SCHEDULED';
+      pickScheduleUpdates.pickTurnOrder = null;
+      pickScheduleUpdates.pickCurrentTurnIndex = 0;
+    } else if (pickScheduleUpdates.pickDrawAt) {
+      pickScheduleUpdates.pickSessionStatus = 'DRAW_SCHEDULED';
+    } else if (!game.pickDrawExecutedAt) {
+      pickScheduleUpdates.pickSessionStatus = 'IDLE';
+    }
+  }
+  if (typeof pickingStartsAt !== 'undefined') {
+    pickScheduleUpdates.pickingStartsAt = pickingStartsAt ? new Date(String(pickingStartsAt)) : null;
+    if (pickScheduleUpdates.pickingStartsAt && pickScheduleUpdates.pickingStartsAt > new Date()) {
+      pickScheduleUpdates.pickingOpenedAt = null;
     }
   }
 
@@ -1117,6 +1181,7 @@ async function updateGame(gameId, body, userId) {
         ? { friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null }
         : {}),
       ...(typeof start !== 'undefined' ? { start: new Date(start) } : {}),
+      ...pickScheduleUpdates,
     },
     include: { field: true, participants: { include: { user: true } } },
   });
@@ -1131,11 +1196,18 @@ async function deleteGame(gameId, userId, isAdmin, io) {
   }
 
   await prisma.$transaction([
+    prisma.playerTrade.deleteMany({ where: { gameId } }),
     prisma.participation.deleteMany({ where: { gameId } }),
     prisma.gameRole.deleteMany({ where: { gameId } }),
     prisma.team.deleteMany({ where: { gameId } }),
     prisma.chatParticipant.deleteMany({ where: { chatId: gameId } }),
     prisma.chatRoom.deleteMany({ where: { id: gameId } }),
+    ...(game.managerPickChatId
+      ? [
+          prisma.chatParticipant.deleteMany({ where: { chatId: game.managerPickChatId } }),
+          prisma.chatRoom.deleteMany({ where: { id: game.managerPickChatId } }),
+        ]
+      : []),
     prisma.game.delete({ where: { id: gameId } }),
   ]);
 

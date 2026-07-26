@@ -38,6 +38,10 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
         futureRegistration: false,
         futureRegDate: "",
         futureRegTime: "",
+        pickDrawDate: "",
+        pickDrawTime: "",
+        pickingStartDate: "",
+        pickingStartTime: "",
     });
 
     // Time Helpers
@@ -111,6 +115,20 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
                 if (lotteryTs >= startTs) throw new Error("Lottery time must be before game start");
             }
 
+            const pickDrawAt =
+                form.pickDrawDate && form.pickDrawTime
+                    ? `${form.pickDrawDate}T${form.pickDrawTime}:00`
+                    : undefined;
+            const pickingStartsAt =
+                form.pickingStartDate && form.pickingStartTime
+                    ? `${form.pickingStartDate}T${form.pickingStartTime}:00`
+                    : undefined;
+            if (pickDrawAt && pickingStartsAt) {
+                if (new Date(pickingStartsAt).getTime() < new Date(pickDrawAt).getTime()) {
+                    throw new Error("Picking start must be at or after the manager draw time");
+                }
+            }
+
             const payload = {
                 fieldId: fieldIdToUse,
                 ...form,
@@ -120,6 +138,8 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
                 isOpenToJoin: !form.isFriendsOnly,
                 title: form.title || null,
                 lotteryAt: form.lotteryEnabled ? `${form.lotteryDate}T${form.lotteryTime}:00` : undefined,
+                pickDrawAt,
+                pickingStartsAt,
             };
 
             const created = await gamesApi.create(payload, token);
