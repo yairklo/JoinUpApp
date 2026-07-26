@@ -40,7 +40,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; role?: string };
-type Team = { id: string; name: string; color: string; playerIds: string[] };
+type Team = { id: string; name: string; color: string; playerIds: string[]; managerId?: string | null };
 
 interface GameParticipantsListProps {
   gameId: string;
@@ -235,9 +235,23 @@ export default function GameParticipantsList({
     );
   };
 
-  // Calculate unassigned players if teams exist
-  const assignedPlayerIds = new Set(teams.flatMap(t => t.playerIds));
-  const unassignedPlayers = participants.filter(p => !assignedPlayerIds.has(p.id));
+  // Calculate unassigned players if teams exist.
+  // Managers (incl. organizer) are pre-assigned to their own team and must not
+  // appear in the "Not Assigned" / bench pool.
+  const draftingManagerIds = new Set<string>([
+    organizerId,
+    ...managers.map((m) => m.id),
+  ]);
+  const displayTeams = teams.map((team) => {
+    const playerIds = [...(team.playerIds || [])];
+    if (team.managerId && !playerIds.includes(team.managerId)) {
+      playerIds.unshift(team.managerId);
+    }
+    return { ...team, playerIds };
+  });
+  const assignedPlayerIds = new Set(displayTeams.flatMap((t) => t.playerIds));
+  for (const mid of draftingManagerIds) assignedPlayerIds.add(mid);
+  const unassignedPlayers = participants.filter((p) => !assignedPlayerIds.has(p.id));
   const hasTeams = teams.length > 0;
 
   return (
@@ -315,7 +329,7 @@ export default function GameParticipantsList({
         {/* --- VIEW MODE 1: TEAMS EXIST --- */}
         {hasTeams ? (
           <Box>
-            {teams.map(team => (
+            {displayTeams.map(team => (
                 <Paper key={team.id} elevation={0} sx={{ mb: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden', borderRadius: 3 }}>
                     {/* Team Header */}
                     <Box sx={{ bgcolor: team.color, p: 1.5, color: 'white' }}>

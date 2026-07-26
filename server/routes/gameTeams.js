@@ -6,6 +6,10 @@ const {
   getRoleLevel,
   mapGameForClient,
 } = require('../services/gameService');
+const {
+  assignManagersToOwnTeams,
+  getManagerIdsForGame,
+} = require('../services/pickSessionService');
 
 const router = express.Router();
 
@@ -23,7 +27,10 @@ router.put('/:id/teams', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Not allowed' });
     }
 
-    const game = await prisma.game.findUnique({ where: { id: gameId }, select: { id: true } });
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: { roles: true },
+    });
     if (!game) return res.status(404).json({ error: 'Game not found' });
 
     const tx = [];
@@ -53,6 +60,24 @@ router.put('/:id/teams', authenticateToken, async (req, res) => {
         where: { gameId, userId: { in: ct.playerIds } },
         data: { teamId: ct.id }
       });
+    }
+
+    // After any team rewrite, re-seat managers on their own teams when drafting
+    // is active (or teams already carry managerId), so they never land on the bench.
+    const managerIdsFromPayload = createdTeams
+      .map((t) => t.managerId)
+      .filter(Boolean)
+      .map(String);
+    const allManagerIds = await getManagerIdsForGame(gameId, game);
+    const shouldSeat =
+      !!game.pickDrawExecutedAt ||
+      !!game.pickingOpenedAt ||
+      managerIdsFromPayload.length > 0;
+    if (shouldSeat) {
+      const seatIds = managerIdsFromPayload.length
+        ? [...new Set([...allManagerIds, ...managerIdsFromPayload])]
+        : allManagerIds;
+      await assignManagersToOwnTeams(gameId, seatIds);
     }
 
     const updated = await prisma.game.findUnique({

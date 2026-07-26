@@ -48,6 +48,7 @@ export type Game = {
 
     teams?: Team[];
     managers?: Manager[];
+    draftingManagerIds?: string[];
     waitlistParticipants?: GameParticipant[];
     status?: string;
 
