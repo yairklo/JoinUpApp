@@ -27,6 +27,18 @@ type Props = {
   currentUserId: string;
 };
 
+const PICK_STATUS_LABELS: Record<string, string> = {
+  IDLE: "ממתין",
+  DRAW_SCHEDULED: "הגרלה מתוזמנת",
+  ORDER_SET: "סדר נקבע",
+  PICKING: "בחירה פעילה",
+  COMPLETED: "הושלם",
+};
+
+function statusLabel(status: string) {
+  return PICK_STATUS_LABELS[status] || status;
+}
+
 function toLocalInputValue(iso: string | null | undefined) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -66,14 +78,14 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   const load = useCallback(async () => {
     try {
       const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
+      if (!token) throw new Error("לא מחובר");
       const data = await gamesApi.getPickSession(gameId, token);
       setState(data);
       setDrawLocal(toLocalInputValue(data.pickDrawAt));
       setPickLocal(toLocalInputValue(data.pickingStartsAt));
       setError(null);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load");
+      setError(e instanceof Error ? e.message : "הטעינה נכשלה");
     } finally {
       setLoading(false);
     }
@@ -141,7 +153,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
     try {
       await fn();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Action failed");
+      setError(e instanceof Error ? e.message : "הפעולה נכשלה");
     } finally {
       setBusy(false);
     }
@@ -150,7 +162,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   const saveSchedule = () =>
     run(async () => {
       const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
+      if (!token) throw new Error("לא מחובר");
       const data = await gamesApi.updatePickSchedule(
         gameId,
         {
@@ -170,7 +182,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       if (j < 0 || j >= order.length) return;
       [order[index], order[j]] = [order[j], order[index]];
       const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
+      if (!token) throw new Error("לא מחובר");
       const data = await gamesApi.reorderPickOrder(gameId, order, token);
       setState(data);
     });
@@ -178,7 +190,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   const pickPlayer = (playerId: string, onBehalf?: boolean) =>
     run(async () => {
       const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
+      if (!token) throw new Error("לא מחובר");
       const data = await gamesApi.makePick(
         gameId,
         {
@@ -196,10 +208,10 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   const submitTrade = () =>
     run(async () => {
       if (!tradeReceiverId || !offeredId || !requestedId) {
-        throw new Error("Select receiver and both players");
+        throw new Error("יש לבחור מנהל ושני שחקנים");
       }
       const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
+      if (!token) throw new Error("לא מחובר");
       const result = await gamesApi.proposeTrade(
         gameId,
         {
@@ -218,7 +230,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   const resolve = (tradeId: string, approve: boolean) =>
     run(async () => {
       const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
+      if (!token) throw new Error("לא מחובר");
       const data = await gamesApi.resolveTrade(gameId, tradeId, approve, token);
       setState(data);
     });
@@ -232,7 +244,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   }
 
   if (!state) {
-    return <Alert severity="error">{error || "Unable to load team management"}</Alert>;
+    return <Alert severity="error">{error || "לא ניתן לטעון את ניהול הקבוצות"}</Alert>;
   }
 
   const pickingActive = state.pickSessionStatus === "PICKING";
@@ -250,14 +262,14 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       {isOrganizer && (
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" fontWeight={700} gutterBottom>
-            Schedule draw & picking
+            תזמון הגרלה ובחירה
           </Typography>
           <Typography variant="body2" color="text.secondary" mb={2}>
-            At draw time the system randomizes manager turn order. At picking start time the live session opens automatically.
+            בזמן ההגרלה המערכת מערבבת את סדר תור המנהלים. בזמן תחילת הבחירה נפתח המסך החי אוטומטית.
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField
-              label="Lottery / draw time"
+              label="זמן הגרלה"
               type="datetime-local"
               value={drawLocal}
               onChange={(e) => setDrawLocal(e.target.value)}
@@ -265,7 +277,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
               fullWidth
             />
             <TextField
-              label="Picking phase start"
+              label="תחילת שלב הבחירה"
               type="datetime-local"
               value={pickLocal}
               onChange={(e) => setPickLocal(e.target.value)}
@@ -274,7 +286,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
             />
           </Stack>
           <Button sx={{ mt: 2 }} variant="contained" disabled={busy} onClick={saveSchedule}>
-            Save schedule
+            שמור לוח זמנים
           </Button>
         </Paper>
       )}
@@ -282,11 +294,11 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       <Paper sx={{ p: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
           <Typography variant="h6" fontWeight={700}>
-            Managers & turn order
+            מנהלים וסדר תורות
           </Typography>
           <Chip
             size="small"
-            label={state.pickSessionStatus}
+            label={statusLabel(state.pickSessionStatus)}
             color={pickingActive ? "success" : "default"}
           />
         </Stack>
@@ -320,10 +332,10 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
                   <Box flex={1}>
                     <Typography fontWeight={isCurrent ? 700 : 500}>
                       {idx + 1}. {managerName[mid] || mid}
-                      {isCurrent ? " — current turn" : ""}
+                      {isCurrent ? " — תור נוכחי" : ""}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {online ? "Online" : "Offline"}
+                      {online ? "מחובר" : "לא מחובר"}
                     </Typography>
                   </Box>
                   {isOrganizer && state.pickDrawExecutedAt && (
@@ -348,7 +360,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
 
         {showOfflineControls && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Current manager is offline.
+            המנהל הנוכחי לא מחובר.
             <Stack direction="row" spacing={1} mt={1}>
               <Button
                 size="small"
@@ -359,20 +371,20 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
                   setWaitingOffline(false);
                 }}
               >
-                Pick on their behalf (select from bench)
+                בחר במקומו (מהספסל)
               </Button>
               <Button size="small" variant="outlined" onClick={() => setWaitingOffline(true)}>
-                Wait
+                המתן
               </Button>
             </Stack>
             {!waitingOffline && (
               <Typography variant="caption" display="block" mt={1}>
-                Select a player from the bench to assign for them. There is no skip/forfeit.
+                בחר שחקן מהספסל כדי לשייך אותו במקומו. אין אפשרות לדלג/לוותר.
               </Typography>
             )}
             {waitingOffline && (
               <Typography variant="caption" display="block" mt={1}>
-                Waiting for the offline manager…
+                ממתין למנהל שלא מחובר…
               </Typography>
             )}
           </Alert>
@@ -382,10 +394,10 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="stretch">
         <Paper sx={{ p: 2, flex: 1 }}>
           <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-            Bench ({state.bench.length})
+            ספסל ({state.bench.length})
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" mb={1}>
-            No time limit per pick. Live for all managers.
+            אין הגבלת זמן לבחירה. חי לכל המנהלים.
           </Typography>
           <Stack spacing={1}>
             {state.bench.map((p) => {
@@ -409,14 +421,14 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
               );
             })}
             {state.bench.length === 0 && (
-              <Typography color="text.secondary">No unassigned players</Typography>
+              <Typography color="text.secondary">אין שחקנים לא משובצים</Typography>
             )}
           </Stack>
         </Paper>
 
         <Paper sx={{ p: 2, flex: 1.4 }}>
           <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-            Teams (live)
+            קבוצות (חי)
           </Typography>
           <Stack spacing={2}>
             {state.teams.map((t) => (
@@ -431,7 +443,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
                   ))}
                   {(t.players || []).length === 0 && (
                     <Typography variant="caption" color="text.secondary">
-                      No picks yet
+                      עדיין אין בחירות
                     </Typography>
                   )}
                 </Stack>
@@ -443,15 +455,15 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" fontWeight={700} gutterBottom>
-          Player swaps (managers only)
+          החלפות שחקנים (מנהלים בלבד)
         </Typography>
         <Typography variant="body2" color="text.secondary" mb={2}>
-          Propose a trade anytime during or after picking. Executes only after the other manager approves. Players are not notified.
+          ניתן להציע החלפה בכל עת במהלך או אחרי הבחירה. מתבצעת רק לאחר אישור המנהל השני. השחקנים לא מקבלים התראה.
         </Typography>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2} mb={2}>
           <TextField
             select
-            label="Trade with"
+            label="החלף עם"
             value={tradeReceiverId}
             onChange={(e) => setTradeReceiverId(e.target.value)}
             fullWidth
@@ -466,7 +478,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
           </TextField>
           <TextField
             select
-            label="You offer"
+            label="אתה מציע"
             value={offeredId}
             onChange={(e) => setOfferedId(e.target.value)}
             fullWidth
@@ -480,7 +492,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
           </TextField>
           <TextField
             select
-            label="You request"
+            label="אתה מבקש"
             value={requestedId}
             onChange={(e) => setRequestedId(e.target.value)}
             fullWidth
@@ -494,7 +506,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
           </TextField>
         </Stack>
         <Button variant="contained" disabled={busy} onClick={submitTrade}>
-          Propose swap
+          הצע החלפה
         </Button>
 
         <Divider sx={{ my: 2 }} />
@@ -502,24 +514,24 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
           {(state.pendingTrades || []).map((t) => (
             <Paper key={t.id} variant="outlined" sx={{ p: 1.5 }}>
               <Typography variant="body2">
-                {managerName[t.proposerId] || t.proposerId} offers{" "}
-                {t.offeredPlayerIds.map((id) => playerName[id] || id).join(", ")} for{" "}
+                {managerName[t.proposerId] || t.proposerId} מציע{" "}
+                {t.offeredPlayerIds.map((id) => playerName[id] || id).join(", ")} תמורת{" "}
                 {t.requestedPlayerIds.map((id) => playerName[id] || id).join(", ")}
               </Typography>
               <Stack direction="row" spacing={1} mt={1}>
                 {t.receiverId === currentUserId && (
                   <>
                     <Button size="small" variant="contained" disabled={busy} onClick={() => resolve(t.id, true)}>
-                      Approve
+                      אשר
                     </Button>
                     <Button size="small" color="inherit" disabled={busy} onClick={() => resolve(t.id, false)}>
-                      Reject
+                      דחה
                     </Button>
                   </>
                 )}
                 {t.proposerId === currentUserId && t.receiverId !== currentUserId && (
                   <Button size="small" color="inherit" disabled={busy} onClick={() => resolve(t.id, false)}>
-                    Cancel
+                    ביטול
                   </Button>
                 )}
               </Stack>
@@ -527,7 +539,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
           ))}
           {(state.pendingTrades || []).length === 0 && (
             <Typography variant="body2" color="text.secondary">
-              No pending trades
+              אין החלפות ממתינות
             </Typography>
           )}
         </Stack>
@@ -536,13 +548,13 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       {state.managerPickChatId && (
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" fontWeight={700} gutterBottom>
-            Managers group chat
+            צ&apos;אט קבוצתי למנהלים
           </Typography>
           <Typography variant="body2" color="text.secondary" mb={1}>
-            Visible to managers during picking. Separate from private chats.
+            גלוי למנהלים במהלך הבחירה. נפרד מצ&apos;אטים פרטיים.
           </Typography>
           <Box sx={{ height: 360 }}>
-            <Chat roomId={state.managerPickChatId} chatName="Managers" isWidget />
+            <Chat roomId={state.managerPickChatId} chatName="מנהלים" language="he" isWidget />
           </Box>
         </Paper>
       )}

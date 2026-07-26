@@ -41,7 +41,7 @@ export default async function TeamManagementPage(props: {
   if (!game) {
     return (
       <Container sx={{ py: 4 }}>
-        <Alert severity="error">Game not found</Alert>
+        <Alert severity="error">המשחק לא נמצא</Alert>
       </Container>
     );
   }
@@ -53,9 +53,9 @@ export default async function TeamManagementPage(props: {
   if (!isManager) {
     return (
       <Container sx={{ py: 4 }}>
-        <Alert severity="warning">Managers only — live team management is not available for players.</Alert>
+        <Alert severity="warning">למנהלים בלבד — ניהול קבוצות חי אינו זמין לשחקנים.</Alert>
         <Button component={Link} href={`/games/${id}`} sx={{ mt: 2 }} startIcon={<ArrowBackIcon />}>
-          Back to game
+          חזרה למשחק
         </Button>
       </Container>
     );
@@ -66,10 +66,10 @@ export default async function TeamManagementPage(props: {
       <Container maxWidth="lg" sx={{ py: { xs: 2, md: 3 } }}>
         <Box mb={2} display="flex" alignItems="center" gap={2}>
           <Button component={Link} href={`/games/${id}`} startIcon={<ArrowBackIcon />} size="small">
-            Back
+            חזרה
           </Button>
           <Typography variant="h5" fontWeight={800}>
-            Live team management
+            ניהול קבוצות חי
           </Typography>
         </Box>
         <LiveTeamManagement gameId={id} currentUserId={userId} />
