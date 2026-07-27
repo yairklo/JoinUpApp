@@ -189,11 +189,15 @@ class NotificationService {
 
         if (validDevices.length === 0) return;
 
+        // Prefer English title/body for Expo (mobile) when bilingual fields are present.
+        const pushTitle = (typeof data.titleEn === 'string' && data.titleEn.trim()) || title;
+        const pushBody = (typeof data.bodyEn === 'string' && data.bodyEn.trim()) || body;
+
         const messages = validDevices.map(d => ({
             to: d.expoPushToken,
             sound: 'default',
-            title,
-            body,
+            title: pushTitle,
+            body: pushBody,
             data: { ...data, type, notificationId: data.notificationId || '', link: data.link || '/' }
         }));
 

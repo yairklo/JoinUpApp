@@ -10,6 +10,7 @@ const {
   isConfirmedParticipant,
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
+const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
@@ -631,7 +632,20 @@ async function createGame(payload, creatorUser, io) {
     }
 
     const createdGames = await prisma.$transaction(createOps);
-    return createdGames[0];
+    const firstGame = createdGames[0];
+    // Notify invited friends about the first occurrence (same copy as single-game create).
+    if (firstGame && invitedUserIds.length) {
+      for (const invitedId of invitedUserIds) {
+        notifyUserAddedToGame(notificationService, {
+          userId: invitedId,
+          adderName: creatorUser.name,
+          adderId: creatorUser.id,
+          game: firstGame,
+          io,
+        });
+      }
+    }
+    return firstGame;
   }
 
   // Single instance flow (original behavior) with basic conflict check
@@ -753,6 +767,18 @@ async function createGame(payload, creatorUser, io) {
         ).catch(err => console.error('[NOTIFICATIONS] Failed to notify city user', u.id, err));
       });
     }).catch(err => console.error('[NOTIFICATIONS] Failed to query city users', err));
+  }
+
+  // 4. Friends invited at create-time get the same immediate "added to game" notification
+  // as when a manager adds them later via POST /participants.
+  for (const invitedId of invitedUserIds) {
+    notifyUserAddedToGame(notificationService, {
+      userId: invitedId,
+      adderName: creatorUser.name,
+      adderId: creatorUser.id,
+      game: created,
+      io,
+    });
   }
 
   return created;
