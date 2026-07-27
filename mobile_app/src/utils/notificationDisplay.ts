@@ -1,4 +1,5 @@
 import type { Notification } from '@/services/api/notifications';
+import i18n from '@/i18n';
 
 export type RawNotification = {
   id?: string;
@@ -48,13 +49,35 @@ export function getNotificationKey(raw: RawNotification, index = 0): string {
   return `notif-${type}-${createdAt || preview || index}`;
 }
 
+/** Prefer English title/body from payload when the app locale is English. */
+export function resolveNotificationCopy(raw: RawNotification): { title: string; body: string } {
+  const isEn = String(i18n.language || '').toLowerCase().startsWith('en');
+  const data = raw.data || {};
+  const titleEn = typeof data.titleEn === 'string' ? data.titleEn.trim() : '';
+  const bodyEn = typeof data.bodyEn === 'string' ? data.bodyEn.trim() : '';
+
+  const isChat = isChatNotification(raw);
+  const fallbackTitle = isChat ? 'הודעה חדשה' : 'התראה';
+  const fallbackBody = isChat ? 'הודעה חדשה בצ\'אט' : '';
+
+  if (isEn && titleEn) {
+    return {
+      title: titleEn,
+      body: bodyEn || String(raw.body || raw.message || raw.text || '').trim(),
+    };
+  }
+
+  return {
+    title: (raw.title?.trim() || fallbackTitle),
+    body: String(raw.body || raw.message || raw.text || fallbackBody).trim(),
+  };
+}
+
 export function normalizeNotification(raw: RawNotification, index = 0): Notification {
   const id = getNotificationKey(raw, index);
   const isChat = isChatNotification(raw);
   const chatId = getChatId(raw);
-
-  const title = (raw.title?.trim() || (isChat ? 'הודעה חדשה' : 'התראה'));
-  const body = String(raw.body || raw.message || raw.text || (isChat ? 'הודעה חדשה בצ\'אט' : '')).trim();
+  const { title, body } = resolveNotificationCopy(raw);
 
   let createdAt = raw.createdAt;
   if (!createdAt || Number.isNaN(new Date(createdAt).getTime())) {
