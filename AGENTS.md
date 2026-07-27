@@ -44,3 +44,5 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Quality gate `next_app:typecheck` failed — re-run and fix locally before merge/deploy.
 - When `NODE_ENV=production`, `npm install` skips devDependencies (no `jest` / `typescript`) — keep `include=dev` in package `.npmrc` (or pass `--include=dev`) for local gates.
 - `next build` needs `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (and related Clerk env) set; missing key fails prerender of `/_not-found`.
+- Clerk publishable key must be **format-valid** (base64 payload ending in `$`), not a string like `pk_test_quality_gate_placeholder` — invalid format fails prerender (e.g. `/chat`). `next_app` `npm run build` normalizes via `scripts/next-build.mjs`.
+- Quality gate `next_app:build` failed — re-run and fix locally before merge/deploy.
