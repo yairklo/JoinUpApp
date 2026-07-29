@@ -26,6 +26,8 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
@@ -47,6 +49,8 @@ import { SPORT_MAPPING, POSITION_OPTIONS } from "@/utils/sports";
 
 import Avatar from "@/components/Avatar";
 import AddFriendButton from "@/components/AddFriendButton";
+import { Game } from "@/types/game";
+import { gamesApi } from "@/services/api/games";
 
 type PublicUser = {
   id: string;
@@ -81,10 +85,16 @@ export default function ProfilePage() {
   const userId = user?.id;
 
   const [profile, setProfile] = useState<PublicUser | null>(null);
-  const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; city?: string | null }>>([]);
+  const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; city?: string | null; email?: string | null }>>([]);
   const [friends, setFriends] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; mutualCount?: number }>>([]);
   const [incoming, setIncoming] = useState<Array<{ id: string; requester: PublicUser; createdAt: string }>>([]);
   const [availableSports, setAvailableSports] = useState<Array<{ id: string; name: string }>>([]);
+
+  const [myGames, setMyGames] = useState<Game[]>([]);
+  const [gamesTab, setGamesTab] = useState(0);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -152,6 +162,11 @@ export default function ProfilePage() {
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         const inc = await fetch(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers });
         if (inc.ok) setIncoming(await inc.json());
+
+        if (token) {
+            const games = await gamesApi.getMyGames(token);
+            setMyGames(games);
+        }
       } catch { }
     })();
   }, [userId]);
@@ -231,6 +246,10 @@ export default function ProfilePage() {
   }
 
   const friendIdSet = new Set(friends.map((f) => f.id));
+
+  const now = new Date();
+  const upcomingGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) >= now);
+  const pastGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) < now);
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -494,6 +513,55 @@ export default function ProfilePage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* משחקים - Games Tabs */}
+              <Card elevation={2}>
+                <CardContent>
+                  <Tabs value={gamesTab} onChange={(e, val) => setGamesTab(val)} sx={{ mb: 2 }}>
+                    <Tab label="משחקים קרובים" />
+                    <Tab label="היסטוריית משחקים" />
+                  </Tabs>
+                  <Stack spacing={2}>
+                    {gamesTab === 0 ? (
+                      upcomingGames.length > 0 ? (
+                        upcomingGames.map(g => (
+                          <Card key={g.id} variant="outlined" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => router.push(`/games/${g.id}`)}>
+                            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                              <Typography variant="subtitle1" fontWeight="bold">{g.title || g.fieldName}</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {new Date(g.date).toLocaleDateString('he-IL')} • {g.time}
+                              </Typography>
+                              {g.fieldLocation && (
+                                <Typography variant="caption" color="text.secondary">{g.fieldLocation}</Typography>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">אין משחקים קרובים.</Typography>
+                      )
+                    ) : (
+                      pastGames.length > 0 ? (
+                        pastGames.map(g => (
+                          <Card key={g.id} variant="outlined" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => router.push(`/games/${g.id}`)}>
+                            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                              <Typography variant="subtitle1" fontWeight="bold">{g.title || g.fieldName}</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {new Date(g.date).toLocaleDateString('he-IL')} • {g.time}
+                              </Typography>
+                              {g.fieldLocation && (
+                                <Typography variant="caption" color="text.secondary">{g.fieldLocation}</Typography>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">אין היסטוריית משחקים.</Typography>
+                      )
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
             </Grid>
 
             {/* צד ימין: סרגל צד */}
@@ -501,23 +569,47 @@ export default function ProfilePage() {
               <Stack spacing={3}>
 
                 {/* 0. Search Players Bar */}
-                <Card elevation={2}>
-                  <CardContent>
+                <Card elevation={2} sx={{ overflow: 'visible' }}>
+                  <CardContent sx={{ position: 'relative' }}>
                     <Typography variant="h6" mb={2}>חיפוש שחקנים</Typography>
                     <TextField
                       placeholder="חפש שחקנים לפי שם או אימייל..."
                       size="small"
                       fullWidth
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => setSearchFocused(true)}
+                      onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
                       InputProps={{
                         startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          const val = (e.target as HTMLInputElement).value;
-                          router.push(`/profile/search-players?q=${encodeURIComponent(val)}`);
+                          router.push(`/profile/search-players?q=${encodeURIComponent(searchQuery)}`);
                         }
                       }}
                     />
+                    {searchFocused && searchQuery.trim() !== '' && (
+                      <Card elevation={4} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, mt: 1, maxHeight: 300, overflowY: 'auto' }}>
+                        <List dense>
+                          {allUsers
+                            .filter(u => u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase())))
+                            .slice(0, 5)
+                            .map(u => (
+                              <ListItem key={u.id} component="div" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => router.push(`/users/${u.id}`)}>
+                                <ListItemAvatar>
+                                  <Avatar src={u.imageUrl} name={u.name || ""} alt="" size="sm" />
+                                </ListItemAvatar>
+                                <ListItemText primary={u.name || "לא ידוע"} secondary={u.city} />
+                              </ListItem>
+                            ))}
+                          <Divider />
+                          <ListItem component="div" sx={{ cursor: 'pointer', justifyContent: 'center', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => router.push(`/profile/search-players?q=${encodeURIComponent(searchQuery)}`)}>
+                            <Typography color="primary" variant="button">ראה את כל התוצאות</Typography>
+                          </ListItem>
+                        </List>
+                      </Card>
+                    )}
                   </CardContent>
                 </Card>
 
