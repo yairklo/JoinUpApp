@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 
 import GamesPageContent from "@/components/GamesPageContent";
 import HomeHero from "@/components/HomeHero";
@@ -10,7 +10,7 @@ export default async function GamesPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const searchParams = await props.searchParams;
-  const user = await currentUser();
+  const { userId } = await auth();
 
   const today = new Date();
   const yyyy = today.getFullYear();

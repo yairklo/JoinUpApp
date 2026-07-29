@@ -28,10 +28,9 @@ export default async function TeamManagementPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await props.params;
-  const { getToken } = await auth();
+  const { getToken, userId: authUserId } = await auth();
   const token = await getToken().catch(() => null);
-  const user = await currentUser();
-  const userId = user?.id || "";
+  const userId = authUserId || "";
 
   if (!userId) {
     redirect(`/sign-in?redirect_url=/games/${id}/team-management`);
