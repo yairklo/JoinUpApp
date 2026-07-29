@@ -58,6 +58,26 @@ export default function GameLiveSection({
 }) {
   const [game, setGame] = useState<LiveGame>(initialGame);
   const { socket } = useSocket();
+
+  // Sync state when server data updates (e.g. after edit + router.refresh)
+  useEffect(() => {
+    setGame((prev) => ({ ...prev, ...initialGame }));
+  }, [
+    initialGame.time,
+    initialGame.date,
+    initialGame.duration,
+    initialGame.title,
+    initialGame.fieldName,
+    initialGame.fieldLocation,
+    initialGame.maxPlayers,
+    initialGame.sport,
+    initialGame.teamSize,
+    initialGame.price,
+    initialGame.registrationOpensAt,
+    initialGame.joinPolicy,
+    initialGame.lotteryEnabled
+  ]);
+
   const { getToken } = useAuth();
   const [waitlistActionLoading, setWaitlistActionLoading] = useState(false);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
