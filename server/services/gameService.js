@@ -156,6 +156,10 @@ const SEARCH_GAME_SELECT = {
   customLat: true,
   customLng: true,
   customLocation: true,
+  price: true,
+  teamSize: true,
+  registrationOpensAt: true,
+  joinPolicy: true,
   field: {
     select: {
       id: true,
@@ -167,12 +171,21 @@ const SEARCH_GAME_SELECT = {
     },
   },
   participants: {
-    select: { status: true },
+    select: { userId: true, status: true },
   },
 };
 
-function mapGameForSearchClient(game) {
+function mapGameForSearchClient(game, viewerId) {
   const confirmedCount = (game.participants || []).filter((p) => p.status === 'CONFIRMED').length;
+  
+  let viewerParticipationStatus = null;
+  if (viewerId) {
+    const viewerPart = (game.participants || []).find((p) => p.userId === viewerId);
+    if (viewerPart) {
+      viewerParticipationStatus = viewerPart.status;
+    }
+  }
+
   return {
     id: game.id,
     title: game.title || null,
@@ -191,6 +204,11 @@ function mapGameForSearchClient(game) {
     currentPlayers: confirmedCount,
     sport: game.sport,
     city: game.field?.city || null,
+    price: game.price,
+    teamSize: game.teamSize,
+    registrationOpensAt: game.registrationOpensAt ? game.registrationOpensAt.toISOString() : null,
+    joinPolicy: game.joinPolicy,
+    viewerParticipationStatus,
     field: game.field
       ? {
           id: game.field.id,
@@ -894,7 +912,7 @@ async function searchGames(queryParams, viewerId) {
   });
 
   const deduped = deduplicateSeriesGames(games);
-  return deduped.map((g) => mapGameForSearchClient(g));
+  return deduped.map((g) => mapGameForSearchClient(g, viewerId));
 }
 
 const GAME_FULL_INCLUDE = {
