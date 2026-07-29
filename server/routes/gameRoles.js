@@ -39,7 +39,7 @@ router.post('/:id/roles', authenticateToken, async (req, res) => {
     const isParticipant = await prisma.participation.findFirst({ where: { gameId, userId } });
     if (!isParticipant) return res.status(400).json({ error: 'Target user is not a participant' });
 
-    const requestedRole = (role && ['MANAGER', 'MODERATOR'].includes(String(role))) ? String(role).toUpperCase() : 'MANAGER';
+    const requestedRole = (role && ['MANAGER', 'MODERATOR', 'CAPTAIN'].includes(String(role))) ? String(role).toUpperCase() : 'MANAGER';
     const requestedLevel = roleToLevel(requestedRole);
     const targetLevel = await getRoleLevel(gameId, userId);
 

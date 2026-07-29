@@ -46,8 +46,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
   return (
     <Box>
       <SignedOut>
-        <Alert severity="warning" action={<SignInButton mode="modal"><Button color="inherit" size="small">Sign in</Button></SignInButton>}>
-          You must sign in to create a game.
+        <Alert severity="warning" action={<SignInButton mode="modal"><Button color="inherit" size="small">התחבר</Button></SignInButton>}>
+          יש להתחבר כדי ליצור משחק.
         </Alert>
       </SignedOut>
 
@@ -61,20 +61,20 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
 
               {/* --- SECTION 1: FIELD SELECTION --- */}
               <Box>
-                <Typography variant="subtitle2" color="text.secondary" mb={1}>Where & When</Typography>
+                <Typography variant="subtitle2" color="text.secondary" mb={1}>מקום וזמן</Typography>
                 <Grid container spacing={2} alignItems="flex-start">
                   <Grid size={{ xs: 12, sm: 8 }}>
                     {state.newFieldMode ? (
                       <Box border={1} borderColor="divider" borderRadius={1} p={2} bgcolor="action.hover">
-                        <Typography variant="subtitle2" gutterBottom>Create New Field</Typography>
+                        <Typography variant="subtitle2" gutterBottom>צור מגרש חדש</Typography>
                         <Stack spacing={2}>
-                          <TextField label="Field Name" size="small" fullWidth value={state.newField.name} onChange={e => actions.setNewField(p => ({ ...p, name: e.target.value }))} />
-                          <TextField label="Location / Address" size="small" fullWidth value={state.newField.location} onChange={e => actions.setNewField(p => ({ ...p, location: e.target.value }))} />
+                          <TextField label="שם המגרש" size="small" fullWidth value={state.newField.name} onChange={e => actions.setNewField(p => ({ ...p, name: e.target.value }))} />
+                          <TextField label="מיקום / כתובת" size="small" fullWidth value={state.newField.location} onChange={e => actions.setNewField(p => ({ ...p, location: e.target.value }))} />
                           <Stack direction="row" spacing={2}>
-                            <FormControlLabel control={<Checkbox checked={state.newField.type === 'open'} onChange={() => actions.setNewField(p => ({ ...p, type: 'open' }))} />} label="Open (Outdoor)" />
-                            <FormControlLabel control={<Checkbox checked={state.newField.type === 'closed'} onChange={() => actions.setNewField(p => ({ ...p, type: 'closed' }))} />} label="Closed (Indoor)" />
+                            <FormControlLabel control={<Checkbox checked={state.newField.type === 'open'} onChange={() => actions.setNewField(p => ({ ...p, type: 'open' }))} />} label="פתוח (חיצוני)" />
+                            <FormControlLabel control={<Checkbox checked={state.newField.type === 'closed'} onChange={() => actions.setNewField(p => ({ ...p, type: 'closed' }))} />} label="סגור (פנימי)" />
                           </Stack>
-                          <Button size="small" onClick={() => actions.setNewFieldMode(false)}>Cancel</Button>
+                          <Button size="small" onClick={() => actions.setNewFieldMode(false)}>ביטול</Button>
                         </Stack>
                       </Box>
                     ) : (
@@ -100,7 +100,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                           if (inputValue !== '' && !isExisting) {
                             filtered.push({
                               inputValue,
-                              name: `Add "${inputValue}"`,
+                              name: `הוסף "${inputValue}"`,
                               id: "NEW_FIELD_ID_TEMP"
                             });
                           }
@@ -123,7 +123,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                             </li>
                           );
                         }}
-                        renderInput={(params) => <TextField {...params} label="Search Field" placeholder="Type to search or add new..." size="small" />}
+                        renderInput={(params) => <TextField {...params} label="חפש מגרש" placeholder="הקלד לחיפוש או להוספת מגרש חדש..." size="small" />}
                       />
                     )}
                   </Grid>
@@ -135,7 +135,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                       onClick={() => setShowMap(true)}
                       sx={{ height: 40 }}
                     >
-                      Map
+                      מפה
                     </Button>
                   </Grid>
                 </Grid>
@@ -145,8 +145,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12 }}>
                   <TextField
-                    label="Game Title (Optional)"
-                    placeholder="e.g. Friday Night Soccer"
+                    label="כותרת המשחק (אופציונלי)"
+                    placeholder="לדוגמה: כדורגל שישי בערב"
                     size="small"
                     fullWidth
                     value={state.form.title}
@@ -155,7 +155,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
-                    label="Date"
+                    label="תאריך"
                     type="date"
                     fullWidth
                     size="small"
@@ -167,7 +167,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
-                    label="Time"
+                    label="שעה"
                     type="time"
                     fullWidth
                     size="small"
@@ -178,7 +178,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
-                    label="Duration (h)"
+                    label="משך זמן (שעות)"
                     type="number"
                     fullWidth
                     size="small"
@@ -188,7 +188,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
-                    label="Max Players"
+                    label="מקסימום שחקנים"
                     type="number"
                     fullWidth
                     size="small"
@@ -394,12 +394,12 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
         </form>
 
         <Dialog open={showMap} onClose={() => setShowMap(false)} fullWidth maxWidth="md">
-          <DialogTitle>Field Map</DialogTitle>
+          <DialogTitle>מפת מגרשים</DialogTitle>
           <DialogContent sx={{ p: 0, height: 400 }}>
             <MapWithNoSSR />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setShowMap(false)}>Close</Button>
+            <Button onClick={() => setShowMap(false)}>סגור</Button>
           </DialogActions>
         </Dialog>
 

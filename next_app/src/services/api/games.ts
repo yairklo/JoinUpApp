@@ -28,6 +28,7 @@ export type PickSessionState = {
     pickingOpenedAt: string | null;
     pickSessionStatus: string;
     pickTurnOrder: string[];
+    pickOrderType: string;
     pickCurrentTurnIndex: number;
     currentTurnManagerId: string | null;
     managers: { id: string; name?: string | null; avatar?: string | null; isOrganizer?: boolean }[];
@@ -102,7 +103,7 @@ export const gamesApi = {
 
     updatePickSchedule: (
         gameId: string,
-        data: { pickDrawAt?: string | null; pickingStartsAt?: string | null },
+        data: { pickDrawAt?: string | null; pickingStartsAt?: string | null; pickOrderType?: 'CIRCULAR' | 'SNAKE' },
         token: string
     ) => {
         return apiClient<PickSessionState>(`/api/games/${gameId}/pick-session/schedule`, {
@@ -154,4 +155,19 @@ export const gamesApi = {
             token,
         });
     },
+
+    assignRole: (gameId: string, data: { userId: string; role: string }, token: string) => {
+        return apiClient<{ organizerId: string; managers: { id: string; name: string | null; avatar: string | null; role: string }[] }>(`/api/games/${gameId}/roles`, {
+            method: 'POST',
+            data,
+            token,
+        });
+    },
+
+    removeRole: (gameId: string, userId: string, token: string) => {
+        return apiClient<{ organizerId: string; managers: { id: string; name: string | null; avatar: string | null; role: string }[] }>(`/api/games/${gameId}/roles/${userId}`, {
+            method: 'DELETE',
+            token,
+        });
+    }
 };

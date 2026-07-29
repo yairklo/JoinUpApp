@@ -14,6 +14,7 @@ const {
   notifyOrganizerOfWaitlistJoin,
   broadcastGameUpdate,
   notifyRequesterOfDecision,
+  sendAutoWelcomeMessage,
 } = require('../services/gameService');
 const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 
@@ -104,6 +105,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
           notifyOrganizerOfWaitlistJoin(game, req.user, req.io);
         } else {
           notifyOrganizerOfInstantJoin(game, req.user, req.io);
+          sendAutoWelcomeMessage(game, req.user.id);
         }
 
         // Add to Chat
@@ -148,6 +150,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       await safeUpsertUserFromAuth(prisma, req.user);
       await prisma.participation.update({ where: { id: existing.id }, data: { status: 'CONFIRMED' } });
       notifyOrganizerOfInstantJoin(game, req.user, req.io);
+      sendAutoWelcomeMessage(game, req.user.id);
 
       try {
         await prisma.chatParticipant.create({ data: { userId: req.user.id, chatId: game.id } });
@@ -164,6 +167,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       data: { gameId: game.id, userId: req.user.id, status: 'CONFIRMED' }
     });
     notifyOrganizerOfInstantJoin(game, req.user, req.io);
+    sendAutoWelcomeMessage(game, req.user.id);
 
     // Add to Chat
     try {
@@ -256,6 +260,9 @@ router.post('/:id/join-requests/:userId/approve', authenticateToken, async (req,
     }
 
     notifyRequesterOfDecision(game, targetUserId, true, req.io);
+    if (newStatus === 'CONFIRMED') {
+      sendAutoWelcomeMessage(game, targetUserId);
+    }
 
     const updated = await prisma.game.findUnique({
       where: { id: gameId },
@@ -463,6 +470,8 @@ router.post('/:id/waitlist-confirm', authenticateToken, async (req, res) => {
       try {
         await prisma.chatParticipant.create({ data: { userId: req.user.id, chatId: game.id } });
       } catch (e) { /* Ignore */ }
+      
+      sendAutoWelcomeMessage(game, req.user.id);
     } else {
       await prisma.participation.delete({
         where: { id: participation.id }
@@ -546,6 +555,8 @@ router.post('/:id/participants', authenticateToken, async (req, res) => {
     } catch (e) {
       // Ignore
     }
+
+    sendAutoWelcomeMessage(game, userId);
 
     const updated = await prisma.game.findUnique({
       where: { id: gameId },

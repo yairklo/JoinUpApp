@@ -64,6 +64,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   const [presence, setPresence] = useState<Record<string, boolean>>({});
   const [drawLocal, setDrawLocal] = useState("");
   const [pickLocal, setPickLocal] = useState("");
+  const [pickOrderTypeLocal, setPickOrderTypeLocal] = useState<"CIRCULAR" | "SNAKE">("CIRCULAR");
   const [waitingOffline, setWaitingOffline] = useState(false);
   const [tradeReceiverId, setTradeReceiverId] = useState("");
   const [offeredId, setOfferedId] = useState("");
@@ -83,6 +84,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       setState(data);
       setDrawLocal(toLocalInputValue(data.pickDrawAt));
       setPickLocal(toLocalInputValue(data.pickingStartsAt));
+      setPickOrderTypeLocal(data.pickOrderType as "CIRCULAR" | "SNAKE" || "CIRCULAR");
       setError(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "הטעינה נכשלה");
@@ -187,6 +189,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
         {
           pickDrawAt: fromLocalInputValue(drawLocal),
           pickingStartsAt: fromLocalInputValue(pickLocal),
+          pickOrderType: pickOrderTypeLocal,
         },
         token
       );
@@ -204,6 +207,24 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       if (!token) throw new Error("לא מחובר");
       const data = await gamesApi.reorderPickOrder(gameId, order, token);
       setState(data);
+    });
+
+  const assignCaptain = (userId: string) =>
+    run(async () => {
+      if (!isOrganizer || !userId) return;
+      const token = await getToken();
+      if (!token) throw new Error("לא מחובר");
+      await gamesApi.assignRole(gameId, { userId, role: "CAPTAIN" }, token);
+      await load();
+    });
+
+  const removeCaptain = (userId: string) =>
+    run(async () => {
+      if (!isOrganizer || !userId) return;
+      const token = await getToken();
+      if (!token) throw new Error("לא מחובר");
+      await gamesApi.removeRole(gameId, userId, token);
+      await load();
     });
 
   const pickPlayer = (playerId: string, onBehalf?: boolean) =>
@@ -303,6 +324,16 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
               InputLabelProps={{ shrink: true }}
               fullWidth
             />
+            <TextField
+              select
+              label="סדר בחירה"
+              value={pickOrderTypeLocal}
+              onChange={(e) => setPickOrderTypeLocal(e.target.value as "CIRCULAR" | "SNAKE")}
+              fullWidth
+            >
+              <MenuItem value="CIRCULAR">מעגלי (א, ב, ג, א, ב, ג)</MenuItem>
+              <MenuItem value="SNAKE">נחש (א, ב, ג, ג, ב, א)</MenuItem>
+            </TextField>
           </Stack>
           <Button sx={{ mt: 2 }} variant="contained" disabled={busy} onClick={saveSchedule}>
             שמור לוח זמנים
@@ -407,6 +438,48 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
               </Typography>
             )}
           </Alert>
+        )}
+      </Paper>
+
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" fontWeight={700} mb={2}>
+          קפטנים (בוחרים שחקנים)
+        </Typography>
+        <Stack spacing={1} mb={2}>
+          {state.managers.filter(m => m.id !== state.organizerId).map((m) => (
+            <Stack key={m.id} direction="row" alignItems="center" spacing={1}>
+              <Avatar src={m.avatar} alt={m.name || m.id} name={m.name || undefined} size="sm" />
+              <Typography flex={1}>{m.name || m.id}</Typography>
+              {isOrganizer && (
+                <Button size="small" color="error" onClick={() => removeCaptain(m.id)} disabled={busy}>
+                  הסר
+                </Button>
+              )}
+            </Stack>
+          ))}
+          {state.managers.length <= 1 && (
+            <Typography color="text.secondary">לא נבחרו קפטנים</Typography>
+          )}
+        </Stack>
+        {isOrganizer && (
+          <Stack direction="row" spacing={1}>
+            <TextField
+              select
+              size="small"
+              fullWidth
+              label="בחר שחקן לתפקיד קפטן"
+              value=""
+              onChange={(e) => assignCaptain(e.target.value)}
+              disabled={busy}
+            >
+              {state.bench.map(p => (
+                <MenuItem key={p.id} value={p.id}>{p.name || p.id}</MenuItem>
+              ))}
+              {state.teams.flatMap(t => t.players).map(p => (
+                <MenuItem key={p.id} value={p.id}>{p.name || p.id}</MenuItem>
+              ))}
+            </TextField>
+          </Stack>
         )}
       </Paper>
 

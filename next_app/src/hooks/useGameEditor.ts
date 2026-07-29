@@ -36,6 +36,7 @@ export interface GameEditorProps {
     initialPrice?: number | null;
     initialDuration?: number;
     initialDescription?: string | null;
+    initialWelcomeMessage?: string | null;
 }
 
 export function useGameEditor({
@@ -52,7 +53,8 @@ export function useGameEditor({
     initialTeamSize,
     initialPrice,
     initialDuration = 1,
-    initialDescription
+    initialDescription,
+    initialWelcomeMessage
 }: GameEditorProps) {
     const { getToken } = useAuth();
     const router = useRouter();
@@ -72,6 +74,7 @@ export function useGameEditor({
     const [requiresApproval, setRequiresApproval] = useState(initialJoinPolicy === 'REQUIRES_APPROVAL');
     const [duration, setDuration] = useState<number>(initialDuration);
     const [description, setDescription] = useState<string>(initialDescription || "");
+    const [welcomeMessage, setWelcomeMessage] = useState<string>(initialWelcomeMessage || "");
 
     // Future Registration State
     const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
@@ -95,6 +98,7 @@ export function useGameEditor({
         setRequiresApproval(initialJoinPolicy === 'REQUIRES_APPROVAL');
         setDuration(initialDuration);
         setDescription(initialDescription || "");
+        setWelcomeMessage(initialWelcomeMessage || "");
 
         setFutureRegEnabled(!!initialRegistrationOpensAt);
         if (initialRegistrationOpensAt) {
@@ -144,14 +148,15 @@ export function useGameEditor({
                 maxPlayers,
                 sport,
                 title,
-                teamSize,
+                teamSize: teamSize || undefined,
                 price,
                 isFriendsOnly,
                 joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 registrationOpensAt: futureRegEnabled ? registrationOpensAt : null,
                 friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null,
                 duration,
-                description
+                description,
+                welcomeMessage
             };
 
             await gamesApi.update(gameId, updateData as any, token);
@@ -191,13 +196,13 @@ export function useGameEditor({
             time, date, maxPlayers, sport, title, teamSize, price, isFriendsOnly, requiresApproval,
             futureRegEnabled, regDate, regTime,
             makePublicLater, publicDate, publicTime,
-            duration, description
+            duration, description, welcomeMessage
         },
         actions: {
             setOpen, setTime, setDate, setMaxPlayers, setSport, setTitle, setTeamSize, setPrice, setIsFriendsOnly, setRequiresApproval,
             setFutureRegEnabled, setRegDate, setRegTime,
             setMakePublicLater, setPublicDate, setPublicTime,
-            setDuration, setDescription,
+            setDuration, setDescription, setWelcomeMessage,
             handleOpen, handleClose, saveGame, deleteGame
         }
     };

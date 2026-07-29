@@ -174,6 +174,7 @@ export default async function GameDetails(props: {
               initialPrice={game.price}
               initialDuration={game.duration}
               initialDescription={game.description}
+              initialWelcomeMessage={game.welcomeMessage}
               canManage={canManageSeries}
             />
 
