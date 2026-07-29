@@ -163,8 +163,36 @@ export default function SearchPage() {
     setMapBounds(bounds);
   };
 
+  const handleGameJoined = useCallback((gameId: string) => {
+    setGames(prev => prev.map(g => {
+      if (g.id === gameId) {
+        return {
+          ...g,
+          viewerParticipationStatus: "CONFIRMED",
+          currentPlayers: g.currentPlayers + 1,
+          participants: [...(g.participants || []), { id: userId, status: "CONFIRMED" }] as any
+        };
+      }
+      return g;
+    }));
+  }, [userId]);
+
+  const handleGameLeft = useCallback((gameId: string) => {
+    setGames(prev => prev.map(g => {
+      if (g.id === gameId) {
+        return {
+          ...g,
+          viewerParticipationStatus: null,
+          currentPlayers: Math.max(0, g.currentPlayers - 1),
+          participants: (g.participants || []).filter((p: any) => p.id !== userId)
+        };
+      }
+      return g;
+    }));
+  }, [userId]);
+
   const renderGameCard = (g: Game) => {
-    const joined = !!userId && (g.participants || []).some((p: any) => p.id === userId);
+    const joined = !!userId && (g.viewerParticipationStatus === 'CONFIRMED' || (g.participants || []).some((p: any) => p.id === userId));
     const mainTitle = g.title || g.fieldName;
     const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
 
@@ -188,7 +216,7 @@ export default function SearchPage() {
           <LeaveGameButton
             gameId={g.id}
             currentPlayers={g.currentPlayers}
-            onLeft={performSearch}
+            onLeft={() => handleGameLeft(g.id)}
           />
         ) : (
           <JoinGameButton
@@ -196,7 +224,7 @@ export default function SearchPage() {
             registrationOpensAt={g.registrationOpensAt}
             joinPolicy={g.joinPolicy}
             viewerParticipationStatus={g.viewerParticipationStatus}
-            onJoined={performSearch}
+            onJoined={() => handleGameJoined(g.id)}
           />
         )}
         <Link href={`/games/${g.id}`} passHref legacyBehavior>

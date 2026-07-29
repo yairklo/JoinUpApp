@@ -496,11 +496,17 @@ io.on('connection', async (socket) => {
       }
     }
 
+    // Check active users in room to determine initial status
+    let initialStatus = 'sent';
+    if (roomId) {
+      const clients = io.sockets.adapter.rooms.get(String(roomId));
+      if (clients && clients.size > 1) {
+        initialStatus = 'delivered';
+      }
+    }
+
     // Call Moderator Service
     try {
-      // Retrieve last few messages for context (optional, can be empty for speed)
-      // const previousMessages = ... (Skipping for now to prioritize speed)
-
       const modResult = await moderator.checkMessage(
         text,
         [], // Chat History (empty for now)
@@ -515,12 +521,8 @@ io.on('connection', async (socket) => {
 
       if (!modResult.isSafe) {
         console.log(`❌ [MODERATION] BLOCKED message from ${finalUserId} (Age: ${senderAge}) -> ${receiverAge ? `Receiver Age: ${receiverAge}` : 'Public'}`);
-        socket.emit('message:error', {
-          id: tempId || Date.now(),
-          error: "Message blocked by safety filters.",
-          reason: "Community Guidelines Violation"
-        });
-        return; // STOP EXECUTION
+        text = "[תוכן פוגעני נמחק]";
+        initialStatus = 'blocked';
       }
 
       // Check if message needs human review (flagged but allowed)
@@ -557,15 +559,6 @@ io.on('connection', async (socket) => {
       // Usually Fail Open to prevent chat downtime, unless strict.
     }
     // ---------------------------------
-
-    // Check active users in room to determine initial status
-    let initialStatus = 'sent';
-    if (roomId) {
-      const clients = io.sockets.adapter.rooms.get(String(roomId));
-      if (clients && clients.size > 1) {
-        initialStatus = 'delivered';
-      }
-    }
 
     // 4. Atomic Creation with Forced Deep Include
     let savedMsg = null;

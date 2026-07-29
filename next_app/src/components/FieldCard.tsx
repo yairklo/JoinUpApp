@@ -167,23 +167,13 @@ export default function FieldCard({ field }: { field: Field }) {
           <Button
             component={Link}
             href={`/fields/${field.id}`}
-            variant="outlined"
-            size="small"
-            fullWidth
-            aria-label={`לפרופיל המגרש ${field.name}`}
-          >
-            פרופיל המגרש
-          </Button>
-          <Button
-            component={Link}
-            href={`/games?fieldId=${field.id}`}
             variant="contained"
             size="small"
             fullWidth
             startIcon={<SportsSoccerIcon sx={{ fontSize: 16 }} />}
-            aria-label={`למשחקים במגרש ${field.name}`}
+            aria-label={`לפרופיל המגרש ומשחקים ${field.name}`}
           >
-            משחקים
+            לפרופיל המגרש ומשחקים
           </Button>
           <IconButton
             size="small"

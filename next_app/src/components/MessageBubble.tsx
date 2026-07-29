@@ -128,10 +128,10 @@ export default function MessageBubble({
                         p: 1.5,
                         bgcolor: message.isDeleted
                             ? (isMine ? "primary.light" : "action.hover")
-                            : (isMine ? "primary.main" : "background.paper"),
+                            : (message.status === "blocked" ? (isMine ? "error.main" : "action.hover") : (isMine ? "primary.main" : "background.paper")),
                         color: message.isDeleted
                             ? "text.disabled"
-                            : (isMine ? "primary.contrastText" : "text.primary"),
+                            : (message.status === "blocked" ? (isMine ? "error.contrastText" : "text.primary") : (isMine ? "primary.contrastText" : "text.primary")),
                         position: "relative",
                         minWidth: "120px",
                         borderRadius: 2,
@@ -181,7 +181,7 @@ export default function MessageBubble({
                         </>
                     )}
 
-                    {!message.isDeleted && (
+                    {!message.isDeleted && message.status !== 'blocked' && (
                         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", mt: 0.5, gap: 0.5, opacity: 0.8 }}>
                             {renderStatusIcon()}
                         </Box>
@@ -206,9 +206,14 @@ export default function MessageBubble({
                         </Box>
                     )}
                 </Paper>
+                {isMine && message.status === 'blocked' && (
+                    <Typography variant="caption" sx={{ color: "error.main", mt: 0.5, px: 1, alignSelf: isRTL ? "flex-end" : "flex-start", width: "100%", textAlign: isRTL ? "right" : "left" }}>
+                        {isRTL ? "ההודעה מכילה תוכן פוגעני ולכן לא נשלחה" : "Message contains offensive content and was not sent."}
+                    </Typography>
+                )}
             </Box>
 
-            {!message.isDeleted && (
+            {!message.isDeleted && message.status !== 'blocked' && (
                 <Stack direction={isRTL ? "row-reverse" : "row"} spacing={0} sx={{ opacity: hover || menuAnchorEl ? 1 : 0, transition: "opacity 0.2s", alignSelf: "center" }}>
                     <IconButton size="small" onClick={() => onReply(message)}><ReplyIcon fontSize="small" /></IconButton>
                     <IconButton size="small" onClick={handleReactionClick}><AddReactionIcon fontSize="small" /></IconButton>
