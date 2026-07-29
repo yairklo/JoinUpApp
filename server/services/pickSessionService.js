@@ -32,7 +32,23 @@ function parseTurnOrder(raw) {
   return [];
 }
 
-/** Organizer + MANAGER role holders — the draft participants. */
+function computeCurrentTurnManagerId(turnOrder, currentIndex, pickOrderType) {
+  if (!turnOrder || turnOrder.length === 0) return null;
+  const n = turnOrder.length;
+  if (pickOrderType === 'SNAKE') {
+    const round = Math.floor(currentIndex / n);
+    const pos = currentIndex % n;
+    if (round % 2 === 0) {
+      return turnOrder[pos];
+    } else {
+      return turnOrder[n - 1 - pos];
+    }
+  }
+  // CIRCULAR (default)
+  return turnOrder[currentIndex % n];
+}
+
+/** Organizer + MANAGER + CAPTAIN role holders — the draft participants. */
 async function getManagerIdsForGame(gameId, gameRow) {
   let game = gameRow;
   if (!game) {
@@ -44,7 +60,7 @@ async function getManagerIdsForGame(gameId, gameRow) {
   if (!game) return [];
   const ids = new Set([game.organizerId]);
   for (const r of game.roles || []) {
-    if (r.role === 'MANAGER' || r.role === 'ORGANIZER') ids.add(r.userId);
+    if (r.role === 'MANAGER' || r.role === 'ORGANIZER' || r.role === 'CAPTAIN') ids.add(r.userId);
   }
   return [...ids];
 }
@@ -55,10 +71,10 @@ async function assertCanManagePick(gameId, userId) {
     include: { roles: true },
   });
   if (!game) throw httpError('Game not found', 404);
-  const level = await getRoleLevel(gameId, userId);
   const isOrganizer = game.organizerId === userId;
-  if (!isOrganizer && level < ROLE_LEVEL.MANAGER) {
-    throw httpError('Managers only', 403);
+  const hasRole = game.roles.some(r => r.userId === userId && (r.role === 'MANAGER' || r.role === 'CAPTAIN'));
+  if (!isOrganizer && !hasRole) {
+    throw httpError('Managers or Captains only', 403);
   }
   return game;
 }
@@ -249,8 +265,8 @@ async function buildPickSessionState(gameId, viewerId) {
   const managerIds = await getManagerIdsForGame(gameId, game);
   const turnOrder = parseTurnOrder(game.pickTurnOrder);
   const currentTurnIndex = game.pickCurrentTurnIndex || 0;
-  const currentTurnManagerId =
-    turnOrder.length > 0 ? turnOrder[currentTurnIndex % turnOrder.length] : null;
+  const pickOrderType = game.pickOrderType || 'CIRCULAR';
+  const currentTurnManagerId = computeCurrentTurnManagerId(turnOrder, currentTurnIndex, pickOrderType);
 
   const managerUsers = await prisma.user.findMany({
     where: { id: { in: managerIds } },
@@ -292,6 +308,7 @@ async function buildPickSessionState(gameId, viewerId) {
     pickingOpenedAt: game.pickingOpenedAt ? game.pickingOpenedAt.toISOString() : null,
     pickSessionStatus: game.pickSessionStatus || 'IDLE',
     pickTurnOrder: turnOrder,
+    pickOrderType,
     pickCurrentTurnIndex: currentTurnIndex,
     currentTurnManagerId,
     managers,
@@ -311,12 +328,16 @@ function emitPickState(io, gameId, state) {
   }
 }
 
-async function updatePickSchedule(gameId, userId, { pickDrawAt, pickingStartsAt }, io) {
+async function updatePickSchedule(gameId, userId, { pickDrawAt, pickingStartsAt, pickOrderType }, io) {
   const game = await prisma.game.findUnique({ where: { id: gameId } });
   if (!game) throw httpError('Game not found', 404);
   if (game.organizerId !== userId) throw httpError('Only the game creator can set schedule times', 403);
 
   const data = {};
+  if (typeof pickOrderType === 'string' && ['CIRCULAR', 'SNAKE'].includes(pickOrderType)) {
+    data.pickOrderType = pickOrderType;
+  }
+  
   if (typeof pickDrawAt !== 'undefined') {
     data.pickDrawAt = pickDrawAt ? new Date(String(pickDrawAt)) : null;
     if (data.pickDrawAt && data.pickDrawAt > new Date()) {
@@ -480,7 +501,7 @@ async function makePick(gameId, actorUserId, { playerId, onBehalfOfManagerId }, 
   const turnOrder = parseTurnOrder(game.pickTurnOrder);
   if (!turnOrder.length) throw httpError('No turn order set', 400);
 
-  const currentManagerId = turnOrder[(game.pickCurrentTurnIndex || 0) % turnOrder.length];
+  const currentManagerId = computeCurrentTurnManagerId(turnOrder, game.pickCurrentTurnIndex || 0, game.pickOrderType || 'CIRCULAR');
   const isOrganizer = game.organizerId === actorUserId;
 
   let pickingManagerId = currentManagerId;

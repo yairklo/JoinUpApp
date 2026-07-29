@@ -10,7 +10,50 @@ const {
   isConfirmedParticipant,
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
-const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
+const { notifyUserAddedToGame, notifyUserRemovedFromGame } = require('../utils/addedToGameNotification');
+
+async function sendAutoWelcomeMessage(game, newPlayerId) {
+  if (!game || !game.welcomeMessage || !game.organizerId || game.organizerId === newPlayerId) {
+    return;
+  }
+  try {
+    // 1. Get or create private chat room between organizer and new player
+    let chatRoom = await prisma.chatRoom.findFirst({
+      where: {
+        type: 'PRIVATE',
+        AND: [
+          { participants: { some: { userId: game.organizerId } } },
+          { participants: { some: { userId: newPlayerId } } }
+        ]
+      }
+    });
+
+    if (!chatRoom) {
+      chatRoom = await prisma.chatRoom.create({
+        data: {
+          type: 'PRIVATE',
+          participants: {
+            create: [
+              { userId: game.organizerId },
+              { userId: newPlayerId }
+            ]
+          }
+        }
+      });
+    }
+
+    // 2. Insert the message
+    await prisma.message.create({
+      data: {
+        chatRoomId: chatRoom.id,
+        text: game.welcomeMessage,
+        userId: game.organizerId
+      }
+    });
+  } catch (error) {
+    console.error('Failed to send auto-welcome message:', error);
+  }
+}
 
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
@@ -139,6 +182,7 @@ function mapGameForClient(game, viewerId) {
     pickSessionStatus: game.pickSessionStatus || 'IDLE',
     pickTurnOrder,
     pickCurrentTurnIndex: game.pickCurrentTurnIndex || 0,
+    welcomeMessage: game.welcomeMessage || null,
     managerPickChatId: game.managerPickChatId || null,
   };
 }
@@ -260,7 +304,7 @@ function buildVisibilityWhere(viewerId) {
   };
 }
 
-const ROLE_LEVEL = { NONE: 0, MODERATOR: 1, MANAGER: 2, ORGANIZER: 3 };
+const ROLE_LEVEL = { NONE: 0, MODERATOR: 1, CAPTAIN: 1, MANAGER: 2, ORGANIZER: 3 };
 function roleToLevel(role) {
   return ROLE_LEVEL[String(role || 'NONE').toUpperCase()] ?? 0;
 }
@@ -404,15 +448,8 @@ function buildOccurrenceParticipants({ organizerId, organizerInLottery, maxPlaye
     }
   }
 
-  for (const uid of subscriberIds || []) {
-    if (uid === organizerId || (invitedUserIds || []).includes(uid)) continue;
-    if (remainingSlots > 0) {
-      participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
-      remainingSlots -= 1;
-    } else {
-      participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
-    }
-  }
+  // Subscribers are no longer automatically added to games.
+  // They will receive a notification instead.
 
   return participantsCreate;
 }
@@ -438,6 +475,7 @@ async function createGame(payload, creatorUser, io) {
     lotteryAt,
     organizerInLottery,
     description,
+    welcomeMessage,
     recurrence,
     customLng,
     customLocation,
@@ -590,6 +628,7 @@ async function createGame(payload, creatorUser, io) {
               ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
               organizerInLottery: !!organizerInLottery,
               description: description || '',
+              welcomeMessage: welcomeMessage || null,
               organizerId: creatorUser.id,
               participants: { create: participantsCreate },
               roles: { create: { userId: creatorUser.id, role: 'ORGANIZER' } },
@@ -663,6 +702,26 @@ async function createGame(payload, creatorUser, io) {
         });
       }
     }
+
+    // Notify series subscribers that a new game has been created
+    if (firstGame && subscriberIds && subscriberIds.length) {
+      for (const subscriberId of subscriberIds) {
+        if (subscriberId === creatorUser.id) continue;
+        
+        const regText = firstGame.registrationOpensAt 
+          ? `ההרשמה תיפתח ב-${new Date(firstGame.registrationOpensAt).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}` 
+          : 'ההרשמה פתוחה כעת';
+          
+        notificationService.sendNotification(
+          subscriberId,
+          'NEW_GAME_IN_CITY', // Use existing type
+          `משחק חדש לקבוצה שלך נוצר!`,
+          `${firstGame.title || 'משחק'} נוצר עבור הקבוצה שלך. ${regText}. לחץ כאן כדי להירשם!`,
+          { gameId: firstGame.id, link: `/games/${firstGame.id}` }
+        );
+      }
+    }
+
     return firstGame;
   }
 
@@ -692,6 +751,7 @@ async function createGame(payload, creatorUser, io) {
         ...(pickDrawAt ? { pickDrawAt: new Date(String(pickDrawAt)), pickSessionStatus: 'DRAW_SCHEDULED' } : {}),
         ...(pickingStartsAt ? { pickingStartsAt: new Date(String(pickingStartsAt)) } : {}),
         description: description || '',
+        welcomeMessage: welcomeMessage || null,
         organizerId: creatorUser.id,
         // Organizer: confirmed by default, or waitlisted if included in lottery
         participants: {
@@ -1053,6 +1113,25 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
     io.emit('series:created', seriesPayload);
   }
 
+  // Notify subscribers about the newly created future games
+  if (subscriberIds && subscriberIds.length) {
+    for (const g of createdGames) {
+      const regText = g.registrationOpensAt 
+        ? `ההרשמה תיפתח ב-${new Date(g.registrationOpensAt).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}` 
+        : 'ההרשמה פתוחה כעת';
+      for (const subscriberId of subscriberIds) {
+        if (subscriberId === creatorUserId) continue;
+        notificationService.sendNotification(
+          subscriberId,
+          'NEW_GAME_IN_CITY',
+          `משחק חדש לקבוצה שלך נוצר!`,
+          `${g.title || 'משחק'} נוצר עבור הקבוצה שלך. ${regText}. לחץ כאן כדי להירשם!`,
+          { gameId: g.id, link: `/games/${g.id}` }
+        );
+      }
+    }
+  }
+
   return {
     game: mapGameForClient(updated, creatorUserId),
     created: createdGames.map(g => mapGameForClient(g, creatorUserId)),
@@ -1177,7 +1256,7 @@ async function updateGame(gameId, body, userId) {
   }
 
   const {
-    description, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt,
+    description, welcomeMessage, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt,
     organizerInLottery, title, sport, duration, teamSize, price,
     isFriendsOnly, joinPolicy, registrationOpensAt, friendsOnlyUntil, start,
     pickDrawAt, pickingStartsAt,
@@ -1217,6 +1296,7 @@ async function updateGame(gameId, body, userId) {
     where: { id: game.id },
     data: {
       ...(typeof description !== 'undefined' ? { description: description || '' } : {}),
+      ...(typeof welcomeMessage !== 'undefined' ? { welcomeMessage: welcomeMessage || null } : {}),
       ...(typeof isOpenToJoin !== 'undefined' ? { isOpenToJoin: !!isOpenToJoin } : {}),
       ...(typeof maxPlayers !== 'undefined' ? { maxPlayers: Number(maxPlayers) } : {}),
       ...(typeof lotteryEnabled !== 'undefined' ? { lotteryEnabled: !!lotteryEnabled } : {}),
@@ -1547,6 +1627,7 @@ module.exports = {
   notifyOrganizerOfWaitlistJoin,
   broadcastGameUpdate,
   notifyRequesterOfDecision,
+  sendAutoWelcomeMessage,
   createGame,
   searchGames,
   convertGameToSeries,

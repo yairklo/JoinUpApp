@@ -153,13 +153,29 @@ export default function GameDetailsEditor(props: ComponentProps) {
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <TextField
-                  label="הנחיות או מידע נוסף"
+                  margin="dense"
+                  label="תיאור / הערות נוספות"
+                  type="text"
                   fullWidth
                   multiline
-                  rows={3}
+                  rows={2}
+                  variant="outlined"
                   value={state.description}
                   onChange={(e) => actions.setDescription(e.target.value)}
-                  placeholder="הוראות הגעה, ציוד נדרש וכו׳"
+                  dir="rtl"
+                />
+                
+                <TextField
+                  margin="dense"
+                  label="הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)"
+                  type="text"
+                  fullWidth
+                  multiline
+                  rows={2}
+                  variant="outlined"
+                  value={state.welcomeMessage}
+                  onChange={(e) => actions.setWelcomeMessage(e.target.value)}
+                  dir="rtl"
                 />
               </Grid>
 

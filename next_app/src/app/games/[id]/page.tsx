@@ -34,6 +34,7 @@ type Game = {
   time: string;
   duration?: number;
   description: string;
+  welcomeMessage?: string;
   maxPlayers: number;
   currentPlayers: number;
   participants: Participant[];
@@ -174,6 +175,7 @@ export default async function GameDetails(props: {
               initialPrice={game.price}
               initialDuration={game.duration}
               initialDescription={game.description}
+              initialWelcomeMessage={game.welcomeMessage}
               canManage={canManageSeries}
             />
 

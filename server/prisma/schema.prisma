@@ -9,70 +9,65 @@ datasource db {
 }
 
 model User {
-  id             String          @id
-  email          String?         @unique
-  name           String?
-  imageUrl       String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  birthDate      DateTime?
-  city           String?
-  phone          String?
-  reputation     Int             @default(50)
-  // Privacy visibility flags. Null = unset → age-based default applied at read time
-  // (under 18 → FRIENDS_ONLY, otherwise EVERYONE). A saved value always wins.
-  privacyFriends  PrivacyLevel?
-  privacyGames    PrivacyLevel?
-  privacyMessages PrivacyLevel?
-  favoriteFields FavoriteField[]
-  requestsRecv   FriendRequest[] @relation("Recv")
-  requestsSent   FriendRequest[] @relation("Sent")
-  friendshipsA   Friendship[]    @relation("A")
-  friendshipsB   Friendship[]    @relation("B")
-  organizedGames Game[]          @relation("OrganizerGames")
-  participations Participation[]
-  gameRoles      GameRole[]
-  positions      UserPosition[]
-  sports         UserSport[]
-  seriesSubscriptions SeriesParticipant[]
-  chatParticipations ChatParticipant[]
-  messages       Message[]
-  
-  // Notification System
-  notifications  Notification[]  @relation("UserNotifications")
-  devices        UserDevice[]    @relation("UserDevices")
+  id                   String                    @id
+  email                String?                   @unique
+  name                 String?
+  imageUrl             String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  city                 String?
+  phone                String?
+  birthDate            DateTime?
+  reputation           Int                       @default(50)
+  privacyFriends       PrivacyLevel?
+  privacyGames         PrivacyLevel?
+  privacyMessages      PrivacyLevel?
+  chatParticipations   ChatParticipant[]
+  favoriteFields       FavoriteField[]
+  requestsRecv         FriendRequest[]           @relation("Recv")
+  requestsSent         FriendRequest[]           @relation("Sent")
+  friendshipsA         Friendship[]              @relation("A")
+  friendshipsB         Friendship[]              @relation("B")
+  organizedGames       Game[]                    @relation("OrganizerGames")
+  gameRoles            GameRole[]
+  messages             Message[]
+  notifications        Notification[]            @relation("UserNotifications")
+  participations       Participation[]
+  seriesSubscriptions  SeriesParticipant[]
+  devices              UserDevice[]              @relation("UserDevices")
   notificationSettings UserNotificationSettings? @relation("UserNotificationSettings")
-  ratingsGiven         UserRating[] @relation("RatingsGiven")
-  ratingsReceived      UserRating[] @relation("RatingsReceived")
+  positions            UserPosition[]
+  ratingsGiven         UserRating[]              @relation("RatingsGiven")
+  ratingsReceived      UserRating[]              @relation("RatingsReceived")
+  sports               UserSport[]
 }
 
 model Field {
-  id           String          @id @default(cuid())
-  name         String
-  location     String
-  description  String?
-  price        Int             @default(0)
-  rating       Float           @default(0)
-  image        String?
-  available    Boolean         @default(true)
-
-  type         FieldType
-  supportedSports SportType[] @default([SOCCER])
-  lat          Float?
-  lng          Float?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  city         String?
-  email        String?
-  featuresJson Json?
-  neighborhood String?
-  phone        String?
-  photos       String[]
-  street       String?
-  streetNumber String?
-  favorites    FavoriteField[]
-  games        Game[]
-  reports      FieldReport[]
+  id              String          @id @default(cuid())
+  name            String
+  location        String
+  description     String?
+  price           Int             @default(0)
+  rating          Float           @default(0)
+  image           String?
+  available       Boolean         @default(true)
+  type            FieldType
+  lat             Float?
+  lng             Float?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  city            String?
+  email           String?
+  featuresJson    Json?
+  neighborhood    String?
+  phone           String?
+  photos          String[]
+  street          String?
+  streetNumber    String?
+  supportedSports SportType[]     @default([SOCCER])
+  favorites       FavoriteField[]
+  reports         FieldReport[]
+  games           Game[]
 
   @@index([lat, lng])
   @@index([available, lat, lng])
@@ -86,7 +81,6 @@ model Field {
 model FieldReport {
   id        String   @id @default(cuid())
   fieldId   String
-  field     Field    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
   /// Reporter — used for rate-limiting duplicate reports (nullable for legacy/anonymized rows)
   userId    String?
   dayOfWeek Int
@@ -94,67 +88,60 @@ model FieldReport {
   /// 1=Empty, 2=Light, 3=Moderate, 4=Crowded, 5=Full (Int rather than enum so Prisma can _avg it)
   busyLevel Int
   createdAt DateTime @default(now())
+  field     Field    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
 
   @@index([fieldId, dayOfWeek, hour])
   @@index([fieldId, userId, createdAt])
 }
 
 model Game {
-  id           String          @id @default(cuid())
-  title        String?
-  fieldId      String
+  id                   String            @id @default(cuid())
+  fieldId              String
+  start                DateTime
+  duration             Float             @default(1)
+  maxPlayers           Int
+  isOpenToJoin         Boolean           @default(true)
+  description          String?
+  welcomeMessage       String?
+  organizerId          String
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  customLat            Float?
+  customLng            Float?
+  customLocation       String?
+  isFriendsOnly        Boolean           @default(false)
+  friendsOnlyUntil     DateTime?
+  lotteryAt            DateTime?
+  lotteryEnabled       Boolean           @default(false)
+  lotteryExecutedAt    DateTime?
+  organizerInLottery   Boolean           @default(false)
   /// Optional reference to a recurring series
-  seriesId     String?
-  start        DateTime
-  duration     Float           @default(1)
-  maxPlayers   Int
-  teamSize     Int?
-  price        Int?
-  isOpenToJoin Boolean         @default(true)
-  // Visible only to organizer's friends and participants when true
-  isFriendsOnly Boolean        @default(false)
-  // Whether joining requires organizer/manager approval before becoming CONFIRMED
-  joinPolicy   JoinPolicy      @default(INSTANT)
-  // When set, game becomes public automatically at this time
-  friendsOnlyUntil DateTime?
-  // Allow signups beyond capacity and finalize participants by lottery
-  lotteryEnabled    Boolean   @default(false)
-  // Exact datetime when the lottery should run (when enabled)
-  lotteryAt        DateTime?
-  // Include organizer in the lottery draw instead of confirming them immediately
-  organizerInLottery Boolean  @default(false)
-  // Set when the lottery has executed
-  lotteryExecutedAt DateTime?
-  // Manager turn-order draw + live team picking (distinct from player capacity lottery)
-  pickDrawAt            DateTime?
-  pickDrawExecutedAt    DateTime?
-  pickingStartsAt       DateTime?
-  pickingOpenedAt       DateTime?
-  pickSessionStatus     PickSessionStatus @default(IDLE)
-  pickTurnOrder         Json?   // string[] of manager user IDs in draft order
-  pickCurrentTurnIndex  Int     @default(0)
-  managerPickChatId     String?
-  description  String?
-  // Optional custom location for games not tied to a mapped field
-  customLat    Float?
-  customLng    Float?
-  customLocation String?
-  organizerId  String
-  sport        SportType       @default(SOCCER)
-  status       GameStatus      @default(OPEN)
-  registrationOpensAt DateTime?
-  reminderSent Boolean         @default(false) // Track if 1-hour reminder was sent
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  field        Field           @relation(fields: [fieldId], references: [id])
-  organizer    User            @relation("OrganizerGames", fields: [organizerId], references: [id])
-  /// Parent series relation (optional)
-  series       GameSeries?     @relation(fields: [seriesId], references: [id])
-  participants Participation[]
-  roles        GameRole[]
-  teams        Team[]
-  ratings      UserRating[]
-  playerTrades PlayerTrade[]
+  seriesId             String?
+  sport                SportType         @default(SOCCER)
+  registrationOpensAt  DateTime?
+  title                String?
+  teamSize             Int?
+  price                Int?
+  status               GameStatus        @default(OPEN)
+  reminderSent         Boolean           @default(false)
+  joinPolicy           JoinPolicy        @default(INSTANT)
+  pickDrawAt           DateTime?
+  pickDrawExecutedAt   DateTime?
+  pickingStartsAt      DateTime?
+  pickingOpenedAt      DateTime?
+  pickSessionStatus    PickSessionStatus @default(IDLE)
+  pickTurnOrder        Json?
+  pickCurrentTurnIndex Int               @default(0)
+  pickOrderType        String            @default("CIRCULAR")
+  managerPickChatId    String?
+  field                Field             @relation(fields: [fieldId], references: [id])
+  organizer            User              @relation("OrganizerGames", fields: [organizerId], references: [id])
+  series               GameSeries?       @relation(fields: [seriesId], references: [id])
+  roles                GameRole[]
+  participants         Participation[]
+  playerTrades         PlayerTrade[]
+  teams                Team[]
+  ratings              UserRating[]
 
   @@index([start, status])
   @@index([status, start])
@@ -166,43 +153,17 @@ model Game {
   @@index([pickingStartsAt, pickingOpenedAt])
 }
 
-enum GameStatus {
-  OPEN
-  COMPLETED
-  CANCELLED
-}
-
-enum PickSessionStatus {
-  IDLE
-  DRAW_SCHEDULED
-  ORDER_SET
-  PICKING
-  COMPLETED
-}
-
-enum TradeStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELLED
-}
-
-enum JoinPolicy {
-  INSTANT
-  REQUIRES_APPROVAL
-}
-
 model Participation {
-  id        String   @id @default(cuid())
-  gameId    String
-  userId    String
-  teamId    String?
-  status    ParticipationStatus @default(CONFIRMED)
-  createdAt DateTime @default(now())
-  isWaitlistOffer Boolean @default(false)
-  game      Game     @relation(fields: [gameId], references: [id])
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team      Team?    @relation(fields: [teamId], references: [id])
+  id              String              @id @default(cuid())
+  gameId          String
+  userId          String
+  createdAt       DateTime            @default(now())
+  status          ParticipationStatus @default(CONFIRMED)
+  teamId          String?
+  isWaitlistOffer Boolean             @default(false)
+  game            Game                @relation(fields: [gameId], references: [id])
+  team            Team?               @relation(fields: [teamId], references: [id])
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([gameId, userId])
   @@index([userId])
@@ -213,13 +174,13 @@ model Participation {
 model UserRating {
   id        String   @id @default(cuid())
   gameId    String
-  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
   raterId   String
-  rater     User     @relation("RatingsGiven", fields: [raterId], references: [id], onDelete: Cascade)
   targetId  String
-  target    User     @relation("RatingsReceived", fields: [targetId], references: [id], onDelete: Cascade)
   score     Int
   createdAt DateTime @default(now())
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  rater     User     @relation("RatingsGiven", fields: [raterId], references: [id], onDelete: Cascade)
+  target    User     @relation("RatingsReceived", fields: [targetId], references: [id], onDelete: Cascade)
 
   @@unique([gameId, raterId, targetId])
   @@index([targetId])
@@ -228,51 +189,40 @@ model UserRating {
 
 model ChatRoom {
   id           String            @id @default(cuid())
-  type         String            @default("PRIVATE") // "PRIVATE" or "GROUP"
+  type         String            @default("PRIVATE")
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
-  messages     Message[]
   participants ChatParticipant[]
+  messages     Message[]
 }
 
 model ChatParticipant {
-  id        String   @id @default(cuid())
-  userId    String
-  chatId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chat      ChatRoom @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  joinedAt  DateTime @default(now())
+  id         String    @id @default(cuid())
+  userId     String
+  chatId     String
+  joinedAt   DateTime  @default(now())
   lastReadAt DateTime?
-  
+  chat       ChatRoom  @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, chatId])
 }
 
-enum MessageStatus {
-  sent
-  delivered
-  read
-  rejected
-  blocked
-}
-
 model Message {
-  id        String   @id @default(cuid())
+  id         String        @id @default(cuid())
+  userId     String?
+  text       String
+  createdAt  DateTime      @default(now())
+  replyToId  String?
+  status     MessageStatus @default(sent)
   chatRoomId String
-  chatRoom   ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  text      String
-  status    MessageStatus @default(sent)
-  createdAt DateTime @default(now())
-  isEdited  Boolean  @default(false)
-  isDeleted Boolean  @default(false)
-  // New: Reply Relation
-  replyToId String?
-  replyTo   Message? @relation("ReplyTo", fields: [replyToId], references: [id])
-  replies   Message[] @relation("ReplyTo")
-
-  // New: Reactions Relation
-  reactions Reaction[]
+  isDeleted  Boolean       @default(false)
+  isEdited   Boolean       @default(false)
+  chatRoom   ChatRoom      @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  replyTo    Message?      @relation("ReplyTo", fields: [replyToId], references: [id])
+  replies    Message[]     @relation("ReplyTo")
+  user       User?         @relation(fields: [userId], references: [id])
+  reactions  Reaction[]
 
   @@index([chatRoomId])
 }
@@ -282,8 +232,8 @@ model Reaction {
   emoji     String
   userId    String
   messageId String
-  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@unique([userId, messageId, emoji])
 }
@@ -341,12 +291,12 @@ model Position {
 }
 
 model UserSport {
-  id      String @id @default(cuid())
-  userId  String
-  sportId String
-  sport   Sport  @relation(fields: [sportId], references: [id])
-  user    User   @relation(fields: [userId], references: [id])
+  id                  String  @id @default(cuid())
+  userId              String
+  sportId             String
   positionDescription String?
+  sport               Sport   @relation(fields: [sportId], references: [id])
+  user                User    @relation(fields: [userId], references: [id])
 
   @@unique([userId, sportId])
 }
@@ -362,26 +312,26 @@ model UserPosition {
 }
 
 model GameRole {
-  id        String        @id @default(cuid())
+  id        String       @id @default(cuid())
   gameId    String
   userId    String
-  role      GameRoleType  @default(MANAGER)
-  createdAt DateTime      @default(now())
-  game      Game          @relation(fields: [gameId], references: [id])
-  user      User          @relation(fields: [userId], references: [id])
+  role      GameRoleType @default(MANAGER)
+  createdAt DateTime     @default(now())
+  game      Game         @relation(fields: [gameId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
 
   @@unique([gameId, userId])
 }
 
 model Team {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   gameId    String
   name      String
-  color     String   // hex color
-  managerId String?  // manager who drafts for this team during live picking
-  createdAt DateTime @default(now())
-  game      Game     @relation(fields: [gameId], references: [id])
+  color     String
+  createdAt DateTime        @default(now())
+  managerId String?
   players   Participation[]
+  game      Game            @relation(fields: [gameId], references: [id])
 
   @@index([gameId])
   @@index([gameId, managerId])
@@ -405,6 +355,171 @@ model PlayerTrade {
   @@index([proposerId])
 }
 
+model GameSeries {
+  id                        String              @id @default(cuid())
+  organizerId               String
+  fieldId                   String?
+  fieldName                 String
+  fieldLocation             String
+  price                     Int                 @default(0)
+  maxPlayers                Int
+  /// 0-6 (Sunday=0 per JS Date.getDay()) - only for WEEKLY
+  dayOfWeek                 Int?
+  /// "HH:MM"
+  time                      String
+  /// hours (can be fractional)
+  duration                  Float
+  isActive                  Boolean             @default(true)
+  createdAt                 DateTime            @default(now())
+  /// Recurrence type: weekly auto vs. custom dates
+  type                      RecurrenceType      @default(WEEKLY)
+  sport                     SportType           @default(SOCCER)
+  autoOpenRegistrationHours Float?
+  title                     String?
+  games                     Game[]
+  subscribers               SeriesParticipant[]
+
+  @@index([isActive])
+}
+
+model SeriesParticipant {
+  id        String     @id @default(cuid())
+  seriesId  String
+  userId    String
+  createdAt DateTime   @default(now())
+  series    GameSeries @relation(fields: [seriesId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+
+  @@unique([seriesId, userId])
+}
+
+model FlaggedMessage {
+  id            String   @id @default(cuid())
+  messageId     String?
+  content       String
+  userId        String
+  status        String   @default("PENDING_RETRY")
+  resolution    String?
+  retryCount    Int      @default(0)
+  failureReason String?
+  aiTriggers    Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model UserDevice {
+  id            String   @id @default(cuid())
+  userId        String
+  fcmToken      String?  @unique
+  deviceType    String?
+  deviceName    String?
+  lastUsed      DateTime @default(now())
+  createdAt     DateTime @default(now())
+  expoPushToken String?  @unique
+  user          User     @relation("UserDevices", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([fcmToken])
+  @@index([expoPushToken])
+}
+
+model UserNotificationSettings {
+  id                    String  @id @default(cuid())
+  userId                String  @unique
+  pushEnabled           Boolean @default(true)
+  friendRequestsEnabled Boolean @default(true)
+  messagesEnabled       Boolean @default(true)
+  gameRemindersEnabled  Boolean @default(true)
+  user                  User    @relation("UserNotificationSettings", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AgentCostLedger {
+  costScopeId String   @id
+  spentUsd    Float    @default(0)
+  updatedAt   DateTime
+}
+
+model AgentExecutionLog {
+  id           String   @id
+  taskId       String
+  stepId       String
+  agentId      String
+  role         String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  costUsd      Float
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([taskId])
+}
+
+model AgentTaskState {
+  taskId       String   @id
+  sessionId    String
+  parentTaskId String?
+  status       String
+  version      Int      @default(1)
+  state        Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+
+  @@index([parentTaskId])
+  @@index([sessionId])
+  @@index([status])
+}
+
+enum GameStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+enum PickSessionStatus {
+  IDLE
+  DRAW_SCHEDULED
+  ORDER_SET
+  PICKING
+  COMPLETED
+}
+
+enum TradeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum JoinPolicy {
+  INSTANT
+  REQUIRES_APPROVAL
+}
+
+enum MessageStatus {
+  sent
+  delivered
+  read
+  rejected
+  blocked
+}
+
 enum FieldType {
   OPEN
   CLOSED
@@ -425,56 +540,15 @@ enum ParticipationStatus {
   CONFIRMED
   CANCELLED
   NOT_SELECTED
-  // Awaiting organizer/manager decision on a game with joinPolicy = REQUIRES_APPROVAL
   PENDING
-  // Organizer/manager declined the join request (row kept to block instant re-requests)
   REJECTED
 }
 
 enum GameRoleType {
   ORGANIZER
   MANAGER
+  CAPTAIN
   MODERATOR
-}
-
-model GameSeries {
-  id             String   @id @default(cuid())
-  title          String?
-  organizerId    String
-  fieldId        String?
-  fieldName      String
-  fieldLocation  String
-  price          Int      @default(0)
-  maxPlayers     Int
-  /// 0-6 (Sunday=0 per JS Date.getDay()) - only for WEEKLY
-  dayOfWeek      Int?
-  /// "HH:MM"
-  time           String
-  /// hours (can be fractional)
-  duration       Float
-  isActive       Boolean  @default(true)
-  sport          SportType @default(SOCCER)
-  createdAt      DateTime @default(now())
-  /// Recurrence type: weekly auto vs. custom dates
-  type           RecurrenceType @default(WEEKLY)
-  autoOpenRegistrationHours Float?
-
-  games          Game[]
-  subscribers    SeriesParticipant[]
-
-  @@index([isActive])
-}
-
-model SeriesParticipant {
-  id         String   @id @default(cuid())
-  seriesId   String
-  userId     String
-  createdAt  DateTime @default(now())
-
-  series     GameSeries @relation(fields: [seriesId], references: [id])
-  user       User       @relation(fields: [userId], references: [id])
-
-  @@unique([seriesId, userId])
 }
 
 enum RecurrenceType {
@@ -487,24 +561,6 @@ enum SportType {
   BASKETBALL
   TENNIS
 }
-
-model FlaggedMessage {
-  id            String   @id @default(cuid())
-  messageId     String?
-  content       String
-  userId        String
-  status        String   @default("PENDING_RETRY") // PENDING_RETRY, RESOLVED
-  resolution    String?  // AUTO_APPROVED, AUTO_REJECTED
-  retryCount    Int      @default(0)
-  failureReason String?
-  aiTriggers    Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-// ============================================
-// NOTIFICATION SYSTEM
-// ============================================
 
 enum NotificationType {
   FRIEND_REQUEST
@@ -521,49 +577,4 @@ enum NotificationType {
   GAME_INVITATION
   GAME_REMOVED_PEER
   GAME_ROLE_UPDATE
-}
-
-model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  type      NotificationType
-  title     String
-  body      String
-  data      Json?            // Metadata: gameId, friendRequestId, chatId, link, etc.
-  read      Boolean          @default(false)
-  createdAt DateTime         @default(now())
-  
-  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId, createdAt(sort: Desc)]) // Fast retrieval of recent notifications
-  @@index([userId, read])                   // Fast counting of unread notifications
-  @@index([createdAt])                      // For cleanup worker (TTL)
-}
-
-model UserDevice {
-  id            String   @id @default(cuid())
-  userId        String
-  fcmToken      String?  @unique
-  expoPushToken String?  @unique
-  deviceType    String?  // "ios", "android", "web"
-  deviceName    String?  // User-friendly name
-  lastUsed      DateTime @default(now())
-  createdAt     DateTime @default(now())
-  
-  user          User     @relation("UserDevices", fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([fcmToken])
-  @@index([expoPushToken])
-}
-
-model UserNotificationSettings {
-  id                    String  @id @default(cuid())
-  userId                String  @unique
-  pushEnabled           Boolean @default(true)
-  friendRequestsEnabled Boolean @default(true)
-  messagesEnabled       Boolean @default(true)
-  gameRemindersEnabled  Boolean @default(true)
-  
-  user                  User    @relation("UserNotificationSettings", fields: [userId], references: [id], onDelete: Cascade)
 }

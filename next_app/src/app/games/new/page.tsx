@@ -105,6 +105,7 @@ function NewGamePageInner() {
     duration: 1,
     maxPlayers: 10,
     description: "",
+    welcomeMessage: "",
     isFriendsOnly: false,
     joinPolicy: "INSTANT" as "INSTANT" | "REQUIRES_APPROVAL",
     lotteryEnabled: false,
@@ -565,6 +566,16 @@ function NewGamePageInner() {
                       fullWidth
                       value={form.description}
                       onChange={(e) => update("description", e.target.value)}
+                      dir="rtl"
+                    />
+
+                    <TextField
+                      label="הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)"
+                      multiline
+                      rows={3}
+                      fullWidth
+                      value={form.welcomeMessage}
+                      onChange={(e) => update("welcomeMessage", e.target.value)}
                       dir="rtl"
                     />
 
