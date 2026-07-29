@@ -25,6 +25,7 @@ export type Game = {
     price?: number | null;
     organizerId?: string;
     description?: string;
+    welcomeMessage?: string;
     isFriendsOnly?: boolean;
     friendsOnlyUntil?: string | null;
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';

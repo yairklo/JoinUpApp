@@ -15,6 +15,7 @@ export interface UpdateGameDTO {
     friendsOnlyUntil?: string | null;
     duration?: number;
     description?: string;
+    welcomeMessage?: string;
     lotteryEnabled?: boolean;
     lotteryAt?: string | null;
     organizerInLottery?: boolean;
@@ -182,7 +183,7 @@ export const gamesApi = {
 
     updatePickSchedule: (
         gameId: string,
-        data: { pickDrawAt?: string | null; pickingStartsAt?: string | null },
+        data: { pickDrawAt?: string | null; pickingStartsAt?: string | null; pickOrderType?: string },
         token: string
     ) => {
         return apiClient<any>(`/api/games/${gameId}/pick-session/schedule`, {
@@ -231,4 +232,19 @@ export const gamesApi = {
             token,
         });
     },
+
+    assignRole: (gameId: string, data: { userId: string; role: string }, token: string) => {
+        return apiClient<{ organizerId: string; managers: { id: string; name?: string | null; avatar?: string | null; role?: string }[] }>(`/api/games/${gameId}/roles`, {
+            method: 'POST',
+            data,
+            token,
+        });
+    },
+
+    removeRole: (gameId: string, userId: string, token: string) => {
+        return apiClient<{ organizerId: string; managers: { id: string; name?: string | null; avatar?: string | null; role?: string }[] }>(`/api/games/${gameId}/roles/${userId}`, {
+            method: 'DELETE',
+            token,
+        });
+    }
 };
