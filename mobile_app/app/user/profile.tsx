@@ -1,8 +1,10 @@
 import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useRouter, Stack } from 'expo-router';
 import { usersApi, UserProfile } from '../../src/services/api/users';
+import { gamesApi } from '../../src/services/api/games';
+import { Game } from '@/types/game';
 import { API_BASE } from '../../src/services/api/client';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -43,6 +45,15 @@ export default function ProfileScreen() {
     const [sportModalVisible, setSportModalVisible] = useState(false);
     const [availableSports, setAvailableSports] = useState<{ id: string; name: string }[]>([]);
 
+    const [myGames, setMyGames] = useState<Game[]>([]);
+    const [gamesTab, setGamesTab] = useState(0); // 0 = Upcoming, 1 = Past
+    
+    // Search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searchFocused, setSearchFocused] = useState(false);
+    const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
     useEffect(() => {
         if (!user?.id) return;
         loadProfile();
@@ -61,6 +72,9 @@ export default function ProfileScreen() {
                     phone: data?.phone || '',
                     sportsData: (data?.sports || []).map(s => ({ sportId: s.id, position: s.position || '' })),
                 });
+                
+                const games = await gamesApi.getMyGames(token);
+                setMyGames(games);
             }
         } catch (err) {
             console.error("Failed to load profile", err);
@@ -111,6 +125,26 @@ export default function ProfileScreen() {
             phone: profile?.phone || '',
             sportsData: (profile?.sports || []).map(s => ({ sportId: s.id, position: s.position || '' })),
         });
+    };
+
+    const handleSearchInput = (text: string) => {
+        setSearchQuery(text);
+        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+        
+        if (!text.trim()) {
+            setSearchResults([]);
+            return;
+        }
+
+        debounceTimeoutRef.current = setTimeout(async () => {
+            try {
+                const token = await getToken();
+                if (token) {
+                    const res = await usersApi.search(text, token);
+                    setSearchResults(res);
+                }
+            } catch(e) {}
+        }, 300);
     };
 
     const addSport = (sportId: string) => {
@@ -196,7 +230,50 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }}>
+            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }} keyboardShouldPersistTaps="handled">
+                {/* Search Players Bar */}
+                <View className="mx-4 mb-4 z-10" style={{ zIndex: 10 }}>
+                    <Text className="text-lg font-black text-gray-900 mb-2">{t('profile.searchPlayers', 'חיפוש שחקנים')}</Text>
+                    <View className="bg-white rounded-2xl px-4 py-3 flex-row items-center border border-gray-200 shadow-sm">
+                        <FontAwesome name="search" size={16} color="#9ca3af" style={{ marginRight: 8 }} />
+                        <TextInput
+                            placeholder="חפש שחקנים לפי שם או אימייל..."
+                            value={searchQuery}
+                            onChangeText={handleSearchInput}
+                            onFocus={() => setSearchFocused(true)}
+                            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                            className="flex-1 text-base text-gray-800 text-right"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            onSubmitEditing={() => router.push(`/user/search-players?q=${encodeURIComponent(searchQuery)}`)}
+                        />
+                    </View>
+
+                    {searchFocused && searchQuery.trim() !== '' && (
+                        <View className="bg-white rounded-xl shadow-sm border border-gray-200 mt-2 p-2">
+                            {searchResults.slice(0, 5).map(u => (
+                                <TouchableOpacity 
+                                    key={u.id}
+                                    onPress={() => router.push(`/user/${u.id}`)}
+                                    className="flex-row items-center p-2 border-b border-gray-50"
+                                >
+                                    <Image source={{ uri: u.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || '')}` }} className="w-8 h-8 rounded-full bg-gray-200" />
+                                    <View className="ml-3 flex-1 items-start">
+                                        <Text className="font-bold text-gray-800">{u.name}</Text>
+                                        <Text className="text-xs text-gray-500">{u.city || ''}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                            <TouchableOpacity 
+                                onPress={() => router.push(`/user/search-players?q=${encodeURIComponent(searchQuery)}`)}
+                                className="p-3 items-center"
+                            >
+                                <Text className="text-brand font-bold text-sm">ראה את כל התוצאות</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+
                 {/* Header details */}
                 <View className="items-center py-6 bg-white rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
                     <Image
@@ -434,6 +511,66 @@ export default function ProfileScreen() {
                             })}
                         </View>
                     )}
+                </View>
+
+                {/* Games Tabs */}
+                <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
+                    <View className="flex-row border-b border-gray-100 mb-4">
+                        <TouchableOpacity 
+                            onPress={() => setGamesTab(0)}
+                            className={`flex-1 pb-3 items-center border-b-2 ${gamesTab === 0 ? 'border-brand' : 'border-transparent'}`}
+                        >
+                            <Text className={`font-bold ${gamesTab === 0 ? 'text-brand' : 'text-gray-400'}`}>משחקים קרובים</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            onPress={() => setGamesTab(1)}
+                            className={`flex-1 pb-3 items-center border-b-2 ${gamesTab === 1 ? 'border-brand' : 'border-transparent'}`}
+                        >
+                            <Text className={`font-bold ${gamesTab === 1 ? 'text-brand' : 'text-gray-400'}`}>היסטוריית משחקים</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View>
+                        {(() => {
+                            const now = new Date();
+                            const upcomingGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) >= now);
+                            const pastGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) < now);
+
+                            if (gamesTab === 0) {
+                                return upcomingGames.length > 0 ? (
+                                    upcomingGames.map(g => (
+                                        <TouchableOpacity 
+                                            key={g.id} 
+                                            onPress={() => router.push(`/game/${g.id}`)}
+                                            className="mb-3 p-3 border border-gray-100 rounded-xl bg-gray-50"
+                                        >
+                                            <Text className="font-bold text-gray-800">{g.title || g.fieldName}</Text>
+                                            <Text className="text-gray-500 text-sm mt-1">{new Date(g.date).toLocaleDateString('he-IL')} • {g.time}</Text>
+                                            {g.fieldLocation && <Text className="text-gray-400 text-xs mt-1">{g.fieldLocation}</Text>}
+                                        </TouchableOpacity>
+                                    ))
+                                ) : (
+                                    <Text className="text-gray-400 text-center py-2">אין משחקים קרובים.</Text>
+                                );
+                            } else {
+                                return pastGames.length > 0 ? (
+                                    pastGames.map(g => (
+                                        <TouchableOpacity 
+                                            key={g.id} 
+                                            onPress={() => router.push(`/game/${g.id}`)}
+                                            className="mb-3 p-3 border border-gray-100 rounded-xl bg-gray-50"
+                                        >
+                                            <Text className="font-bold text-gray-800">{g.title || g.fieldName}</Text>
+                                            <Text className="text-gray-500 text-sm mt-1">{new Date(g.date).toLocaleDateString('he-IL')} • {g.time}</Text>
+                                            {g.fieldLocation && <Text className="text-gray-400 text-xs mt-1">{g.fieldLocation}</Text>}
+                                        </TouchableOpacity>
+                                    ))
+                                ) : (
+                                    <Text className="text-gray-400 text-center py-2">אין היסטוריית משחקים.</Text>
+                                );
+                            }
+                        })()}
+                    </View>
                 </View>
 
                 {/* Sign Out */}
