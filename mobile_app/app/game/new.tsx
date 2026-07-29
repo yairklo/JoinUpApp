@@ -64,6 +64,7 @@ export default function NewGameScreen() {
     const [maxPlayers, setMaxPlayers] = useState('14');
     const [price, setPrice] = useState('0');
     const [description, setDescription] = useState('');
+    const [welcomeMessage, setWelcomeMessage] = useState('');
     const [whatsappLink, setWhatsappLink] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
     const [requiresApproval, setRequiresApproval] = useState(false);
@@ -381,6 +382,7 @@ export default function NewGameScreen() {
                 maxPlayers: parseInt(maxPlayers) || 14,
                 price: parseInt(price) || 0,
                 description,
+                welcomeMessage,
                 whatsappLink,
                 isFriendsOnly: isPrivate,
                 joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT',
@@ -613,6 +615,18 @@ export default function NewGameScreen() {
                         value={description}
                         onChangeText={setDescription}
                         placeholder="הוראות מיוחדות?"
+                        multiline
+                        className="bg-gray-100 p-3 rounded-lg h-24 text-top"
+                    />
+                </View>
+
+                {/* Auto Welcome Message */}
+                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
+                    <Text className="text-lg font-bold mb-2 text-gray-800">הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)</Text>
+                    <TextInput
+                        value={welcomeMessage}
+                        onChangeText={setWelcomeMessage}
+                        placeholder="לדוגמה: אהלן! לשלם בביט למספר 054-1234567"
                         multiline
                         className="bg-gray-100 p-3 rounded-lg h-24 text-top"
                     />

@@ -113,6 +113,7 @@ export default function EditGameScreen() {
     const [maxPlayers, setMaxPlayers] = useState('14');
     const [price, setPrice] = useState('0');
     const [description, setDescription] = useState('');
+    const [welcomeMessage, setWelcomeMessage] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
     const [requiresApproval, setRequiresApproval] = useState(false);
 
@@ -181,6 +182,7 @@ export default function EditGameScreen() {
             setMaxPlayers(data.maxPlayers.toString());
             setPrice(data.price?.toString() || '0');
             setDescription(data.description || '');
+            setWelcomeMessage(data.welcomeMessage || '');
             setIsPrivate(data.isFriendsOnly || false);
             setRequiresApproval(data.joinPolicy === 'REQUIRES_APPROVAL');
 
@@ -357,6 +359,7 @@ export default function EditGameScreen() {
                 maxPlayers: parseInt(maxPlayers),
                 price: parseInt(price),
                 description,
+                welcomeMessage,
                 isFriendsOnly: isPrivate,
                 joinPolicy: (requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT') as 'REQUIRES_APPROVAL' | 'INSTANT',
                 title: title || undefined,
@@ -554,6 +557,18 @@ export default function EditGameScreen() {
                         value={description}
                         onChangeText={setDescription}
                         placeholder={t('editGame.instructionsPlaceholder', 'Any special instructions?')}
+                        multiline
+                        className={`bg-gray-100 p-3 rounded-lg h-24 text-top ${isRtl ? 'text-right' : 'text-left'}`}
+                    />
+                </View>
+
+                {/* Auto Welcome Message */}
+                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
+                    <Text className={`text-lg font-bold mb-2 text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)</Text>
+                    <TextInput
+                        value={welcomeMessage}
+                        onChangeText={setWelcomeMessage}
+                        placeholder="לדוגמה: אהלן! לשלם בביט למספר 054-1234567"
                         multiline
                         className={`bg-gray-100 p-3 rounded-lg h-24 text-top ${isRtl ? 'text-right' : 'text-left'}`}
                     />
