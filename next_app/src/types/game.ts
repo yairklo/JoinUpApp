@@ -15,6 +15,8 @@ export type Game = {
     seriesId?: string | null;
     registrationOpensAt?: string | null;
     title?: string | null;
+    description?: string | null;
+    welcomeMessage?: string | null;
     teamSize?: number | null;
     price?: number | null;
     organizerId?: string;

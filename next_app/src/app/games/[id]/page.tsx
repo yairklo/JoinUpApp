@@ -34,6 +34,7 @@ type Game = {
   time: string;
   duration?: number;
   description: string;
+  welcomeMessage?: string;
   maxPlayers: number;
   currentPlayers: number;
   participants: Participant[];

@@ -11,7 +11,6 @@ const {
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { notifyUserAddedToGame, notifyUserRemovedFromGame } = require('../utils/addedToGameNotification');
-const { getRoleLevel, ROLE_LEVEL } = require('../utils/auth');
 
 async function sendAutoWelcomeMessage(game, newPlayerId) {
   if (!game || !game.welcomeMessage || !game.organizerId || game.organizerId === newPlayerId) {

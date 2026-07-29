@@ -15,6 +15,7 @@ export interface UpdateGameDTO {
     friendsOnlyUntil?: string | null;
     duration?: number;
     description?: string;
+    welcomeMessage?: string;
     pickDrawAt?: string | null;
     pickingStartsAt?: string | null;
 }
