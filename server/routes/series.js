@@ -256,22 +256,8 @@ router.post('/:seriesId/subscribe', authenticateToken, async (req, res) => {
       create: { seriesId, userId }
     });
 
-    // Optional: add to nearest upcoming instance if not full
-    const now = new Date();
-    const nextGame = await prisma.game.findFirst({
-      where: { seriesId, start: { gte: now } },
-      orderBy: { start: 'asc' },
-      include: { participants: true }
-    });
-    if (nextGame) {
-      const already = nextGame.participants.find(p => p.userId === userId);
-      const confirmedCount = nextGame.participants.filter(p => p.status === 'CONFIRMED').length;
-      if (!already && confirmedCount < nextGame.maxPlayers) {
-        await prisma.participation.create({
-          data: { gameId: nextGame.id, userId, status: 'CONFIRMED' }
-        });
-      }
-    }
+    // The user explicitly requested not to auto-register subscribers to upcoming games,
+    // so they are just subscribed to the series for notifications.
 
     return res.json({ ok: true });
   } catch (e) {
