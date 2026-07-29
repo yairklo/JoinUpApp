@@ -435,7 +435,7 @@ export default function NewGameScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: 'New Game', headerShown: true }} />
+            <Stack.Screen options={{ title: 'משחק חדש', headerShown: true }} />
             <ScrollView className="flex-1 bg-gray-50 p-4">
 
                 {/* Sport Selection */}

@@ -17,8 +17,9 @@ type PickState = {
   pickDrawExecutedAt: string | null;
   pickSessionStatus: string;
   pickTurnOrder: string[];
+  pickOrderType: string;
   currentTurnManagerId: string | null;
-  managers: { id: string; name?: string | null; avatar?: string | null }[];
+  managers: { id: string; name?: string | null; avatar?: string | null; role?: string }[];
   teams: {
     id: string;
     name: string;
@@ -69,6 +70,7 @@ export default function LiveTeamManagementScreen() {
   const [presence, setPresence] = useState<Record<string, boolean>>({});
   const [drawLocal, setDrawLocal] = useState('');
   const [pickLocal, setPickLocal] = useState('');
+  const [pickOrderTypeLocal, setPickOrderTypeLocal] = useState<'CIRCULAR'|'SNAKE'>('CIRCULAR');
   const [waitingOffline, setWaitingOffline] = useState(false);
   const [tradeReceiverId, setTradeReceiverId] = useState<string | null>(null);
   const [offeredId, setOfferedId] = useState<string | null>(null);
@@ -94,6 +96,7 @@ export default function LiveTeamManagementScreen() {
       setState(data);
       setDrawLocal(toLocalInput(data.pickDrawAt));
       setPickLocal(toLocalInput(data.pickingStartsAt));
+      setPickOrderTypeLocal(data.pickOrderType === 'SNAKE' ? 'SNAKE' : 'CIRCULAR');
     } catch (e) {
       console.error(e);
       Alert.alert(t('teams.error'), t('teams.loadFailed'));
@@ -196,11 +199,30 @@ export default function LiveTeamManagementScreen() {
         {
           pickDrawAt: drawLocal ? new Date(drawLocal).toISOString() : null,
           pickingStartsAt: pickLocal ? new Date(pickLocal).toISOString() : null,
+          pickOrderType: pickOrderTypeLocal,
         },
         token
       );
       setState(data);
       Alert.alert(t('teams.success'), t('teams.scheduleSaved'));
+    });
+
+  const assignCaptain = (userId: string) =>
+    run(async () => {
+      if (!isOrganizer || !userId) return;
+      const token = await getToken();
+      if (!token) return;
+      await gamesApi.assignRole(id, { userId, role: "CAPTAIN" }, token);
+      await load();
+    });
+
+  const removeCaptain = (userId: string) =>
+    run(async () => {
+      if (!isOrganizer || !userId) return;
+      const token = await getToken();
+      if (!token) return;
+      await gamesApi.removeRole(id, userId, token);
+      await load();
     });
 
   const moveOrder = (index: number, dir: -1 | 1) =>
@@ -293,6 +315,21 @@ export default function LiveTeamManagementScreen() {
               placeholder="2026-07-26T19:00"
               style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10 }}
             />
+            <Text style={{ fontSize: 12, fontWeight: '600' }}>סדר בחירה</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setPickOrderTypeLocal('CIRCULAR')}
+                style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: pickOrderTypeLocal === 'CIRCULAR' ? '#2563eb' : '#d1d5db', backgroundColor: pickOrderTypeLocal === 'CIRCULAR' ? '#eff6ff' : 'transparent', alignItems: 'center' }}
+              >
+                <Text style={{ color: pickOrderTypeLocal === 'CIRCULAR' ? '#2563eb' : '#374151', fontWeight: '600' }}>מעגלי</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setPickOrderTypeLocal('SNAKE')}
+                style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: pickOrderTypeLocal === 'SNAKE' ? '#2563eb' : '#d1d5db', backgroundColor: pickOrderTypeLocal === 'SNAKE' ? '#eff6ff' : 'transparent', alignItems: 'center' }}
+              >
+                <Text style={{ color: pickOrderTypeLocal === 'SNAKE' ? '#2563eb' : '#374151', fontWeight: '600' }}>נחש</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               onPress={saveSchedule}
               disabled={busy}
@@ -302,6 +339,41 @@ export default function LiveTeamManagementScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12 }}>
+          <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>קפטנים (בוחרים שחקנים)</Text>
+          {(state.managers.filter(m => m.id !== state.organizerId)).map(m => (
+            <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+              <Text style={{ fontWeight: '500' }}>{m.name || m.id}</Text>
+              {isOrganizer && (
+                <TouchableOpacity onPress={() => removeCaptain(m.id)} disabled={busy} style={{ padding: 4 }}>
+                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>הסר</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+          {(state.managers.length <= 1) && (
+            <Text style={{ color: '#6b7280', fontSize: 12 }}>לא נבחרו קפטנים</Text>
+          )}
+
+          {isOrganizer && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 4 }}>בחר שחקן לתפקיד קפטן:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                {[...state.bench, ...state.teams.flatMap(t => t.players)].map(p => (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => assignCaptain(p.id)}
+                    disabled={busy}
+                    style={{ backgroundColor: '#f3f4f6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 8 }}
+                  >
+                    <Text style={{ fontSize: 12 }}>{p.name || p.id}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
 
         <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12 }}>
           <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
