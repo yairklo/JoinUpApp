@@ -57,7 +57,7 @@ function MessageBubble({
                     }}
                     activeOpacity={message.status === 'blocked' ? 1 : 0.9}
                     className={`px-4 py-3 rounded-3xl ${isMe
-                            ? (message.status === 'blocked' ? 'bg-red-500 rounded-tr-none shadow-sm shadow-red-200' : 'bg-brand rounded-tr-none shadow-sm shadow-brand-pale')
+                            ? 'bg-brand rounded-tr-none shadow-sm shadow-brand-pale'
                             : 'bg-gray-100 rounded-tl-none border border-gray-50'
                         }`}
                 >
@@ -91,7 +91,7 @@ function MessageBubble({
                     <Text className={`text-[9px] font-medium ${isMe ? 'text-brand-pale' : 'text-gray-400'}`}>
                         {new Date(message.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
-                    {isMe && (
+                    {isMe && message.status !== 'blocked' && (
                         <View className="ml-1">
                             <Ionicons
                                 name={message.status === 'read' ? "checkmark-done" : "checkmark"}

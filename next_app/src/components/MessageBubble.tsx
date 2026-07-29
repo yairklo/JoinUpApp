@@ -128,10 +128,10 @@ export default function MessageBubble({
                         p: 1.5,
                         bgcolor: message.isDeleted
                             ? (isMine ? "primary.light" : "action.hover")
-                            : (message.status === "blocked" ? (isMine ? "error.main" : "action.hover") : (isMine ? "primary.main" : "background.paper")),
+                            : (isMine ? "primary.main" : "background.paper"),
                         color: message.isDeleted
                             ? "text.disabled"
-                            : (message.status === "blocked" ? (isMine ? "error.contrastText" : "text.primary") : (isMine ? "primary.contrastText" : "text.primary")),
+                            : (isMine ? "primary.contrastText" : "text.primary"),
                         position: "relative",
                         minWidth: "120px",
                         borderRadius: 2,

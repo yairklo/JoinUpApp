@@ -149,7 +149,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
                     const existingMsg = prev[matchIndex];
                     const safeReply = existingMsg.replyTo || incomingMsg.replyTo;
                     const newMessages = [...prev];
-                    newMessages[matchIndex] = { ...incomingMsg, status: 'sent', sender: existingMsg.sender || incomingMsg.sender, replyTo: safeReply };
+                    newMessages[matchIndex] = { ...incomingMsg, status: incomingMsg.status || 'sent', sender: existingMsg.sender || incomingMsg.sender, replyTo: safeReply };
                     return newMessages;
                 } else {
                     return [...prev, incomingMsg];
