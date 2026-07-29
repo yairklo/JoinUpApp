@@ -19,7 +19,7 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     const take = Math.min(Number(limit) || 100, 500);
-    const items = await prisma.message.findMany({
+    const rawItems = await prisma.message.findMany({
       where: { chatRoomId: String(roomId) },
       orderBy: { createdAt: 'asc' },
       take,
@@ -33,6 +33,8 @@ router.get('/', authenticateToken, async (req, res) => {
         reactions: true
       }
     });
+
+    const items = rawItems.filter(m => m.status !== 'blocked' || m.userId === req.user.id);
 
     const mappedItems = items.map(m => {
       // Aggregate reactions

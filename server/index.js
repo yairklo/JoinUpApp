@@ -521,7 +521,6 @@ io.on('connection', async (socket) => {
 
       if (!modResult.isSafe) {
         console.log(`❌ [MODERATION] BLOCKED message from ${finalUserId} (Age: ${senderAge}) -> ${receiverAge ? `Receiver Age: ${receiverAge}` : 'Public'}`);
-        text = "[תוכן פוגעני נמחק]";
         initialStatus = 'blocked';
       }
 
@@ -631,15 +630,25 @@ io.on('connection', async (socket) => {
     }
 
     if (msg.roomId) {
-      io.to(msg.roomId).emit('message', msg);
-      // Support ChatList updates
-      io.to(msg.roomId).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text }); // Alias fields for Frontend convenience
+      if (initialStatus === 'blocked') {
+        if (finalUserId) {
+          io.to(`user_${finalUserId}`).emit('message', msg);
+          io.to(`user_${finalUserId}`).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
+        }
+      } else {
+        io.to(msg.roomId).emit('message', msg);
+        io.to(msg.roomId).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
+      }
     } else {
-      io.emit('message', msg);
+      if (initialStatus === 'blocked') {
+        if (finalUserId) io.to(`user_${finalUserId}`).emit('message', msg);
+      } else {
+        io.emit('message', msg);
+      }
     }
 
     // Send Notifications to recipients
-    if (finalUserId && roomId) {
+    if (finalUserId && roomId && initialStatus !== 'blocked') {
       try {
         let recipientIds = [];
 
