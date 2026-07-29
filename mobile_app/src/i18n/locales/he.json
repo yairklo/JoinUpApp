@@ -162,6 +162,10 @@
     "newGameInCityBody": "{{name}} פתח/ה משחק חדש ב{{fieldName}}",
     "joinRequestTitle": "מישהו הצטרף למשחק שלך",
     "joinRequestBody": "{{name}} הצטרף/ה למשחק הפרטי שלך",
+    "addedToGameTitle": "צורפת למשחק על ידי {{name}}",
+    "addedToGameBody": "{{details}}",
+    "fallbackTitle": "התראה",
+    "fallbackBody": "אין פרטים נוספים",
     "sendMessage": "שלח הודעה"
   },
   "field": {

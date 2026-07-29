@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
     IconButton,
     Badge,
-    Menu,
+    Popover,
     List,
     ListItemButton,
     ListItemText,
@@ -75,17 +75,27 @@ export default function NotificationPanel() {
                 </Badge>
             </IconButton>
 
-            <Menu
+            <Popover
                 anchorEl={anchorEl}
                 open={open}
                 onClose={handleClose}
-                PaperProps={{
-                    sx: {
-                        width: { xs: '100%', sm: 380 },
-                        maxHeight: { xs: '80vh', sm: 500 },
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column'
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'left',
+                }}
+                slotProps={{
+                    paper: {
+                        sx: {
+                            width: { xs: '100%', sm: 380 },
+                            maxHeight: { xs: '80vh', sm: 500 },
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column'
+                        }
                     }
                 }}
             >
@@ -168,7 +178,7 @@ export default function NotificationPanel() {
                         ))}
                     </List>
                 )}
-            </Menu>
+            </Popover>
         </>
     );
 }

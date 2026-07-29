@@ -15,6 +15,7 @@ const {
   broadcastGameUpdate,
   notifyRequesterOfDecision,
 } = require('../services/gameService');
+const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 
 const router = express.Router();
 
@@ -551,18 +552,16 @@ router.post('/:id/participants', authenticateToken, async (req, res) => {
       include: { field: true, participants: { include: { user: true } } }
     });
     broadcastGameUpdate(req.io, gameId, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', gameId, err));
-    try {
-      notificationService.sendNotification(
-        userId,
-        'GAME_INVITATION',
-        'צורפת למשחק!',
-        `מנהל המשחק הוסיף אותך למשחק: ${game.title || 'משחק כדורגל'}`,
-        { gameId, link: `/game/${gameId}` },
-        req.io
-      ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of addition', gameId, err));
-    } catch (err) {
-      console.error('[NOTIFICATIONS] Fatal validation exception in sendNotification call', gameId, err);
-    }
+
+    // Immediate in-app + push for the friend who was manually added (not a self-join).
+    notifyUserAddedToGame(notificationService, {
+      userId,
+      adderName: req.user?.name,
+      adderId: req.user?.id,
+      game: updated || { ...game, id: gameId },
+      io: req.io,
+    });
+
     return res.json(mapGameForClient(updated, req.user.id));
   } catch (error) {
     console.error('Add participant error:', error);

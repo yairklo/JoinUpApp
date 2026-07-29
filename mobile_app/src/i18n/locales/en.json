@@ -162,6 +162,10 @@
     "newGameInCityBody": "{{name}} created a new game at {{fieldName}}",
     "joinRequestTitle": "Someone joined your game",
     "joinRequestBody": "{{name}} joined your private game",
+    "addedToGameTitle": "You were added to a game by {{name}}",
+    "addedToGameBody": "{{details}}",
+    "fallbackTitle": "Notification",
+    "fallbackBody": "No additional details",
     "sendMessage": "Send Message"
   },
   "field": {

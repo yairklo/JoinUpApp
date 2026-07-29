@@ -29,6 +29,11 @@ Persistent instructions for any Cursor Agent run against this repo (including he
    Cause: `next build` runs full typecheck; dev mode is looser.  
    Fix: always run production build before merge.
 
+4. **NotificationType enum must match Postgres**  
+   Cause: Prisma `NotificationType` values used in code (e.g. `GAME_INVITATION`, `GAME_WAITLIST_OFFER`, `GAME_REMOVED_PEER`, `GAME_ROLE_UPDATE`) exist in `schema.prisma` but not in a migration.  
+   Effect: `notification.create` fails while roster joins still succeed — users appear added with no in-app/push notification.  
+   Fix: update `schema.prisma` AND add `ALTER TYPE ... ADD VALUE` migration in the same change.
+
 ## When you learn a new deploy bug
 Append a short bullet under **Known failure modes** in this file and/or add a rule under `.cursor/rules/`, then commit it with the fix so future terminal agents inherit the lesson.
 
@@ -36,3 +41,8 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Type error on untyped `apiClient` result (`state` on `{}`) — always pass an explicit generic matching the server JSON (e.g. `proposeTrade` → `{ trade; state: PickSessionState }`).
 - Missing required `alt` on joinUp `Avatar` — always pass `alt={name || id}` in Next.js UI.
 - Live pick bench must never include managers/captains: `ensureManagerTeams` alone is not enough — also `assignManagersToOwnTeams` (set `participation.teamId`), filter managers out of `computeBench`, block `makePick` of managers, and mirror the filter on web/mobile derived bench/unassigned lists.
+- Quality gate `next_app:typecheck` failed — re-run and fix locally before merge/deploy.
+- When `NODE_ENV=production`, `npm install` skips devDependencies (no `jest` / `typescript`) — keep `include=dev` in package `.npmrc` (or pass `--include=dev`) for local gates.
+- `next build` needs `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (and related Clerk env) set; missing key fails prerender of `/_not-found`.
+- Clerk publishable key must be **format-valid** (base64 payload ending in `$`), not a string like `pk_test_quality_gate_placeholder` — invalid format fails prerender (e.g. `/chat`). `next_app` `npm run build` normalizes via `scripts/next-build.mjs`.
+- Quality gate `next_app:build` failed — re-run and fix locally before merge/deploy.
