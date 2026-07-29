@@ -102,6 +102,7 @@ model Game {
   maxPlayers           Int
   isOpenToJoin         Boolean           @default(true)
   description          String?
+  welcomeMessage       String?
   organizerId          String
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
