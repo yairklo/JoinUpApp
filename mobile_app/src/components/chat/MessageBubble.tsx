@@ -50,14 +50,17 @@ function MessageBubble({
                 </View>
             )}
 
-            <TouchableOpacity
-                onLongPress={() => onLongPress?.(message)}
-                activeOpacity={0.9}
-                className={`max-w-[75%] px-4 py-3 rounded-3xl ${isMe
-                        ? 'bg-brand rounded-tr-none shadow-sm shadow-brand-pale'
-                        : 'bg-gray-100 rounded-tl-none border border-gray-50'
-                    }`}
-            >
+            <View className="max-w-[75%]">
+                <TouchableOpacity
+                    onLongPress={() => {
+                        if (message.status !== 'blocked') onLongPress?.(message);
+                    }}
+                    activeOpacity={message.status === 'blocked' ? 1 : 0.9}
+                    className={`px-4 py-3 rounded-3xl ${isMe
+                            ? (message.status === 'blocked' ? 'bg-red-500 rounded-tr-none shadow-sm shadow-red-200' : 'bg-brand rounded-tr-none shadow-sm shadow-brand-pale')
+                            : 'bg-gray-100 rounded-tl-none border border-gray-50'
+                        }`}
+                >
                 {message.replyTo && (
                     <View className={`mb-2 p-2 rounded-xl border-l-4 ${isMe ? 'bg-brand-dark/50 border-brand-light' : 'bg-gray-200 border-gray-400'}`}>
                         <Text className={`text-[10px] font-bold ${isMe ? 'text-brand-pale' : 'text-gray-500'}`}>
@@ -113,6 +116,12 @@ function MessageBubble({
                     </View>
                 )}
             </TouchableOpacity>
+            {isMe && message.status === 'blocked' && (
+                <Text className="text-red-500 text-xs mt-1 px-2 text-right">
+                    ההודעה מכילה תוכן פוגעני ולכן לא נשלחה
+                </Text>
+            )}
+            </View>
         </View>
     );
 }

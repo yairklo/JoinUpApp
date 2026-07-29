@@ -1,6 +1,6 @@
 import Avatar from "@/components/Avatar";
 import Link from "next/link";
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import SeriesSubscribeButton from "@/components/SeriesSubscribeButton";
 import SeriesSettingsEditor from "@/components/SeriesSettingsEditor";
 
@@ -63,7 +63,7 @@ async function fetchSeries(id: string): Promise<SeriesDetails | null> {
 export default async function SeriesPage(props: { params: Promise<{ id: string }> }) {
     const { id } = await props.params;
     const series = await fetchSeries(id);
-    const user = await currentUser();
+    const { userId } = await auth();
 
     if (!series) {
         return (
@@ -73,8 +73,8 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
         );
     }
 
-    const isSubscribed = user ? series.subscribers.some(s => s.userId === user.id) : false;
-    const isOrganizer = user?.id === series.organizer.id;
+    const isSubscribed = userId ? series.subscribers.some(s => s.userId === userId) : false;
+    const isOrganizer = userId === series.organizer.id;
     const days = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
     const dayName = series.dayOfWeek !== null ? days[series.dayOfWeek] : "תאריכים מותאמים";
 

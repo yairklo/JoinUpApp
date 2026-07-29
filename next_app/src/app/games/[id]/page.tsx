@@ -2,7 +2,7 @@ import Avatar from "@/components/Avatar";
 import Chat from "@/components/Chat";
 import Link from "next/link";
 import GameLiveSection from "@/components/GameLiveSection";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import SeriesManager from "@/components/SeriesManager";
@@ -86,11 +86,10 @@ export default async function GameDetails(props: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await props.params;
-  const { getToken } = await auth();
+  const { getToken, userId: authUserId } = await auth();
   const token = await getToken().catch(() => null);
   const game = await fetchGame(id, token);
-  const user = await currentUser();
-  const userId = user?.id || "";
+  const userId = authUserId || "";
   const joined = !!userId && (game?.participants || []).some((p) => p.id === userId);
 
   if (!game) {
