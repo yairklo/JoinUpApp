@@ -724,7 +724,13 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
             },
             messages: {
               take: 1,
-              orderBy: { createdAt: 'desc' }
+              orderBy: { createdAt: 'desc' },
+              where: {
+                OR: [
+                  { status: { not: 'blocked' } },
+                  { userId }
+                ]
+              }
             }
           }
         }
