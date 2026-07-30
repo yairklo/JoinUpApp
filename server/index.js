@@ -1230,15 +1230,30 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server (HTTP + Socket.IO) — bind 0.0.0.0 for Render's proxy
-server.listen(PORT, '0.0.0.0', async () => {
+async function startServer() {
   await initializeDataFiles();
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔌 Socket.IO ready on /api/socket (CORS allowlist: ${JSON.stringify(allowedOrigins)}, permissive: ${corsPermissive})`);
 
-  // Start notification workers
-  startGameReminderWorker(io);
-  startCleanupWorker();
-  console.log('🔔 Notification workers started');
-});
+  return new Promise((resolve) => {
+    // Start server (HTTP + Socket.IO) — bind 0.0.0.0 for Render's proxy
+    server.listen(PORT, '0.0.0.0', async () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`🔌 Socket.IO ready on /api/socket (CORS allowlist: ${JSON.stringify(allowedOrigins)}, permissive: ${corsPermissive})`);
+
+      // Workers stay tied to the real HTTP bootstrap, not test imports.
+      startGameReminderWorker(io);
+      startCleanupWorker();
+      console.log('🔔 Notification workers started');
+      resolve(server);
+    });
+  });
+}
+
+if (!process.env.JEST_WORKER_ID) {
+  startServer().catch((err) => {
+    console.error('[FATAL] server startup failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { app, server, startServer };
