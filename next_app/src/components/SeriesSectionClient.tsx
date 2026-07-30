@@ -108,7 +108,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
     return (
         <>
             <GamesHorizontalList
-                title="הצטרפו לקבוצה"
+                title="הקבוצות שלי"
                 onSeeAll={() => setIsSeeAllOpen(true)}
             >
                 {filteredSeries.map((s) => (
@@ -140,7 +140,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
             <FullPageList
                 open={isSeeAllOpen}
                 onClose={() => setIsSeeAllOpen(false)}
-                title="קבוצות"
+                title="הקבוצות שלי"
                 items={filteredSeries}
                 renderItem={(s) => (
                     <SeriesHeaderCard
