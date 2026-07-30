@@ -13,11 +13,28 @@ QUALITY / DEPLOY REQUIREMENTS (joinUp):
 - Production API is https://joinup-api.duckdns.org — do not treat old Render prod as current.
 - After server/ changes the orchestrator redeploys Render staging and watches /api/health for errors.
 
-When a game organizer/admin manually adds a friend to a game (as opposed to the friend requesting to join independently), the system must immediately trigger the same in-app notification and mobile push notification mechanisms already used for other existing notifications in the app (e.g., game reminders) for that added friend. Currently, the friend is added to the game and can see their membership in-app, but no notification event is fired at all when they are added this way — this notification trigger needs to be added at the point where a user is added to a game's participant list by another user (organizer/admin), not when a user joins on their own. Notification content: Hebrew in-app text "צורפת למשחק על ידי [שם המצרף]" including game details (date/time/location); English (mobile) equivalent: "You were added to a game by [Name]" including the same game details. Do not modify the existing pre-game reminder notification logic, which already works correctly — this task is scoped only to adding the missing "added to game by organizer" notification trigger and message.
+Product-confirmed joinUp fix from Telegram collaborator.
+Stay strictly inside the joinUp repository. Do not touch other projects.
+
+Product summary / intent:
+מעולה, תודה על הפרטים!
+
+הנה סיכום התיקון שנעשה במסך עריכת המשחק:
+1. **הוספת שדה מיקום:** נוסיף את שדה בחירת הכתובת/המגרש למסך עריכת המשחק (שכרגע חסר לחלוטין).
+2. **מנגנון בחירה זהה ליצירה:** השדה יאפשר לבחור מגרש מתוך הרשימה או להוסיף מגרש חדש, בדיוק באותו מנגנון נוח שקיים ביצירת משחק ראשונית.
+3. **עדכון הנתונים:** שינוי המיקום יעדוכן מיד עבור המשחק ויציג את השם והכתובת החדשים לכל המשתתפים.
+
+מעביר את זה לתיקון!
+
+Recent conversation:
+(none)
+
+Implement the described UX/behavior change end-to-end (web + mobile if the feature spans both).
+Run local quality gates, then merge to Dev when green.
 
 ## Strict Instructions for Cursor / Antigravity Agent
 1. **Branching:** Create and switch to a new feature branch before editing code:
-   `git checkout -b feature/task-1785161235017`
+   `git checkout -b feature/task-1785413729539`
 2. **Autonomy:** Run in non-interactive/auto-approve mode. Do NOT prompt for permission on file edits or terminal commands.
 3. **Verification & Completion:**
    - Execute local quality gates (build/tests) and fix failures in a loop until green.

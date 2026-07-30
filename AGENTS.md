@@ -34,6 +34,18 @@ Persistent instructions for any Cursor Agent run against this repo (including he
    Effect: `notification.create` fails while roster joins still succeed — users appear added with no in-app/push notification.  
    Fix: update `schema.prisma` AND add `ALTER TYPE ... ADD VALUE` migration in the same change.
 
+5. **Jest `--detectOpenHandles` Timeout on `setInterval` in `server/index.js`**  
+   Cause: requiring `index.js` in integration tests starts background schedulers (review/lottery/pick/completion/series).  
+   Fix: gate all top-level `setInterval`/`setTimeout` (and boot kicks) behind `enableBackgroundSchedulers` when `NODE_ENV === 'test'` or `JEST_WORKER_ID` is set.
+
+6. **Jest open handle `TCPSERVERWRAP` / cascading `testGame.id` undefined in roster tests**  
+   Cause: `require('../index')` still calls `server.listen(...)`, leaving a TCP handle; host `PORT` clashes can also make create-game fail so later tests read `undefined.id`.  
+   Fix: skip `startServer()`/`server.listen` when `JEST_WORKER_ID` is set; export `{ app }` and hit Express via `supertest(app)` (do not bind a real port in Jest).
+
+7. **Stale Prisma Client rejects new schema fields (e.g. `welcomeMessage`)**  
+   Cause: `gameService` writes a field present in `schema.prisma` but local `@prisma/client` was generated before that field existed → create-game returns 500 and roster tests cascade with `testGame.id` undefined.  
+   Fix: run `prisma generate` before `npm test` (wired into `server` `npm test` script).
+
 ## When you learn a new deploy bug
 Append a short bullet under **Known failure modes** in this file and/or add a rule under `.cursor/rules/`, then commit it with the fix so future terminal agents inherit the lesson.
 
@@ -46,3 +58,7 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - `next build` needs `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (and related Clerk env) set; missing key fails prerender of `/_not-found`.
 - Clerk publishable key must be **format-valid** (base64 payload ending in `$`), not a string like `pk_test_quality_gate_placeholder` — invalid format fails prerender (e.g. `/chat`). `next_app` `npm run build` normalizes via `scripts/next-build.mjs`.
 - Quality gate `next_app:build` failed — re-run and fix locally before merge/deploy.
+- Quality gate `server:test` failed — re-run and fix locally before merge/deploy.
+- Jest `--detectOpenHandles` fails when `server/index.js` starts `setInterval`/`setTimeout` under test — skip background schedulers when `NODE_ENV=test` or `JEST_WORKER_ID` is set. Integration tests must also pin `PORT` (host env often sets `PORT=8787`) and hit that same port.
+- Jest roster tests must use exported Express `app` with supertest and must not call `server.listen` under `JEST_WORKER_ID` (avoids TCPSERVERWRAP + undefined game id cascades).
+- Stale `@prisma/client` after schema changes (e.g. `welcomeMessage`) breaks create-game in roster tests — `npm test` must run `prisma generate` first.

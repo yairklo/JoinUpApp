@@ -62,8 +62,14 @@ type PublicUser = {
   birthYear?: number | null;
   age?: number | null;
   birthDate?: string | null;
+  gender?: "MALE" | "FEMALE" | null;
   sports?: { id: string; name: string; position?: string | null }[];
   positions?: { id: string; name: string; sportId: string }[];
+};
+
+const GENDER_LABELS: Record<"MALE" | "FEMALE", string> = {
+  MALE: "גבר",
+  FEMALE: "אישה",
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -105,6 +111,7 @@ export default function ProfilePage() {
     imageUrl: "",
     city: "",
     birthDate: "",
+    gender: "" as "" | "MALE" | "FEMALE",
     sportsData: [] as { sportId: string; position: string; }[]
   });
   const [newSportId, setNewSportId] = useState("");
@@ -181,6 +188,7 @@ export default function ProfilePage() {
       imageUrl: profile.imageUrl || "",
       city: profile.city || "",
       birthDate: profile.birthDate ? profile.birthDate.split('T')[0] : "",
+      gender: profile.gender === "MALE" || profile.gender === "FEMALE" ? profile.gender : "",
       sportsData: (profile.sports || []).map(s => ({ sportId: s.id, position: s.position || "" })),
     });
   }, [profile]);
@@ -196,7 +204,11 @@ export default function ProfilePage() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ ...form, birthDate: form.birthDate ? new Date(form.birthDate).toISOString() : null }),
+        body: JSON.stringify({
+          ...form,
+          birthDate: form.birthDate ? new Date(form.birthDate).toISOString() : null,
+          gender: form.gender || null,
+        }),
       });
       if (!res.ok) throw new Error("Save failed");
       const updated = await res.json();
@@ -326,6 +338,12 @@ export default function ProfilePage() {
                         <Typography variant="caption" color="text.secondary">גיל</Typography>
                         <Typography variant="body1">{calculateAge(profile.birthDate) || '-'}</Typography>
                       </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography variant="caption" color="text.secondary">מין</Typography>
+                        <Typography variant="body1">
+                          {profile.gender ? GENDER_LABELS[profile.gender] : '-'}
+                        </Typography>
+                      </Grid>
                       <Grid size={12}>
                         <Typography variant="caption" color="text.secondary" display="block" gutterBottom>ספורט ועמדות</Typography>
                         {(profile.sports && profile.sports.length > 0) ? (
@@ -361,6 +379,23 @@ export default function ProfilePage() {
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField fullWidth label="טלפון" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} size="small" />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel id="profile-gender-label">מין</InputLabel>
+                          <Select
+                            labelId="profile-gender-label"
+                            label="מין"
+                            value={form.gender}
+                            onChange={(e) => setForm({ ...form, gender: e.target.value as "" | "MALE" | "FEMALE" })}
+                          >
+                            <MenuItem value="">
+                              <em>לא צוין</em>
+                            </MenuItem>
+                            <MenuItem value="MALE">גבר</MenuItem>
+                            <MenuItem value="FEMALE">אישה</MenuItem>
+                          </Select>
+                        </FormControl>
                       </Grid>
                       {/* Sports Editing */}
                       <Grid size={12}>

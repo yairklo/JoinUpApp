@@ -293,6 +293,17 @@ export default function UserProfileScreen() {
                         </View>
                     ) : null}
 
+                    {profile.gender ? (
+                        <View className="flex-row items-center mb-3">
+                            <View className="w-8 items-center"><FontAwesome name="user" size={16} color="#9ca3af" /></View>
+                            <Text className="text-gray-700">
+                                {profile.gender === 'MALE'
+                                    ? t('profile.genderMale', 'גבר')
+                                    : t('profile.genderFemale', 'אישה')}
+                            </Text>
+                        </View>
+                    ) : null}
+
                     {profile.sports && profile.sports.length > 0 && (
                         <View className="mt-4">
                             <Text className="font-bold text-gray-800 mb-2">{t('favoriteSports', 'Favorite Sports')}</Text>

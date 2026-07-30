@@ -366,8 +366,7 @@ export default function GameDetailsScreen() {
                         </Text>
                     </View>
 
-                    {game.teams && game.teams.length > 0 ? (
-                            {(() => {
+                    {game.teams && game.teams.length > 0 ? (() => {
                                 const draftingManagerIds = new Set<string>([
                                     game.organizerId,
                                     ...(game.managers || []).map((m) => m.id),
@@ -421,8 +420,7 @@ export default function GameDetailsScreen() {
                                         )}
                                     </View>
                                 );
-                            })()}
-                    ) : (
+                            })() : (
                         <View className="flex-row flex-wrap">
                             {game.participants?.map((p) => (
                                 <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="ml-4 mb-4 items-center w-16">

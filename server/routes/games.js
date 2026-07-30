@@ -96,7 +96,7 @@ router.post('/:id/recurrence', authenticateToken, async (req, res) => {
 
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
-    res.json(await patchGame(req.params.id, req.body, req.user.id));
+    res.json(await patchGame(req.params.id, req.body, req.user.id, req.io));
   } catch (error) {
     handleRouteError(res, error, 'Failed to update game');
   }
@@ -169,7 +169,7 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
 
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    res.json(await updateGame(req.params.id, req.body, req.user.id));
+    res.json(await updateGame(req.params.id, req.body, req.user.id, req.io));
   } catch (error) {
     handleRouteError(res, error, 'Failed to update game');
   }

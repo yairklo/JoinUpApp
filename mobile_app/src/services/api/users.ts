@@ -43,6 +43,7 @@ export interface UserProfile {
     birthYear?: number | null;
     age?: number | null;
     birthDate?: string | null;
+    gender?: 'MALE' | 'FEMALE' | null;
     sports?: { id: string; name: string; position?: string | null }[];
     positions?: { id: string; name: string; sportId: string }[];
     sections?: { friends: boolean; matchHistory: boolean };

@@ -2,12 +2,13 @@ import React, { useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, Link, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TouchableOpacity, Text, View, Appearance, useColorScheme, Image, Platform } from 'react-native';
+import { TouchableOpacity, Text, View, useColorScheme, Image, Platform } from 'react-native';
 import i18n, { changeLanguage } from '@/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
 import { useNotificationCounters } from '@/context/NotificationCountersContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toggleColorMode } from '@/theme/colorMode';
 
 const BRAND = '#059669';
 
@@ -31,8 +32,7 @@ export default function TabLayout() {
     <View className="flex-row items-center gap-2 pr-4 pl-4">
       <TouchableOpacity
         onPress={() => {
-          const newTheme = colorScheme === 'dark' ? 'light' : 'dark';
-          Appearance.setColorScheme(newTheme);
+          toggleColorMode(colorScheme).catch((e) => console.error('Color mode toggle error:', e));
         }}
         className="w-8 h-8 rounded-xl bg-brand-mist dark:bg-cyber-card items-center justify-center border border-brand-pale dark:border-cyber-border"
       >

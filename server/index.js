@@ -38,14 +38,20 @@ const { processReviewQueue } = require('./workers/reviewWorker');
 const { startGameReminderWorker } = require('./workers/gameReminderWorker');
 const { startCleanupWorker } = require('./workers/cleanupWorker');
 
-// Start Review Worker
-// Run immediately on startup to process any backlog
-processReviewQueue().catch(err => console.error("Worker Startup Error:", err));
+// Jest sets NODE_ENV=test / JEST_WORKER_ID — skip timers so --detectOpenHandles stays clean
+const enableBackgroundSchedulers =
+  process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID;
 
-// Then run every minute
-setInterval(() => {
-  processReviewQueue().catch(err => console.error("Worker Error:", err));
-}, 60 * 1000);
+// Start Review Worker
+if (enableBackgroundSchedulers) {
+  // Run immediately on startup to process any backlog
+  processReviewQueue().catch(err => console.error("Worker Startup Error:", err));
+
+  // Then run every minute
+  setInterval(() => {
+    processReviewQueue().catch(err => console.error("Worker Error:", err));
+  }, 60 * 1000);
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -447,7 +453,7 @@ io.on('connection', async (socket) => {
       try {
         senderUser = await prisma.user.findUnique({
           where: { id: finalUserId },
-          select: { id: true, name: true, imageUrl: true, birthDate: true }
+          select: { id: true, name: true, imageUrl: true, birthDate: true, gender: true }
         });
       } catch (e) {
         console.error('Failed to fetch sender details:', e);
@@ -705,16 +711,14 @@ io.on('connection', async (socket) => {
             unreadCountIncrement: 1
           });
 
-          if (!online) {
-            // Offline only: push to device — never persist chat to Notification table
-            notificationService.sendPushOnly(
-              recipientId,
-              'NEW_MESSAGE',
-              senderUser?.name || senderName || 'הודעה חדשה',
-              messagePreview,
-              { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` }
-            ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
-          }
+          // Always send push to device — client will suppress it if in foreground
+          notificationService.sendPushOnly(
+            recipientId,
+            'NEW_MESSAGE',
+            senderUser?.name || senderName || 'הודעה חדשה',
+            messagePreview,
+            { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` }
+          ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
         });
       } catch (err) {
         console.error("[DEBUG NOTIFICATIONS] Notification error:", err);
@@ -1005,7 +1009,9 @@ async function runLotterySweep() {
   }
 }
 
-setInterval(runLotterySweep, 60_000);
+if (enableBackgroundSchedulers) {
+  setInterval(runLotterySweep, 60_000);
+}
 
 // --- Manager pick-session scheduler (turn-order draw + auto-open picking) ---
 const {
@@ -1026,9 +1032,11 @@ async function runPickSessionSweep() {
     pickSessionSweepRunning = false;
   }
 }
-setInterval(runPickSessionSweep, 30_000);
-// Kick once shortly after boot so overdue sessions open without waiting a full tick
-setTimeout(runPickSessionSweep, 5_000);
+if (enableBackgroundSchedulers) {
+  setInterval(runPickSessionSweep, 30_000);
+  // Kick once shortly after boot so overdue sessions open without waiting a full tick
+  setTimeout(runPickSessionSweep, 5_000);
+}
 
 // --- Game Auto-Completion (Passive) ---
 let completionCheckRunning = false;
@@ -1067,8 +1075,10 @@ async function runGameCompletionCheck() {
     completionCheckRunning = false;
   }
 }
-setInterval(runGameCompletionCheck, 60_000);
-runGameCompletionCheck().catch(() => { });
+if (enableBackgroundSchedulers) {
+  setInterval(runGameCompletionCheck, 60_000);
+  runGameCompletionCheck().catch(() => { });
+}
 
 // --- Weekly Series Rolling Generation ---
 function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
@@ -1199,10 +1209,12 @@ async function runWeeklySeriesGeneration() {
   }
 }
 
-// Run every 24 hours
-setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
-// Kick once on boot (non-blocking)
-runWeeklySeriesGeneration().catch(() => { });
+if (enableBackgroundSchedulers) {
+  // Run every 24 hours
+  setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
+  // Kick once on boot (non-blocking)
+  runWeeklySeriesGeneration().catch(() => { });
+}
 
 // 404 handler (must be after all routes, before error handler)
 app.use((req, res) => {
@@ -1218,15 +1230,30 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server (HTTP + Socket.IO) — bind 0.0.0.0 for Render's proxy
-server.listen(PORT, '0.0.0.0', async () => {
+async function startServer() {
   await initializeDataFiles();
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🔌 Socket.IO ready on /api/socket (CORS allowlist: ${JSON.stringify(allowedOrigins)}, permissive: ${corsPermissive})`);
 
-  // Start notification workers
-  startGameReminderWorker(io);
-  startCleanupWorker();
-  console.log('🔔 Notification workers started');
-});
+  return new Promise((resolve) => {
+    // Start server (HTTP + Socket.IO) — bind 0.0.0.0 for Render's proxy
+    server.listen(PORT, '0.0.0.0', async () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`🔌 Socket.IO ready on /api/socket (CORS allowlist: ${JSON.stringify(allowedOrigins)}, permissive: ${corsPermissive})`);
+
+      // Workers stay tied to the real HTTP bootstrap, not test imports.
+      startGameReminderWorker(io);
+      startCleanupWorker();
+      console.log('🔔 Notification workers started');
+      resolve(server);
+    });
+  });
+}
+
+if (!process.env.JEST_WORKER_ID) {
+  startServer().catch((err) => {
+    console.error('[FATAL] server startup failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { app, server, startServer };

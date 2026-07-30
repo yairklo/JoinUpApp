@@ -196,6 +196,8 @@ class NotificationService {
         const messages = validDevices.map(d => ({
             to: d.expoPushToken,
             sound: 'default',
+            priority: 'high',
+            channelId: 'default',
             title: pushTitle,
             body: pushBody,
             data: { ...data, type, notificationId: data.notificationId || '', link: data.link || '/' }
@@ -243,7 +245,7 @@ class NotificationService {
             try {
                 await admin.messaging().send({
                     token,
-                    // notification: { title, body }, // REMOVED to prevent double notification
+                    notification: { title, body },
                     data: {
                         ...data,
                         type,
@@ -263,13 +265,17 @@ class NotificationService {
                         notification: {
                             icon: 'icon_notification',
                             color: '#000000',
+                            channelId: 'default',
                             clickAction: 'FLUTTER_NOTIFICATION_CLICK' // Standard for many handlers, but we will handle in SW
                         }
                     },
                     apns: {
+                        headers: {
+                            'apns-priority': '10'
+                        },
                         payload: {
                             aps: {
-                                contentAvailable: true,
+                                'content-available': 1,
                                 sound: 'default'
                             }
                         }

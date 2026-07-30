@@ -8,6 +8,7 @@ import { SocketManager } from '@/services/socketManager';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChatLogic } from '@/hooks/useChatLogic';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 type PickState = {
   gameId: string;
@@ -68,9 +69,14 @@ export default function LiveTeamManagementScreen() {
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<PickState | null>(null);
   const [presence, setPresence] = useState<Record<string, boolean>>({});
-  const [drawLocal, setDrawLocal] = useState('');
-  const [pickLocal, setPickLocal] = useState('');
+  
+  const [drawDate, setDrawDate] = useState<Date | null>(null);
+  const [pickDate, setPickDate] = useState<Date | null>(null);
+  const [activePicker, setActivePicker] = useState<'drawDate'|'drawTime'|'pickDate'|'pickTime'|null>(null);
   const [pickOrderTypeLocal, setPickOrderTypeLocal] = useState<'CIRCULAR'|'SNAKE'>('CIRCULAR');
+  
+  const loadedRef = React.useRef(false);
+  
   const [waitingOffline, setWaitingOffline] = useState(false);
   const [tradeReceiverId, setTradeReceiverId] = useState<string | null>(null);
   const [offeredId, setOfferedId] = useState<string | null>(null);
@@ -94,9 +100,12 @@ export default function LiveTeamManagementScreen() {
       if (!token) return;
       const data = await gamesApi.getPickSession(id, token);
       setState(data);
-      setDrawLocal(toLocalInput(data.pickDrawAt));
-      setPickLocal(toLocalInput(data.pickingStartsAt));
-      setPickOrderTypeLocal(data.pickOrderType === 'SNAKE' ? 'SNAKE' : 'CIRCULAR');
+      if (!loadedRef.current) {
+        setDrawDate(data.pickDrawAt ? new Date(data.pickDrawAt) : null);
+        setPickDate(data.pickingStartsAt ? new Date(data.pickingStartsAt) : null);
+        setPickOrderTypeLocal(data.pickOrderType === 'SNAKE' ? 'SNAKE' : 'CIRCULAR');
+        loadedRef.current = true;
+      }
     } catch (e) {
       console.error(e);
       Alert.alert(t('teams.error'), t('teams.loadFailed'));
@@ -197,8 +206,8 @@ export default function LiveTeamManagementScreen() {
       const data = await gamesApi.updatePickSchedule(
         id,
         {
-          pickDrawAt: drawLocal ? new Date(drawLocal).toISOString() : null,
-          pickingStartsAt: pickLocal ? new Date(pickLocal).toISOString() : null,
+          pickDrawAt: drawDate ? drawDate.toISOString() : null,
+          pickingStartsAt: pickDate ? pickDate.toISOString() : null,
           pickOrderType: pickOrderTypeLocal,
         },
         token
@@ -206,6 +215,32 @@ export default function LiveTeamManagementScreen() {
       setState(data);
       Alert.alert(t('teams.success'), t('teams.scheduleSaved'));
     });
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (!selectedDate) {
+      setActivePicker(null);
+      return;
+    }
+    
+    if (activePicker === 'drawDate' || activePicker === 'drawTime') {
+      const newDate = drawDate ? new Date(drawDate) : new Date();
+      if (activePicker === 'drawDate') {
+        newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      } else {
+        newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
+      }
+      setDrawDate(newDate);
+    } else if (activePicker === 'pickDate' || activePicker === 'pickTime') {
+      const newDate = pickDate ? new Date(pickDate) : new Date();
+      if (activePicker === 'pickDate') {
+        newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      } else {
+        newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
+      }
+      setPickDate(newDate);
+    }
+    setActivePicker(null);
+  };
 
   const assignCaptain = (userId: string) =>
     run(async () => {
@@ -302,19 +337,36 @@ export default function LiveTeamManagementScreen() {
             <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.scheduleTitle')}</Text>
             <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.scheduleHint')}</Text>
             <Text style={{ fontSize: 12, fontWeight: '600' }}>{t('teams.drawTime')}</Text>
-            <TextInput
-              value={drawLocal}
-              onChangeText={setDrawLocal}
-              placeholder="2026-07-26T18:00"
-              style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10 }}
-            />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setActivePicker('drawDate')}
+                style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
+              >
+                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleDateString() : 'בחר תאריך'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setActivePicker('drawTime')}
+                style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
+              >
+                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'בחר שעה'}</Text>
+              </TouchableOpacity>
+            </View>
+
             <Text style={{ fontSize: 12, fontWeight: '600' }}>{t('teams.pickingStartTime')}</Text>
-            <TextInput
-              value={pickLocal}
-              onChangeText={setPickLocal}
-              placeholder="2026-07-26T19:00"
-              style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10 }}
-            />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => setActivePicker('pickDate')}
+                style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
+              >
+                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleDateString() : 'בחר תאריך'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setActivePicker('pickTime')}
+                style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
+              >
+                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'בחר שעה'}</Text>
+              </TouchableOpacity>
+            </View>
             <Text style={{ fontSize: 12, fontWeight: '600' }}>סדר בחירה</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity
@@ -337,6 +389,17 @@ export default function LiveTeamManagementScreen() {
             >
               <Text style={{ color: '#fff', fontWeight: '700' }}>{t('teams.saveSchedule')}</Text>
             </TouchableOpacity>
+
+            {activePicker && (
+              <DateTimePicker
+                value={
+                  (activePicker.startsWith('draw') ? drawDate : pickDate) || new Date()
+                }
+                mode={activePicker.endsWith('Date') ? 'date' : 'time'}
+                display="default"
+                onChange={handleDateChange}
+              />
+            )}
           </View>
         )}
 

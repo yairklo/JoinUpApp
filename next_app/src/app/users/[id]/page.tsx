@@ -25,10 +25,16 @@ type PublicUser = {
     email?: string | null;
     city?: string | null;
     age?: number | null;
+    gender?: "MALE" | "FEMALE" | null;
     sports?: { id: string; name: string; position?: string | null }[];
     positions?: { id: string; name: string; sportId: string }[];
     ratingAverage?: number | null;
     totalRatings?: number;
+};
+
+const GENDER_LABELS: Record<"MALE" | "FEMALE", string> = {
+    MALE: "גבר",
+    FEMALE: "אישה",
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -141,6 +147,16 @@ export default async function UserPublicPage(props: {
                                         Age
                                     </Typography>
                                     <Typography variant="body1">{u.age}</Typography>
+                                </Box>
+                            )}
+
+                            {/* Gender */}
+                            {u.gender && (
+                                <Box>
+                                    <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
+                                        מין
+                                    </Typography>
+                                    <Typography variant="body1">{GENDER_LABELS[u.gender]}</Typography>
                                 </Box>
                             )}
 

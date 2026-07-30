@@ -43,11 +43,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { prisma } = require('../services/gameService');
-
-// טוענים את השרת כדי שיעלה ברקע עם כל ה-Mocks שלנו
-require('../index'); 
-
-const app = 'http://127.0.0.1:3005'; 
+const { app } = require('../index');
 
 describe('Game Roster & Waitlist Integration Tests', () => {
   let testGame;
@@ -63,6 +59,9 @@ describe('Game Roster & Waitlist Integration Tests', () => {
   const testPlayer3Id = 'user_play_3';
 
   beforeAll(async () => {
+    const health = await request(app).get('/api/health');
+    expect(health.statusCode).toBeLessThan(500);
+
     // א. יצירת/עדכון משתמשי בדיקה ב-DB (לא פוגע בנתונים קיימים)
     await prisma.user.upsert({
       where: { id: testOrganizerId },
@@ -113,10 +112,6 @@ describe('Game Roster & Waitlist Integration Tests', () => {
     }
 
     await prisma.$disconnect();
-    
-    if (app && typeof app.close === 'function') {
-      await app.close();
-    }
   });
 
   // --- טסט 1: יצירת משחק חדש על ידי המארגן ---
