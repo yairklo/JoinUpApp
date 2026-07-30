@@ -25,6 +25,13 @@ function calculateAge(birthDate?: string | null) {
 
 type SportEntry = { sportId: string; position: string };
 
+type GenderValue = 'MALE' | 'FEMALE' | '';
+
+const GENDER_LABELS: Record<'MALE' | 'FEMALE', string> = {
+    MALE: 'גבר',
+    FEMALE: 'אישה',
+};
+
 export default function ProfileScreen() {
     const { t } = useTranslation();
     const { user } = useUser();
@@ -37,7 +44,7 @@ export default function ProfileScreen() {
     const [saving, setSaving] = useState(false);
 
     // Form state
-    const [form, setForm] = useState({ city: '', phone: '', sportsData: [] as SportEntry[] });
+    const [form, setForm] = useState({ city: '', phone: '', gender: '' as GenderValue, sportsData: [] as SportEntry[] });
     // Per-sport free-text input state (keyed by sportId)
     const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
 
@@ -70,6 +77,7 @@ export default function ProfileScreen() {
                 setForm({
                     city: data?.city || '',
                     phone: data?.phone || '',
+                    gender: data?.gender === 'MALE' || data?.gender === 'FEMALE' ? data.gender : '',
                     sportsData: (data?.sports || []).map(s => ({ sportId: s.id, position: s.position || '' })),
                 });
                 
@@ -107,7 +115,10 @@ export default function ProfileScreen() {
         try {
             const token = await getToken();
             if (token) {
-                const updated = await usersApi.updateProfile(user.id, form, token);
+                const updated = await usersApi.updateProfile(user.id, {
+                    ...form,
+                    gender: form.gender || null,
+                }, token);
                 setProfile(updated);
                 setIsEditing(false);
             }
@@ -123,6 +134,7 @@ export default function ProfileScreen() {
         setForm({
             city: profile?.city || '',
             phone: profile?.phone || '',
+            gender: profile?.gender === 'MALE' || profile?.gender === 'FEMALE' ? profile.gender : '',
             sportsData: (profile?.sports || []).map(s => ({ sportId: s.id, position: s.position || '' })),
         });
     };
@@ -329,6 +341,39 @@ export default function ProfileScreen() {
                             />
                         ) : (
                             <Text className="text-gray-800 font-bold text-base text-right">{profile?.phone || t('profile.unknownPhone', 'לא צוין')}</Text>
+                        )}
+                    </View>
+
+                    {/* Gender */}
+                    <View className="mb-4">
+                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.gender', 'מין')}</Text>
+                        {isEditing ? (
+                            <View className="flex-row justify-end gap-2">
+                                {([
+                                    { value: 'MALE' as const, label: GENDER_LABELS.MALE },
+                                    { value: 'FEMALE' as const, label: GENDER_LABELS.FEMALE },
+                                ]).map((opt) => {
+                                    const selected = form.gender === opt.value;
+                                    return (
+                                        <TouchableOpacity
+                                            key={opt.value}
+                                            onPress={() => setForm(prev => ({
+                                                ...prev,
+                                                gender: prev.gender === opt.value ? '' : opt.value,
+                                            }))}
+                                            className={`px-4 py-2 rounded-xl border ${selected ? 'bg-brand border-brand' : 'bg-gray-50 border-gray-200'}`}
+                                        >
+                                            <Text className={`font-bold text-sm ${selected ? 'text-white' : 'text-gray-700'}`}>
+                                                {opt.label}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        ) : (
+                            <Text className="text-gray-800 font-bold text-base text-right">
+                                {profile?.gender ? GENDER_LABELS[profile.gender] : t('profile.unknownGender', 'לא צוין')}
+                            </Text>
                         )}
                     </View>
 
