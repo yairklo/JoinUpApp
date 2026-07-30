@@ -38,6 +38,10 @@ Persistent instructions for any Cursor Agent run against this repo (including he
    Cause: requiring `index.js` in integration tests starts background schedulers (review/lottery/pick/completion/series).  
    Fix: gate all top-level `setInterval`/`setTimeout` (and boot kicks) behind `enableBackgroundSchedulers` when `NODE_ENV === 'test'` or `JEST_WORKER_ID` is set.
 
+6. **Jest open handle `TCPSERVERWRAP` / cascading `testGame.id` undefined in roster tests**  
+   Cause: `require('../index')` still calls `server.listen(...)`, leaving a TCP handle; host `PORT` clashes can also make create-game fail so later tests read `undefined.id`.  
+   Fix: skip `startServer()`/`server.listen` when `JEST_WORKER_ID` is set; export `{ app }` and hit Express via `supertest(app)` (do not bind a real port in Jest).
+
 ## When you learn a new deploy bug
 Append a short bullet under **Known failure modes** in this file and/or add a rule under `.cursor/rules/`, then commit it with the fix so future terminal agents inherit the lesson.
 
@@ -52,3 +56,4 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Quality gate `next_app:build` failed — re-run and fix locally before merge/deploy.
 - Quality gate `server:test` failed — re-run and fix locally before merge/deploy.
 - Jest `--detectOpenHandles` fails when `server/index.js` starts `setInterval`/`setTimeout` under test — skip background schedulers when `NODE_ENV=test` or `JEST_WORKER_ID` is set. Integration tests must also pin `PORT` (host env often sets `PORT=8787`) and hit that same port.
+- Jest roster tests must use exported Express `app` with supertest and must not call `server.listen` under `JEST_WORKER_ID` (avoids TCPSERVERWRAP + undefined game id cascades).
