@@ -13,11 +13,11 @@ QUALITY / DEPLOY REQUIREMENTS (joinUp):
 - Production API is https://joinup-api.duckdns.org — do not treat old Render prod as current.
 - After server/ changes the orchestrator redeploys Render staging and watches /api/health for errors.
 
-When a game organizer/admin manually adds a friend to a game (as opposed to the friend requesting to join independently), the system must immediately trigger the same in-app notification and mobile push notification mechanisms already used for other existing notifications in the app (e.g., game reminders) for that added friend. Currently, the friend is added to the game and can see their membership in-app, but no notification event is fired at all when they are added this way — this notification trigger needs to be added at the point where a user is added to a game's participant list by another user (organizer/admin), not when a user joins on their own. Notification content: Hebrew in-app text "צורפת למשחק על ידי [שם המצרף]" including game details (date/time/location); English (mobile) equivalent: "You were added to a game by [Name]" including the same game details. Do not modify the existing pre-game reminder notification logic, which already works correctly — this task is scoped only to adding the missing "added to game by organizer" notification trigger and message.
+Update main page text label. On the home/main page, change the section header / button text from "הצטרף לקבוצה" to "הקבוצות שלי" ("My Groups"). Ensure all corresponding navigation links and behaviors connected to this element remain intact and point to the user's groups section/page.
 
 ## Strict Instructions for Cursor / Antigravity Agent
 1. **Branching:** Create and switch to a new feature branch before editing code:
-   `git checkout -b feature/task-1785161235017`
+   `git checkout -b feature/task-1785400837429`
 2. **Autonomy:** Run in non-interactive/auto-approve mode. Do NOT prompt for permission on file edits or terminal commands.
 3. **Verification & Completion:**
    - Execute local quality gates (build/tests) and fix failures in a loop until green.
