@@ -79,13 +79,23 @@ export default function NotificationPanel() {
                 anchorEl={anchorEl}
                 open={open}
                 onClose={handleClose}
+                MenuListProps={{
+                    disablePadding: true,
+                    sx: {
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: 0,
+                        height: '100%',
+                    },
+                }}
                 PaperProps={{
                     sx: {
                         width: { xs: '100%', sm: 380 },
                         maxHeight: { xs: '80vh', sm: 500 },
                         overflow: 'hidden',
                         display: 'flex',
-                        flexDirection: 'column'
+                        flexDirection: 'column',
+                        minHeight: 0,
                     }
                 }}
             >
@@ -99,75 +109,84 @@ export default function NotificationPanel() {
                 </Box>
                 <Divider />
 
-                {loading && notifications.length === 0 ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                        <CircularProgress size={24} />
-                    </Box>
-                ) : notifications.length === 0 ? (
-                    <Box sx={{ p: 4, textAlign: 'center' }}>
-                        <Typography color="text.secondary">אין התראות חדשות</Typography>
-                    </Box>
-                ) : (
-                    <List sx={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
-                        {notifications.map((notif) => (
-                            <ListItemButton
-                                key={notif.id}
-                                onClick={() => handleNotificationClick(notif)}
-                                sx={{
-                                    bgcolor: !notif.read ? 'action.hover' : 'transparent',
-                                    borderLeft: !notif.read ? 3 : 0,
-                                    borderColor: 'primary.main',
-                                    '&:hover': {
-                                        bgcolor: 'action.selected'
-                                    }
-                                }}
-                            >
-                                <ListItemText
-                                    primary={
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 0.5 }}>
-                                            <Typography
-                                                variant="subtitle2"
-                                                fontWeight="bold"
-                                                sx={{
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                    maxWidth: '250px'
-                                                }}
-                                            >
-                                                {notif.title}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 1 }}>
-                                                {formatTime(notif.createdAt)}
-                                            </Typography>
-                                        </Box>
-                                    }
-                                    secondary={
-                                        <>
-                                            <Typography variant="body2" color="text.secondary">
-                                                {notif.body}
-                                            </Typography>
-                                            {notif.data?.userId && (
-                                                <Box sx={{ mt: 1 }}>
-                                                    <Button
-                                                        variant="outlined"
-                                                        size="small"
-                                                        onClick={(e) => handleDirectMessage(e, notif.data!.userId)}
-                                                    >
-                                                        שלח הודעה
-                                                    </Button>
-                                                </Box>
-                                            )}
-                                            {!notif.read && (
-                                                <Chip label="חדש" color="primary" size="small" sx={{ mt: 0.5, height: 20, fontSize: '0.65rem' }} />
-                                            )}
-                                        </>
-                                    }
-                                />
-                            </ListItemButton>
-                        ))}
-                    </List>
-                )}
+                <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    {loading && notifications.length === 0 ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4, flex: 1 }}>
+                            <CircularProgress size={24} />
+                        </Box>
+                    ) : notifications.length === 0 ? (
+                        <Box sx={{ p: 4, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                            <Typography color="text.secondary">אין התראות חדשות</Typography>
+                        </Box>
+                    ) : (
+                        <List
+                            sx={{
+                                flex: 1,
+                                minHeight: 0,
+                                overflowY: 'auto',
+                                WebkitOverflowScrolling: 'touch',
+                            }}
+                        >
+                            {notifications.map((notif) => (
+                                <ListItemButton
+                                    key={notif.id}
+                                    onClick={() => handleNotificationClick(notif)}
+                                    sx={{
+                                        bgcolor: !notif.read ? 'action.hover' : 'transparent',
+                                        borderLeft: !notif.read ? 3 : 0,
+                                        borderColor: 'primary.main',
+                                        '&:hover': {
+                                            bgcolor: 'action.selected'
+                                        }
+                                    }}
+                                >
+                                    <ListItemText
+                                        primary={
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 0.5 }}>
+                                                <Typography
+                                                    variant="subtitle2"
+                                                    fontWeight="bold"
+                                                    sx={{
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                        maxWidth: '250px'
+                                                    }}
+                                                >
+                                                    {notif.title}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 1 }}>
+                                                    {formatTime(notif.createdAt)}
+                                                </Typography>
+                                            </Box>
+                                        }
+                                        secondary={
+                                            <>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    {notif.body}
+                                                </Typography>
+                                                {notif.data?.userId && (
+                                                    <Box sx={{ mt: 1 }}>
+                                                        <Button
+                                                            variant="outlined"
+                                                            size="small"
+                                                            onClick={(e) => handleDirectMessage(e, notif.data!.userId)}
+                                                        >
+                                                            שלח הודעה
+                                                        </Button>
+                                                    </Box>
+                                                )}
+                                                {!notif.read && (
+                                                    <Chip label="חדש" color="primary" size="small" sx={{ mt: 0.5, height: 20, fontSize: '0.65rem' }} />
+                                                )}
+                                            </>
+                                        }
+                                    />
+                                </ListItemButton>
+                            ))}
+                        </List>
+                    )}
+                </Box>
             </Menu>
         </>
     );
