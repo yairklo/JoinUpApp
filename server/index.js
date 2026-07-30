@@ -453,7 +453,7 @@ io.on('connection', async (socket) => {
       try {
         senderUser = await prisma.user.findUnique({
           where: { id: finalUserId },
-          select: { id: true, name: true, imageUrl: true, birthDate: true }
+          select: { id: true, name: true, imageUrl: true, birthDate: true, gender: true }
         });
       } catch (e) {
         console.error('Failed to fetch sender details:', e);

@@ -13,11 +13,28 @@ QUALITY / DEPLOY REQUIREMENTS (joinUp):
 - Production API is https://joinup-api.duckdns.org — do not treat old Render prod as current.
 - After server/ changes the orchestrator redeploys Render staging and watches /api/health for errors.
 
-Update main page text label. On the home/main page, change the section header / button text from "הצטרף לקבוצה" to "הקבוצות שלי" ("My Groups"). Ensure all corresponding navigation links and behaviors connected to this element remain intact and point to the user's groups section/page.
+Product-confirmed joinUp fix from Telegram collaborator.
+Stay strictly inside the joinUp repository. Do not touch other projects.
+
+Product summary / intent:
+הבנתי, תודה! 
+
+הנה סיכום השינוי שנעשה בפרופיל המשתמש:
+1. **הוספת שדה מין בפרופיל:** נוסיף שדה לבחירת מין במסך הפרופיל/עריכת פרופיל.
+2. **אפשרויות לבחירה:** הבחירה תהיה מוגבלת לשתי אפשרויות בלבד - "גבר" או "אישה".
+3. **תצוגה ושמירה:** המידע יישמר בפרופיל המשתמש ויוצג כדי שמשתמשים אחרים יוכלו לראות את הנתון הזה.
+
+מעביר את זה לביצוע!
+
+Recent conversation:
+(none)
+
+Implement the described UX/behavior change end-to-end (web + mobile if the feature spans both).
+Run local quality gates, then merge to Dev when green.
 
 ## Strict Instructions for Cursor / Antigravity Agent
 1. **Branching:** Create and switch to a new feature branch before editing code:
-   `git checkout -b feature/task-1785400837429`
+   `git checkout -b feature/task-1785412913608`
 2. **Autonomy:** Run in non-interactive/auto-approve mode. Do NOT prompt for permission on file edits or terminal commands.
 3. **Verification & Completion:**
    - Execute local quality gates (build/tests) and fix failures in a loop until green.

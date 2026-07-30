@@ -257,6 +257,8 @@ router.delete('/:id/favorites/:fieldId', authenticateToken, async (req, res) => 
 });
 
 
+const VALID_GENDERS = ['MALE', 'FEMALE'];
+
 function mapUserPublic(u) {
   if (!u) return u;
   return {
@@ -267,6 +269,7 @@ function mapUserPublic(u) {
     imageUrl: u.imageUrl,
     city: u.city,
     birthDate: u.birthDate,
+    gender: u.gender || null,
     age: u.birthDate ? (() => {
       const diff = Date.now() - new Date(u.birthDate).getTime();
       const ageDt = new Date(diff);
@@ -495,7 +498,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (req.params.id !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { name, email, phone, imageUrl, city, birthDate, sportIds, sportsData, positionIds } = req.body;
+    const { name, email, phone, imageUrl, city, birthDate, gender, sportIds, sportsData, positionIds } = req.body;
+
+    if (typeof gender !== 'undefined' && gender !== null && !VALID_GENDERS.includes(gender)) {
+      return res.status(400).json({ error: 'Invalid gender. Must be MALE or FEMALE.' });
+    }
+
     const data = {
       ...(typeof name !== 'undefined' ? { name } : {}),
       ...(typeof email !== 'undefined' ? { email } : {}),
@@ -503,6 +511,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       ...(typeof imageUrl !== 'undefined' ? { imageUrl } : {}),
       ...(typeof city !== 'undefined' ? { city } : {}),
       ...(typeof birthDate !== 'undefined' ? { birthDate: birthDate ? new Date(birthDate) : null } : {}),
+      ...(typeof gender !== 'undefined' ? { gender: gender || null } : {}),
     };
 
     const updated = await prisma.user.update({ where: { id: req.user.id }, data });

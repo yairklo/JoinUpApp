@@ -18,6 +18,8 @@ model User {
   city                 String?
   phone                String?
   birthDate            DateTime?
+  /// Optional binary gender for profile display (MALE = גבר, FEMALE = אישה)
+  gender               Gender?
   reputation           Int                       @default(50)
   privacyFriends       PrivacyLevel?
   privacyGames         PrivacyLevel?
@@ -533,6 +535,12 @@ enum FriendRequestStatus {
 enum PrivacyLevel {
   EVERYONE
   FRIENDS_ONLY
+}
+
+/// Profile gender — limited to two options per product request (גבר / אישה).
+enum Gender {
+  MALE
+  FEMALE
 }
 
 enum ParticipationStatus {
