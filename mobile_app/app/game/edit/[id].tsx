@@ -117,6 +117,15 @@ export default function EditGameScreen() {
     const [isPrivate, setIsPrivate] = useState(false);
     const [requiresApproval, setRequiresApproval] = useState(false);
 
+    // Location / field selection (same mechanism as create)
+    const [cities, setCities] = useState<string[]>([]);
+    const [fields, setFields] = useState<any[]>([]);
+    const [selectedCity, setSelectedCity] = useState<string | null>(null);
+    const [selectedField, setSelectedField] = useState<any>(null);
+    const [newFieldMode, setNewFieldMode] = useState(false);
+    const [newFieldName, setNewFieldName] = useState('');
+    const [newFieldLocation, setNewFieldLocation] = useState('');
+
     // Advanced Options State
     const [makePublicLater, setMakePublicLater] = useState(false);
     const [publicDate, setPublicDate] = useState(new Date());
@@ -153,9 +162,39 @@ export default function EditGameScreen() {
     const isManager = game ? game.managers?.some((m: any) => m.id === user?.id) : false;
     const canManage = isOrganizer || isManager;
 
+    const filteredFields = fields.filter(
+        (f) => !selectedCity || f.city === selectedCity || f.location?.includes(selectedCity)
+    );
+
     useEffect(() => {
         fetchGame();
+        loadFields();
     }, [id]);
+
+    const loadFields = async () => {
+        try {
+            const [cityList, fieldList] = await Promise.all([
+                fieldsApi.getCities(),
+                fieldsApi.getAll(),
+            ]);
+            setCities(cityList || []);
+            setFields((prev) => {
+                const list = [...(fieldList || [])];
+                // Keep any currently selected / prefilled venue that isn't in the public list
+                for (const existing of prev) {
+                    if (existing?.id && !list.some((f: any) => f.id === existing.id)) {
+                        list.unshift(existing);
+                    }
+                }
+                return list;
+            });
+            if (cityList?.length) {
+                setSelectedCity((prev) => prev || cityList[0]);
+            }
+        } catch (error) {
+            console.error('Failed to load fields', error);
+        }
+    };
 
     const fetchGame = async () => {
         try {
@@ -203,6 +242,24 @@ export default function EditGameScreen() {
                 setPublicDate(new Date(data.friendsOnlyUntil));
                 setPublicTime(new Date(data.friendsOnlyUntil));
             }
+
+            // Prefill current venue
+            if (data.fieldId) {
+                const current = {
+                    id: data.fieldId,
+                    name: data.fieldName,
+                    location: data.fieldLocation,
+                    city: data.city || null,
+                };
+                setSelectedField(current);
+                setFields((prev) =>
+                    prev.some((f) => f.id === data.fieldId) ? prev : [current, ...prev]
+                );
+                if (data.city) setSelectedCity(data.city);
+            }
+            setNewFieldMode(false);
+            setNewFieldName('');
+            setNewFieldLocation('');
 
         } catch (error) {
             console.error("Failed to load game", error);
@@ -310,6 +367,15 @@ export default function EditGameScreen() {
     };
 
     const handleSubmit = async () => {
+        if (!newFieldMode && !selectedField?.id) {
+            Alert.alert(t('editGame.error', 'Error'), 'אנא בחר מגרש או הוסף מגרש חדש');
+            return;
+        }
+        if (newFieldMode && (!newFieldName.trim() || !newFieldLocation.trim())) {
+            Alert.alert(t('editGame.error', 'Error'), 'יש למלא שם מגרש וכתובת');
+            return;
+        }
+
         setSubmitting(true);
         try {
             const token = await getToken();
@@ -370,7 +436,17 @@ export default function EditGameScreen() {
                 friendsOnlyUntil: (isPrivate && makePublicLater) ? friendsOnlyUntil : null,
                 lotteryEnabled,
                 lotteryAt: lotteryEnabled ? lotteryAt : null,
-                organizerInLottery: lotteryEnabled ? organizerInLottery : false
+                organizerInLottery: lotteryEnabled ? organizerInLottery : false,
+                ...(newFieldMode
+                    ? {
+                        fieldId: '',
+                        newField: {
+                            name: newFieldName.trim(),
+                            location: newFieldLocation.trim(),
+                            type: 'open' as const,
+                        },
+                    }
+                    : { fieldId: selectedField.id }),
             };
 
             await gamesApi.update(id, payload, token);
@@ -466,6 +542,86 @@ export default function EditGameScreen() {
                         placeholder={t('newGame.title', 'Game Title')}
                         className={`bg-gray-100 p-3 rounded-lg ${isRtl ? 'text-right' : 'text-left'}`}
                     />
+                </View>
+
+                {/* Location / Field Selection */}
+                <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
+                    <View className={`flex-row justify-between items-center mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <Text className={`text-lg font-bold text-gray-800 ${isRtl ? 'text-right' : 'text-left'}`}>
+                            {t('editGame.location', 'מיקום')}
+                        </Text>
+                        <TouchableOpacity
+                            onPress={() => {
+                                setNewFieldMode((v) => !v);
+                                if (!newFieldMode) setSelectedField(null);
+                            }}
+                            className="bg-brand-mist px-3 py-1 rounded-full border border-brand-pale"
+                        >
+                            <Text className="text-brand-dark font-bold text-xs">
+                                {newFieldMode ? 'בחר מהרשימה' : 'הוסף מגרש חדש'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {newFieldMode ? (
+                        <View className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                            <Text className={`text-sm font-bold text-gray-700 mb-2 ${isRtl ? 'text-right' : 'text-left'}`}>צור מגרש חדש</Text>
+                            <TextInput
+                                value={newFieldName}
+                                onChangeText={setNewFieldName}
+                                placeholder="שם המגרש"
+                                className={`bg-white p-3 rounded-lg mb-2 border border-gray-200 ${isRtl ? 'text-right' : 'text-left'}`}
+                            />
+                            <TextInput
+                                value={newFieldLocation}
+                                onChangeText={setNewFieldLocation}
+                                placeholder="מיקום / כתובת"
+                                className={`bg-white p-3 rounded-lg border border-gray-200 ${isRtl ? 'text-right' : 'text-left'}`}
+                            />
+                        </View>
+                    ) : (
+                        <>
+                            {selectedField && (
+                                <View className="bg-green-50 p-3 rounded-lg mb-3 border border-green-200">
+                                    <Text className="text-green-800 font-bold">{selectedField.name}</Text>
+                                    {!!selectedField.location && (
+                                        <Text className="text-green-700 text-xs mt-1">{selectedField.location}</Text>
+                                    )}
+                                </View>
+                            )}
+
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
+                                {cities.map((city) => (
+                                    <TouchableOpacity
+                                        key={city}
+                                        onPress={() => setSelectedCity(city)}
+                                        className={`mr-2 px-4 py-2 rounded-full border ${selectedCity === city ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                                    >
+                                        <Text className={selectedCity === city ? 'text-white' : 'text-gray-700'}>{city}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+
+                            <Text className={`text-sm text-gray-500 mb-2 ${isRtl ? 'text-right' : 'text-left'}`}>בחר מגרש:</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                {filteredFields.map((field) => (
+                                    <TouchableOpacity
+                                        key={field.id}
+                                        onPress={() => {
+                                            setSelectedField(field);
+                                            setNewFieldMode(false);
+                                        }}
+                                        className={`mr-3 p-3 rounded-xl border w-40 ${selectedField?.id === field.id ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
+                                    >
+                                        <Text className={`font-bold ${selectedField?.id === field.id ? 'text-brand-dark' : 'text-gray-800'}`} numberOfLines={1}>
+                                            {field.name}
+                                        </Text>
+                                        <Text className="text-xs text-gray-500" numberOfLines={1}>{field.location}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </>
+                    )}
                 </View>
 
                 {/* Date & Time */}

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { gamesApi, UpdateGameDTO } from "@/services/api";
+import { gamesApi, UpdateGameDTO, fieldsApi } from "@/services/api";
+import type { FieldOption } from "@/hooks/useGameCreator";
 
 // Helper functions (moved from component)
 export function getIsoDatePart(iso: string | null | undefined) {
@@ -37,6 +38,9 @@ export interface GameEditorProps {
     initialDuration?: number;
     initialDescription?: string | null;
     initialWelcomeMessage?: string | null;
+    initialFieldId?: string | null;
+    initialFieldName?: string | null;
+    initialFieldLocation?: string | null;
 }
 
 export function useGameEditor({
@@ -54,7 +58,10 @@ export function useGameEditor({
     initialPrice,
     initialDuration = 1,
     initialDescription,
-    initialWelcomeMessage
+    initialWelcomeMessage,
+    initialFieldId,
+    initialFieldName,
+    initialFieldLocation,
 }: GameEditorProps) {
     const { getToken } = useAuth();
     const router = useRouter();
@@ -76,6 +83,20 @@ export function useGameEditor({
     const [description, setDescription] = useState<string>(initialDescription || "");
     const [welcomeMessage, setWelcomeMessage] = useState<string>(initialWelcomeMessage || "");
 
+    // Field / venue state (same mechanism as create game)
+    const [fields, setFields] = useState<FieldOption[]>([]);
+    const [selectedField, setSelectedField] = useState<FieldOption | null>(
+        initialFieldId
+            ? { id: initialFieldId, name: initialFieldName || "", location: initialFieldLocation || "" }
+            : null
+    );
+    const [newFieldMode, setNewFieldMode] = useState(false);
+    const [newField, setNewField] = useState<{ name: string; location: string; type: "open" | "closed" }>({
+        name: "",
+        location: "",
+        type: "open",
+    });
+
     // Future Registration State
     const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
     const [regDate, setRegDate] = useState(getIsoDatePart(initialRegistrationOpensAt));
@@ -85,6 +106,38 @@ export function useGameEditor({
     const [makePublicLater, setMakePublicLater] = useState(!!initialFriendsOnlyUntil);
     const [publicDate, setPublicDate] = useState(getIsoDatePart(initialFriendsOnlyUntil));
     const [publicTime, setPublicTime] = useState(getIsoTimePart(initialFriendsOnlyUntil));
+
+    useEffect(() => {
+        let ignore = false;
+        async function fetchFields() {
+            try {
+                const arr = await fieldsApi.getAll();
+                if (ignore) return;
+                const options: FieldOption[] = (arr || []).map((f) => ({
+                    id: f.id,
+                    name: f.name,
+                    location: f.location,
+                }));
+                // Ensure current game field is selectable even if unlisted/custom
+                if (initialFieldId && !options.some((f) => f.id === initialFieldId)) {
+                    options.unshift({
+                        id: initialFieldId,
+                        name: initialFieldName || "מגרש נוכחי",
+                        location: initialFieldLocation || "",
+                    });
+                }
+                setFields(options);
+                if (initialFieldId) {
+                    const found = options.find((f) => f.id === initialFieldId);
+                    if (found) setSelectedField(found);
+                }
+            } catch {
+                // keep initial selection if fetch fails
+            }
+        }
+        fetchFields();
+        return () => { ignore = true; };
+    }, [initialFieldId, initialFieldName, initialFieldLocation]);
 
     const resetForm = () => {
         setTime(initialTime);
@@ -99,6 +152,20 @@ export function useGameEditor({
         setDuration(initialDuration);
         setDescription(initialDescription || "");
         setWelcomeMessage(initialWelcomeMessage || "");
+        setNewFieldMode(false);
+        setNewField({ name: "", location: "", type: "open" });
+        if (initialFieldId) {
+            const found = fields.find((f) => f.id === initialFieldId);
+            setSelectedField(
+                found || {
+                    id: initialFieldId,
+                    name: initialFieldName || "",
+                    location: initialFieldLocation || "",
+                }
+            );
+        } else {
+            setSelectedField(null);
+        }
 
         setFutureRegEnabled(!!initialRegistrationOpensAt);
         if (initialRegistrationOpensAt) {
@@ -126,6 +193,14 @@ export function useGameEditor({
     const handleClose = () => setOpen(false);
 
     const saveGame = async () => {
+        const hasField =
+            !!selectedField?.id ||
+            (newFieldMode && newField.name.trim() && newField.location.trim());
+        if (!hasField) {
+            alert("יש לבחור מגרש או להוסיף מגרש חדש");
+            return false;
+        }
+
         setLoading(true);
         try {
             const token = await getToken();
@@ -156,10 +231,20 @@ export function useGameEditor({
                 friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null,
                 duration,
                 description,
-                welcomeMessage
+                welcomeMessage,
+                ...(newFieldMode
+                    ? {
+                        fieldId: "",
+                        newField: {
+                            name: newField.name.trim(),
+                            location: newField.location.trim(),
+                            type: newField.type,
+                        },
+                    }
+                    : { fieldId: selectedField!.id }),
             };
 
-            await gamesApi.update(gameId, updateData as any, token);
+            await gamesApi.update(gameId, updateData, token);
 
             router.refresh();
             handleClose();
@@ -196,13 +281,15 @@ export function useGameEditor({
             time, date, maxPlayers, sport, title, teamSize, price, isFriendsOnly, requiresApproval,
             futureRegEnabled, regDate, regTime,
             makePublicLater, publicDate, publicTime,
-            duration, description, welcomeMessage
+            duration, description, welcomeMessage,
+            fields, selectedField, newFieldMode, newField,
         },
         actions: {
             setOpen, setTime, setDate, setMaxPlayers, setSport, setTitle, setTeamSize, setPrice, setIsFriendsOnly, setRequiresApproval,
             setFutureRegEnabled, setRegDate, setRegTime,
             setMakePublicLater, setPublicDate, setPublicTime,
             setDuration, setDescription, setWelcomeMessage,
+            setSelectedField, setNewFieldMode, setNewField,
             handleOpen, handleClose, saveGame, deleteGame
         }
     };
