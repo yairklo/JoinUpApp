@@ -46,3 +46,4 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - `next build` needs `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (and related Clerk env) set; missing key fails prerender of `/_not-found`.
 - Clerk publishable key must be **format-valid** (base64 payload ending in `$`), not a string like `pk_test_quality_gate_placeholder` — invalid format fails prerender (e.g. `/chat`). `next_app` `npm run build` normalizes via `scripts/next-build.mjs`.
 - Quality gate `next_app:build` failed — re-run and fix locally before merge/deploy.
+- Quality gate `server:test` failed — re-run and fix locally before merge/deploy.
