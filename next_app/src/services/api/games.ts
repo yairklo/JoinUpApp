@@ -18,6 +18,11 @@ export interface UpdateGameDTO {
     welcomeMessage?: string;
     pickDrawAt?: string | null;
     pickingStartsAt?: string | null;
+    fieldId?: string;
+    newField?: { name: string; location: string; type?: 'open' | 'closed' };
+    customLat?: number;
+    customLng?: number;
+    customLocation?: string;
 }
 
 export type PickSessionState = {
@@ -84,7 +89,7 @@ export const gamesApi = {
     },
 
     update: (gameId: string, data: UpdateGameDTO, token: string) => {
-        return apiClient(`/api/games/${gameId}`, {
+        return apiClient<Game>(`/api/games/${gameId}`, {
             method: 'PATCH',
             data,
             token

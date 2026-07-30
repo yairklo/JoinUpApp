@@ -1139,11 +1139,65 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
   };
 }
 
-async function patchGame(gameId, body, userId) {
+/**
+ * Resolve an existing fieldId or create a new Field from newField / custom coords.
+ * Returns null when the body does not request a location change.
+ */
+async function resolveFieldUpdateFromBody(body) {
+  const { fieldId, newField, customLat, customLng, customLocation } = body || {};
+  const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
+  const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
+  const hasFieldId = !!fieldId;
+  const hasNewFieldText = !!(newField && (String(newField.name || '').trim() || String(newField.location || '').trim()));
+  const hasCoords = Number.isFinite(latNum) && Number.isFinite(lngNum);
+
+  if (!hasFieldId && !hasNewFieldText && !hasCoords) {
+    return null;
+  }
+
+  let useFieldId = hasFieldId ? String(fieldId) : null;
+
+  if (!useFieldId && (newField || hasCoords)) {
+    const fallbackCoords = hasCoords ? `${latNum.toFixed(5)}, ${lngNum.toFixed(5)}` : '';
+    const name = (newField?.name && String(newField.name).trim())
+      || (customLocation && String(customLocation).trim())
+      || `Custom spot ${fallbackCoords}`;
+    const location = (newField?.location && String(newField.location).trim())
+      || (customLocation && String(customLocation).trim())
+      || fallbackCoords
+      || 'Custom';
+    const createdField = await prisma.field.create({
+      data: {
+        name,
+        location,
+        price: 0,
+        rating: 0,
+        image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
+        available: false,
+        type: 'OPEN',
+        ...(Number.isFinite(latNum) ? { lat: latNum } : {}),
+        ...(Number.isFinite(lngNum) ? { lng: lngNum } : {}),
+      },
+    });
+    useFieldId = createdField.id;
+  }
+
+  const field = await prisma.field.findUnique({ where: { id: useFieldId } });
+  if (!field) throw httpError('Field not found', 404);
+
+  return {
+    fieldId: useFieldId,
+    ...(typeof customLat !== 'undefined' ? { customLat: Number.isFinite(latNum) ? latNum : null } : {}),
+    ...(typeof customLng !== 'undefined' ? { customLng: Number.isFinite(lngNum) ? lngNum : null } : {}),
+    ...(typeof customLocation !== 'undefined' ? { customLocation: customLocation || null } : {}),
+  };
+}
+
+async function patchGame(gameId, body, userId, io) {
   const {
     time, date, start, maxPlayers, sport, registrationOpensAt,
     title, friendsOnlyUntil, isFriendsOnly, teamSize, joinPolicy,
-    pickDrawAt, pickingStartsAt,
+    pickDrawAt, pickingStartsAt, duration, description, welcomeMessage, price,
   } = body || {};
 
   const game = await prisma.game.findUnique({
@@ -1212,6 +1266,18 @@ async function patchGame(gameId, body, userId) {
   if (joinPolicy === 'INSTANT' || joinPolicy === 'REQUIRES_APPROVAL') {
     updates.joinPolicy = joinPolicy;
   }
+  if (typeof duration !== 'undefined') {
+    const d = Number(duration);
+    if (!Number.isNaN(d) && d > 0) updates.duration = d;
+  }
+  if (typeof description !== 'undefined') updates.description = description || '';
+  if (typeof welcomeMessage !== 'undefined') updates.welcomeMessage = welcomeMessage || null;
+  if (typeof price !== 'undefined') {
+    updates.price = price === null || price === '' ? null : Number(price);
+  }
+
+  const fieldUpdate = await resolveFieldUpdateFromBody(body);
+  if (fieldUpdate) Object.assign(updates, fieldUpdate);
 
   // Organizer-only pick schedule (also editable via dedicated pick-session route)
   if (isOrganizer) {
@@ -1245,10 +1311,13 @@ async function patchGame(gameId, body, userId) {
     data: updates,
     include: GAME_DETAIL_INCLUDE,
   });
+  broadcastGameUpdate(io, gameId, updated).catch(err =>
+    console.error('[SOCKET] Failed to broadcast game update', gameId, err)
+  );
   return mapGameForClient(updated, userId);
 }
 
-async function updateGame(gameId, body, userId) {
+async function updateGame(gameId, body, userId, io) {
   const game = await prisma.game.findUnique({ where: { id: gameId } });
   if (!game) throw httpError('Game not found', 404);
   if (game.organizerId !== userId) {
@@ -1292,6 +1361,8 @@ async function updateGame(gameId, body, userId) {
     }
   }
 
+  const fieldUpdate = await resolveFieldUpdateFromBody(body);
+
   const updated = await prisma.game.update({
     where: { id: game.id },
     data: {
@@ -1316,10 +1387,14 @@ async function updateGame(gameId, body, userId) {
         ? { friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null }
         : {}),
       ...(typeof start !== 'undefined' ? { start: new Date(start) } : {}),
+      ...(fieldUpdate || {}),
       ...pickScheduleUpdates,
     },
-    include: { field: true, participants: { include: { user: true } } },
+    include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true },
   });
+  broadcastGameUpdate(io, gameId, updated).catch(err =>
+    console.error('[SOCKET] Failed to broadcast game update', gameId, err)
+  );
   return mapGameForClient(updated, userId);
 }
 

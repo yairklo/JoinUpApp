@@ -25,6 +25,7 @@ export type Game = {
     customLat?: number | null;
     customLng?: number | null;
     isFriendsOnly?: boolean;
+    friendsOnlyUntil?: string | null;
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     pendingRequestCount?: number;
     viewerParticipationStatus?: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'REJECTED' | null;

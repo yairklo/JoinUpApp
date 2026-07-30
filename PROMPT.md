@@ -17,13 +17,14 @@ Product-confirmed joinUp fix from Telegram collaborator.
 Stay strictly inside the joinUp repository. Do not touch other projects.
 
 Product summary / intent:
-הבנתי לחלוטין!
+מעולה, תודה על הפרטים!
 
-הנה סיכום השינוי שנבצע:
-1. **שינוי ברירת המחדל:** ברירת המחדל של האתר/האפליקציה תהיה מצב בהיר (רקע לבן) עבור משתמשים חדשים או בטעינה ראשונית.
-2. **אפשרות שינוי:** המשתמשים יוכלו להמשיך ולעבור למצב כהה (רקע שחור) באופן ידני בכל עת דרך כפתור הנגישות/הבהירות בסרגל העליון.
+הנה סיכום התיקון שנעשה במסך עריכת המשחק:
+1. **הוספת שדה מיקום:** נוסיף את שדה בחירת הכתובת/המגרש למסך עריכת המשחק (שכרגע חסר לחלוטין).
+2. **מנגנון בחירה זהה ליצירה:** השדה יאפשר לבחור מגרש מתוך הרשימה או להוסיף מגרש חדש, בדיוק באותו מנגנון נוח שקיים ביצירת משחק ראשונית.
+3. **עדכון הנתונים:** שינוי המיקום יעדוכן מיד עבור המשחק ויציג את השם והכתובת החדשים לכל המשתתפים.
 
-מעביר את התיקון הזה לביצוע!
+מעביר את זה לתיקון!
 
 Recent conversation:
 (none)
@@ -33,7 +34,7 @@ Run local quality gates, then merge to Dev when green.
 
 ## Strict Instructions for Cursor / Antigravity Agent
 1. **Branching:** Create and switch to a new feature branch before editing code:
-   `git checkout -b feature/task-1785413344281`
+   `git checkout -b feature/task-1785413729539`
 2. **Autonomy:** Run in non-interactive/auto-approve mode. Do NOT prompt for permission on file edits or terminal commands.
 3. **Verification & Completion:**
    - Execute local quality gates (build/tests) and fix failures in a loop until green.

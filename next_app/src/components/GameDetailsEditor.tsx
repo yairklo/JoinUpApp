@@ -1,8 +1,5 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
-
 // MUI
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -19,6 +16,10 @@ import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Collapse from "@mui/material/Collapse";
 import Paper from "@mui/material/Paper";
+import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import Checkbox from "@mui/material/Checkbox";
 
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
@@ -26,11 +27,14 @@ import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
 import { SPORT_MAPPING } from "@/utils/sports";
 import { useGameEditor, GameEditorProps } from "@/hooks/useGameEditor";
+import type { FieldOption } from "@/hooks/useGameCreator";
 
 export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
   value,
   label,
 }));
+
+const filter = createFilterOptions<FieldOption>();
 
 // Extend the props to include canManage, which isn't in the hook props but is in the component props
 interface ComponentProps extends GameEditorProps {
@@ -69,6 +73,96 @@ export default function GameDetailsEditor(props: ComponentProps) {
           </Alert>
           <Box py={1}>
             <Grid container spacing={2}>
+              <Grid size={{ xs: 12 }}>
+                {state.newFieldMode ? (
+                  <Box border={1} borderColor="divider" borderRadius={1} p={2} bgcolor="action.hover">
+                    <Typography variant="subtitle2" gutterBottom>צור מגרש חדש</Typography>
+                    <Stack spacing={2}>
+                      <TextField
+                        label="שם המגרש"
+                        size="small"
+                        fullWidth
+                        value={state.newField.name}
+                        onChange={e => actions.setNewField(p => ({ ...p, name: e.target.value }))}
+                      />
+                      <TextField
+                        label="מיקום / כתובת"
+                        size="small"
+                        fullWidth
+                        value={state.newField.location}
+                        onChange={e => actions.setNewField(p => ({ ...p, location: e.target.value }))}
+                      />
+                      <Stack direction="row" spacing={2}>
+                        <FormControlLabel
+                          control={<Checkbox checked={state.newField.type === 'open'} onChange={() => actions.setNewField(p => ({ ...p, type: 'open' }))} />}
+                          label="פתוח (חיצוני)"
+                        />
+                        <FormControlLabel
+                          control={<Checkbox checked={state.newField.type === 'closed'} onChange={() => actions.setNewField(p => ({ ...p, type: 'closed' }))} />}
+                          label="סגור (פנימי)"
+                        />
+                      </Stack>
+                      <Button size="small" onClick={() => actions.setNewFieldMode(false)}>ביטול</Button>
+                    </Stack>
+                  </Box>
+                ) : (
+                  <Autocomplete
+                    value={state.selectedField}
+                    onChange={(_event, newValue) => {
+                      if (typeof newValue === 'string') {
+                        setTimeout(() => {
+                          actions.setNewFieldMode(true);
+                          actions.setNewField(p => ({ ...p, name: newValue }));
+                        });
+                      } else if (newValue && newValue.inputValue) {
+                        actions.setNewFieldMode(true);
+                        actions.setNewField(p => ({ ...p, name: newValue.inputValue || "" }));
+                      } else {
+                        actions.setSelectedField(newValue);
+                      }
+                    }}
+                    filterOptions={(options, params) => {
+                      const filtered = filter(options, params);
+                      const { inputValue } = params;
+                      const isExisting = options.some((option) => inputValue === option.name);
+                      if (inputValue !== '' && !isExisting) {
+                        filtered.push({
+                          inputValue,
+                          name: `הוסף "${inputValue}"`,
+                          id: "NEW_FIELD_ID_TEMP"
+                        });
+                      }
+                      return filtered;
+                    }}
+                    selectOnFocus
+                    clearOnBlur
+                    handleHomeEndKeys
+                    options={state.fields}
+                    getOptionLabel={(option) => {
+                      if (typeof option === 'string') return option;
+                      if (option.inputValue) return option.inputValue;
+                      return option.name;
+                    }}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    renderOption={(props, option) => {
+                      const { key, ...otherProps } = props;
+                      return (
+                        <li key={option.id} {...otherProps}>
+                          {option.name} {option.location ? `— ${option.location}` : ""}
+                        </li>
+                      );
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="מיקום / מגרש"
+                        placeholder="הקלד לחיפוש או להוספת מגרש חדש..."
+                        size="small"
+                      />
+                    )}
+                  />
+                )}
+              </Grid>
               <Grid size={{ xs: 12 }}>
                 <TextField
                   label="כותרת המשחק (אופציונלי)"
