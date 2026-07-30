@@ -42,6 +42,10 @@ Persistent instructions for any Cursor Agent run against this repo (including he
    Cause: `require('../index')` still calls `server.listen(...)`, leaving a TCP handle; host `PORT` clashes can also make create-game fail so later tests read `undefined.id`.  
    Fix: skip `startServer()`/`server.listen` when `JEST_WORKER_ID` is set; export `{ app }` and hit Express via `supertest(app)` (do not bind a real port in Jest).
 
+7. **Stale Prisma Client rejects new schema fields (e.g. `welcomeMessage`)**  
+   Cause: `gameService` writes a field present in `schema.prisma` but local `@prisma/client` was generated before that field existed → create-game returns 500 and roster tests cascade with `testGame.id` undefined.  
+   Fix: run `prisma generate` before `npm test` (wired into `server` `npm test` script).
+
 ## When you learn a new deploy bug
 Append a short bullet under **Known failure modes** in this file and/or add a rule under `.cursor/rules/`, then commit it with the fix so future terminal agents inherit the lesson.
 
@@ -57,3 +61,4 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Quality gate `server:test` failed — re-run and fix locally before merge/deploy.
 - Jest `--detectOpenHandles` fails when `server/index.js` starts `setInterval`/`setTimeout` under test — skip background schedulers when `NODE_ENV=test` or `JEST_WORKER_ID` is set. Integration tests must also pin `PORT` (host env often sets `PORT=8787`) and hit that same port.
 - Jest roster tests must use exported Express `app` with supertest and must not call `server.listen` under `JEST_WORKER_ID` (avoids TCPSERVERWRAP + undefined game id cascades).
+- Stale `@prisma/client` after schema changes (e.g. `welcomeMessage`) breaks create-game in roster tests — `npm test` must run `prisma generate` first.
