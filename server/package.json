@@ -10,7 +10,7 @@
     "db:studio:prod": "dotenv -e .env.production -- npx prisma studio",
     "start": "node scripts/render-start.js",
     "dev": "nodemon index.js",
-    "test": "jest --runInBand --detectOpenHandles",
+    "test": "PORT=3099 jest --runInBand --detectOpenHandles --forceExit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "import:fields": "node scripts/importFieldsFromCsv.js ..\\weplay_courts_export.csv",

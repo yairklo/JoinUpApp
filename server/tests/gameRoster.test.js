@@ -44,10 +44,13 @@ jest.mock('../workers/cleanupWorker', () => ({
 
 const { prisma } = require('../services/gameService');
 
-// טוענים את השרת כדי שיעלה ברקע עם כל ה-Mocks שלנו
-require('../index'); 
+// Dedicated test PORT (see package.json) — avoid clashing with host PORT / staging
+const TEST_PORT = process.env.PORT || 3099;
 
-const app = 'http://127.0.0.1:3005'; 
+// טוענים את השרת כדי שיעלה ברקע עם כל ה-Mocks שלנו
+require('../index');
+
+const app = `http://127.0.0.1:${TEST_PORT}`; 
 
 describe('Game Roster & Waitlist Integration Tests', () => {
   let testGame;
@@ -63,6 +66,22 @@ describe('Game Roster & Waitlist Integration Tests', () => {
   const testPlayer3Id = 'user_play_3';
 
   beforeAll(async () => {
+    // Wait until the HTTP server from require('../index') is accepting connections
+    const deadline = Date.now() + 15000;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        const health = await request(app).get('/api/health');
+        if (health.statusCode < 500) break;
+      } catch (_) {
+        /* not ready yet */
+      }
+      if (Date.now() > deadline) {
+        throw new Error(`Server did not become ready on ${app}`);
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
     // א. יצירת/עדכון משתמשי בדיקה ב-DB (לא פוגע בנתונים קיימים)
     await prisma.user.upsert({
       where: { id: testOrganizerId },

@@ -34,6 +34,10 @@ Persistent instructions for any Cursor Agent run against this repo (including he
    Effect: `notification.create` fails while roster joins still succeed — users appear added with no in-app/push notification.  
    Fix: update `schema.prisma` AND add `ALTER TYPE ... ADD VALUE` migration in the same change.
 
+5. **Jest `--detectOpenHandles` Timeout on `setInterval` in `server/index.js`**  
+   Cause: requiring `index.js` in integration tests starts background schedulers (review/lottery/pick/completion/series).  
+   Fix: gate all top-level `setInterval`/`setTimeout` (and boot kicks) behind `enableBackgroundSchedulers` when `NODE_ENV === 'test'` or `JEST_WORKER_ID` is set.
+
 ## When you learn a new deploy bug
 Append a short bullet under **Known failure modes** in this file and/or add a rule under `.cursor/rules/`, then commit it with the fix so future terminal agents inherit the lesson.
 
@@ -47,3 +51,4 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Clerk publishable key must be **format-valid** (base64 payload ending in `$`), not a string like `pk_test_quality_gate_placeholder` — invalid format fails prerender (e.g. `/chat`). `next_app` `npm run build` normalizes via `scripts/next-build.mjs`.
 - Quality gate `next_app:build` failed — re-run and fix locally before merge/deploy.
 - Quality gate `server:test` failed — re-run and fix locally before merge/deploy.
+- Jest `--detectOpenHandles` fails when `server/index.js` starts `setInterval`/`setTimeout` under test — skip background schedulers when `NODE_ENV=test` or `JEST_WORKER_ID` is set. Integration tests must also pin `PORT` (host env often sets `PORT=8787`) and hit that same port.
