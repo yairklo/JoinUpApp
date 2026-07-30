@@ -38,14 +38,20 @@ const { processReviewQueue } = require('./workers/reviewWorker');
 const { startGameReminderWorker } = require('./workers/gameReminderWorker');
 const { startCleanupWorker } = require('./workers/cleanupWorker');
 
-// Start Review Worker
-// Run immediately on startup to process any backlog
-processReviewQueue().catch(err => console.error("Worker Startup Error:", err));
+// Jest sets NODE_ENV=test / JEST_WORKER_ID — skip timers so --detectOpenHandles stays clean
+const enableBackgroundSchedulers =
+  process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID;
 
-// Then run every minute
-setInterval(() => {
-  processReviewQueue().catch(err => console.error("Worker Error:", err));
-}, 60 * 1000);
+// Start Review Worker
+if (enableBackgroundSchedulers) {
+  // Run immediately on startup to process any backlog
+  processReviewQueue().catch(err => console.error("Worker Startup Error:", err));
+
+  // Then run every minute
+  setInterval(() => {
+    processReviewQueue().catch(err => console.error("Worker Error:", err));
+  }, 60 * 1000);
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -1003,7 +1009,9 @@ async function runLotterySweep() {
   }
 }
 
-setInterval(runLotterySweep, 60_000);
+if (enableBackgroundSchedulers) {
+  setInterval(runLotterySweep, 60_000);
+}
 
 // --- Manager pick-session scheduler (turn-order draw + auto-open picking) ---
 const {
@@ -1024,9 +1032,11 @@ async function runPickSessionSweep() {
     pickSessionSweepRunning = false;
   }
 }
-setInterval(runPickSessionSweep, 30_000);
-// Kick once shortly after boot so overdue sessions open without waiting a full tick
-setTimeout(runPickSessionSweep, 5_000);
+if (enableBackgroundSchedulers) {
+  setInterval(runPickSessionSweep, 30_000);
+  // Kick once shortly after boot so overdue sessions open without waiting a full tick
+  setTimeout(runPickSessionSweep, 5_000);
+}
 
 // --- Game Auto-Completion (Passive) ---
 let completionCheckRunning = false;
@@ -1065,8 +1075,10 @@ async function runGameCompletionCheck() {
     completionCheckRunning = false;
   }
 }
-setInterval(runGameCompletionCheck, 60_000);
-runGameCompletionCheck().catch(() => { });
+if (enableBackgroundSchedulers) {
+  setInterval(runGameCompletionCheck, 60_000);
+  runGameCompletionCheck().catch(() => { });
+}
 
 // --- Weekly Series Rolling Generation ---
 function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
@@ -1197,10 +1209,12 @@ async function runWeeklySeriesGeneration() {
   }
 }
 
-// Run every 24 hours
-setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
-// Kick once on boot (non-blocking)
-runWeeklySeriesGeneration().catch(() => { });
+if (enableBackgroundSchedulers) {
+  // Run every 24 hours
+  setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
+  // Kick once on boot (non-blocking)
+  runWeeklySeriesGeneration().catch(() => { });
+}
 
 // 404 handler (must be after all routes, before error handler)
 app.use((req, res) => {
