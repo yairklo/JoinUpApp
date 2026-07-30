@@ -7,14 +7,11 @@ Persistent instructions for any Cursor Agent run against this repo (including he
 - `.cursorrules` (task runner rules)
 - `.cursor/rules/*.mdc` (durable project lessons)
 
-## Non-negotiable quality loop
-1. Implement on a `feature/task-*` branch.
-2. Run local gates:
-   - `cd next_app && npm run build` (catches the same TypeScript errors as Vercel)
-   - `cd server && npm test` when server code changed
-3. On failure: fix and re-run until green (loop).
-4. Commit + push feature branch.
-5. Merge into `Dev` and push `Dev` (triggers Vercel).
+## Database & Migration Architecture (For Planner / L1)
+1. **Neon Connection Topology:** \`schema.prisma\` uses \`DATABASE_URL\` for pooled traffic and \`DIRECT_DATABASE_URL\` for direct connection. Never point \`DIRECT_DATABASE_URL\` at a \`-pooler\` hostname.
+2. **Migrations:** \`prisma migrate dev\` requires \`directUrl\`. The L1 Planner must be aware of this when generating tasks that change the schema.
+3. **PrismaClient Lifecycle:** When editing existing files, reuse the module-level instance. Never instantiate \`new PrismaClient()\` inside an Express request handler.
+4. **Transactions:** Roster joins, waitlist promotion, and game creation must be atomic. Game + group chat pairing must happen in the same interactive transaction, where the group chat \`id\` exactly equals the \`game.id\`.
 
 ## Known failure modes (do not regress)
 1. **`Property 'X' does not exist on type '{}'`**  
