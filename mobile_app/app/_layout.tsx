@@ -14,6 +14,7 @@ import { GameUpdateProvider } from "@/context/GameUpdateContext";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "@/i18n";
 import { SocketManager } from "@/services/socketManager";
+import { initColorMode } from "@/theme/colorMode";
 import "../global.css"; // NativeWind
 
 // Fix #9: Defined once outside component — not recreated on every render
@@ -41,6 +42,11 @@ if (!publishableKey) {
 export default function RootLayout() {
   const [i18nLoaded, setI18nLoaded] = useState(false);
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    // Default to light for new users; restore saved manual preference when present
+    initColorMode().catch((e) => console.error('Color mode init error:', e));
+  }, []);
 
   useEffect(() => {
     const timeout = new Promise((resolve) => setTimeout(resolve, 2000));

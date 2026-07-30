@@ -12,12 +12,13 @@ const STORAGE_KEY = "joinup-color-mode";
 
 // Create a Context so other components (like Navbar) can switch modes
 export const ColorModeContext = React.createContext({
-  mode: "dark",
+  mode: "light",
   toggleColorMode: () => {},
 });
 
 export default function ThemeRegistry({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = React.useState<"light" | "dark">("dark");
+  // Default to light for first paint / new users; restore saved preference after hydrate
+  const [mode, setMode] = React.useState<"light" | "dark">("light");
 
   // Restore persisted preference after hydration (avoids SSR mismatch)
   React.useEffect(() => {

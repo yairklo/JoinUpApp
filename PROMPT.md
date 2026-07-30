@@ -17,14 +17,13 @@ Product-confirmed joinUp fix from Telegram collaborator.
 Stay strictly inside the joinUp repository. Do not touch other projects.
 
 Product summary / intent:
-הבנתי, תודה! 
+הבנתי לחלוטין!
 
-הנה סיכום השינוי שנעשה בפרופיל המשתמש:
-1. **הוספת שדה מין בפרופיל:** נוסיף שדה לבחירת מין במסך הפרופיל/עריכת פרופיל.
-2. **אפשרויות לבחירה:** הבחירה תהיה מוגבלת לשתי אפשרויות בלבד - "גבר" או "אישה".
-3. **תצוגה ושמירה:** המידע יישמר בפרופיל המשתמש ויוצג כדי שמשתמשים אחרים יוכלו לראות את הנתון הזה.
+הנה סיכום השינוי שנבצע:
+1. **שינוי ברירת המחדל:** ברירת המחדל של האתר/האפליקציה תהיה מצב בהיר (רקע לבן) עבור משתמשים חדשים או בטעינה ראשונית.
+2. **אפשרות שינוי:** המשתמשים יוכלו להמשיך ולעבור למצב כהה (רקע שחור) באופן ידני בכל עת דרך כפתור הנגישות/הבהירות בסרגל העליון.
 
-מעביר את זה לביצוע!
+מעביר את התיקון הזה לביצוע!
 
 Recent conversation:
 (none)
@@ -34,7 +33,7 @@ Run local quality gates, then merge to Dev when green.
 
 ## Strict Instructions for Cursor / Antigravity Agent
 1. **Branching:** Create and switch to a new feature branch before editing code:
-   `git checkout -b feature/task-1785412913608`
+   `git checkout -b feature/task-1785413344281`
 2. **Autonomy:** Run in non-interactive/auto-approve mode. Do NOT prompt for permission on file edits or terminal commands.
 3. **Verification & Completion:**
    - Execute local quality gates (build/tests) and fix failures in a loop until green.
