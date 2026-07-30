@@ -705,16 +705,14 @@ io.on('connection', async (socket) => {
             unreadCountIncrement: 1
           });
 
-          if (!online) {
-            // Offline only: push to device — never persist chat to Notification table
-            notificationService.sendPushOnly(
-              recipientId,
-              'NEW_MESSAGE',
-              senderUser?.name || senderName || 'הודעה חדשה',
-              messagePreview,
-              { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` }
-            ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
-          }
+          // Always send push to device — client will suppress it if in foreground
+          notificationService.sendPushOnly(
+            recipientId,
+            'NEW_MESSAGE',
+            senderUser?.name || senderName || 'הודעה חדשה',
+            messagePreview,
+            { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` }
+          ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
         });
       } catch (err) {
         console.error("[DEBUG NOTIFICATIONS] Notification error:", err);

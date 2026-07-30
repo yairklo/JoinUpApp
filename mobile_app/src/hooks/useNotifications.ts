@@ -66,6 +66,15 @@ export function useNotifications() {
       if (finalStatus !== 'granted') return;
       if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
 
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      }
+
       try {
         const projectId = Constants.expoConfig?.extra?.eas?.projectId;
         const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync(
