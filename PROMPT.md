@@ -17,14 +17,19 @@ Product-confirmed joinUp fix from Telegram collaborator.
 Stay strictly inside the joinUp repository. Do not touch other projects.
 
 Product summary / intent:
-מעולה, תודה על הפרטים!
+שלח שוב את המשימה הזו לביצוע:
 
-הנה סיכום התיקון שנעשה במסך עריכת המשחק:
-1. **הוספת שדה מיקום:** נוסיף את שדה בחירת הכתובת/המגרש למסך עריכת המשחק (שכרגע חסר לחלוטין).
-2. **מנגנון בחירה זהה ליצירה:** השדה יאפשר לבחור מגרש מתוך הרשימה או להוסיף מגרש חדש, בדיוק באותו מנגנון נוח שקיים ביצירת משחק ראשונית.
-3. **עדכון הנתונים:** שינוי המיקום יעדוכן מיד עבור המשחק ויציג את השם והכתובת החדשים לכל המשתתפים.
+1. סקשן "הקבוצות שלי":
+   - יוצגו בו אך ורק קבוצות שהמשתמש מחובר וחבר בהן בפועל.
+   - אם המשתמש לא מחובר, או שאינו חבר באף קבוצה – הסקשן מוסתר לחלוטין.
 
-מעביר את זה לתיקון!
+2. סקשן "הצטרף לקבוצה":
+   - יוצגו בו קבוצות ציבוריות שהמשתמש עדיין אינו חבר בהן.
+   - לחיצה על כרטיסיית קבוצה תעביר לעמוד הקבוצה הרלוונטי (ללא כפתור הצטרפות מהיר על גבי הכרטיסייה).
+   - אם אין קבוצות חדשות להצטרף אליהן – הסקשן מוסתר לחלוטין.
+
+3. התאמה למובייל ול-Web:
+   - התיקון ייושם וייבדק בשני המסכים כדי לוודא התנהגות אחידה.
 
 Recent conversation:
 (none)
@@ -34,7 +39,7 @@ Run local quality gates, then merge to Dev when green.
 
 ## Strict Instructions for Cursor / Antigravity Agent
 1. **Branching:** Create and switch to a new feature branch before editing code:
-   `git checkout -b feature/task-1785413729539`
+   `git checkout -b feature/task-1785489103098`
 2. **Autonomy:** Run in non-interactive/auto-approve mode. Do NOT prompt for permission on file edits or terminal commands.
 3. **Verification & Completion:**
    - Execute local quality gates (build/tests) and fix failures in a loop until green.
