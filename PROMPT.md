@@ -39,7 +39,7 @@ Run local quality gates, then merge to Dev when green.
 
 ## Strict Instructions for Cursor / Antigravity Agent
 1. **Branching:** Create and switch to a new feature branch before editing code:
-   `git checkout -b feature/task-1785486866151`
+   `git checkout -b feature/task-1785489103098`
 2. **Autonomy:** Run in non-interactive/auto-approve mode. Do NOT prompt for permission on file edits or terminal commands.
 3. **Verification & Completion:**
    - Execute local quality gates (build/tests) and fix failures in a loop until green.

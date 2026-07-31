@@ -67,7 +67,11 @@ export default function SeriesSection() {
 
     if (loading) return null;
     if (error) return null;
-    if (series.length === 0) return null;
+
+    const subscribedSeries = isSignedIn ? series.filter((s) => s.isSubscribed) : [];
+    const unsubscribedSeries = series.filter((s) => !s.isSubscribed);
+
+    if (subscribedSeries.length === 0 && unsubscribedSeries.length === 0) return null;
 
     const renderSeriesCard = (s: Series) => {
         const dayName = typeof s.dayOfWeek === 'number' ? DAYS[s.dayOfWeek] : null;
@@ -128,7 +132,7 @@ export default function SeriesSection() {
 
                     <View className="bg-brand-mist py-2 rounded-xl items-center flex-row justify-center border border-brand-pale">
                         <Text className="text-brand-dark text-sm font-bold mr-1">
-                            {s.isSubscribed ? t('game.manageSeries') : 'לעמוד הקבוצה'}
+                            {s.isSubscribed ? t('game.manageSeries') : t('series.viewGroup')}
                         </Text>
                         <Ionicons name="arrow-back" size={14} color="#047857" />
                     </View>
@@ -136,9 +140,6 @@ export default function SeriesSection() {
             </TouchableOpacity>
         );
     };
-
-    const subscribedSeries = isSignedIn ? series.filter((s) => s.isSubscribed) : [];
-    const unsubscribedSeries = series.filter((s) => !s.isSubscribed);
 
     return (
         <View className="mb-6">
@@ -158,7 +159,7 @@ export default function SeriesSection() {
                 <>
                     <View className="px-5 mb-3 flex-row items-center mt-4">
                         <View className="w-1 h-5 rounded-full bg-brand mr-2" />
-                        <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">הצטרפו לקבוצה</Text>
+                        <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">{t('home.joinGroup')}</Text>
                     </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                         {unsubscribedSeries.map(renderSeriesCard)}

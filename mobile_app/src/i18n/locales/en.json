@@ -33,7 +33,8 @@
     "noGamesDesc": "Looks like there are no available games right now. Try selecting another date or create a new game!",
     "backToToday": "Back to Today",
     "myGames": "My Games",
-    "mySeries": "My Groups"
+    "mySeries": "My Groups",
+    "joinGroup": "Join a Group"
   },
   "omnibar": {
     "placeholder": "Search people, fields or games...",
@@ -203,7 +204,8 @@
     "day6": "Sat"
   },
   "series": {
-    "badge": "Weekly group"
+    "badge": "Weekly group",
+    "viewGroup": "View Group"
   },
   "editGame": {
     "title": "Edit Game",
