@@ -32,8 +32,9 @@ import { SportFilter } from "@/utils/sports";
 export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
     const [seriesList, setSeriesList] = useState<Series[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
-    const { getToken } = useAuth();
+    const [isMySeriesSeeAllOpen, setIsMySeriesSeeAllOpen] = useState(false);
+    const [isJoinSeriesSeeAllOpen, setIsJoinSeriesSeeAllOpen] = useState(false);
+    const { getToken, isSignedIn } = useAuth();
     const { user } = useUser();
     const userId = user?.id;
 
@@ -103,71 +104,75 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
         return null;
     }
 
-    if (filteredSeries.length === 0) return null;
+    const mySeries = isSignedIn ? filteredSeries.filter((s) => s.isSubscribed) : [];
+    const joinableSeries = filteredSeries.filter((s) => !s.isSubscribed);
+
+    if (mySeries.length === 0 && joinableSeries.length === 0) return null;
+
+    const renderCard = (s: Series, key?: string) => (
+        <SeriesHeaderCard
+            key={key ?? s.id}
+            name={s.name}
+            fieldName={s.fieldName}
+            time={s.time}
+            dayOfWeek={s.dayOfWeek}
+            subscriberCount={s.subscriberCount}
+            sport={s.sport}
+            isSubscribed={s.isSubscribed}
+        >
+            <Button
+                component={Link}
+                href={`/series/${s.id}`}
+                variant="outlined"
+                color="secondary"
+                size="small"
+                fullWidth
+                endIcon={<ArrowForwardIcon />}
+            >
+                לעמוד הקבוצה
+            </Button>
+        </SeriesHeaderCard>
+    );
 
     return (
         <>
-            <GamesHorizontalList
-                title="הקבוצות שלי"
-                onSeeAll={() => setIsSeeAllOpen(true)}
-            >
-                {filteredSeries.map((s) => (
-                    <SeriesHeaderCard
-                        key={s.id}
-                        name={s.name}
-                        fieldName={s.fieldName}
-                        time={s.time}
-                        dayOfWeek={s.dayOfWeek}
-                        subscriberCount={s.subscriberCount}
-                        sport={s.sport}
-                        isSubscribed={s.isSubscribed}
+            {mySeries.length > 0 && (
+                <>
+                    <GamesHorizontalList
+                        title="הקבוצות שלי"
+                        onSeeAll={() => setIsMySeriesSeeAllOpen(true)}
                     >
-                        <Button
-                            component={Link}
-                            href={`/series/${s.id}`}
-                            variant="outlined"
-                            color="secondary"
-                            size="small"
-                            fullWidth
-                            endIcon={<ArrowForwardIcon />}
-                        >
-                            לעמוד הקבוצה
-                        </Button>
-                    </SeriesHeaderCard>
-                ))}
-            </GamesHorizontalList>
+                        {mySeries.map((s) => renderCard(s))}
+                    </GamesHorizontalList>
 
-            <FullPageList
-                open={isSeeAllOpen}
-                onClose={() => setIsSeeAllOpen(false)}
-                title="הקבוצות שלי"
-                items={filteredSeries}
-                renderItem={(s) => (
-                    <SeriesHeaderCard
-                        key={s.id}
-                        name={s.name}
-                        fieldName={s.fieldName}
-                        time={s.time}
-                        dayOfWeek={s.dayOfWeek}
-                        subscriberCount={s.subscriberCount}
-                        sport={s.sport}
-                        isSubscribed={s.isSubscribed}
+                    <FullPageList
+                        open={isMySeriesSeeAllOpen}
+                        onClose={() => setIsMySeriesSeeAllOpen(false)}
+                        title="הקבוצות שלי"
+                        items={mySeries}
+                        renderItem={(s) => renderCard(s)}
+                    />
+                </>
+            )}
+
+            {joinableSeries.length > 0 && (
+                <>
+                    <GamesHorizontalList
+                        title="הצטרפו לקבוצה"
+                        onSeeAll={() => setIsJoinSeriesSeeAllOpen(true)}
                     >
-                        <Link href={`/series/${s.id}`} passHref legacyBehavior>
-                            <Button
-                                component="a"
-                                variant="outlined"
-                                color="secondary"
-                                size="small"
-                                fullWidth
-                                endIcon={<ArrowForwardIcon />}
-                            >
-                                לעמוד הקבוצה
-                            </Button>
-                        </Link>
-                    </SeriesHeaderCard>
-                )}
-            />
+                        {joinableSeries.map((s) => renderCard(s))}
+                    </GamesHorizontalList>
+
+                    <FullPageList
+                        open={isJoinSeriesSeeAllOpen}
+                        onClose={() => setIsJoinSeriesSeeAllOpen(false)}
+                        title="הצטרפו לקבוצה"
+                        items={joinableSeries}
+                        renderItem={(s) => renderCard(s)}
+                    />
+                </>
+            )}
         </>
     );
 }
