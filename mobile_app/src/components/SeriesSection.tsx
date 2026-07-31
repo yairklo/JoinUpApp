@@ -4,6 +4,7 @@ import { apiClient } from '@/services/api/client';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@clerk/clerk-expo';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
 
@@ -30,6 +31,7 @@ const SPORT_IMAGES: Record<string, string> = {
 const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 export default function SeriesSection() {
+    const { isSignedIn } = useAuth();
     const getTokenRef = useAuthTokenRef();
     const { t } = useTranslation();
     const [series, setSeries] = useState<Series[]>([]);
@@ -135,7 +137,7 @@ export default function SeriesSection() {
         );
     };
 
-    const subscribedSeries = series.filter((s) => s.isSubscribed);
+    const subscribedSeries = isSignedIn ? series.filter((s) => s.isSubscribed) : [];
     const unsubscribedSeries = series.filter((s) => !s.isSubscribed);
 
     return (
