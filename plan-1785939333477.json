@@ -1,0 +1,256 @@
+[
+  {
+    "id": 1,
+    "title": "Web: redirect straight to game page after standalone game creation",
+    "area": "web",
+    "files": ["next_app/src/app/games/new/page.tsx"],
+    "description": "Replace the current success handling (lines ~269-277: sets a success alert then router.push('/')) with an immediate router.push(`/games/${created.id}`) using the id returned by POST /api/games. Keep the existing error branch (Alert severity=error, stay on the creation form) unchanged. Server already returns the new game's id (server/routes/games.js:145-152 -> mapGameForClient).",
+    "status": "todo"
+  },
+  {
+    "id": 2,
+    "title": "Web: redirect to game page after inline game creation (FieldCard/NewGameInline)",
+    "area": "web",
+    "files": ["next_app/src/components/NewGameInline.tsx", "next_app/src/hooks/useGameCreator.ts"],
+    "description": "useGameCreator's submit() currently only sets a success message and calls onCreated(created.fieldId) with no navigation (lines ~145-148). Add navigation to `/games/${created.id}` on success (via next/navigation router, either inside the hook or by having NewGameInline's onCreated callback navigate) so every game-creation entry point lands on the new game's page. Keep error state/display unchanged (stay on the inline form).",
+    "status": "todo"
+  },
+  {
+    "id": 3,
+    "title": "Confirm no separate 'Vibe' game-creation flow exists (product wording check)",
+    "area": "web",
+    "files": [],
+    "description": "Repo-wide search found no 'vibe' (case-insensitive) game-creation flow in next_app or mobile_app -- there is only the one create-game flow (standalone page + inline variant). Flag to product/collaborator that 'game creation including Vibe' is covered by tasks 1-2/4-5 since no distinct Vibe path exists in code; if 'Vibe' refers to an external/legacy tool not in this repo, out of scope per PROMPT.md ('joinUp project only').",
+    "status": "confirmed",
+    "notes": "Re-verified 2026-08-05: `grep -rli \"vibe\" next_app mobile_app` (excluding node_modules/.git) returns zero matches anywhere in either app's source tree. There is exactly one game-creation flow per platform -- web standalone page (next_app/src/app/games/new/page.tsx) + inline variant (next_app/src/hooks/useGameCreator.ts), and the mobile equivalents (mobile_app/app/game/new.tsx + mobile_app/src/hooks/useGameCreator.ts) -- already covered by plan tasks 1-2 and 4-5 (redirect-to-game-page work). No distinct 'Vibe' code path exists to implement against. FLAGGED TO PRODUCT/COLLABORATOR: if 'Vibe' names an external/legacy tool outside this repo, it is out of scope per PROMPT.md ('Stay strictly inside this repository... joinUp project only'); if it was just alternate wording for the existing create-game flow, tasks 1-2/4-5 already satisfy it and no separate implementation is needed. No code changes made for this item -- verification/communication only."
+  },
+  {
+    "id": 4,
+    "title": "Mobile: redirect straight to game screen after game creation",
+    "area": "mobile",
+    "files": ["mobile_app/app/game/new.tsx"],
+    "description": "handleSubmit (lines ~318-410) currently shows Alert.alert('Success', ...) then router.replace('/(tabs)') on OK (lines 401-403). Replace with a direct router.replace(`/game/${created.id}`) immediately on success, no alert dialog. Keep the existing Alert.alert('Error', ...) on failure (stay on the form) at lines ~404-406.",
+    "status": "todo"
+  },
+  {
+    "id": 5,
+    "title": "Mobile: redirect to game screen after inline/hook-based game creation",
+    "area": "mobile",
+    "files": ["mobile_app/src/hooks/useGameCreator.ts"],
+    "description": "submit() sets success state and calls onCreated(created.fieldId) with no navigation (lines ~124-127). Add navigation to the new game's screen on success, mirroring task 4, for any callers of this shared hook.",
+    "status": "done",
+    "notes": "Added `useRouter` from expo-router to mobile_app/src/hooks/useGameCreator.ts and, on successful gamesApi.create(), added router.replace(`/game/${created.id}`) alongside the existing onCreated(created.fieldId) callback -- mirrors task 4's router.replace(`/game/${result.id}`) in mobile_app/app/game/new.tsx. Note: no current caller in the repo passes onCreated to this hook (grepped mobile_app -- only the hook's own definition references it), so this makes the hook itself correct for any future inline/hook-based caller; success/error state handling was left unchanged. next_app build verified green after the change (mobile_app has no typecheck/lint script; ran `npx tsc --noEmit` directly -- pre-existing unrelated errors in other files, none in useGameCreator.ts)."
+  },
+  {
+    "id": 6,
+    "title": "Schema: add description and imageUrl to GameSeries",
+    "area": "server",
+    "files": ["server/prisma/schema.prisma"],
+    "description": "Add `description String?` and `imageUrl String?` to the GameSeries model (schema.prisma:360-385), mirroring the existing User.imageUrl string-URL pattern (no new upload infra needed -- client uploads elsewhere and sends a URL, same as users.js PATCH). Generate a migration: `cd server && npx prisma migrate dev --name add_series_description_image` and run `npx prisma generate`.",
+    "status": "todo"
+  },
+  {
+    "id": 7,
+    "title": "Schema: add manager role to SeriesParticipant",
+    "area": "server",
+    "files": ["server/prisma/schema.prisma"],
+    "description": "SeriesParticipant (schema.prisma:387-396) currently has no role field -- only GameSeries.organizerId is a manager today. Add `role SeriesRoleType @default(MEMBER)` to SeriesParticipant and a new enum `SeriesRoleType { MEMBER MANAGER }`, mirroring the existing GameRole/GameRoleType pattern (schema.prisma:316-326, 555-560). Migration: `cd server && npx prisma migrate dev --name add_series_participant_role` then `npx prisma generate`.",
+    "status": "todo"
+  },
+  {
+    "id": 8,
+    "title": "Server: extend PATCH /api/series/:seriesId with description/imageUrl and manager-role auth",
+    "area": "server",
+    "files": ["server/routes/series.js"],
+    "description": "PATCH handler (line 285) currently destructures title/time/fieldId/fieldName/fieldLocation/price/maxPlayers/dayOfWeek/autoOpenRegistrationHours/updateFutureGames only, and the permission check (lines 303-306) allows only `series.organizerId === req.user.id || isAdmin`. Accept `description` and `imageUrl` in the payload and persist them (same optional-field pattern as existing fields, lines 314-325). Extend the permission check to also allow a user with a SeriesParticipant row where role === 'MANAGER' for this seriesId (depends on task 7).",
+    "status": "todo"
+  },
+  {
+    "id": 9,
+    "title": "Server: propagate fieldName/fieldLocation to future games on series update",
+    "area": "server",
+    "files": ["server/routes/series.js"],
+    "description": "In the updateFutureGames block (lines 336-371), future games only get fieldId, title, maxPlayers, start(time), registrationOpensAt updated -- fieldName/fieldLocation text are never copied onto the Game rows even though they exist on GameSeries. Confirm whether Game stores its own location text (check server/prisma/schema.prisma Game model -- customLocation/customLat/customLng) and, if the UI displays per-game location text independent of fieldId, propagate the updated location fields to future games too so a group-level location change is fully reflected, not just fieldId.",
+    "status": "todo"
+  },
+  {
+    "id": 10,
+    "title": "Server: prefill new game defaults from its series when seriesId is supplied",
+    "area": "server",
+    "files": ["server/services/gameService.js"],
+    "description": "createGame() (lines ~463-493) never reads series defaults today -- a game is only ever attached to a series via the recurrence-creation path (lines 571-620) or convertGameToSeries (lines 992-1140), never the reverse (existing series -> prefill new standalone game). Add support for an incoming `seriesId` on the create-game payload: when present, look up the GameSeries and use its fieldId/fieldName/fieldLocation/time/duration/price/maxPlayers as defaults for any field the caller did not explicitly override, then attach the created game to that seriesId.",
+    "status": "todo"
+  },
+  {
+    "id": 11,
+    "title": "Web: create-game form prefills defaults when creating inside a series",
+    "area": "web",
+    "files": ["next_app/src/app/games/new/page.tsx", "next_app/src/hooks/useGameCreator.ts", "next_app/src/services/api"],
+    "description": "The form currently only reads `fieldId` from the query string (page.tsx:51) with date/time defaulting to empty. When a `seriesId` query param is present, fetch the series (GET /api/series/:id) and prefill field/location/date/time from its defaults (fieldId/fieldName/fieldLocation/time/duration), while leaving all fields editable so the creator can still override for that specific game, per product requirement #3.",
+    "status": "todo"
+  },
+  {
+    "id": 12,
+    "title": "Mobile: create-game screen prefills defaults when creating inside a series",
+    "area": "mobile",
+    "files": ["mobile_app/app/game/new.tsx"],
+    "description": "useLocalSearchParams currently only reads `fieldId` (lines ~41-42) with date defaulting to `new Date()`. Mirror task 11: when a `seriesId` param is present, fetch the series and prefill field/location/date/time, keeping fields editable.",
+    "status": "todo"
+  },
+  {
+    "id": 13,
+    "title": "Web: extend group settings dialog with description, image, location, and schedule fields",
+    "area": "web",
+    "files": ["next_app/src/components/SeriesSettingsEditor.tsx"],
+    "description": "Currently only edits title and autoOpenRegistrationHours (PATCH payload at lines 67-70) and is gated by `canManage` (prop passed as `isOrganizer` from the page). Add form fields for description (multiline TextField), image (reuse the same image-URL pattern used for User.imageUrl), and a location/day/time section reusing the venue/location picker already built for game editing (next_app/src/components/GameDetailsEditor.tsx, from commit b821c28) adapted for fieldId/fieldName/fieldLocation/dayOfWeek/time/duration. Add an explicit 'עדכן גם משחקים עתידיים' toggle in the dialog (mirrors mobile's existing Switch) instead of always implicitly sending updateFutureGames=true.",
+    "status": "todo"
+  },
+  {
+    "id": 14,
+    "title": "Web: show settings gear icon for series managers, not just the organizer",
+    "area": "web",
+    "files": ["next_app/src/app/series/[id]/page.tsx"],
+    "description": "Gear icon is currently rendered only `{isOrganizer && <SeriesSettingsEditor ... canManage={true} />}` (lines 120-127), where isOrganizer = userId === series.organizer.id (line 77). Once task 7/8 land, also fetch/derive whether the current user has a SeriesParticipant role of MANAGER for this series and pass canManage accordingly, so promoted managers (task 20-21) see the gear icon too.",
+    "status": "todo"
+  },
+  {
+    "id": 15,
+    "title": "Mobile: extend inline group settings panel with description, image, location, and schedule fields",
+    "area": "mobile",
+    "files": ["mobile_app/app/series/[id].tsx"],
+    "description": "The cog-toggled settings panel (lines ~312-355) currently only edits `time` (lines 320-326) plus an 'update future games' Switch (line 330) and Delete. Add description, image, and location/day fields to reach parity with the web dialog (task 13), reusing the venue/location picker pattern from mobile_app/app/game/edit/[id].tsx (commit b821c28).",
+    "status": "todo"
+  },
+  {
+    "id": 16,
+    "title": "Mobile: show settings cog for series managers, not just the organizer",
+    "area": "mobile",
+    "files": ["mobile_app/app/series/[id].tsx"],
+    "description": "isOrganizer = user?.id === series.organizer?.id (line 135) gates the cog at line 305. Mirror task 14: also allow users with a MANAGER SeriesParticipant role once task 7 lands.",
+    "status": "todo"
+  },
+  {
+    "id": 17,
+    "title": "Server: endpoint to add an existing user directly to a series",
+    "area": "server",
+    "files": ["server/routes/series.js"],
+    "description": "Add `POST /api/series/:seriesId/members` (organizer or MANAGER only, per the task-8 permission check) accepting a userId, creating/upserting a SeriesParticipant row (same shape as the existing self-serve POST /:seriesId/subscribe at line 245, but callable by a manager on behalf of another user, without requiring that other user to subscribe themselves).",
+    "status": "todo"
+  },
+  {
+    "id": 18,
+    "title": "Server: endpoint to promote/demote a series member to manager",
+    "area": "server",
+    "files": ["server/routes/series.js"],
+    "description": "Add `PATCH /api/series/:seriesId/members/:userId/role` accepting `{ role: 'MANAGER' | 'MEMBER' }`, restricted to the series organizer (or existing managers, per product's 'group manager can appoint additional managers'). Updates the SeriesParticipant.role field added in task 7. Reject if the organizer tries to demote themselves out of the only-manager slot below zero managers, or simply always leave organizerId as an implicit permanent manager regardless of this table.",
+    "status": "todo"
+  },
+  {
+    "id": 19,
+    "title": "Server: verify/reuse user search endpoint for 'Add members' UI",
+    "area": "server",
+    "files": ["server/routes/users.js"],
+    "description": "GET /api/users/search (line 50) already does a name/email `contains` search excluding the current user and is generic (not game-specific) -- confirm it's usable as-is for the series 'Add members' search, and that the web/mobile UI (tasks 21/24) filters out users who are already SeriesParticipant rows for this series client-side (or add an optional `excludeSeriesId` query param server-side if that's cleaner).",
+    "status": "todo"
+  },
+  {
+    "id": 20,
+    "title": "Web: 'Add members' search UI on the group page",
+    "area": "web",
+    "files": ["next_app/src/app/series/[id]/page.tsx"],
+    "description": "Add an 'הוסף חברים' button near the member-count header (line 143) opening a search dialog (reuse GET /api/users/search) that calls the new POST /api/series/:seriesId/members (task 17) for each selected user, visible only when canManage (organizer or manager).",
+    "status": "todo"
+  },
+  {
+    "id": 21,
+    "title": "Web: copy invite link / share to WhatsApp on the group page",
+    "area": "web",
+    "files": ["next_app/src/app/series/[id]/page.tsx", "next_app/src/components/GameActions.tsx"],
+    "description": "Adapt the existing game share pattern in GameActions.tsx (gameUrl/shareText at line ~36, navigator.share at 58-60, clipboard fallback at 72, WhatsApp wa.me fallback at 76) into a series-specific share action pointing at the current series page URL, added to the group header actions.",
+    "status": "todo"
+  },
+  {
+    "id": 22,
+    "title": "Web: manager badge and promote/demote action per roster member",
+    "area": "web",
+    "files": ["next_app/src/app/series/[id]/page.tsx"],
+    "description": "In the roster grid (starting line 147), show a 'מנהל' badge for members whose SeriesParticipant.role === MANAGER (and always for the organizer), plus a manager-only action to promote/demote other members via the task-18 endpoint.",
+    "status": "todo"
+  },
+  {
+    "id": 23,
+    "title": "Mobile: 'Add members' search UI on the group screen",
+    "area": "mobile",
+    "files": ["mobile_app/app/series/[id].tsx"],
+    "description": "Add an 'הוסף חברים' button near the roster header (~line 241) opening a search modal (reuse GET /api/users/search) that calls POST /api/series/:seriesId/members (task 17), visible only when the current user is organizer or manager.",
+    "status": "todo"
+  },
+  {
+    "id": 24,
+    "title": "Mobile: copy invite link / share to WhatsApp on the group screen",
+    "area": "mobile",
+    "files": ["mobile_app/app/series/[id].tsx"],
+    "description": "Add a share action using React Native's Share API (and/or Clipboard + wa.me deep link, matching the web pattern from task 21) pointing at the series deep link / web URL.",
+    "status": "todo"
+  },
+  {
+    "id": 25,
+    "title": "Mobile: manager badge and promote/demote action per roster member",
+    "area": "mobile",
+    "files": ["mobile_app/app/series/[id].tsx"],
+    "description": "In the roster list (lines ~243-260), show a manager badge and, for organizer/manager viewers, a promote/demote action wired to the task-18 endpoint, mirroring task 22.",
+    "status": "todo"
+  },
+  {
+    "id": 26,
+    "title": "Manual QA: game creation redirects (web + mobile)",
+    "area": "qa",
+    "description": "Create a game from the standalone web form, the inline web form, and the mobile form; confirm each lands directly on the new game's detail page with no intermediate success screen/toast. Force a validation error on each and confirm the user stays on the creation form with an inline error message.",
+    "status": "todo"
+  },
+  {
+    "id": 27,
+    "title": "Manual QA: group settings edit and future-game sync",
+    "area": "qa",
+    "description": "As the series organizer, edit name/description/image/location/time in both web and mobile settings UIs; confirm the changes persist, the 'update future games' toggle behaves as expected, and non-manager members never see the gear/cog icon.",
+    "status": "todo"
+  },
+  {
+    "id": 28,
+    "title": "Manual QA: add members, invite link, and manager promotion",
+    "area": "qa",
+    "description": "As organizer: search and add an existing user directly to the group, copy the invite link and confirm it opens the correct group page, share to WhatsApp, then promote another member to manager and confirm they now see the settings gear/cog and Add Members controls (and can themselves add members / edit settings).",
+    "status": "todo"
+  },
+  {
+    "id": 29,
+    "title": "Server quality gate: prisma generate + migrations + tests",
+    "area": "deploy",
+    "command": "cd server && npx prisma generate && npm test",
+    "description": "Run prisma generate after the schema changes (tasks 6-7) so the Prisma Client matches new fields (per AGENTS.md known-failure-mode #7), then run the full server test suite and fix any failures.",
+    "status": "todo"
+  },
+  {
+    "id": 30,
+    "title": "Web quality gate: next build",
+    "area": "deploy",
+    "command": "cd next_app && npm run build",
+    "description": "Run the Next.js production build and fix any TypeScript/build errors in a loop until green before considering the task done (per PROMPT.md/.cursor/rules mandatory gate).",
+    "status": "todo"
+  },
+  {
+    "id": 31,
+    "title": "Mobile quality gate: TypeScript check",
+    "area": "deploy",
+    "command": "cd mobile_app && npx tsc --noEmit",
+    "description": "mobile_app/package.json has no typecheck/lint script, but a tsconfig.json exists -- run `npx tsc --noEmit` directly to catch type errors from the mobile changes (tasks 4-5, 12, 15-16, 23-25).",
+    "status": "todo"
+  },
+  {
+    "id": 32,
+    "title": "Commit, push feature branch, and merge into Dev",
+    "area": "deploy",
+    "description": "Once all quality gates are green, commit the changes, push the feature branch, merge into Dev, and push Dev to trigger the Vercel preview / staging deploy per PROMPT.md. This step requires explicit user confirmation before pushing/merging shared branches.",
+    "status": "todo"
+  }
+]
