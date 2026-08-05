@@ -2,7 +2,7 @@ import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, Act
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { gamesApi, fieldsApi, usersApi } from '@/services/api';
+import { gamesApi, fieldsApi, usersApi, seriesApi } from '@/services/api';
 import type { Field } from '@/services/api/fields';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -38,8 +38,9 @@ export default function NewGameScreen() {
     const { getToken } = useAuth();
     const { user } = useUser();
     const router = useRouter();
-    const params = useLocalSearchParams<{ fieldId?: string }>();
+    const params = useLocalSearchParams<{ fieldId?: string; seriesId?: string }>();
     const prefilledFieldId = params.fieldId;
+    const prefilledSeriesId = params.seriesId;
 
     const [cities, setCities] = useState<string[]>([]);
     const [fields, setFields] = useState<any[]>([]);
@@ -286,6 +287,46 @@ export default function NewGameScreen() {
         return null;
     }, [mapSelectedField, customPoint, confirmMapFieldSelection, confirmCustomMapPoint]);
 
+    // Prefill field/location/time/duration from a series' defaults, keeping every field editable.
+    const loadSeriesDefaults = async (seriesId: string, fieldList: any[], cityList: string[]) => {
+        try {
+            const series: any = await seriesApi.getById(seriesId);
+
+            if (series.fieldId) {
+                const found = fieldList.find((f: any) => f.id === series.fieldId);
+                if (found) {
+                    setSelectedField(found);
+                    if (found.city) setSelectedCity(found.city);
+                } else {
+                    setSelectedField({
+                        id: series.fieldId,
+                        name: series.fieldName || '',
+                        location: series.fieldLocation || null,
+                    });
+                    if (cityList.length > 0) setSelectedCity(cityList[0]);
+                }
+            } else if (cityList.length > 0) {
+                setSelectedCity(cityList[0]);
+            }
+
+            if (series.time) {
+                const [hours, minutes] = String(series.time).split(':').map(Number);
+                if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+                    setTime((prev) => {
+                        const next = new Date(prev);
+                        next.setHours(hours, minutes, 0, 0);
+                        return next;
+                    });
+                }
+            }
+            if (typeof series.duration === 'number') {
+                setDuration(String(series.duration));
+            }
+        } catch (error) {
+            console.error('Failed to load series defaults', error);
+        }
+    };
+
     const loadInitialData = async () => {
         setLoading(true);
         try {
@@ -302,6 +343,8 @@ export default function NewGameScreen() {
                     setSelectedField(found);
                     if (found.city) setSelectedCity(found.city);
                 }
+            } else if (prefilledSeriesId) {
+                await loadSeriesDefaults(prefilledSeriesId, fieldList, cityList);
             } else if (cityList.length > 0) {
                 setSelectedCity(cityList[0]);
             }
@@ -398,9 +441,7 @@ export default function NewGameScreen() {
             };
 
             const result = await gamesApi.create(payload, token);
-            Alert.alert("Success", "Game created successfully!", [
-                { text: "OK", onPress: () => router.replace(`/(tabs)`) }
-            ]);
+            router.replace(`/game/${result.id}`);
         } catch (error: any) {
             console.error("Create game failed", error);
             Alert.alert("Error", error.response?.data?.error || "Failed to create game");

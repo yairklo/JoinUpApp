@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { fieldsApi, gamesApi } from '@/services/api';
 
@@ -6,6 +7,7 @@ export type FieldOption = { id: string; name: string; location?: string | null; 
 
 export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: string) => void) {
     const { getToken, isSignedIn } = useAuth();
+    const router = useRouter();
 
     // Form States
     const [submitting, setSubmitting] = useState(false);
@@ -125,6 +127,7 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
 
             setSuccess("Game created successfully!");
             if (onCreated && created.fieldId) onCreated(created.fieldId);
+            if (created.id) router.replace(`/game/${created.id}`);
 
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Failed to create game");

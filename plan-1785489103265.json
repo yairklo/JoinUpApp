@@ -1,0 +1,107 @@
+[
+  {
+    "id": 1,
+    "title": "Audit web 'My Groups' / 'Join a Group' sections against spec",
+    "area": "web",
+    "files": ["next_app/src/components/SeriesSectionClient.tsx"],
+    "description": "Confirm mySeries only renders when isSignedIn and non-empty (section returns null otherwise), joinableSeries only renders public series where isSubscribed=false, and both sections are fully hidden (not just empty) when their list is empty.",
+    "status": "verify"
+  },
+  {
+    "id": 2,
+    "title": "Confirm web group cards are navigation-only (no quick-join action)",
+    "area": "web",
+    "files": ["next_app/src/components/SeriesSectionClient.tsx", "next_app/src/components/SeriesHeaderCard.tsx", "next_app/src/components/FullPageList.tsx"],
+    "description": "Verify the shared renderCard() used by both the horizontal list and the 'see all' FullPageList only exposes a 'לעמוד הקבוצה' navigation link to /series/[id], with no inline join/subscribe button on the card itself.",
+    "status": "verify"
+  },
+  {
+    "id": 3,
+    "title": "Add explicit signed-out guard to mobile 'My Groups' section",
+    "area": "mobile",
+    "files": ["mobile_app/src/components/SeriesSection.tsx"],
+    "description": "Import useAuth from @clerk/clerk-expo and explicitly gate subscribedSeries to [] when !isSignedIn, mirroring the web implementation's defensive check, instead of relying solely on the server defaulting isSubscribed=false for unauthenticated requests.",
+    "status": "todo"
+  },
+  {
+    "id": 4,
+    "title": "Localize hardcoded Hebrew strings in mobile SeriesSection",
+    "area": "mobile",
+    "files": [
+      "mobile_app/src/components/SeriesSection.tsx",
+      "mobile_app/src/i18n/locales/he.json",
+      "mobile_app/src/i18n/locales/en.json"
+    ],
+    "description": "Add home.joinGroup ('הצטרפו לקבוצה' / 'Join a Group') and series.viewGroup ('לעמוד הקבוצה' / 'View Group') i18n keys and replace the hardcoded literals in SeriesSection.tsx with t() calls, matching the existing t('home.mySeries') pattern.",
+    "status": "todo"
+  },
+  {
+    "id": 5,
+    "title": "Verify mobile card tap navigates to the group page for both sections",
+    "area": "mobile",
+    "files": ["mobile_app/src/components/SeriesSection.tsx"],
+    "description": "Confirm renderSeriesCard's onPress routes to /series/[id] for both subscribed and unsubscribed cards, and that the bottom CTA row is a visual label only (no separate quick-join TouchableOpacity).",
+    "status": "verify"
+  },
+  {
+    "id": 6,
+    "title": "Confirm no private/unlisted series leak into 'Join a Group'",
+    "area": "server",
+    "files": ["server/routes/series.js", "server/prisma/schema.prisma"],
+    "description": "GET /api/series/active returns all isActive series with no public/private flag on GameSeries; confirm this is intentional (all active series are effectively public) so the 'Join a Group' section only ever shows joinable public groups, not private ones.",
+    "status": "confirmed",
+    "notes": "Verified: GameSeries model (server/prisma/schema.prisma:360-385) has no isPublic/isPrivate/visibility field, and no migration or app code (grepped server/routes, server/services, next_app/src, mobile_app/src) ever introduces a private/unlisted concept for series -- the only 'PRIVATE' hits in the codebase belong to unrelated ChatRoom.type. GET /api/series/active (server/routes/series.js:103) filters solely on isActive:true with no visibility filter, so every series it returns is intentionally public by construction; there is no private series variant that could leak. Both SeriesSectionClient.tsx (web) and SeriesSection.tsx (mobile) split this same public result set client-side into subscribed ('My Groups') vs unsubscribed ('Join a Group') using isSubscribed only. Conclusion: current behavior is intentional and correct as-is; no code change required for this item."
+  },
+  {
+    "id": 7,
+    "title": "Manual QA: web, signed-out user",
+    "area": "qa-web",
+    "description": "Load the home page signed out with active series in the DB. Confirm 'הקבוצות שלי' is completely absent and 'הצטרפו לקבוצה' lists all active series with working navigation to /series/[id].",
+    "status": "todo"
+  },
+  {
+    "id": 8,
+    "title": "Manual QA: web, signed-in user with zero/some memberships",
+    "area": "qa-web",
+    "description": "Sign in as a user with no series subscriptions (both sections behave correctly: My Groups hidden, Join a Group shows all). Then subscribe to one series and confirm it moves from Join a Group to My Groups and Join a Group hides itself once no joinable series remain.",
+    "status": "todo"
+  },
+  {
+    "id": 9,
+    "title": "Manual QA: mobile, signed-out and signed-in parity with web",
+    "area": "qa-mobile",
+    "description": "Repeat the same signed-out / zero-membership / some-membership scenarios on mobile (Expo) and confirm identical show/hide behavior and navigation-only cards, matching web.",
+    "status": "todo"
+  },
+  {
+    "id": 10,
+    "title": "Run web quality gate",
+    "area": "deploy",
+    "command": "cd next_app && npm run build",
+    "description": "Run the Next.js production build and fix any TypeScript/build errors in a loop until green before considering the task done.",
+    "status": "todo"
+  },
+  {
+    "id": 11,
+    "title": "Run server test suite",
+    "area": "deploy",
+    "command": "cd server && npm test",
+    "description": "Run server tests since server/routes/series.js behavior is relied upon by both clients; fix any failures.",
+    "status": "todo"
+  },
+  {
+    "id": 12,
+    "title": "Run mobile typecheck/lint",
+    "area": "deploy",
+    "command": "cd mobile_app && npm run typecheck || npm run lint",
+    "description": "Run whichever script exists in mobile_app/package.json to catch type errors introduced by the SeriesSection.tsx changes.",
+    "status": "todo"
+  },
+  {
+    "id": 13,
+    "title": "Commit, push feature branch, and merge into Dev",
+    "area": "deploy",
+    "description": "Once all quality gates are green, commit the changes, push the feature branch, merge into Dev, and push Dev to trigger the Vercel preview build. This step requires explicit user confirmation before pushing/merging shared branches.",
+    "status": "todo"
+  }
+]
