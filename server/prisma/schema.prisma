@@ -378,6 +378,8 @@ model GameSeries {
   sport                     SportType           @default(SOCCER)
   autoOpenRegistrationHours Float?
   title                     String?
+  description               String?
+  imageUrl                  String?
   games                     Game[]
   subscribers               SeriesParticipant[]
 
@@ -385,12 +387,13 @@ model GameSeries {
 }
 
 model SeriesParticipant {
-  id        String     @id @default(cuid())
+  id        String         @id @default(cuid())
   seriesId  String
   userId    String
-  createdAt DateTime   @default(now())
-  series    GameSeries @relation(fields: [seriesId], references: [id])
-  user      User       @relation(fields: [userId], references: [id])
+  role      SeriesRoleType @default(MEMBER)
+  createdAt DateTime       @default(now())
+  series    GameSeries     @relation(fields: [seriesId], references: [id])
+  user      User           @relation(fields: [userId], references: [id])
 
   @@unique([seriesId, userId])
 }
@@ -557,6 +560,11 @@ enum GameRoleType {
   MANAGER
   CAPTAIN
   MODERATOR
+}
+
+enum SeriesRoleType {
+  MEMBER
+  MANAGER
 }
 
 enum RecurrenceType {

@@ -49,6 +49,7 @@ function NewGamePageInner() {
   const router = useRouter();
   const params = useSearchParams();
   const urlFieldId = params?.get("fieldId") ?? "";
+  const urlSeriesId = params?.get("seriesId") ?? "";
 
   const { getToken, isSignedIn } = useAuth();
   const { user } = useUser();
@@ -174,6 +175,42 @@ function NewGamePageInner() {
     return () => { ignore = true; };
   }, [urlFieldId]);
 
+  // 1b. Prefill from series defaults (fieldId/fieldName/fieldLocation/time/duration), still editable
+  useEffect(() => {
+    if (!urlSeriesId) return;
+    let ignore = false;
+    async function fetchSeries() {
+      try {
+        const res = await fetch(`${API_BASE}/api/series/${urlSeriesId}`, { cache: "no-store" });
+        if (!res.ok || ignore) return;
+        const series = await res.json();
+
+        if (series.fieldId) {
+          setSelectedField({
+            id: series.fieldId,
+            name: series.fieldName || "",
+            location: series.fieldLocation || null,
+          });
+        } else if (series.fieldName || series.fieldLocation) {
+          setNewFieldMode(true);
+          setNewField((p) => ({
+            ...p,
+            name: series.fieldName || "",
+            location: series.fieldLocation || "",
+          }));
+        }
+
+        setForm((prev) => ({
+          ...prev,
+          time: series.time || prev.time,
+          duration: typeof series.duration === "number" ? series.duration : prev.duration,
+        }));
+      } catch { }
+    }
+    fetchSeries();
+    return () => { ignore = true; };
+  }, [urlSeriesId]);
+
   // 2. Auto-set time
   useEffect(() => {
     if (form.date === todayStr) {
@@ -272,9 +309,7 @@ function NewGamePageInner() {
       }
 
       const created = await res.json();
-      setSuccess("Game created");
-      // redirect to home after creation (main page flow)
-      router.push(`/`);
+      router.push(`/games/${created.id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {

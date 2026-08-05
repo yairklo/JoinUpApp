@@ -11,7 +11,7 @@ export interface UpdateSeriesDTO {
 }
 
 export const seriesApi = {
-    getById: (seriesId: string, token: string) => {
+    getById: (seriesId: string, token?: string) => {
         return apiClient<any>(`/api/series/${seriesId}`, { token });
     },
 

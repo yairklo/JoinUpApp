@@ -206,11 +206,8 @@ export default function FieldCard({ field }: { field: Field }) {
         <DialogContent>
           <NewGameInline
             fieldId={field.id}
-            onCreated={(fid) => {
+            onCreated={() => {
               setShowNewGame(false);
-              try {
-                window.location.href = `/games?fieldId=${fid}`;
-              } catch {}
             }}
           />
         </DialogContent>
