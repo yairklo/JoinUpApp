@@ -31,9 +31,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 type SeriesDetails = {
     id: string;
     title?: string | null;
+    description?: string | null;
+    imageUrl?: string | null;
+    fieldId?: string | null;
     fieldName: string;
     fieldLocation: string;
     time: string;
+    duration: number;
     dayOfWeek: number | null;
     type: 'WEEKLY' | 'CUSTOM';
     autoOpenRegistrationHours: number | null;
@@ -120,8 +124,17 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                             {isOrganizer && (
                                 <SeriesSettingsEditor
                                     seriesId={series.id}
+                                    seriesType={series.type}
                                     initialAutoOpenHours={series.autoOpenRegistrationHours}
                                     initialTitle={series.title}
+                                    initialDescription={series.description}
+                                    initialImageUrl={series.imageUrl}
+                                    initialFieldId={series.fieldId}
+                                    initialFieldName={series.fieldName}
+                                    initialFieldLocation={series.fieldLocation}
+                                    initialDayOfWeek={series.dayOfWeek}
+                                    initialTime={series.time}
+                                    initialDuration={series.duration}
                                     canManage={true}
                                 />
                             )}

@@ -462,13 +462,13 @@ function buildOccurrenceParticipants({ organizerId, organizerInLottery, maxPlaye
  */
 async function createGame(payload, creatorUser, io) {
   const {
-    fieldId,
-    newField,
+    fieldId: rawFieldId,
+    newField: rawNewField,
     date,
-    time,
+    time: rawTime,
     start: payloadStart,
-    duration,
-    maxPlayers,
+    duration: rawDuration,
+    maxPlayers: rawMaxPlayers,
     isOpenToJoin,
     isFriendsOnly,
     lotteryEnabled,
@@ -484,19 +484,63 @@ async function createGame(payload, creatorUser, io) {
     title,
     friendsOnlyUntil,
     teamSize,
-    price,
+    price: rawPrice,
     customLat,
     joinPolicy,
     invitedParticipantIds,
     pickDrawAt,
     pickingStartsAt,
+    seriesId,
   } = payload || {};
+
+  // When the caller attaches this game to an existing series, only the series organizer,
+  // a series MANAGER, or an admin may prefill/attach to it.
+  let series = null;
+  if (seriesId) {
+    series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) throw httpError('Series not found', 404);
+    const isAdmin = !!creatorUser?.isAdmin;
+    let isManager = false;
+    if (series.organizerId !== creatorUser.id && !isAdmin) {
+      const seriesParticipant = await prisma.seriesParticipant.findUnique({
+        where: { seriesId_userId: { seriesId, userId: creatorUser.id } }
+      });
+      isManager = seriesParticipant?.role === 'MANAGER';
+    }
+    if (series.organizerId !== creatorUser.id && !isAdmin && !isManager) {
+      throw httpError('Not allowed', 403);
+    }
+  }
+
+  const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
+  const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
+
+  // Series defaults apply only to fields the caller left unset, so an explicit field/date/time
+  // choice on this game always wins over the series' stored defaults.
+  const hasFieldOverride = !!rawFieldId || !!rawNewField || (Number.isFinite(latNum) && Number.isFinite(lngNum));
+  let fieldId = rawFieldId;
+  let newField = rawNewField;
+  if (!hasFieldOverride && series) {
+    if (series.fieldId) {
+      fieldId = series.fieldId;
+    } else if (series.fieldName || series.fieldLocation) {
+      newField = { name: series.fieldName, location: series.fieldLocation };
+    }
+  }
+  const time = (!rawTime && !payloadStart && series) ? series.time : rawTime;
+  const duration = (typeof rawDuration === 'undefined' || rawDuration === null || rawDuration === '')
+    ? (series ? series.duration : rawDuration)
+    : rawDuration;
+  const maxPlayers = (typeof rawMaxPlayers === 'undefined' || rawMaxPlayers === null || rawMaxPlayers === '')
+    ? (series ? series.maxPlayers : rawMaxPlayers)
+    : rawMaxPlayers;
+  const price = (typeof rawPrice === 'undefined' || rawPrice === null || rawPrice === '')
+    ? (series ? series.price : rawPrice)
+    : rawPrice;
 
   const invitedUserIds = Array.isArray(invitedParticipantIds)
     ? invitedParticipantIds.filter(id => typeof id === 'string' && id !== creatorUser.id)
     : [];
-  const latNum = typeof customLat === 'undefined' ? NaN : parseFloat(String(customLat));
-  const lngNum = typeof customLng === 'undefined' ? NaN : parseFloat(String(customLng));
   const hasFieldId = !!fieldId;
   const hasNewFieldText = !!(newField && (String(newField.name || '').trim() || String(newField.location || '').trim()));
   const hasCoords = Number.isFinite(latNum) && Number.isFinite(lngNum);
@@ -737,6 +781,7 @@ async function createGame(payload, creatorUser, io) {
       data: {
         title,
         fieldId: useFieldId,
+        ...(series ? { seriesId: series.id } : {}),
         start,
         duration: duration || 1,
         maxPlayers: Number(maxPlayers),

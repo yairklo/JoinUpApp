@@ -210,14 +210,17 @@ router.get('/:seriesId', async (req, res) => {
       id: series.id,
       title: series.title || null,
       name: series.title || `${series.fieldName} • ${series.time}`,
+      fieldId: series.fieldId ?? null,
       fieldName: series.fieldName,
       fieldLocation: series.fieldLocation,
       time: series.time,
-      dayOfWeek: series.dayOfWeek ?? null,
+      duration: series.duration,
       dayOfWeek: series.dayOfWeek ?? null,
       type: series.type,
       sport: series.sport,
       autoOpenRegistrationHours: series.autoOpenRegistrationHours,
+      description: series.description || null,
+      imageUrl: series.imageUrl || null,
       organizer: {
         id: organizer?.id || series.organizerId,
         name: organizer?.name || '',
@@ -295,13 +298,23 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       maxPlayers,
       dayOfWeek,
       autoOpenRegistrationHours,
+      description,
+      imageUrl,
+      duration,
       updateFutureGames = true,
     } = req.body || {};
 
     const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
     if (!series) return res.status(404).json({ error: 'Series not found' });
     const isAdmin = !!req.user?.isAdmin;
+    let isManager = false;
     if (series.organizerId !== req.user.id && !isAdmin) {
+      const participant = await prisma.seriesParticipant.findUnique({
+        where: { seriesId_userId: { seriesId, userId: req.user.id } }
+      });
+      isManager = participant?.role === 'MANAGER';
+    }
+    if (series.organizerId !== req.user.id && !isAdmin && !isManager) {
       return res.status(403).json({ error: 'Not allowed' });
     }
 
@@ -322,6 +335,9 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     if (typeof autoOpenRegistrationHours !== 'undefined') {
       data.autoOpenRegistrationHours = autoOpenRegistrationHours === null ? null : Number(autoOpenRegistrationHours);
     }
+    if (typeof description !== 'undefined') data.description = description === null ? null : String(description);
+    if (typeof imageUrl !== 'undefined') data.imageUrl = imageUrl === null ? null : String(imageUrl);
+    if (typeof duration !== 'undefined' && !Number.isNaN(Number(duration))) data.duration = Number(duration);
     // dayOfWeek intentionally blocked when updating existing weekly series (see above)
 
     const updatedSeries = await prisma.gameSeries.update({
@@ -344,7 +360,27 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       const gd = {};
       if (typeof title === 'string') gd.title = title;
       if (typeof maxPlayers !== 'undefined' && !Number.isNaN(Number(maxPlayers))) gd.maxPlayers = Number(maxPlayers);
-      if (typeof fieldId !== 'undefined') gd.fieldId = fieldId || g.fieldId;
+      if (typeof duration !== 'undefined' && !Number.isNaN(Number(duration))) gd.duration = Number(duration);
+      if (typeof fieldId !== 'undefined') {
+        const newFieldId = fieldId || g.fieldId;
+        gd.fieldId = newFieldId;
+        // Game (unlike GameSeries) has no fieldName/fieldLocation columns of its own; the API/UI
+        // derives display text from the joined Field via fieldId, but customLocation/customLat/customLng
+        // (see Game model in schema.prisma) override that display when set (mobile game details prefers
+        // customLocation over fieldLocation). Switching to a new field must clear the stale override,
+        // otherwise future games keep showing the old spot's text even after fieldId changes.
+        if (newFieldId !== g.fieldId) {
+          gd.customLocation = null;
+          gd.customLat = null;
+          gd.customLng = null;
+        }
+      }
+      // fieldName/fieldLocation are free-text edits to the series's own (denormalized) location text;
+      // Game has nowhere to store "fieldName" but mirroring the location into customLocation keeps the
+      // per-game display in sync since customLocation takes priority over the (unchanged) joined field.
+      if (typeof fieldLocation === 'string' || typeof fieldName === 'string') {
+        gd.customLocation = fieldLocation || fieldName || null;
+      }
       // Time change for WEEKLY: update only the time portion (HH:MM)
       if (typeof time === 'string' && series.type === 'WEEKLY') {
         const [hh, mm] = String(time).split(':').map(n => parseInt(n, 10));
