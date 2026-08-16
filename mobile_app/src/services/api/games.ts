@@ -175,9 +175,10 @@ export const gamesApi = {
         });
     },
 
-    toggleParticipantRole: (gameId: string, userId: string, token: string) => {
-        return apiClient<Game>(`/api/games/${gameId}/participants/${userId}/toggle-role`, {
-            method: 'POST',
+    setCaptain: (gameId: string, userId: string, isCaptain: boolean, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/participants/${userId}/captain`, {
+            method: 'PATCH',
+            data: { isCaptain },
             token
         });
     },

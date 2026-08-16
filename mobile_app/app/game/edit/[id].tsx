@@ -321,28 +321,61 @@ export default function EditGameScreen() {
         }
     };
 
-    const handleToggleRole = async (userId: string) => {
+    const handleAssignManager = async (userId: string) => {
         try {
             const token = await getToken();
             if (!token) return;
-            await gamesApi.toggleParticipantRole(id, userId, token);
-            Alert.alert(t('common.success', 'הצלחה'), 'הרשאות השחקן עודכנו בהצלחה!');
+            await gamesApi.assignRole(id, { userId, role: 'MANAGER' }, token);
+            Alert.alert(t('common.success', 'הצלחה'), 'מונה למנהל משחק בהצלחה!');
             await fetchGame();
         } catch (error) {
-            console.error("Failed to toggle participant role", error);
-            Alert.alert(t('common.error', 'שגיאה'), 'עדכון הרשאות נכשל.');
+            console.error("Failed to assign manager role", error);
+            Alert.alert(t('common.error', 'שגיאה'), 'מינוי למנהל נכשל.');
+        }
+    };
+
+    const handleRemoveManager = async (userId: string) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            // The backend removeRole removes all roles. For now, since MANAGER is the only GameRole we use, this is fine.
+            await gamesApi.removeRole(id, userId, token);
+            Alert.alert(t('common.success', 'הצלחה'), 'הוסרו הרשאות ניהול בהצלחה!');
+            await fetchGame();
+        } catch (error) {
+            console.error("Failed to remove manager role", error);
+            Alert.alert(t('common.error', 'שגיאה'), 'הסרת מנהל נכשלה.');
+        }
+    };
+
+    const handleToggleCaptain = async (userId: string, isCaptain: boolean) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await gamesApi.setCaptain(id, userId, isCaptain, token);
+            Alert.alert(t('common.success', 'הצלחה'), isCaptain ? 'מונה לקפטן קבוצה בהצלחה!' : 'הוסר מקפטן קבוצה בהצלחה!');
+            await fetchGame();
+        } catch (error) {
+            console.error("Failed to set captain", error);
+            Alert.alert(t('common.error', 'שגיאה'), 'עדכון קפטן נכשל.');
         }
     };
 
     const handleRosterOptions = (p: any) => {
-        const isTargetMgr = game?.managers?.some((m: any) => m.id === p.id);
+        const isTargetMgr = game?.managers?.some((m: any) => m.id === p.id && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
+        const isTargetCaptain = p.isCaptain;
+
         Alert.alert(
             p.name || 'שחקן',
             'בחר פעולה עבור שחקן זה:',
             [
                 {
-                    text: isTargetMgr ? 'הסר הרשאות ניהול' : 'הפוך למנהל משחק',
-                    onPress: () => handleToggleRole(p.id)
+                    text: isTargetMgr ? 'הסר הרשאות ניהול משחק' : 'מנה למנהל משחק',
+                    onPress: () => isTargetMgr ? handleRemoveManager(p.id) : handleAssignManager(p.id)
+                },
+                {
+                    text: isTargetCaptain ? 'הסר מקפטן קבוצה (בוחר)' : 'מנה לקפטן קבוצה (בוחר)',
+                    onPress: () => handleToggleCaptain(p.id, !isTargetCaptain)
                 },
                 {
                     text: 'הסר מהמשחק',

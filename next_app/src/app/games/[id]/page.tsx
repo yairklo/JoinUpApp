@@ -107,7 +107,7 @@ export default async function GameDetails(props: {
       : game.currentPlayers) || 0;
 
   const isOrganizer = game.organizerId === userId;
-  const isManager = (game.managers || []).some((m) => m.id === userId);
+  const isManager = (game.managers || []).some((m) => m.id === userId && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
   const canManageSeries = isOrganizer || isManager;
 
   return (

@@ -78,10 +78,11 @@ export default function GameParticipantsList({
   };
 
   const isOrganizer = (id: string) => id === organizerId;
-  const isManager = (id: string) => managers.some((m) => m.id === id);
+  const isManager = (id: string) => managers.some((m) => m.id === id && (m.role === "MANAGER" || m.role === "MODERATOR"));
+  const isCaptain = (id: string) => participants.some((p: any) => p.id === id && p.isCaptain);
   
   const viewerIsOrganizer = userId === organizerId;
-  const viewerIsManager = managers.some((m) => m.id === userId);
+  const viewerIsManager = managers.some((m) => m.id === userId && (m.role === "MANAGER" || m.role === "MODERATOR"));
   const canManage = viewerIsOrganizer || viewerIsManager;
 
   const [allFriends, setAllFriends] = useState<any[]>([]);
@@ -167,6 +168,28 @@ export default function GameParticipantsList({
       router.refresh();
     } catch (error) {
       console.error("Failed to update role", error);
+    } finally {
+      closeMenu();
+    }
+  };
+
+  const handleToggleCaptain = async () => {
+    if (!selectedUser) return;
+    const isCurrentlyCaptain = isCaptain(selectedUser.id);
+    const token = await getToken();
+
+    try {
+      await fetch(`${API_BASE}/api/games/${gameId}/participants/${selectedUser.id}/captain`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isCaptain: !isCurrentlyCaptain }),
+      });
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to set captain", error);
     } finally {
       closeMenu();
     }
@@ -397,6 +420,14 @@ export default function GameParticipantsList({
                   </ListItemIcon>
                   <Typography variant="body2">
                     {isManager(selectedUser.id) ? "Remove Manager Role" : "Promote to Manager"}
+                  </Typography>
+                </MenuItem>
+                <MenuItem onClick={handleToggleCaptain}>
+                  <ListItemIcon>
+                    {isCaptain(selectedUser.id) ? <PersonIcon fontSize="small" /> : <SecurityIcon fontSize="small" />}
+                  </ListItemIcon>
+                  <Typography variant="body2">
+                    {isCaptain(selectedUser.id) ? "Remove Captain Role" : "Promote to Captain"}
                   </Typography>
                 </MenuItem>
                 <MenuItem onClick={handleRemovePlayer} sx={{ color: "error.main" }}>

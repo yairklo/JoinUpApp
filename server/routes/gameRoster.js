@@ -667,11 +667,12 @@ router.delete('/:id/participants/:userId', authenticateToken, async (req, res) =
   }
 });
 
-// Toggle participant's manager role (organizer/manager only)
-router.post('/:id/participants/:userId/toggle-role', authenticateToken, async (req, res) => {
+// Toggle participant's captain role
+router.patch('/:id/participants/:userId/captain', authenticateToken, async (req, res) => {
   try {
     const gameId = req.params.id;
     const targetUserId = req.params.userId;
+    const { isCaptain } = req.body;
 
     const actorLevel = await getRoleLevel(gameId, req.user.id);
     if (actorLevel < ROLE_LEVEL.MODERATOR) {
@@ -685,10 +686,6 @@ router.post('/:id/participants/:userId/toggle-role', authenticateToken, async (r
       return res.status(404).json({ error: 'Game not found' });
     }
 
-    if (game.organizerId === targetUserId) {
-      return res.status(400).json({ error: 'Cannot modify organizer role' });
-    }
-
     // Ensure target is a participant
     const isParticipant = await prisma.participation.findFirst({
       where: { gameId, userId: targetUserId }
@@ -697,51 +694,11 @@ router.post('/:id/participants/:userId/toggle-role', authenticateToken, async (r
       return res.status(400).json({ error: 'Target user is not a participant' });
     }
 
-    // Hierarchy check: can only affect users strictly below you
-    const targetLevel = await getRoleLevel(gameId, targetUserId);
-    if (targetLevel >= actorLevel) {
-      return res.status(403).json({ error: 'Cannot modify a peer or higher role' });
-    }
-
-    const existingRole = await prisma.gameRole.findUnique({
-      where: { gameId_userId: { gameId, userId: targetUserId } }
+    // Elevate / Revoke
+    await prisma.participation.update({
+      where: { id: isParticipant.id },
+      data: { isCaptain: Boolean(isCaptain) }
     });
-
-    let newRole = null;
-    if (existingRole && existingRole.role === 'MANAGER') {
-      // Revoke
-      await prisma.gameRole.delete({
-        where: { id: existingRole.id }
-      });
-      newRole = 'PLAYER';
-    } else {
-      // Elevate
-      await prisma.gameRole.upsert({
-        where: { gameId_userId: { gameId, userId: targetUserId } },
-        create: { gameId, userId: targetUserId, role: 'MANAGER' },
-        update: { role: 'MANAGER' }
-      });
-      newRole = 'MANAGER';
-    }
-
-    // Notify user
-    const title = newRole === 'MANAGER' ? 'הועלית למנהל משחק!' : 'הוסרו הרשאות הניהול שלך';
-    const body = newRole === 'MANAGER' 
-      ? `מנהל המשחק העלה אותך לדרגת מנהל במשחק: ${game.title || 'משחק כדורגל'}`
-      : `הוסרו הרשאות הניהול שלך במשחק: ${game.title || 'משחק כדורגל'}`;
-
-    try {
-      notificationService.sendNotification(
-        targetUserId,
-        'GAME_ROLE_UPDATE',
-        title,
-        body,
-        { gameId, newRole },
-        req.io
-      ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of role update', gameId, err));
-    } catch (err) {
-      console.error('[NOTIFICATIONS] Fatal validation exception in sendNotification call', gameId, err);
-    }
 
     const updated = await prisma.game.findUnique({
       where: { id: gameId },
@@ -750,8 +707,8 @@ router.post('/:id/participants/:userId/toggle-role', authenticateToken, async (r
     broadcastGameUpdate(req.io, gameId, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', gameId, err));
     return res.json(mapGameForClient(updated, req.user.id));
   } catch (error) {
-    console.error('Toggle role error:', error);
-    res.status(500).json({ error: 'Failed to toggle participant role' });
+    console.error('Set captain error:', error);
+    res.status(500).json({ error: 'Failed to set participant as captain' });
   }
 });
 

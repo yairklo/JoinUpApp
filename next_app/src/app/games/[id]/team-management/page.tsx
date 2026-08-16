@@ -47,7 +47,7 @@ export default async function TeamManagementPage(props: {
 
   const isManager =
     game.organizerId === userId ||
-    (game.managers || []).some((m: { id: string }) => m.id === userId);
+    (game.managers || []).some((m: any) => m.id === userId && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
 
   if (!isManager) {
     return (

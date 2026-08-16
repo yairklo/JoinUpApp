@@ -67,7 +67,7 @@ export default function TeamBuilderWrapper({
   const [saving, setSaving] = useState(false);
 
   const isOrganizer = currentUserId === organizerId;
-  const isManager = initialManagers.some((m) => m.id === currentUserId);
+  const isManager = initialManagers.some((m) => m.id === currentUserId && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
   const canManage = isOrganizer || isManager;
 
   const handleSaveTeams = async (teams: Team[]) => {
