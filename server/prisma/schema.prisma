@@ -163,6 +163,7 @@ model Participation {
   status          ParticipationStatus @default(CONFIRMED)
   teamId          String?
   isWaitlistOffer Boolean             @default(false)
+  isCaptain       Boolean             @default(false)
   game            Game                @relation(fields: [gameId], references: [id])
   team            Team?               @relation(fields: [teamId], references: [id])
   user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)

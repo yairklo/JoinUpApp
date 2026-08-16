@@ -184,7 +184,7 @@ export default function GameDetailsScreen() {
         || game.participants?.some(p => p.id === user?.id);
     const isFull = (game.currentPlayers || 0) >= game.maxPlayers;
     const isOrganizer = game.organizerId === user?.id;
-    const isManager = game.managers?.some(m => m.id === user?.id) || false;
+    const isManager = game.managers?.some(m => m.id === user?.id && (m.role === 'MANAGER' || m.role === 'MODERATOR')) || false;
     const canManage = isOrganizer || isManager;
     const isWaitlistOfferPending = hasWaitlistOffer(game);
     // Never show a dead-end "ממתין לאישור" for PENDING — offer CTAs always win.

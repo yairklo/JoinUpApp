@@ -247,7 +247,7 @@ export default function LiveTeamManagementScreen() {
       if (!isOrganizer || !userId) return;
       const token = await getToken();
       if (!token) return;
-      await gamesApi.assignRole(id, { userId, role: "CAPTAIN" }, token);
+      await gamesApi.setCaptain(id, userId, true, token);
       await load();
     });
 
@@ -256,7 +256,7 @@ export default function LiveTeamManagementScreen() {
       if (!isOrganizer || !userId) return;
       const token = await getToken();
       if (!token) return;
-      await gamesApi.removeRole(id, userId, token);
+      await gamesApi.setCaptain(id, userId, false, token);
       await load();
     });
 

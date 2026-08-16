@@ -48,19 +48,19 @@ function computeCurrentTurnManagerId(turnOrder, currentIndex, pickOrderType) {
   return turnOrder[currentIndex % n];
 }
 
-/** Organizer + MANAGER + CAPTAIN role holders — the draft participants. */
+/** Organizer + CAPTAIN role holders — the draft participants. */
 async function getManagerIdsForGame(gameId, gameRow) {
   let game = gameRow;
-  if (!game) {
+  if (!game || !game.participants) {
     game = await prisma.game.findUnique({
       where: { id: gameId },
-      include: { roles: true },
+      include: { roles: true, participants: { select: { userId: true, isCaptain: true } } },
     });
   }
   if (!game) return [];
   const ids = new Set([game.organizerId]);
-  for (const r of game.roles || []) {
-    if (r.role === 'MANAGER' || r.role === 'ORGANIZER' || r.role === 'CAPTAIN') ids.add(r.userId);
+  for (const p of game.participants || []) {
+    if (p.isCaptain) ids.add(p.userId);
   }
   return [...ids];
 }

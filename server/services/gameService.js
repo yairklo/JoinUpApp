@@ -87,12 +87,14 @@ function mapGameForClient(game, viewerId) {
     id: p.userId,
     name: p.user?.name || null,
     avatar: p.user?.imageUrl || null,
-    teamId: p.teamId || null
+    teamId: p.teamId || null,
+    isCaptain: !!p.isCaptain
   }));
   const waitlistParticipants = waitlisted.map(p => ({
     id: p.userId,
     name: p.user?.name || null,
-    avatar: p.user?.imageUrl || null
+    avatar: p.user?.imageUrl || null,
+    isCaptain: !!p.isCaptain
   }));
   const managers = (game.roles || [])
     .filter(r => r.role !== 'ORGANIZER')
@@ -105,7 +107,7 @@ function mapGameForClient(game, viewerId) {
   // Organizer is also a drafting manager — include for client-side bench filters.
   const draftingManagerIds = new Set([
     game.organizerId,
-    ...managers.map((m) => m.id),
+    ...participants.filter(p => p.isCaptain).map((p) => p.id),
   ].filter(Boolean).map(String));
   const teams = (game?.teams ? game.teams : []).map(t => {
     const playerIds = allParts
@@ -304,7 +306,7 @@ function buildVisibilityWhere(viewerId) {
   };
 }
 
-const ROLE_LEVEL = { NONE: 0, MODERATOR: 1, CAPTAIN: 1, MANAGER: 2, ORGANIZER: 3 };
+const ROLE_LEVEL = { NONE: 0, MODERATOR: 1, CAPTAIN: 0.5, MANAGER: 2, ORGANIZER: 3 };
 function roleToLevel(role) {
   return ROLE_LEVEL[String(role || 'NONE').toUpperCase()] ?? 0;
 }
