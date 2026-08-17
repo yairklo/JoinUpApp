@@ -1,4 +1,5 @@
 const { prisma, ROLE_LEVEL, getRoleLevel, mapGameForClient, broadcastGameUpdate } = require('./gameService');
+const gameScheduler = require('./gameScheduler');
 
 const TEAM_COLORS = ['#f97316', '#3b82f6', '#ef4444', '#22c55e', '#eab308', '#a855f7', '#1f2937', '#14b8a6'];
 
@@ -377,7 +378,8 @@ async function updatePickSchedule(gameId, userId, { pickDrawAt, pickingStartsAt,
     data.pickSessionStatus = 'DRAW_SCHEDULED';
   }
 
-  await prisma.game.update({ where: { id: gameId }, data });
+  const updatedGame = await prisma.game.update({ where: { id: gameId }, data });
+  gameScheduler.resyncGame(updatedGame);
   const state = await buildPickSessionState(gameId, userId);
   emitPickState(io, gameId, state);
   await broadcastGameUpdate(io, gameId);
@@ -701,42 +703,6 @@ async function resolveTrade(gameId, userId, tradeId, approve, io) {
   return state;
 }
 
-async function runPickDrawSweep(io) {
-  const now = new Date();
-  const games = await prisma.game.findMany({
-    where: {
-      pickDrawAt: { lte: now },
-      pickDrawExecutedAt: null,
-    },
-    select: { id: true },
-  });
-  for (const g of games) {
-    try {
-      await executePickDraw(g.id, io);
-    } catch (e) {
-      console.error(`Pick draw sweep failed for ${g.id}:`, e);
-    }
-  }
-}
-
-async function runPickingOpenSweep(io) {
-  const now = new Date();
-  const games = await prisma.game.findMany({
-    where: {
-      pickingStartsAt: { lte: now },
-      pickingOpenedAt: null,
-    },
-    select: { id: true },
-  });
-  for (const g of games) {
-    try {
-      await openPicking(g.id, io);
-    } catch (e) {
-      console.error(`Picking open sweep failed for ${g.id}:`, e);
-    }
-  }
-}
-
 module.exports = {
   httpError,
   parseTurnOrder,
@@ -754,7 +720,5 @@ module.exports = {
   resolveTrade,
   ensureManagerPickChat,
   ensureManagerTeams,
-  runPickDrawSweep,
-  runPickingOpenSweep,
   mapTrade,
 };
