@@ -11,6 +11,7 @@ const {
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { notifyUserAddedToGame, notifyUserRemovedFromGame } = require('../utils/addedToGameNotification');
+const gameScheduler = require('./gameScheduler');
 
 async function sendAutoWelcomeMessage(game, newPlayerId) {
   if (!game || !game.welcomeMessage || !game.organizerId || game.organizerId === newPlayerId) {
@@ -735,6 +736,7 @@ async function createGame(payload, creatorUser, io) {
     }
 
     const createdGames = await prisma.$transaction(createOps);
+    for (const g of createdGames) gameScheduler.resyncGame(g);
     const firstGame = createdGames[0];
     // Notify invited friends about the first occurrence (same copy as single-game create).
     if (firstGame && invitedUserIds.length) {
@@ -839,6 +841,8 @@ async function createGame(payload, creatorUser, io) {
 
     return game;
   });
+
+  gameScheduler.resyncGame(created);
 
   // Viewer-agnostic payload for broadcasting to other users (city/friends rooms) — must not
   // carry the creator's own viewerParticipationStatus, since it would be misleading for them.
@@ -1144,6 +1148,7 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
   }
 
   const createdGames = await prisma.$transaction(createOps);
+  for (const g of createdGames) gameScheduler.resyncGame(g);
 
   const seriesPayload = {
     id: series.id,
@@ -1358,6 +1363,7 @@ async function patchGame(gameId, body, userId, io) {
     data: updates,
     include: GAME_DETAIL_INCLUDE,
   });
+  gameScheduler.resyncGame(updated);
   broadcastGameUpdate(io, gameId, updated).catch(err =>
     console.error('[SOCKET] Failed to broadcast game update', gameId, err)
   );
@@ -1439,6 +1445,7 @@ async function updateGame(gameId, body, userId, io) {
     },
     include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true },
   });
+  gameScheduler.resyncGame(updated);
   broadcastGameUpdate(io, gameId, updated).catch(err =>
     console.error('[SOCKET] Failed to broadcast game update', gameId, err)
   );

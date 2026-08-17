@@ -35,8 +35,8 @@ const { moderator } = require('./moderationInstance');
 const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Notification Workers
-const { startGameReminderWorker } = require('./workers/gameReminderWorker');
 const { startCleanupWorker } = require('./workers/cleanupWorker');
+const gameScheduler = require('./services/gameScheduler');
 
 // Jest sets NODE_ENV=test / JEST_WORKER_ID — skip timers so --detectOpenHandles stays clean
 const enableBackgroundSchedulers =
@@ -44,13 +44,9 @@ const enableBackgroundSchedulers =
 
 // Start Review Worker
 if (enableBackgroundSchedulers) {
-  // Run immediately on startup to process any backlog
+  // Run immediately on startup to process any backlog (crash/redeploy recovery). Ongoing
+  // items are triggered on insert and via gameScheduler.armReviewRetry — no polling interval.
   processReviewQueue().catch(err => console.error("Worker Startup Error:", err));
-
-  // Then run every minute
-  setInterval(() => {
-    processReviewQueue().catch(err => console.error("Worker Error:", err));
-  }, 60 * 1000);
 }
 
 const app = express();
@@ -554,6 +550,7 @@ io.on('connection', async (socket) => {
             }
           });
           console.log(`💾 [MODERATION] Saved flagged message to database for review`);
+          gameScheduler.triggerReviewQueue();
         } catch (dbError) {
           console.error('[MODERATION] Failed to save flagged message:', dbError);
         }
@@ -920,165 +917,9 @@ io.on('connection', async (socket) => {
   });
 });
 
-// --- Lottery scheduler ---
-function shuffleInPlace(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = tmp;
-  }
-  return arr;
-}
-
-let lotterySweepRunning = false;
-async function runLotterySweep() {
-  if (lotterySweepRunning) return;
-  lotterySweepRunning = true;
-  try {
-    const now = new Date();
-    const games = await prisma.game.findMany({
-      where: {
-        lotteryEnabled: true,
-        lotteryExecutedAt: null,
-        lotteryAt: { lte: now },
-      },
-      include: { participants: true },
-    });
-
-    for (const game of games) {
-      const confirmed = game.participants.filter(p => p.status === 'CONFIRMED');
-      const waitlisted = game.participants.filter(p => p.status === 'WAITLISTED');
-      const slotsRemaining = Math.max(0, game.maxPlayers - confirmed.length);
-
-      const updates = [];
-      if (slotsRemaining > 0 && waitlisted.length > 0) {
-        shuffleInPlace(waitlisted);
-        const winners = waitlisted.slice(0, slotsRemaining);
-        const losers = waitlisted.slice(slotsRemaining);
-
-        if (winners.length) {
-          updates.push(
-            prisma.participation.updateMany({
-              where: { id: { in: winners.map(w => w.id) } },
-              data: { status: 'CONFIRMED' },
-            })
-          );
-        }
-        if (losers.length) {
-          updates.push(
-            prisma.participation.updateMany({
-              where: { id: { in: losers.map(l => l.id) } },
-              data: { status: 'NOT_SELECTED' },
-            })
-          );
-        }
-      } else if (waitlisted.length > 0) {
-        // No slots remaining: mark all waitlisted as not selected
-        updates.push(
-          prisma.participation.updateMany({
-            where: { id: { in: waitlisted.map(w => w.id) } },
-            data: { status: 'NOT_SELECTED' },
-          })
-        );
-      }
-
-      updates.push(
-        prisma.game.update({
-          where: { id: game.id },
-          data: { lotteryExecutedAt: now },
-        })
-      );
-
-      if (updates.length) {
-        await prisma.$transaction(updates);
-        console.log(`🎲 Lottery executed for game ${game.id} at ${now.toISOString()}`);
-      } else {
-        // Even if no updates (e.g., no waitlisted), still mark executed to avoid reprocessing
-        await prisma.game.update({
-          where: { id: game.id },
-          data: { lotteryExecutedAt: now },
-        });
-        console.log(`🎲 Lottery marked executed (no-op) for game ${game.id}`);
-      }
-    }
-  } catch (e) {
-    console.error('Lottery sweep error:', e);
-  } finally {
-    lotterySweepRunning = false;
-  }
-}
-
-if (enableBackgroundSchedulers) {
-  setInterval(runLotterySweep, 60_000);
-}
-
-// --- Manager pick-session scheduler (turn-order draw + auto-open picking) ---
-const {
-  runPickDrawSweep,
-  runPickingOpenSweep,
-} = require('./services/pickSessionService');
-
-let pickSessionSweepRunning = false;
-async function runPickSessionSweep() {
-  if (pickSessionSweepRunning) return;
-  pickSessionSweepRunning = true;
-  try {
-    await runPickDrawSweep(io);
-    await runPickingOpenSweep(io);
-  } catch (e) {
-    console.error('Pick session sweep error:', e);
-  } finally {
-    pickSessionSweepRunning = false;
-  }
-}
-if (enableBackgroundSchedulers) {
-  setInterval(runPickSessionSweep, 30_000);
-  // Kick once shortly after boot so overdue sessions open without waiting a full tick
-  setTimeout(runPickSessionSweep, 5_000);
-}
-
-// --- Game Auto-Completion (Passive) ---
-let completionCheckRunning = false;
-async function runGameCompletionCheck() {
-  if (completionCheckRunning) return;
-  completionCheckRunning = true;
-  try {
-    const now = new Date();
-    // Candidates: OPEN and started in the past
-    const candidates = await prisma.game.findMany({
-      where: {
-        status: 'OPEN',
-        start: { lt: now }
-      },
-      select: { id: true, start: true, duration: true }
-    });
-
-    const toComplete = candidates.filter(g => {
-      // Duration in hours (default 1) -> ms
-      const dur = (typeof g.duration === 'number' ? g.duration : 1);
-      const endTime = new Date(g.start.getTime() + dur * 3600000);
-      return endTime < now;
-    });
-
-    if (toComplete.length > 0) {
-      const ids = toComplete.map(g => g.id);
-      await prisma.game.updateMany({
-        where: { id: { in: ids } },
-        data: { status: 'COMPLETED' }
-      });
-      console.log(`🏁 Auto-completed ${ids.length} games.`);
-    }
-  } catch (e) {
-    console.error('Game completion check error:', e);
-  } finally {
-    completionCheckRunning = false;
-  }
-}
-if (enableBackgroundSchedulers) {
-  setInterval(runGameCompletionCheck, 60_000);
-  runGameCompletionCheck().catch(() => { });
-}
+// Lottery execution, pick-session draw/open, and game auto-completion are event-driven via
+// gameScheduler (armed from write paths in gameService.js/pickSessionService.js, reloaded on
+// boot by gameScheduler.loadAll()) instead of polling every 30-60s here.
 
 // --- Weekly Series Rolling Generation ---
 function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
@@ -1198,7 +1039,8 @@ async function runWeeklySeriesGeneration() {
       }
 
       if (createOps.length) {
-        await prisma.$transaction(createOps);
+        const created = await prisma.$transaction(createOps);
+        for (const g of created) gameScheduler.resyncGame(g);
         console.log(`🗓️  Generated ${createOps.length} weekly instances for series ${s.id}`);
       }
     }
@@ -1241,7 +1083,8 @@ async function startServer() {
       console.log(`🔌 Socket.IO ready on /api/socket (CORS allowlist: ${JSON.stringify(allowedOrigins)}, permissive: ${corsPermissive})`);
 
       // Workers stay tied to the real HTTP bootstrap, not test imports.
-      startGameReminderWorker(io);
+      gameScheduler.init({ prisma, io, notificationService });
+      await gameScheduler.loadAll();
       startCleanupWorker();
       console.log('🔔 Notification workers started');
       resolve(server);

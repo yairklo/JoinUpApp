@@ -1,5 +1,6 @@
 const { moderator } = require('../moderationInstance');
 const { PrismaClient } = require('@prisma/client');
+const gameScheduler = require('../services/gameScheduler');
 
 const prisma = new PrismaClient();
 
@@ -83,10 +84,15 @@ async function processReviewQueue() {
             }
         } else {
             // Still failing... increment retry count
-            await prisma.flaggedMessage.update({
+            const updatedItem = await prisma.flaggedMessage.update({
                 where: { id: item.id },
                 data: { retryCount: { increment: 1 } }
             });
+            // Re-arm a follow-up attempt so this item keeps getting retried without a polling
+            // interval - it won't be revisited again otherwise until the next server boot.
+            if (updatedItem.retryCount < 3) {
+                gameScheduler.armReviewRetry(item.id, new Date(Date.now() + 60_000));
+            }
         }
     }
 }
