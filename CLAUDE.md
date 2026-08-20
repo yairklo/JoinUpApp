@@ -9,4 +9,4 @@ Welcome to the workspace. Follow these pointers for context:
 Use Graphify (.graph-context.xml) for high-level structure and ast-grep for targeted searches.
 
 > [!WARNING]
-> DO NOT run git commits, pushes, or branch commands. The external dispatcher (dispatch-task.js) owns all Git workflows, Quality Gates, and resets.
+> Creating branches and commits is fine. Do NOT push to `main` (directly or via merge/force-push) — pushes to `main` are owned by the external dispatcher (dispatch-task.js) / the user. Pushing a feature branch or opening a PR for review is fine; ask first if unsure.

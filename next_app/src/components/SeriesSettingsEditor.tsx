@@ -26,7 +26,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
 // Components
-import Avatar from "./Avatar";
+import ImageUploadField from "./ImageUploadField";
 import DeleteSeriesDialog from "./DeleteSeriesDialog";
 import { useSeriesSettingsEditor, SeriesSettingsEditorHookProps } from "@/hooks/useSeriesSettingsEditor";
 import type { FieldOption } from "@/hooks/useGameCreator";
@@ -96,22 +96,15 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                         </Grid>
 
                         <Grid size={{ xs: 12 }}>
-                            <Box display="flex" alignItems="center" gap={2}>
-                                <Avatar
-                                    src={state.imageUrl}
-                                    name={state.title || "קבוצה"}
-                                    alt={state.title || "קבוצה"}
-                                    size="lg"
-                                />
-                                <TextField
-                                    fullWidth
-                                    label="קישור לתמונת הקבוצה"
-                                    value={state.imageUrl}
-                                    onChange={(e) => actions.setImageUrl(e.target.value)}
-                                    size="small"
-                                    helperText="הדבק קישור לתמונה"
-                                />
-                            </Box>
+                            <ImageUploadField
+                                imageUrl={state.imageUrl}
+                                name={state.title || "קבוצה"}
+                                label="העלה תמונת קבוצה"
+                                onUpload={actions.uploadImage}
+                                onUploaded={actions.handleImageUploaded}
+                                onRemove={actions.removeImage}
+                                onRemoved={actions.handleImageRemoved}
+                            />
                         </Grid>
 
                         {/* Location / Day / Time Section */}

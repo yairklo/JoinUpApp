@@ -2,8 +2,20 @@ const express = require('express');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 
 const router = express.Router();
+const seriesImageUpload = createImageUpload('series');
+
+// Organizer, a MANAGER participant, or an admin may manage a series's settings/image.
+async function canManageSeries(series, user) {
+  if (!series || !user) return false;
+  if (series.organizerId === user.id || user.isAdmin) return true;
+  const participant = await prisma.seriesParticipant.findUnique({
+    where: { seriesId_userId: { seriesId: series.id, userId: user.id } }
+  });
+  return participant?.role === 'MANAGER';
+}
 
 function mapGameForClient(game) {
   if (!game) return game;
@@ -410,6 +422,50 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
   } catch (e) {
     console.error('Series update error:', e);
     return res.status(500).json({ error: 'Failed to update series' });
+  }
+});
+
+// Upload series/group image (organizer, manager, or admin)
+router.post('/:seriesId/image', authenticateToken, handleSingleUpload(seriesImageUpload, 'image'), async (req, res) => {
+  try {
+    const { seriesId } = req.params;
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+    if (!(await canManageSeries(series, req.user))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const imageUrl = absoluteUrlFor(req, 'series', req.file.filename);
+    await prisma.gameSeries.update({ where: { id: seriesId }, data: { imageUrl } });
+    if (series.imageUrl) deleteUploadedFile(series.imageUrl);
+
+    res.json({ imageUrl });
+  } catch (e) {
+    console.error('Series image upload error:', e);
+    res.status(500).json({ error: 'Failed to upload series image' });
+  }
+});
+
+// Remove series/group image (organizer, manager, or admin)
+router.delete('/:seriesId/image', authenticateToken, async (req, res) => {
+  try {
+    const { seriesId } = req.params;
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+    if (!(await canManageSeries(series, req.user))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    await prisma.gameSeries.update({ where: { id: seriesId }, data: { imageUrl: null } });
+    if (series.imageUrl) deleteUploadedFile(series.imageUrl);
+
+    res.json({ imageUrl: null });
+  } catch (e) {
+    console.error('Series image remove error:', e);
+    res.status(500).json({ error: 'Failed to remove series image' });
   }
 });
 

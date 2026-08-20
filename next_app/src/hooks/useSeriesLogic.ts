@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { seriesApi } from '@/services/api';
+import { validateImageFile } from '@/components/ImageUploadField';
 
 interface UseSeriesLogicProps {
     gameId: string;
@@ -22,6 +23,9 @@ export function useSeriesLogic({ gameId, seriesId, initialTime }: UseSeriesLogic
     const [tabValue, setTabValue] = useState(0);
     const [customDates, setCustomDates] = useState<string[]>([]);
     const [tempDate, setTempDate] = useState("");
+    const [pendingImage, setPendingImage] = useState<File | null>(null);
+    const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null);
+    const [pendingImageError, setPendingImageError] = useState<string | null>(null);
 
     // Manage Series State
     const [editData, setEditData] = useState({
@@ -29,6 +33,38 @@ export function useSeriesLogic({ gameId, seriesId, initialTime }: UseSeriesLogic
         updateFutureGames: true,
     });
     const [isSubscribed, setIsSubscribed] = useState(false); // Note: Initial state is naive. Ideally fetch from API.
+
+    const resetPendingImage = () => {
+        if (pendingImagePreview) URL.revokeObjectURL(pendingImagePreview);
+        setPendingImage(null);
+        setPendingImagePreview(null);
+        setPendingImageError(null);
+    };
+
+    const handlePendingImageChange = (file: File | null) => {
+        if (pendingImagePreview) URL.revokeObjectURL(pendingImagePreview);
+        if (!file) {
+            setPendingImage(null);
+            setPendingImagePreview(null);
+            setPendingImageError(null);
+            return;
+        }
+        const validationError = validateImageFile(file);
+        if (validationError) {
+            setPendingImage(null);
+            setPendingImagePreview(null);
+            setPendingImageError(validationError);
+            return;
+        }
+        setPendingImage(file);
+        setPendingImagePreview(URL.createObjectURL(file));
+        setPendingImageError(null);
+    };
+
+    const handleCloseCreateDialog = () => {
+        resetPendingImage();
+        setOpen(false);
+    };
 
     const handleMakeRecurring = async () => {
         setLoading(true);
@@ -44,6 +80,17 @@ export function useSeriesLogic({ gameId, seriesId, initialTime }: UseSeriesLogic
 
             const data = await seriesApi.createRecurrence(gameId, payload, token);
             const newSeriesId = data.seriesId || data.series?.id;
+
+            if (newSeriesId && pendingImage) {
+                // Best-effort: the group is already created by this point, so a failed image
+                // upload shouldn't block navigation — it just means no photo was set yet.
+                try {
+                    await seriesApi.uploadImage(newSeriesId, pendingImage, token);
+                } catch (imgErr) {
+                    console.error("Series image upload failed", imgErr);
+                }
+            }
+            resetPendingImage();
 
             if (newSeriesId) {
                 router.push(`/series/${newSeriesId}`);
@@ -117,7 +164,9 @@ export function useSeriesLogic({ gameId, seriesId, initialTime }: UseSeriesLogic
             customDates,
             tempDate,
             editData,
-            isSubscribed
+            isSubscribed,
+            pendingImagePreview,
+            pendingImageError
         },
         actions: {
             setOpen,
@@ -128,6 +177,8 @@ export function useSeriesLogic({ gameId, seriesId, initialTime }: UseSeriesLogic
             handleMakeRecurring,
             handleUpdateSeries,
             handleToggleSubscribe,
+            handlePendingImageChange,
+            handleCloseCreateDialog,
             addCustomDate,
             removeCustomDate,
             handleDeleteSeriesSuccess: () => router.push("/")

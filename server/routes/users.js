@@ -16,7 +16,9 @@ const {
   validateScore,
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
+const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 const router = express.Router();
+const userImageUpload = createImageUpload('users');
 const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
@@ -549,6 +551,44 @@ router.put('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// Upload profile image (owner only)
+router.post('/:id/image', authenticateToken, handleSingleUpload(userImageUpload, 'image'), async (req, res) => {
+  try {
+    if (req.params.id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { id: req.user.id }, select: { imageUrl: true } });
+    const imageUrl = absoluteUrlFor(req, 'users', req.file.filename);
+    await prisma.user.update({ where: { id: req.user.id }, data: { imageUrl } });
+    if (existing?.imageUrl) deleteUploadedFile(existing.imageUrl);
+
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error('Upload user image error:', error);
+    res.status(500).json({ error: 'Failed to upload image' });
+  }
+});
+
+// Remove profile image (owner only)
+router.delete('/:id/image', authenticateToken, async (req, res) => {
+  try {
+    if (req.params.id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const existing = await prisma.user.findUnique({ where: { id: req.user.id }, select: { imageUrl: true } });
+    await prisma.user.update({ where: { id: req.user.id }, data: { imageUrl: null } });
+    if (existing?.imageUrl) deleteUploadedFile(existing.imageUrl);
+    res.json({ imageUrl: null });
+  } catch (error) {
+    console.error('Remove user image error:', error);
+    res.status(500).json({ error: 'Failed to remove image' });
   }
 });
 

@@ -11,8 +11,10 @@ function buildSafeUserUpsertPayload(authUser) {
   return {
     where: { id },
     update: {
+      // Never touch imageUrl on an existing user here: once a user has an account, their photo
+      // is only changed via the explicit profile-image upload endpoint (POST /api/users/:id/image),
+      // never silently re-synced from Clerk's avatar on unrelated writes (roster join, game create, etc).
       name: isNameFallback ? undefined : name,
-      imageUrl: (isNameFallback || !avatar) ? undefined : avatar,
     },
     create: {
       id,

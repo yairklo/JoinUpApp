@@ -12,6 +12,9 @@ agent_watcher*.log
 node_modules/
 **/node_modules/
 
+# User-uploaded images (local disk storage backend)
+server/uploads/
+
 # Build outputs
 dist/
 dist-ssr/

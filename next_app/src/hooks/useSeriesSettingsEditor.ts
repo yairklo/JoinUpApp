@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { fieldsApi } from "@/services/api";
+import { fieldsApi, seriesApi } from "@/services/api";
 import type { FieldOption } from "@/hooks/useGameCreator";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -123,7 +123,6 @@ export function useSeriesSettingsEditor({
             const payload: Record<string, unknown> = {
                 title: title || "",
                 description: description || "",
-                imageUrl: imageUrl || "",
                 autoOpenRegistrationHours: hours === "" ? null : Number(hours),
                 time,
                 duration,
@@ -169,6 +168,28 @@ export function useSeriesSettingsEditor({
         router.push("/");
     };
 
+    const uploadImage = async (file: File) => {
+        const token = await getToken();
+        if (!token) throw new Error("יש להתחבר מחדש");
+        return seriesApi.uploadImage(seriesId, file, token);
+    };
+
+    const removeImage = async () => {
+        const token = await getToken();
+        if (!token) throw new Error("יש להתחבר מחדש");
+        return seriesApi.removeImage(seriesId, token);
+    };
+
+    const handleImageUploaded = (url: string) => {
+        setImageUrl(url);
+        router.refresh();
+    };
+
+    const handleImageRemoved = () => {
+        setImageUrl("");
+        router.refresh();
+    };
+
     return {
         state: {
             open, loading, deleteDialogOpen,
@@ -180,6 +201,7 @@ export function useSeriesSettingsEditor({
             setTitle, setDescription, setImageUrl, setHours, setTime, setDuration, setUpdateFutureGames,
             setSelectedField, setNewFieldMode, setNewField, setDeleteDialogOpen,
             handleOpen, handleClose, handleSave, handleDeleteSuccess,
+            uploadImage, removeImage, handleImageUploaded, handleImageRemoved,
         },
     };
 }
