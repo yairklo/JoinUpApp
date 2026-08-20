@@ -124,6 +124,7 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Create data directory if it doesn't exist
 const dataDir = path.join(__dirname, 'data');

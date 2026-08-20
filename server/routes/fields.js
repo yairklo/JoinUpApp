@@ -57,8 +57,10 @@ function hasBoundingBox(query) {
   return !!(minLat && maxLat && minLng && maxLng);
 }
 const { authenticateToken } = require('../utils/auth');
+const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 
 const router = express.Router();
+const fieldImageUpload = createImageUpload('fields');
 
 // Get all fields
 router.get('/', async (req, res) => {
@@ -454,6 +456,29 @@ router.put('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Update field error:', error);
     res.status(500).json({ error: 'Failed to update field' });
+  }
+});
+
+// Upload field/venue image (Admin only)
+router.post('/:id/image', authenticateToken, handleSingleUpload(fieldImageUpload, 'image'), async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    const existing = await prisma.field.findUnique({ where: { id: req.params.id }, select: { image: true } });
+    if (!existing) return res.status(404).json({ error: 'Field not found' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const imageUrl = absoluteUrlFor(req, 'fields', req.file.filename);
+    const updated = await prisma.field.update({ where: { id: req.params.id }, data: { image: imageUrl } });
+    if (existing.image) deleteUploadedFile(existing.image);
+
+    res.json(mapFieldForClient(updated));
+  } catch (error) {
+    console.error('Upload field image error:', error);
+    res.status(500).json({ error: 'Failed to upload field image' });
   }
 });
 

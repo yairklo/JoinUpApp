@@ -48,9 +48,11 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import { SPORT_MAPPING, POSITION_OPTIONS } from "@/utils/sports";
 
 import Avatar from "@/components/Avatar";
+import ImageUploadField from "@/components/ImageUploadField";
 import AddFriendButton from "@/components/AddFriendButton";
 import { Game } from "@/types/game";
 import { gamesApi } from "@/services/api/games";
+import { usersApi } from "@/services/api/users";
 
 type PublicUser = {
   id: string;
@@ -198,6 +200,9 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       const token = await getToken({ template: undefined }).catch(() => "");
+      // imageUrl is intentionally excluded: it's owned by the dedicated upload/remove
+      // endpoints (usersApi.uploadImage/removeImage) and already persisted by the time Save runs.
+      const { imageUrl: _imageUrl, ...formWithoutImage } = form;
       const res = await fetch(`${API_BASE}/api/users/${userId}`, {
         method: "PUT",
         headers: {
@@ -205,7 +210,7 @@ export default function ProfilePage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          ...form,
+          ...formWithoutImage,
           birthDate: form.birthDate ? new Date(form.birthDate).toISOString() : null,
           gender: form.gender || null,
         }),
@@ -256,6 +261,28 @@ export default function ProfilePage() {
       }
     } catch { }
   }
+
+  const uploadProfileImage = async (file: File) => {
+    const token = await getToken({ template: undefined }).catch(() => "");
+    if (!token || !userId) throw new Error("יש להתחבר מחדש");
+    return usersApi.uploadImage(userId, file, token);
+  };
+
+  const removeProfileImage = async () => {
+    const token = await getToken({ template: undefined }).catch(() => "");
+    if (!token || !userId) throw new Error("יש להתחבר מחדש");
+    return usersApi.removeImage(userId, token);
+  };
+
+  const handleImageUploaded = (url: string) => {
+    setForm((prev) => ({ ...prev, imageUrl: url }));
+    setProfile((prev) => (prev ? { ...prev, imageUrl: url } : prev));
+  };
+
+  const handleImageRemoved = () => {
+    setForm((prev) => ({ ...prev, imageUrl: "" }));
+    setProfile((prev) => (prev ? { ...prev, imageUrl: null } : prev));
+  };
 
   const friendIdSet = new Set(friends.map((f) => f.id));
 
@@ -534,7 +561,15 @@ export default function ProfilePage() {
                         />
                       </Grid>
                       <Grid size={12}>
-                        <TextField fullWidth label="קישור לתמונת פרופיל" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} size="small" helperText="הדבק קישור לתמונה" />
+                        <ImageUploadField
+                          imageUrl={form.imageUrl}
+                          name={profile.name || ""}
+                          label="העלה תמונת פרופיל"
+                          onUpload={uploadProfileImage}
+                          onUploaded={handleImageUploaded}
+                          onRemove={removeProfileImage}
+                          onRemoved={handleImageRemoved}
+                        />
                       </Grid>
                       <Grid size={12} sx={{ mt: 2, display: 'flex', gap: 2 }}>
                         <Button variant="contained" startIcon={<SaveIcon />} onClick={save} disabled={saving}>

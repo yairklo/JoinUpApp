@@ -25,8 +25,11 @@ import AddIcon from "@mui/icons-material/Add";
 import EditCalendarIcon from "@mui/icons-material/EditCalendar";
 import UpdateIcon from "@mui/icons-material/Update";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import CloseIcon from "@mui/icons-material/Close";
 
 import DeleteSeriesDialog from "./DeleteSeriesDialog";
+import Avatar from "./Avatar";
 import { useSeriesLogic } from "@/hooks/useSeriesLogic";
 
 interface SeriesManagerProps {
@@ -168,7 +171,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
         הפוך לקבוצה שבועית
       </Button>
 
-      <Dialog open={state.open} onClose={() => actions.setOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={state.open} onClose={actions.handleCloseCreateDialog} fullWidth maxWidth="sm">
         <DialogTitle>יצירת קבוצה</DialogTitle>
         <DialogContent>
           <Tabs value={state.tabValue} onChange={(e, v) => actions.setTabValue(v)} sx={{ mb: 2 }}>
@@ -218,9 +221,44 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
               </Box>
             </Box>
           )}
+
+          <Box mt={3}>
+            <Typography variant="subtitle2" gutterBottom>תמונת קבוצה (אופציונלי)</Typography>
+            <Box display="flex" alignItems="center" gap={2}>
+              <Avatar src={state.pendingImagePreview} name="קבוצה" alt="קבוצה" size="lg" />
+              <Box display="flex" gap={1}>
+                <Button size="small" variant="outlined" component="label" startIcon={<CloudUploadIcon />}>
+                  {state.pendingImagePreview ? "החלף תמונה" : "בחר תמונה"}
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={(e) => {
+                      actions.handlePendingImageChange(e.target.files?.[0] || null);
+                      e.target.value = "";
+                    }}
+                  />
+                </Button>
+                {state.pendingImagePreview && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    color="error"
+                    startIcon={<CloseIcon />}
+                    onClick={() => actions.handlePendingImageChange(null)}
+                  >
+                    הסר
+                  </Button>
+                )}
+              </Box>
+            </Box>
+            {state.pendingImageError && (
+              <Typography variant="caption" color="error">{state.pendingImageError}</Typography>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => actions.setOpen(false)}>ביטול</Button>
+          <Button onClick={actions.handleCloseCreateDialog}>ביטול</Button>
           <Button
             variant="contained"
             onClick={actions.handleMakeRecurring}
