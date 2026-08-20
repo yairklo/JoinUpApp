@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, API_BASE } from './client';
 
 export type PrivacyLevel = 'EVERYONE' | 'FRIENDS_ONLY';
 
@@ -107,5 +107,27 @@ export const usersApi = {
             `/api/users/${userId}/match-history?skip=${skip}&take=${take}`,
             { token }
         );
+    },
+
+    uploadImage: async (userId: string, file: File, token: string): Promise<{ imageUrl: string }> => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await fetch(`${API_BASE}/api/users/${userId}/image`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to upload image');
+        }
+        return res.json();
+    },
+
+    removeImage: (userId: string, token: string) => {
+        return apiClient<{ imageUrl: null }>(`/api/users/${userId}/image`, {
+            method: 'DELETE',
+            token,
+        });
     },
 };
