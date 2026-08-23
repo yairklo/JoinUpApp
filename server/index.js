@@ -117,15 +117,17 @@ app.use(
     origin: corsOriginCallback,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    exposedHeaders: ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-Request-Id'],
   })
 );
 app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const { requestContext } = require('./middleware/requestContext');
 const { createRateLimiter, writeMethodLimiter } = require('./middleware/rateLimit');
+app.use(requestContext);
 app.use(createRateLimiter({ windowMs: 15 * 60 * 1000, max: 240, prefix: 'global' }));
 app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 60, prefix: 'write' })));
 
@@ -192,10 +194,10 @@ app.use('/api/chats', require('./routes/chats'));
 app.get('/api/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'OK', db: 'up', message: 'Football Fields API is running' });
+    res.json({ status: 'OK', db: 'up', message: 'Football Fields API is running', requestId: req.requestId });
   } catch (err) {
     console.error('[HEALTH] database check failed:', err.message);
-    res.status(503).json({ status: 'DOWN', db: 'down', message: 'Database unreachable' });
+    res.status(503).json({ status: 'DOWN', db: 'down', message: 'Database unreachable', requestId: req.requestId });
   }
 });
 
@@ -1045,16 +1047,21 @@ if (enableBackgroundSchedulers) {
 
 // 404 handler (must be after all routes, before error handler)
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404).json({ error: 'Route not found', requestId: req.requestId });
 });
 
 // Global Error handling middleware (Must be last before server start)
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'Something went wrong!',
-    message: err.message
-  });
+  const requestId = req.requestId || 'unknown';
+  console.error(JSON.stringify({
+    level: 'error',
+    requestId,
+    message: err.message,
+    stack: err.stack,
+  }));
+  const payload = { error: 'Something went wrong!', requestId };
+  if (process.env.NODE_ENV !== 'production') payload.message = err.message;
+  res.status(500).json(payload);
 });
 
 async function startServer() {
