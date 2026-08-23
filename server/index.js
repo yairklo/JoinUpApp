@@ -37,9 +37,13 @@ const { processReviewQueue } = require('./workers/reviewWorker');
 const { startCleanupWorker } = require('./workers/cleanupWorker');
 const gameScheduler = require('./services/gameScheduler');
 
-// Jest sets NODE_ENV=test / JEST_WORKER_ID — skip timers so --detectOpenHandles stays clean
+// Jest skips timers so --detectOpenHandles stays clean. A second Render API instance
+// should set RUN_BACKGROUND_JOBS=false; lottery/reminder claims stay idempotent either way.
 const enableBackgroundSchedulers =
-  process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID;
+  process.env.NODE_ENV !== 'test'
+  && !process.env.JEST_WORKER_ID
+  && process.env.RUN_BACKGROUND_JOBS !== 'false'
+  && process.env.RUN_BACKGROUND_JOBS !== '0';
 
 // Start Review Worker
 if (enableBackgroundSchedulers) {
@@ -1075,10 +1079,14 @@ async function startServer() {
       console.log(`🔌 Socket.IO ready on /api/socket (CORS allowlist: ${JSON.stringify(allowedOrigins)}, permissive: ${corsPermissive})`);
 
       // Workers stay tied to the real HTTP bootstrap, not test imports.
-      gameScheduler.init({ prisma, io, notificationService });
-      await gameScheduler.loadAll();
-      startCleanupWorker();
-      console.log('🔔 Notification workers started');
+      if (enableBackgroundSchedulers) {
+        gameScheduler.init({ prisma, io, notificationService });
+        await gameScheduler.loadAll();
+        startCleanupWorker();
+        console.log('🔔 Notification workers started');
+      } else {
+        console.log('⏸️  Background jobs disabled (RUN_BACKGROUND_JOBS=false)');
+      }
       resolve(server);
     });
   });

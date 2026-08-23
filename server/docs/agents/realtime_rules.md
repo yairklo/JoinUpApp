@@ -28,6 +28,7 @@ useEffect(() => {
   return () => unsub(); // Compulsory cleanup to prevent severe memory leaks
 }, [user?.id]);
 ```
+```
 - **Clerk Ref-Freezing Pattern**: To prevent infinite data-fetching and re-rendering loops caused by unstable function identities (such as Clerk's `getToken`), freeze the function reference inside a mutable `useRef` and rely on stable primitive states (`isLoaded`, `userId`) in effect dependency arrays:
 ```javascript
 const getTokenRef = useRef(getToken);
@@ -38,3 +39,6 @@ useEffect(() => {
   if (isLoaded && userId) fetchNotifications();
 }, [isLoaded, userId]);
 ```
+
+## 4. MULTI-INSTANCE BACKGROUND JOBS
+In-process `gameScheduler` timers and the weekly series interval only start when `RUN_BACKGROUND_JOBS` is not `false`/`0` (and not under Jest). Duplicate Render web instances should set `RUN_BACKGROUND_JOBS=false` on the extras; claim `updateMany` sentinels still make accidental double-fires a no-op, but skipped timers avoid duplicate reminder attempts and extra Neon wake-ups.

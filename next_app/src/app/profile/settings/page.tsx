@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUser, useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { usersApi, PrivacyLevel, PrivacySettings } from "@/services/api/users";
 
 import Container from "@mui/material/Container";
@@ -48,6 +49,7 @@ export default function PrivacySettingsPage() {
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isAdmin, setIsAdmin] = useState(false);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -55,8 +57,12 @@ export default function PrivacySettingsPage() {
         (async () => {
             try {
                 const token = await getToken();
-                const data = await usersApi.getProfile(user.id, token || undefined);
+                const [data, me] = await Promise.all([
+                    usersApi.getProfile(user.id, token || undefined),
+                    token ? usersApi.getMe(token).catch(() => null) : Promise.resolve(null),
+                ]);
                 if (!active) return;
+                if (me?.isAdmin) setIsAdmin(true);
                 const ps = data.privacySettings;
                 if (ps) {
                     setValues({
@@ -124,6 +130,16 @@ export default function PrivacySettingsPage() {
                         </Typography>
 
                         <Divider sx={{ mb: 3 }} />
+
+                        {isAdmin && (
+                            <Alert severity="info" sx={{ mb: 3 }} action={
+                                <Button color="inherit" size="small" component={Link} href="/admin/fields">
+                                    ניהול מגרשים
+                                </Button>
+                            }>
+                                יש לך הרשאת מפעיל.
+                            </Alert>
+                        )}
 
                         {loading ? (
                             <Box display="flex" justifyContent="center" py={4}>

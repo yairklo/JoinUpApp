@@ -59,3 +59,5 @@ Grant admin in **one** of these ways (do not add a parallel `User.isAdmin` colum
 2. Render env `ADMIN_USER_IDS` — comma-separated Clerk user ids (works even if the Clerk profile fetch fails).
 
 Field create/update/delete and other admin-gated routes stay 403 until one of those is set.
+
+`GET /api/users/me` returns `{ isAdmin }` for the signed-in viewer (never expose this flag on `GET /api/users/:id`). The web admin surface is `/admin/fields`, linked from privacy settings when `isAdmin` is true.

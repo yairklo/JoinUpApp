@@ -17,8 +17,16 @@ function resolveIsAdmin(userId, clerkUser) {
   return metadataIsAdmin(clerkUser?.publicMetadata) || metadataIsAdmin(clerkUser?.privateMetadata);
 }
 
+function requireAdmin(req, res, next) {
+  if (!req.user?.isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
 module.exports = {
   parseAdminAllowlist,
   metadataIsAdmin,
   resolveIsAdmin,
+  requireAdmin,
 };
