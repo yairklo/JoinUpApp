@@ -2,19 +2,9 @@ const express = require('express');
 const { prisma } = require('../lib/prisma');
 const { authenticateToken } = require('../utils/auth');
 const { getActiveGameStartCutoff } = require('../utils/timezone');
+const { resolveSportFilters } = require('../utils/sports');
 
 const router = express.Router();
-
-// Maps common Hebrew (and shorthand) sport terms to the Prisma SportType enum.
-// Lets Hebrew users typing "כדורגל"/"טניס" match games by sport, since the
-// enum is stored in English. Partial terms ("רגל"/"סל") are supported too.
-const hebrewSportMap = {
-  'כדורגל': 'SOCCER', 'רגל': 'SOCCER',
-  'כדורסל': 'BASKETBALL', 'סל': 'BASKETBALL',
-  'טניס': 'TENNIS'
-};
-
-const SPORT_ENUMS = ['SOCCER', 'BASKETBALL', 'TENNIS'];
 
 /**
  * GET /api/search/global?q=...
@@ -33,19 +23,8 @@ router.get('/global', authenticateToken, async (req, res) => {
     }
 
     const loggedInUserId = req.user.id;
-    const lowerQ = q.toLowerCase();
 
-    // Resolve which sport enums the query matches, via English name substring
-    // AND the explicit Hebrew mapping.
-    const sportMatches = new Set(
-      SPORT_ENUMS.filter((s) => s.toLowerCase().includes(lowerQ))
-    );
-    for (const [hebrew, enumValue] of Object.entries(hebrewSportMap)) {
-      if (hebrew.includes(q) || q.includes(hebrew)) {
-        sportMatches.add(enumValue);
-      }
-    }
-    const sportFilter = [...sportMatches];
+    const sportFilter = resolveSportFilters(q);
 
     const gameOr = [
       { title: { contains: q, mode: 'insensitive' } },

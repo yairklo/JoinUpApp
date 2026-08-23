@@ -356,6 +356,28 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
   }
 });
 
+// Authenticated viewer — includes isAdmin. Must be registered before /:id
+// so "me" is never treated as a Clerk user id (which would upsert a stub User).
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, name: true, imageUrl: true, email: true, city: true },
+    });
+    res.json({
+      id: req.user.id,
+      name: user?.name || req.user.name || null,
+      imageUrl: user?.imageUrl || req.user.avatar || null,
+      email: user?.email || null,
+      city: user?.city || null,
+      isAdmin: !!req.user.isAdmin,
+    });
+  } catch (error) {
+    console.error('Get me error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
 // Public user profile (safe fields) with privacy-aware Friends / Match History sections.
 router.get('/:id', attachOptionalUser, async (req, res) => {
   try {
