@@ -24,6 +24,7 @@ const seriesRoutes = require('./routes/series');
 const messagesRoutes = require('./routes/messages');
 const notificationsRoutes = require('./routes/notifications');
 const searchRoutes = require('./routes/search');
+const adminRoutes = require('./routes/admin');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission } = require('./utils/chatAuth');
 const { NotificationService } = require('./services/notificationService');
@@ -44,6 +45,16 @@ const enableBackgroundSchedulers =
   && !process.env.JEST_WORKER_ID
   && process.env.RUN_BACKGROUND_JOBS !== 'false'
   && process.env.RUN_BACKGROUND_JOBS !== '0';
+
+const enableHttpServer =
+  !process.env.JEST_WORKER_ID
+  && process.env.RUN_HTTP_SERVER !== 'false'
+  && process.env.RUN_HTTP_SERVER !== '0';
+
+const enableRedis =
+  !!process.env.REDIS_URL
+  && !process.env.JEST_WORKER_ID
+  && process.env.NODE_ENV !== 'test';
 
 // Start Review Worker
 if (enableBackgroundSchedulers) {
@@ -193,12 +204,36 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/search', searchRoutes);
 console.log('✅ [ROUTES] Notification routes mounted at /api/notifications');
 app.use('/api/chats', require('./routes/chats'));
+app.use('/api/admin', adminRoutes);
 
 // Health check
+let redisReady = false;
+let redisPub = null;
 app.get('/api/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'OK', db: 'up', message: 'Football Fields API is running', requestId: req.requestId });
+    let redis = 'off';
+    if (process.env.REDIS_URL && enableRedis) {
+      try {
+        if (redisPub) {
+          await redisPub.ping();
+          redis = 'up';
+        } else {
+          redis = redisReady ? 'up' : 'down';
+        }
+      } catch {
+        redis = 'down';
+      }
+    }
+    res.json({
+      status: 'OK',
+      db: 'up',
+      redis,
+      jobs: enableBackgroundSchedulers ? 'on' : 'off',
+      http: enableHttpServer ? 'on' : 'off',
+      message: 'Football Fields API is running',
+      requestId: req.requestId,
+    });
   } catch (err) {
     console.error('[HEALTH] database check failed:', err.message);
     res.status(503).json({ status: 'DOWN', db: 'down', message: 'Database unreachable', requestId: req.requestId });
@@ -236,35 +271,52 @@ function isUserOnline(userId) {
   return !!(room && room.size > 0);
 }
 
-// Fix 4: Redis Subscriber for Worker Events
-if (process.env.REDIS_URL) {
+// Redis: moderation fan-out + optional worker→API socket bridge
+const { SOCKET_CHANNEL, createPublisherIo, applySocketEvent } = require('./utils/socketBridge');
+if (enableRedis) {
   const Redis = require("ioredis");
   const { Logger } = require('./utils/logger');
-  
+
   const redisSub = new Redis(process.env.REDIS_URL, {
     retryStrategy: (times) => {
-      if (times > 3) return null; // Stop retrying after 3 times
+      if (times > 3) return null;
       return Math.min(times * 500, 2000);
     }
-  }); 
+  });
+  redisPub = new Redis(process.env.REDIS_URL, {
+    retryStrategy: (times) => {
+      if (times > 3) return null;
+      return Math.min(times * 500, 2000);
+    }
+  });
 
   redisSub.on('error', (err) => {
     Logger.warn("REDIS SUB", `Connection error: ${err.message}`);
   });
+  redisSub.on('ready', () => { redisReady = true; });
+  redisPub.on('ready', () => { redisReady = true; });
 
-  redisSub.subscribe('moderation_events', (err, count) => {
+  const channels = ['moderation_events'];
+  if (enableHttpServer) channels.push(SOCKET_CHANNEL);
+  redisSub.subscribe(...channels, (err, count) => {
     if (err) Logger.error("REDIS SUB", "Failed to subscribe:", err);
-    else Logger.info("REDIS SUB", `Subscribed to moderation_events. Count: ${count}`);
+    else Logger.info("REDIS SUB", `Subscribed. Count: ${count}`);
   });
 
   redisSub.on('message', (channel, message) => {
+    if (channel === SOCKET_CHANNEL) {
+      try {
+        applySocketEvent(io, JSON.parse(message));
+      } catch (e) {
+        Logger.error("REDIS SUB", "Error parsing socket bridge message:", e);
+      }
+      return;
+    }
     if (channel === 'moderation_events') {
       try {
         const event = JSON.parse(message);
         if (event.type === 'delete') {
           Logger.info('MODERATION', `Retroactive delete command received for msg: ${event.messageId}`);
-
-          // Broadcast deletion to the room (or globally if no roomId)
           const target = event.roomId ? io.to(String(event.roomId)) : io;
           target.emit('messageDeleted', { id: event.messageId });
         }
@@ -1068,25 +1120,39 @@ app.use((err, req, res, next) => {
   res.status(500).json(payload);
 });
 
+async function startJobs(jobIo) {
+  if (!enableBackgroundSchedulers) {
+    console.log('⏸️  Background jobs disabled (RUN_BACKGROUND_JOBS=false)');
+    return;
+  }
+  gameScheduler.init({ prisma, io: jobIo, notificationService });
+  await gameScheduler.loadAll();
+  startCleanupWorker();
+  console.log('🔔 Notification workers started');
+}
+
 async function startServer() {
   await initializeDataFiles();
 
+  if (!enableHttpServer) {
+    const jobIo = createPublisherIo((msg) => {
+      if (!redisPub) {
+        console.warn('[WORKER] REDIS_URL is not set — live socket events will not reach the API');
+        return;
+      }
+      return redisPub.publish(SOCKET_CHANNEL, JSON.stringify(msg));
+    });
+    await startJobs(jobIo);
+    console.log('[WORKER] background jobs running (HTTP bind skipped)');
+    return null;
+  }
+
   return new Promise((resolve) => {
-    // Start server (HTTP + Socket.IO) — bind 0.0.0.0 for Render's proxy
     server.listen(PORT, '0.0.0.0', async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
       console.log(`🔌 Socket.IO ready on /api/socket (CORS allowlist: ${JSON.stringify(allowedOrigins)}, permissive: ${corsPermissive})`);
-
-      // Workers stay tied to the real HTTP bootstrap, not test imports.
-      if (enableBackgroundSchedulers) {
-        gameScheduler.init({ prisma, io, notificationService });
-        await gameScheduler.loadAll();
-        startCleanupWorker();
-        console.log('🔔 Notification workers started');
-      } else {
-        console.log('⏸️  Background jobs disabled (RUN_BACKGROUND_JOBS=false)');
-      }
+      await startJobs(io);
       resolve(server);
     });
   });

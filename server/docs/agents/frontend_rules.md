@@ -23,17 +23,17 @@ Governs `/next_app` (Next.js 15 App Router, React 19, TypeScript). This is a Pro
 There is **no React Query, SWR, or Axios**. The stack is intentionally simple and split by ownership:
 
 1. **Server Components fetch directly** — e.g. `next_app/src/app/games/[id]/page.tsx` calls `fetch(...)` with `cache: "no-store"` server-side and passes the result down as `initialGame` props. This is the *only* place raw HTTP is used for the first paint; it guarantees the SSR HTML always reflects live DB state.
-2. **Client-side calls go through `apiClient<T>()`** in `next_app/src/services/api/client.ts`, wrapped per-domain in `next_app/src/services/api/{games,users,chats,series,fields,notifications,ratings,search}.ts`. Every response is piped through `mapGameTimezones()`, which walks the JSON tree and backfills `date`/`time` string fields from any `start` ISO timestamp it finds — **do not hand-roll a second date formatter**; call the shared `formatJerusalemDate`/`formatJerusalemTime` from `next_app/src/utils/timezone.ts` if you need a one-off.
+2. **Client-side calls go through `apiClient<T>()`** in `next_app/src/services/api/client.ts`, wrapped per-domain in `next_app/src/services/api/{games,users,chats,series,fields,notifications,ratings,search}.ts`. Join/leave/waitlist-confirm go through `gamesApi` — do not add new raw `fetch` in those buttons. Every response is piped through `mapGameTimezones()`, which walks the JSON tree and backfills `date`/`time` string fields from any `start` ISO timestamp it finds — **do not hand-roll a second date formatter**; call `formatJerusalemDate`/`formatJerusalemTime` from `@joinup/shared/timezone` (re-exported by `next_app/src/utils/timezone.ts`).
 3. **Live state is Context, not a cache library**:
    - `SocketContext` (`next_app/src/context/SocketContext.tsx`) — single global Socket.IO connection, gated on `useAuth()` being loaded + signed in.
-   - `GameUpdateContext` (`next_app/src/context/GameUpdateContext.tsx`) — an in-memory pub/sub bus (`Set` of callbacks) fed by `game:created`/`game:deleted`/`series:created`/`series:deleted` socket events. Components subscribe via `useGameUpdateListener`/`useGameCreatedListener`/`useGameDeletedListener`, never `socket.on(...)` directly for these events.
+   - `GameUpdateContext` (`next_app/src/context/GameUpdateContext.tsx`) — an in-memory pub/sub bus (`Set` of callbacks) fed by `game:created`/`game:updated`/`game:deleted`/`series:created`/`series:deleted` socket events. Components subscribe via `useGameUpdateListener`/`useGameCreatedListener`/`useGameUpdatedListener`/`useGameDeletedListener`, never `socket.on(...)` directly for these events.
    - `ChatContext` — chat list + a `messagesCache` keyed by room id, shared across `Chat.tsx` and `FloatingChatWindow.tsx` so opening the same room twice doesn't refetch.
    - `NotificationCountersContext` — navbar badge counts.
 
 ### 1.3 The Join/Leave State-Update Contract (read before touching any game mutation)
 Every mutating game action (join, leave, approve, reject, waitlist-confirm) follows the **same two-channel merge pattern**, seen end-to-end in `GameLiveSection.tsx` + `JoinGameButton.tsx`:
 
-1. The component calls its own `fetch(...)` directly (not through a shared "join" hook) and awaits the **full updated game object** in the response body.
+1. The component calls `gamesApi.join` / `leave` / `confirmWaitlist` (or the matching domain helper) and awaits the **full updated game object** in the response body.
 2. On success it calls a callback prop (`onJoined`, `onLeft`, `onDecision`, `onRequestSent`) that always merges via spread, never a raw replace:
    ```typescript
    const mergeAndSet = (updated?: any) => {

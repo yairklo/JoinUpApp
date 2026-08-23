@@ -1,0 +1,100 @@
+const TZ = 'Asia/Jerusalem';
+
+function parseJerusalemTimeToUTC(dateStr, timeStr) {
+  const utcDate = new Date(`${dateStr}T${timeStr}:00Z`);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(utcDate);
+  const partVal = (type) => parts.find((p) => p.type === type).value;
+  const formattedJerusalem = new Date(
+    `${partVal('year')}-${partVal('month')}-${partVal('day')}T${partVal('hour')}:${partVal('minute')}:${partVal('second')}Z`
+  );
+  const offsetMs = formattedJerusalem.getTime() - utcDate.getTime();
+  return new Date(utcDate.getTime() - offsetMs);
+}
+
+function getJerusalemDayHour(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ,
+    weekday: 'short',
+    hour: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const partVal = (type) => parts.find((p) => p.type === type)?.value;
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayOfWeek = dayNames.indexOf(partVal('weekday'));
+  const hour = parseInt(partVal('hour'), 10) % 24;
+  return { dayOfWeek, hour };
+}
+
+const ACTIVE_GAME_GRACE_MS = 30 * 60 * 1000;
+
+function getActiveGameStartCutoff() {
+  return new Date(Date.now() - ACTIVE_GAME_GRACE_MS);
+}
+
+function buildActiveGameStartFilter(dateInput) {
+  const cutoff = getActiveGameStartCutoff();
+  if (!dateInput) return { gte: cutoff };
+  const d = new Date(String(dateInput));
+  const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+  const isToday = startOfDay.getTime() === todayStart.getTime();
+  return {
+    gte: isToday ? cutoff : startOfDay,
+    lte: endOfDay,
+  };
+}
+
+function formatJerusalemDate(dateInput = new Date()) {
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return '';
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((p) => p.type === 'year')?.value || '';
+  const month = parts.find((p) => p.type === 'month')?.value || '';
+  const day = parts.find((p) => p.type === 'day')?.value || '';
+  return `${year}-${month}-${day}`;
+}
+
+function formatJerusalemTime(dateInput) {
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return '';
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const hour = parts.find((p) => p.type === 'hour')?.value || '';
+  const minute = parts.find((p) => p.type === 'minute')?.value || '';
+  return `${hour}:${minute}`;
+}
+
+module.exports = {
+  parseJerusalemTimeToUTC,
+  formatJerusalemDate,
+  formatJerusalemTime,
+  getJerusalemDayHour,
+  getActiveGameStartCutoff,
+  buildActiveGameStartFilter,
+  ACTIVE_GAME_GRACE_MS,
+};

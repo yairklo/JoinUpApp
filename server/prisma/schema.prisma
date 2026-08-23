@@ -124,6 +124,7 @@ model Game {
   registrationOpensAt  DateTime?
   title                String?
   teamSize             Int?
+  /// Display-only ILS amount. Collected at the field or by the organizer — joinUp does not process payments.
   price                Int?
   status               GameStatus        @default(OPEN)
   reminderSent         Boolean           @default(false)
@@ -367,6 +368,7 @@ model GameSeries {
   fieldId                   String?
   fieldName                 String
   fieldLocation             String
+  /// Display-only ILS amount for generated games. Not billed in-app.
   price                     Int                 @default(0)
   maxPlayers                Int
   /// 0-6 (Sunday=0 per JS Date.getDay()) - only for WEEKLY

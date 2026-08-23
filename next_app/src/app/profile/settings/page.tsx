@@ -132,11 +132,18 @@ export default function PrivacySettingsPage() {
                         <Divider sx={{ mb: 3 }} />
 
                         {isAdmin && (
-                            <Alert severity="info" sx={{ mb: 3 }} action={
-                                <Button color="inherit" size="small" component={Link} href="/admin/fields">
-                                    ניהול מגרשים
-                                </Button>
-                            }>
+                            <Alert severity="info" sx={{ mb: 3 }}
+                                action={
+                                    <Stack direction="row" spacing={1}>
+                                        <Button color="inherit" size="small" component={Link} href="/admin/fields">
+                                            מגרשים
+                                        </Button>
+                                        <Button color="inherit" size="small" component={Link} href="/admin/moderation">
+                                            מודרציה
+                                        </Button>
+                                    </Stack>
+                                }
+                            >
                                 יש לך הרשאת מפעיל.
                             </Alert>
                         )}

@@ -95,4 +95,16 @@ describe('Current user + admin field writes', () => {
     expect(res.body.type).toEqual('open');
     if (res.body.id) createdIds.push(res.body.id);
   });
+
+  test('GET /api/admin/flagged-messages is admin-only', async () => {
+    const denied = await request(app)
+      .get('/api/admin/flagged-messages')
+      .set('Authorization', 'Bearer mock_token_organizer');
+    expect(denied.statusCode).toEqual(403);
+    const ok = await request(app)
+      .get('/api/admin/flagged-messages')
+      .set('Authorization', 'Bearer mock_admin');
+    expect(ok.statusCode).toEqual(200);
+    expect(Array.isArray(ok.body)).toEqual(true);
+  });
 });

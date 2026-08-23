@@ -1,0 +1,25 @@
+{
+  "name": "@joinup/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./timezone": {
+      "types": "./timezone.d.ts",
+      "default": "./timezone.js"
+    },
+    "./sports": {
+      "types": "./sports.d.ts",
+      "default": "./sports.js"
+    },
+    "./types/game": {
+      "types": "./types/game.ts",
+      "default": "./types/game.ts"
+    }
+  }
+}
