@@ -23,7 +23,11 @@ async function checkChatPermission(userId, chatId) {
     try {
         // Self-Healing: Check if this is a game chat, and if the user is in the game's Participation
         const gameParticipation = await prisma.participation.findFirst({
-            where: { gameId: String(chatId), userId: String(userId) }
+            where: {
+                gameId: String(chatId),
+                userId: String(userId),
+                status: { in: ['CONFIRMED', 'WAITLISTED'] },
+            }
         });
 
         if (gameParticipation) {

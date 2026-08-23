@@ -84,8 +84,20 @@ function buildActiveGameStartFilter(dateInput) {
   };
 }
 
+/** YYYY-MM-DD for an instant, expressed in Asia/Jerusalem. */
+function formatJerusalemDate(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+}
+
 module.exports = {
   parseJerusalemTimeToUTC,
+  formatJerusalemDate,
   getJerusalemDayHour,
   getActiveGameStartCutoff,
   buildActiveGameStartFilter,

@@ -134,6 +134,10 @@ describe('Game Roster & Waitlist Integration Tests', () => {
     expect(res.body).toHaveProperty('id');
     expect(res.body.maxPlayers).toEqual(2);
     expect(res.body.confirmedCount).toEqual(1);
+
+    const chatRoom = await prisma.chatRoom.findUnique({ where: { id: res.body.id } });
+    expect(chatRoom).toBeTruthy();
+    expect(chatRoom.type).toEqual('GROUP');
     
     testGame = res.body;
   });

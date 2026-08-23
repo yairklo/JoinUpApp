@@ -17,7 +17,6 @@ const { Server } = require('socket.io');
 const { PrismaClient } = require('@prisma/client');
 
 // Import routes
-const authRoutes = require('./routes/auth');
 const fieldsRoutes = require('./routes/fields');
 const gamesRoutes = require('./routes/games');
 const usersRoutes = require('./routes/users');
@@ -172,8 +171,7 @@ app.use((req, res, next) => {
 // Store io in app for access in routes
 app.set('io', io);
 
-// Routes
-app.use('/api/auth', authRoutes);
+// Routes — legacy JSON /api/auth is intentionally unmounted (Clerk is the only IdP)
 app.use('/api/fields', fieldsRoutes);
 app.use('/api/games', gamesRoutes);
 app.use('/api/series', seriesRoutes);
@@ -189,53 +187,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Football Fields API is running' });
 });
 
-// Error handling middleware moved to end of file
-
-// Debug route
-app.get('/api/debug/chatAuth/:chatId', async (req, res) => {
-    const { chatId } = req.params;
-    const authHeader = req.headers.authorization;
-    let userId = 'unknown';
-    
-    // Quick token decode just for debugging
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        try {
-            const jwt = require('jsonwebtoken');
-            const decoded = jwt.decode(token); // Clerk tokens can be decoded without secret to read payload
-            userId = decoded?.sub || decoded?.userId || 'decoded_but_no_id';
-        } catch (e) {
-            userId = 'invalid_token';
-        }
-    }
-    
-    try {
-        const { PrismaClient } = require('@prisma/client');
-        const p = new PrismaClient();
-        
-        const chatRoom = await p.chatRoom.findUnique({ where: { id: chatId } });
-        const participant = await p.chatParticipant.findFirst({ where: { userId, chatId } });
-        const participation = await p.participation.findFirst({ where: { gameId: chatId, userId } });
-        
-        const { checkChatPermission } = require('./utils/chatAuth');
-        const isAllowed = await checkChatPermission(userId, chatId);
-        
-        res.json({
-            userId,
-            chatId,
-            chatRoomExists: !!chatRoom,
-            participantExists: !!participant,
-            participationExists: !!participation,
-            checkChatPermissionResult: isAllowed,
-            participationStatus: participation?.status || null
-        });
-    } catch (e) {
-        res.json({ error: e.message, stack: e.stack });
-    }
-});
-
-// 404 handler moved below Socket.IO handlers — registered just before global error handler
-
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth?.token ||
@@ -243,20 +194,21 @@ io.use(async (socket, next) => {
         ? socket.handshake.headers.authorization.split(' ')[1]
         : null);
 
-    if (token) {
-      try {
-        const claims = await verifyToken(token, {
-          secretKey: process.env.CLERK_SECRET_KEY
-        });
-        socket.userId = claims.sub;
-      } catch (e) {
-        console.error("Socket token verification failed:", e.message);
-      }
+    if (!token) {
+      return next(new Error('Unauthorized'));
+    }
+
+    const claims = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY
+    });
+    socket.userId = claims.sub;
+    if (!socket.userId) {
+      return next(new Error('Unauthorized'));
     }
     next();
   } catch (err) {
-    console.error("Auth Middleware Error:", err);
-    next();
+    console.error("Socket token verification failed:", err.message);
+    next(new Error('Unauthorized'));
   }
 });
 
@@ -382,9 +334,9 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Client-initiated room join (web/mobile call this after connect as a safety net)
+  // Client-initiated room join — only the caller's own notification room
   socket.on('join', (room) => {
-    if (typeof room === 'string' && room.startsWith('user_')) {
+    if (typeof room === 'string' && socket.userId && room === `user_${socket.userId}`) {
       socket.join(room);
       console.log(`Socket ${socket.id} joined room: ${room}`);
     }
@@ -427,20 +379,29 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Legacy setup event — normalize to user_${id} so it matches notification emit targets
-  socket.on('setup', (userData) => {
-    const uid = userData?.id || socket.userId;
-    if (uid) {
-      socket.join(`user_${uid}`);
-      console.log(`User ${uid} joined their notification room via setup`);
+  // Legacy setup event — always bind to the verified Clerk id, never a client-supplied id
+  socket.on('setup', () => {
+    if (socket.userId) {
+      socket.join(`user_${socket.userId}`);
+      console.log(`User ${socket.userId} joined their notification room via setup`);
     }
   });
 
-  socket.on('message', async ({ text, roomId, userId, senderName, replyTo, tempId }) => {
-    if (!text) return;
+  socket.on('message', async ({ text, roomId, senderName, replyTo, tempId }) => {
+    if (!text || !roomId) return;
 
-    // FIX: Define missing variables immediately
-    const finalUserId = userId ? String(userId) : (socket.userId ? String(socket.userId) : null);
+    if (!socket.userId) {
+      socket.emit('error', 'Unauthorized: Please login');
+      return;
+    }
+
+    const allowed = await checkChatPermission(socket.userId, String(roomId));
+    if (!allowed) {
+      socket.emit('error', 'Unauthorized access to room');
+      return;
+    }
+
+    const finalUserId = String(socket.userId);
 
     console.log(`[DEBUG] Incoming Message - Room: "${roomId}", User: ${finalUserId}`); // <--- TOP LEVEL DEBUG LOG
 
@@ -571,7 +532,7 @@ io.on('connection', async (socket) => {
           data: {
             text: String(text),
             chatRoomId: String(roomId),
-            userId: userId ? String(userId) : null,
+            userId: finalUserId,
             replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
             status: initialStatus
           },
@@ -635,19 +596,11 @@ io.on('connection', async (socket) => {
 
     if (msg.roomId) {
       if (initialStatus === 'blocked') {
-        if (finalUserId) {
-          io.to(`user_${finalUserId}`).emit('message', msg);
-          io.to(`user_${finalUserId}`).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
-        }
+        io.to(`user_${finalUserId}`).emit('message', msg);
+        io.to(`user_${finalUserId}`).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
       } else {
         io.to(msg.roomId).emit('message', msg);
         io.to(msg.roomId).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
-      }
-    } else {
-      if (initialStatus === 'blocked') {
-        if (finalUserId) io.to(`user_${finalUserId}`).emit('message', msg);
-      } else {
-        io.emit('message', msg);
       }
     }
 
@@ -726,9 +679,22 @@ io.on('connection', async (socket) => {
     // --- Legacy moderation code removed - now handled earlier in flow (lines 320-375) ---
   });
 
-  socket.on('addReaction', async ({ messageId, emoji, userId, roomId }) => {
-    if (!messageId || !emoji || !userId) return;
+  socket.on('addReaction', async ({ messageId, emoji, roomId }) => {
+    if (!messageId || !emoji || !socket.userId) return;
+    const userId = String(socket.userId);
     try {
+      let chatId = roomId ? String(roomId) : null;
+      if (!chatId) {
+        const existingMsg = await prisma.message.findUnique({
+          where: { id: String(messageId) },
+          select: { chatRoomId: true },
+        });
+        chatId = existingMsg?.chatRoomId || null;
+      }
+      if (!chatId || !(await checkChatPermission(userId, chatId))) {
+        socket.emit('error', 'Unauthorized access to room');
+        return;
+      }
       // Toggle reaction
       // Check for ANY existing reaction by this user on this message
       const existing = await prisma.reaction.findFirst({
@@ -774,39 +740,29 @@ io.on('connection', async (socket) => {
         reactions[r.emoji].userIds.push(r.userId);
       }
 
-      const payload = { messageId, reactions, roomId: roomId ? String(roomId) : undefined };
-      if (roomId) {
-        io.to(String(roomId)).emit('messageReaction', payload);
-      } else {
-        io.emit('messageReaction', payload);
-      }
+      const payload = { messageId, reactions, roomId: chatId };
+      io.to(chatId).emit('messageReaction', payload);
     } catch (e) {
       console.error('addReaction error:', e);
     }
   });
 
   socket.on('joinChats', async (chatIds) => {
-    if (!Array.isArray(chatIds)) return;
-    if (!socket.userId) return; // Auth required
-
-    // Optimization: Validate user is in these chats in DB? 
-    // For now, iterate checkPermission or trust if we assumed logic. 
-    // To be safe and fast, we might skip check per chat if we fetched them for the user.
-    // BUT verifying is better. 
-    // Let's implement basic loop or Assume 'users/:id/chats' already returned valid chats.
-    // Since this is socket, we should be careful. 
-    // However, existing 'joinRoom' does check.
-    // Let's allow joining if the room ID format matches or if permissions are lenient for "listening".
-    // Actually, let's just loop join.
+    if (!Array.isArray(chatIds) || !socket.userId) return;
     for (const rid of chatIds) {
-      if (rid) socket.join(String(rid));
+      if (!rid) continue;
+      const allowed = await checkChatPermission(socket.userId, String(rid));
+      if (allowed) socket.join(String(rid));
     }
   });
 
-  socket.on('typing', (data) => {
+  socket.on('typing', async (data) => {
+    if (!socket.userId) return;
     const isTyping = typeof data === 'object' ? !!data.isTyping : !!data;
     const rid = typeof data === 'object' ? data.roomId : undefined;
-    const name = typeof data === 'object' ? data.userName : undefined; // Get userName
+    const name = typeof data === 'object' ? data.userName : undefined;
+    if (!rid) return;
+    if (!(await checkChatPermission(socket.userId, String(rid)))) return;
     const event = {
       senderId: socket.userId ? String(socket.userId) : String(socket.id),
       userName: name,
@@ -821,14 +777,13 @@ io.on('connection', async (socket) => {
     if (rid) {
       socket.to(String(rid)).emit('typing', event);
       socket.to(String(rid)).emit(explicitEvent, payload);
-    } else {
-      socket.broadcast.emit('typing', event);
-      socket.broadcast.emit(explicitEvent, payload);
     }
   });
 
-  socket.on('markAsRead', async ({ roomId, userId }) => {
-    if (!roomId || !userId) return;
+  socket.on('markAsRead', async ({ roomId }) => {
+    if (!roomId || !socket.userId) return;
+    const userId = String(socket.userId);
+    if (!(await checkChatPermission(userId, String(roomId)))) return;
 
     try {
       // 1. Update in DB: Mark all messages in this room NOT sent by me as 'read'
@@ -860,14 +815,18 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('editMessage', async ({ messageId, text, roomId }) => {
-    if (!messageId || !text) return;
+    if (!messageId || !text || !socket.userId) return;
     try {
-      // Check if message exists before updating to avoid P2025
       const exists = await prisma.message.findUnique({ where: { id: String(messageId) } });
       if (!exists) {
         console.warn(`editMessage: Message ${messageId} not found.`);
         return;
       }
+      if (exists.userId !== String(socket.userId)) {
+        socket.emit('error', 'Unauthorized');
+        return;
+      }
+      if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
       await prisma.message.update({
         where: { id: String(messageId) },
@@ -889,14 +848,18 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('deleteMessage', async ({ messageId, roomId }) => {
-    if (!messageId) return;
+    if (!messageId || !socket.userId) return;
     try {
-      // Check if message exists before updating to avoid P2025
       const exists = await prisma.message.findUnique({ where: { id: String(messageId) } });
       if (!exists) {
         console.warn(`deleteMessage: Message ${messageId} not found.`);
         return;
       }
+      if (exists.userId !== String(socket.userId)) {
+        socket.emit('error', 'Unauthorized');
+        return;
+      }
+      if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
       await prisma.message.update({
         where: { id: String(messageId) },
@@ -988,8 +951,8 @@ async function runWeeklySeriesGeneration() {
         ? new Date(futureGames[futureGames.length - 1].start.getTime() + 7 * 24 * 60 * 60 * 1000)
         : nextWeeklyOccurrenceFrom(now, s.dayOfWeek, s.time);
 
-      const createOps = [];
-      while (futureGames.length + createOps.length < TARGET) {
+      const pendingCreates = [];
+      while (futureGames.length + pendingCreates.length < TARGET) {
         // Participants: organizer + subscribers within capacity
         const maxCap = Number(s.maxPlayers);
         const participantsCreate = [];
@@ -1013,36 +976,45 @@ async function runWeeklySeriesGeneration() {
           regOpen = new Date(nextStart.getTime() - s.autoOpenRegistrationHours * 3600000);
         }
 
-        createOps.push(
-          prisma.game.create({
-            data: {
-              fieldId: s.fieldId,
-              seriesId: s.id,
-              start: nextStart,
-              duration: Math.round(Number(s.duration) || 1),
-              maxPlayers: Number(s.maxPlayers),
-              price: s.price ?? 0,
-              isOpenToJoin: true,
-              isFriendsOnly: false,
-              lotteryEnabled: false,
-              organizerInLottery: false,
-              description: '',
-              organizerId: s.organizerId,
-              participants: { create: participantsCreate },
-              roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } },
-              sport: s.sport || 'SOCCER',
-              registrationOpensAt: regOpen
-            }
-          })
-        );
+        pendingCreates.push({
+          participantIds: participantsCreate.map((p) => p.userId),
+          start: nextStart,
+          data: {
+            fieldId: s.fieldId,
+            seriesId: s.id,
+            start: nextStart,
+            duration: Math.round(Number(s.duration) || 1),
+            maxPlayers: Number(s.maxPlayers),
+            price: s.price ?? 0,
+            isOpenToJoin: true,
+            isFriendsOnly: false,
+            lotteryEnabled: false,
+            organizerInLottery: false,
+            description: '',
+            organizerId: s.organizerId,
+            participants: { create: participantsCreate },
+            roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } },
+            sport: s.sport || 'SOCCER',
+            registrationOpensAt: regOpen
+          }
+        });
 
         nextStart = new Date(nextStart.getTime() + 7 * 24 * 60 * 60 * 1000);
       }
 
-      if (createOps.length) {
-        const created = await prisma.$transaction(createOps);
+      if (pendingCreates.length) {
+        const { createGroupChatForGame } = require('./services/gameService');
+        const created = await prisma.$transaction(async (tx) => {
+          const games = [];
+          for (const occ of pendingCreates) {
+            const game = await tx.game.create({ data: occ.data });
+            await createGroupChatForGame(tx, game.id, occ.participantIds);
+            games.push(game);
+          }
+          return games;
+        });
         for (const g of created) gameScheduler.resyncGame(g);
-        console.log(`🗓️  Generated ${createOps.length} weekly instances for series ${s.id}`);
+        console.log(`🗓️  Generated ${pendingCreates.length} weekly instances for series ${s.id}`);
       }
     }
   } catch (e) {

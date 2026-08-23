@@ -125,7 +125,6 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
 
             const created = await gamesApi.create(payload, token);
 
-            setSuccess("Game created successfully!");
             if (onCreated && created.fieldId) onCreated(created.fieldId);
             if (created.id) router.replace(`/game/${created.id}`);
 

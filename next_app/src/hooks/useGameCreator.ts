@@ -146,9 +146,8 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
 
             const created = await gamesApi.create(payload, token);
 
-            setSuccess("המשחק נוצר בהצלחה!");
             if (onCreated && created.fieldId) onCreated(created.fieldId);
-            if (created.id) router.push(`/games/${created.id}`);
+            if (created.id) router.replace(`/games/${created.id}`);
 
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "יצירת המשחק נכשלה");
