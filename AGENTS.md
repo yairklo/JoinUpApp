@@ -47,6 +47,10 @@ Persistent instructions for any Cursor Agent run against this repo (including he
    Cause: a global Express limiter counting `/api/health` (Render probes) or `/api/socket` (Engine.IO polling).  
    Fix: exempt those paths and disable the limiter under Jest so roster/messages tests never 429.
 
+9. **GitHub CI never ran server tests / used Node 18**  
+   Cause: `.github/workflows/ci.yml` only built Next on PRs to `main`, skipped `npm test` in `server`, and pinned Node 18. Agent merges go to `Dev`.  
+   Fix: run Next 15 build + Prisma migrate + Jest on PRs to `main`/`Dev` and pushes to `Dev`, on Node 20, with a disposable Postgres service.
+
 ## When you learn a new deploy bug
 Append a short bullet under **Known failure modes** in this file and/or add a rule under `.cursor/rules/`, then commit it with the fix so future terminal agents inherit the lesson.
 
@@ -66,3 +70,5 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Chat write paths must use `authenticateToken` / `socket.userId` + `checkChatPermission`. Never trust client-supplied `userId`, never fail-open socket JWT, never leave `POST /api/messages` public. Recurring series games must create `ChatRoom` (id === game.id) in the same transaction as the game.
 - Runtime code must import Prisma from `server/lib/prisma.js` (one client per process). Do not add `new PrismaClient()` in routes/services/workers. Scheduler handlers must claim work with `updateMany` on sentinel fields (`lotteryExecutedAt`, `reminderSent`, `pickingOpenedAt`, `status`) so a second Render instance is a no-op.
 - HTTP rate limiter (`server/middleware/rateLimit.js`) must skip Jest (`NODE_ENV=test` / `JEST_WORKER_ID`), `OPTIONS`, `/api/health`, and `/api/socket`. Do not count Engine.IO polling or health probes.
+- `req.user.isAdmin` comes from Clerk metadata (`isAdmin` / `role=admin`) or `ADMIN_USER_IDS`. Do not hardcode `false`.
+- GitHub CI (`.github/workflows/ci.yml`) must run `next_app` `npm run build` and `server` `npm test` on Node 20 against a workflow Postgres — not Next-only on PRs to `main`.

@@ -52,4 +52,10 @@ function orderPair(a, b) {
 ## 3. DEAD CODE WARNING
 `server/routes/auth.js` and `server/utils/dataManager.js` belong to a legacy, file-based JSON store. They are completely disconnected from Clerk and Prisma. NEVER extend or reference them.
 
-`req.user.isAdmin` is permanently hardcoded to false across the backend. All admin-gated features are stubs and unreachable in production.
+`req.user.isAdmin` is resolved in `server/utils/admin.js` — never hardcode it to false.
+
+Grant admin in **one** of these ways (do not add a parallel `User.isAdmin` column):
+1. Clerk `publicMetadata` / `privateMetadata`: `{ "isAdmin": true }` or `{ "role": "admin" }`.
+2. Render env `ADMIN_USER_IDS` — comma-separated Clerk user ids (works even if the Clerk profile fetch fails).
+
+Field create/update/delete and other admin-gated routes stay 403 until one of those is set.
