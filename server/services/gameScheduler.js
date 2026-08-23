@@ -138,11 +138,18 @@ class GameScheduler {
 
   async _runLottery(gameId) {
     const prisma = this.prisma;
+    const now = new Date();
+    const claimed = await prisma.game.updateMany({
+      where: { id: gameId, lotteryEnabled: true, lotteryExecutedAt: null },
+      data: { lotteryExecutedAt: now },
+    });
+    if (claimed.count === 0) return;
+
     const game = await prisma.game.findUnique({
       where: { id: gameId },
       include: { participants: true },
     });
-    if (!game || !game.lotteryEnabled || game.lotteryExecutedAt) return;
+    if (!game) return;
 
     const confirmed = game.participants.filter(p => p.status === 'CONFIRMED');
     const waitlisted = game.participants.filter(p => p.status === 'WAITLISTED');
@@ -172,9 +179,7 @@ class GameScheduler {
       }));
     }
 
-    const now = new Date();
-    updates.push(prisma.game.update({ where: { id: game.id }, data: { lotteryExecutedAt: now } }));
-    await prisma.$transaction(updates);
+    if (updates.length) await prisma.$transaction(updates);
     console.log(`🎲 [SCHEDULER] Lottery executed for game ${game.id} at ${now.toISOString()}`);
   }
 
@@ -201,13 +206,15 @@ class GameScheduler {
     const dur = typeof game.duration === 'number' ? game.duration : 1;
     const endTime = new Date(new Date(game.start).getTime() + dur * 3600000);
     if (endTime > new Date()) {
-      // Due time shifted since this timer was armed (e.g. start/duration edited in between) -
-      // rearm instead of silently doing nothing.
       this._arm(`completion:${game.id}`, endTime, () => this._checkCompletion(game.id));
       return;
     }
 
-    await prisma.game.update({ where: { id: game.id }, data: { status: 'COMPLETED' } });
+    const claimed = await prisma.game.updateMany({
+      where: { id: game.id, status: 'OPEN' },
+      data: { status: 'COMPLETED' },
+    });
+    if (claimed.count === 0) return;
     console.log(`🏁 [SCHEDULER] Auto-completed game ${game.id}.`);
   }
 
@@ -220,11 +227,15 @@ class GameScheduler {
         field: { select: { name: true, location: true } },
       },
     });
-    if (!game || game.reminderSent || game.status !== 'OPEN') return;
+    if (!game || game.status !== 'OPEN') return;
+
+    const claimed = await prisma.game.updateMany({
+      where: { id: game.id, reminderSent: false, status: 'OPEN' },
+      data: { reminderSent: true },
+    });
+    if (claimed.count === 0) return;
 
     if (new Date(game.start).getTime() <= Date.now()) {
-      // Game already started/passed before the reminder fired - nothing useful to send.
-      await prisma.game.update({ where: { id: game.id }, data: { reminderSent: true } });
       return;
     }
 
@@ -247,7 +258,6 @@ class GameScheduler {
       }
     }
 
-    await prisma.game.update({ where: { id: game.id }, data: { reminderSent: true } });
     console.log(`[SCHEDULER] Sent reminders for game ${game.id} to ${game.participants.length} participants`);
   }
 

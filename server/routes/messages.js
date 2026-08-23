@@ -1,9 +1,7 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../utils/auth');
 const { checkChatPermission } = require('../utils/chatAuth');
-
-const prisma = new PrismaClient();
+const { prisma } = require('../lib/prisma');
 const router = express.Router();
 
 // GET /api/messages?roomId=abc&limit=100

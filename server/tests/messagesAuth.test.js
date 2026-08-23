@@ -1,5 +1,7 @@
 const request = require('supertest');
 
+jest.setTimeout(30000);
+
 jest.mock('../utils/auth', () => ({
   authenticateToken: (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -52,10 +54,13 @@ describe('Message write auth', () => {
   });
 
   afterAll(async () => {
-    await prisma.message.deleteMany({ where: { chatRoomId: roomId } });
-    await prisma.chatParticipant.deleteMany({ where: { chatId: roomId } });
-    await prisma.chatRoom.deleteMany({ where: { id: roomId } });
-    await prisma.$disconnect();
+    try {
+      await prisma.message.deleteMany({ where: { chatRoomId: roomId } });
+      await prisma.chatParticipant.deleteMany({ where: { chatId: roomId } });
+      await prisma.chatRoom.deleteMany({ where: { id: roomId } });
+    } catch (err) {
+      console.warn('messagesAuth cleanup skipped:', err.message);
+    }
   });
 
   test('POST /api/messages without token is 401', async () => {

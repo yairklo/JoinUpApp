@@ -392,7 +392,13 @@ async function executePickDraw(gameId, io, { force = false } = {}) {
     include: { roles: true, teams: true },
   });
   if (!game) return null;
-  if (game.pickDrawExecutedAt && !force) return buildPickSessionState(gameId, game.organizerId);
+  if (!force) {
+    const claimed = await prisma.game.updateMany({
+      where: { id: gameId, pickDrawExecutedAt: null },
+      data: { pickDrawExecutedAt: new Date() },
+    });
+    if (claimed.count === 0) return buildPickSessionState(gameId, game.organizerId);
+  }
 
   const managerIds = await getManagerIdsForGame(gameId, game);
   if (managerIds.length === 0) {
@@ -436,7 +442,11 @@ async function openPicking(gameId, io) {
     include: { roles: true },
   });
   if (!game) return null;
-  if (game.pickingOpenedAt) return buildPickSessionState(gameId, game.organizerId);
+  const claimedOpen = await prisma.game.updateMany({
+    where: { id: gameId, pickingOpenedAt: null },
+    data: { pickingOpenedAt: new Date(), pickSessionStatus: 'PICKING' },
+  });
+  if (claimedOpen.count === 0) return buildPickSessionState(gameId, game.organizerId);
 
   if (!game.pickDrawExecutedAt) {
     await executePickDraw(gameId, io);

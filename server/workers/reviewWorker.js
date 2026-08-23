@@ -1,8 +1,6 @@
 const { moderator } = require('../moderationInstance');
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('../lib/prisma');
 const gameScheduler = require('../services/gameScheduler');
-
-const prisma = new PrismaClient();
 
 async function processReviewQueue() {
     console.log("[WORKER] Checking for pending reviews...");

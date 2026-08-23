@@ -1,7 +1,5 @@
 const { ContentModerator } = require('./services/moderationService.js');
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const { prisma } = require('./lib/prisma');
 
 const dbDelegate = {
     // Fetch score from DB

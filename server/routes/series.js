@@ -1,7 +1,6 @@
 const express = require('express');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../lib/prisma');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 const { parseJerusalemTimeToUTC, formatJerusalemDate } = require('../utils/timezone');
 
