@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 // MUI
+import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -52,15 +53,14 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
 
     return (
         <>
-            <Button
-                variant="outlined"
+            <IconButton
                 color="inherit"
-                startIcon={<SettingsIcon />}
                 onClick={actions.handleOpen}
                 size="small"
+                aria-label="הגדרות קבוצה"
             >
-                הגדרות קבוצה
-            </Button>
+                <SettingsIcon />
+            </IconButton>
 
             <Dialog open={state.open} onClose={actions.handleClose} maxWidth="sm" fullWidth>
                 <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, direction: "rtl" }}>

@@ -80,12 +80,24 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/messages  { roomId, text, userId? }
-router.post('/', async (req, res) => {
+// POST /api/messages  { roomId, text }
+router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { roomId, text, userId } = req.body || {};
+    const { roomId, text } = req.body || {};
     if (!roomId || !text) return res.status(400).json({ error: 'roomId and text are required' });
-    const saved = await prisma.message.create({ data: { chatRoomId: String(roomId), text: String(text), userId: userId ? String(userId) : null } });
+
+    const isAllowed = await checkChatPermission(req.user.id, String(roomId));
+    if (!isAllowed) {
+      return res.status(403).json({ error: 'Access denied: You are not a participant of this chat' });
+    }
+
+    const saved = await prisma.message.create({
+      data: {
+        chatRoomId: String(roomId),
+        text: String(text),
+        userId: req.user.id,
+      },
+    });
     res.status(201).json({ id: saved.id, roomId: saved.chatRoomId, text: saved.text, userId: saved.userId, ts: saved.createdAt });
   } catch (e) {
     console.error('Create message error:', e);

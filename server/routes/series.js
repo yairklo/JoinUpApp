@@ -3,6 +3,7 @@ const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
+const { parseJerusalemTimeToUTC, formatJerusalemDate } = require('../utils/timezone');
 
 const router = express.Router();
 const seriesImageUpload = createImageUpload('series');
@@ -240,6 +241,7 @@ router.get('/:seriesId', async (req, res) => {
       },
       subscribers: (subscribers || []).map(s => ({
         userId: s.userId,
+        role: s.role || 'MEMBER',
         user: {
           id: s.user?.id || s.userId,
           name: s.user?.name || '',
@@ -268,7 +270,7 @@ router.post('/:seriesId/subscribe', authenticateToken, async (req, res) => {
     await prisma.seriesParticipant.upsert({
       where: { seriesId_userId: { seriesId, userId } },
       update: {},
-      create: { seriesId, userId }
+      create: { seriesId, userId, role: 'MEMBER' }
     });
 
     // The user explicitly requested not to auto-register subscribers to upcoming games,
@@ -393,14 +395,9 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       if (typeof fieldLocation === 'string' || typeof fieldName === 'string') {
         gd.customLocation = fieldLocation || fieldName || null;
       }
-      // Time change for WEEKLY: update only the time portion (HH:MM)
+      // Time change for WEEKLY: keep the Jerusalem calendar date, replace HH:MM
       if (typeof time === 'string' && series.type === 'WEEKLY') {
-        const [hh, mm] = String(time).split(':').map(n => parseInt(n, 10));
-        if (Number.isInteger(hh) && Number.isInteger(mm)) {
-          const newStart = new Date(g.start);
-          newStart.setHours(hh, mm, 0, 0);
-          gd.start = newStart;
-        }
+        gd.start = parseJerusalemTimeToUTC(formatJerusalemDate(g.start), String(time));
       }
 
       if (typeof autoOpenRegistrationHours !== 'undefined') {
@@ -466,6 +463,74 @@ router.delete('/:seriesId/image', authenticateToken, async (req, res) => {
   } catch (e) {
     console.error('Series image remove error:', e);
     res.status(500).json({ error: 'Failed to remove series image' });
+  }
+});
+
+// Add existing users as series members (organizer / manager)
+router.post('/:seriesId/members', authenticateToken, async (req, res) => {
+  try {
+    const { seriesId } = req.params;
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+    if (!(await canManageSeries(series, req.user))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    const rawIds = Array.isArray(req.body?.userIds) ? req.body.userIds : [];
+    const userIds = [...new Set(rawIds.filter((id) => typeof id === 'string' && id && id !== series.organizerId))];
+    if (!userIds.length) return res.status(400).json({ error: 'userIds required' });
+
+    const existingUsers = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true },
+    });
+    const validIds = existingUsers.map((u) => u.id);
+
+    await prisma.$transaction(
+      validIds.map((userId) =>
+        prisma.seriesParticipant.upsert({
+          where: { seriesId_userId: { seriesId, userId } },
+          update: {},
+          create: { seriesId, userId, role: 'MEMBER' },
+        })
+      )
+    );
+
+    return res.json({ ok: true, added: validIds.length });
+  } catch (e) {
+    console.error('Series add members error:', e);
+    return res.status(500).json({ error: 'Failed to add members' });
+  }
+});
+
+// Set a member's series role (organizer only). role: MANAGER | MEMBER
+router.patch('/:seriesId/members/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { seriesId, userId } = req.params;
+    const role = String(req.body?.role || '').toUpperCase();
+    if (role !== 'MANAGER' && role !== 'MEMBER') {
+      return res.status(400).json({ error: 'role must be MANAGER or MEMBER' });
+    }
+
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+    if (series.organizerId !== req.user.id && !req.user?.isAdmin) {
+      return res.status(403).json({ error: 'Only the organizer can change manager roles' });
+    }
+    if (userId === series.organizerId) {
+      return res.status(400).json({ error: 'Cannot change the organizer role this way' });
+    }
+
+    await prisma.seriesParticipant.upsert({
+      where: { seriesId_userId: { seriesId, userId } },
+      update: { role },
+      create: { seriesId, userId, role },
+    });
+
+    return res.json({ ok: true, userId, role });
+  } catch (e) {
+    console.error('Series member role error:', e);
+    return res.status(500).json({ error: 'Failed to update member role' });
   }
 });
 

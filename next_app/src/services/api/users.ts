@@ -88,7 +88,10 @@ export const usersApi = {
     },
 
     search: (query: string, token: string) => {
-        return apiClient<any[]>(`/api/users/search?q=${encodeURIComponent(query)}`, { token });
+        return apiClient<{ id: string; name?: string | null; imageUrl?: string | null }[]>(
+            `/api/users/search?q=${encodeURIComponent(query)}`,
+            { token }
+        );
     },
 
     updatePrivacySettings: (

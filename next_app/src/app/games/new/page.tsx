@@ -309,7 +309,7 @@ function NewGamePageInner() {
       }
 
       const created = await res.json();
-      router.push(`/games/${created.id}`);
+      router.replace(`/games/${created.id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
