@@ -1135,40 +1135,46 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
       subscriberIds,
     });
 
-    createOps.push(
-      prisma.game.create({
-        data: {
-          title: existing.title,
-          fieldId: existing.fieldId,
-          seriesId: series.id,
-          start: occStart,
-          duration: existing.duration,
-          maxPlayers: existing.maxPlayers,
-          price: existing.price ?? existing.field?.price ?? 0,
-          teamSize: existing.teamSize,
-          customLat: existing.customLat,
-          customLng: existing.customLng,
-          customLocation: existing.customLocation,
-          isOpenToJoin: existing.isOpenToJoin,
-          isFriendsOnly: existing.isFriendsOnly,
-          lotteryEnabled: existing.lotteryEnabled,
-          ...(existing.lotteryEnabled && existing.lotteryAt ? { lotteryAt: new Date(existing.lotteryAt) } : {}),
-          organizerInLottery: existing.organizerInLottery,
-          description: existing.description || '',
-          organizerId: existing.organizerId,
-          participants: { create: participantsCreate },
-          roles: { create: { userId: existing.organizerId, role: 'ORGANIZER' } },
-          sport: existing.sport,
-          registrationOpensAt: (existing.registrationOpensAt)
-            ? new Date(occStart.getTime() - (start.getTime() - new Date(existing.registrationOpensAt).getTime()))
-            : null
-        },
-        include: GAME_FULL_INCLUDE,
-      })
-    );
+    createOps.push({
+      participantIds: participantsCreate.map((p) => p.userId),
+      data: {
+        title: existing.title,
+        fieldId: existing.fieldId,
+        seriesId: series.id,
+        start: occStart,
+        duration: existing.duration,
+        maxPlayers: existing.maxPlayers,
+        price: existing.price ?? existing.field?.price ?? 0,
+        teamSize: existing.teamSize,
+        customLat: existing.customLat,
+        customLng: existing.customLng,
+        customLocation: existing.customLocation,
+        isOpenToJoin: existing.isOpenToJoin,
+        isFriendsOnly: existing.isFriendsOnly,
+        lotteryEnabled: existing.lotteryEnabled,
+        ...(existing.lotteryEnabled && existing.lotteryAt ? { lotteryAt: new Date(existing.lotteryAt) } : {}),
+        organizerInLottery: existing.organizerInLottery,
+        description: existing.description || '',
+        organizerId: existing.organizerId,
+        participants: { create: participantsCreate },
+        roles: { create: { userId: existing.organizerId, role: 'ORGANIZER' } },
+        sport: existing.sport,
+        registrationOpensAt: (existing.registrationOpensAt)
+          ? new Date(occStart.getTime() - (start.getTime() - new Date(existing.registrationOpensAt).getTime()))
+          : null
+      },
+    });
   }
 
-  const createdGames = await prisma.$transaction(createOps);
+  const createdGames = await prisma.$transaction(async (tx) => {
+    const games = [];
+    for (const occ of createOps) {
+      const game = await tx.game.create({ data: occ.data, include: GAME_FULL_INCLUDE });
+      await createGroupChatForGame(tx, game.id, occ.participantIds);
+      games.push(game);
+    }
+    return games;
+  }, { timeout: 30000, maxWait: 10000 });
   for (const g of createdGames) gameScheduler.resyncGame(g);
 
   const seriesPayload = {

@@ -31,10 +31,14 @@ async function checkChatPermission(userId, chatId) {
 
         if (gameParticipation) {
             // User is in the game! Add them to the ChatRoom
-            await prisma.chatParticipant.create({
-                data: { userId: String(userId), chatId: String(chatId) }
-            });
-            console.log(`[Self-Healing] Created missing ChatParticipant for user ${userId} in chat ${chatId}`);
+            try {
+                await prisma.chatParticipant.create({
+                    data: { userId: String(userId), chatId: String(chatId) }
+                });
+                console.log(`[Self-Healing] Created missing ChatParticipant for user ${userId} in chat ${chatId}`);
+            } catch (e) {
+                if (e.code !== 'P2002') throw e;
+            }
             return true;
         }
 

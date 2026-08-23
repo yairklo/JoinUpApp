@@ -2,15 +2,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { MAX_IMAGE_FILE_SIZE: MAX_FILE_SIZE, MIME_EXTENSIONS } = require('../../shared/upload');
 
 const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const MIME_EXTENSIONS = {
-  'image/jpeg': '.jpg',
-  'image/png': '.png',
-  'image/webp': '.webp',
-  'image/gif': '.gif',
-};
 
 // Returns a multer instance that saves single-image uploads to server/uploads/<subfolder>
 // with a random filename (never trusts the client-supplied original filename).

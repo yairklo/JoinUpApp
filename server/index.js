@@ -272,7 +272,7 @@ function isUserOnline(userId) {
 }
 
 // Redis: moderation fan-out + optional worker→API socket bridge
-const { SOCKET_CHANNEL, createPublisherIo, applySocketEvent } = require('./utils/socketBridge');
+const { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent } = require('./utils/socketBridge');
 if (enableRedis) {
   const Redis = require("ioredis");
   const { Logger } = require('./utils/logger');
@@ -296,8 +296,15 @@ if (enableRedis) {
   redisSub.on('ready', () => { redisReady = true; });
   redisPub.on('ready', () => { redisReady = true; });
 
+  // Any process can call gameScheduler.resyncGame()/triggerReviewQueue() from a request
+  // handler even if its own scheduler isn't enabled (e.g. the web API split from a
+  // dedicated `worker.js` jobs process) — forward the signal to whichever process is
+  // actually subscribed to SCHEDULER_CHANNEL below.
+  gameScheduler.setPublisher((msg) => redisPub.publish(SCHEDULER_CHANNEL, JSON.stringify(msg)));
+
   const channels = ['moderation_events'];
   if (enableHttpServer) channels.push(SOCKET_CHANNEL);
+  if (enableBackgroundSchedulers) channels.push(SCHEDULER_CHANNEL);
   redisSub.subscribe(...channels, (err, count) => {
     if (err) Logger.error("REDIS SUB", "Failed to subscribe:", err);
     else Logger.info("REDIS SUB", `Subscribed. Count: ${count}`);
@@ -309,6 +316,19 @@ if (enableRedis) {
         applySocketEvent(io, JSON.parse(message));
       } catch (e) {
         Logger.error("REDIS SUB", "Error parsing socket bridge message:", e);
+      }
+      return;
+    }
+    if (channel === SCHEDULER_CHANNEL) {
+      try {
+        const msg = JSON.parse(message);
+        if (msg.type === 'resync') {
+          gameScheduler.resyncGameById(msg.gameId).catch(err => Logger.error('SCHEDULER', 'resyncGameById failed:', err));
+        } else if (msg.type === 'reviewQueue') {
+          gameScheduler.triggerReviewQueue();
+        }
+      } catch (e) {
+        Logger.error("REDIS SUB", "Error parsing scheduler bridge message:", e);
       }
       return;
     }

@@ -8,9 +8,9 @@ import Typography from "@mui/material/Typography";
 import UploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Avatar from "./Avatar";
+import { MAX_IMAGE_FILE_SIZE, ACCEPTED_IMAGE_TYPES } from "@joinup/shared/upload";
 
-export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024; // 5MB, must match server/middleware/upload.js
-export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+export { MAX_IMAGE_FILE_SIZE, ACCEPTED_IMAGE_TYPES };
 
 export function validateImageFile(file: File): string | null {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
