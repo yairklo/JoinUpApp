@@ -48,4 +48,16 @@ describe('HTTP rate limiter', () => {
     const sock = await request(app).get('/api/socket');
     expect(sock.statusCode).toEqual(200);
   });
+
+  test('spoofing X-Forwarded-For does not bypass the limiter (keys by req.ip, not the header)', async () => {
+    const app = appWithLimiter();
+    const r1 = await request(app).get('/ok').set('X-Forwarded-For', '1.1.1.1');
+    const r2 = await request(app).get('/ok').set('X-Forwarded-For', '2.2.2.2');
+    const r3 = await request(app).get('/ok').set('X-Forwarded-For', '3.3.3.3');
+    const blocked = await request(app).get('/ok').set('X-Forwarded-For', '4.4.4.4');
+    expect(r1.statusCode).toEqual(200);
+    expect(r2.statusCode).toEqual(200);
+    expect(r3.statusCode).toEqual(200);
+    expect(blocked.statusCode).toEqual(429);
+  });
 });
