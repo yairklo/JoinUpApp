@@ -1,5 +1,7 @@
 const request = require('supertest');
 
+jest.setTimeout(30000);
+
 // 1. Mocking authentication
 jest.mock('../utils/auth', () => ({
   authenticateToken: (req, res, next) => {

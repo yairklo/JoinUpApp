@@ -1,5 +1,5 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('../lib/prisma');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { NotificationService } = require('../services/notificationService');
 const { getCounters, broadcastCounters } = require('../services/counterService');
@@ -19,7 +19,6 @@ const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 const router = express.Router();
 const userImageUpload = createImageUpload('users');
-const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
 // Shared constants

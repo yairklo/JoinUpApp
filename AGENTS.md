@@ -10,7 +10,7 @@ Persistent instructions for any Cursor Agent run against this repo (including he
 ## Database & Migration Architecture (For Planner / L1)
 1. **Neon Connection Topology:** \`schema.prisma\` uses \`DATABASE_URL\` for pooled traffic and \`DIRECT_DATABASE_URL\` for direct connection. Never point \`DIRECT_DATABASE_URL\` at a \`-pooler\` hostname.
 2. **Migrations:** \`prisma migrate dev\` requires \`directUrl\`. The L1 Planner must be aware of this when generating tasks that change the schema.
-3. **PrismaClient Lifecycle:** When editing existing files, reuse the module-level instance. Never instantiate \`new PrismaClient()\` inside an Express request handler.
+3. **PrismaClient Lifecycle:** Import `prisma` from `server/lib/prisma.js`. Never instantiate `new PrismaClient()` inside an Express request handler, a loop, or a worker tick.
 4. **Transactions:** Roster joins, waitlist promotion, and game creation must be atomic. Game + group chat pairing must happen in the same interactive transaction, where the group chat \`id\` exactly equals the \`game.id\`.
 
 ## Known failure modes (do not regress)
@@ -60,3 +60,4 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Jest roster tests must use exported Express `app` with supertest and must not call `server.listen` under `JEST_WORKER_ID` (avoids TCPSERVERWRAP + undefined game id cascades).
 - Stale `@prisma/client` after schema changes (e.g. `welcomeMessage`) breaks create-game in roster tests — `npm test` must run `prisma generate` first.
 - Chat write paths must use `authenticateToken` / `socket.userId` + `checkChatPermission`. Never trust client-supplied `userId`, never fail-open socket JWT, never leave `POST /api/messages` public. Recurring series games must create `ChatRoom` (id === game.id) in the same transaction as the game.
+- Runtime code must import Prisma from `server/lib/prisma.js` (one client per process). Do not add `new PrismaClient()` in routes/services/workers. Scheduler handlers must claim work with `updateMany` on sentinel fields (`lotteryExecutedAt`, `reminderSent`, `pickingOpenedAt`, `status`) so a second Render instance is a no-op.

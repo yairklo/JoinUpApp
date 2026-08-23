@@ -1,6 +1,5 @@
 const admin = require('firebase-admin');
 const { Expo } = require('expo-server-sdk');
-const { PrismaClient } = require('@prisma/client');
 const { Logger } = require('../utils/logger');
 
 // Expo push client (no credentials required - Expo's push service handles APNs/FCM delivery internally)
@@ -47,7 +46,7 @@ function initializeFirebase() {
 
 class NotificationService {
     constructor(prisma) {
-        this.prisma = prisma || new PrismaClient();
+        this.prisma = prisma || require('../lib/prisma').prisma;
         initializeFirebase();
     }
 

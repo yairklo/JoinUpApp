@@ -31,6 +31,7 @@ model User {
   friendshipsA         Friendship[]              @relation("A")
   friendshipsB         Friendship[]              @relation("B")
   organizedGames       Game[]                    @relation("OrganizerGames")
+  organizedSeries      GameSeries[]              @relation("OrganizerSeries")
   gameRoles            GameRole[]
   messages             Message[]
   notifications        Notification[]            @relation("UserNotifications")
@@ -171,6 +172,7 @@ model Participation {
   @@unique([gameId, userId])
   @@index([userId])
   @@index([gameId, status])
+  @@index([teamId])
 }
 
 /// Per-match player rating (1–5 stars). One row per rater→target per game.
@@ -228,6 +230,7 @@ model Message {
   reactions  Reaction[]
 
   @@index([chatRoomId])
+  @@index([chatRoomId, createdAt])
 }
 
 model Reaction {
@@ -381,10 +384,12 @@ model GameSeries {
   title                     String?
   description               String?
   imageUrl                  String?
+  organizer                 User                @relation("OrganizerSeries", fields: [organizerId], references: [id])
   games                     Game[]
   subscribers               SeriesParticipant[]
 
   @@index([isActive])
+  @@index([organizerId])
 }
 
 model SeriesParticipant {

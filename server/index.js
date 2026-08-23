@@ -14,7 +14,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const http = require('http');
 const { Server } = require('socket.io');
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('./lib/prisma');
 
 // Import routes
 const fieldsRoutes = require('./routes/fields');
@@ -51,7 +51,6 @@ if (enableBackgroundSchedulers) {
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3005;
-const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
 // Middleware — CORS for Web (Vercel/local) + no-origin clients (mobile / Postman / Expo)
@@ -183,8 +182,14 @@ console.log('✅ [ROUTES] Notification routes mounted at /api/notifications');
 app.use('/api/chats', require('./routes/chats'));
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Football Fields API is running' });
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'OK', db: 'up', message: 'Football Fields API is running' });
+  } catch (err) {
+    console.error('[HEALTH] database check failed:', err.message);
+    res.status(503).json({ status: 'DOWN', db: 'down', message: 'Database unreachable' });
+  }
 });
 
 io.use(async (socket, next) => {
@@ -1012,7 +1017,7 @@ async function runWeeklySeriesGeneration() {
             games.push(game);
           }
           return games;
-        });
+        }, { timeout: 30000, maxWait: 10000 });
         for (const g of created) gameScheduler.resyncGame(g);
         console.log(`🗓️  Generated ${pendingCreates.length} weekly instances for series ${s.id}`);
       }

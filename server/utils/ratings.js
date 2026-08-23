@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../lib/prisma');
 
 const RATING_ELIGIBLE_AFTER_MS = 90 * 60 * 1000;
 

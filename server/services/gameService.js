@@ -1,4 +1,4 @@
-const { PrismaClient, SportType } = require('@prisma/client');
+const { SportType } = require('@prisma/client');
 const { NotificationService } = require('./notificationService');
 const {
   getActiveGameStartCutoff,
@@ -56,7 +56,7 @@ async function sendAutoWelcomeMessage(game, newPlayerId) {
   }
 }
 
-const prisma = new PrismaClient();
+const { prisma } = require('../lib/prisma');
 const notificationService = new NotificationService(prisma);
 
 function httpError(message, status, details) {
@@ -764,7 +764,7 @@ async function createGame(payload, creatorUser, io) {
         games.push(game);
       }
       return games;
-    });
+    }, { timeout: 30000, maxWait: 10000 });
     for (const g of createdGames) gameScheduler.resyncGame(g);
     const firstGame = createdGames[0];
     // Notify invited friends about the first occurrence (same copy as single-game create).
@@ -861,7 +861,7 @@ async function createGame(payload, creatorUser, io) {
     ]);
 
     return game;
-  });
+  }, { timeout: 20000, maxWait: 10000 });
 
   gameScheduler.resyncGame(created);
 
