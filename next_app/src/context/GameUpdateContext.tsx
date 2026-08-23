@@ -1,7 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from "react";
-import { useAuth } from "@clerk/nextjs";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
 import { useSocket } from "@/context/SocketContext";
 import { Game } from "@/types/game";
 
@@ -18,6 +17,10 @@ interface GameCreatedEvent {
 }
 interface GameDeletedEvent {
     gameIds: string[];
+}
+
+interface GameUpdatedEvent {
+    game: Game;
 }
 
 // Types
@@ -41,6 +44,7 @@ interface GameUpdateContextProps {
     subscribe: (callback: (event: GameUpdateEvent) => void) => () => void;
     subscribeToCreated: (callback: (event: GameCreatedEvent) => void) => () => void;
     subscribeToDeleted: (callback: (event: GameDeletedEvent) => void) => () => void;
+    subscribeToUpdated: (callback: (event: GameUpdatedEvent) => void) => () => void;
     subscribeToSeriesCreated: (callback: (series: SeriesPayload) => void) => () => void;
     subscribeToSeriesDeleted: (callback: (event: SeriesDeletedEvent) => void) => () => void;
 }
@@ -51,10 +55,10 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
     const [listeners] = useState(() => new Set<(event: GameUpdateEvent) => void>());
     const [createdListeners] = useState(() => new Set<(event: GameCreatedEvent) => void>());
     const [deletedListeners] = useState(() => new Set<(event: GameDeletedEvent) => void>());
+    const [updatedListeners] = useState(() => new Set<(event: GameUpdatedEvent) => void>());
     const [seriesCreatedListeners] = useState(() => new Set<(series: SeriesPayload) => void>());
     const [seriesDeletedListeners] = useState(() => new Set<(event: SeriesDeletedEvent) => void>());
 
-    const { getToken } = useAuth();
     const { socket, isConnected } = useSocket();
 
     // Socket Connection
@@ -68,6 +72,10 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
 
         const handleGameDeleted = (payload: { gameIds: string[] }) => {
             deletedListeners.forEach(cb => cb(payload));
+        };
+
+        const handleGameUpdated = (game: Game) => {
+            updatedListeners.forEach(cb => cb({ game }));
         };
 
         const handleSeriesCreated = (series: SeriesPayload) => {
@@ -84,6 +92,7 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
 
         socket.on("game:created", handleGameCreated);
         socket.on("game:deleted", handleGameDeleted);
+        socket.on("game:updated", handleGameUpdated);
         socket.on("series:created", handleSeriesCreated);
         socket.on("series:deleted", handleSeriesDeleted);
         socket.on("error", handleError);
@@ -91,11 +100,12 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             socket.off("game:created", handleGameCreated);
             socket.off("game:deleted", handleGameDeleted);
+            socket.off("game:updated", handleGameUpdated);
             socket.off("series:created", handleSeriesCreated);
             socket.off("series:deleted", handleSeriesDeleted);
             socket.off("error", handleError);
         };
-    }, [socket, isConnected, createdListeners, deletedListeners, seriesCreatedListeners, seriesDeletedListeners]);
+    }, [socket, isConnected, createdListeners, deletedListeners, updatedListeners, seriesCreatedListeners, seriesDeletedListeners]);
 
     const notifyGameUpdate = useCallback((gameId: string, action: GameAction, userId: string) => {
         const event: GameUpdateEvent = { gameId, action, userId };
@@ -123,6 +133,13 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
         };
     }, [deletedListeners]);
 
+    const subscribeToUpdated = useCallback((callback: (event: GameUpdatedEvent) => void) => {
+        updatedListeners.add(callback);
+        return () => {
+            updatedListeners.delete(callback);
+        };
+    }, [updatedListeners]);
+
     const subscribeToSeriesCreated = useCallback((callback: (series: SeriesPayload) => void) => {
         seriesCreatedListeners.add(callback);
         return () => {
@@ -143,6 +160,7 @@ export const GameUpdateProvider = ({ children }: { children: ReactNode }) => {
             subscribe,
             subscribeToCreated,
             subscribeToDeleted,
+            subscribeToUpdated,
             subscribeToSeriesCreated,
             subscribeToSeriesDeleted
         }}>
@@ -187,6 +205,15 @@ export const useGameDeletedListener = (callback: (event: GameDeletedEvent) => vo
         const unsubscribe = subscribeToDeleted(callback);
         return () => unsubscribe();
     }, [subscribeToDeleted, callback]);
+};
+
+export const useGameUpdatedListener = (callback: (event: GameUpdatedEvent) => void) => {
+    const { subscribeToUpdated } = useGameUpdate();
+
+    useEffect(() => {
+        const unsubscribe = subscribeToUpdated(callback);
+        return () => unsubscribe();
+    }, [subscribeToUpdated, callback]);
 };
 
 // Helper hooks for Series

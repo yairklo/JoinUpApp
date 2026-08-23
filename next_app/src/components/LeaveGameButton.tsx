@@ -16,7 +16,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import LoginIcon from "@mui/icons-material/Login";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
+import { gamesApi } from "@/services/api/games";
 
 export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: { gameId: string; onLeft?: (updatedGame?: any) => void; currentPlayers?: number }) {
   const { getToken } = useAuth();
@@ -39,19 +39,7 @@ export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: 
     setLoading(true);
     try {
       const token = await getToken().catch(() => "");
-      const res = await fetch(`${API_BASE}/api/games/${gameId}/leave`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to leave");
-      }
-
-      const data = await res.json().catch(() => ({}));
+      const data = await gamesApi.leave(gameId, token || "");
       if (data.deleted) {
         router.push('/');
         return;

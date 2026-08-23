@@ -64,6 +64,18 @@ export interface CurrentUser {
     isAdmin: boolean;
 }
 
+export interface FlaggedMessage {
+    id: string;
+    messageId?: string | null;
+    content: string;
+    userId: string;
+    status: string;
+    resolution?: string | null;
+    retryCount: number;
+    failureReason?: string | null;
+    createdAt: string;
+}
+
 export const usersApi = {
     getProfile: (userId: string, token?: string) => {
         return apiClient<UserProfile>(`/api/users/${userId}`, { token });
@@ -75,6 +87,10 @@ export const usersApi = {
 
     getMe: (token: string) => {
         return apiClient<CurrentUser>('/api/users/me', { token, cache: 'no-store' });
+    },
+
+    listFlaggedMessages: (token: string) => {
+        return apiClient<FlaggedMessage[]>('/api/admin/flagged-messages', { token, cache: 'no-store' });
     },
 
     getFriends: (userId: string, token: string) => {

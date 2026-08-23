@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 
 // MUI Imports
@@ -13,7 +12,7 @@ import LoginIcon from "@mui/icons-material/Login";
 import Tooltip from "@mui/material/Tooltip";
 import LockIcon from "@mui/icons-material/LockClock";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
+import { gamesApi } from "@/services/api/games";
 
 export default function JoinGameButton({
   gameId,
@@ -33,7 +32,6 @@ export default function JoinGameButton({
   waitlistOfferPending?: boolean;
 }) {
   const { getToken } = useAuth();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Seed from server-provided status so a hard refresh doesn't forget an in-flight request.
@@ -65,19 +63,7 @@ export default function JoinGameButton({
     setLoading(true);
     try {
       const token = await getToken().catch(() => "");
-      const res = await fetch(`${API_BASE}/api/games/${gameId}/join`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to join");
-      }
-
-      const body = await res.json().catch(() => ({}));
+      const body = await gamesApi.join(gameId, token || "");
       if (body.pending) {
         setPending(true);
         if (onRequestSent) onRequestSent(body);
@@ -97,19 +83,7 @@ export default function JoinGameButton({
     setLoading(true);
     try {
       const token = await getToken().catch(() => "");
-      const res = await fetch(`${API_BASE}/api/games/${gameId}/waitlist-confirm`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ accept })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to confirm waitlist offer");
-      }
-      const body = await res.json().catch(() => ({}));
+      const body = await gamesApi.confirmWaitlist(gameId, accept, token || "");
       if (onJoined) onJoined(body);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to process waitlist offer");
@@ -123,18 +97,7 @@ export default function JoinGameButton({
     setLoading(true);
     try {
       const token = await getToken().catch(() => "");
-      const res = await fetch(`${API_BASE}/api/games/${gameId}/leave`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to leave waitlist");
-      }
-      const body = await res.json().catch(() => ({}));
+      const body = await gamesApi.leave(gameId, token || "");
       if (onJoined) onJoined(body);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to cancel waitlist registration");

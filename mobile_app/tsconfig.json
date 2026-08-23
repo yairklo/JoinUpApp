@@ -9,6 +9,12 @@
       ],
       "@/*": [
         "./src/*"
+      ],
+      "@joinup/shared": [
+        "../shared"
+      ],
+      "@joinup/shared/*": [
+        "../shared/*"
       ]
     }
   },
@@ -17,6 +23,6 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "nativewind-env.d.ts"
+    "../shared/**/*.ts"
   ]
 }

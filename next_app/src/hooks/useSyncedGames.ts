@@ -1,8 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useGameUpdateListener, useGameCreatedListener, useGameDeletedListener } from "@/context/GameUpdateContext";
+import { useGameUpdateListener, useGameCreatedListener, useGameDeletedListener, useGameUpdatedListener } from "@/context/GameUpdateContext";
 import { Game } from "@/types/game";
 import { normalizeIncomingGame } from "@/utils/timezone";
+
+function sortByStart(games: Game[]) {
+    return [...games].sort((a, b) => {
+        const timeA = (a.date && a.time) ? new Date(`${a.date}T${a.time}`).getTime() : 0;
+        const timeB = (b.date && b.time) ? new Date(`${b.date}T${b.time}`).getTime() : 0;
+        return timeA - timeB;
+    });
+}
 
 export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (game: Game) => boolean) {
     const [games, setGames] = useState<Game[]>(initialGames);
@@ -13,6 +21,27 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
     useEffect(() => {
         predicateRef.current = filterPredicate;
     });
+
+    const upsertGame = useCallback((game: Game) => {
+        const normalizedGame = normalizeIncomingGame(game);
+        const predicate = predicateRef.current;
+        setGames((prev) => {
+            const exists = prev.some((g) => g.id === normalizedGame.id);
+            const matches = predicate ? predicate(normalizedGame) : true;
+            if (matches) {
+                if (exists) {
+                    return prev.map((g) => (g.id === normalizedGame.id ? { ...g, ...normalizedGame } : g));
+                }
+                return sortByStart([...prev, normalizedGame]);
+            }
+            if (exists) return prev.filter((g) => g.id !== normalizedGame.id);
+            return prev;
+        });
+    }, []);
+
+    useGameUpdatedListener(useCallback(({ game }) => {
+        if (game?.id) upsertGame(game);
+    }, [upsertGame]));
 
     // Handle new game creation (delta updates)
     const handleGameCreated = useCallback(({ game }: { game: Game }) => {
@@ -31,12 +60,7 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
             if (prev.some((g) => g.id === normalizedGame.id)) return prev;
 
             const newGames = [...prev, normalizedGame];
-            // Sort by Date/Time
-            return newGames.sort((a, b) => {
-                const timeA = (a.date && a.time) ? new Date(`${a.date}T${a.time}`).getTime() : 0;
-                const timeB = (b.date && b.time) ? new Date(`${b.date}T${b.time}`).getTime() : 0;
-                return timeA - timeB;
-            });
+            return sortByStart(newGames);
         });
     }, []);
 

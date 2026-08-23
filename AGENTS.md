@@ -72,3 +72,6 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - HTTP rate limiter (`server/middleware/rateLimit.js`) must skip Jest (`NODE_ENV=test` / `JEST_WORKER_ID`), `OPTIONS`, `/api/health`, and `/api/socket`. Do not count Engine.IO polling or health probes.
 - `req.user.isAdmin` comes from Clerk metadata (`isAdmin` / `role=admin`) or `ADMIN_USER_IDS`. Do not hardcode `false`.
 - GitHub CI (`.github/workflows/ci.yml`) must run `next_app` `npm run build` and `server` `npm test` on Node 20 against a workflow Postgres — not Next-only on PRs to `main`.
+- Shared client/server contracts live in `shared/` (`@joinup/shared`). Do not copy timezone/sports/`Game` types between next_app and mobile_app.
+- A dedicated jobs process is `node worker.js` (`RUN_HTTP_SERVER=false`). The web API that sits next to it must set `RUN_BACKGROUND_JOBS=false`. Worker socket emits go through Redis `joinup:socket_events`.
+- `Game.price` / `GameSeries.price` are display-only (pay at field). Do not add a payment processor without a product brief.
