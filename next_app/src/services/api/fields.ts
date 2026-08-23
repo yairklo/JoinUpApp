@@ -17,6 +17,8 @@ export interface Field {
     streetNumber?: string | null;
     phone?: string | null;
     favoritesCount?: number;
+    lat?: number | null;
+    lng?: number | null;
 }
 
 export interface BusyCell {

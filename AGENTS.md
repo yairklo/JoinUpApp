@@ -43,6 +43,10 @@ Persistent instructions for any Cursor Agent run against this repo (including he
    Cause: `gameService` writes a field present in `schema.prisma` but local `@prisma/client` was generated before that field existed → create-game returns 500 and roster tests cascade with `testGame.id` undefined.  
    Fix: run `prisma generate` before `npm test` (wired into `server` `npm test` script).
 
+8. **HTTP rate limiter 429s health checks or Socket.IO**  
+   Cause: a global Express limiter counting `/api/health` (Render probes) or `/api/socket` (Engine.IO polling).  
+   Fix: exempt those paths and disable the limiter under Jest so roster/messages tests never 429.
+
 ## When you learn a new deploy bug
 Append a short bullet under **Known failure modes** in this file and/or add a rule under `.cursor/rules/`, then commit it with the fix so future terminal agents inherit the lesson.
 
@@ -61,3 +65,4 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Stale `@prisma/client` after schema changes (e.g. `welcomeMessage`) breaks create-game in roster tests — `npm test` must run `prisma generate` first.
 - Chat write paths must use `authenticateToken` / `socket.userId` + `checkChatPermission`. Never trust client-supplied `userId`, never fail-open socket JWT, never leave `POST /api/messages` public. Recurring series games must create `ChatRoom` (id === game.id) in the same transaction as the game.
 - Runtime code must import Prisma from `server/lib/prisma.js` (one client per process). Do not add `new PrismaClient()` in routes/services/workers. Scheduler handlers must claim work with `updateMany` on sentinel fields (`lotteryExecutedAt`, `reminderSent`, `pickingOpenedAt`, `status`) so a second Render instance is a no-op.
+- HTTP rate limiter (`server/middleware/rateLimit.js`) must skip Jest (`NODE_ENV=test` / `JEST_WORKER_ID`), `OPTIONS`, `/api/health`, and `/api/socket`. Do not count Engine.IO polling or health probes.

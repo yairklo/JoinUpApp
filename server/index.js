@@ -118,10 +118,17 @@ app.use(
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
   })
 );
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+const { createRateLimiter, writeMethodLimiter } = require('./middleware/rateLimit');
+app.use(createRateLimiter({ windowMs: 15 * 60 * 1000, max: 240, prefix: 'global' }));
+app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 60, prefix: 'write' })));
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Create data directory if it doesn't exist
