@@ -1,11 +1,10 @@
 const { LRUCache } = require('lru-cache');
 
 function clientKey(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0] : '')
-    || req.ip
-    || req.socket?.remoteAddress
-    || 'unknown';
+  // req.ip is resolved by Express's `trust proxy` setting, which only trusts
+  // the configured number of proxy hops — unlike the raw X-Forwarded-For
+  // header, it can't be spoofed by a client to dodge rate limiting.
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
   return ip.trim() || 'unknown';
 }
 

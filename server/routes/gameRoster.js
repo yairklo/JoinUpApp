@@ -686,9 +686,19 @@ router.patch('/:id/participants/:userId/captain', authenticateToken, async (req,
       return res.status(404).json({ error: 'Game not found' });
     }
 
-    // Ensure target is a participant
+    if (game.organizerId === targetUserId) {
+      return res.status(400).json({ error: 'Cannot modify organizer role' });
+    }
+
+    // Check hierarchy: can only modify users strictly below you
+    const targetLevel = await getRoleLevel(gameId, targetUserId);
+    if (targetLevel >= actorLevel) {
+      return res.status(403).json({ error: 'Cannot modify a peer or higher role' });
+    }
+
+    // Ensure target is an active participant
     const isParticipant = await prisma.participation.findFirst({
-      where: { gameId, userId: targetUserId }
+      where: { gameId, userId: targetUserId, status: 'CONFIRMED' }
     });
     if (!isParticipant) {
       return res.status(400).json({ error: 'Target user is not a participant' });

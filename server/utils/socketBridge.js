@@ -1,4 +1,7 @@
 const SOCKET_CHANNEL = 'joinup:socket_events';
+// Lets a process without an enabled gameScheduler (e.g. the web API when split from the
+// dedicated jobs worker) forward resync/review-queue signals to whichever process runs it.
+const SCHEDULER_CHANNEL = 'joinup:scheduler_events';
 
 function createPublisherIo(publishFn) {
   return {
@@ -36,4 +39,4 @@ function applySocketEvent(io, msg) {
   }
 }
 
-module.exports = { SOCKET_CHANNEL, createPublisherIo, applySocketEvent };
+module.exports = { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent };

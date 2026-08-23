@@ -3,6 +3,7 @@ const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { prisma } = require('../lib/prisma');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 const { parseJerusalemTimeToUTC, formatJerusalemDate } = require('../utils/timezone');
+const gameScheduler = require('../services/gameScheduler');
 
 const router = express.Router();
 const seriesImageUpload = createImageUpload('series');
@@ -319,15 +320,7 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
 
     const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
     if (!series) return res.status(404).json({ error: 'Series not found' });
-    const isAdmin = !!req.user?.isAdmin;
-    let isManager = false;
-    if (series.organizerId !== req.user.id && !isAdmin) {
-      const participant = await prisma.seriesParticipant.findUnique({
-        where: { seriesId_userId: { seriesId, userId: req.user.id } }
-      });
-      isManager = participant?.role === 'MANAGER';
-    }
-    if (series.organizerId !== req.user.id && !isAdmin && !isManager) {
+    if (!(await canManageSeries(series, req.user))) {
       return res.status(403).json({ error: 'Not allowed' });
     }
 
@@ -412,7 +405,10 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
         updates.push(prisma.game.update({ where: { id: g.id }, data: gd }));
       }
     }
-    if (updates.length) await prisma.$transaction(updates);
+    if (updates.length) {
+      const updatedGames = await prisma.$transaction(updates);
+      for (const g of updatedGames) gameScheduler.resyncGame(g);
+    }
 
     return res.json({ series: updatedSeries, updatedGames: updates.length });
   } catch (e) {
@@ -502,7 +498,7 @@ router.post('/:seriesId/members', authenticateToken, async (req, res) => {
   }
 });
 
-// Set a member's series role (organizer only). role: MANAGER | MEMBER
+// Set a member's series role (organizer, a MANAGER participant, or admin). role: MANAGER | MEMBER
 router.patch('/:seriesId/members/:userId', authenticateToken, async (req, res) => {
   try {
     const { seriesId, userId } = req.params;
@@ -513,8 +509,8 @@ router.patch('/:seriesId/members/:userId', authenticateToken, async (req, res) =
 
     const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
     if (!series) return res.status(404).json({ error: 'Series not found' });
-    if (series.organizerId !== req.user.id && !req.user?.isAdmin) {
-      return res.status(403).json({ error: 'Only the organizer can change manager roles' });
+    if (!(await canManageSeries(series, req.user))) {
+      return res.status(403).json({ error: 'Not allowed' });
     }
     if (userId === series.organizerId) {
       return res.status(400).json({ error: 'Cannot change the organizer role this way' });

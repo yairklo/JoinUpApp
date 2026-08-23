@@ -27,6 +27,7 @@ import UpdateIcon from "@mui/icons-material/Update";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import CloseIcon from "@mui/icons-material/Close";
+import { ACCEPTED_IMAGE_TYPES } from "@joinup/shared/upload";
 
 import DeleteSeriesDialog from "./DeleteSeriesDialog";
 import Avatar from "./Avatar";
@@ -232,7 +233,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
                   <input
                     type="file"
                     hidden
-                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    accept={ACCEPTED_IMAGE_TYPES.join(",")}
                     onChange={(e) => {
                       actions.handlePendingImageChange(e.target.files?.[0] || null);
                       e.target.value = "";
