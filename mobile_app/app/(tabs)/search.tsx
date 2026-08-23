@@ -352,6 +352,19 @@ export default function SearchScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
+                        onPress={() => router.push('/fields')}
+                        className="mr-2 px-4 py-2 rounded-full border bg-white border-gray-300"
+                        accessibilityRole="button"
+                    >
+                        <View className="flex-row items-center">
+                            <FontAwesome name="th-list" size={12} color="#4b5563" style={{ marginRight: 6 }} />
+                            <Text className="font-medium text-gray-600">
+                                {t("search.fieldsDirectory", "מגרשים")}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                         onPress={() => setNetworkGames(!networkGames)}
                         className={`mr-2 px-4 py-2 rounded-full border ${networkGames ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                     >

@@ -1,6 +1,8 @@
+import type { Field } from '@/services/api/fields';
+
 export type Game = {
     id: string;
-    field?: any; // ToDo: Define Field type
+    field?: Field;
     title?: string | null;
     fieldId: string;
     fieldName: string;

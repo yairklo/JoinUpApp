@@ -1,3 +1,35 @@
+export type GameParticipant = {
+    id: string;
+    name?: string | null;
+    avatar?: string | null;
+    teamId?: string | null;
+    status?: 'CONFIRMED' | 'WAITLISTED';
+};
+
+export type Team = {
+    id: string;
+    name: string;
+    color: string;
+    playerIds: string[];
+    managerId?: string | null;
+};
+
+export type Manager = {
+    id: string;
+    name?: string | null;
+    avatar?: string | null;
+    role: string;
+};
+
+export type GameField = {
+    id?: string;
+    lat?: number | null;
+    lng?: number | null;
+    name?: string;
+    location?: string;
+    city?: string | null;
+};
+
 export type Game = {
     id: string;
     fieldId: string;
@@ -10,7 +42,7 @@ export type Game = {
     duration?: number;
     maxPlayers: number;
     currentPlayers: number;
-    participants?: Array<{ id: string; name?: string | null }>;
+    participants?: GameParticipant[];
     sport?: string;
     seriesId?: string | null;
     registrationOpensAt?: string | null;
@@ -24,14 +56,33 @@ export type Game = {
     fieldLng?: number | null;
     customLat?: number | null;
     customLng?: number | null;
+    customLocation?: string | null;
     isFriendsOnly?: boolean;
     friendsOnlyUntil?: string | null;
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     pendingRequestCount?: number;
     viewerParticipationStatus?: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'REJECTED' | null;
-    field?: {
-        lat?: number | null;
-        lng?: number | null;
-        name?: string;
-    };
+    waitlistCount?: number;
+    waitlistParticipants?: GameParticipant[];
+    waitlistOfferPending?: boolean;
+    lotteryEnabled?: boolean;
+    lotteryAt?: string | null;
+    lotteryPending?: boolean;
+    overbooked?: boolean;
+    totalSignups?: number;
+    organizerInLottery?: boolean;
+    pickDrawAt?: string | null;
+    pickingStartsAt?: string | null;
+    pickSessionStatus?: string;
+    pickTurnOrder?: string[];
+    managerPickChatId?: string | null;
+    teams?: Team[];
+    managers?: Manager[];
+    draftingManagerIds?: string[];
+    status?: string;
+    chatRoomId?: string;
+    isOpenToJoin?: boolean;
+    isTeamFull?: boolean;
+    isJoined?: boolean;
+    field?: GameField;
 };
