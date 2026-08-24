@@ -9,6 +9,7 @@
     "db:studio:dev": "dotenv -e .env.development -- npx prisma studio",
     "db:studio:prod": "dotenv -e .env.production -- npx prisma studio",
     "start": "node scripts/render-start.js",
+    "sync-shared": "node scripts/sync-shared.js",
     "worker": "node worker.js",
     "dev": "nodemon index.js",
     "test": "PORT=3099 prisma generate && jest --runInBand --detectOpenHandles --forceExit",

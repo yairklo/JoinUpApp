@@ -2,7 +2,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { MAX_IMAGE_FILE_SIZE: MAX_FILE_SIZE, MIME_EXTENSIONS } = require('../../shared/upload');
+// server/shared/ is a vendored copy (Docker's build context can't reach the sibling shared/
+// directory at the repo root) -- see server/scripts/sync-shared.js.
+const { MAX_IMAGE_FILE_SIZE: MAX_FILE_SIZE, MIME_EXTENSIONS } = require('../shared/upload');
 
 const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 
