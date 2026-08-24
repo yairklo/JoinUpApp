@@ -72,13 +72,14 @@ export default function FieldCard({ field }: { field: Field }) {
         overflow: "hidden",
         isolation: "isolate",
         border: "1px solid",
-        borderColor: "divider",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
-        transition: "box-shadow 0.2s ease",
+        borderColor: "rgba(148,163,184,0.16)",
+        boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
+        transition: "box-shadow 0.2s ease, border-color 0.2s ease",
         minWidth: 0,
         "@media (hover: hover)": {
           "&:hover": {
-            boxShadow: "0 18px 36px -8px rgba(5,150,105,0.28), 0 4px 12px rgba(15,23,42,0.08)",
+            borderColor: "rgba(5,150,105,0.3)",
+            boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.08), 0 18px 36px -8px rgba(5,150,105,0.28), 0 4px 12px rgba(15,23,42,0.08)",
           },
         },
       }}

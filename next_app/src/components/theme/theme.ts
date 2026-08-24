@@ -147,9 +147,16 @@ const lightTheme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundImage: "linear-gradient(180deg, #ecfdf5 0%, #f6f8fa 420px)",
+          backgroundImage: [
+            "radial-gradient(1200px 600px at 100% -10%, rgba(16,185,129,0.10), transparent 60%)",
+            "radial-gradient(1000px 500px at -10% 0%, rgba(99,102,241,0.08), transparent 55%)",
+            "linear-gradient(180deg, #ecfdf5 0%, #f6f8fa 420px)",
+            "radial-gradient(rgba(15,23,42,0.045) 1px, transparent 1px)",
+          ].join(", "),
+          backgroundSize: "auto, auto, auto, 22px 22px",
+          backgroundPosition: "top right, top left, top, top left",
           backgroundAttachment: "fixed",
-          backgroundRepeat: "no-repeat",
+          backgroundRepeat: "no-repeat, no-repeat, no-repeat, repeat",
         },
       },
     },
@@ -194,9 +201,16 @@ const darkTheme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundImage: "linear-gradient(180deg, #0c1a16 0%, #0b1220 420px)",
+          backgroundImage: [
+            "radial-gradient(1200px 600px at 100% -10%, rgba(52,211,153,0.12), transparent 60%)",
+            "radial-gradient(1000px 500px at -10% 0%, rgba(129,140,248,0.10), transparent 55%)",
+            "linear-gradient(180deg, #0c1a16 0%, #0b1220 420px)",
+            "radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px)",
+          ].join(", "),
+          backgroundSize: "auto, auto, auto, 22px 22px",
+          backgroundPosition: "top right, top left, top, top left",
           backgroundAttachment: "fixed",
-          backgroundRepeat: "no-repeat",
+          backgroundRepeat: "no-repeat, no-repeat, no-repeat, repeat",
         },
       },
     },

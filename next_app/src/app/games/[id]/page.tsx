@@ -148,9 +148,29 @@ export default async function GameDetails(props: {
           {game.fieldId && (
             <Box mt={1.5}>
               <Link href={`/fields/${game.fieldId}`} style={{ textDecoration: "none" }}>
-                <Typography variant="body2" color="primary" fontWeight={600}>
+                <Box
+                  component="span"
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    px: 1.5,
+                    py: 0.75,
+                    borderRadius: 999,
+                    fontSize: "0.8125rem",
+                    fontWeight: 700,
+                    color: "primary.main",
+                    bgcolor: (t) => t.palette.mode === "dark" ? "rgba(52,211,153,0.1)" : "rgba(5,150,105,0.08)",
+                    border: "1px solid",
+                    borderColor: (t) => t.palette.mode === "dark" ? "rgba(52,211,153,0.25)" : "rgba(5,150,105,0.2)",
+                    transition: "background-color 150ms ease",
+                    "&:hover": {
+                      bgcolor: (t) => t.palette.mode === "dark" ? "rgba(52,211,153,0.16)" : "rgba(5,150,105,0.14)",
+                    },
+                  }}
+                >
                   לפרופיל המגרש: לוח משחקים ושעות עומס ←
-                </Typography>
+                </Box>
               </Link>
             </Box>
           )}
@@ -200,7 +220,7 @@ export default async function GameDetails(props: {
         </Box>
 
         {/* Main Grid Layout */}
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 3, md: 4 }}>
 
           {/* Left Column: Participants & Team Builder */}
           <Grid size={{ xs: 12, md: 7 }}>
@@ -230,10 +250,26 @@ export default async function GameDetails(props: {
           {/* Right Column: Chat */}
           {joined ? (
             <Grid size={{ xs: 12, md: 5 }}>
-              <Card elevation={0} sx={{ height: "100%", minHeight: 400 }}>
-                <Box p={2} height="100%">
-                  <Typography variant="h6" gutterBottom>
+              <Card
+                elevation={0}
+                sx={{
+                  height: "100%",
+                  minHeight: 400,
+                  border: "1px solid",
+                  borderColor: "rgba(148,163,184,0.16)",
+                  boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
+                }}
+              >
+                <Box p={{ xs: 2.5, md: 3 }} height="100%">
+                  <Typography
+                    variant="h6"
+                    fontWeight={800}
+                    sx={{ letterSpacing: "-0.02em" }}
+                  >
                     צ&apos;אט המשחק
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    שוחחו עם שאר המשתתפים בזמן אמת
                   </Typography>
                   <Box sx={{ height: 1, borderTop: 1, borderColor: 'divider', pt: 2 }}>
                     <Chat roomId={game.chatRoomId || game.id} chatName={game.title || "Game Chat"} />
