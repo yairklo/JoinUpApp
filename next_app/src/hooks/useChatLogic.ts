@@ -2,12 +2,9 @@ import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react
 import { Socket } from "socket.io-client";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useChat } from "@/context/ChatContext";
-import { chatsApi, usersApi, API_BASE } from "@/services/api";
+import { chatsApi, usersApi } from "@/services/api";
 import { ChatMessage, Reaction, MessageStatus } from "@/components/types";
 import { useSocket } from "@/context/SocketContext";
-
-// NOTE: We import API_BASE from services, but socket still needs it.
-// We might want to move socket logic to a service later, but for now hook is fine.
 
 export interface UseChatLogicProps {
     roomId: string;
@@ -70,20 +67,6 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             if (messagesCache[roomId]) return;
             setIsLoading(true);
             try {
-                // Temporary debug block
-                try {
-                    const token = await getToken();
-                    if (token) {
-                        const debugRes = await fetch(`${API_BASE}/api/debug/chatAuth/${encodeURIComponent(roomId)}`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
-                        const debugData = await debugRes.json();
-                        console.log("[DEBUG CHAT_AUTH]", debugData);
-                    }
-                } catch (err) {
-                    console.error("Debug fetch failed", err);
-                }
-
                 const msgs = await loadMessages(roomId);
                 setMessages(msgs);
                 prevMessagesLengthRef.current = msgs.length;
@@ -233,7 +216,6 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             socketInstance.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
             setEditingMessage(null);
         } else {
-            console.log("SENDING MESSAGE TO:", API_BASE);
             const optimisticId = Date.now();
             const optimisticMessage: ChatMessage & { content: string } = {
                 id: optimisticId, text: trimmed, content: trimmed, roomId,

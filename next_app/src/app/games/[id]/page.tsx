@@ -74,7 +74,10 @@ async function fetchGame(id: string, token?: string | null): Promise<Game | null
     if (!res.ok) return null;
     const game = await res.json();
     if (game && game.start) {
-      game.date = formatJerusalemDate(game.start);
+      // Display format is DD/MM/YYYY across the app (see GamesByCityClient, GamesByDateClient,
+      // search/page, MyJoinedGames) -- formatJerusalemDate itself returns ISO (YYYY-MM-DD).
+      const isoDate = formatJerusalemDate(game.start);
+      game.date = isoDate.split('-').reverse().join('/');
       game.time = formatJerusalemTime(game.start);
     }
     return game;

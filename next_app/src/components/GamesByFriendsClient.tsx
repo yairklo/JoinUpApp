@@ -53,7 +53,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
             <GameHeaderCard
                 key={g.id}
                 time={g.time}
-                date={g.date}
+                date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
                 durationHours={g.duration ?? 1}
                 title={mainTitle}
                 subtitle={subtitle}

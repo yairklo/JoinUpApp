@@ -89,7 +89,12 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
                 setIsConnected(false);
             }
         };
-    }, [isLoaded, isSignedIn, getToken]); // getToken is stable in Clerk, won't cause infinite loop
+        // getToken is intentionally omitted: it is not guaranteed referentially stable across
+        // renders, and including it was causing a full socket disconnect/reconnect on every
+        // navigation. Token refresh on auth failure is already handled by the connect_error
+        // handler above, which calls getToken() fresh and reconnects in place.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoaded, isSignedIn]);
 
     return (
         <SocketContext.Provider value={{ socket, isConnected }}>
