@@ -34,6 +34,8 @@ const componentOverrides: ThemeOptions["components"] = {
         borderRadius: 999,
         textTransform: "none",
         fontWeight: 700,
+        transition: "transform 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms ease, background-color 150ms ease",
+        "&:active": { transform: "scale(0.97)" },
       },
       sizeSmall: { paddingInline: 14 },
       sizeLarge: { paddingBlock: 10, paddingInline: 26 },
@@ -57,6 +59,25 @@ const componentOverrides: ThemeOptions["components"] = {
   MuiChip: {
     styleOverrides: {
       root: { fontWeight: 600 },
+    },
+  },
+  MuiIconButton: {
+    styleOverrides: {
+      root: {
+        transition: "transform 150ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms ease",
+        "&:active": { transform: "scale(0.92)" },
+      },
+    },
+  },
+  MuiButtonBase: {
+    defaultProps: { disableRipple: false },
+    styleOverrides: {
+      root: {
+        "&.Mui-focusVisible": {
+          outline: "2px solid currentColor",
+          outlineOffset: 2,
+        },
+      },
     },
   },
   MuiOutlinedInput: {

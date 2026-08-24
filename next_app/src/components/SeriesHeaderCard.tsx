@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
@@ -14,6 +13,7 @@ import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import CardMedia from "@mui/material/CardMedia";
 import { SPORT_IMAGES, SportType } from "@/utils/sports";
+import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
 
 const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
@@ -60,7 +60,8 @@ export default function SeriesHeaderCard({
         : SPORT_IMAGES.SOCCER;
 
     return (
-        <Card
+        <MotionCard
+            {...cardHoverProps}
             elevation={0}
             dir="rtl"
             sx={{
@@ -79,12 +80,11 @@ export default function SeriesHeaderCard({
                 boxShadow: isSubscribed
                     ? "0 0 0 2px rgba(16,185,129,0.25), 0 4px 14px rgba(15,23,42,0.06)"
                     : "0 1px 3px rgba(15,23,42,0.06)",
-                transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                transition: "box-shadow 0.2s ease",
                 WebkitTapHighlightColor: "transparent",
                 "@media (hover: hover)": {
                     "&:hover": {
-                        transform: "translateY(-4px)",
-                        boxShadow: "0 14px 32px rgba(15,23,42,0.14)",
+                        boxShadow: "0 18px 36px -8px rgba(99,102,241,0.28), 0 4px 12px rgba(15,23,42,0.08)",
                     },
                 },
             }}
@@ -229,6 +229,6 @@ export default function SeriesHeaderCard({
                     </Stack>
                 )}
             </CardContent>
-        </Card>
+        </MotionCard>
     );
 }

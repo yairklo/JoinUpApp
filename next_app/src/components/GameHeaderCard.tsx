@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
@@ -15,6 +14,7 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 
 import CardMedia from "@mui/material/CardMedia";
 import { SPORT_IMAGES, SPORT_MAPPING, SPORT_EMOJI, SportType } from "@/utils/sports";
+import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
 
 const chipOverlaySx = {
   height: 24,
@@ -84,7 +84,8 @@ export default function GameHeaderCard({
   const sportEmoji = sport ? SPORT_EMOJI[sport] : undefined;
 
   return (
-    <Card
+    <MotionCard
+      {...cardHoverProps}
       elevation={0}
       dir="rtl"
       sx={{
@@ -103,12 +104,11 @@ export default function GameHeaderCard({
         boxShadow: isJoined
           ? "0 0 0 2px rgba(16,185,129,0.25), 0 4px 14px rgba(15,23,42,0.06)"
           : "0 1px 3px rgba(15,23,42,0.06)",
-        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+        transition: "box-shadow 0.2s ease",
         WebkitTapHighlightColor: "transparent",
         "@media (hover: hover)": {
           "&:hover": {
-            transform: "translateY(-4px)",
-            boxShadow: "0 14px 32px rgba(15,23,42,0.14)",
+            boxShadow: "0 18px 36px -8px rgba(5,150,105,0.28), 0 4px 12px rgba(15,23,42,0.08)",
           },
         },
       }}
@@ -308,6 +308,6 @@ export default function GameHeaderCard({
           </Stack>
         )}
       </CardContent>
-    </Card>
+    </MotionCard>
   );
 }
