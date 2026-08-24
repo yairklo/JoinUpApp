@@ -160,12 +160,12 @@ export default async function GameDetails(props: {
                     fontSize: "0.8125rem",
                     fontWeight: 700,
                     color: "primary.main",
-                    bgcolor: (t) => t.palette.mode === "dark" ? "rgba(52,211,153,0.1)" : "rgba(5,150,105,0.08)",
+                    bgcolor: "rgba(16,185,129,0.1)",
                     border: "1px solid",
-                    borderColor: (t) => t.palette.mode === "dark" ? "rgba(52,211,153,0.25)" : "rgba(5,150,105,0.2)",
+                    borderColor: "rgba(16,185,129,0.25)",
                     transition: "background-color 150ms ease",
                     "&:hover": {
-                      bgcolor: (t) => t.palette.mode === "dark" ? "rgba(52,211,153,0.16)" : "rgba(5,150,105,0.14)",
+                      bgcolor: "rgba(16,185,129,0.16)",
                     },
                   }}
                 >
