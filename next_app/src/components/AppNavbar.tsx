@@ -17,6 +17,7 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Badge from "@mui/material/Badge";
 import { alpha, useTheme } from "@mui/material/styles";
+import { motion } from "framer-motion";
 
 // Icons
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
@@ -75,6 +76,10 @@ export default function AppNavbar() {
             <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer" }}>
                 <Box
+                  component={motion.div}
+                  whileHover={{ rotate: -8, scale: 1.06 }}
+                  whileTap={{ scale: 0.94 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                   sx={{
                     width: { xs: 34, md: 38 },
                     height: { xs: 34, md: 38 },

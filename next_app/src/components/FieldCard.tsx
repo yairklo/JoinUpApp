@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useState } from "react";
 
 // MUI
-import Card from "@mui/material/Card";
 import CardMedia from "@mui/material/CardMedia";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
@@ -26,6 +25,7 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 
 import FavoriteButton from "@/components/FavoriteButton";
 import NewGameInline from "@/components/NewGameInline";
+import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
 
 export type Field = {
   id: string;
@@ -61,7 +61,8 @@ export default function FieldCard({ field }: { field: Field }) {
   const isOpen = field.type === "open";
 
   return (
-    <Card
+    <MotionCard
+      {...cardHoverProps}
       elevation={0}
       dir="rtl"
       sx={{
@@ -73,12 +74,11 @@ export default function FieldCard({ field }: { field: Field }) {
         border: "1px solid",
         borderColor: "divider",
         boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
-        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+        transition: "box-shadow 0.2s ease",
         minWidth: 0,
         "@media (hover: hover)": {
           "&:hover": {
-            transform: "translateY(-4px)",
-            boxShadow: "0 14px 32px rgba(15,23,42,0.14)",
+            boxShadow: "0 18px 36px -8px rgba(5,150,105,0.28), 0 4px 12px rgba(15,23,42,0.08)",
           },
         },
       }}
@@ -212,6 +212,6 @@ export default function FieldCard({ field }: { field: Field }) {
           />
         </DialogContent>
       </Dialog>
-    </Card>
+    </MotionCard>
   );
 }
