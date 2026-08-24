@@ -209,12 +209,15 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       setState(data);
     });
 
+  // Draft-captain eligibility (state.managers, computed server-side by getManagerIdsForGame)
+  // is driven by Participation.isCaptain, not by GameRole -- those are deliberately separate
+  // mechanisms, so this must go through the captain-toggle endpoint, not assignRole/removeRole.
   const assignCaptain = (userId: string) =>
     run(async () => {
       if (!isOrganizer || !userId) return;
       const token = await getToken();
       if (!token) throw new Error("לא מחובר");
-      await gamesApi.assignRole(gameId, { userId, role: "CAPTAIN" }, token);
+      await gamesApi.setCaptain(gameId, userId, true, token);
       await load();
     });
 
@@ -223,7 +226,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
       if (!isOrganizer || !userId) return;
       const token = await getToken();
       if (!token) throw new Error("לא מחובר");
-      await gamesApi.removeRole(gameId, userId, token);
+      await gamesApi.setCaptain(gameId, userId, false, token);
       await load();
     });
 

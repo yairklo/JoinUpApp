@@ -177,6 +177,14 @@ export const gamesApi = {
         });
     },
 
+    setCaptain: (gameId: string, userId: string, isCaptain: boolean, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/participants/${userId}/captain`, {
+            method: 'PATCH',
+            data: { isCaptain },
+            token,
+        });
+    },
+
     join: (gameId: string, token: string) => {
         return apiClient<Game & { pending?: boolean }>(`/api/games/${gameId}/join`, {
             method: 'POST',
