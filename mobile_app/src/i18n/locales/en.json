@@ -24,7 +24,10 @@
     "sport": "Category",
     "selectSport": "Select Category",
     "allSports": "All Categories",
-    "atTime": "at"
+    "atTime": "at",
+    "fieldsDirectory": "Fields",
+    "networkGames": "Friends network",
+    "emptyFields": "Empty fields"
   },
   "home": {
     "welcomeBack": "Welcome Back",
@@ -170,6 +173,9 @@
     "sendMessage": "Send Message"
   },
   "field": {
+    "directory": "Fields",
+    "searchPlaceholder": "Search a field or city",
+    "emptyDirectory": "No fields found",
     "profile": "Field Profile",
     "notFound": "Field not found",
     "openField": "Open field (outdoor)",

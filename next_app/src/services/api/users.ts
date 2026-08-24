@@ -55,6 +55,27 @@ export interface NotificationCounters {
     unreadMessages: number;
 }
 
+export interface CurrentUser {
+    id: string;
+    name: string | null;
+    imageUrl?: string | null;
+    email?: string | null;
+    city?: string | null;
+    isAdmin: boolean;
+}
+
+export interface FlaggedMessage {
+    id: string;
+    messageId?: string | null;
+    content: string;
+    userId: string;
+    status: string;
+    resolution?: string | null;
+    retryCount: number;
+    failureReason?: string | null;
+    createdAt: string;
+}
+
 export const usersApi = {
     getProfile: (userId: string, token?: string) => {
         return apiClient<UserProfile>(`/api/users/${userId}`, { token });
@@ -62,6 +83,14 @@ export const usersApi = {
 
     getNotificationCounters: (token: string) => {
         return apiClient<NotificationCounters>('/api/users/notifications/counts', { token });
+    },
+
+    getMe: (token: string) => {
+        return apiClient<CurrentUser>('/api/users/me', { token, cache: 'no-store' });
+    },
+
+    listFlaggedMessages: (token: string) => {
+        return apiClient<FlaggedMessage[]>('/api/admin/flagged-messages', { token, cache: 'no-store' });
     },
 
     getFriends: (userId: string, token: string) => {
@@ -88,7 +117,10 @@ export const usersApi = {
     },
 
     search: (query: string, token: string) => {
-        return apiClient<any[]>(`/api/users/search?q=${encodeURIComponent(query)}`, { token });
+        return apiClient<{ id: string; name?: string | null; imageUrl?: string | null }[]>(
+            `/api/users/search?q=${encodeURIComponent(query)}`,
+            { token }
+        );
     },
 
     updatePrivacySettings: (

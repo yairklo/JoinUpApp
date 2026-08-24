@@ -1,3 +1,1 @@
-const SPORT_KEYS = ['SOCCER', 'BASKETBALL', 'TENNIS'];
-
-module.exports = { SPORT_KEYS };
+module.exports = require('../../shared/sports');

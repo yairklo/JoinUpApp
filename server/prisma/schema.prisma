@@ -31,6 +31,7 @@ model User {
   friendshipsA         Friendship[]              @relation("A")
   friendshipsB         Friendship[]              @relation("B")
   organizedGames       Game[]                    @relation("OrganizerGames")
+  organizedSeries      GameSeries[]              @relation("OrganizerSeries")
   gameRoles            GameRole[]
   messages             Message[]
   notifications        Notification[]            @relation("UserNotifications")
@@ -123,6 +124,7 @@ model Game {
   registrationOpensAt  DateTime?
   title                String?
   teamSize             Int?
+  /// Display-only ILS amount. Collected at the field or by the organizer — joinUp does not process payments.
   price                Int?
   status               GameStatus        @default(OPEN)
   reminderSent         Boolean           @default(false)
@@ -171,6 +173,7 @@ model Participation {
   @@unique([gameId, userId])
   @@index([userId])
   @@index([gameId, status])
+  @@index([teamId])
 }
 
 /// Per-match player rating (1–5 stars). One row per rater→target per game.
@@ -228,6 +231,7 @@ model Message {
   reactions  Reaction[]
 
   @@index([chatRoomId])
+  @@index([chatRoomId, createdAt])
 }
 
 model Reaction {
@@ -364,6 +368,7 @@ model GameSeries {
   fieldId                   String?
   fieldName                 String
   fieldLocation             String
+  /// Display-only ILS amount for generated games. Not billed in-app.
   price                     Int                 @default(0)
   maxPlayers                Int
   /// 0-6 (Sunday=0 per JS Date.getDay()) - only for WEEKLY
@@ -381,10 +386,12 @@ model GameSeries {
   title                     String?
   description               String?
   imageUrl                  String?
+  organizer                 User                @relation("OrganizerSeries", fields: [organizerId], references: [id])
   games                     Game[]
   subscribers               SeriesParticipant[]
 
   @@index([isActive])
+  @@index([organizerId])
 }
 
 model SeriesParticipant {

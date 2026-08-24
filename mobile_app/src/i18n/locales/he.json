@@ -24,7 +24,10 @@
     "sport": "ספורט",
     "selectSport": "בחר ספורט",
     "allSports": "כל סוגי הספורט",
-    "atTime": "בשעה"
+    "atTime": "בשעה",
+    "fieldsDirectory": "מגרשים",
+    "networkGames": "רשת המכרים",
+    "emptyFields": "מגרשים פנויים"
   },
   "home": {
     "welcomeBack": "ברוך שובך",
@@ -170,6 +173,9 @@
     "sendMessage": "שלח הודעה"
   },
   "field": {
+    "directory": "מגרשים",
+    "searchPlaceholder": "חפש מגרש או עיר",
+    "emptyDirectory": "לא נמצאו מגרשים",
     "profile": "פרופיל מגרש",
     "notFound": "המגרש לא נמצא",
     "openField": "מגרש פתוח",

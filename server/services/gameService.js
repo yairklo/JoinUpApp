@@ -1,4 +1,4 @@
-const { PrismaClient, SportType } = require('@prisma/client');
+const { SportType } = require('@prisma/client');
 const { NotificationService } = require('./notificationService');
 const {
   getActiveGameStartCutoff,
@@ -56,7 +56,7 @@ async function sendAutoWelcomeMessage(game, newPlayerId) {
   }
 }
 
-const prisma = new PrismaClient();
+const { prisma } = require('../lib/prisma');
 const notificationService = new NotificationService(prisma);
 
 function httpError(message, status, details) {
@@ -432,6 +432,28 @@ const GAME_CREATE_INCLUDE = {
   teams: true,
 };
 
+/**
+ * Pair a group ChatRoom whose id equals the game id. Idempotent on P2002.
+ * `db` may be a PrismaClient or a transaction client.
+ */
+async function createGroupChatForGame(db, gameId, userIds) {
+  const uniqueIds = [...new Set((userIds || []).filter(Boolean).map(String))];
+  if (!gameId) return;
+  try {
+    await db.chatRoom.create({
+      data: {
+        id: String(gameId),
+        type: 'GROUP',
+        participants: uniqueIds.length
+          ? { create: uniqueIds.map((userId) => ({ userId })) }
+          : undefined,
+      },
+    });
+  } catch (e) {
+    if (e && e.code !== 'P2002') throw e;
+  }
+}
+
 /** Builds the participants-create array for a single game occurrence, respecting capacity. */
 function buildOccurrenceParticipants({ organizerId, organizerInLottery, maxPlayers, invitedUserIds, subscriberIds }) {
   const participantsCreate = [{
@@ -602,8 +624,8 @@ async function createGame(payload, creatorUser, io) {
 
   const start = payloadStart ? new Date(payloadStart) : parseJerusalemTimeToUTC(date, time);
 
-  // Recurrence handling (flexible: WEEKLY or CUSTOM). Returns the first generated instance;
-  // no ChatRoom / notifications are created for recurring series via this endpoint.
+  // Recurrence handling (flexible: WEEKLY or CUSTOM). Returns the first generated instance.
+  // Each occurrence is created with a paired group ChatRoom (id === game.id) in the same transaction.
   const isRecurring = !!recurrence && (recurrence.type || recurrence.isRecurring);
   if (isRecurring) {
     const type = String(recurrence?.type || 'WEEKLY').toUpperCase();
@@ -659,9 +681,9 @@ async function createGame(payload, creatorUser, io) {
           instanceRegOpen = new Date(occStart.getTime() - autoOpenRegistrationHours * 3600000);
         }
 
-        createOps.push(
-          prisma.game.create({
-            data: {
+        createOps.push({
+          participantIds: participantsCreate.map((p) => p.userId),
+          data: {
               title,
               fieldId: useFieldId,
               seriesId: series.id,
@@ -685,9 +707,7 @@ async function createGame(payload, creatorUser, io) {
               teamSize: teamSize ? parseInt(teamSize) : null,
               price: price ? parseInt(price) : null
             },
-            include: GAME_CREATE_INCLUDE,
-          })
-        );
+        });
       }
     } else {
       // CUSTOM: create per provided dates
@@ -705,9 +725,9 @@ async function createGame(payload, creatorUser, io) {
           invitedUserIds,
           subscriberIds,
         });
-        createOps.push(
-          prisma.game.create({
-            data: {
+        createOps.push({
+          participantIds: participantsCreate.map((p) => p.userId),
+          data: {
               title,
               fieldId: useFieldId,
               seriesId: series.id,
@@ -729,13 +749,22 @@ async function createGame(payload, creatorUser, io) {
               teamSize: teamSize ? parseInt(teamSize) : null,
               price: price ? parseInt(price) : null
             },
-            include: GAME_CREATE_INCLUDE,
-          })
-        );
+        });
       }
     }
 
-    const createdGames = await prisma.$transaction(createOps);
+    const createdGames = await prisma.$transaction(async (tx) => {
+      const games = [];
+      for (const occ of createOps) {
+        const game = await tx.game.create({
+          data: occ.data,
+          include: GAME_CREATE_INCLUDE,
+        });
+        await createGroupChatForGame(tx, game.id, occ.participantIds);
+        games.push(game);
+      }
+      return games;
+    }, { timeout: 30000, maxWait: 10000 });
     for (const g of createdGames) gameScheduler.resyncGame(g);
     const firstGame = createdGames[0];
     // Notify invited friends about the first occurrence (same copy as single-game create).
@@ -826,21 +855,13 @@ async function createGame(payload, creatorUser, io) {
     });
 
     // Create ChatRoom immediately within transaction
-    await tx.chatRoom.create({
-      data: {
-        id: game.id,
-        type: 'GROUP',
-        participants: {
-          create: [
-            { userId: creatorUser.id },
-            ...invitedUserIds.map(uid => ({ userId: uid }))
-          ]
-        }
-      }
-    });
+    await createGroupChatForGame(tx, game.id, [
+      creatorUser.id,
+      ...invitedUserIds,
+    ]);
 
     return game;
-  });
+  }, { timeout: 20000, maxWait: 10000 });
 
   gameScheduler.resyncGame(created);
 
@@ -1114,40 +1135,46 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
       subscriberIds,
     });
 
-    createOps.push(
-      prisma.game.create({
-        data: {
-          title: existing.title,
-          fieldId: existing.fieldId,
-          seriesId: series.id,
-          start: occStart,
-          duration: existing.duration,
-          maxPlayers: existing.maxPlayers,
-          price: existing.price ?? existing.field?.price ?? 0,
-          teamSize: existing.teamSize,
-          customLat: existing.customLat,
-          customLng: existing.customLng,
-          customLocation: existing.customLocation,
-          isOpenToJoin: existing.isOpenToJoin,
-          isFriendsOnly: existing.isFriendsOnly,
-          lotteryEnabled: existing.lotteryEnabled,
-          ...(existing.lotteryEnabled && existing.lotteryAt ? { lotteryAt: new Date(existing.lotteryAt) } : {}),
-          organizerInLottery: existing.organizerInLottery,
-          description: existing.description || '',
-          organizerId: existing.organizerId,
-          participants: { create: participantsCreate },
-          roles: { create: { userId: existing.organizerId, role: 'ORGANIZER' } },
-          sport: existing.sport,
-          registrationOpensAt: (existing.registrationOpensAt)
-            ? new Date(occStart.getTime() - (start.getTime() - new Date(existing.registrationOpensAt).getTime()))
-            : null
-        },
-        include: GAME_FULL_INCLUDE,
-      })
-    );
+    createOps.push({
+      participantIds: participantsCreate.map((p) => p.userId),
+      data: {
+        title: existing.title,
+        fieldId: existing.fieldId,
+        seriesId: series.id,
+        start: occStart,
+        duration: existing.duration,
+        maxPlayers: existing.maxPlayers,
+        price: existing.price ?? existing.field?.price ?? 0,
+        teamSize: existing.teamSize,
+        customLat: existing.customLat,
+        customLng: existing.customLng,
+        customLocation: existing.customLocation,
+        isOpenToJoin: existing.isOpenToJoin,
+        isFriendsOnly: existing.isFriendsOnly,
+        lotteryEnabled: existing.lotteryEnabled,
+        ...(existing.lotteryEnabled && existing.lotteryAt ? { lotteryAt: new Date(existing.lotteryAt) } : {}),
+        organizerInLottery: existing.organizerInLottery,
+        description: existing.description || '',
+        organizerId: existing.organizerId,
+        participants: { create: participantsCreate },
+        roles: { create: { userId: existing.organizerId, role: 'ORGANIZER' } },
+        sport: existing.sport,
+        registrationOpensAt: (existing.registrationOpensAt)
+          ? new Date(occStart.getTime() - (start.getTime() - new Date(existing.registrationOpensAt).getTime()))
+          : null
+      },
+    });
   }
 
-  const createdGames = await prisma.$transaction(createOps);
+  const createdGames = await prisma.$transaction(async (tx) => {
+    const games = [];
+    for (const occ of createOps) {
+      const game = await tx.game.create({ data: occ.data, include: GAME_FULL_INCLUDE });
+      await createGroupChatForGame(tx, game.id, occ.participantIds);
+      games.push(game);
+    }
+    return games;
+  }, { timeout: 30000, maxWait: 10000 });
   for (const g of createdGames) gameScheduler.resyncGame(g);
 
   const seriesPayload = {
@@ -1684,13 +1711,13 @@ async function getGameById(gameId, viewerId) {
   if (!chatRoom) {
     console.log(`[Self-Healing] Creating missing ChatRoom for game ${game.id}`);
     try {
-      await prisma.chatRoom.create({
-        data: {
-          id: game.id,
-          type: 'GROUP',
-          participants: { create: { userId: game.organizerId } },
-        },
-      });
+      const activeIds = [
+        game.organizerId,
+        ...((game.participants || [])
+          .filter((p) => p && ['CONFIRMED', 'WAITLISTED'].includes(p.status))
+          .map((p) => p.userId)),
+      ];
+      await createGroupChatForGame(prisma, game.id, activeIds);
     } catch (e) {
       console.error('Failed to self-heal chat room', e);
     }
@@ -1774,4 +1801,5 @@ module.exports = {
   getTodayCityGames,
   getGameById,
   getGameRatings,
+  createGroupChatForGame,
 };

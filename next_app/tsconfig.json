@@ -25,6 +25,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@joinup/shared": [
+        "../shared"
+      ],
+      "@joinup/shared/*": [
+        "../shared/*"
       ]
     }
   },
@@ -32,7 +38,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "../shared/**/*.ts"
   ],
   "exclude": [
     "node_modules",

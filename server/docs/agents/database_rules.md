@@ -9,9 +9,10 @@
 1. **The Hostname Rule**: Connection separation on Neon is driven by the **hostname**, NOT the port (both listen on 5432). The pooled connection URL contains a distinct `-pooler` suffix (e.g., `ep-xxxx-pooler.aws.neon.tech`). The direct connection does NOT contain the `-pooler` suffix.
 2. **Migration Constraints**: Running `npx prisma migrate dev` or `migrate deploy` uses session-level features that PgBouncer rejects. Prisma CLI automatically handles routing via `directUrl`, but you must ensure `DIRECT_DATABASE_URL` is never pointed to a `-pooler` hostname in any deployment environment.
 
-## 2. CONNECTION POOL EXHAUSTION (KNOWN ARCHITECTURAL DEBT)
-- **Current State**: The codebase currently suffers from architectural debt where almost every route and service file executes `const prisma = new PrismaClient();` independently at module scope (creating ~20 distinct client instances).
-- **Rule**: While you should reuse existing instances when modifying old files, **NEVER instantiate a `PrismaClient` inside an Express request handler, a loop, or a worker tick.** Doing so under load will completely exhaust Neon's database backend limits instantly.
+## 2. PRISMA CLIENT LIFECYCLE
+- **Runtime rule:** Import the shared client from `server/lib/prisma.js`. Do not call `new PrismaClient()` in routes, services, or workers.
+- **Never** instantiate `new PrismaClient()` inside an Express request handler, a loop, or a worker tick — that exhausts Neon's pool immediately.
+- CLI scripts (`prisma/seed.js`, one-off `check.js`) may create their own short-lived client.
 
 ## 3. PRISMA TRANSACTION CONVENTIONS
 High-concurrency writes (such as joining rosters, waitlist promotion, and game creations) must be atomic.

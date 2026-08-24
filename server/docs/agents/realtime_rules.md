@@ -28,6 +28,7 @@ useEffect(() => {
   return () => unsub(); // Compulsory cleanup to prevent severe memory leaks
 }, [user?.id]);
 ```
+```
 - **Clerk Ref-Freezing Pattern**: To prevent infinite data-fetching and re-rendering loops caused by unstable function identities (such as Clerk's `getToken`), freeze the function reference inside a mutable `useRef` and rely on stable primitive states (`isLoaded`, `userId`) in effect dependency arrays:
 ```javascript
 const getTokenRef = useRef(getToken);
@@ -38,3 +39,8 @@ useEffect(() => {
   if (isLoaded && userId) fetchNotifications();
 }, [isLoaded, userId]);
 ```
+
+## 4. MULTI-INSTANCE BACKGROUND JOBS
+In-process `gameScheduler` timers and the weekly series interval only start when `RUN_BACKGROUND_JOBS` is not `false`/`0` (and not under Jest). Duplicate Render web instances should set `RUN_BACKGROUND_JOBS=false` on the extras.
+
+To move timers off the HTTP process: run `npm run worker` (`server/worker.js`) as a second Render background worker. That process sets `RUN_HTTP_SERVER=false` and publishes Socket.IO events on Redis channel `joinup:socket_events`. The API process (HTTP on) subscribes and `io.emit`s to connected clients. Requires `REDIS_URL`. Set `RUN_BACKGROUND_JOBS=false` on the API service so lottery/reminders are not armed twice.

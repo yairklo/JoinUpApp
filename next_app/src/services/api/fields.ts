@@ -17,6 +17,9 @@ export interface Field {
     streetNumber?: string | null;
     phone?: string | null;
     favoritesCount?: number;
+    lat?: number | null;
+    lng?: number | null;
+    available?: boolean;
 }
 
 export interface BusyCell {
@@ -51,6 +54,10 @@ export const fieldsApi = {
         return apiClient<Field[]>('/api/fields', { cache: 'no-store' });
     },
 
+    listForAdmin: (token: string) => {
+        return apiClient<Field[]>('/api/fields?includeUnavailable=true', { token, cache: 'no-store' });
+    },
+
     getById: (fieldId: string) => {
         return apiClient<Field>(`/api/fields/${fieldId}`, { cache: 'no-store' });
     },
@@ -72,5 +79,13 @@ export const fieldsApi = {
             data: { busyLevel },
             token
         });
-    }
+    },
+
+    create: (data: { name: string; location: string; city?: string; type: 'open' | 'closed'; price?: number }, token: string) => {
+        return apiClient<Field>('/api/fields', { method: 'POST', data, token });
+    },
+
+    update: (fieldId: string, data: Partial<{ name: string; location: string; city: string | null; type: 'open' | 'closed'; price: number; available: boolean }>, token: string) => {
+        return apiClient<Field>(`/api/fields/${fieldId}`, { method: 'PUT', data, token });
+    },
 };

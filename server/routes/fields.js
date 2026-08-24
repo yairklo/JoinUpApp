@@ -1,6 +1,5 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../lib/prisma');
 const dataManager = require('../utils/dataManager');
 const { getJerusalemDayHour } = require('../utils/timezone');
 
@@ -56,17 +55,19 @@ function hasBoundingBox(query) {
   const { minLat, maxLat, minLng, maxLng } = query;
   return !!(minLat && maxLat && minLng && maxLng);
 }
-const { authenticateToken } = require('../utils/auth');
+const { authenticateToken, attachOptionalUser } = require('../utils/auth');
+const { requireAdmin } = require('../utils/admin');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 
 const router = express.Router();
 const fieldImageUpload = createImageUpload('fields');
 
 // Get all fields
-router.get('/', async (req, res) => {
+router.get('/', attachOptionalUser, async (req, res) => {
   try {
+    const includeUnavailable = String(req.query.includeUnavailable) === 'true' && !!req.user?.isAdmin;
     const fields = await prisma.field.findMany({
-      where: { available: true },
+      where: includeUnavailable ? {} : { available: true },
       orderBy: { name: 'asc' },
       include: { _count: { select: { favorites: true } } }
     });
@@ -391,14 +392,9 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new field (Admin only)
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
-    const { name, location, price, type, image } = req.body;
+    const { name, location, city, price, type, image } = req.body;
 
     // Validate required fields
     if (!name || !location || !type) {
@@ -414,6 +410,7 @@ router.post('/', authenticateToken, async (req, res) => {
       data: {
         name,
         location,
+        city: city || null,
         price: type === 'open' ? 0 : (price || 0),
         rating: 0,
         image: image || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
@@ -429,18 +426,14 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update field (Admin only)
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
-    const { name, location, price, type, image, available } = req.body;
+    const { name, location, city, price, type, image, available } = req.body;
     const updates = {};
 
     if (name !== undefined) updates.name = name;
     if (location !== undefined) updates.location = location;
+    if (city !== undefined) updates.city = city || null;
     if (price !== undefined) updates.price = price;
     if (type !== undefined) {
       if (!['open', 'closed'].includes(type)) {
@@ -460,11 +453,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Upload field/venue image (Admin only)
-router.post('/:id/image', authenticateToken, handleSingleUpload(fieldImageUpload, 'image'), async (req, res) => {
+router.post('/:id/image', authenticateToken, requireAdmin, handleSingleUpload(fieldImageUpload, 'image'), async (req, res) => {
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
     const existing = await prisma.field.findUnique({ where: { id: req.params.id }, select: { image: true } });
     if (!existing) return res.status(404).json({ error: 'Field not found' });
     if (!req.file) {
@@ -483,13 +473,8 @@ router.post('/:id/image', authenticateToken, handleSingleUpload(fieldImageUpload
 });
 
 // Delete field (Admin only)
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
     await prisma.field.delete({ where: { id: req.params.id } });
     res.json({ message: 'Field deleted successfully' });
   } catch (error) {

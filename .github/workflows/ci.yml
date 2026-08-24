@@ -1,90 +1,86 @@
-name: CI Check
+name: CI
 
-# Triggers: run the workflow when a PR targets the main branch
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: [main, Dev]
+  push:
+    branches: [Dev]
+  workflow_dispatch:
 
-# Minimal permissions for security
 permissions:
   contents: read
 
-# Cancel previous runs of the same ref to save CI minutes
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Frontend (Next.js) job — runs inside the next_app directory
-  build-and-test:
-    name: Build and Test Project
+  next-build:
+    name: next_app build
     runs-on: ubuntu-latest
-    env:
-      # Provide Clerk publishable key at build time to avoid prerender crashes
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
     defaults:
       run:
         working-directory: next_app
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18' # Use your project's Node.js version
-          cache: 'npm'
+          node-version: '20'
+          cache: npm
           cache-dependency-path: next_app/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run linter
-        continue-on-error: true # Do not fail the workflow on lint errors; still prints annotations
-        run: npm run lint --if-present # Ensure no lint errors (skip if script missing)
+      - name: Lint
+        continue-on-error: true
+        run: npm run lint --if-present
 
-      - name: Check build
-        run: npm run build --if-present # Ensure the app builds (skip if script missing)
+      - name: Production build
+        run: npm run build
 
-  # Optional backend job — only runs if server/package.json exists
-  build-and-test-server:
-    name: Build and Lint (server)
+  server-test:
+    name: server tests
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: server
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: joinup
+          POSTGRES_PASSWORD: joinup
+          POSTGRES_DB: joinup_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U joinup -d joinup_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      NODE_ENV: test
+      PORT: '3099'
+      DATABASE_URL: postgresql://joinup:joinup@localhost:5432/joinup_test?schema=public
+      DIRECT_DATABASE_URL: postgresql://joinup:joinup@localhost:5432/joinup_test?schema=public
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Detect server/package.json
-        id: detect
-        shell: bash
-        run: |
-          if [ -f "server/package.json" ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install Node.js
-        if: ${{ steps.detect.outputs.exists == 'true' }}
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: '20'
+          cache: npm
           cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
-        if: ${{ steps.detect.outputs.exists == 'true' }}
         run: npm ci
 
-      - name: Run linter
-        if: ${{ steps.detect.outputs.exists == 'true' }}
-        run: npm run lint --if-present
+      - name: Apply migrations
+        run: npx prisma migrate deploy
 
-      - name: Check build
-        if: ${{ steps.detect.outputs.exists == 'true' }}
-        run: npm run build --if-present
-
-
+      - name: Run Jest
+        run: npm test

@@ -206,7 +206,7 @@ export default function GameHeaderCard({
             {typeof price === "number" && price > 0 && (
               <Chip
                 size="small"
-                label={`₪${price}`}
+                label={`₪${price} במגרש`}
                 sx={{
                   ...chipOverlaySx,
                   flexShrink: 0,

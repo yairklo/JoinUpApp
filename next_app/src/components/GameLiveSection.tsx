@@ -13,9 +13,8 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import PendingJoinRequests from "@/components/PendingJoinRequests";
 import { useSocket } from "@/context/SocketContext";
 import { normalizeIncomingGame } from "@/utils/timezone";
+import { gamesApi } from "@/services/api/games";
 import { useAuth } from "@clerk/nextjs";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 
@@ -104,19 +103,7 @@ export default function GameLiveSection({
     setWaitlistActionLoading(true);
     try {
       const token = await getToken().catch(() => "");
-      const res = await fetch(`${API_BASE}/api/games/${game.id}/waitlist-confirm`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ accept }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to confirm waitlist offer");
-      }
-      const body = await res.json().catch(() => ({}));
+      const body = await gamesApi.confirmWaitlist(game.id, accept, token || "");
       mergeAndSet(body);
     } catch (e: unknown) {
       setWaitlistError(e instanceof Error ? e.message : "שגיאה בעיבוד הבקשה");
@@ -130,18 +117,7 @@ export default function GameLiveSection({
     setWaitlistActionLoading(true);
     try {
       const token = await getToken().catch(() => "");
-      const res = await fetch(`${API_BASE}/api/games/${game.id}/leave`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Failed to leave waitlist");
-      }
-      const body = await res.json().catch(() => ({}));
+      const body = await gamesApi.leave(game.id, token || "");
       mergeAndSet(body);
     } catch (e: unknown) {
       setWaitlistError(e instanceof Error ? e.message : "שגיאה בביטול ההרשמה");

@@ -9,6 +9,7 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@joinup/shared'],
   eslint: {
     // Allow production builds to successfully complete even if
     // there are ESLint errors. We still see them in logs.

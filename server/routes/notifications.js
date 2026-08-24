@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { NotificationService } = require('../services/notificationService');
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('../lib/prisma');
 const { authenticateToken } = require('../utils/auth');
 
-const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
 // TEST endpoint - no auth required

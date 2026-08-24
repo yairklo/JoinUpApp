@@ -175,5 +175,35 @@ export const gamesApi = {
             method: 'DELETE',
             token,
         });
-    }
+    },
+
+    setCaptain: (gameId: string, userId: string, isCaptain: boolean, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/participants/${userId}/captain`, {
+            method: 'PATCH',
+            data: { isCaptain },
+            token,
+        });
+    },
+
+    join: (gameId: string, token: string) => {
+        return apiClient<Game & { pending?: boolean }>(`/api/games/${gameId}/join`, {
+            method: 'POST',
+            token,
+        });
+    },
+
+    leave: (gameId: string, token: string) => {
+        return apiClient<Game & { deleted?: boolean }>(`/api/games/${gameId}/leave`, {
+            method: 'POST',
+            token,
+        });
+    },
+
+    confirmWaitlist: (gameId: string, accept: boolean, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/waitlist-confirm`, {
+            method: 'POST',
+            data: { accept },
+            token,
+        });
+    },
 };

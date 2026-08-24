@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import SeriesSubscribeButton from "@/components/SeriesSubscribeButton";
 import SeriesSettingsEditor from "@/components/SeriesSettingsEditor";
+import SeriesMembersPanel from "@/components/SeriesMembersPanel";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -44,6 +45,7 @@ type SeriesDetails = {
     organizer: { id: string; name: string | null; avatar: string | null };
     subscribers: {
         userId: string;
+        role?: string;
         user: { id: string; name: string | null; avatar: string | null }
     }[];
     upcomingGames: {
@@ -79,6 +81,8 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
 
     const isSubscribed = userId ? series.subscribers.some(s => s.userId === userId) : false;
     const isOrganizer = userId === series.organizer.id;
+    const isManager = userId ? series.subscribers.some(s => s.userId === userId && s.role === 'MANAGER') : false;
+    const canManage = isOrganizer || isManager;
     const days = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
     const dayName = series.dayOfWeek !== null ? days[series.dayOfWeek] : "תאריכים מותאמים";
 
@@ -121,7 +125,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                         </Box>
 
                         <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
-                            {isOrganizer && (
+                            {canManage && (
                                 <SeriesSettingsEditor
                                     seriesId={series.id}
                                     seriesType={series.type}
@@ -180,6 +184,14 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     עדיין אין חברים בקבוצה. היו הראשונים!
                                 </Typography>
                             )}
+                            <SeriesMembersPanel
+                                seriesId={series.id}
+                                seriesTitle={series.title || series.fieldName}
+                                subscribers={series.subscribers}
+                                organizerId={series.organizer.id}
+                                canManage={canManage}
+                                isOrganizer={isOrganizer}
+                            />
                         </CardContent>
                     </Card>
                 </Grid>

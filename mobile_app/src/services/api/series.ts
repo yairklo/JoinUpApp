@@ -6,8 +6,10 @@ export interface SeriesPayload {
 }
 
 export interface UpdateSeriesDTO {
-    time: string;
-    updateFutureGames: boolean;
+    time?: string;
+    title?: string;
+    description?: string;
+    updateFutureGames?: boolean;
 }
 
 export const seriesApi = {
@@ -24,7 +26,7 @@ export const seriesApi = {
     },
 
     update: (seriesId: string, data: UpdateSeriesDTO, token: string) => {
-        return apiClient(`/api/series/${seriesId}`, {
+        return apiClient<{ series: unknown; updatedGames?: number }>(`/api/series/${seriesId}`, {
             method: 'PATCH',
             data,
             token
@@ -32,15 +34,32 @@ export const seriesApi = {
     },
 
     toggleSubscribe: (seriesId: string, isSubscribed: boolean, token: string) => {
-        return apiClient(`/api/series/${seriesId}/subscribe`, {
+        return apiClient<{ ok?: boolean }>(`/api/series/${seriesId}/subscribe`, {
             method: isSubscribed ? 'DELETE' : 'POST',
             token
         });
     },
 
+    addMembers: (seriesId: string, userIds: string[], token: string) => {
+        return apiClient<{ ok: boolean; added: number }>(`/api/series/${seriesId}/members`, {
+            method: 'POST',
+            data: { userIds },
+            token,
+        });
+    },
+
+    setMemberRole: (seriesId: string, userId: string, role: 'MANAGER' | 'MEMBER', token: string) => {
+        return apiClient<{ ok: boolean; userId: string; role: string }>(`/api/series/${seriesId}/members/${userId}`, {
+            method: 'PATCH',
+            data: { role },
+            token,
+        });
+    },
+
     delete: (seriesId: string, token: string) => {
-        return apiClient(`/api/series/${seriesId}`, {
-            method: 'DELETE',
+        return apiClient(`/api/series/${seriesId}/delete`, {
+            method: 'POST',
+            data: { strategy: 'DELETE_ALL' },
             token
         });
     }

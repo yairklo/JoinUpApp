@@ -19,6 +19,9 @@ class GameScheduler {
     this.io = null;
     this.notificationService = null;
     this.enabled = false;
+    // Cross-process notifier, set via setPublisher(). Used only when this process's own
+    // scheduler isn't enabled, to forward the signal to whichever process runs it.
+    this.publish = null;
   }
 
   // Must be called once at boot (gated the same way as the old setIntervals, so Jest never
@@ -28,6 +31,13 @@ class GameScheduler {
     this.io = io;
     this.notificationService = notificationService;
     this.enabled = true;
+  }
+
+  // Lets a process that doesn't run the scheduler itself (e.g. the web API when split from
+  // a dedicated `worker.js` jobs process, per RUN_BACKGROUND_JOBS) forward resync and
+  // review-queue signals over Redis to whichever process does.
+  setPublisher(fn) {
+    this.publish = fn;
   }
 
   _arm(key, dueAt, handler) {
@@ -64,6 +74,11 @@ class GameScheduler {
   resyncGame(game) {
     if (!game || !game.id) return;
 
+    if (!this.enabled) {
+      if (this.publish) this.publish({ type: 'resync', gameId: game.id });
+      return;
+    }
+
     if (game.lotteryEnabled && !game.lotteryExecutedAt && game.lotteryAt) {
       this._arm(`lottery:${game.id}`, new Date(game.lotteryAt), () => this._runLottery(game.id));
     } else {
@@ -96,6 +111,15 @@ class GameScheduler {
     } else {
       this._disarm(`reminder:${game.id}`);
     }
+  }
+
+  // Re-fetches and resyncs a single game by id — used when this process's scheduler is
+  // enabled but the write that changed the game happened in another process (see
+  // setPublisher() / the SCHEDULER_CHANNEL handler in index.js).
+  async resyncGameById(gameId) {
+    if (!this.enabled || !this.prisma || !gameId) return;
+    const game = await this.prisma.game.findUnique({ where: { id: gameId } });
+    if (game) this.resyncGame(game);
   }
 
   // Boot-time reload: one query per condition, replacing the 4 setIntervals + reminder cron.
@@ -138,11 +162,18 @@ class GameScheduler {
 
   async _runLottery(gameId) {
     const prisma = this.prisma;
+    const now = new Date();
+    const claimed = await prisma.game.updateMany({
+      where: { id: gameId, lotteryEnabled: true, lotteryExecutedAt: null },
+      data: { lotteryExecutedAt: now },
+    });
+    if (claimed.count === 0) return;
+
     const game = await prisma.game.findUnique({
       where: { id: gameId },
       include: { participants: true },
     });
-    if (!game || !game.lotteryEnabled || game.lotteryExecutedAt) return;
+    if (!game) return;
 
     const confirmed = game.participants.filter(p => p.status === 'CONFIRMED');
     const waitlisted = game.participants.filter(p => p.status === 'WAITLISTED');
@@ -172,9 +203,7 @@ class GameScheduler {
       }));
     }
 
-    const now = new Date();
-    updates.push(prisma.game.update({ where: { id: game.id }, data: { lotteryExecutedAt: now } }));
-    await prisma.$transaction(updates);
+    if (updates.length) await prisma.$transaction(updates);
     console.log(`🎲 [SCHEDULER] Lottery executed for game ${game.id} at ${now.toISOString()}`);
   }
 
@@ -201,13 +230,15 @@ class GameScheduler {
     const dur = typeof game.duration === 'number' ? game.duration : 1;
     const endTime = new Date(new Date(game.start).getTime() + dur * 3600000);
     if (endTime > new Date()) {
-      // Due time shifted since this timer was armed (e.g. start/duration edited in between) -
-      // rearm instead of silently doing nothing.
       this._arm(`completion:${game.id}`, endTime, () => this._checkCompletion(game.id));
       return;
     }
 
-    await prisma.game.update({ where: { id: game.id }, data: { status: 'COMPLETED' } });
+    const claimed = await prisma.game.updateMany({
+      where: { id: game.id, status: 'OPEN' },
+      data: { status: 'COMPLETED' },
+    });
+    if (claimed.count === 0) return;
     console.log(`🏁 [SCHEDULER] Auto-completed game ${game.id}.`);
   }
 
@@ -220,11 +251,15 @@ class GameScheduler {
         field: { select: { name: true, location: true } },
       },
     });
-    if (!game || game.reminderSent || game.status !== 'OPEN') return;
+    if (!game || game.status !== 'OPEN') return;
+
+    const claimed = await prisma.game.updateMany({
+      where: { id: game.id, reminderSent: false, status: 'OPEN' },
+      data: { reminderSent: true },
+    });
+    if (claimed.count === 0) return;
 
     if (new Date(game.start).getTime() <= Date.now()) {
-      // Game already started/passed before the reminder fired - nothing useful to send.
-      await prisma.game.update({ where: { id: game.id }, data: { reminderSent: true } });
       return;
     }
 
@@ -247,7 +282,6 @@ class GameScheduler {
       }
     }
 
-    await prisma.game.update({ where: { id: game.id }, data: { reminderSent: true } });
     console.log(`[SCHEDULER] Sent reminders for game ${game.id} to ${game.participants.length} participants`);
   }
 
@@ -255,7 +289,10 @@ class GameScheduler {
   // so it's triggered on insert instead of armed against a due column). ----------------------
 
   triggerReviewQueue() {
-    if (!this.enabled) return;
+    if (!this.enabled) {
+      if (this.publish) this.publish({ type: 'reviewQueue' });
+      return;
+    }
     const { processReviewQueue } = require('../workers/reviewWorker');
     processReviewQueue().catch(err => console.error('[SCHEDULER] Review queue trigger failed:', err));
   }

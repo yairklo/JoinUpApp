@@ -10,7 +10,7 @@ Persistent instructions for any Cursor Agent run against this repo (including he
 ## Database & Migration Architecture (For Planner / L1)
 1. **Neon Connection Topology:** \`schema.prisma\` uses \`DATABASE_URL\` for pooled traffic and \`DIRECT_DATABASE_URL\` for direct connection. Never point \`DIRECT_DATABASE_URL\` at a \`-pooler\` hostname.
 2. **Migrations:** \`prisma migrate dev\` requires \`directUrl\`. The L1 Planner must be aware of this when generating tasks that change the schema.
-3. **PrismaClient Lifecycle:** When editing existing files, reuse the module-level instance. Never instantiate \`new PrismaClient()\` inside an Express request handler.
+3. **PrismaClient Lifecycle:** Import `prisma` from `server/lib/prisma.js`. Never instantiate `new PrismaClient()` inside an Express request handler, a loop, or a worker tick.
 4. **Transactions:** Roster joins, waitlist promotion, and game creation must be atomic. Game + group chat pairing must happen in the same interactive transaction, where the group chat \`id\` exactly equals the \`game.id\`.
 
 ## Known failure modes (do not regress)
@@ -43,6 +43,14 @@ Persistent instructions for any Cursor Agent run against this repo (including he
    Cause: `gameService` writes a field present in `schema.prisma` but local `@prisma/client` was generated before that field existed → create-game returns 500 and roster tests cascade with `testGame.id` undefined.  
    Fix: run `prisma generate` before `npm test` (wired into `server` `npm test` script).
 
+8. **HTTP rate limiter 429s health checks or Socket.IO**  
+   Cause: a global Express limiter counting `/api/health` (Render probes) or `/api/socket` (Engine.IO polling).  
+   Fix: exempt those paths and disable the limiter under Jest so roster/messages tests never 429.
+
+9. **GitHub CI never ran server tests / used Node 18**  
+   Cause: `.github/workflows/ci.yml` only built Next on PRs to `main`, skipped `npm test` in `server`, and pinned Node 18. Agent merges go to `Dev`.  
+   Fix: run Next 15 build + Prisma migrate + Jest on PRs to `main`/`Dev` and pushes to `Dev`, on Node 20, with a disposable Postgres service.
+
 ## When you learn a new deploy bug
 Append a short bullet under **Known failure modes** in this file and/or add a rule under `.cursor/rules/`, then commit it with the fix so future terminal agents inherit the lesson.
 
@@ -59,3 +67,11 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Jest `--detectOpenHandles` fails when `server/index.js` starts `setInterval`/`setTimeout` under test — skip background schedulers when `NODE_ENV=test` or `JEST_WORKER_ID` is set. Integration tests must also pin `PORT` (host env often sets `PORT=8787`) and hit that same port.
 - Jest roster tests must use exported Express `app` with supertest and must not call `server.listen` under `JEST_WORKER_ID` (avoids TCPSERVERWRAP + undefined game id cascades).
 - Stale `@prisma/client` after schema changes (e.g. `welcomeMessage`) breaks create-game in roster tests — `npm test` must run `prisma generate` first.
+- Chat write paths must use `authenticateToken` / `socket.userId` + `checkChatPermission`. Never trust client-supplied `userId`, never fail-open socket JWT, never leave `POST /api/messages` public. Recurring series games must create `ChatRoom` (id === game.id) in the same transaction as the game.
+- Runtime code must import Prisma from `server/lib/prisma.js` (one client per process). Do not add `new PrismaClient()` in routes/services/workers. Scheduler handlers must claim work with `updateMany` on sentinel fields (`lotteryExecutedAt`, `reminderSent`, `pickingOpenedAt`, `status`) so a second Render instance is a no-op. Set `RUN_BACKGROUND_JOBS=false` on extra API instances so they do not arm in-memory timers.
+- HTTP rate limiter (`server/middleware/rateLimit.js`) must skip Jest (`NODE_ENV=test` / `JEST_WORKER_ID`), `OPTIONS`, `/api/health`, and `/api/socket`. Do not count Engine.IO polling or health probes.
+- `req.user.isAdmin` comes from Clerk metadata (`isAdmin` / `role=admin`) or `ADMIN_USER_IDS`. Do not hardcode `false`.
+- GitHub CI (`.github/workflows/ci.yml`) must run `next_app` `npm run build` and `server` `npm test` on Node 20 against a workflow Postgres — not Next-only on PRs to `main`.
+- Shared client/server contracts live in `shared/` (`@joinup/shared`). Do not copy timezone/sports/`Game` types between next_app and mobile_app.
+- A dedicated jobs process is `node worker.js` (`RUN_HTTP_SERVER=false`). The web API that sits next to it must set `RUN_BACKGROUND_JOBS=false`. Worker socket emits go through Redis `joinup:socket_events`.
+- `Game.price` / `GameSeries.price` are display-only (pay at field). Do not add a payment processor without a product brief.

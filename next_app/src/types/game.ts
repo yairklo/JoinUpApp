@@ -1,37 +1,8 @@
-export type Game = {
-    id: string;
-    fieldId: string;
-    fieldName: string;
-    fieldLocation: string;
-    city?: string | null;
-    start?: string;
-    date: string;
-    time: string;
-    duration?: number;
-    maxPlayers: number;
-    currentPlayers: number;
-    participants?: Array<{ id: string; name?: string | null }>;
-    sport?: string;
-    seriesId?: string | null;
-    registrationOpensAt?: string | null;
-    title?: string | null;
-    description?: string | null;
-    welcomeMessage?: string | null;
-    teamSize?: number | null;
-    price?: number | null;
-    organizerId?: string;
-    fieldLat?: number | null;
-    fieldLng?: number | null;
-    customLat?: number | null;
-    customLng?: number | null;
-    isFriendsOnly?: boolean;
-    friendsOnlyUntil?: string | null;
-    joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
-    pendingRequestCount?: number;
-    viewerParticipationStatus?: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'REJECTED' | null;
-    field?: {
-        lat?: number | null;
-        lng?: number | null;
-        name?: string;
-    };
-};
+export type {
+  Game,
+  GameParticipant,
+  GameField,
+  Team,
+  Manager,
+  JoinRequest,
+} from '@joinup/shared/types/game';

@@ -1,8 +1,8 @@
-import { View, Text, Switch, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Image } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Image, Share } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { seriesApi } from '@/services/api';
+import { seriesApi, usersApi } from '@/services/api';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +21,11 @@ export default function SeriesScreen() {
     const [updating, setUpdating] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [time, setTime] = useState('');
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
     const [updateFuture, setUpdateFuture] = useState(true);
+    const [memberQuery, setMemberQuery] = useState('');
+    const [addingMember, setAddingMember] = useState(false);
 
     const [isSubscribed, setIsSubscribed] = useState(false);
 
@@ -36,6 +40,8 @@ export default function SeriesScreen() {
             const data = await seriesApi.getById(id, token);
             setSeries(data);
             setTime(data.time || "20:00");
+            setTitle(data.title || data.fieldName || "");
+            setDescription(data.description || "");
 
             const isSub = data.subscribers?.some((s: any) => s.userId === user?.id);
             setIsSubscribed(isSub || false);
@@ -52,7 +58,7 @@ export default function SeriesScreen() {
         try {
             const token = await getToken();
             if (!token) return;
-            await seriesApi.update(id, { time, updateFutureGames: updateFuture }, token);
+            await seriesApi.update(id, { time, title, description, updateFutureGames: updateFuture }, token);
             Alert.alert(t('success'), t('series.updateSuccess', 'Series updated successfully'));
             fetchSeries();
         } catch (error) {
@@ -84,6 +90,50 @@ export default function SeriesScreen() {
                 }
             ]
         );
+    };
+
+    const shareInvite = async () => {
+        const inviteUrl = `https://join-up-app.vercel.app/series/${id}`;
+        const message = t('series.inviteText', 'Join my joinUp group: {{url}}', { url: inviteUrl });
+        try {
+            await Share.share({ message, url: inviteUrl });
+        } catch (e) {
+            Alert.alert(t('error'), t('series.shareError', 'Failed to share invite'));
+        }
+    };
+
+    const addMemberBySearch = async () => {
+        const q = memberQuery.trim();
+        if (q.length < 2) return;
+        setAddingMember(true);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const results = await usersApi.search(q, token);
+            const hit = (results || []).find((u: { id: string }) => u.id !== user?.id);
+            if (!hit) {
+                Alert.alert(t('error'), t('series.userNotFound', 'No matching user found'));
+                return;
+            }
+            await seriesApi.addMembers(id, [hit.id], token);
+            setMemberQuery('');
+            fetchSeries();
+        } catch (e) {
+            Alert.alert(t('error'), t('series.addMemberError', 'Failed to add member'));
+        } finally {
+            setAddingMember(false);
+        }
+    };
+
+    const toggleManager = async (userId: string, makeManager: boolean) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await seriesApi.setMemberRole(id, userId, makeManager ? 'MANAGER' : 'MEMBER', token);
+            fetchSeries();
+        } catch (e) {
+            Alert.alert(t('error'), t('series.roleError', 'Failed to update role'));
+        }
     };
 
     const toggleSubscribe = async () => {
@@ -133,6 +183,8 @@ export default function SeriesScreen() {
     }
 
     const isOrganizer = user?.id === series.organizer?.id;
+    const isManager = series.subscribers?.some((s: { userId: string; role?: string }) => s.userId === user?.id && s.role === 'MANAGER');
+    const canManage = isOrganizer || isManager;
     const days = [
         t('days.sunday', 'Sunday'),
         t('days.monday', 'Monday'),
@@ -153,9 +205,14 @@ export default function SeriesScreen() {
                 <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
                     <FontAwesome name="arrow-left" size={20} color="#4b5563" />
                 </TouchableOpacity>
-                <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
+                <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>
                     {series.title || series.fieldName}
                 </Text>
+                {canManage && (
+                    <TouchableOpacity onPress={() => setShowSettings(!showSettings)} className="p-2 ml-2" accessibilityLabel={t('series.manageSettings', 'Manage Series Settings')}>
+                        <FontAwesome name="cog" size={20} color="#4b5563" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             <ScrollView className="flex-1 bg-gray-50">
@@ -254,6 +311,14 @@ export default function SeriesScreen() {
                                     <Text className="text-xs text-gray-700 text-center font-medium" numberOfLines={1}>
                                         {sub.user?.name || t('user')}
                                     </Text>
+                                    {sub.role === 'MANAGER' && (
+                                        <Text className="text-[10px] text-brand font-bold">{t('series.manager', 'Manager')}</Text>
+                                    )}
+                                    {isOrganizer && sub.userId !== series.organizer?.id && (
+                                        <TouchableOpacity onPress={() => toggleManager(sub.userId, sub.role !== 'MANAGER')} className="mt-1">
+                                            <FontAwesome name={sub.role === 'MANAGER' ? 'star' : 'star-o'} size={14} color="#059669" />
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
                             ))}
                         </ScrollView>
@@ -264,6 +329,30 @@ export default function SeriesScreen() {
                         </View>
                     )}
                 </View>
+
+                {canManage && (
+                    <View className="bg-white p-6 mb-4 shadow-sm">
+                        <Text className="text-lg font-bold text-gray-800 mb-3">{t('series.inviteMembers', 'Invite & add members')}</Text>
+                        <TouchableOpacity onPress={shareInvite} className="py-3 rounded-xl items-center bg-brand mb-3">
+                            <Text className="text-white font-bold">{t('series.shareInvite', 'Share invite link')}</Text>
+                        </TouchableOpacity>
+                        <View className="flex-row gap-2">
+                            <TextInput
+                                value={memberQuery}
+                                onChangeText={setMemberQuery}
+                                placeholder={t('series.searchUsers', 'Search users to add')}
+                                className="flex-1 bg-gray-50 p-3 rounded-lg border border-gray-200"
+                            />
+                            <TouchableOpacity
+                                onPress={addMemberBySearch}
+                                disabled={addingMember}
+                                className={`px-4 rounded-lg items-center justify-center ${addingMember ? 'bg-gray-400' : 'bg-brand'}`}
+                            >
+                                <Text className="text-white font-bold">{t('series.add', 'Add')}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
 
                 {/* Upcoming Games Section */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
@@ -301,8 +390,8 @@ export default function SeriesScreen() {
                     )}
                 </View>
 
-                {/* Organizer Settings */}
-                {isOrganizer && (
+                {/* Organizer / manager Settings */}
+                {canManage && (
                     <View className="p-6 mb-6">
                         <TouchableOpacity
                             onPress={() => setShowSettings(!showSettings)}
@@ -317,6 +406,21 @@ export default function SeriesScreen() {
 
                         {showSettings && (
                             <View className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                                <Text className="text-gray-700 font-bold mb-2">{t('series.title', 'Group name')}</Text>
+                                <TextInput
+                                    value={title}
+                                    onChangeText={setTitle}
+                                    className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base"
+                                />
+
+                                <Text className="text-gray-700 font-bold mb-2">{t('series.description', 'Description')}</Text>
+                                <TextInput
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    multiline
+                                    className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base min-h-[80px]"
+                                />
+
                                 <Text className="text-gray-700 font-bold mb-2">{t('series.defaultTime', 'Default Time')}</Text>
                                 <TextInput
                                     value={time}
@@ -345,12 +449,14 @@ export default function SeriesScreen() {
                                     </Text>
                                 </TouchableOpacity>
 
+                                {isOrganizer && (
                                 <TouchableOpacity
                                     onPress={handleDelete}
                                     className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
                                 >
                                     <Text className="text-red-600 font-bold text-base">{t('series.delete', 'Delete Series')}</Text>
                                 </TouchableOpacity>
+                                )}
                             </View>
                         )}
                     </View>

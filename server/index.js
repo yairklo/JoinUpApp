@@ -14,10 +14,9 @@ const path = require('path');
 const fs = require('fs').promises;
 const http = require('http');
 const { Server } = require('socket.io');
-const { PrismaClient } = require('@prisma/client');
+const { prisma } = require('./lib/prisma');
 
 // Import routes
-const authRoutes = require('./routes/auth');
 const fieldsRoutes = require('./routes/fields');
 const gamesRoutes = require('./routes/games');
 const usersRoutes = require('./routes/users');
@@ -25,6 +24,7 @@ const seriesRoutes = require('./routes/series');
 const messagesRoutes = require('./routes/messages');
 const notificationsRoutes = require('./routes/notifications');
 const searchRoutes = require('./routes/search');
+const adminRoutes = require('./routes/admin');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission } = require('./utils/chatAuth');
 const { NotificationService } = require('./services/notificationService');
@@ -38,9 +38,23 @@ const { processReviewQueue } = require('./workers/reviewWorker');
 const { startCleanupWorker } = require('./workers/cleanupWorker');
 const gameScheduler = require('./services/gameScheduler');
 
-// Jest sets NODE_ENV=test / JEST_WORKER_ID — skip timers so --detectOpenHandles stays clean
+// Jest skips timers so --detectOpenHandles stays clean. A second Render API instance
+// should set RUN_BACKGROUND_JOBS=false; lottery/reminder claims stay idempotent either way.
 const enableBackgroundSchedulers =
-  process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID;
+  process.env.NODE_ENV !== 'test'
+  && !process.env.JEST_WORKER_ID
+  && process.env.RUN_BACKGROUND_JOBS !== 'false'
+  && process.env.RUN_BACKGROUND_JOBS !== '0';
+
+const enableHttpServer =
+  !process.env.JEST_WORKER_ID
+  && process.env.RUN_HTTP_SERVER !== 'false'
+  && process.env.RUN_HTTP_SERVER !== '0';
+
+const enableRedis =
+  !!process.env.REDIS_URL
+  && !process.env.JEST_WORKER_ID
+  && process.env.NODE_ENV !== 'test';
 
 // Start Review Worker
 if (enableBackgroundSchedulers) {
@@ -52,7 +66,6 @@ if (enableBackgroundSchedulers) {
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3005;
-const prisma = new PrismaClient();
 const notificationService = new NotificationService(prisma);
 
 // Middleware — CORS for Web (Vercel/local) + no-origin clients (mobile / Postman / Expo)
@@ -119,11 +132,20 @@ app.use(
     origin: corsOriginCallback,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    exposedHeaders: ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-Request-Id'],
   })
 );
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+const { requestContext } = require('./middleware/requestContext');
+const { createRateLimiter, writeMethodLimiter } = require('./middleware/rateLimit');
+app.use(requestContext);
+app.use(createRateLimiter({ windowMs: 15 * 60 * 1000, max: 240, prefix: 'global' }));
+app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 60, prefix: 'write' })));
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Create data directory if it doesn't exist
@@ -172,8 +194,7 @@ app.use((req, res, next) => {
 // Store io in app for access in routes
 app.set('io', io);
 
-// Routes
-app.use('/api/auth', authRoutes);
+// Routes — legacy JSON /api/auth is intentionally unmounted (Clerk is the only IdP)
 app.use('/api/fields', fieldsRoutes);
 app.use('/api/games', gamesRoutes);
 app.use('/api/series', seriesRoutes);
@@ -183,58 +204,41 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/search', searchRoutes);
 console.log('✅ [ROUTES] Notification routes mounted at /api/notifications');
 app.use('/api/chats', require('./routes/chats'));
+app.use('/api/admin', adminRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Football Fields API is running' });
-});
-
-// Error handling middleware moved to end of file
-
-// Debug route
-app.get('/api/debug/chatAuth/:chatId', async (req, res) => {
-    const { chatId } = req.params;
-    const authHeader = req.headers.authorization;
-    let userId = 'unknown';
-    
-    // Quick token decode just for debugging
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        try {
-            const jwt = require('jsonwebtoken');
-            const decoded = jwt.decode(token); // Clerk tokens can be decoded without secret to read payload
-            userId = decoded?.sub || decoded?.userId || 'decoded_but_no_id';
-        } catch (e) {
-            userId = 'invalid_token';
+let redisReady = false;
+let redisPub = null;
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    let redis = 'off';
+    if (process.env.REDIS_URL && enableRedis) {
+      try {
+        if (redisPub) {
+          await redisPub.ping();
+          redis = 'up';
+        } else {
+          redis = redisReady ? 'up' : 'down';
         }
+      } catch {
+        redis = 'down';
+      }
     }
-    
-    try {
-        const { PrismaClient } = require('@prisma/client');
-        const p = new PrismaClient();
-        
-        const chatRoom = await p.chatRoom.findUnique({ where: { id: chatId } });
-        const participant = await p.chatParticipant.findFirst({ where: { userId, chatId } });
-        const participation = await p.participation.findFirst({ where: { gameId: chatId, userId } });
-        
-        const { checkChatPermission } = require('./utils/chatAuth');
-        const isAllowed = await checkChatPermission(userId, chatId);
-        
-        res.json({
-            userId,
-            chatId,
-            chatRoomExists: !!chatRoom,
-            participantExists: !!participant,
-            participationExists: !!participation,
-            checkChatPermissionResult: isAllowed,
-            participationStatus: participation?.status || null
-        });
-    } catch (e) {
-        res.json({ error: e.message, stack: e.stack });
-    }
+    res.json({
+      status: 'OK',
+      db: 'up',
+      redis,
+      jobs: enableBackgroundSchedulers ? 'on' : 'off',
+      http: enableHttpServer ? 'on' : 'off',
+      message: 'Football Fields API is running',
+      requestId: req.requestId,
+    });
+  } catch (err) {
+    console.error('[HEALTH] database check failed:', err.message);
+    res.status(503).json({ status: 'DOWN', db: 'down', message: 'Database unreachable', requestId: req.requestId });
+  }
 });
-
-// 404 handler moved below Socket.IO handlers — registered just before global error handler
 
 io.use(async (socket, next) => {
   try {
@@ -243,20 +247,21 @@ io.use(async (socket, next) => {
         ? socket.handshake.headers.authorization.split(' ')[1]
         : null);
 
-    if (token) {
-      try {
-        const claims = await verifyToken(token, {
-          secretKey: process.env.CLERK_SECRET_KEY
-        });
-        socket.userId = claims.sub;
-      } catch (e) {
-        console.error("Socket token verification failed:", e.message);
-      }
+    if (!token) {
+      return next(new Error('Unauthorized'));
+    }
+
+    const claims = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY
+    });
+    socket.userId = claims.sub;
+    if (!socket.userId) {
+      return next(new Error('Unauthorized'));
     }
     next();
   } catch (err) {
-    console.error("Auth Middleware Error:", err);
-    next();
+    console.error("Socket token verification failed:", err.message);
+    next(new Error('Unauthorized'));
   }
 });
 
@@ -266,35 +271,75 @@ function isUserOnline(userId) {
   return !!(room && room.size > 0);
 }
 
-// Fix 4: Redis Subscriber for Worker Events
-if (process.env.REDIS_URL) {
+// Redis: moderation fan-out + optional worker→API socket bridge
+const { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent } = require('./utils/socketBridge');
+if (enableRedis) {
   const Redis = require("ioredis");
   const { Logger } = require('./utils/logger');
-  
+
   const redisSub = new Redis(process.env.REDIS_URL, {
     retryStrategy: (times) => {
-      if (times > 3) return null; // Stop retrying after 3 times
+      if (times > 3) return null;
       return Math.min(times * 500, 2000);
     }
-  }); 
+  });
+  redisPub = new Redis(process.env.REDIS_URL, {
+    retryStrategy: (times) => {
+      if (times > 3) return null;
+      return Math.min(times * 500, 2000);
+    }
+  });
 
   redisSub.on('error', (err) => {
     Logger.warn("REDIS SUB", `Connection error: ${err.message}`);
   });
+  redisPub.on('error', (err) => {
+    Logger.warn("REDIS PUB", `Connection error: ${err.message}`);
+  });
+  redisSub.on('ready', () => { redisReady = true; });
+  redisPub.on('ready', () => { redisReady = true; });
 
-  redisSub.subscribe('moderation_events', (err, count) => {
+  // Any process can call gameScheduler.resyncGame()/triggerReviewQueue() from a request
+  // handler even if its own scheduler isn't enabled (e.g. the web API split from a
+  // dedicated `worker.js` jobs process) — forward the signal to whichever process is
+  // actually subscribed to SCHEDULER_CHANNEL below.
+  gameScheduler.setPublisher((msg) => redisPub.publish(SCHEDULER_CHANNEL, JSON.stringify(msg)));
+
+  const channels = ['moderation_events'];
+  if (enableHttpServer) channels.push(SOCKET_CHANNEL);
+  if (enableBackgroundSchedulers) channels.push(SCHEDULER_CHANNEL);
+  redisSub.subscribe(...channels, (err, count) => {
     if (err) Logger.error("REDIS SUB", "Failed to subscribe:", err);
-    else Logger.info("REDIS SUB", `Subscribed to moderation_events. Count: ${count}`);
+    else Logger.info("REDIS SUB", `Subscribed. Count: ${count}`);
   });
 
   redisSub.on('message', (channel, message) => {
+    if (channel === SOCKET_CHANNEL) {
+      try {
+        applySocketEvent(io, JSON.parse(message));
+      } catch (e) {
+        Logger.error("REDIS SUB", "Error parsing socket bridge message:", e);
+      }
+      return;
+    }
+    if (channel === SCHEDULER_CHANNEL) {
+      try {
+        const msg = JSON.parse(message);
+        if (msg.type === 'resync') {
+          gameScheduler.resyncGameById(msg.gameId).catch(err => Logger.error('SCHEDULER', 'resyncGameById failed:', err));
+        } else if (msg.type === 'reviewQueue') {
+          gameScheduler.triggerReviewQueue();
+        }
+      } catch (e) {
+        Logger.error("REDIS SUB", "Error parsing scheduler bridge message:", e);
+      }
+      return;
+    }
     if (channel === 'moderation_events') {
       try {
         const event = JSON.parse(message);
         if (event.type === 'delete') {
           Logger.info('MODERATION', `Retroactive delete command received for msg: ${event.messageId}`);
-
-          // Broadcast deletion to the room (or globally if no roomId)
           const target = event.roomId ? io.to(String(event.roomId)) : io;
           target.emit('messageDeleted', { id: event.messageId });
         }
@@ -382,9 +427,9 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Client-initiated room join (web/mobile call this after connect as a safety net)
+  // Client-initiated room join — only the caller's own notification room
   socket.on('join', (room) => {
-    if (typeof room === 'string' && room.startsWith('user_')) {
+    if (typeof room === 'string' && socket.userId && room === `user_${socket.userId}`) {
       socket.join(room);
       console.log(`Socket ${socket.id} joined room: ${room}`);
     }
@@ -427,20 +472,29 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Legacy setup event — normalize to user_${id} so it matches notification emit targets
-  socket.on('setup', (userData) => {
-    const uid = userData?.id || socket.userId;
-    if (uid) {
-      socket.join(`user_${uid}`);
-      console.log(`User ${uid} joined their notification room via setup`);
+  // Legacy setup event — always bind to the verified Clerk id, never a client-supplied id
+  socket.on('setup', () => {
+    if (socket.userId) {
+      socket.join(`user_${socket.userId}`);
+      console.log(`User ${socket.userId} joined their notification room via setup`);
     }
   });
 
-  socket.on('message', async ({ text, roomId, userId, senderName, replyTo, tempId }) => {
-    if (!text) return;
+  socket.on('message', async ({ text, roomId, senderName, replyTo, tempId }) => {
+    if (!text || !roomId) return;
 
-    // FIX: Define missing variables immediately
-    const finalUserId = userId ? String(userId) : (socket.userId ? String(socket.userId) : null);
+    if (!socket.userId) {
+      socket.emit('error', 'Unauthorized: Please login');
+      return;
+    }
+
+    const allowed = await checkChatPermission(socket.userId, String(roomId));
+    if (!allowed) {
+      socket.emit('error', 'Unauthorized access to room');
+      return;
+    }
+
+    const finalUserId = String(socket.userId);
 
     console.log(`[DEBUG] Incoming Message - Room: "${roomId}", User: ${finalUserId}`); // <--- TOP LEVEL DEBUG LOG
 
@@ -571,7 +625,7 @@ io.on('connection', async (socket) => {
           data: {
             text: String(text),
             chatRoomId: String(roomId),
-            userId: userId ? String(userId) : null,
+            userId: finalUserId,
             replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
             status: initialStatus
           },
@@ -635,19 +689,11 @@ io.on('connection', async (socket) => {
 
     if (msg.roomId) {
       if (initialStatus === 'blocked') {
-        if (finalUserId) {
-          io.to(`user_${finalUserId}`).emit('message', msg);
-          io.to(`user_${finalUserId}`).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
-        }
+        io.to(`user_${finalUserId}`).emit('message', msg);
+        io.to(`user_${finalUserId}`).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
       } else {
         io.to(msg.roomId).emit('message', msg);
         io.to(msg.roomId).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
-      }
-    } else {
-      if (initialStatus === 'blocked') {
-        if (finalUserId) io.to(`user_${finalUserId}`).emit('message', msg);
-      } else {
-        io.emit('message', msg);
       }
     }
 
@@ -726,9 +772,22 @@ io.on('connection', async (socket) => {
     // --- Legacy moderation code removed - now handled earlier in flow (lines 320-375) ---
   });
 
-  socket.on('addReaction', async ({ messageId, emoji, userId, roomId }) => {
-    if (!messageId || !emoji || !userId) return;
+  socket.on('addReaction', async ({ messageId, emoji, roomId }) => {
+    if (!messageId || !emoji || !socket.userId) return;
+    const userId = String(socket.userId);
     try {
+      let chatId = roomId ? String(roomId) : null;
+      if (!chatId) {
+        const existingMsg = await prisma.message.findUnique({
+          where: { id: String(messageId) },
+          select: { chatRoomId: true },
+        });
+        chatId = existingMsg?.chatRoomId || null;
+      }
+      if (!chatId || !(await checkChatPermission(userId, chatId))) {
+        socket.emit('error', 'Unauthorized access to room');
+        return;
+      }
       // Toggle reaction
       // Check for ANY existing reaction by this user on this message
       const existing = await prisma.reaction.findFirst({
@@ -774,39 +833,29 @@ io.on('connection', async (socket) => {
         reactions[r.emoji].userIds.push(r.userId);
       }
 
-      const payload = { messageId, reactions, roomId: roomId ? String(roomId) : undefined };
-      if (roomId) {
-        io.to(String(roomId)).emit('messageReaction', payload);
-      } else {
-        io.emit('messageReaction', payload);
-      }
+      const payload = { messageId, reactions, roomId: chatId };
+      io.to(chatId).emit('messageReaction', payload);
     } catch (e) {
       console.error('addReaction error:', e);
     }
   });
 
   socket.on('joinChats', async (chatIds) => {
-    if (!Array.isArray(chatIds)) return;
-    if (!socket.userId) return; // Auth required
-
-    // Optimization: Validate user is in these chats in DB? 
-    // For now, iterate checkPermission or trust if we assumed logic. 
-    // To be safe and fast, we might skip check per chat if we fetched them for the user.
-    // BUT verifying is better. 
-    // Let's implement basic loop or Assume 'users/:id/chats' already returned valid chats.
-    // Since this is socket, we should be careful. 
-    // However, existing 'joinRoom' does check.
-    // Let's allow joining if the room ID format matches or if permissions are lenient for "listening".
-    // Actually, let's just loop join.
+    if (!Array.isArray(chatIds) || !socket.userId) return;
     for (const rid of chatIds) {
-      if (rid) socket.join(String(rid));
+      if (!rid) continue;
+      const allowed = await checkChatPermission(socket.userId, String(rid));
+      if (allowed) socket.join(String(rid));
     }
   });
 
-  socket.on('typing', (data) => {
+  socket.on('typing', async (data) => {
+    if (!socket.userId) return;
     const isTyping = typeof data === 'object' ? !!data.isTyping : !!data;
     const rid = typeof data === 'object' ? data.roomId : undefined;
-    const name = typeof data === 'object' ? data.userName : undefined; // Get userName
+    const name = typeof data === 'object' ? data.userName : undefined;
+    if (!rid) return;
+    if (!(await checkChatPermission(socket.userId, String(rid)))) return;
     const event = {
       senderId: socket.userId ? String(socket.userId) : String(socket.id),
       userName: name,
@@ -821,14 +870,13 @@ io.on('connection', async (socket) => {
     if (rid) {
       socket.to(String(rid)).emit('typing', event);
       socket.to(String(rid)).emit(explicitEvent, payload);
-    } else {
-      socket.broadcast.emit('typing', event);
-      socket.broadcast.emit(explicitEvent, payload);
     }
   });
 
-  socket.on('markAsRead', async ({ roomId, userId }) => {
-    if (!roomId || !userId) return;
+  socket.on('markAsRead', async ({ roomId }) => {
+    if (!roomId || !socket.userId) return;
+    const userId = String(socket.userId);
+    if (!(await checkChatPermission(userId, String(roomId)))) return;
 
     try {
       // 1. Update in DB: Mark all messages in this room NOT sent by me as 'read'
@@ -860,14 +908,18 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('editMessage', async ({ messageId, text, roomId }) => {
-    if (!messageId || !text) return;
+    if (!messageId || !text || !socket.userId) return;
     try {
-      // Check if message exists before updating to avoid P2025
       const exists = await prisma.message.findUnique({ where: { id: String(messageId) } });
       if (!exists) {
         console.warn(`editMessage: Message ${messageId} not found.`);
         return;
       }
+      if (exists.userId !== String(socket.userId)) {
+        socket.emit('error', 'Unauthorized');
+        return;
+      }
+      if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
       await prisma.message.update({
         where: { id: String(messageId) },
@@ -889,14 +941,18 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('deleteMessage', async ({ messageId, roomId }) => {
-    if (!messageId) return;
+    if (!messageId || !socket.userId) return;
     try {
-      // Check if message exists before updating to avoid P2025
       const exists = await prisma.message.findUnique({ where: { id: String(messageId) } });
       if (!exists) {
         console.warn(`deleteMessage: Message ${messageId} not found.`);
         return;
       }
+      if (exists.userId !== String(socket.userId)) {
+        socket.emit('error', 'Unauthorized');
+        return;
+      }
+      if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
       await prisma.message.update({
         where: { id: String(messageId) },
@@ -988,8 +1044,8 @@ async function runWeeklySeriesGeneration() {
         ? new Date(futureGames[futureGames.length - 1].start.getTime() + 7 * 24 * 60 * 60 * 1000)
         : nextWeeklyOccurrenceFrom(now, s.dayOfWeek, s.time);
 
-      const createOps = [];
-      while (futureGames.length + createOps.length < TARGET) {
+      const pendingCreates = [];
+      while (futureGames.length + pendingCreates.length < TARGET) {
         // Participants: organizer + subscribers within capacity
         const maxCap = Number(s.maxPlayers);
         const participantsCreate = [];
@@ -1013,36 +1069,45 @@ async function runWeeklySeriesGeneration() {
           regOpen = new Date(nextStart.getTime() - s.autoOpenRegistrationHours * 3600000);
         }
 
-        createOps.push(
-          prisma.game.create({
-            data: {
-              fieldId: s.fieldId,
-              seriesId: s.id,
-              start: nextStart,
-              duration: Math.round(Number(s.duration) || 1),
-              maxPlayers: Number(s.maxPlayers),
-              price: s.price ?? 0,
-              isOpenToJoin: true,
-              isFriendsOnly: false,
-              lotteryEnabled: false,
-              organizerInLottery: false,
-              description: '',
-              organizerId: s.organizerId,
-              participants: { create: participantsCreate },
-              roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } },
-              sport: s.sport || 'SOCCER',
-              registrationOpensAt: regOpen
-            }
-          })
-        );
+        pendingCreates.push({
+          participantIds: participantsCreate.map((p) => p.userId),
+          start: nextStart,
+          data: {
+            fieldId: s.fieldId,
+            seriesId: s.id,
+            start: nextStart,
+            duration: Math.round(Number(s.duration) || 1),
+            maxPlayers: Number(s.maxPlayers),
+            price: s.price ?? 0,
+            isOpenToJoin: true,
+            isFriendsOnly: false,
+            lotteryEnabled: false,
+            organizerInLottery: false,
+            description: '',
+            organizerId: s.organizerId,
+            participants: { create: participantsCreate },
+            roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } },
+            sport: s.sport || 'SOCCER',
+            registrationOpensAt: regOpen
+          }
+        });
 
         nextStart = new Date(nextStart.getTime() + 7 * 24 * 60 * 60 * 1000);
       }
 
-      if (createOps.length) {
-        const created = await prisma.$transaction(createOps);
+      if (pendingCreates.length) {
+        const { createGroupChatForGame } = require('./services/gameService');
+        const created = await prisma.$transaction(async (tx) => {
+          const games = [];
+          for (const occ of pendingCreates) {
+            const game = await tx.game.create({ data: occ.data });
+            await createGroupChatForGame(tx, game.id, occ.participantIds);
+            games.push(game);
+          }
+          return games;
+        }, { timeout: 30000, maxWait: 10000 });
         for (const g of created) gameScheduler.resyncGame(g);
-        console.log(`🗓️  Generated ${createOps.length} weekly instances for series ${s.id}`);
+        console.log(`🗓️  Generated ${pendingCreates.length} weekly instances for series ${s.id}`);
       }
     }
   } catch (e) {
@@ -1061,33 +1126,56 @@ if (enableBackgroundSchedulers) {
 
 // 404 handler (must be after all routes, before error handler)
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404).json({ error: 'Route not found', requestId: req.requestId });
 });
 
 // Global Error handling middleware (Must be last before server start)
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'Something went wrong!',
-    message: err.message
-  });
+  const requestId = req.requestId || 'unknown';
+  console.error(JSON.stringify({
+    level: 'error',
+    requestId,
+    message: err.message,
+    stack: err.stack,
+  }));
+  const payload = { error: 'Something went wrong!', requestId };
+  if (process.env.NODE_ENV !== 'production') payload.message = err.message;
+  res.status(500).json(payload);
 });
+
+async function startJobs(jobIo) {
+  if (!enableBackgroundSchedulers) {
+    console.log('⏸️  Background jobs disabled (RUN_BACKGROUND_JOBS=false)');
+    return;
+  }
+  gameScheduler.init({ prisma, io: jobIo, notificationService });
+  await gameScheduler.loadAll();
+  startCleanupWorker();
+  console.log('🔔 Notification workers started');
+}
 
 async function startServer() {
   await initializeDataFiles();
 
+  if (!enableHttpServer) {
+    const jobIo = createPublisherIo((msg) => {
+      if (!redisPub) {
+        console.warn('[WORKER] REDIS_URL is not set — live socket events will not reach the API');
+        return;
+      }
+      return redisPub.publish(SOCKET_CHANNEL, JSON.stringify(msg));
+    });
+    await startJobs(jobIo);
+    console.log('[WORKER] background jobs running (HTTP bind skipped)');
+    return null;
+  }
+
   return new Promise((resolve) => {
-    // Start server (HTTP + Socket.IO) — bind 0.0.0.0 for Render's proxy
     server.listen(PORT, '0.0.0.0', async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
       console.log(`🔌 Socket.IO ready on /api/socket (CORS allowlist: ${JSON.stringify(allowedOrigins)}, permissive: ${corsPermissive})`);
-
-      // Workers stay tied to the real HTTP bootstrap, not test imports.
-      gameScheduler.init({ prisma, io, notificationService });
-      await gameScheduler.loadAll();
-      startCleanupWorker();
-      console.log('🔔 Notification workers started');
+      await startJobs(io);
       resolve(server);
     });
   });
