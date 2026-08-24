@@ -293,6 +293,9 @@ if (enableRedis) {
   redisSub.on('error', (err) => {
     Logger.warn("REDIS SUB", `Connection error: ${err.message}`);
   });
+  redisPub.on('error', (err) => {
+    Logger.warn("REDIS PUB", `Connection error: ${err.message}`);
+  });
   redisSub.on('ready', () => { redisReady = true; });
   redisPub.on('ready', () => { redisReady = true; });
 

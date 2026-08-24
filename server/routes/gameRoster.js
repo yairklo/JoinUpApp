@@ -686,15 +686,10 @@ router.patch('/:id/participants/:userId/captain', authenticateToken, async (req,
       return res.status(404).json({ error: 'Game not found' });
     }
 
-    if (game.organizerId === targetUserId) {
-      return res.status(400).json({ error: 'Cannot modify organizer role' });
-    }
-
-    // Check hierarchy: can only modify users strictly below you
-    const targetLevel = await getRoleLevel(gameId, targetUserId);
-    if (targetLevel >= actorLevel) {
-      return res.status(403).json({ error: 'Cannot modify a peer or higher role' });
-    }
+    // Captain is a purely descriptive flag with no game-management privileges of its own, so it
+    // deliberately doesn't go through the organizer-immunity / role-hierarchy checks that gate
+    // actual management roles (see the roster-removal endpoint above) — the organizer or a peer
+    // manager can freely be made captain, including of themselves.
 
     // Ensure target is an active participant
     const isParticipant = await prisma.participation.findFirst({

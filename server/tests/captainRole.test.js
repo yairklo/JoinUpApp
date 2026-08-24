@@ -33,7 +33,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 const { prisma } = require('../services/gameService');
 const { app } = require('../index');
 
-describe('Captain-toggle endpoint: organizer immunity, role hierarchy, active-participant filter', () => {
+describe('Captain-toggle endpoint: no game-management hierarchy gating, active-participant filter only', () => {
   let testGame;
   let testField;
 
@@ -138,24 +138,36 @@ describe('Captain-toggle endpoint: organizer immunity, role hierarchy, active-pa
     expect(participation.isCaptain).toEqual(true);
   });
 
-  test('the organizer role is immune to being toggled captain, even by a MANAGER', async () => {
+  test('a MANAGER can set the organizer as captain (captain carries no management privilege)', async () => {
     const res = await request(app)
       .patch(`/api/games/${testGame.id}/participants/${orgId}/captain`)
       .set('Authorization', `Bearer ${mgrToken}`)
       .send({ isCaptain: true });
 
-    expect(res.statusCode).toEqual(400);
-    expect(res.body.error).toEqual('Cannot modify organizer role');
+    expect(res.statusCode).toEqual(200);
+    const participation = await prisma.participation.findFirst({ where: { gameId: testGame.id, userId: orgId } });
+    expect(participation.isCaptain).toEqual(true);
   });
 
-  test('a MODERATOR cannot toggle captain on a MANAGER (peer-or-higher hierarchy check)', async () => {
+  test('a MODERATOR can set a MANAGER as captain (no game-management hierarchy applies)', async () => {
     const res = await request(app)
       .patch(`/api/games/${testGame.id}/participants/${mgrId}/captain`)
       .set('Authorization', `Bearer ${modToken}`)
       .send({ isCaptain: true });
 
+    expect(res.statusCode).toEqual(200);
+    const participation = await prisma.participation.findFirst({ where: { gameId: testGame.id, userId: mgrId } });
+    expect(participation.isCaptain).toEqual(true);
+  });
+
+  test('an actor below MODERATOR level cannot use the endpoint at all', async () => {
+    const res = await request(app)
+      .patch(`/api/games/${testGame.id}/participants/${plyId}/captain`)
+      .set('Authorization', `Bearer mock_token_player`)
+      .send({ isCaptain: true });
+
     expect(res.statusCode).toEqual(403);
-    expect(res.body.error).toEqual('Cannot modify a peer or higher role');
+    expect(res.body.error).toEqual('Not allowed');
   });
 
   test('a WAITLISTED (non-active) participant cannot be flagged as captain', async () => {
