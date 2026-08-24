@@ -1,10 +1,15 @@
 const { LRUCache } = require('lru-cache');
 
 function clientKey(req) {
-  // req.ip is resolved by Express's `trust proxy` setting, which only trusts
-  // the configured number of proxy hops — unlike the raw X-Forwarded-For
-  // header, it can't be spoofed by a client to dodge rate limiting.
-  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  // The real path is client -> Cloudflare -> Render -> this app (2 proxy hops), so req.ip
+  // (trust proxy is only configured for 1 hop) does not reliably resolve to the real client
+  // and collapses distinct clients into the same bucket. Cloudflare's cf-connecting-ip is set
+  // authoritatively at their edge from the actual TCP connection — a client-supplied
+  // CF-Connecting-IP header is overwritten, not appended, so it can't be spoofed the way a
+  // raw X-Forwarded-For value can. Fall back to req.ip for non-Cloudflare environments (local
+  // dev, tests).
+  const cfIp = req.headers['cf-connecting-ip'];
+  const ip = (typeof cfIp === 'string' && cfIp.trim()) || req.ip || req.socket?.remoteAddress || 'unknown';
   return ip.trim() || 'unknown';
 }
 

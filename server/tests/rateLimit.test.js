@@ -60,4 +60,28 @@ describe('HTTP rate limiter', () => {
     expect(r3.statusCode).toEqual(200);
     expect(blocked.statusCode).toEqual(429);
   });
+
+  test('distinct clients behind Cloudflare (distinct CF-Connecting-IP) get separate buckets', async () => {
+    const app = appWithLimiter();
+    // Same request "shape" (same req.ip since it's all supertest/loopback, same spoofable
+    // X-Forwarded-For) but a different Cloudflare-assigned client IP each time — this must not
+    // collapse every real visitor onto one shared bucket the way trusting req.ip alone did
+    // once Cloudflare sits in front of Render (2 proxy hops, not the 1 `trust proxy` expects).
+    for (const ip of ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']) {
+      const res = await request(app).get('/ok').set('CF-Connecting-IP', ip).set('X-Forwarded-For', '9.9.9.9');
+      expect(res.statusCode).toEqual(200);
+    }
+  });
+
+  test('a spoofed CF-Connecting-IP header from the same real client still gets one bucket', async () => {
+    const app = appWithLimiter();
+    const r1 = await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5');
+    const r2 = await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5');
+    const r3 = await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5');
+    const blocked = await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5');
+    expect(r1.statusCode).toEqual(200);
+    expect(r2.statusCode).toEqual(200);
+    expect(r3.statusCode).toEqual(200);
+    expect(blocked.statusCode).toEqual(429);
+  });
 });
