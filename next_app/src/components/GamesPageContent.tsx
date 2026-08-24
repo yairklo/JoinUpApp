@@ -5,6 +5,7 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Container from "@mui/material/Container";
+import { alpha } from "@mui/material/styles";
 
 import MyJoinedGames from "@/components/MyJoinedGames";
 import GamesByDateClient from "@/components/GamesByDateClient";
@@ -76,16 +77,33 @@ export default function GamesPageContent({
                                         key={f.value}
                                         label={emoji ? `${emoji} ${f.label}` : f.label}
                                         clickable
-                                        color={selected ? "primary" : "default"}
                                         onClick={() => setSportFilter(f.value)}
-                                        variant={selected ? "filled" : "outlined"}
                                         sx={{
                                             flexShrink: 0,
                                             px: 0.5,
                                             height: 34,
                                             fontSize: "0.875rem",
-                                            bgcolor: selected ? undefined : "background.paper",
-                                            boxShadow: selected ? 2 : 0,
+                                            fontWeight: 700,
+                                            border: "1px solid",
+                                            transition: "all 150ms ease",
+                                            ...(selected
+                                                ? {
+                                                      color: "primary.contrastText",
+                                                      borderColor: "transparent",
+                                                      backgroundImage: (t) =>
+                                                          `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)`,
+                                                      boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.4)}`,
+                                                  }
+                                                : {
+                                                      color: "text.secondary",
+                                                      bgcolor: (t) => alpha(t.palette.text.primary, 0.03),
+                                                      borderColor: (t) => alpha(t.palette.text.primary, 0.1),
+                                                      "&:hover": {
+                                                          bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                                                          borderColor: (t) => alpha(t.palette.primary.main, 0.3),
+                                                          color: "primary.main",
+                                                      },
+                                                  }),
                                         }}
                                     />
                                 );

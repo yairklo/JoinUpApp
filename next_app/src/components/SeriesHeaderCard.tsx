@@ -76,15 +76,16 @@ export default function SeriesHeaderCard({
                 isolation: "isolate",
                 position: "relative",
                 border: "1px solid",
-                borderColor: isSubscribed ? "success.light" : "secondary.light",
+                borderColor: isSubscribed ? "rgba(16,185,129,0.4)" : "rgba(99,102,241,0.2)",
                 boxShadow: isSubscribed
-                    ? "0 0 0 2px rgba(16,185,129,0.25), 0 4px 14px rgba(15,23,42,0.06)"
-                    : "0 1px 3px rgba(15,23,42,0.06)",
-                transition: "box-shadow 0.2s ease",
+                    ? "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 0 0 2px rgba(16,185,129,0.25), 0 4px 14px rgba(15,23,42,0.06)"
+                    : "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
+                transition: "box-shadow 0.2s ease, border-color 0.2s ease",
                 WebkitTapHighlightColor: "transparent",
                 "@media (hover: hover)": {
                     "&:hover": {
-                        boxShadow: "0 18px 36px -8px rgba(99,102,241,0.28), 0 4px 12px rgba(15,23,42,0.08)",
+                        borderColor: isSubscribed ? "rgba(16,185,129,0.5)" : "rgba(99,102,241,0.35)",
+                        boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.08), 0 18px 36px -8px rgba(99,102,241,0.28), 0 4px 12px rgba(15,23,42,0.08)",
                     },
                 },
             }}
