@@ -25,6 +25,7 @@ import ChatIcon from "@mui/icons-material/Chat";
 import PersonIcon from "@mui/icons-material/Person";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import { formatDistanceToNow } from "date-fns";
+import { he } from "date-fns/locale";
 import { useSocket } from "@/context/SocketContext";
 
 interface ChatListProps {
@@ -174,7 +175,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
                 ) : (
                     filteredChats.map((chat) => {
                         const timeDisplay = chat.lastMessage
-                            ? formatDistanceToNow(new Date(chat.lastMessage.createdAt), { addSuffix: true })
+                            ? formatDistanceToNow(new Date(chat.lastMessage.createdAt), { addSuffix: true, locale: he })
                             : "";
 
                         const isTyping = typingStatus[chat.id];
