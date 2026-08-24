@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
+import { motion } from "framer-motion";
+
+const MotionLink = motion.create(Link);
 
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
@@ -77,7 +80,9 @@ export default function BottomNav() {
             return (
               <Box key={item.href} sx={{ display: "grid", placeItems: "center" }}>
                 <Box
-                  component={Link}
+                  component={MotionLink}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
                   href={item.href}
                   aria-label="צור משחק"
                   sx={{
@@ -92,8 +97,6 @@ export default function BottomNav() {
                     background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                     boxShadow: "0 10px 24px rgba(5,150,105,0.45)",
                     border: `4px solid ${theme.palette.background.default}`,
-                    transition: "transform 0.15s ease",
-                    "&:active": { transform: "scale(0.94)" },
                   }}
                 >
                   <Icon sx={{ fontSize: 28 }} />
@@ -105,7 +108,9 @@ export default function BottomNav() {
           return (
             <Box
               key={item.href}
-              component={Link}
+              component={MotionLink}
+              whileTap={{ scale: 0.92 }}
+              transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
               href={item.href}
               sx={{
                 display: "flex",
@@ -118,22 +123,24 @@ export default function BottomNav() {
                 color: active ? "primary.main" : "text.secondary",
                 position: "relative",
                 WebkitTapHighlightColor: "transparent",
-                "&:active": { opacity: 0.75 },
               }}
             >
-              {/* Active indicator */}
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: 6,
-                  width: 18,
-                  height: 3,
-                  borderRadius: 999,
-                  bgcolor: "primary.main",
-                  opacity: active ? 1 : 0,
-                  transition: "opacity 0.15s ease",
-                }}
-              />
+              {/* Sliding active indicator */}
+              {active && (
+                <Box
+                  component={motion.span}
+                  layoutId="bottom-nav-active-pill"
+                  transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  sx={{
+                    position: "absolute",
+                    top: 6,
+                    width: 18,
+                    height: 3,
+                    borderRadius: 999,
+                    bgcolor: "primary.main",
+                  }}
+                />
+              )}
               <Icon sx={{ fontSize: 24 }} />
               <Typography
                 variant="caption"

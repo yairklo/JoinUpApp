@@ -7,6 +7,7 @@ import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
 // In RTL "forward" points left, so ArrowBack is the visually-correct glyph
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { Reveal } from "@/components/motion/Reveal";
 
 export default function GamesHorizontalList({
   title,
@@ -76,26 +77,28 @@ export default function GamesHorizontalList({
         )}
       </Box>
 
-      <Stack
-        direction="row"
-        spacing={1.5}
-        className="carousel-edge"
-        sx={{
-          overflowX: "auto",
-          pb: 1.5,
-          px: { xs: 2, sm: 1 },
-          scrollbarWidth: "none",
-          "&::-webkit-scrollbar": { display: "none" },
-          scrollSnapType: "x mandatory",
-          scrollPaddingInline: { xs: 16, sm: 8 },
-          WebkitOverflowScrolling: "touch",
-          "& > *": {
-            scrollSnapAlign: "start",
-          },
-        }}
-      >
-        {children}
-      </Stack>
+      <Reveal>
+        <Stack
+          direction="row"
+          spacing={1.5}
+          className="carousel-edge"
+          sx={{
+            overflowX: "auto",
+            pb: 1.5,
+            px: { xs: 2, sm: 1 },
+            scrollbarWidth: "none",
+            "&::-webkit-scrollbar": { display: "none" },
+            scrollSnapType: "x mandatory",
+            scrollPaddingInline: { xs: 16, sm: 8 },
+            WebkitOverflowScrolling: "touch",
+            "& > *": {
+              scrollSnapAlign: "start",
+            },
+          }}
+        >
+          {children}
+        </Stack>
+      </Reveal>
     </Box>
   );
 }
