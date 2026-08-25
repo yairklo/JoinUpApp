@@ -10,7 +10,7 @@ import IconButton from "@mui/material/IconButton";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
-import { styled } from "@mui/material/styles";
+import { styled, alpha } from "@mui/material/styles";
 
 // Helper date formatter
 function ymd(d: Date): string {
@@ -31,24 +31,25 @@ const StyledTab = styled(Tab)(({ theme }) => ({
   textTransform: "none",
   minWidth: 0,
   fontSize: "0.9rem",
-  fontWeight: 600,
+  fontWeight: 700,
   color: theme.palette.text.secondary,
   borderRadius: 999,
   marginInlineEnd: theme.spacing(1),
   padding: "6px 16px",
   minHeight: 36,
-  border: `1px solid ${theme.palette.divider}`,
-  backgroundColor: theme.palette.background.paper,
+  border: `1px solid ${alpha(theme.palette.text.primary, 0.1)}`,
+  backgroundColor: alpha(theme.palette.text.primary, 0.03),
   transition: "all 0.15s ease",
   "&.Mui-selected": {
     color: theme.palette.primary.contrastText,
-    backgroundColor: theme.palette.primary.main,
-    borderColor: theme.palette.primary.main,
-    boxShadow: theme.shadows[2],
+    backgroundImage: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+    borderColor: "transparent",
+    boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}`,
   },
   "&:hover:not(.Mui-selected)": {
-    backgroundColor: theme.palette.action.hover,
-    borderColor: theme.palette.primary.light,
+    backgroundColor: alpha(theme.palette.primary.main, 0.08),
+    borderColor: alpha(theme.palette.primary.main, 0.3),
+    color: theme.palette.primary.main,
   },
 }));
 
@@ -118,9 +119,9 @@ export default function GamesDateNav({
           })}
         </Tabs>
 
-        <Box px={1} sx={{ borderInlineStart: "1px solid", borderColor: "divider", marginInlineStart: 1 }}>
+        <Box px={1} sx={{ borderInlineStart: "1px solid", borderColor: "divider", marginInlineStart: 1, position: "relative" }}>
           <Tooltip title="בחר תאריך">
-            <IconButton 
+            <IconButton
                 size="small"
                 onClick={() => dateInputRef.current?.showPicker?.() || dateInputRef.current?.focus()}
             >
@@ -128,10 +129,14 @@ export default function GamesDateNav({
             </IconButton>
           </Tooltip>
 
+          {/* Visually hidden, but kept a real 1x1px on-screen target (not 0x0) so that
+              the `.focus()` fallback below (for browsers without showPicker()) doesn't
+              force a large scroll-into-view jump — a 0-size element positioned off in
+              the corner used to make the browser scroll the whole page to "reveal" it. */}
           <input
             ref={dateInputRef}
             type="date"
-            style={{ position: "absolute", opacity: 0, width: 0, height: 0, bottom: 0 }}
+            style={{ position: "absolute", opacity: 0, width: 1, height: 1, overflow: "hidden", top: 0, left: 0 }}
             min={todayStr}
             value={selectedDate}
             onChange={(e) => {

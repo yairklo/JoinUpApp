@@ -215,6 +215,13 @@ export default function JoinGameButton({
             color="primary"
             size="small"
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
+            sx={{
+              backgroundImage: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)`,
+              boxShadow: (t) => `0 4px 16px ${t.palette.mode === "dark" ? "rgba(52,211,153,0.35)" : "rgba(5,150,105,0.35)"}`,
+              "&:hover": {
+                boxShadow: (t) => `0 6px 22px ${t.palette.mode === "dark" ? "rgba(52,211,153,0.5)" : "rgba(5,150,105,0.5)"}`,
+              },
+            }}
           >
             {loading ? "מצטרף..." : joinPolicy === "REQUIRES_APPROVAL" ? "בקש להצטרף" : "הצטרף"}
           </Button>

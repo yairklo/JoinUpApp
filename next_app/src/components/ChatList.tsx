@@ -236,7 +236,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
     if (isWidget) return listContent;
 
     return (
-        <IconButton color="inherit" onClick={handleNavbarClick}>
+        <IconButton color="inherit" onClick={handleNavbarClick} aria-label="צ'אטים">
             <Badge badgeContent={totalUnread} color="error">
                 <ChatIcon />
             </Badge>

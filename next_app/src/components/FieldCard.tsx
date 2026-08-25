@@ -26,6 +26,7 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import FavoriteButton from "@/components/FavoriteButton";
 import NewGameInline from "@/components/NewGameInline";
 import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
+import { SPORT_IMAGES, SportType } from "@/utils/sports";
 
 export type Field = {
   id: string;
@@ -35,6 +36,7 @@ export type Field = {
   rating: number;
   image?: string | null;
   type: "open" | "closed";
+  supportedSports?: string[];
   favoritesCount?: number;
 };
 
@@ -56,7 +58,15 @@ const chipOverlaySx = {
 
 export default function FieldCard({ field }: { field: Field }) {
   const [showNewGame, setShowNewGame] = useState(false);
-  const imgSrc = field.image && field.image.trim().length > 0 ? field.image : "/images/default-field.jpg";
+  const primarySport = field.supportedSports?.find(
+    (s): s is SportType => s in SPORT_IMAGES
+  );
+  const imgSrc =
+    field.image && field.image.trim().length > 0
+      ? field.image
+      : primarySport
+        ? SPORT_IMAGES[primarySport]
+        : "/images/default-field.jpg";
   const isFree = !field.price || field.price <= 0;
   const isOpen = field.type === "open";
 
@@ -72,13 +82,14 @@ export default function FieldCard({ field }: { field: Field }) {
         overflow: "hidden",
         isolation: "isolate",
         border: "1px solid",
-        borderColor: "divider",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
-        transition: "box-shadow 0.2s ease",
+        borderColor: "rgba(148,163,184,0.16)",
+        boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
+        transition: "box-shadow 0.2s ease, border-color 0.2s ease",
         minWidth: 0,
         "@media (hover: hover)": {
           "&:hover": {
-            boxShadow: "0 18px 36px -8px rgba(5,150,105,0.28), 0 4px 12px rgba(15,23,42,0.08)",
+            borderColor: "rgba(5,150,105,0.3)",
+            boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.08), 0 18px 36px -8px rgba(5,150,105,0.28), 0 4px 12px rgba(15,23,42,0.08)",
           },
         },
       }}

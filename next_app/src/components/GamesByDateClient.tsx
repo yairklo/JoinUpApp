@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-import CircularProgress from "@mui/material/CircularProgress";
+import Stack from "@mui/material/Stack";
+import Skeleton from "@mui/material/Skeleton";
 // RTL: "forward" points left
 import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
@@ -23,6 +24,7 @@ import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import FullPageList from "@/components/FullPageList";
+import InlineErrorRow from "@/components/InlineErrorRow";
 
 export default function GamesByDateClient({
   initialDate,
@@ -34,7 +36,7 @@ export default function GamesByDateClient({
   sportFilter?: SportFilter;
 }) {
   const [networkGames, setNetworkGames] = useState(false);
-  const { selectedDate, setSelectedDate, games, loading, groups } = useGamesByDate(initialDate, fieldId, networkGames);
+  const { selectedDate, setSelectedDate, games, loading, error, refetch, groups } = useGamesByDate(initialDate, fieldId, networkGames);
   const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
 
   const { user } = useUser();
@@ -139,9 +141,31 @@ export default function GamesByDateClient({
       </Box>
 
       {loading ? (
-        <Box display="flex" justifyContent="center" p={4}>
-          <CircularProgress size={30} />
-        </Box>
+        <Stack direction="row" spacing={1.5} px={1} sx={{ overflow: "hidden" }}>
+          {[0, 1, 2].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                minWidth: { xs: 252, sm: 300 },
+                maxWidth: { xs: 268, sm: 320 },
+                flexShrink: 0,
+                borderRadius: { xs: 4, sm: 5 },
+                overflow: "hidden",
+                border: "1px solid",
+                borderColor: "rgba(148,163,184,0.16)",
+              }}
+            >
+              <Skeleton variant="rectangular" height={132} animation="wave" />
+              <Box sx={{ p: 2, pt: 1.75 }}>
+                <Skeleton variant="text" width="70%" height={28} animation="wave" />
+                <Skeleton variant="text" width="45%" height={20} animation="wave" />
+                <Skeleton variant="rounded" height={6} sx={{ mt: 1.5, borderRadius: 999 }} animation="wave" />
+              </Box>
+            </Box>
+          ))}
+        </Stack>
+      ) : error ? (
+        <InlineErrorRow message={error} onRetry={refetch} />
       ) : currentDayGames.length === 0 ? (
         <Box
           sx={{

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@clerk/nextjs";
 import { gamesApi } from "@/services/api/games";
@@ -10,8 +10,10 @@ import { SPORT_MAPPING } from "@/utils/sports";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
+import InlineErrorRow from "@/components/InlineErrorRow";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getLoadErrorMessage } from "@/utils/apiError";
 
 // MUI
 import Box from "@mui/material/Box";
@@ -66,9 +68,14 @@ export default function SearchPage() {
 
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Filters
   const [query, setQuery] = useState("");
+  // The text the search actually runs against — kept separate from `query` so every
+  // keystroke doesn't fire a fresh /api/games/search request (was the main source of
+  // "too many requests" reports: typing a short word could fire 5-10 requests back to back).
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(""); // YYYY-MM-DD
   const [selectedCity, setSelectedCity] = useState<string>("");
@@ -76,8 +83,10 @@ export default function SearchPage() {
   const [showEmptyFields, setShowEmptyFields] = useState(false);
   const [emptyFields, setEmptyFields] = useState<any[]>([]);
   const [cities, setCities] = useState<string[]>([]);
-  
+
   const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
+  const lastBoundsRef = useRef<Bounds | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
   const [targetLocation, setTargetLocation] = useState<[number, number] | null>(null);
   // Mobile-only: switch between results list and full-screen map
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
@@ -86,13 +95,27 @@ export default function SearchPage() {
     fieldsApi.getCities().then(res => setCities(res)).catch(console.error);
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 400);
+    return () => clearTimeout(t);
+  }, [query]);
+
   const performSearch = useCallback(async () => {
+    // Cancel any still-in-flight search before starting a new one — without this, panning
+    // the map for a few seconds fires a request every ~800ms and lets them all race to
+    // completion, each one counting against the API rate limit and occasionally applying a
+    // stale (out-of-order) result over a newer one.
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+
     setLoading(true);
+    setError(null);
     try {
       const token = await getToken();
       const params = new URLSearchParams();
 
-      if (query) params.append("q", query);
+      if (debouncedQuery) params.append("q", debouncedQuery);
       if (selectedSport) params.append("sport", selectedSport);
       if (selectedDate) params.append("date", selectedDate);
       if (networkGames) params.append("networkGames", "true");
@@ -104,8 +127,9 @@ export default function SearchPage() {
         params.append("maxLng", mapBounds.maxLng.toString());
       }
 
-      const results = await gamesApi.search(params, token || undefined);
-      
+      const results = await gamesApi.search(params, token || undefined, controller.signal);
+      if (controller.signal.aborted) return;
+
       // If no specific date is provided, filter for upcoming 7 days visually as well (mirror mobile)
       let finalGames = results;
       if (!selectedDate) {
@@ -141,7 +165,8 @@ export default function SearchPage() {
         if (selectedDate) {
           fieldParams.append("date", selectedDate);
         }
-        const allFields = await fieldsApi.search(fieldParams);
+        const allFields = await fieldsApi.search(fieldParams, controller.signal);
+        if (controller.signal.aborted) return;
         // Filter out fields that have 0 upcoming games
         const empty = allFields.filter(f => f.upcomingGamesCount === 0);
         setEmptyFields(empty);
@@ -149,17 +174,44 @@ export default function SearchPage() {
         setEmptyFields([]);
       }
     } catch (error) {
+      if (controller.signal.aborted) return; // superseded by a newer search — not a real failure
       console.error("Search failed:", error);
+      setGames([]);
+      setError(getLoadErrorMessage(error));
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
-  }, [getToken, query, selectedSport, selectedDate, networkGames, mapBounds, showEmptyFields]);
+  }, [getToken, debouncedQuery, selectedSport, selectedDate, networkGames, mapBounds, showEmptyFields]);
 
   useEffect(() => {
     performSearch();
+    return () => {
+      searchAbortRef.current?.abort();
+    };
   }, [performSearch]);
 
   const handleBoundsChanged = (bounds: Bounds) => {
+    // Leaflet fires moveend/zoomend for reasons that don't reflect a real user pan/zoom too —
+    // e.g. the map container being resized when the mobile list/map panes swap visibility, or a
+    // sub-pixel nudge during a fitBounds animation. Skip re-searching unless the viewport moved
+    // by a meaningful amount, so those spurious events don't each cost a network request.
+    const prev = lastBoundsRef.current;
+    if (prev) {
+      const latSpan = Math.max(bounds.maxLat - bounds.minLat, 0.0001);
+      const lngSpan = Math.max(bounds.maxLng - bounds.minLng, 0.0001);
+      const centerShiftLat = Math.abs(
+        (bounds.minLat + bounds.maxLat) / 2 - (prev.minLat + prev.maxLat) / 2
+      );
+      const centerShiftLng = Math.abs(
+        (bounds.minLng + bounds.maxLng) / 2 - (prev.minLng + prev.maxLng) / 2
+      );
+      const spanChanged =
+        Math.abs(latSpan - (prev.maxLat - prev.minLat)) / latSpan > 0.05 ||
+        Math.abs(lngSpan - (prev.maxLng - prev.minLng)) / lngSpan > 0.05;
+      const centerMoved = centerShiftLat / latSpan > 0.05 || centerShiftLng / lngSpan > 0.05;
+      if (!spanChanged && !centerMoved) return;
+    }
+    lastBoundsRef.current = bounds;
     setMapBounds(bounds);
   };
 
@@ -274,8 +326,13 @@ export default function SearchPage() {
             חיפוש משחקים
           </Typography>
 
+          {/* Copy kept honest with what this page actually queries: only /api/games/search
+              (gamesApi.search), so we don't promise player search here. Note: a real global
+              people/fields/games search already exists (searchApi.global -> /api/search/global,
+              used by GlobalSearchOmnibar in the header) but this page doesn't call it — wiring
+              it in would be a bigger scope change than a copy fix, so left as a follow-up. */}
           <TextField
-            placeholder="חפש קבוצה, אולם או שחקן..."
+            placeholder="חפש לפי שם קבוצה, אולם או ענף ספורט..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             InputProps={{
@@ -376,6 +433,8 @@ export default function SearchPage() {
           <Box display="flex" justifyContent="center" p={4}>
             <CircularProgress />
           </Box>
+        ) : error && games.length === 0 ? (
+          <InlineErrorRow message={error} onRetry={performSearch} />
         ) : (
           <Stack spacing={2}>
             {games.map(renderGameCard)}

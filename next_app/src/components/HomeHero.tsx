@@ -16,16 +16,6 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-const container = {
-    hidden: {},
-    show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
-};
-
-const item = {
-    hidden: { opacity: 0, y: 18 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
-};
-
 export default function HomeHero() {
     const reduced = useReducedMotion();
 
@@ -88,10 +78,6 @@ export default function HomeHero() {
 
             <Container
                 maxWidth="md"
-                component={motion.div}
-                variants={reduced ? undefined : container}
-                initial={reduced ? undefined : "hidden"}
-                animate={reduced ? undefined : "show"}
                 sx={{
                     position: "relative",
                     textAlign: "center",
@@ -101,7 +87,11 @@ export default function HomeHero() {
                     px: { xs: 2.5, sm: 3 },
                 }}
             >
-                <motion.div variants={reduced ? undefined : item}>
+                {/* CSS-driven entrance animation (see .joinup-hero-item in globals.css): this
+                    content is static and must be visible in the server-rendered HTML on first
+                    paint, not gated behind client JS hydration like the previous framer-motion
+                    initial/animate variants were. */}
+                <Box className="joinup-hero-item" sx={{ animationDelay: "50ms" }}>
                     <Chip
                         label="קהילת הספורט של ישראל"
                         size="small"
@@ -116,9 +106,9 @@ export default function HomeHero() {
                             fontSize: { xs: "0.7rem", md: "0.8125rem" },
                         }}
                     />
-                </motion.div>
+                </Box>
 
-                <motion.div variants={reduced ? undefined : item}>
+                <Box className="joinup-hero-item" sx={{ animationDelay: "130ms" }}>
                     <Typography
                         variant="h1"
                         component="h1"
@@ -145,9 +135,9 @@ export default function HomeHero() {
                             מצטרפים. משחקים.
                         </Box>
                     </Typography>
-                </motion.div>
+                </Box>
 
-                <motion.div variants={reduced ? undefined : item}>
+                <Box className="joinup-hero-item" sx={{ animationDelay: "210ms" }}>
                     <Typography
                         variant="h6"
                         component="h2"
@@ -164,10 +154,10 @@ export default function HomeHero() {
                     >
                         כדורגל, כדורסל וטניס ליד הבית – מצאו משחק או פתחו אחד תוך שניות.
                     </Typography>
-                </motion.div>
+                </Box>
 
                 {/* Sport icons – hidden on the narrowest phones to keep the hero lean */}
-                <motion.div variants={reduced ? undefined : item}>
+                <Box className="joinup-hero-item" sx={{ animationDelay: "290ms" }}>
                     <Stack
                         direction="row"
                         spacing={1.5}
@@ -195,9 +185,9 @@ export default function HomeHero() {
                             </Box>
                         ))}
                     </Stack>
-                </motion.div>
+                </Box>
 
-                <motion.div variants={reduced ? undefined : item}>
+                <Box className="joinup-hero-item" sx={{ animationDelay: "370ms" }}>
                     <Stack
                         direction={{ xs: "column", sm: "row" }}
                         spacing={1.25}
@@ -247,7 +237,7 @@ export default function HomeHero() {
                             הצטרף למשחק
                         </Button>
                     </Stack>
-                </motion.div>
+                </Box>
             </Container>
         </Box>
     );

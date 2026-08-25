@@ -233,7 +233,8 @@ function MapEventsListener({
         clearTimeout(timeoutRef.current);
       }
       
-      // Debounce 500ms
+      // Debounce so a continuous pan/zoom doesn't fire a search on every intermediate stop —
+      // 800ms comfortably outlasts a single drag gesture's momentum settle.
       timeoutRef.current = setTimeout(() => {
         onBoundsChanged?.({
           minLat: b.getSouth(),
@@ -241,15 +242,15 @@ function MapEventsListener({
           minLng: b.getWest(),
           maxLng: b.getEast(),
         });
-      }, 500);
+      }, 800);
     },
     zoomend: (e) => {
       const b = e.target.getBounds();
-      
+
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-      
+
       timeoutRef.current = setTimeout(() => {
         onBoundsChanged?.({
           minLat: b.getSouth(),
@@ -257,7 +258,7 @@ function MapEventsListener({
           minLng: b.getWest(),
           maxLng: b.getEast(),
         });
-      }, 500);
+      }, 800);
     }
   });
 

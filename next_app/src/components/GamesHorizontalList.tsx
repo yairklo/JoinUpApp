@@ -47,6 +47,7 @@ export default function GamesHorizontalList({
             noWrap
             sx={{
               fontSize: { xs: "1.1rem", sm: "1.35rem" },
+              letterSpacing: "-0.02em",
               color: isOnColoredBackground ? "common.white" : "text.primary",
               textShadow: isOnColoredBackground ? "0 2px 4px rgba(0,0,0,0.1)" : "none",
             }}

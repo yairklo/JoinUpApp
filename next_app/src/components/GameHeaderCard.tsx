@@ -100,15 +100,16 @@ export default function GameHeaderCard({
         isolation: "isolate",
         position: "relative",
         border: "1px solid",
-        borderColor: isJoined ? "success.light" : "divider",
+        borderColor: isJoined ? "rgba(16,185,129,0.4)" : "rgba(148,163,184,0.16)",
         boxShadow: isJoined
-          ? "0 0 0 2px rgba(16,185,129,0.25), 0 4px 14px rgba(15,23,42,0.06)"
-          : "0 1px 3px rgba(15,23,42,0.06)",
-        transition: "box-shadow 0.2s ease",
+          ? "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 0 0 2px rgba(16,185,129,0.25), 0 4px 14px rgba(15,23,42,0.06)"
+          : "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
+        transition: "box-shadow 0.2s ease, border-color 0.2s ease",
         WebkitTapHighlightColor: "transparent",
         "@media (hover: hover)": {
           "&:hover": {
-            boxShadow: "0 18px 36px -8px rgba(5,150,105,0.28), 0 4px 12px rgba(15,23,42,0.08)",
+            borderColor: isJoined ? "rgba(16,185,129,0.5)" : "rgba(5,150,105,0.3)",
+            boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.08), 0 18px 36px -8px rgba(5,150,105,0.28), 0 4px 12px rgba(15,23,42,0.08)",
           },
         },
       }}
@@ -197,7 +198,8 @@ export default function GameHeaderCard({
                 variant="caption"
                 fontWeight={700}
                 noWrap
-                sx={{ direction: "ltr", unicodeBidi: "isolate" }}
+                dir="ltr"
+                sx={{ unicodeBidi: "isolate" }}
               >
                 {time}–{end}{date ? ` • ${date}` : ""}
               </Typography>
