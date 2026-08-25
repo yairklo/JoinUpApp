@@ -94,8 +94,8 @@ export default function SearchMapComponent({ games, emptyFields = [], onBoundsCh
     <div style={{ width: "100%", height: "100%" }}>
       <MapContainer center={userLocation} zoom={12} style={{ width: "100%", height: "100%" }}>
         <TileLayer
-          attribution='&copy; OpenStreetMap'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://maps.google.com">Google Maps</a>'
+          url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
         />
         <MapEventsListener onBoundsChanged={onBoundsChanged} targetLocation={targetLocation} />
         

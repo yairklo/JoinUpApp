@@ -101,8 +101,8 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
     <div style={{ width: "100%", height: 450 }}>
       <MapContainer center={userLocation} zoom={13} style={{ width: "100%", height: "100%" }}>
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://maps.google.com">Google Maps</a>'
+          url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
         />
         <Marker position={userLocation} icon={defaultIcon}>
           <Popup>You are here</Popup>
