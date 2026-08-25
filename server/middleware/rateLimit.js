@@ -61,9 +61,23 @@ function writeMethodLimiter(limiter) {
   };
 }
 
+// Mirror of writeMethodLimiter, but gates only GET/HEAD (the read/polling traffic:
+// feed loads, notification-count polling, chat history fetches, etc). Mutations
+// (POST/PUT/PATCH/DELETE) skip this and are gated exclusively by writeMethodLimiter
+// below, so the two limiters never double-count the same request.
+function readMethodLimiter(limiter) {
+  return function readOnlyRateLimit(req, res, next) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      return next();
+    }
+    return limiter(req, res, next);
+  };
+}
+
 module.exports = {
   createRateLimiter,
   writeMethodLimiter,
+  readMethodLimiter,
   clientKey,
   isExempt,
 };

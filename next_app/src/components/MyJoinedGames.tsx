@@ -11,13 +11,14 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
+import InlineErrorRow from "@/components/InlineErrorRow";
 
 import { useMyGames } from "@/hooks/useMyGames";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { SportFilter } from "@/utils/sports";
 
 export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
-  const { games, loading, userId, isLoaded } = useMyGames();
+  const { games, loading, error, refetch, userId, isLoaded } = useMyGames();
   const router = useRouter();
   const { notifyGameUpdate } = useGameUpdate();
 
@@ -35,6 +36,14 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
     return (
       <Box display="flex" justifyContent="center" p={2}>
         <CircularProgress size={24} />
+      </Box>
+    );
+  }
+
+  if (error && filteredGames.length === 0) {
+    return (
+      <Box p={2}>
+        <InlineErrorRow message={error} onRetry={refetch} />
       </Box>
     );
   }

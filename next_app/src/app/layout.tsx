@@ -13,6 +13,7 @@ import { ChatProvider } from "@/context/ChatContext";
 import FloatingChatWindow from "@/components/FloatingChatWindow";
 import { SocketProvider } from "@/context/SocketContext";
 import { NotificationCountersProvider } from "@/context/NotificationCountersContext";
+import ClerkDevKeyGuard from "@/components/ClerkDevKeyGuard";
 
 const heebo = Heebo({
   variable: "--font-heebo",
@@ -61,6 +62,7 @@ export default function RootLayout({
           <link rel="icon" href="/favicon.svg" />
         </head>
         <body className={heebo.variable}>
+          <ClerkDevKeyGuard />
           <SocketProvider>
             <ThemeRegistry>
               <ChatProvider>

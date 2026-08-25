@@ -26,9 +26,10 @@ import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import FullPageList from "@/components/FullPageList";
+import InlineErrorRow from "@/components/InlineErrorRow";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
-    const { games, loading, displayedCity, setDisplayedCity, availableCities } = useGamesByCity(initialCity);
+    const { games, loading, error, refetch, displayedCity, setDisplayedCity, availableCities } = useGamesByCity(initialCity);
     const { user } = useUser();
     const router = useRouter();
     const userId = user?.id || "";
@@ -57,6 +58,14 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
         return (
             <Box display="flex" justifyContent="center" p={2}>
                 <CircularProgress size={20} />
+            </Box>
+        );
+    }
+
+    if (error && games.length === 0) {
+        return (
+            <Box p={2}>
+                <InlineErrorRow message={error} onRetry={refetch} />
             </Box>
         );
     }

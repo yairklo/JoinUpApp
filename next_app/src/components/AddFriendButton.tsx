@@ -8,6 +8,7 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import CheckIcon from "@mui/icons-material/Check";
 import ErrorIcon from "@mui/icons-material/Error";
 import Tooltip from "@mui/material/Tooltip";
+import { mapFriendRequestError } from "@/utils/apiError";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -23,7 +24,7 @@ export default function AddFriendButton({ receiverId }: { receiverId: string }) 
     try {
       const token = await getToken({ template: undefined }).catch(() => "");
       if (!token) {
-        setError("Sign in required");
+        setError(mapFriendRequestError(new Error("Sign in required")));
         return;
       }
       const res = await fetch(`${API_BASE}/api/users/requests`, {
@@ -33,11 +34,15 @@ export default function AddFriendButton({ receiverId }: { receiverId: string }) 
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || 'Failed');
+        const err = new Error(body.error || 'Failed') as Error & { status?: number };
+        err.status = res.status;
+        throw err;
       }
       setSent(true);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed");
+      // Never render error.message (raw English from the server/network) directly —
+      // always translate to Hebrew copy via mapFriendRequestError.
+      setError(mapFriendRequestError(e));
     } finally {
       setLoading(false);
     }

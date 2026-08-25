@@ -10,8 +10,10 @@ import { SPORT_MAPPING } from "@/utils/sports";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
+import InlineErrorRow from "@/components/InlineErrorRow";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getLoadErrorMessage } from "@/utils/apiError";
 
 // MUI
 import Box from "@mui/material/Box";
@@ -66,6 +68,7 @@ export default function SearchPage() {
 
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Filters
   const [query, setQuery] = useState("");
@@ -88,6 +91,7 @@ export default function SearchPage() {
 
   const performSearch = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const token = await getToken();
       const params = new URLSearchParams();
@@ -150,6 +154,8 @@ export default function SearchPage() {
       }
     } catch (error) {
       console.error("Search failed:", error);
+      setGames([]);
+      setError(getLoadErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -376,6 +382,8 @@ export default function SearchPage() {
           <Box display="flex" justifyContent="center" p={4}>
             <CircularProgress />
           </Box>
+        ) : error && games.length === 0 ? (
+          <InlineErrorRow message={error} onRetry={performSearch} />
         ) : (
           <Stack spacing={2}>
             {games.map(renderGameCard)}
