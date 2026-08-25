@@ -1,17 +1,8 @@
 "use client";
-import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from "@vis.gl/react-google-maps";
 
-const defaultIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 export default function GameLocationMap({
   lat,
@@ -24,22 +15,34 @@ export default function GameLocationMap({
   title?: string;
   height?: number;
 }) {
-  const center = useMemo<[number, number]>(() => [lat, lng], [lat, lng]);
+  const center = useMemo(() => ({ lat, lng }), [lat, lng]);
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    return <div style={{ color: "#64748b", fontSize: 14 }}>מפה לא זמינה כרגע.</div>;
+  }
+
   return (
     <div style={{ width: "100%", height }}>
-      <MapContainer center={center} zoom={16} style={{ width: "100%", height: "100%" }}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-          subdomains="abcd"
-          maxZoom={19}
-        />
-        <Marker position={center} icon={defaultIcon}>
-          <Popup>{title || "Game location"}</Popup>
-        </Marker>
-      </MapContainer>
+      <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he">
+        <Map
+          mapId="DEMO_MAP_ID"
+          defaultCenter={center}
+          defaultZoom={16}
+          gestureHandling="greedy"
+          disableDefaultUI={false}
+          style={{ width: "100%", height: "100%" }}
+        >
+          <AdvancedMarker position={center} onClick={() => setInfoOpen(true)}>
+            <Pin background="#059669" borderColor="#047857" glyphColor="#fff" />
+          </AdvancedMarker>
+          {infoOpen && (
+            <InfoWindow position={center} onCloseClick={() => setInfoOpen(false)}>
+              {title || "מיקום המשחק"}
+            </InfoWindow>
+          )}
+        </Map>
+      </APIProvider>
     </div>
   );
 }
-
-
