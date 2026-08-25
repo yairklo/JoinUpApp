@@ -13,8 +13,10 @@ import Alert from "@mui/material/Alert";
 import { getActionErrorMessage } from "@/utils/apiError";
 
 // Quick-poll options mapped onto the 1-5 busyLevel scale
-const OPTIONS: Array<{ label: string; level: number; color: "success" | "warning" | "error" }> = [
+// (1=Empty, 2=Light, 3=Moderate, 4=Crowded, 5=Full — see FieldReport.busyLevel in schema.prisma)
+const OPTIONS: Array<{ label: string; level: number; color: "success" | "info" | "warning" | "error" }> = [
   { label: "ריק", level: 1, color: "success" },
+  { label: "מעט", level: 2, color: "info" },
   { label: "בינוני", level: 3, color: "warning" },
   { label: "עמוס", level: 5, color: "error" },
 ];
@@ -74,7 +76,7 @@ export default function CrowdReportWidget({ fieldId }: { fieldId: string }) {
           <Typography variant="subtitle1" fontWeight={700}>
             איך העומס במגרש כרגע?
           </Typography>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="flex-end">
             {submitting ? (
               <CircularProgress size={28} />
             ) : (
