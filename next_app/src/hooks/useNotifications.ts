@@ -84,32 +84,54 @@ export function useNotifications() {
     }, [userId, socket, isConnected]);
 
     const markAsRead = async (id: string) => {
+        // Snapshot so we can roll back if the API call fails — otherwise a 429/500
+        // leaves the UI optimistically claiming the notification was read when it wasn't.
+        let previousNotifications: NotificationType[] = [];
+        let previousUnreadCount = 0;
         try {
             const token = await getTokenRef.current();
             if (!token) return;
 
-            setNotifications((prev) =>
-                prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-            );
-            setUnreadCount((prev) => Math.max(0, prev - 1));
+            setNotifications((prev) => {
+                previousNotifications = prev;
+                return prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+            });
+            setUnreadCount((prev) => {
+                previousUnreadCount = prev;
+                return Math.max(0, prev - 1);
+            });
 
             await notificationsApi.markAsRead(id, token);
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to mark as read:', error);
+            // Roll back the optimistic update — the server never confirmed the read.
+            setNotifications(previousNotifications);
+            setUnreadCount(previousUnreadCount);
         }
     };
 
     const markAllAsRead = async () => {
+        let previousNotifications: NotificationType[] = [];
+        let previousUnreadCount = 0;
         try {
             const token = await getTokenRef.current();
             if (!token) return;
 
-            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-            setUnreadCount(0);
+            setNotifications((prev) => {
+                previousNotifications = prev;
+                return prev.map((n) => ({ ...n, read: true }));
+            });
+            setUnreadCount((prev) => {
+                previousUnreadCount = prev;
+                return 0;
+            });
 
             await notificationsApi.markAllAsRead(token);
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to mark all as read:', error);
+            // Roll back — a failed markAllAsRead must not leave the UI lying about read-state.
+            setNotifications(previousNotifications);
+            setUnreadCount(previousUnreadCount);
         }
     };
 

@@ -24,6 +24,7 @@ import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import FullPageList from "@/components/FullPageList";
+import InlineErrorRow from "@/components/InlineErrorRow";
 
 export default function GamesByDateClient({
   initialDate,
@@ -35,7 +36,7 @@ export default function GamesByDateClient({
   sportFilter?: SportFilter;
 }) {
   const [networkGames, setNetworkGames] = useState(false);
-  const { selectedDate, setSelectedDate, games, loading, groups } = useGamesByDate(initialDate, fieldId, networkGames);
+  const { selectedDate, setSelectedDate, games, loading, error, refetch, groups } = useGamesByDate(initialDate, fieldId, networkGames);
   const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
 
   const { user } = useUser();
@@ -163,6 +164,8 @@ export default function GamesByDateClient({
             </Box>
           ))}
         </Stack>
+      ) : error ? (
+        <InlineErrorRow message={error} onRetry={refetch} />
       ) : currentDayGames.length === 0 ? (
         <Box
           sx={{
