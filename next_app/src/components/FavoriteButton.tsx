@@ -7,6 +7,30 @@ import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
+let globalFavoritesPromise: Promise<Array<{id: string}>> | null = null;
+let globalFavoritesUserId: string | null = null;
+
+function getFavorites(userId: string) {
+  if (globalFavoritesPromise && globalFavoritesUserId === userId) {
+    return globalFavoritesPromise;
+  }
+  globalFavoritesUserId = userId;
+  globalFavoritesPromise = fetch(`${API_BASE}/api/users/${userId}/favorites`)
+    .then(r => {
+      if (!r.ok) throw new Error("Network response was not ok");
+      return r.json();
+    })
+    .catch(() => {
+      globalFavoritesPromise = null;
+      return [];
+    });
+  return globalFavoritesPromise;
+}
+
+function invalidateFavorites() {
+  globalFavoritesPromise = null;
+}
+
 export default function FavoriteButton({ fieldId }: { fieldId: string }) {
   const { user } = useUser();
   const { getToken } = useAuth();
@@ -16,9 +40,9 @@ export default function FavoriteButton({ fieldId }: { fieldId: string }) {
 
   useEffect(() => {
     if (!userId) return;
-    fetch(`${API_BASE}/api/users/${userId}/favorites`).then(r => r.json()).then((arr: Array<{ id: string }>) => {
+    getFavorites(userId).then((arr) => {
       setIsFav(arr.some((f) => f.id === fieldId));
-    }).catch(() => {});
+    });
   }, [userId, fieldId]);
 
   const toggle = async () => {
@@ -34,6 +58,7 @@ export default function FavoriteButton({ fieldId }: { fieldId: string }) {
         const res = await fetch(`${API_BASE}/api/users/${userId}/favorites/${fieldId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) setIsFav(false);
       }
+      invalidateFavorites();
       // fire-and-forget invalidation so lists refresh counts without full reload
       try { fetch(`${API_BASE}/api/fields`, { cache: 'no-store' }); } catch {}
     } finally {
