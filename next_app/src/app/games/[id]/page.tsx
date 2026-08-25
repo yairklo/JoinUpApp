@@ -99,7 +99,7 @@ export default async function GameDetails(props: {
   if (!game) {
     return (
       <Container sx={{ py: 4 }}>
-        <Alert severity="error">Game not found</Alert>
+        <Alert severity="error">המשחק לא נמצא</Alert>
       </Container>
     );
   }

@@ -119,9 +119,9 @@ export default function GamesDateNav({
           })}
         </Tabs>
 
-        <Box px={1} sx={{ borderInlineStart: "1px solid", borderColor: "divider", marginInlineStart: 1 }}>
+        <Box px={1} sx={{ borderInlineStart: "1px solid", borderColor: "divider", marginInlineStart: 1, position: "relative" }}>
           <Tooltip title="בחר תאריך">
-            <IconButton 
+            <IconButton
                 size="small"
                 onClick={() => dateInputRef.current?.showPicker?.() || dateInputRef.current?.focus()}
             >
@@ -129,10 +129,14 @@ export default function GamesDateNav({
             </IconButton>
           </Tooltip>
 
+          {/* Visually hidden, but kept a real 1x1px on-screen target (not 0x0) so that
+              the `.focus()` fallback below (for browsers without showPicker()) doesn't
+              force a large scroll-into-view jump — a 0-size element positioned off in
+              the corner used to make the browser scroll the whole page to "reveal" it. */}
           <input
             ref={dateInputRef}
             type="date"
-            style={{ position: "absolute", opacity: 0, width: 0, height: 0, bottom: 0 }}
+            style={{ position: "absolute", opacity: 0, width: 1, height: 1, overflow: "hidden", top: 0, left: 0 }}
             min={todayStr}
             value={selectedDate}
             onChange={(e) => {
