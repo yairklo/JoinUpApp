@@ -555,6 +555,7 @@ function NewGamePageInner() {
                     value={form.title}
                     onChange={(e) => update("title", e.target.value)}
                     dir="rtl"
+                    slotProps={{ htmlInput: { maxLength: 200 } }}
                   />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
@@ -696,6 +697,8 @@ function NewGamePageInner() {
                       value={form.description}
                       onChange={(e) => update("description", e.target.value)}
                       dir="rtl"
+                      slotProps={{ htmlInput: { maxLength: 2000 } }}
+                      helperText={`${form.description.length}/2000`}
                     />
 
                     <TextField
@@ -706,6 +709,8 @@ function NewGamePageInner() {
                       value={form.welcomeMessage}
                       onChange={(e) => update("welcomeMessage", e.target.value)}
                       dir="rtl"
+                      slotProps={{ htmlInput: { maxLength: 2000 } }}
+                      helperText={`${form.welcomeMessage.length}/2000`}
                     />
 
                     <Stack direction="row-reverse" spacing={3} alignItems="center" justifyContent="flex-start">
