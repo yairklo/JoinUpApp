@@ -161,7 +161,14 @@ export default function ProfilePage() {
   // Fetch logic remains the same...
   useEffect(() => {
     if (!userId) return;
-    fetch(`${API_BASE}/api/users/${userId}`).then(r => r.json()).then(setProfile).catch(() => { });
+    (async () => {
+      try {
+        const token = await getToken({ template: undefined }).catch(() => "");
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(`${API_BASE}/api/users/${userId}`, { headers });
+        setProfile(await res.json());
+      } catch { }
+    })();
     fetch(`${API_BASE}/api/users`).then(r => r.json()).then(setAllUsers).catch(() => { });
     fetch(`${API_BASE}/api/users/${userId}/friends`).then(r => r.json()).then(setFriends).catch(() => { });
     fetch(`${API_BASE}/api/users/${userId}/friends`).then(r => r.json()).then(setFriends).catch(() => { });

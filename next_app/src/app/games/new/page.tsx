@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
 import dynamic from "next/dynamic";
@@ -81,6 +81,7 @@ function NewGamePageInner() {
 
   // UI States
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -226,19 +227,32 @@ function NewGamePageInner() {
     // If new field mode active, allow submitting if name exists OR custom point exists
     const validNewField = newFieldMode ? (!!newField.name || !!customPoint) : true;
 
+    const isFutureStart = !!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() >= Date.now();
+    const validNumbers =
+      form.maxPlayers > 0 &&
+      form.duration > 0 &&
+      (form.teamSize === null || form.teamSize > 0) &&
+      (form.price === null || form.price >= 0);
+
     return Boolean(
       isSignedIn &&
       hasField &&
       validNewField &&
       form.date &&
       form.time &&
-      form.maxPlayers
+      isFutureStart &&
+      validNumbers
     );
-  }, [isSignedIn, selectedField, newFieldMode, newField, customPoint, form.date, form.time, form.maxPlayers]);
+  }, [isSignedIn, selectedField, newFieldMode, newField, customPoint, form.date, form.time, form.maxPlayers, form.duration, form.teamSize, form.price]);
 
   // Submit Logic
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Ref-based guard: React state updates are async/batched, so a rapid double-click can
+    // fire this handler twice before `submitting` re-renders the disabled button. Checking
+    // and setting a ref synchronously closes that race window.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setError(null);
     setSuccess(null);
     setSubmitting(true);
@@ -313,6 +327,7 @@ function NewGamePageInner() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -490,6 +505,12 @@ function NewGamePageInner() {
                     InputLabelProps={{ shrink: true }}
                     value={form.date}
                     slotProps={{ htmlInput: { min: todayStr } }}
+                    error={!!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() < Date.now()}
+                    helperText={
+                      !!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() < Date.now()
+                        ? "לא ניתן ליצור משחק בעבר"
+                        : ""
+                    }
                     onChange={(e) => update("date", e.target.value)}
                   />
                 </Grid>
@@ -511,6 +532,9 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     value={form.duration}
+                    slotProps={{ htmlInput: { min: 0.5, step: 0.5 } }}
+                    error={form.duration <= 0}
+                    helperText={form.duration <= 0 ? "משך המשחק חייב להיות גדול מ-0" : ""}
                     onChange={(e) => update("duration", Number(e.target.value))}
                   />
                 </Grid>
@@ -521,6 +545,9 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     value={form.maxPlayers}
+                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                    error={form.maxPlayers <= 0}
+                    helperText={form.maxPlayers <= 0 ? "חייב להיות לפחות שחקן אחד" : ""}
                     onChange={(e) => update("maxPlayers", Number(e.target.value))}
                   />
                 </Grid>
@@ -531,6 +558,9 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     value={form.teamSize || ""}
+                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                    error={form.teamSize !== null && form.teamSize <= 0}
+                    helperText={form.teamSize !== null && form.teamSize <= 0 ? "גודל הקבוצה חייב להיות גדול מ-0" : ""}
                     onChange={(e) => update("teamSize", e.target.value ? Number(e.target.value) : null)}
                   />
                 </Grid>
@@ -541,6 +571,9 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     value={form.price || ""}
+                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                    error={form.price !== null && form.price < 0}
+                    helperText={form.price !== null && form.price < 0 ? "המחיר לא יכול להיות שלילי" : ""}
                     onChange={(e) => update("price", e.target.value ? Number(e.target.value) : null)}
                   />
                 </Grid>

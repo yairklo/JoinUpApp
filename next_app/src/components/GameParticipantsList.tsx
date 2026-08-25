@@ -229,18 +229,18 @@ export default function GameParticipantsList({
                     <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="md" />
                   </ListItemAvatar>
                   <ListItemText
-                    primary={p.name || "Unknown User"}
+                    primary={p.name || "משתמש לא ידוע"}
                     primaryTypographyProps={{ fontWeight: 500, noWrap: true }}
-                    secondary={isOrg ? "Organizer" : isMgr ? "Manager" : "Player"}
+                    secondary={isOrg ? "מארגן" : isMgr ? "מנהל" : "שחקן"}
                   />
                 </Box>
             </Link>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
               {isOrg ? (
-                <Chip icon={<StarIcon sx={{ fontSize: "16px !important" }} />} label="Host" size="small" color="primary" variant="filled" />
+                <Chip icon={<StarIcon sx={{ fontSize: "16px !important" }} />} label="מארגן" size="small" color="primary" variant="filled" />
               ) : isMgr ? (
-                <Chip icon={<AdminPanelSettingsIcon sx={{ fontSize: "16px !important" }} />} label="Manager" size="small" color="info" variant="outlined" sx={{ fontWeight: "bold" }} />
+                <Chip icon={<AdminPanelSettingsIcon sx={{ fontSize: "16px !important" }} />} label="מנהל" size="small" color="info" variant="outlined" sx={{ fontWeight: "bold" }} />
               ) : null}
 
               {showMenu && (
@@ -284,10 +284,13 @@ export default function GameParticipantsList({
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={2}>
           <Box>
             <Typography variant="h6" fontWeight="bold">
-              Participants
+              משתתפים
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {participants.length} / {maxPlayers} confirmed
+              אושרו{" "}
+              <Box component="span" dir="ltr" sx={{ unicodeBidi: "isolate", display: "inline-block" }}>
+                {participants.length}/{maxPlayers}
+              </Box>
             </Typography>
           </Box>
           {participants.length > 0 && (
