@@ -21,6 +21,7 @@ import ListItemAvatar from "@mui/material/ListItemAvatar";
 import ListItemText from "@mui/material/ListItemText";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 import Chip from "@mui/material/Chip";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
@@ -96,6 +97,9 @@ export default function ProfilePage() {
   const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; city?: string | null; email?: string | null }>>([]);
   const [friends, setFriends] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; mutualCount?: number }>>([]);
   const [incoming, setIncoming] = useState<Array<{ id: string; requester: PublicUser; createdAt: string }>>([]);
+  // Receiver ids of friend requests the current user has already sent and are still pending —
+  // used to give AddFriendButton its real initial state instead of always starting as "not sent".
+  const [outgoingPendingIds, setOutgoingPendingIds] = useState<Set<string>>(new Set());
   const [availableSports, setAvailableSports] = useState<Array<{ id: string; name: string }>>([]);
 
   const [myGames, setMyGames] = useState<Game[]>([]);
@@ -106,6 +110,8 @@ export default function ProfilePage() {
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -179,6 +185,12 @@ export default function ProfilePage() {
         const inc = await fetch(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers });
         if (inc.ok) setIncoming(await inc.json());
 
+        const out = await fetch(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers });
+        if (out.ok) {
+          const outgoing: Array<{ id: string; receiver: { id: string } }> = await out.json();
+          setOutgoingPendingIds(new Set(outgoing.map(r => r.receiver.id)));
+        }
+
         if (token) {
             const games = await gamesApi.getMyGames(token);
             setMyGames(games);
@@ -202,9 +214,31 @@ export default function ProfilePage() {
     });
   }, [profile]);
 
+  // Today's date (yyyy-mm-dd) used both as the HTML `max` on the birth-date input (cosmetic
+  // first line of defense — doesn't block submission on its own) and in the real JS validation
+  // below that actually blocks Save.
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const nameError = form.name.length > 50;
+  const nameHelperText = nameError ? "השם לא יכול להכיל יותר מ-50 תווים" : "";
+
+  const birthDateError = (() => {
+    if (!form.birthDate) return "";
+    const parsed = new Date(form.birthDate);
+    if (Number.isNaN(parsed.getTime())) return "";
+    if (parsed.getTime() > Date.now()) return "תאריך הלידה לא יכול להיות בעתיד";
+    const minDate = new Date();
+    minDate.setFullYear(minDate.getFullYear() - 120);
+    if (parsed.getTime() < minDate.getTime()) return "תאריך הלידה אינו סביר";
+    return "";
+  })();
+
+  const canSaveProfile = !nameError && !birthDateError;
+
   const save = async () => {
-    if (!userId) return;
+    if (!userId || !canSaveProfile) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const token = await getToken({ template: undefined }).catch(() => "");
       // imageUrl is intentionally excluded: it's owned by the dedicated upload/remove
@@ -226,8 +260,10 @@ export default function ProfilePage() {
       const updated = await res.json();
       setProfile(updated);
       setEditing(false);
+      setSaveSuccess(true);
     } catch (e) {
-      // noop
+      // Keep `editing` true and the unsaved form data intact so the user doesn't lose their edits.
+      setSaveError("השמירה נכשלה, נסה שוב");
     } finally {
       setSaving(false);
     }
@@ -403,7 +439,15 @@ export default function ProfilePage() {
                     // טופס עריכה
                     <Grid container spacing={2}>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="שם" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} size="small" />
+                        <TextField
+                          fullWidth
+                          label="שם"
+                          value={form.name}
+                          onChange={(e) => setForm({ ...form, name: e.target.value })}
+                          size="small"
+                          error={nameError}
+                          helperText={nameHelperText}
+                        />
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField fullWidth label="עיר" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} size="small" />
@@ -565,6 +609,9 @@ export default function ProfilePage() {
                           onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
                           size="small"
                           InputLabelProps={{ shrink: true }}
+                          slotProps={{ htmlInput: { max: todayStr } }}
+                          error={!!birthDateError}
+                          helperText={birthDateError}
                         />
                       </Grid>
                       <Grid size={12}>
@@ -579,7 +626,7 @@ export default function ProfilePage() {
                         />
                       </Grid>
                       <Grid size={12} sx={{ mt: 2, display: 'flex', gap: 2 }}>
-                        <Button variant="contained" startIcon={<SaveIcon />} onClick={save} disabled={saving}>
+                        <Button variant="contained" startIcon={<SaveIcon />} onClick={save} disabled={saving || !canSaveProfile}>
                           {saving ? 'שומר...' : 'שמור שינויים'}
                         </Button>
                         <Button variant="outlined" color="inherit" startIcon={<CancelIcon />} onClick={() => setEditing(false)}>
@@ -761,7 +808,7 @@ export default function ProfilePage() {
                             {isFriend ? (
                               <Chip label="חברים" size="small" color="success" variant="outlined" />
                             ) : (
-                              <AddFriendButton receiverId={u.id} />
+                              <AddFriendButton receiverId={u.id} initialSent={outgoingPendingIds.has(u.id)} />
                             )}
                           </ListItem>
                         );
@@ -776,6 +823,28 @@ export default function ProfilePage() {
           </Grid>
         )}
       </SignedIn>
+
+      <Snackbar
+        open={saveSuccess}
+        autoHideDuration={2000}
+        onClose={() => setSaveSuccess(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setSaveSuccess(false)}>
+          נשמר בהצלחה
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={!!saveError}
+        autoHideDuration={3000}
+        onClose={() => setSaveError(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="error" variant="filled" onClose={() => setSaveError(null)}>
+          {saveError}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }
