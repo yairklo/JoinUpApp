@@ -218,7 +218,13 @@ export default function GameLiveSection({
 
       <GameHeaderCard
         time={game.time}
-        date={game.date}
+        // `game.date` can be in either DD/MM/YYYY (the initial SSR fetch, see games/[id]/page.tsx)
+        // or ISO YYYY-MM-DD (normalizeIncomingGame, used for optimistic join/leave updates and
+        // socket "game:updated" pushes -- see next_app/src/utils/timezone.ts). Without this guard,
+        // a join/leave briefly renders the raw ISO string until a subsequent refetch overwrites it
+        // with the SSR-formatted value. Same defensive pattern already used in GamesByDateClient /
+        // GamesByCityClient / GamesByFriendsClient / MyJoinedGames for this exact ambiguity.
+        date={game.date && game.date.includes('-') ? game.date.split('-').reverse().join('/') : game.date}
         durationHours={game.duration ?? 1}
         title={game.title || game.fieldName}
         subtitle={

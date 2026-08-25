@@ -153,3 +153,28 @@ body,
     animation: none;
   }
 }
+
+/* Hero entrance animation — pure CSS so above-the-fold content (headline/CTAs)
+   paints immediately server-side and animates in as soon as the browser paints,
+   instead of sitting at opacity:0 until client JS hydrates and a framer-motion
+   effect fires (that gap was causing a multi-second flash of empty hero content). */
+@keyframes joinup-hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.joinup-hero-item {
+  animation: joinup-hero-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .joinup-hero-item {
+    animation: none;
+  }
+}

@@ -45,6 +45,19 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 type FieldOption = { id: string; name: string; location?: string | null; inputValue?: string };
 const filter = createFilterOptions<FieldOption>();
 
+// Per-sport defaults applied when the user switches sport (see the sport Select's onChange).
+// Tennis isn't a team-format sport, so maxPlayers drops to a doubles-sized default and teamSize
+// is force-reset to null (an existing "7-a-side" value from Football would otherwise leak in
+// nonsensically). Football/Basketball share the same team-based conventions as each other, so
+// switching between them only resets maxPlayers back to the general default — teamSize is left
+// alone since there's no established per-sport team-size convention elsewhere in the app to
+// switch to (see GameHeaderCard's generic `${teamSize}X${teamSize}` display).
+const SPORT_DEFAULTS: Record<SportType, { maxPlayers: number; teamSize?: number | null }> = {
+  SOCCER: { maxPlayers: 10 },
+  BASKETBALL: { maxPlayers: 10 },
+  TENNIS: { maxPlayers: 4, teamSize: null },
+};
+
 function NewGamePageInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -86,6 +99,10 @@ function NewGamePageInner() {
   const [success, setSuccess] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  // Tracks whether the user has interacted with the form at all, so the "why is submit
+  // disabled" helper text doesn't show up noisily on a fresh, untouched form.
+  const [formTouched, setFormTouched] = useState(false);
+  const markTouched = () => setFormTouched(true);
 
   // Field Logic
   const [fields, setFields] = useState<FieldOption[]>([]);
@@ -222,28 +239,50 @@ function NewGamePageInner() {
   }, [form.date, nextQuarterTimeStr, todayStr]);
 
   // Validation
-  const canSubmit = useMemo(() => {
-    const hasField = !!selectedField?.id || (newFieldMode && (newField.name.trim() || newField.location.trim()));
-    // If new field mode active, allow submitting if name exists OR custom point exists
-    const validNewField = newFieldMode ? (!!newField.name || !!customPoint) : true;
+  // A map pin alone (no typed name/address) is a valid new field -- the server falls back to an
+  // auto-generated "Custom spot <lat>, <lng>" name/location when only coordinates are provided
+  // (see createGame in server/services/gameService.js), so the client must accept that too.
+  const hasField = !!selectedField?.id || (newFieldMode && (newField.name.trim() || newField.location.trim() || !!customPoint));
+  // If new field mode active, allow submitting if name exists OR custom point exists
+  const validNewField = newFieldMode ? (!!newField.name || !!customPoint) : true;
+  // A brand-new venue must be findable: either a typed address or a map pin (lat/lng from
+  // `customPoint`). Neither is required over the other -- a pin without typed text is enough,
+  // and a typed address without a pin is enough too.
+  const hasNewFieldAddress = newFieldMode ? (!!newField.location.trim() || !!customPoint) : true;
 
-    const isFutureStart = !!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() >= Date.now();
-    const validNumbers =
-      form.maxPlayers > 0 &&
-      form.duration > 0 &&
-      (form.teamSize === null || form.teamSize > 0) &&
-      (form.price === null || form.price >= 0);
+  const isFutureStart = !!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() >= Date.now();
+  const validNumbers =
+    form.maxPlayers > 0 &&
+    form.duration > 0 &&
+    (form.teamSize === null || form.teamSize > 0) &&
+    (form.price === null || form.price >= 0);
 
-    return Boolean(
-      isSignedIn &&
-      hasField &&
-      validNewField &&
-      form.date &&
-      form.time &&
-      isFutureStart &&
-      validNumbers
-    );
-  }, [isSignedIn, selectedField, newFieldMode, newField, customPoint, form.date, form.time, form.maxPlayers, form.duration, form.teamSize, form.price]);
+  const canSubmit = Boolean(
+    isSignedIn &&
+    hasField &&
+    validNewField &&
+    hasNewFieldAddress &&
+    form.date &&
+    form.time &&
+    isFutureStart &&
+    validNumbers
+  );
+
+  // Single most-relevant reason the submit button is disabled, checked in priority order. Shown
+  // to the user only once they've interacted with the form (see `formTouched`) so a fresh, empty
+  // form doesn't greet them with an error before they've done anything.
+  const missingReason = useMemo(() => {
+    if (canSubmit) return null;
+    if (!hasField) return "יש לבחור מגרש ותאריך";
+    if (newFieldMode && !hasNewFieldAddress) return "יש למלא כתובת למגרש החדש";
+    if (!form.date || !form.time) return "יש לבחור תאריך ושעה למשחק";
+    if (!isFutureStart) return "התאריך חייב להיות בעתיד";
+    if (form.maxPlayers <= 0) return "מספר השחקנים המקסימלי חייב להיות גדול מ-0";
+    if (form.duration <= 0) return "משך המשחק חייב להיות גדול מ-0";
+    if (form.teamSize !== null && form.teamSize <= 0) return "גודל הקבוצה חייב להיות גדול מ-0";
+    if (form.price !== null && form.price < 0) return "המחיר לא יכול להיות שלילי";
+    return "יש למלא את כל השדות הנדרשים";
+  }, [canSubmit, hasField, newFieldMode, hasNewFieldAddress, form.date, form.time, isFutureStart, form.maxPlayers, form.duration, form.teamSize, form.price]);
 
   // Submit Logic
   async function onSubmit(e: React.FormEvent) {
@@ -333,6 +372,7 @@ function NewGamePageInner() {
   }
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setFormTouched(true);
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -375,7 +415,20 @@ function NewGamePageInner() {
                   labelId="sport-select-label"
                   value={form.sport}
                   label="סוג ספורט"
-                  onChange={(e) => update("sport", e.target.value as SportType)}
+                  onChange={(e) => {
+                    const newSport = e.target.value as SportType;
+                    const defaults = SPORT_DEFAULTS[newSport];
+                    setFormTouched(true);
+                    setForm((prev) => ({
+                      ...prev,
+                      sport: newSport,
+                      maxPlayers: defaults.maxPlayers,
+                      // teamSize is only reset when the new sport's defaults explicitly define
+                      // one (e.g. Tennis -> null); Football/Basketball share the same team-based
+                      // conventions, so switching between them leaves teamSize untouched.
+                      teamSize: "teamSize" in defaults ? (defaults.teamSize as number | null) : prev.teamSize,
+                    }));
+                  }}
                 >
                   {Object.entries(SPORT_MAPPING).map(([key, label]) => (
                     <MenuItem key={key} value={key}>
@@ -401,7 +454,7 @@ function NewGamePageInner() {
                               size="small"
                               fullWidth
                               value={newField.name}
-                              onChange={e => setNewField(p => ({ ...p, name: e.target.value }))}
+                              onChange={e => { markTouched(); setNewField(p => ({ ...p, name: e.target.value })); }}
                               dir="rtl"
                             />
                             <TextField
@@ -409,8 +462,15 @@ function NewGamePageInner() {
                               size="small"
                               fullWidth
                               value={newField.location}
-                              onChange={e => setNewField(p => ({ ...p, location: e.target.value }))}
-                              helperText={customPoint ? `נבחר: ${customPoint.lat.toFixed(4)}, ${customPoint.lng.toFixed(4)}` : "הזן כתובת או בחר במפה"}
+                              onChange={e => { markTouched(); setNewField(p => ({ ...p, location: e.target.value })); }}
+                              error={!newField.location.trim() && !customPoint}
+                              helperText={
+                                customPoint
+                                  ? `נבחר: ${customPoint.lat.toFixed(4)}, ${customPoint.lng.toFixed(4)}`
+                                  : !newField.location.trim()
+                                    ? "יש להזין כתובת או לבחור מיקום במפה"
+                                    : "הזן כתובת או בחר במפה"
+                              }
                               dir="rtl"
                             />
                             <Stack direction="row" spacing={2} justifyContent="flex-end">
@@ -426,6 +486,7 @@ function NewGamePageInner() {
                         <Autocomplete
                           value={selectedField}
                           onChange={(event, newValue) => {
+                            markTouched();
                             if (typeof newValue === 'string') {
                               setTimeout(() => {
                                 setNewFieldMode(true);
@@ -532,7 +593,7 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     value={form.duration}
-                    slotProps={{ htmlInput: { min: 0.5, step: 0.5 } }}
+                    slotProps={{ htmlInput: { min: 0.5, step: 0.5, dir: "ltr" } }}
                     error={form.duration <= 0}
                     helperText={form.duration <= 0 ? "משך המשחק חייב להיות גדול מ-0" : ""}
                     onChange={(e) => update("duration", Number(e.target.value))}
@@ -545,7 +606,7 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     value={form.maxPlayers}
-                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                    slotProps={{ htmlInput: { min: 1, step: 1, dir: "ltr" } }}
                     error={form.maxPlayers <= 0}
                     helperText={form.maxPlayers <= 0 ? "חייב להיות לפחות שחקן אחד" : ""}
                     onChange={(e) => update("maxPlayers", Number(e.target.value))}
@@ -558,7 +619,7 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     value={form.teamSize || ""}
-                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                    slotProps={{ htmlInput: { min: 1, step: 1, dir: "ltr" } }}
                     error={form.teamSize !== null && form.teamSize <= 0}
                     helperText={form.teamSize !== null && form.teamSize <= 0 ? "גודל הקבוצה חייב להיות גדול מ-0" : ""}
                     onChange={(e) => update("teamSize", e.target.value ? Number(e.target.value) : null)}
@@ -571,7 +632,7 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     value={form.price || ""}
-                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                    slotProps={{ htmlInput: { min: 0, step: 1, dir: "ltr" } }}
                     error={form.price !== null && form.price < 0}
                     helperText={form.price !== null && form.price < 0 ? "המחיר לא יכול להיות שלילי" : ""}
                     onChange={(e) => update("price", e.target.value ? Number(e.target.value) : null)}
@@ -799,7 +860,7 @@ function NewGamePageInner() {
               </Box>
 
               {/* --- SUBMIT --- */}
-              <Box display="flex" justifyContent="flex-start">
+              <Box display="flex" flexDirection="column" alignItems="flex-start" gap={1}>
                 <Button
                   type="submit"
                   variant="contained"
@@ -809,6 +870,11 @@ function NewGamePageInner() {
                 >
                   {submitting ? "יוצר..." : "צור משחק"}
                 </Button>
+                {!canSubmit && !submitting && formTouched && missingReason && (
+                  <Typography variant="caption" color="error" align="right" sx={{ width: "100%" }}>
+                    {missingReason}
+                  </Typography>
+                )}
               </Box>
 
             </Stack>
@@ -823,6 +889,7 @@ function NewGamePageInner() {
             <MapWithNoSSR
               // Select existing field from map
               onSelect={(f: { id: string; name: string; location?: string | null }) => {
+                markTouched();
                 setSelectedField(f);
                 setNewFieldMode(false);
                 setShowMap(false);
@@ -831,6 +898,7 @@ function NewGamePageInner() {
               pickMode={true} // Allow picking always so user can create new field easily
               picked={customPoint}
               onPick={(pt: { lat: number; lng: number }) => {
+                markTouched();
                 setCustomPoint(pt);
                 if (!newFieldMode) {
                   setNewFieldMode(true);
