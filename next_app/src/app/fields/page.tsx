@@ -1,4 +1,4 @@
-import FieldCard from "@/components/FieldCard";
+import FieldsBrowser from "@/components/FieldsBrowser";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
@@ -12,6 +12,7 @@ type Field = {
   image: string;
   available: boolean;
   type: "open" | "closed";
+  supportedSports?: string[];
   description?: string;
   games: Array<{ id: string; date: string; time: string }>;
   favoritesCount?: number;
@@ -57,22 +58,7 @@ export default async function FieldsPage() {
           </Typography>
         </Box>
       ) : (
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              sm: "repeat(2, 1fr)",
-              md: "repeat(3, 1fr)",
-              lg: "repeat(4, 1fr)",
-            },
-            gap: 2.5,
-          }}
-        >
-          {fields.map((f) => (
-            <FieldCard key={f.id} field={f} />
-          ))}
-        </Box>
+        <FieldsBrowser fields={fields} />
       )}
     </Container>
   );
