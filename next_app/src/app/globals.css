@@ -47,7 +47,12 @@ body {
 html,
 body,
 #__next {
-  height: 100%;
+  /* min-height (not height) so the box can grow past the viewport when content
+     overflows. A fixed `height: 100%` caps body's containing block at the
+     viewport height even with overflow:visible, which breaks `position: sticky`
+     for children like AppNavbar as soon as page content exceeds one viewport
+     (most visible on tall pages, e.g. /profile, /profile/friends). */
+  min-height: 100%;
 }
 
 /* Main content area – clears the fixed bottom navigation on mobile */

@@ -274,8 +274,13 @@ export default function SearchPage() {
             חיפוש משחקים
           </Typography>
 
+          {/* Copy kept honest with what this page actually queries: only /api/games/search
+              (gamesApi.search), so we don't promise player search here. Note: a real global
+              people/fields/games search already exists (searchApi.global -> /api/search/global,
+              used by GlobalSearchOmnibar in the header) but this page doesn't call it — wiring
+              it in would be a bigger scope change than a copy fix, so left as a follow-up. */}
           <TextField
-            placeholder="חפש קבוצה, אולם או שחקן..."
+            placeholder="חפש לפי שם קבוצה, אולם או ענף ספורט..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             InputProps={{

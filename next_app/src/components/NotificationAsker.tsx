@@ -56,8 +56,15 @@ export default function NotificationAsker() {
                 aria-label="הפעל התראות"
                 sx={{
                     position: "fixed",
+                    // Pushed up well clear of BottomNav (64px + safe-area) *and* of
+                    // page content that tends to sit just above the fold on mobile
+                    // (e.g. the "מחר" date chip row on the home feed, the
+                    // "הגדרות קבוצה" button on a game details page) — both were
+                    // getting covered by this floating button at the previous
+                    // 80px offset. 112px keeps a solid ~48px buffer above the
+                    // bottom nav while clearing that content band.
                     bottom: {
-                        xs: "calc(80px + env(safe-area-inset-bottom))",
+                        xs: "calc(112px + env(safe-area-inset-bottom))",
                         md: 24,
                     },
                     // Keep clear of the centered search map/list toggle on mobile
