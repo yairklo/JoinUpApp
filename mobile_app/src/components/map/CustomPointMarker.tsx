@@ -14,11 +14,13 @@ interface CustomPointMarkerProps {
 }
 
 export default function CustomPointMarker({ coordinate }: CustomPointMarkerProps) {
+    const [tracksViewChanges, setTracksViewChanges] = React.useState(true);
     return (
         <Marker
             coordinate={coordinate}
             anchor={{ x: 0.5, y: 1.0 }}
-            tracksViewChanges={false}
+            tracksViewChanges={tracksViewChanges}
+            onLayout={() => setTracksViewChanges(false)}
             cluster={false}
         >
             <MarkerPin visual={CUSTOM_POINT_VISUAL} selected />

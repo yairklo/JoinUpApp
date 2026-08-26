@@ -8,7 +8,14 @@ import {
   InfoWindow,
   useMap,
 } from "@vis.gl/react-google-maps";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Stack from "@mui/material/Stack";
+import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
+import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import { Game } from "@/types/game";
+import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -20,14 +27,42 @@ interface SearchMapComponentProps {
   targetLocation?: [number, number] | null;
 }
 
+const SPORT_COLORS: Record<string, string> = {
+  SOCCER: "#16a34a", // green-600
+  BASKETBALL: "#f97316", // orange-500
+  TENNIS: "#eab308", // yellow-500
+};
+
+// Games can arrive with either the DB enum ("SOCCER") or a free-text Hebrew
+// label — normalize both to one key so color/emoji/label lookups agree.
+const normalizeSportKey = (sport?: string): keyof typeof SPORT_COLORS | null => {
+  const s = sport?.toLowerCase() || "";
+  if (s.includes("כדורגל") || s.includes("soccer") || s.includes("football")) return "SOCCER";
+  if (s.includes("כדורסל") || s.includes("basketball")) return "BASKETBALL";
+  if (s.includes("טניס") || s.includes("tennis")) return "TENNIS";
+  return null;
+};
+
 const getSportColorHex = (sport?: string) => {
-  const s = sport?.toLowerCase() || '';
-  if (s.includes('כדורגל') || s.includes('soccer') || s.includes('football')) return '#16a34a'; // green-600
-  if (s.includes('כדורסל') || s.includes('basketball')) return '#f97316'; // orange-500
-  if (s.includes('טניס') || s.includes('tennis')) return '#eab308'; // yellow-500
-  if (s.includes('כדורעף') || s.includes('volleyball')) return '#60a5fa'; // blue-400
-  if (s.includes('פדל') || s.includes('padel')) return '#a855f7'; // purple-500
-  return '#2563eb'; // blue-600 (default)
+  const key = normalizeSportKey(sport);
+  return key ? SPORT_COLORS[key] : "#2563eb"; // blue-600 fallback
+};
+
+const getSportVisual = (sport?: string) => {
+  const key = normalizeSportKey(sport);
+  return {
+    color: key ? SPORT_COLORS[key] : "#2563eb",
+    emoji: key ? SPORT_EMOJI[key] : "🏅",
+    label: key ? SPORT_MAPPING[key] : sport || "משחק",
+  };
+};
+
+// "2026-08-27" -> "27.8" — compact enough to sit next to the time in a popup row.
+const formatShortDate = (dateStr?: string) => {
+  if (!dateStr) return "";
+  const [year, month, day] = dateStr.split("-");
+  if (!year || !month || !day) return dateStr;
+  return `${Number(day)}.${Number(month)}`;
 };
 
 type GameGroup = { key: string; lat: number; lng: number; games: Game[] };
@@ -192,33 +227,65 @@ function GameGroupMarker({ group, onGameSelect }: { group: GameGroup; onGameSele
         </div>
       </AdvancedMarker>
       {open && (
-        <InfoWindow position={{ lat: group.lat, lng: group.lng }} onCloseClick={() => setOpen(false)}>
-          <div style={{ minWidth: 200 }}>
-            <h6 style={{ fontWeight: 700, marginBottom: 8 }}>
-              {firstGame.field?.name || firstGame.fieldName || "מיקום המשחק"}
-            </h6>
-            {group.games.map((g) => (
-              <div
-                key={g.id}
-                style={{
-                  padding: 8,
-                  marginBottom: 4,
-                  border: "1px solid #e0e0e0",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                }}
-                onClick={() => onGameSelect?.(g.id)}
-              >
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{g.sport}</div>
-                <div style={{ fontSize: 12, color: "#666" }}>
-                  {g.date} בשעה {g.time}
-                </div>
-                <div style={{ fontSize: 12, color: "#2e7d32", fontWeight: 500 }}>
-                  שחקנים: {g.currentPlayers}/{g.maxPlayers}
-                </div>
-              </div>
-            ))}
-          </div>
+        <InfoWindow
+          position={{ lat: group.lat, lng: group.lng }}
+          onCloseClick={() => setOpen(false)}
+          headerDisabled
+          minWidth={252}
+          maxWidth={300}
+          pixelOffset={[0, -10]}
+        >
+          <Box sx={{ p: 0.5 }}>
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1.25 }}>
+              <PlaceRoundedIcon sx={{ fontSize: 18, color: "primary.main" }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.25 }}>
+                {firstGame.field?.name || firstGame.fieldName || "מיקום המשחק"}
+              </Typography>
+            </Stack>
+            <Stack spacing={0.75}>
+              {group.games.map((g) => {
+                const visual = getSportVisual(g.sport);
+                const isFull = g.currentPlayers >= g.maxPlayers;
+                return (
+                  <Box
+                    key={g.id}
+                    onClick={() => onGameSelect?.(g.id)}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      p: 1,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderInlineStartWidth: 3,
+                      borderInlineStartColor: visual.color,
+                      cursor: "pointer",
+                      transition: "background-color 120ms ease, transform 120ms ease",
+                      "&:hover": { bgcolor: "action.hover", transform: "translateY(-1px)" },
+                    }}
+                  >
+                    <Box sx={{ fontSize: 20, lineHeight: 1, flexShrink: 0 }}>{visual.emoji}</Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
+                        {visual.label}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatShortDate(g.date)} · {g.time}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      size="small"
+                      label={`${g.currentPlayers}/${g.maxPlayers}`}
+                      color={isFull ? "default" : "success"}
+                      variant={isFull ? "outlined" : "filled"}
+                      sx={{ fontWeight: 700, height: 22, flexShrink: 0 }}
+                    />
+                  </Box>
+                );
+              })}
+            </Stack>
+          </Box>
         </InfoWindow>
       )}
     </>
@@ -253,29 +320,28 @@ function EmptyFieldMarker({ field }: { field: any }) {
         </div>
       </AdvancedMarker>
       {open && (
-        <InfoWindow position={{ lat: field.lat, lng: field.lng }} onCloseClick={() => setOpen(false)}>
-          <div style={{ minWidth: 200, textAlign: "center" }}>
-            <h6 style={{ fontWeight: 700, marginBottom: 8 }}>{field.name}</h6>
-            <div style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>
+        <InfoWindow
+          position={{ lat: field.lat, lng: field.lng }}
+          onCloseClick={() => setOpen(false)}
+          headerDisabled
+          minWidth={220}
+          maxWidth={260}
+          pixelOffset={[0, -10]}
+        >
+          <Box sx={{ p: 0.5, textAlign: "center" }}>
+            <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5} sx={{ mb: 0.5 }}>
+              <PlaceRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                {field.name}
+              </Typography>
+            </Stack>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
               {field.location || "אין מידע מיקום"}
-            </div>
-            <a
-              href={`/games/new?fieldId=${field.id}`}
-              style={{
-                display: "block",
-                backgroundColor: "#2563eb",
-                color: "white",
-                padding: "8px 12px",
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 600,
-                textDecoration: "none",
-                cursor: "pointer",
-              }}
-            >
+            </Typography>
+            <Button href={`/games/new?fieldId=${field.id}`} variant="contained" color="primary" fullWidth size="small">
               פתח משחק במגרש זה
-            </a>
-          </div>
+            </Button>
+          </Box>
         </InfoWindow>
       )}
     </>
