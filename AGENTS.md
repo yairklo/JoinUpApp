@@ -75,3 +75,4 @@ Append a short bullet under **Known failure modes** in this file and/or add a ru
 - Shared client/server contracts live in `shared/` (`@joinup/shared`). Do not copy timezone/sports/`Game` types between next_app and mobile_app.
 - A dedicated jobs process is `node worker.js` (`RUN_HTTP_SERVER=false`). The web API that sits next to it must set `RUN_BACKGROUND_JOBS=false`. Worker socket emits go through Redis `joinup:socket_events`.
 - `Game.price` / `GameSeries.price` are display-only (pay at field). Do not add a payment processor without a product brief.
+- Socket `joinChats` must batch `ChatParticipant` with `chatId: { in: ids }` (`checkChatPermissionsBatch`). Never loop `checkChatPermission` / `findFirst` per room — homepage reload was ~60 identical lookups. Game list endpoints use `SEARCH_GAME_SELECT` (no nested `user`); keep full `include: { user: true }` for `getGameById` only.

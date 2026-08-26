@@ -26,7 +26,7 @@ const notificationsRoutes = require('./routes/notifications');
 const searchRoutes = require('./routes/search');
 const adminRoutes = require('./routes/admin');
 const { verifyToken } = require('@clerk/backend');
-const { checkChatPermission } = require('./utils/chatAuth');
+const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
 const { NotificationService } = require('./services/notificationService');
 const { broadcastCounters } = require('./services/counterService');
 
@@ -842,10 +842,10 @@ io.on('connection', async (socket) => {
 
   socket.on('joinChats', async (chatIds) => {
     if (!Array.isArray(chatIds) || !socket.userId) return;
-    for (const rid of chatIds) {
-      if (!rid) continue;
-      const allowed = await checkChatPermission(socket.userId, String(rid));
-      if (allowed) socket.join(String(rid));
+    const ids = chatIds.map((rid) => String(rid || '')).filter(Boolean).slice(0, 500);
+    const allowed = await checkChatPermissionsBatch(socket.userId, ids);
+    for (const rid of ids) {
+      if (allowed.has(rid)) socket.join(rid);
     }
   });
 
