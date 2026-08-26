@@ -13,12 +13,14 @@ import PendingRequestsList from '@/components/PendingRequestsList';
 import GameRatingsPanel from '@/components/GameRatingsPanel';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 
 export default function GameDetailsScreen() {
     const { t } = useTranslation();
     const params = useLocalSearchParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const { getToken, isLoaded: isAuthLoaded, isSignedIn } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const { user } = useUser();
     const router = useRouter();
     const { notifyGameUpdate } = useGameUpdate();
@@ -41,10 +43,10 @@ export default function GameDetailsScreen() {
         try {
             let token: string | null | undefined = null;
             if (isSignedIn) {
-                token = await getToken();
+                token = await getTokenRef.current();
                 if (!token) {
                     await new Promise((r) => setTimeout(r, 400));
-                    token = await getToken();
+                    token = await getTokenRef.current();
                 }
                 if (!token) {
                     // Keep spinner — never paint a guest snapshot that hides the offer.
@@ -59,7 +61,7 @@ export default function GameDetailsScreen() {
             Alert.alert("שגיאה", "לא הצלחנו לטעון את פרטי המשחק");
             setLoading(false);
         }
-    }, [id, isAuthLoaded, isSignedIn, getToken]);
+    }, [id, isAuthLoaded, isSignedIn, getTokenRef]);
 
     useEffect(() => {
         fetchGame();

@@ -97,7 +97,7 @@ export default function SearchScreen() {
         return () => {
             if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         }
-    }, [selectedCity, selectedDate, selectedSport, mapBounds, query, networkGames, showEmptyFields]);
+    }, [selectedCity, selectedDate, selectedSport, mapBounds, query, networkGames, showEmptyFields, isMapView]);
 
     const loadCities = async () => {
         try {
@@ -576,7 +576,11 @@ export default function SearchScreen() {
                     contentContainerStyle={{ paddingBottom: 20 }}
                     ListEmptyComponent={
                         <View className="items-center mt-10">
-                            <Text className="text-gray-400">{t('search.noGamesFound')}</Text>
+                            {loading ? (
+                                <ActivityIndicator color="#059669" />
+                            ) : (
+                                <Text className="text-gray-400">{t('search.noGamesFound')}</Text>
+                            )}
                         </View>
                     }
                 />
