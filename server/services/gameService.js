@@ -218,6 +218,9 @@ const SEARCH_GAME_SELECT = {
   teamSize: true,
   registrationOpensAt: true,
   joinPolicy: true,
+  organizerId: true,
+  status: true,
+  isOpenToJoin: true,
   field: {
     select: {
       id: true,
@@ -266,7 +269,13 @@ function mapGameForSearchClient(game, viewerId) {
     teamSize: game.teamSize,
     registrationOpensAt: game.registrationOpensAt ? game.registrationOpensAt.toISOString() : null,
     joinPolicy: game.joinPolicy,
+    organizerId: game.organizerId || null,
+    status: game.status || null,
+    isOpenToJoin: game.isOpenToJoin,
     viewerParticipationStatus,
+    participants: (game.participants || [])
+      .filter((p) => p.status === 'CONFIRMED')
+      .map((p) => ({ id: p.userId })),
     field: game.field
       ? {
           id: game.field.id,
@@ -278,6 +287,21 @@ function mapGameForSearchClient(game, viewerId) {
         }
       : undefined,
   };
+}
+
+/**
+ * List/feed queries: Game + Field + Participation only (no nested User).
+ * Prisma still issues ~3 SQL statements; that is the minimum without raw SQL.
+ */
+async function fetchMappedListGames(where, viewerId, { orderBy = { start: 'asc' }, take, dedupe = true } = {}) {
+  const games = await prisma.game.findMany({
+    where,
+    select: SEARCH_GAME_SELECT,
+    orderBy,
+    ...(take ? { take } : {}),
+  });
+  const list = dedupe ? deduplicateSeriesGames(games) : games;
+  return list.map((g) => mapGameForSearchClient(g, viewerId));
 }
 
 // Deduplicate games by seriesId, keeping the first occurrence (nearest upcoming)
@@ -1580,18 +1604,13 @@ async function getPublicGames(query, viewerId) {
     where.AND.push({ start: { gte: getActiveGameStartCutoff() } });
   }
 
-  const games = await prisma.game.findMany({
-    where,
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return deduplicateSeriesGames(games).map(g => mapGameForClient(g, viewerId));
+  return fetchMappedListGames(where, viewerId);
 }
 
 async function getMyGames(userId) {
   const cutoff = getActiveGameStartCutoff();
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         { status: 'OPEN' },
         { start: { gte: cutoff } },
@@ -1603,32 +1622,28 @@ async function getMyGames(userId) {
         },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return deduplicateSeriesGames(games).map(g => mapGameForClient(g, userId));
+    userId
+  );
 }
 
 async function getMyHistory(userId) {
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       OR: [
         { participants: { some: { userId } } },
         { organizerId: userId },
       ],
       status: 'COMPLETED',
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'desc' },
-    take: 50,
-  });
-  return games.map(g => mapGameForClient(g, userId));
+    userId,
+    { orderBy: { start: 'desc' }, take: 50, dedupe: false }
+  );
 }
 
 async function getFriendsGames(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: {
+    select: {
       friendshipsA: { select: { userBId: true } },
       friendshipsB: { select: { userAId: true } },
     },
@@ -1636,13 +1651,13 @@ async function getFriendsGames(userId) {
   if (!user) throw httpError('User not found', 404);
 
   const friendIds = [
-    ...(user.friendshipsA || []).map(f => f.userBId),
-    ...(user.friendshipsB || []).map(f => f.userAId),
+    ...(user.friendshipsA || []).map((f) => f.userBId),
+    ...(user.friendshipsB || []).map((f) => f.userAId),
   ];
   if (friendIds.length === 0) return [];
 
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(userId),
         { start: { gte: getActiveGameStartCutoff() } },
@@ -1650,69 +1665,62 @@ async function getFriendsGames(userId) {
         { participants: { none: { userId } } },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return deduplicateSeriesGames(games).map(g => mapGameForClient(g, userId));
+    userId
+  );
 }
 
 async function getCityGames(city, viewerId) {
   if (!city) return [];
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(viewerId),
         { start: { gte: getActiveGameStartCutoff() } },
         { field: { city: { equals: String(city), mode: 'insensitive' } } },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return deduplicateSeriesGames(games).map(g => mapGameForClient(g, viewerId));
+    viewerId
+  );
 }
 
 async function getAllGames(viewerId) {
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(viewerId),
         { start: { gte: getActiveGameStartCutoff() } },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return games.map(g => mapGameForClient(g, viewerId));
+    viewerId,
+    { dedupe: false }
+  );
 }
 
 async function getGamesByField(fieldId, viewerId) {
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(viewerId),
         { fieldId },
         { start: { gte: getActiveGameStartCutoff() } },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return games.map(g => mapGameForClient(g, viewerId));
+    viewerId,
+    { dedupe: false }
+  );
 }
 
 async function getGamesByDate(date, viewerId) {
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(viewerId),
         { start: buildActiveGameStartFilter(date) },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return games.map(g => mapGameForClient(g, viewerId));
+    viewerId,
+    { dedupe: false }
+  );
 }
 
 async function getTodayCityGames(city, viewerId) {
@@ -1721,12 +1729,11 @@ async function getTodayCityGames(city, viewerId) {
     start: buildActiveGameStartFilter(todayStr),
     ...(city ? { field: { city: { equals: String(city), mode: 'insensitive' } } } : {}),
   };
-  const games = await prisma.game.findMany({
-    where: { AND: [buildVisibilityWhere(viewerId), where] },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return games.map(g => mapGameForClient(g, viewerId));
+  return fetchMappedListGames(
+    { AND: [buildVisibilityWhere(viewerId), where] },
+    viewerId,
+    { dedupe: false }
+  );
 }
 
 async function getGameById(gameId, viewerId) {
