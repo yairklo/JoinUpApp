@@ -22,8 +22,10 @@ router.get('/', authenticateToken, async (req, res) => {
         const limit = parseInt(req.query.limit) || 50;
         const offset = parseInt(req.query.offset) || 0;
 
-        const notifications = await notificationService.getNotifications(userId, limit, offset);
-        const unreadCount = await notificationService.getUnreadCount(userId);
+        const [notifications, unreadCount] = await Promise.all([
+            notificationService.getNotifications(userId, limit, offset),
+            notificationService.getUnreadCount(userId)
+        ]);
 
         res.json({
             notifications,

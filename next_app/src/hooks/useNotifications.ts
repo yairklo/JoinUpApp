@@ -50,10 +50,30 @@ export function useNotifications() {
     useEffect(() => {
         if (!isLoaded || !userId) return;
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
+        // Removed aggressive 30s polling in favor of Socket.io push events
+        // and window focus refetching (see below).
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoaded, userId]);
+
+    useEffect(() => {
+        if (!userId) return;
+
+        const onVisibilityChange = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+                fetchNotifications();
+            }
+        };
+
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', onVisibilityChange);
+        }
+
+        return () => {
+            if (typeof document !== 'undefined') {
+                document.removeEventListener('visibilitychange', onVisibilityChange);
+            }
+        };
+    }, [userId, fetchNotifications]);
 
     useEffect(() => {
         if (!userId || !socket || !isConnected) return;
