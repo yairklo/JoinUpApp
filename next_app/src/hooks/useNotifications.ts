@@ -31,19 +31,30 @@ export function useNotifications() {
         getTokenRef.current = getToken;
     }, [getToken]);
 
+    const isFetchingRef = useRef(false);
+    const hasFetchedRef = useRef(false);
+
     const fetchNotifications = useCallback(async () => {
         if (!userId) return;
-        setLoading(true);
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
+        
+        if (!hasFetchedRef.current) {
+            setLoading(true);
+        }
+        
         try {
             const token = await getTokenRef.current();
             if (!token) return;
             const data = await notificationsApi.getAll(token);
             setNotifications(filterFeedNotifications(data.notifications || []));
             setUnreadCount(data.unreadCount || 0);
+            hasFetchedRef.current = true;
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to fetch:', error);
         } finally {
             setLoading(false);
+            isFetchingRef.current = false;
         }
     }, [userId]);
 
@@ -74,6 +85,15 @@ export function useNotifications() {
             }
         };
     }, [userId, fetchNotifications]);
+
+    useEffect(() => {
+        if (!socket) return;
+        const onConnect = () => fetchNotifications();
+        socket.on('connect', onConnect);
+        return () => {
+            socket.off('connect', onConnect);
+        };
+    }, [socket, fetchNotifications]);
 
     useEffect(() => {
         if (!userId || !socket || !isConnected) return;

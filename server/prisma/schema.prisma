@@ -212,7 +212,6 @@ model ChatParticipant {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, chatId])
-  @@index([userId, chatId])
 }
 
 model Message {
@@ -436,7 +435,7 @@ model Notification {
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, read])
   @@index([createdAt])
-  @@index([userId, read, createdAt(sort: Desc)])
+  @@index([userId, type, createdAt(sort: Desc)])
 }
 
 model UserDevice {
