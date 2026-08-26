@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, ActivityIndicator, Alert } from 'r
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { ratingsApi, GameRatingTeammate } from '@/services/api/ratings';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 
 function StarRow({
     value,
@@ -34,6 +35,7 @@ function StarRow({
 
 export default function GameRatingsPanel({ gameId }: { gameId: string }) {
     const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const { t } = useTranslation();
     const [loading, setLoading] = useState(true);
     const [eligible, setEligible] = useState(false);
@@ -44,7 +46,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
         let active = true;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 if (!token) return;
                 const data = await ratingsApi.getGameRatings(gameId, token);
                 if (!active) return;
@@ -59,7 +61,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
         return () => {
             active = false;
         };
-    }, [gameId, getToken]);
+    }, [gameId, getTokenRef]);
 
     const handleRate = async (targetId: string, score: number) => {
         setSubmittingId(targetId);

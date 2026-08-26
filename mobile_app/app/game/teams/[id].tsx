@@ -9,6 +9,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChatLogic } from '@/hooks/useChatLogic';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 
 type PickState = {
   gameId: string;
@@ -61,6 +62,7 @@ function pickStatusLabel(status: string, t: (key: string) => string) {
 export default function LiveTeamManagementScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getToken } = useAuth();
+  const getTokenRef = useAuthTokenRef();
   const { user } = useUser();
   const router = useRouter();
   const { t } = useTranslation();
@@ -96,7 +98,7 @@ export default function LiveTeamManagementScreen() {
 
   const load = useCallback(async () => {
     try {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       if (!token) return;
       const data = await gamesApi.getPickSession(id, token);
       setState(data);
@@ -113,7 +115,7 @@ export default function LiveTeamManagementScreen() {
     } finally {
       setLoading(false);
     }
-  }, [getToken, id, router, t]);
+  }, [getTokenRef, id, router, t]);
 
   useEffect(() => {
     load();
@@ -322,7 +324,7 @@ export default function LiveTeamManagementScreen() {
   if (loading || !state) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Stack.Screen options={{ title: t('teams.live') }} />
+        <Stack.Screen options={{ title: t('teams.live'), headerShown: true }} />
         <ActivityIndicator size="large" />
       </SafeAreaView>
     );
@@ -330,7 +332,7 @@ export default function LiveTeamManagementScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <Stack.Screen options={{ title: t('teams.live') }} />
+      <Stack.Screen options={{ title: t('teams.live'), headerShown: true }} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
         {isOrganizer && (
           <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, gap: 8 }}>

@@ -601,7 +601,7 @@ export default function NewGameScreen() {
                         <Text className="text-gray-700">משך זמן (שעות)</Text>
                         <TextInput
                             value={duration}
-                            onChangeText={setDuration}
+                            onChangeText={(v) => setDuration(v.replace(/[^0-9]/g, ''))}
                             keyboardType="numeric"
                             className="bg-gray-100 p-2 rounded-lg w-20 text-center"
                         />
@@ -611,7 +611,7 @@ export default function NewGameScreen() {
                         <Text className="text-gray-700">{t('newGame.maxPlayers')}</Text>
                         <TextInput
                             value={maxPlayers}
-                            onChangeText={setMaxPlayers}
+                            onChangeText={(v) => setMaxPlayers(v.replace(/[^0-9]/g, ''))}
                             keyboardType="numeric"
                             className="bg-gray-100 p-2 rounded-lg w-20 text-center"
                         />
@@ -621,7 +621,7 @@ export default function NewGameScreen() {
                         <Text className="text-gray-700">גודל קבוצה (אופציונלי)</Text>
                         <TextInput
                             value={teamSize}
-                            onChangeText={setTeamSize}
+                            onChangeText={(v) => setTeamSize(v.replace(/[^0-9]/g, ''))}
                             keyboardType="numeric"
                             placeholder="e.g. 5"
                             className="bg-gray-100 p-2 rounded-lg w-20 text-center"
@@ -632,7 +632,7 @@ export default function NewGameScreen() {
                         <Text className="text-gray-700">{t('newGame.price')}</Text>
                         <TextInput
                             value={price}
-                            onChangeText={setPrice}
+                            onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ''))}
                             keyboardType="numeric"
                             className="bg-gray-100 p-2 rounded-lg w-20 text-center"
                         />
