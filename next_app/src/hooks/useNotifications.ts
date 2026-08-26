@@ -33,16 +33,29 @@ export function useNotifications() {
 
     const isFetchingRef = useRef(false);
     const hasFetchedRef = useRef(false);
+    // First Socket.IO `connect` is covered by the auth-effect fetch. Skip it;
+    // only refetch on a later reconnect. If the socket is already connected
+    // when we subscribe, the first connect already happened — don't skip the next one.
+    const skipNextConnectFetchRef = useRef(true);
+
+    useEffect(() => {
+        hasFetchedRef.current = false;
+        skipNextConnectFetchRef.current = true;
+        if (!userId) {
+            setNotifications([]);
+            setUnreadCount(0);
+        }
+    }, [userId]);
 
     const fetchNotifications = useCallback(async () => {
         if (!userId) return;
         if (isFetchingRef.current) return;
         isFetchingRef.current = true;
-        
+
         if (!hasFetchedRef.current) {
             setLoading(true);
         }
-        
+
         try {
             const token = await getTokenRef.current();
             if (!token) return;
@@ -88,8 +101,20 @@ export function useNotifications() {
 
     useEffect(() => {
         if (!socket) return;
-        const onConnect = () => fetchNotifications();
+
+        const onConnect = () => {
+            if (skipNextConnectFetchRef.current) {
+                skipNextConnectFetchRef.current = false;
+                return;
+            }
+            fetchNotifications();
+        };
+
         socket.on('connect', onConnect);
+        if (socket.connected) {
+            skipNextConnectFetchRef.current = false;
+        }
+
         return () => {
             socket.off('connect', onConnect);
         };
