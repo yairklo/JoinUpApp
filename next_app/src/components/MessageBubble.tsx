@@ -169,7 +169,17 @@ export default function MessageBubble({
                                 </Box>
                             )}
 
-                            <Typography variant="body2" dir="auto" sx={{ textAlign: isRTL ? "right" : "left", lineHeight: 1.4 }}>
+                            <Typography
+                                variant="body2"
+                                dir="auto"
+                                sx={{
+                                    textAlign: isRTL ? "right" : "left",
+                                    lineHeight: 1.4,
+                                    maxWidth: "100%",
+                                    overflowWrap: "anywhere",
+                                    wordBreak: "break-word"
+                                }}
+                            >
                                 {message.text}
                             </Typography>
 

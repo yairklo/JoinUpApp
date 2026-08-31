@@ -24,7 +24,7 @@ export default function SettingsScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: 'Settings' }} />
+            <Stack.Screen options={{ title: 'Settings', headerShown: true }} />
             <ScrollView className="flex-1 bg-gray-50">
                 {/* Profile Section */}
                 <View className="mt-6 mb-6 items-center">

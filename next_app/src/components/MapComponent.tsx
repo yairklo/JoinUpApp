@@ -1,8 +1,7 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
-import L from "leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin, InfoWindow, useMap } from "@vis.gl/react-google-maps";
+import { MarkerClusterer } from "@googlemaps/markerclusterer";
 
 type FieldPoint = {
   id: string;
@@ -15,16 +14,7 @@ type FieldPoint = {
 type FieldWithCoords = Omit<FieldPoint, "lat" | "lng"> & { lat: number; lng: number };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-
-// Use CDN icons to avoid bundling issues
-const defaultIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 type MapComponentProps = {
   onSelect?: (field: { id: string; name: string; location?: string | null }) => void;
@@ -34,7 +24,7 @@ type MapComponentProps = {
 };
 
 export default function MapComponent({ onSelect, pickMode, picked, onPick }: MapComponentProps) {
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [fields, setFields] = useState<FieldPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,16 +60,12 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
   // Get user geolocation (fallback Tel Aviv)
   useEffect(() => {
     if (!navigator.geolocation) {
-      setUserLocation([32.0853, 34.7818]);
+      setUserLocation({ lat: 32.0853, lng: 34.7818 });
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLocation([pos.coords.latitude, pos.coords.longitude]);
-      },
-      () => {
-        setUserLocation([32.0853, 34.7818]);
-      }
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => setUserLocation({ lat: 32.0853, lng: 34.7818 })
     );
   }, []);
 
@@ -95,21 +81,30 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
       }));
   }, [fields]);
 
+  if (!GOOGLE_MAPS_API_KEY) {
+    return <div style={{ color: "#64748b", fontSize: 14 }}>מפה לא זמינה כרגע.</div>;
+  }
+
   if (!userLocation) return <div style={{ color: "#64748b", fontSize: 14 }}>טוען מפה…</div>;
 
   return (
     <div style={{ width: "100%", height: 450 }}>
-      <MapContainer center={userLocation} zoom={13} style={{ width: "100%", height: "100%" }}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={userLocation} icon={defaultIcon}>
-          <Popup>You are here</Popup>
-        </Marker>
-        <ClusteredFieldMarkers points={fieldMarkers} onSelect={onSelect} />
-        {pickMode ? <PickLocationLayer picked={picked} onPick={onPick} /> : null}
-      </MapContainer>
+      <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he">
+        <GoogleMap
+          mapId="DEMO_MAP_ID"
+          defaultCenter={userLocation}
+          defaultZoom={13}
+          gestureHandling="greedy"
+          disableDefaultUI={false}
+          style={{ width: "100%", height: "100%" }}
+        >
+          <AdvancedMarker position={userLocation}>
+            <Pin background="#2563eb" borderColor="#1d4ed8" glyphColor="#fff" />
+          </AdvancedMarker>
+          <ClusteredFieldMarkers points={fieldMarkers} onSelect={onSelect} />
+          {pickMode ? <PickLocationLayer picked={picked} onPick={onPick} /> : null}
+        </GoogleMap>
+      </APIProvider>
       {loading ? <div style={{ color: "#64748b", fontSize: 13, marginTop: 8 }}>טוען מגרשים…</div> : null}
       {!loading && fieldMarkers.length === 0 ? (
         <div style={{ color: "#64748b", fontSize: 13, marginTop: 8 }}>אין מגרשים עם מיקום להצגה.</div>
@@ -125,14 +120,27 @@ function PickLocationLayer({
   picked: { lat: number; lng: number } | null | undefined;
   onPick?: (pt: { lat: number; lng: number }) => void;
 }) {
-  useMapEvents({
-    click(e) {
-      onPick?.({ lat: e.latlng.lat, lng: e.latlng.lng });
-    },
-  });
-  return picked ? <Marker position={[picked.lat, picked.lng]} icon={defaultIcon} /> : null;
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const listener = map.addListener("click", (e: google.maps.MapMouseEvent) => {
+      if (e.latLng) onPick?.({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+    });
+    return () => listener?.remove();
+  }, [map, onPick]);
+
+  return picked ? (
+    <AdvancedMarker position={picked}>
+      <Pin background="#059669" borderColor="#047857" glyphColor="#fff" />
+    </AdvancedMarker>
+  ) : null;
 }
 
+// Clusters field markers using the official @googlemaps/markerclusterer library, which manages
+// its own plain google.maps.Marker instances imperatively (clustering needs direct access to the
+// underlying Marker objects, so this isn't expressed as declarative AdvancedMarker JSX like the
+// rest of the map).
 function ClusteredFieldMarkers({
   points,
   onSelect,
@@ -141,173 +149,64 @@ function ClusteredFieldMarkers({
   onSelect?: (field: { id: string; name: string; location?: string | null }) => void;
 }) {
   const map = useMap();
-  const [zoom, setZoom] = useState(map.getZoom());
+  const clustererRef = useRef<MarkerClusterer | null>(null);
+  const [selected, setSelected] = useState<FieldWithCoords | null>(null);
+  const [infoPos, setInfoPos] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Track zoom/move to recompute clusters
-  useMapEvents({
-    zoomend() {
-      setZoom(map.getZoom());
-    },
-    moveend() {
-      // Recompute using the same zoom after panning (affects pixel buckets)
-      setZoom(map.getZoom());
-    },
-  });
+  useEffect(() => {
+    if (!map) return;
 
-  const clusters = useMemo(() => {
-    // Grid-based clustering in pixel space; tuned for performance/clarity
-    const z = Math.round(zoom || 13);
-    const dissolveZoom = 17; // above this, show individual markers (no clusters)
-
-    // When highly zoomed-in, expand duplicates (same coordinates) in a small ring
-    if (z >= dissolveZoom) {
-      const keyFor = (p: FieldWithCoords) => `${p.lat.toFixed(6)}:${p.lng.toFixed(6)}`;
-      const groups = new Map<string, FieldWithCoords[]>();
-      for (const p of points) {
-        const k = keyFor(p);
-        const arr = groups.get(k);
-        if (arr) arr.push(p);
-        else groups.set(k, [p]);
-      }
-      const expanded: { lat: number; lng: number; items: FieldWithCoords[] }[] = [];
-      for (const list of groups.values()) {
-        if (list.length === 1) {
-          const p = list[0];
-          expanded.push({ lat: p.lat, lng: p.lng, items: [p] });
-        } else {
-          const center = list[0];
-          const lat = center.lat;
-          const metersPerDegLat = 111320;
-          const metersPerDegLng = 111320 * Math.cos((lat * Math.PI) / 180);
-          const radiusMeters = 12; // small ring radius
-          for (let i = 0; i < list.length; i++) {
-            const angle = (2 * Math.PI * i) / list.length;
-            const dLat = (Math.sin(angle) * radiusMeters) / metersPerDegLat;
-            const dLng = (Math.cos(angle) * radiusMeters) / metersPerDegLng;
-            expanded.push({
-              lat: center.lat + dLat,
-              lng: center.lng + dLng,
-              items: [list[i]],
-            });
-          }
-        }
-      }
-      return expanded;
-    }
-
-    const gridSizePx = 60; // cluster bucket size in screen pixels
-    const buckets = new Map<string, { items: FieldWithCoords[]; bx: number; by: number }>();
-
-    for (const p of points) {
-      const projected = map.project(L.latLng(p.lat, p.lng), z);
-      const bx = Math.floor(projected.x / gridSizePx);
-      const by = Math.floor(projected.y / gridSizePx);
-      const key = `${bx}:${by}`;
-      let bucket = buckets.get(key);
-      if (!bucket) {
-        bucket = { items: [], bx, by };
-        buckets.set(key, bucket);
-      }
-      bucket.items.push(p);
-    }
-
-    return Array.from(buckets.values()).map((b) => {
-      // Place cluster at the closest real point to the bucket center to avoid
-      // "floating" markers that aren't on top of an actual field.
-      const centerPx = L.point((b.bx + 0.5) * gridSizePx, (b.by + 0.5) * gridSizePx);
-      const centerLL = map.unproject(centerPx, z);
-      let nearest = b.items[0];
-      let best = L.latLng(nearest.lat, nearest.lng).distanceTo(centerLL);
-      for (let i = 1; i < b.items.length; i++) {
-        const d = L.latLng(b.items[i].lat, b.items[i].lng).distanceTo(centerLL);
-        if (d < best) {
-          best = d;
-          nearest = b.items[i];
-        }
-      }
-      return {
-        lat: nearest.lat,
-        lng: nearest.lng,
-        items: b.items,
-      };
+    const markers = points.map((p) => {
+      const marker = new google.maps.Marker({ position: { lat: p.lat, lng: p.lng } });
+      marker.addListener("click", () => {
+        setSelected(p);
+        setInfoPos({ lat: p.lat, lng: p.lng });
+      });
+      return marker;
     });
-  }, [points, zoom, map]);
+
+    const clusterer = new MarkerClusterer({ map, markers });
+    clustererRef.current = clusterer;
+
+    return () => {
+      clusterer.clearMarkers();
+      clusterer.setMap(null);
+      clustererRef.current = null;
+    };
+  }, [map, points]);
+
+  if (!infoPos || !selected) return null;
 
   return (
-    <>
-      {clusters.map((c, idx) => {
-        if (c.items.length === 1) {
-          const f = c.items[0];
-          return (
-            <Marker key={f.id} position={[f.lat, f.lng]} icon={defaultIcon}>
-              <Popup>
-                <div style={{ minWidth: 160 }}>
-                  <div style={{ fontWeight: 600 }}>{f.name}</div>
-                  <div style={{ fontSize: 12, opacity: 0.8 }}>{f.location || ""}</div>
-                  <div style={{ marginTop: 8 }}>
-                    <button
-                      type="button"
-                      style={{
-                        background: "#059669",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 999,
-                        padding: "6px 14px",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                      onClick={() => onSelect?.({ id: f.id, name: f.name, location: f.location })}
-                    >
-                      בחר מגרש זה
-                    </button>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        }
-
-        // Cluster marker
-        const count = c.items.length;
-        const icon = L.divIcon({
-          html: clusterHtml(count),
-          className: "cluster-marker",
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
-        });
-
-        return (
-          <Marker
-            key={`cluster-${idx}`}
-            position={[c.lat, c.lng]}
-            icon={icon}
-            eventHandlers={{
-              click: () => {
-                // Smoothly zoom in towards the cluster
-                const targetZoom = Math.min((map.getMaxZoom() || 18), map.getZoom() + 2);
-                map.flyTo([c.lat, c.lng], targetZoom, { duration: 0.6 });
-              },
+    <InfoWindow
+      position={infoPos}
+      onCloseClick={() => {
+        setSelected(null);
+        setInfoPos(null);
+      }}
+    >
+      <div style={{ minWidth: 160 }}>
+        <div style={{ fontWeight: 600 }}>{selected.name}</div>
+        <div style={{ fontSize: 12, opacity: 0.8 }}>{selected.location || ""}</div>
+        <div style={{ marginTop: 8 }}>
+          <button
+            type="button"
+            style={{
+              background: "#059669",
+              color: "#fff",
+              border: "none",
+              borderRadius: 999,
+              padding: "6px 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
             }}
-          />
-        );
-      })}
-    </>
+            onClick={() => onSelect?.({ id: selected.id, name: selected.name, location: selected.location })}
+          >
+            בחר מגרש זה
+          </button>
+        </div>
+      </div>
+    </InfoWindow>
   );
 }
-
-function clusterHtml(count: number) {
-  // Simple responsive cluster appearance
-  const size = count > 100 ? 44 : count > 25 ? 40 : 36;
-  const bg = count > 100 ? "#dc2626" : count > 25 ? "#f59e0b" : "#059669";
-  const shadow = "0 0 0 4px rgba(5, 150, 105, 0.18)";
-  return `<div style="
-    width:${size}px;
-    height:${size}px;
-    border-radius:50%;
-    background:${bg};
-    box-shadow:${shadow};
-  "></div>`;
-}
-
-

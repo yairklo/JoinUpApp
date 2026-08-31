@@ -14,6 +14,7 @@ import FloatingChatWindow from "@/components/FloatingChatWindow";
 import { SocketProvider } from "@/context/SocketContext";
 import { NotificationCountersProvider } from "@/context/NotificationCountersContext";
 import { resolveClerkProxyUrl } from "@/lib/clerkFrontendApiProxy";
+import ClerkDevKeyGuard from "@/components/ClerkDevKeyGuard";
 
 const clerkProxyUrl = resolveClerkProxyUrl();
 
@@ -64,6 +65,7 @@ export default function RootLayout({
           <link rel="icon" href="/favicon.svg" />
         </head>
         <body className={heebo.variable}>
+          <ClerkDevKeyGuard />
           <SocketProvider>
             <ThemeRegistry>
               <ChatProvider>

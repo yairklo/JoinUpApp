@@ -7,14 +7,14 @@
  */
 jest.mock('../lib/prisma', () => ({
   prisma: {
-    chatParticipant: { findFirst: jest.fn(), create: jest.fn() },
-    participation: { findFirst: jest.fn() },
-    game: { findUnique: jest.fn(), findFirst: jest.fn() },
+    chatParticipant: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), createMany: jest.fn() },
+    participation: { findFirst: jest.fn(), findMany: jest.fn() },
+    game: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn() },
   },
 }));
 
 const { prisma } = require('../lib/prisma');
-const { checkChatPermission } = require('../utils/chatAuth');
+const { checkChatPermission, checkChatPermissionsBatch } = require('../utils/chatAuth');
 
 describe('chatAuth self-healing P2002 handling (game participant branch)', () => {
   beforeEach(() => {
@@ -57,5 +57,49 @@ describe('chatAuth self-healing P2002 handling (game participant branch)', () =>
 
     expect(result).toBe(true);
     expect(prisma.chatParticipant.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('checkChatPermissionsBatch (joinChats N+1)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prisma.chatParticipant.createMany.mockResolvedValue({ count: 0 });
+    prisma.participation.findMany.mockResolvedValue([]);
+    prisma.game.findMany.mockResolvedValue([]);
+  });
+
+  test('loads membership in a single findMany instead of one query per room', async () => {
+    const chatIds = ['c1', 'c2', 'c3'];
+    prisma.chatParticipant.findMany.mockResolvedValue([
+      { chatId: 'c1' },
+      { chatId: 'c2' },
+      { chatId: 'c3' },
+    ]);
+
+    const allowed = await checkChatPermissionsBatch('user1', chatIds);
+
+    expect(prisma.chatParticipant.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.chatParticipant.findMany).toHaveBeenCalledWith({
+      where: { userId: 'user1', chatId: { in: chatIds } },
+      select: { chatId: true },
+    });
+    expect(prisma.chatParticipant.findFirst).not.toHaveBeenCalled();
+    expect(prisma.participation.findMany).not.toHaveBeenCalled();
+    expect(allowed).toEqual(new Set(chatIds));
+  });
+
+  test('self-heals missing game-chat rows in one participation query + createMany', async () => {
+    prisma.chatParticipant.findMany.mockResolvedValue([{ chatId: 'c1' }]);
+    prisma.participation.findMany.mockResolvedValue([{ gameId: 'game-missing' }]);
+
+    const allowed = await checkChatPermissionsBatch('user1', ['c1', 'game-missing']);
+
+    expect(prisma.participation.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.chatParticipant.createMany).toHaveBeenCalledWith({
+      data: [{ userId: 'user1', chatId: 'game-missing' }],
+      skipDuplicates: true,
+    });
+    expect(allowed.has('c1')).toBe(true);
+    expect(allowed.has('game-missing')).toBe(true);
   });
 });

@@ -83,8 +83,8 @@ export default function TeamBuilderDialog({
     initialTeams && initialTeams.length > 0
       ? initialTeams
       : [
-          { id: "t1", name: "Team A", color: "#f97316", playerIds: [] },
-          { id: "t2", name: "Team B", color: "#3b82f6", playerIds: [] },
+          { id: "t1", name: "קבוצה א׳", color: "#f97316", playerIds: [] },
+          { id: "t2", name: "קבוצה ב׳", color: "#3b82f6", playerIds: [] },
         ]
   );
 
@@ -105,11 +105,11 @@ export default function TeamBuilderDialog({
     const newId = `t${Date.now()}`;
     const usedColors = new Set(teams.map((t) => t.color));
     const nextColor = JERSEY_COLORS.find((c) => !usedColors.has(c.hex))?.hex || "#6b7280";
-    setTeams([...teams, { id: newId, name: `Team ${teams.length + 1}`, color: nextColor, playerIds: [] }]);
+    setTeams([...teams, { id: newId, name: `קבוצה ${teams.length + 1}`, color: nextColor, playerIds: [] }]);
   };
 
   const handleRemoveTeam = (teamId: string) => {
-    if (confirm("Delete this team? Players will return to bench.")) {
+    if (confirm("למחוק את הקבוצה? השחקנים יחזרו לספסל.")) {
       setTeams(teams.filter((t) => t.id !== teamId));
     }
   };
@@ -145,7 +145,7 @@ export default function TeamBuilderDialog({
   };
 
   const handleReset = () => {
-    if (confirm("Reset all squads?")) {
+    if (confirm("לאפס את כל הסגלים?")) {
       setTeams(teams.map((t) => ({ ...t, playerIds: [] })));
     }
   };
@@ -189,10 +189,10 @@ export default function TeamBuilderDialog({
               <CloseIcon />
             </IconButton>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div" fontWeight="bold">
-              Team Builder
+              שיבוץ קבוצות
             </Typography>
             <Button autoFocus variant="contained" onClick={handleSaveTeams} startIcon={<SaveIcon />} sx={{ borderRadius: 2 }}>
-              Save
+              שמירה
             </Button>
           </Toolbar>
         </AppBar>
@@ -203,17 +203,17 @@ export default function TeamBuilderDialog({
           <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: "1px solid", borderColor: "divider" }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
               <Typography variant="subtitle1" fontWeight="bold" color="text.secondary">
-                THE BENCH ({unassignedPlayers.length})
+                הספסל ({unassignedPlayers.length})
               </Typography>
               <Button size="small" color="error" startIcon={<RestartAltIcon />} onClick={handleReset}>
-                Reset All
+                איפוס הכל
               </Button>
             </Box>
 
             <Box display="flex" flexWrap="wrap" gap={1}>
               {unassignedPlayers.length === 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-                  Empty bench! Everyone is playing.
+                  הספסל ריק! כולם משחקים.
                 </Typography>
               )}
               {unassignedPlayers.map((p) => (
@@ -293,7 +293,7 @@ export default function TeamBuilderDialog({
                         <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height={120} color="text.secondary" gap={1}>
                             <PersonAddIcon sx={{ opacity: 0.3, fontSize: 40 }} />
                             <Typography variant="caption">
-                                {isTarget ? "Tap here to add player" : "Empty Squad"}
+                                {isTarget ? "הקישו כאן כדי להוסיף שחקן" : "הסגל ריק"}
                             </Typography>
                         </Box>
                       ) : (
@@ -365,7 +365,7 @@ export default function TeamBuilderDialog({
                   gap: 1
                 }}
               >
-                Create New Team
+                יצירת קבוצה חדשה
               </Button>
             </Grid>
           </Grid>
@@ -376,18 +376,18 @@ export default function TeamBuilderDialog({
       <Dialog open={!!editingTeam} onClose={() => setEditingTeam(null)}>
         <DialogContent sx={{ minWidth: 300 }}>
           <Typography variant="h6" fontWeight="bold" gutterBottom>
-            Edit Team Details
+            עריכת פרטי קבוצה
           </Typography>
           <TextField
             autoFocus
-            label="Team Name"
+            label="שם הקבוצה"
             fullWidth
             value={tempTeamName}
             onChange={(e) => setTempTeamName(e.target.value)}
             sx={{ mb: 3, mt: 1 }}
           />
           <Typography variant="subtitle2" gutterBottom>
-            Jersey Color
+            צבע חולצה
           </Typography>
           <Box display="flex" flexWrap="wrap" gap={1.5}>
             {JERSEY_COLORS.map((c) => (
@@ -412,9 +412,9 @@ export default function TeamBuilderDialog({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditingTeam(null)}>Cancel</Button>
+          <Button onClick={() => setEditingTeam(null)}>ביטול</Button>
           <Button onClick={saveEdit} variant="contained">
-            Update
+            עדכון
           </Button>
         </DialogActions>
       </Dialog>

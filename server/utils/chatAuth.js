@@ -98,4 +98,96 @@ async function checkChatPermission(userId, chatId) {
     }
 }
 
-module.exports = { checkChatPermission };
+function isGameManager(game, userId) {
+    const uid = String(userId);
+    return (
+        game.organizerId === uid ||
+        (game.roles || []).some(
+            (r) => r.userId === uid && (r.role === 'MANAGER' || r.role === 'ORGANIZER')
+        )
+    );
+}
+
+async function createParticipantsIgnoringDuplicates(rows) {
+    if (!rows.length) return;
+    await prisma.chatParticipant.createMany({
+        data: rows,
+        skipDuplicates: true,
+    });
+}
+
+/**
+ * Batch membership check for many rooms (socket `joinChats`).
+ * Happy path is a single ChatParticipant findMany — not one query per room.
+ * @returns {Promise<Set<string>>} chatIds the user may join
+ */
+async function checkChatPermissionsBatch(userId, chatIds) {
+    const uid = userId ? String(userId) : '';
+    const ids = [...new Set((chatIds || []).map((id) => String(id || '')).filter(Boolean))];
+    const allowed = new Set();
+    if (!uid || ids.length === 0) return allowed;
+
+    try {
+        const members = await prisma.chatParticipant.findMany({
+            where: { userId: uid, chatId: { in: ids } },
+            select: { chatId: true },
+        });
+        for (const row of members) allowed.add(row.chatId);
+
+        const missing = ids.filter((id) => !allowed.has(id));
+        if (missing.length === 0) return allowed;
+
+        const toCreate = [];
+
+        const gameParts = await prisma.participation.findMany({
+            where: {
+                userId: uid,
+                gameId: { in: missing },
+                status: { in: ['CONFIRMED', 'WAITLISTED'] },
+            },
+            select: { gameId: true },
+        });
+        for (const p of gameParts) {
+            allowed.add(p.gameId);
+            toCreate.push({ userId: uid, chatId: p.gameId });
+        }
+
+        const stillMissing = missing.filter((id) => !allowed.has(id));
+        if (stillMissing.length > 0) {
+            const mgrPickGameIds = stillMissing
+                .filter((id) => id.startsWith('mgrpick_'))
+                .map((id) => id.replace(/^mgrpick_/, ''))
+                .filter(Boolean);
+
+            const orFilters = [];
+            if (mgrPickGameIds.length) orFilters.push({ id: { in: mgrPickGameIds } });
+            orFilters.push({ managerPickChatId: { in: stillMissing } });
+
+            const games = await prisma.game.findMany({
+                where: { OR: orFilters },
+                include: { roles: { select: { userId: true, role: true } } },
+            });
+
+            for (const game of games) {
+                if (!isGameManager(game, uid)) continue;
+                const pickChatId = `mgrpick_${game.id}`;
+                if (stillMissing.includes(pickChatId)) {
+                    allowed.add(pickChatId);
+                    toCreate.push({ userId: uid, chatId: pickChatId });
+                }
+                if (game.managerPickChatId && stillMissing.includes(game.managerPickChatId)) {
+                    allowed.add(game.managerPickChatId);
+                    toCreate.push({ userId: uid, chatId: game.managerPickChatId });
+                }
+            }
+        }
+
+        await createParticipantsIgnoringDuplicates(toCreate);
+        return allowed;
+    } catch (error) {
+        console.error('[chatAuth] Batch chat permission check failed:', error.message);
+        return allowed;
+    }
+}
+
+module.exports = { checkChatPermission, checkChatPermissionsBatch };

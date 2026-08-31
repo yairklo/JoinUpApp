@@ -12,6 +12,8 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 
+let pushRegistrationErrorLogged = false;
+
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const payload = (notification.request.content.data || {}) as Record<string, unknown>;
@@ -85,7 +87,10 @@ export function useNotifications() {
           await notificationsApi.registerDevice(expoPushToken, Platform.OS, clerkToken);
         }
       } catch (error) {
-        console.error('[NOTIFICATIONS] Failed to register Expo push token:', error);
+        if (!pushRegistrationErrorLogged) {
+          pushRegistrationErrorLogged = true;
+          console.error('[NOTIFICATIONS] Failed to register Expo push token:', error);
+        }
       }
     };
     if (userId) registerForPushNotifications();

@@ -15,6 +15,7 @@ const GameMapMarker = React.memo(function GameMapMarker({
     onPress,
     onAnimateTo,
 }: GameMapMarkerProps) {
+    const [tracksViewChanges, setTracksViewChanges] = React.useState(true);
     const firstGame = group[0];
     const lat = firstGame.customLat || firstGame.fieldLat || firstGame.field?.lat;
     const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng;
@@ -31,7 +32,8 @@ const GameMapMarker = React.memo(function GameMapMarker({
             coordinate={{ latitude: lat, longitude: lng }}
             anchor={{ x: 0.5, y: 1.0 }}
             hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            tracksViewChanges={false}
+            tracksViewChanges={tracksViewChanges}
+            onLayout={() => setTracksViewChanges(false)}
             onPress={(e) => {
                 e.stopPropagation();
                 onAnimateTo(lat, lng);

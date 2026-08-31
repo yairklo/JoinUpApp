@@ -19,16 +19,17 @@ import Dialog from "@mui/material/Dialog"; // Ensure imported
 
 import { useGamesByCity } from "@/hooks/useGamesByCity";
 import { useGameUpdate } from "@/context/GameUpdateContext";
-import { SportFilter } from "@/utils/sports";
+import { SportFilter, SPORT_MAPPING } from "@/utils/sports";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import FullPageList from "@/components/FullPageList";
+import InlineErrorRow from "@/components/InlineErrorRow";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
-    const { games, loading, displayedCity, setDisplayedCity, availableCities } = useGamesByCity(initialCity);
+    const { games, loading, error, refetch, displayedCity, setDisplayedCity, availableCities } = useGamesByCity(initialCity);
     const { user } = useUser();
     const router = useRouter();
     const userId = user?.id || "";
@@ -57,6 +58,14 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
         return (
             <Box display="flex" justifyContent="center" p={2}>
                 <CircularProgress size={20} />
+            </Box>
+        );
+    }
+
+    if (error && games.length === 0) {
+        return (
+            <Box p={2}>
+                <InlineErrorRow message={error} onRetry={refetch} />
             </Box>
         );
     }
@@ -122,7 +131,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 {filteredGames.length === 0 ? (
                     <Box p={2} width="100%">
                         <Typography variant="body2" color="text.secondary">
-                            לא נמצאו משחקים ב{displayedCity}{sportFilter !== "ALL" ? ` עבור ${sportFilter}` : ""}.
+                            לא נמצאו משחקים ב{displayedCity}{sportFilter !== "ALL" ? ` עבור ${SPORT_MAPPING[sportFilter] || sportFilter}` : ""}.
                             <Button size="small" onClick={handleEditClick} startIcon={<SearchIcon />}>חפש עיר אחרת</Button>
                         </Typography>
                     </Box>

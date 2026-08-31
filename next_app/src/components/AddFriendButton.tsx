@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 
 import Button from "@mui/material/Button";
@@ -8,14 +8,29 @@ import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import CheckIcon from "@mui/icons-material/Check";
 import ErrorIcon from "@mui/icons-material/Error";
 import Tooltip from "@mui/material/Tooltip";
+import { mapFriendRequestError } from "@/utils/apiError";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-export default function AddFriendButton({ receiverId }: { receiverId: string }) {
+type AddFriendButtonProps = {
+  receiverId: string;
+  // Whether the caller already knows a friend request to this user is pending (e.g. the
+  // parent fetched /api/users/:id/requests/outgoing). Without this, the button always starts
+  // as "not sent" on every mount/reload, even for a receiver with a real pending request.
+  initialSent?: boolean;
+};
+
+export default function AddFriendButton({ receiverId, initialSent = false }: AddFriendButtonProps) {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState(initialSent);
+
+  // The parent's outgoing-requests fetch can resolve after this button has already mounted
+  // (it starts as `false` and is patched in once the fetch completes), so sync on change too.
+  useEffect(() => {
+    if (initialSent) setSent(true);
+  }, [initialSent]);
 
   const send = async () => {
     setError(null);
@@ -23,7 +38,7 @@ export default function AddFriendButton({ receiverId }: { receiverId: string }) 
     try {
       const token = await getToken({ template: undefined }).catch(() => "");
       if (!token) {
-        setError("Sign in required");
+        setError(mapFriendRequestError(new Error("Sign in required")));
         return;
       }
       const res = await fetch(`${API_BASE}/api/users/requests`, {
@@ -33,11 +48,15 @@ export default function AddFriendButton({ receiverId }: { receiverId: string }) 
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || 'Failed');
+        const err = new Error(body.error || 'Failed') as Error & { status?: number };
+        err.status = res.status;
+        throw err;
       }
       setSent(true);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed");
+      // Never render error.message (raw English from the server/network) directly —
+      // always translate to Hebrew copy via mapFriendRequestError.
+      setError(mapFriendRequestError(e));
     } finally {
       setLoading(false);
     }
@@ -51,8 +70,9 @@ export default function AddFriendButton({ receiverId }: { receiverId: string }) 
         color="success"
         startIcon={<CheckIcon />}
         disabled
+        aria-label="בקשה נשלחה"
       >
-        Request Sent
+        בקשה נשלחה
       </Button>
     );
   }
@@ -67,8 +87,9 @@ export default function AddFriendButton({ receiverId }: { receiverId: string }) 
           variant="contained"
           color={error ? "error" : "primary"}
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonAddIcon />}
+          aria-label={loading ? "שולח..." : "הוסף חבר"}
         >
-          {loading ? "Sending..." : "Add Friend"}
+          {loading ? "שולח..." : "הוסף חבר"}
         </Button>
       </Tooltip>
     </>

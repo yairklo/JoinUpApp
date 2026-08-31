@@ -3,6 +3,7 @@ import { useAuth, useUser } from '@clerk/nextjs';
 import { gamesApi, API_BASE } from '@/services/api';
 import { Game } from '@/types/game';
 import { useSyncedGames } from './useSyncedGames';
+import { getLoadErrorMessage } from '@/utils/apiError';
 
 export function useGamesByFriends() {
     const { user, isLoaded } = useUser();
@@ -10,6 +11,9 @@ export function useGamesByFriends() {
 
     const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
+    const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
 
     const predicate = useCallback((game: Game) => {
         return friendIds.has(game.organizerId || "");
@@ -27,6 +31,7 @@ export function useGamesByFriends() {
 
         async function fetchGamesAndFriends() {
             setLoading(true);
+            setError(null);
             try {
                 const token = await getToken({ template: undefined }).catch(() => "");
                 if (!token) return;
@@ -57,7 +62,10 @@ export function useGamesByFriends() {
                 if (!ignore) setGames(gamesData);
             } catch (err) {
                 console.error("Error loading friends games:", err);
-                if (!ignore) setGames([]);
+                if (!ignore) {
+                    setGames([]);
+                    setError(getLoadErrorMessage(err));
+                }
             } finally {
                 if (!ignore) setLoading(false);
             }
@@ -65,7 +73,7 @@ export function useGamesByFriends() {
 
         fetchGamesAndFriends();
         return () => { ignore = true; };
-    }, [isLoaded, user, getToken, setGames]);
+    }, [isLoaded, user, getToken, setGames, reloadKey]);
 
-    return { games, loading, friendIds, isLoaded };
+    return { games, loading, error, refetch, friendIds, isLoaded };
 }

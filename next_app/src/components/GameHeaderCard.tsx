@@ -198,7 +198,8 @@ export default function GameHeaderCard({
                 variant="caption"
                 fontWeight={700}
                 noWrap
-                sx={{ direction: "ltr", unicodeBidi: "isolate" }}
+                dir="ltr"
+                sx={{ unicodeBidi: "isolate" }}
               >
                 {time}–{end}{date ? ` • ${date}` : ""}
               </Typography>

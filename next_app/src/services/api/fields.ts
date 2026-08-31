@@ -66,8 +66,8 @@ export const fieldsApi = {
         return apiClient<string[]>('/api/fields/cities');
     },
 
-    search: (params: URLSearchParams) => {
-        return apiClient<any[]>('/api/fields/search?' + params.toString());
+    search: (params: URLSearchParams, signal?: AbortSignal) => {
+        return apiClient<any[]>('/api/fields/search?' + params.toString(), { signal });
     },
 
     getAnalytics: (fieldId: string, token: string) => {

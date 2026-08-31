@@ -13,7 +13,7 @@ export interface UseChatLogicProps {
 
 export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const { user } = useUser();
-    const { getToken } = useAuth();
+    const { getToken, isLoaded, isSignedIn } = useAuth();
     const { messagesCache, loadMessages } = useChat();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +41,14 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     // 1. Fetch Chat Details
     useEffect(() => {
         if (!roomId || roomId === 'global') return;
+        // Wait for Clerk to finish loading before requesting a token. Firing this on the very
+        // first mount (e.g. the embedded game-chat panel, which mounts as part of the initial
+        // page paint) can race Clerk's client-side bootstrap: getToken() resolves to nothing,
+        // the request never retries since `roomId` doesn't change again, and the panel is left
+        // permanently blank until a manual re-navigation. Re-running once `isLoaded` flips to
+        // true fixes that without affecting the floating popup, which only mounts after the
+        // user opens it (by which time Clerk is already loaded).
+        if (!isLoaded || !isSignedIn) return;
         const fetchDetails = async () => {
             try {
                 const token = await getToken();
@@ -52,7 +60,10 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             }
         };
         fetchDetails();
-    }, [roomId]); // Removed getToken to prevent re-fetching on every re-render
+        // getToken intentionally omitted: not referentially stable across renders, and
+        // isLoaded/isSignedIn already capture the states we need to react to.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [roomId, isLoaded, isSignedIn]);
 
     // 2. Load Messages
     useEffect(() => {
@@ -61,7 +72,14 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             setMessages(messagesCache[roomId]);
             setIsLoading(false);
             prevMessagesLengthRef.current = messagesCache[roomId].length;
+            return;
         }
+
+        // Same race as above: don't attempt the authenticated history fetch until Clerk is
+        // ready. isLoading stays true (spinner shown) until this effect re-fires with
+        // isLoaded === true, instead of resolving once against a missing/invalid token and
+        // permanently settling on an empty message list.
+        if (!isLoaded || !isSignedIn) return;
 
         const initMessages = async () => {
             if (messagesCache[roomId]) return;
@@ -78,7 +96,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         };
         initMessages();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [roomId]);
+    }, [roomId, isLoaded, isSignedIn]);
 
     // Helper Props for UI
     const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';

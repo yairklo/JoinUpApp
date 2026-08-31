@@ -11,7 +11,18 @@ const {
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { notifyUserAddedToGame, notifyUserRemovedFromGame } = require('../utils/addedToGameNotification');
+const { sanitizeFreeText } = require('../utils/sanitize');
 const gameScheduler = require('./gameScheduler');
+
+// Defense-in-depth limits for free-text fields written by end users. React auto-escapes these
+// on render (games/[id]/page.tsx, GameHeaderCard, GameDetailsEditor all use plain JSX
+// interpolation / controlled-input `value` props, never dangerouslySetInnerHTML), but other
+// consumers of the same data -- push notifications, chat/email digests -- may not, so we strip
+// HTML tags and cap length here before anything reaches Prisma.
+const TITLE_MAX_LENGTH = 200;
+const DESCRIPTION_MAX_LENGTH = 2000;
+const FIELD_NAME_MAX_LENGTH = 200;
+const FIELD_LOCATION_MAX_LENGTH = 300;
 
 async function sendAutoWelcomeMessage(game, newPlayerId) {
   if (!game || !game.welcomeMessage || !game.organizerId || game.organizerId === newPlayerId) {
@@ -207,6 +218,9 @@ const SEARCH_GAME_SELECT = {
   teamSize: true,
   registrationOpensAt: true,
   joinPolicy: true,
+  organizerId: true,
+  status: true,
+  isOpenToJoin: true,
   field: {
     select: {
       id: true,
@@ -255,7 +269,13 @@ function mapGameForSearchClient(game, viewerId) {
     teamSize: game.teamSize,
     registrationOpensAt: game.registrationOpensAt ? game.registrationOpensAt.toISOString() : null,
     joinPolicy: game.joinPolicy,
+    organizerId: game.organizerId || null,
+    status: game.status || null,
+    isOpenToJoin: game.isOpenToJoin,
     viewerParticipationStatus,
+    participants: (game.participants || [])
+      .filter((p) => p.status === 'CONFIRMED')
+      .map((p) => ({ id: p.userId })),
     field: game.field
       ? {
           id: game.field.id,
@@ -267,6 +287,21 @@ function mapGameForSearchClient(game, viewerId) {
         }
       : undefined,
   };
+}
+
+/**
+ * List/feed queries: Game + Field + Participation only (no nested User).
+ * Prisma still issues ~3 SQL statements; that is the minimum without raw SQL.
+ */
+async function fetchMappedListGames(where, viewerId, { orderBy = { start: 'asc' }, take, dedupe = true } = {}) {
+  const games = await prisma.game.findMany({
+    where,
+    select: SEARCH_GAME_SELECT,
+    orderBy,
+    ...(take ? { take } : {}),
+  });
+  const list = dedupe ? deduplicateSeriesGames(games) : games;
+  return list.map((g) => mapGameForSearchClient(g, viewerId));
 }
 
 // Deduplicate games by seriesId, keeping the first occurrence (nearest upcoming)
@@ -499,14 +534,14 @@ async function createGame(payload, creatorUser, io) {
     lotteryEnabled,
     lotteryAt,
     organizerInLottery,
-    description,
-    welcomeMessage,
+    description: rawDescription,
+    welcomeMessage: rawWelcomeMessage,
     recurrence,
     customLng,
     customLocation,
     sport,
     registrationOpensAt,
-    title,
+    title: rawTitle,
     friendsOnlyUntil,
     teamSize,
     price: rawPrice,
@@ -517,6 +552,13 @@ async function createGame(payload, creatorUser, io) {
     pickingStartsAt,
     seriesId,
   } = payload || {};
+
+  // Sanitize free-text fields once, up front -- everything below keeps using the plain
+  // `title` / `description` / `welcomeMessage` names, but they now carry HTML-stripped,
+  // length-capped values.
+  const title = sanitizeFreeText(rawTitle, TITLE_MAX_LENGTH);
+  const description = sanitizeFreeText(rawDescription, DESCRIPTION_MAX_LENGTH);
+  const welcomeMessage = sanitizeFreeText(rawWelcomeMessage, DESCRIPTION_MAX_LENGTH);
 
   // When the caller attaches this game to an existing series, only the series organizer,
   // a series MANAGER, or an admin may prefill/attach to it.
@@ -598,8 +640,10 @@ async function createGame(payload, creatorUser, io) {
     const fallbackCoords = (Number.isFinite(latNum) && Number.isFinite(lngNum))
       ? `${latNum.toFixed(5)}, ${lngNum.toFixed(5)}`
       : '';
-    const name = (newField?.name && String(newField.name).trim()) || (customLocation && String(customLocation).trim()) || `Custom spot ${fallbackCoords}`;
-    const location = (newField?.location && String(newField.location).trim()) || (customLocation && String(customLocation).trim()) || fallbackCoords || 'Custom';
+    const rawName = (newField?.name && String(newField.name).trim()) || (customLocation && String(customLocation).trim()) || `Custom spot ${fallbackCoords}`;
+    const rawLocation = (newField?.location && String(newField.location).trim()) || (customLocation && String(customLocation).trim()) || fallbackCoords || 'Custom';
+    const name = sanitizeFreeText(rawName, FIELD_NAME_MAX_LENGTH);
+    const location = sanitizeFreeText(rawLocation, FIELD_LOCATION_MAX_LENGTH);
     const createdField = await prisma.field.create({
       data: {
         name,
@@ -1238,13 +1282,15 @@ async function resolveFieldUpdateFromBody(body) {
 
   if (!useFieldId && (newField || hasCoords)) {
     const fallbackCoords = hasCoords ? `${latNum.toFixed(5)}, ${lngNum.toFixed(5)}` : '';
-    const name = (newField?.name && String(newField.name).trim())
+    const rawName = (newField?.name && String(newField.name).trim())
       || (customLocation && String(customLocation).trim())
       || `Custom spot ${fallbackCoords}`;
-    const location = (newField?.location && String(newField.location).trim())
+    const rawLocation = (newField?.location && String(newField.location).trim())
       || (customLocation && String(customLocation).trim())
       || fallbackCoords
       || 'Custom';
+    const name = sanitizeFreeText(rawName, FIELD_NAME_MAX_LENGTH);
+    const location = sanitizeFreeText(rawLocation, FIELD_LOCATION_MAX_LENGTH);
     const createdField = await prisma.field.create({
       data: {
         name,
@@ -1405,11 +1451,18 @@ async function updateGame(gameId, body, userId, io) {
   }
 
   const {
-    description, welcomeMessage, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt,
-    organizerInLottery, title, sport, duration, teamSize, price,
+    description: rawDescription, welcomeMessage: rawWelcomeMessage, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt,
+    organizerInLottery, title: rawTitle, sport, duration, teamSize, price,
     isFriendsOnly, joinPolicy, registrationOpensAt, friendsOnlyUntil, start,
     pickDrawAt, pickingStartsAt,
   } = body || {};
+
+  // Sanitize on write, same treatment as createGame (see TITLE_MAX_LENGTH etc. above).
+  // sanitizeFreeText passes undefined/null through unchanged, so the `typeof x !== 'undefined'`
+  // partial-update checks below keep working exactly as before for fields the caller omitted.
+  const description = sanitizeFreeText(rawDescription, DESCRIPTION_MAX_LENGTH);
+  const welcomeMessage = sanitizeFreeText(rawWelcomeMessage, DESCRIPTION_MAX_LENGTH);
+  const title = sanitizeFreeText(rawTitle, TITLE_MAX_LENGTH);
 
   if (typeof maxPlayers !== 'undefined') {
     const confirmedCount = await prisma.participation.count({
@@ -1551,18 +1604,13 @@ async function getPublicGames(query, viewerId) {
     where.AND.push({ start: { gte: getActiveGameStartCutoff() } });
   }
 
-  const games = await prisma.game.findMany({
-    where,
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return deduplicateSeriesGames(games).map(g => mapGameForClient(g, viewerId));
+  return fetchMappedListGames(where, viewerId);
 }
 
 async function getMyGames(userId) {
   const cutoff = getActiveGameStartCutoff();
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         { status: 'OPEN' },
         { start: { gte: cutoff } },
@@ -1574,32 +1622,28 @@ async function getMyGames(userId) {
         },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return deduplicateSeriesGames(games).map(g => mapGameForClient(g, userId));
+    userId
+  );
 }
 
 async function getMyHistory(userId) {
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       OR: [
         { participants: { some: { userId } } },
         { organizerId: userId },
       ],
       status: 'COMPLETED',
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'desc' },
-    take: 50,
-  });
-  return games.map(g => mapGameForClient(g, userId));
+    userId,
+    { orderBy: { start: 'desc' }, take: 50, dedupe: false }
+  );
 }
 
 async function getFriendsGames(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: {
+    select: {
       friendshipsA: { select: { userBId: true } },
       friendshipsB: { select: { userAId: true } },
     },
@@ -1607,13 +1651,13 @@ async function getFriendsGames(userId) {
   if (!user) throw httpError('User not found', 404);
 
   const friendIds = [
-    ...(user.friendshipsA || []).map(f => f.userBId),
-    ...(user.friendshipsB || []).map(f => f.userAId),
+    ...(user.friendshipsA || []).map((f) => f.userBId),
+    ...(user.friendshipsB || []).map((f) => f.userAId),
   ];
   if (friendIds.length === 0) return [];
 
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(userId),
         { start: { gte: getActiveGameStartCutoff() } },
@@ -1621,69 +1665,62 @@ async function getFriendsGames(userId) {
         { participants: { none: { userId } } },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return deduplicateSeriesGames(games).map(g => mapGameForClient(g, userId));
+    userId
+  );
 }
 
 async function getCityGames(city, viewerId) {
   if (!city) return [];
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(viewerId),
         { start: { gte: getActiveGameStartCutoff() } },
         { field: { city: { equals: String(city), mode: 'insensitive' } } },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return deduplicateSeriesGames(games).map(g => mapGameForClient(g, viewerId));
+    viewerId
+  );
 }
 
 async function getAllGames(viewerId) {
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(viewerId),
         { start: { gte: getActiveGameStartCutoff() } },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return games.map(g => mapGameForClient(g, viewerId));
+    viewerId,
+    { dedupe: false }
+  );
 }
 
 async function getGamesByField(fieldId, viewerId) {
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(viewerId),
         { fieldId },
         { start: { gte: getActiveGameStartCutoff() } },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return games.map(g => mapGameForClient(g, viewerId));
+    viewerId,
+    { dedupe: false }
+  );
 }
 
 async function getGamesByDate(date, viewerId) {
-  const games = await prisma.game.findMany({
-    where: {
+  return fetchMappedListGames(
+    {
       AND: [
         buildVisibilityWhere(viewerId),
         { start: buildActiveGameStartFilter(date) },
       ],
     },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return games.map(g => mapGameForClient(g, viewerId));
+    viewerId,
+    { dedupe: false }
+  );
 }
 
 async function getTodayCityGames(city, viewerId) {
@@ -1692,12 +1729,11 @@ async function getTodayCityGames(city, viewerId) {
     start: buildActiveGameStartFilter(todayStr),
     ...(city ? { field: { city: { equals: String(city), mode: 'insensitive' } } } : {}),
   };
-  const games = await prisma.game.findMany({
-    where: { AND: [buildVisibilityWhere(viewerId), where] },
-    include: { field: true, participants: { include: { user: true } } },
-    orderBy: { start: 'asc' },
-  });
-  return games.map(g => mapGameForClient(g, viewerId));
+  return fetchMappedListGames(
+    { AND: [buildVisibilityWhere(viewerId), where] },
+    viewerId,
+    { dedupe: false }
+  );
 }
 
 async function getGameById(gameId, viewerId) {

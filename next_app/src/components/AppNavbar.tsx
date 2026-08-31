@@ -169,6 +169,7 @@ export default function AppNavbar() {
                 onClick={toggleColorMode}
                 color="inherit"
                 size="small"
+                aria-label={mode === "dark" ? "מצב בהיר" : "מצב כהה"}
                 sx={{ p: { xs: 0.75, md: 1 }, display: { xs: "none", sm: "inline-flex" } }}
               >
                 {mode === "dark" ? <LightModeOutlinedIcon fontSize="small" /> : <DarkModeOutlinedIcon fontSize="small" />}
@@ -192,6 +193,7 @@ export default function AppNavbar() {
                       <IconButton
                         color="inherit"
                         size="small"
+                        aria-label="חברים"
                         sx={{ p: 1, display: { xs: "none", md: "inline-flex" } }}
                         onClick={() => router.push("/profile")}
                       >
