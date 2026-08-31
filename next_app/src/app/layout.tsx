@@ -13,6 +13,9 @@ import { ChatProvider } from "@/context/ChatContext";
 import FloatingChatWindow from "@/components/FloatingChatWindow";
 import { SocketProvider } from "@/context/SocketContext";
 import { NotificationCountersProvider } from "@/context/NotificationCountersContext";
+import { resolveClerkProxyUrl } from "@/lib/clerkFrontendApiProxy";
+
+const clerkProxyUrl = resolveClerkProxyUrl();
 
 const heebo = Heebo({
   variable: "--font-heebo",
@@ -55,7 +58,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}>
       <html lang="he" dir="rtl">
         <head>
           <link rel="icon" href="/favicon.svg" />
