@@ -21,6 +21,8 @@ export default function AdminModerationPage() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [rows, setRows] = useState<FlaggedMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const token = await getToken();
@@ -48,6 +50,52 @@ export default function AdminModerationPage() {
     });
   }, [load]);
 
+  const withToken = useCallback(async (fn: (token: string) => Promise<unknown>) => {
+    const token = await getToken();
+    if (!token) return;
+    await fn(token);
+  }, [getToken]);
+
+  const handleDismiss = useCallback(async (id: string) => {
+    setActingId(id);
+    setError(null);
+    try {
+      await withToken((token) => usersApi.dismissFlaggedMessage(id, token));
+      setRows((prev) => prev.filter((r) => r.id !== id));
+    } catch {
+      setError("הפעולה נכשלה, נסה שוב.");
+    } finally {
+      setActingId(null);
+    }
+  }, [withToken]);
+
+  const handleRemoveMessage = useCallback(async (id: string) => {
+    setActingId(id);
+    setError(null);
+    try {
+      await withToken((token) => usersApi.removeFlaggedMessage(id, token));
+      setRows((prev) => prev.filter((r) => r.id !== id));
+    } catch {
+      setError("הפעולה נכשלה, נסה שוב.");
+    } finally {
+      setActingId(null);
+    }
+  }, [withToken]);
+
+  const handleBanUser = useCallback(async (row: FlaggedMessage) => {
+    if (!confirm(`להשעות את המשתמש ${row.userId}?`)) return;
+    setActingId(row.id);
+    setError(null);
+    try {
+      await withToken((token) => usersApi.banUser(row.userId, token, `flagged-message:${row.id}`));
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch {
+      setError("הפעולה נכשלה, נסה שוב.");
+    } finally {
+      setActingId(null);
+    }
+  }, [withToken]);
+
   return (
     <Container maxWidth="md" sx={{ py: 6 }} dir="rtl">
       <SignedOut>
@@ -71,6 +119,7 @@ export default function AdminModerationPage() {
               <Typography variant="h5" fontWeight={800}>הודעות שסומנו</Typography>
               <Button component={Link} href="/admin/fields">ניהול מגרשים</Button>
             </Stack>
+            {error && <Alert severity="error">{error}</Alert>}
             {rows.length === 0 ? (
               <Alert severity="success">אין פריטים ממתינים.</Alert>
             ) : (
@@ -85,6 +134,31 @@ export default function AdminModerationPage() {
                     {row.failureReason && (
                       <Typography variant="body2" color="error" mt={1}>{row.failureReason}</Typography>
                     )}
+                    <Stack direction="row" spacing={1} mt={2}>
+                      <Button
+                        size="small"
+                        disabled={actingId === row.id}
+                        onClick={() => handleDismiss(row.id)}
+                      >
+                        סמן כטופל
+                      </Button>
+                      <Button
+                        size="small"
+                        color="warning"
+                        disabled={actingId === row.id}
+                        onClick={() => handleRemoveMessage(row.id)}
+                      >
+                        הסר הודעה
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        disabled={actingId === row.id}
+                        onClick={() => handleBanUser(row)}
+                      >
+                        השעה משתמש
+                      </Button>
+                    </Stack>
                   </CardContent>
                 </Card>
               ))

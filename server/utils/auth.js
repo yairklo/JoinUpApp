@@ -1,6 +1,6 @@
 const { requireAuth } = require('@clerk/express');
 const { createClerkClient } = require('@clerk/backend');
-const { resolveIsAdmin } = require('./admin');
+const { resolveIsAdmin, resolveIsBanned } = require('./admin');
 
 const clerkClient = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY,
@@ -16,13 +16,14 @@ function displayName(user, userId) {
 
 function mapAuthenticatedUser(userId, clerkUser) {
   if (!clerkUser) {
-    return { id: userId, name: userId, avatar: null, isAdmin: resolveIsAdmin(userId, null) };
+    return { id: userId, name: userId, avatar: null, isAdmin: resolveIsAdmin(userId, null), isBanned: false };
   }
   return {
     id: userId,
     name: displayName(clerkUser, userId),
     avatar: clerkUser.imageUrl || null,
     isAdmin: resolveIsAdmin(userId, clerkUser),
+    isBanned: resolveIsBanned(clerkUser),
   };
 }
 
@@ -39,6 +40,9 @@ const authenticateToken = (req, res, next) => {
       req.user = mapAuthenticatedUser(userId, user);
     } catch (e) {
       req.user = mapAuthenticatedUser(userId, null);
+    }
+    if (req.user.isBanned) {
+      return res.status(403).json({ error: 'Account suspended' });
     }
     next();
   });
@@ -62,6 +66,11 @@ const attachOptionalUser = (req, res, next) => {
       req.user = mapAuthenticatedUser(userId, user);
     } catch {
       req.user = mapAuthenticatedUser(userId, null);
+    }
+    // Optional-auth routes stay readable for banned accounts, but treat them
+    // as guests rather than as their (suspended) identity.
+    if (req.user.isBanned) {
+      req.user = undefined;
     }
     next();
   });

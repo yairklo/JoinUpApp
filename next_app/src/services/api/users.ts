@@ -93,6 +93,22 @@ export const usersApi = {
         return apiClient<FlaggedMessage[]>('/api/admin/flagged-messages', { token, cache: 'no-store' });
     },
 
+    dismissFlaggedMessage: (id: string, token: string) => {
+        return apiClient<FlaggedMessage>(`/api/admin/flagged-messages/${id}/dismiss`, { method: 'POST', token });
+    },
+
+    removeFlaggedMessage: (id: string, token: string) => {
+        return apiClient<FlaggedMessage>(`/api/admin/flagged-messages/${id}/remove-message`, { method: 'POST', token });
+    },
+
+    banUser: (userId: string, token: string, reason?: string) => {
+        return apiClient<{ ok: true }>(`/api/admin/users/${userId}/ban`, { method: 'POST', data: { reason }, token });
+    },
+
+    unbanUser: (userId: string, token: string) => {
+        return apiClient<{ ok: true }>(`/api/admin/users/${userId}/unban`, { method: 'POST', token });
+    },
+
     getFriends: (userId: string, token: string) => {
         return apiClient<any[]>(`/api/users/${userId}/friends`, { token });
     },

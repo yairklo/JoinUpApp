@@ -151,4 +151,4 @@ async function deleteMessageFromChat(msgId, roomId) {
     }
 }
 
-module.exports = { processReviewQueue };
+module.exports = { processReviewQueue, deleteMessageFromChat };

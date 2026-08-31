@@ -17,6 +17,13 @@ function resolveIsAdmin(userId, clerkUser) {
   return metadataIsAdmin(clerkUser?.publicMetadata) || metadataIsAdmin(clerkUser?.privateMetadata);
 }
 
+/** True when an admin has suspended this account via privateMetadata.isBanned. */
+function resolveIsBanned(clerkUser) {
+  const meta = clerkUser?.privateMetadata;
+  if (!meta || typeof meta !== 'object') return false;
+  return meta.isBanned === true || meta.isBanned === 'true';
+}
+
 function requireAdmin(req, res, next) {
   if (!req.user?.isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
@@ -28,5 +35,6 @@ module.exports = {
   parseAdminAllowlist,
   metadataIsAdmin,
   resolveIsAdmin,
+  resolveIsBanned,
   requireAdmin,
 };

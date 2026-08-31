@@ -56,7 +56,8 @@
           "icon": "./assets/images/icon.png",
           "color": "#2563eb"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withPWAInit from "next-pwa";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const withPWA = withPWAInit({
   dest: "public",
@@ -22,4 +23,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig as any);
+export default withSentryConfig(withPWA(nextConfig as any), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  // No auth token in most envs yet -> source map upload is skipped, not fatal.
+  widenClientFileUpload: false,
+});
