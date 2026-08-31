@@ -21,7 +21,8 @@ These failures already broke a Vercel deploy. Do not repeat them.
 ## Clerk publishable key (local / quality-gate builds)
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` must pass Clerk's format check (base64 after `pk_test_` / `pk_live_` must decode to a string ending in `$`).
 - Do not use opaque placeholders like `pk_test_quality_gate_placeholder` — they fail prerender.
-- Prefer `cd next_app && npm run build` (uses `scripts/next-build.mjs` to normalize invalid/missing keys).
+- Prefer `cd next_app && npm run build` (uses `scripts/next-build.mjs` to normalize invalid/missing keys for local/CI only).
+- On Vercel Production (`VERCEL_ENV=production`), `next-build.mjs` must **fail** if `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is missing/invalid — never bake the `clerk.joinup.local` placeholder into a live deploy.
 
 ## Local verify before done (mandatory)
 - Run `cd next_app && npm run build` after TypeScript/UI changes.

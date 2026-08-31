@@ -25,8 +25,32 @@ function isValidPublishableKey(key) {
 
 const env = { ...process.env };
 
+// Never ship the local/CI placeholder on a real Vercel Production deploy.
+// That silently breaks live auth (clerk.joinup.local / empty proxyUrl).
+const onVercelProduction =
+  process.env.VERCEL === "1" && process.env.VERCEL_ENV === "production";
+
 if (!isValidPublishableKey(env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY)) {
+  if (onVercelProduction) {
+    console.error(
+      "[next-build] NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is missing or not format-valid " +
+        "(pk_test_/pk_live_ + base64 payload ending in $). " +
+        "Refusing to substitute a placeholder on Vercel Production — set the live key in " +
+        "Project Settings → Environment Variables (Production) and redeploy.",
+    );
+    process.exit(1);
+  }
+  console.warn(
+    "[next-build] Substituting format-valid Clerk publishable key placeholder for local/CI build.",
+  );
   env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = BUILD_PLACEHOLDER_PUBLISHABLE_KEY;
+}
+
+if (onVercelProduction && !env.CLERK_SECRET_KEY) {
+  console.error(
+    "[next-build] CLERK_SECRET_KEY is missing on Vercel Production. Set it and redeploy.",
+  );
+  process.exit(1);
 }
 
 env.CLERK_SECRET_KEY ||= "sk_test_local_build_placeholder";
