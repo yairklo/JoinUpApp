@@ -28,5 +28,10 @@ These failures already broke a Vercel deploy. Do not repeat them.
 - Fix every type error locally; do not rely on Vercel to discover them.
 - If build fails: fix → rebuild → repeat until green, then commit.
 
+## Clerk live keys on `*.vercel.app`
+- Live publishable keys encode a `clerk.<host>` Frontend API host. That host is **not** reachable under `*.vercel.app` (no CNAME/TLS).
+- Keep the `/__clerk` FAPI proxy in `next_app` middleware (`src/lib/clerkFrontendApiProxy.ts`). `@clerk/nextjs@6.39.x` has no `frontendApiProxy` option.
+- Derive `proxyUrl` for `pk_live_` (or set `NEXT_PUBLIC_CLERK_PROXY_URL`). After deploy, **Verify** the proxy in the Clerk Dashboard.
+
 ## Merge / deploy
 - After gates are green, merge into `Dev` and push so Vercel builds from `Dev`.
