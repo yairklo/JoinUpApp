@@ -4,6 +4,9 @@
   "private": true,
   "main": "./index.js",
   "types": "./index.d.ts",
+  "scripts": {
+    "test": "jest"
+  },
   "exports": {
     ".": {
       "types": "./index.d.ts",
@@ -25,5 +28,8 @@
       "types": "./types/game.ts",
       "default": "./types/game.ts"
     }
+  },
+  "devDependencies": {
+    "jest": "^30.5.0"
   }
 }

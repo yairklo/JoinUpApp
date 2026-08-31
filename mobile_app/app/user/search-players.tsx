@@ -17,7 +17,7 @@ export default function SearchPlayersScreen() {
     const [loading, setLoading] = useState(false);
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-    const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const performSearch = useCallback(async (searchQuery: string) => {
         if (!searchQuery.trim()) {

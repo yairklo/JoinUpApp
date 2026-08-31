@@ -19,7 +19,7 @@ export default function GlobalSearchOmnibar() {
     const [loading, setLoading] = useState(false);
     const [focused, setFocused] = useState(false);
 
-    const debounceRef = useRef<NodeJS.Timeout | null>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const performSearch = useCallback(async (raw: string) => {
         const q = raw.trim();

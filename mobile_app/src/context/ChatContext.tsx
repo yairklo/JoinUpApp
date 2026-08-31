@@ -47,8 +47,8 @@ interface ChatContextProps {
     minimizeChat: () => void;
     maximizeChat: () => void;
     goBackToList: () => void;
-    loadChats: () => Promise<void>;
-    loadMessages: (chatId: string) => Promise<ChatMessage[]>;
+    loadChats: (forceRefresh?: boolean) => Promise<void>;
+    loadMessages: (chatId: string, forceFetch?: boolean) => Promise<ChatMessage[]>;
     updateChatList: (newMessage: any) => void;
     markChatAsRead: (chatId: string) => void;
 }

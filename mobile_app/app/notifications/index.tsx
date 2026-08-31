@@ -103,7 +103,7 @@ export default function NotificationsScreen() {
                             className="mt-2 bg-brand-mist py-1.5 px-3 rounded self-start border border-brand-pale"
                             onPress={(e) => {
                                 e.stopPropagation();
-                                handleDirectMessage(item.data.userId);
+                                if (item.data?.userId) handleDirectMessage(item.data.userId);
                             }}
                         >
                             <Text className="text-brand-dark text-sm font-medium">{t('notifications.sendMessage', 'שלח הודעה')}</Text>
