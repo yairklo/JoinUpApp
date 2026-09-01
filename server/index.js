@@ -95,7 +95,9 @@ const LOCAL_DEV_ORIGIN_PATTERNS = [
   /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
   /^https?:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
   /^exp:\/\/[\w.-]+(:\d+)?$/i,
-  /^https?:\/\/[\w-]+\.vercel\.app$/i, // Vercel preview / staging deployments
+  // Vercel preview deployments of THIS project only (e.g. join-up-app-git-<branch>-<team>.vercel.app).
+  // Not a bare `*.vercel.app` wildcard — that would let any Vercel-hosted app pass CORS with credentials.
+  /^https:\/\/join-up-app(-[\w-]+)?\.vercel\.app$/i,
 ];
 
 function isLocalDevOrigin(origin) {

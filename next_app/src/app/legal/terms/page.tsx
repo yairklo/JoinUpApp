@@ -27,7 +27,7 @@ export default function TermsOfServicePage() {
 
         <Typography variant="h6" fontWeight={700}>1. תקופת בטא</Typography>
         <Typography>
-          השירות נמצא בשלב טסטים ("בטא") עם משתמשים אמיתיים. אנו עשויים לשנות, להסיר, או לאפס
+          השירות נמצא בשלב טסטים (&quot;בטא&quot;) עם משתמשים אמיתיים. אנו עשויים לשנות, להסיר, או לאפס
           פיצ&apos;רים ונתונים ללא התראה מראש, ואין התחייבות לזמינות רציפה.
         </Typography>
 
