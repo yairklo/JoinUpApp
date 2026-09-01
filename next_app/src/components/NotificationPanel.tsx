@@ -69,7 +69,7 @@ export default function NotificationPanel() {
 
     return (
         <>
-            <IconButton onClick={handleClick} color="inherit">
+            <IconButton onClick={handleClick} color="inherit" aria-label="התראות">
                 <Badge badgeContent={unreadCount} color="error">
                     <NotificationsIcon />
                 </Badge>

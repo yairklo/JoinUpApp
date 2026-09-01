@@ -260,16 +260,14 @@ router.delete('/:id/favorites/:fieldId', authenticateToken, async (req, res) => 
 
 const VALID_GENDERS = ['MALE', 'FEMALE'];
 
-function mapUserPublic(u) {
+function mapUserPublic(u, { includeContact = false } = {}) {
   if (!u) return u;
   return {
     id: u.id,
     name: u.name,
-    email: u.email,
-    phone: u.phone,
+    ...(includeContact ? { email: u.email, phone: u.phone, birthDate: u.birthDate } : {}),
     imageUrl: u.imageUrl,
     city: u.city,
-    birthDate: u.birthDate,
     gender: u.gender || null,
     age: u.birthDate ? (() => {
       const diff = Date.now() - new Date(u.birthDate).getTime();
@@ -411,7 +409,7 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     const ratingSummary = await getUserRatingSummary(targetId);
 
     const payload = {
-      ...mapUserPublic(user),
+      ...mapUserPublic(user, { includeContact: isOwner }),
       ratingAverage: ratingSummary.ratingAverage,
       totalRatings: ratingSummary.totalRatings,
       sections: { friends: showFriends, matchHistory: showGames },
@@ -568,7 +566,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       where: { id: req.user.id },
       include: { sports: { include: { sport: true } }, positions: { include: { position: true } } }
     });
-    res.json(mapUserPublic(full));
+    res.json(mapUserPublic(full, { includeContact: true }));
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Failed to update user' });

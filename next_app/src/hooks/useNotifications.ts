@@ -31,29 +31,94 @@ export function useNotifications() {
         getTokenRef.current = getToken;
     }, [getToken]);
 
+    const isFetchingRef = useRef(false);
+    const hasFetchedRef = useRef(false);
+    // First Socket.IO `connect` is covered by the auth-effect fetch. Skip it;
+    // only refetch on a later reconnect. If the socket is already connected
+    // when we subscribe, the first connect already happened — don't skip the next one.
+    const skipNextConnectFetchRef = useRef(true);
+
+    useEffect(() => {
+        hasFetchedRef.current = false;
+        skipNextConnectFetchRef.current = true;
+        if (!userId) {
+            setNotifications([]);
+            setUnreadCount(0);
+        }
+    }, [userId]);
+
     const fetchNotifications = useCallback(async () => {
         if (!userId) return;
-        setLoading(true);
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
+
+        if (!hasFetchedRef.current) {
+            setLoading(true);
+        }
+
         try {
             const token = await getTokenRef.current();
             if (!token) return;
             const data = await notificationsApi.getAll(token);
             setNotifications(filterFeedNotifications(data.notifications || []));
             setUnreadCount(data.unreadCount || 0);
+            hasFetchedRef.current = true;
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to fetch:', error);
         } finally {
             setLoading(false);
+            isFetchingRef.current = false;
         }
     }, [userId]);
 
     useEffect(() => {
         if (!isLoaded || !userId) return;
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
+        // Removed aggressive 30s polling in favor of Socket.io push events
+        // and window focus refetching (see below).
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoaded, userId]);
+
+    useEffect(() => {
+        if (!userId) return;
+
+        const onVisibilityChange = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+                fetchNotifications();
+            }
+        };
+
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', onVisibilityChange);
+        }
+
+        return () => {
+            if (typeof document !== 'undefined') {
+                document.removeEventListener('visibilitychange', onVisibilityChange);
+            }
+        };
+    }, [userId, fetchNotifications]);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const onConnect = () => {
+            if (skipNextConnectFetchRef.current) {
+                skipNextConnectFetchRef.current = false;
+                return;
+            }
+            fetchNotifications();
+        };
+
+        socket.on('connect', onConnect);
+        if (socket.connected) {
+            skipNextConnectFetchRef.current = false;
+        }
+
+        return () => {
+            socket.off('connect', onConnect);
+        };
+    }, [socket, fetchNotifications]);
 
     useEffect(() => {
         if (!userId || !socket || !isConnected) return;
@@ -84,32 +149,54 @@ export function useNotifications() {
     }, [userId, socket, isConnected]);
 
     const markAsRead = async (id: string) => {
+        // Snapshot so we can roll back if the API call fails — otherwise a 429/500
+        // leaves the UI optimistically claiming the notification was read when it wasn't.
+        let previousNotifications: NotificationType[] = [];
+        let previousUnreadCount = 0;
         try {
             const token = await getTokenRef.current();
             if (!token) return;
 
-            setNotifications((prev) =>
-                prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-            );
-            setUnreadCount((prev) => Math.max(0, prev - 1));
+            setNotifications((prev) => {
+                previousNotifications = prev;
+                return prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+            });
+            setUnreadCount((prev) => {
+                previousUnreadCount = prev;
+                return Math.max(0, prev - 1);
+            });
 
             await notificationsApi.markAsRead(id, token);
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to mark as read:', error);
+            // Roll back the optimistic update — the server never confirmed the read.
+            setNotifications(previousNotifications);
+            setUnreadCount(previousUnreadCount);
         }
     };
 
     const markAllAsRead = async () => {
+        let previousNotifications: NotificationType[] = [];
+        let previousUnreadCount = 0;
         try {
             const token = await getTokenRef.current();
             if (!token) return;
 
-            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-            setUnreadCount(0);
+            setNotifications((prev) => {
+                previousNotifications = prev;
+                return prev.map((n) => ({ ...n, read: true }));
+            });
+            setUnreadCount((prev) => {
+                previousUnreadCount = prev;
+                return 0;
+            });
 
             await notificationsApi.markAllAsRead(token);
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to mark all as read:', error);
+            // Roll back — a failed markAllAsRead must not leave the UI lying about read-state.
+            setNotifications(previousNotifications);
+            setUnreadCount(previousUnreadCount);
         }
     };
 

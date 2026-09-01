@@ -15,6 +15,7 @@ const EmptyFieldMapMarker = React.memo(function EmptyFieldMapMarker({
     onPress,
     onAnimateTo,
 }: EmptyFieldMapMarkerProps) {
+    const [tracksViewChanges, setTracksViewChanges] = React.useState(true);
     const lat = field.lat;
     const lng = field.lng;
     if (lat == null || lng == null) return null;
@@ -24,7 +25,8 @@ const EmptyFieldMapMarker = React.memo(function EmptyFieldMapMarker({
             coordinate={{ latitude: lat, longitude: lng }}
             anchor={{ x: 0.5, y: 1.0 }}
             hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
-            tracksViewChanges={false}
+            tracksViewChanges={tracksViewChanges}
+            onLayout={() => setTracksViewChanges(false)}
             onPress={(e) => {
                 e.stopPropagation();
                 onAnimateTo(lat, lng);

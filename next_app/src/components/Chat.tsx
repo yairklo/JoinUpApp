@@ -32,9 +32,13 @@ type ChatProps = {
   language?: "en" | "he";
   isWidget?: boolean;
   chatName?: string;
+  // Suppresses just the internal header's name label (avatar/back button/status stay put) --
+  // for callers that already render their own heading above this component, so the two
+  // don't show duplicate text right next to each other.
+  hideHeaderName?: boolean;
 };
 
-export default function Chat({ roomId = "global", language = "he", isWidget = false, chatName }: ChatProps) {
+export default function Chat({ roomId = "global", language = "he", isWidget = false, chatName, hideHeaderName = false }: ChatProps) {
   const isRTL = language === "he";
   const { user } = useUser();
   const theme = useTheme();
@@ -130,9 +134,11 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
           {/* Name & Status Column */}
           <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-            <Typography variant="subtitle1" fontWeight="bold" noWrap sx={{ lineHeight: 1.2 }}>
-              {state.effectiveChatName}
-            </Typography>
+            {!hideHeaderName && (
+              <Typography variant="subtitle1" fontWeight="bold" noWrap sx={{ lineHeight: 1.2 }}>
+                {state.effectiveChatName}
+              </Typography>
+            )}
 
             {/* Status Bar */}
             <Box sx={{ display: 'flex', alignItems: 'center', minHeight: '18px' }}>

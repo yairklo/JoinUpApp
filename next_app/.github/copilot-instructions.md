@@ -44,6 +44,7 @@ Purpose: Provide concise, repository-specific guidance to AI agents (Copilot/ass
 
 - `NEXT_PUBLIC_API_URL` — The external API’s base (default used in this codebase: `http://localhost:3005`). Many files read this and fall back to `http://localhost:3005`.
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_SIGN_IN_URL`, `CLERK_SIGN_UP_URL` — Clerk configuration.
+- Live keys on `*.vercel.app` use the `/__clerk` Frontend API proxy (`src/middleware.ts` + `src/lib/clerkFrontendApiProxy.ts`). Optional override: `NEXT_PUBLIC_CLERK_PROXY_URL` (defaults to `/__clerk` when the publishable key is `pk_live_`).
 - Local dev: `npm run dev` + `.env.local` to provide the above values.
 
 ⚠️ Note: The repo’s `.env.local` currently contains duplicate or malformed lines. Ensure correct `KEY=value` lines when setting up locally.

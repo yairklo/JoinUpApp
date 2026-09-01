@@ -99,7 +99,7 @@ export default async function GameDetails(props: {
   if (!game) {
     return (
       <Container sx={{ py: 4 }}>
-        <Alert severity="error">Game not found</Alert>
+        <Alert severity="error">המשחק לא נמצא</Alert>
       </Container>
     );
   }
@@ -272,7 +272,7 @@ export default async function GameDetails(props: {
                     שוחחו עם שאר המשתתפים בזמן אמת
                   </Typography>
                   <Box sx={{ height: 1, borderTop: 1, borderColor: 'divider', pt: 2 }}>
-                    <Chat roomId={game.chatRoomId || game.id} chatName={game.title || "Game Chat"} />
+                    <Chat roomId={game.chatRoomId || game.id} chatName={game.title || "Game Chat"} hideHeaderName />
                   </Box>
                 </Box>
               </Card>

@@ -11,7 +11,18 @@ const {
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { notifyUserAddedToGame, notifyUserRemovedFromGame } = require('../utils/addedToGameNotification');
+const { sanitizeFreeText } = require('../utils/sanitize');
 const gameScheduler = require('./gameScheduler');
+
+// Defense-in-depth limits for free-text fields written by end users. React auto-escapes these
+// on render (games/[id]/page.tsx, GameHeaderCard, GameDetailsEditor all use plain JSX
+// interpolation / controlled-input `value` props, never dangerouslySetInnerHTML), but other
+// consumers of the same data -- push notifications, chat/email digests -- may not, so we strip
+// HTML tags and cap length here before anything reaches Prisma.
+const TITLE_MAX_LENGTH = 200;
+const DESCRIPTION_MAX_LENGTH = 2000;
+const FIELD_NAME_MAX_LENGTH = 200;
+const FIELD_LOCATION_MAX_LENGTH = 300;
 
 async function sendAutoWelcomeMessage(game, newPlayerId) {
   if (!game || !game.welcomeMessage || !game.organizerId || game.organizerId === newPlayerId) {
@@ -523,14 +534,14 @@ async function createGame(payload, creatorUser, io) {
     lotteryEnabled,
     lotteryAt,
     organizerInLottery,
-    description,
-    welcomeMessage,
+    description: rawDescription,
+    welcomeMessage: rawWelcomeMessage,
     recurrence,
     customLng,
     customLocation,
     sport,
     registrationOpensAt,
-    title,
+    title: rawTitle,
     friendsOnlyUntil,
     teamSize,
     price: rawPrice,
@@ -541,6 +552,13 @@ async function createGame(payload, creatorUser, io) {
     pickingStartsAt,
     seriesId,
   } = payload || {};
+
+  // Sanitize free-text fields once, up front -- everything below keeps using the plain
+  // `title` / `description` / `welcomeMessage` names, but they now carry HTML-stripped,
+  // length-capped values.
+  const title = sanitizeFreeText(rawTitle, TITLE_MAX_LENGTH);
+  const description = sanitizeFreeText(rawDescription, DESCRIPTION_MAX_LENGTH);
+  const welcomeMessage = sanitizeFreeText(rawWelcomeMessage, DESCRIPTION_MAX_LENGTH);
 
   // When the caller attaches this game to an existing series, only the series organizer,
   // a series MANAGER, or an admin may prefill/attach to it.
@@ -622,8 +640,10 @@ async function createGame(payload, creatorUser, io) {
     const fallbackCoords = (Number.isFinite(latNum) && Number.isFinite(lngNum))
       ? `${latNum.toFixed(5)}, ${lngNum.toFixed(5)}`
       : '';
-    const name = (newField?.name && String(newField.name).trim()) || (customLocation && String(customLocation).trim()) || `Custom spot ${fallbackCoords}`;
-    const location = (newField?.location && String(newField.location).trim()) || (customLocation && String(customLocation).trim()) || fallbackCoords || 'Custom';
+    const rawName = (newField?.name && String(newField.name).trim()) || (customLocation && String(customLocation).trim()) || `Custom spot ${fallbackCoords}`;
+    const rawLocation = (newField?.location && String(newField.location).trim()) || (customLocation && String(customLocation).trim()) || fallbackCoords || 'Custom';
+    const name = sanitizeFreeText(rawName, FIELD_NAME_MAX_LENGTH);
+    const location = sanitizeFreeText(rawLocation, FIELD_LOCATION_MAX_LENGTH);
     const createdField = await prisma.field.create({
       data: {
         name,
@@ -1262,13 +1282,15 @@ async function resolveFieldUpdateFromBody(body) {
 
   if (!useFieldId && (newField || hasCoords)) {
     const fallbackCoords = hasCoords ? `${latNum.toFixed(5)}, ${lngNum.toFixed(5)}` : '';
-    const name = (newField?.name && String(newField.name).trim())
+    const rawName = (newField?.name && String(newField.name).trim())
       || (customLocation && String(customLocation).trim())
       || `Custom spot ${fallbackCoords}`;
-    const location = (newField?.location && String(newField.location).trim())
+    const rawLocation = (newField?.location && String(newField.location).trim())
       || (customLocation && String(customLocation).trim())
       || fallbackCoords
       || 'Custom';
+    const name = sanitizeFreeText(rawName, FIELD_NAME_MAX_LENGTH);
+    const location = sanitizeFreeText(rawLocation, FIELD_LOCATION_MAX_LENGTH);
     const createdField = await prisma.field.create({
       data: {
         name,
@@ -1429,11 +1451,18 @@ async function updateGame(gameId, body, userId, io) {
   }
 
   const {
-    description, welcomeMessage, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt,
-    organizerInLottery, title, sport, duration, teamSize, price,
+    description: rawDescription, welcomeMessage: rawWelcomeMessage, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt,
+    organizerInLottery, title: rawTitle, sport, duration, teamSize, price,
     isFriendsOnly, joinPolicy, registrationOpensAt, friendsOnlyUntil, start,
     pickDrawAt, pickingStartsAt,
   } = body || {};
+
+  // Sanitize on write, same treatment as createGame (see TITLE_MAX_LENGTH etc. above).
+  // sanitizeFreeText passes undefined/null through unchanged, so the `typeof x !== 'undefined'`
+  // partial-update checks below keep working exactly as before for fields the caller omitted.
+  const description = sanitizeFreeText(rawDescription, DESCRIPTION_MAX_LENGTH);
+  const welcomeMessage = sanitizeFreeText(rawWelcomeMessage, DESCRIPTION_MAX_LENGTH);
+  const title = sanitizeFreeText(rawTitle, TITLE_MAX_LENGTH);
 
   if (typeof maxPlayers !== 'undefined') {
     const confirmedCount = await prisma.participation.count({

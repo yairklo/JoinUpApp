@@ -3,6 +3,7 @@ import { useAuth, useUser } from '@clerk/nextjs';
 import { gamesApi, API_BASE } from '@/services/api'; // user city still needs manual fetch
 import { Game } from '@/types/game';
 import { useSyncedGames } from './useSyncedGames';
+import { getLoadErrorMessage } from '@/utils/apiError';
 
 export function useGamesByCity(initialCity?: string) {
     const { user, isLoaded } = useUser();
@@ -10,6 +11,9 @@ export function useGamesByCity(initialCity?: string) {
 
     const [displayedCity, setDisplayedCity] = useState(initialCity || "");
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
+    const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
     const [availableCities, setAvailableCities] = useState<string[]>([]);
 
     const predicate = useCallback((game: Game) => {
@@ -60,6 +64,7 @@ export function useGamesByCity(initialCity?: string) {
         let ignore = false;
         async function fetchGames() {
             setLoading(true);
+            setError(null);
             try {
                 const token = await getToken({ template: undefined }).catch(() => "");
                 const data = await gamesApi.getByCity(displayedCity, token || undefined);
@@ -73,14 +78,17 @@ export function useGamesByCity(initialCity?: string) {
                 if (!ignore) setGames(data);
             } catch (err) {
                 console.error("Error loading city games:", err);
-                if (!ignore) setGames([]);
+                if (!ignore) {
+                    setGames([]);
+                    setError(getLoadErrorMessage(err));
+                }
             } finally {
                 if (!ignore) setLoading(false);
             }
         }
         fetchGames();
         return () => { ignore = true; };
-    }, [displayedCity, getToken, setGames]);
+    }, [displayedCity, getToken, setGames, reloadKey]);
 
-    return { games, loading, displayedCity, setDisplayedCity, availableCities, isLoaded };
+    return { games, loading, error, refetch, displayedCity, setDisplayedCity, availableCities, isLoaded };
 }

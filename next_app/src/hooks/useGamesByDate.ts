@@ -3,12 +3,16 @@ import { useAuth, useUser } from '@clerk/nextjs';
 import { gamesApi } from '@/services/api';
 import { Game } from '@/types/game';
 import { useSyncedGames } from './useSyncedGames';
+import { getLoadErrorMessage } from '@/utils/apiError';
 
 export function useGamesByDate(initialDate: string, fieldId?: string, networkGames?: boolean) {
     const { isLoaded } = useUser();
     const { getToken } = useAuth();
     const [selectedDate, setSelectedDate] = useState<string>(initialDate);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
+    const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
 
     // Predicate for real-time updates (from useSyncedGames)
     const predicate = useCallback((game: Game) => {
@@ -40,6 +44,7 @@ export function useGamesByDate(initialDate: string, fieldId?: string, networkGam
 
         async function fetchGames() {
             setLoading(true);
+            setError(null);
             try {
                 const qs = new URLSearchParams();
                 qs.set("date", selectedDate);
@@ -71,7 +76,10 @@ export function useGamesByDate(initialDate: string, fieldId?: string, networkGam
                 if (!ignore) setGames(filtered);
             } catch (err) {
                 console.error("Error loading games:", err);
-                if (!ignore) setGames([]);
+                if (!ignore) {
+                    setGames([]);
+                    setError(getLoadErrorMessage(err));
+                }
             } finally {
                 if (!ignore) setLoading(false);
             }
@@ -79,7 +87,7 @@ export function useGamesByDate(initialDate: string, fieldId?: string, networkGam
 
         fetchGames();
         return () => { ignore = true; };
-    }, [selectedDate, fieldId, networkGames, isLoaded, getToken, setGames]);
+    }, [selectedDate, fieldId, networkGames, isLoaded, getToken, setGames, reloadKey]);
 
     const groups = useMemo(() => {
         return games.reduce<Record<string, Game[]>>((acc, g) => {
@@ -93,6 +101,8 @@ export function useGamesByDate(initialDate: string, fieldId?: string, networkGam
         setSelectedDate,
         games,
         loading,
+        error,
+        refetch,
         groups
     };
 }

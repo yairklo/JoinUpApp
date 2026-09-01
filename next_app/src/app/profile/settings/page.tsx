@@ -45,6 +45,18 @@ export default function PrivacySettingsPage() {
         privacyMessages: "DEFAULT",
     });
     const [resolved, setResolved] = useState<PrivacySettings["resolved"] | null>(null);
+    // The raw (nullable) server-persisted value per field, as of the last load/save. `resolved`
+    // only reflects what "DEFAULT" truly resolves to when the stored value is actually null —
+    // when a field has an explicit stored value, `resolved[key]` just echoes that explicit value
+    // back (see resolvePrivacyLevel: a stored value always wins). So if the user has an explicit
+    // value saved and then flips the dropdown back to "DEFAULT" without saving yet, the
+    // parenthetical hint must NOT use `resolved` — it would show the stale explicit value as if
+    // it were the age-based default. We only trust the hint when rawSaved[key] is null.
+    const [rawSaved, setRawSaved] = useState<Record<FieldKey, PrivacyLevel | null>>({
+        privacyFriends: null,
+        privacyGames: null,
+        privacyMessages: null,
+    });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -71,6 +83,11 @@ export default function PrivacySettingsPage() {
                         privacyMessages: ps.privacyMessages ?? "DEFAULT",
                     });
                     setResolved(ps.resolved);
+                    setRawSaved({
+                        privacyFriends: ps.privacyFriends ?? null,
+                        privacyGames: ps.privacyGames ?? null,
+                        privacyMessages: ps.privacyMessages ?? null,
+                    });
                 }
             } catch (e) {
                 console.error("Failed to load settings:", e);
@@ -96,6 +113,11 @@ export default function PrivacySettingsPage() {
             };
             const res = await usersApi.updatePrivacySettings(payload, token);
             setResolved(res.resolved);
+            setRawSaved({
+                privacyFriends: res.privacyFriends ?? null,
+                privacyGames: res.privacyGames ?? null,
+                privacyMessages: res.privacyMessages ?? null,
+            });
             setSuccess(true);
         } catch (e) {
             console.error("Failed to save settings:", e);
@@ -166,7 +188,7 @@ export default function PrivacySettingsPage() {
                                             }
                                         >
                                             <MenuItem value="DEFAULT">
-                                                ברירת מחדל לפי גיל{resolved ? ` (${resolved[f.key] === "EVERYONE" ? "כולם" : "חברים בלבד"})` : ""}
+                                                ברירת מחדל לפי גיל{resolved && rawSaved[f.key] === null ? ` (${resolved[f.key] === "EVERYONE" ? "כולם" : "חברים בלבד"})` : ""}
                                             </MenuItem>
                                             <MenuItem value="EVERYONE">כולם</MenuItem>
                                             <MenuItem value="FRIENDS_ONLY">חברים בלבד</MenuItem>

@@ -232,6 +232,7 @@ model Message {
 
   @@index([chatRoomId])
   @@index([chatRoomId, createdAt])
+  @@index([chatRoomId, status, userId])
 }
 
 model Reaction {
@@ -434,6 +435,7 @@ model Notification {
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, read])
   @@index([createdAt])
+  @@index([userId, type, createdAt(sort: Desc)])
 }
 
 model UserDevice {

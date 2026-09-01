@@ -26,6 +26,7 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import FavoriteButton from "@/components/FavoriteButton";
 import NewGameInline from "@/components/NewGameInline";
 import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
+import { SPORT_IMAGES, SportType } from "@/utils/sports";
 
 export type Field = {
   id: string;
@@ -35,6 +36,7 @@ export type Field = {
   rating: number;
   image?: string | null;
   type: "open" | "closed";
+  supportedSports?: string[];
   favoritesCount?: number;
 };
 
@@ -56,7 +58,15 @@ const chipOverlaySx = {
 
 export default function FieldCard({ field }: { field: Field }) {
   const [showNewGame, setShowNewGame] = useState(false);
-  const imgSrc = field.image && field.image.trim().length > 0 ? field.image : "/images/default-field.jpg";
+  const primarySport = field.supportedSports?.find(
+    (s): s is SportType => s in SPORT_IMAGES
+  );
+  const imgSrc =
+    field.image && field.image.trim().length > 0
+      ? field.image
+      : primarySport
+        ? SPORT_IMAGES[primarySport]
+        : "/images/default-field.jpg";
   const isFree = !field.price || field.price <= 0;
   const isOpen = field.type === "open";
 

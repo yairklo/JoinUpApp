@@ -14,11 +14,13 @@ interface CustomPointMarkerProps {
 }
 
 export default function CustomPointMarker({ coordinate }: CustomPointMarkerProps) {
+    const [tracksViewChanges, setTracksViewChanges] = React.useState(true);
     return (
         <Marker
             coordinate={coordinate}
             anchor={{ x: 0.5, y: 1.0 }}
-            tracksViewChanges={false}
+            tracksViewChanges={tracksViewChanges}
+            onLayout={() => setTracksViewChanges(false)}
             // react-native-map-clustering reads `cluster` off Marker children at runtime;
             // it isn't in react-native-maps' own MarkerProps type.
             {...({ cluster: false } as any)}

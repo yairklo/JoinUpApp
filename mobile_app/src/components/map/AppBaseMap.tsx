@@ -123,12 +123,17 @@ function AppBaseMapInner<T>(
     const markerNodes = useMemo(() => {
         return visibleMarkers.map((item) => {
             const coordinate = { latitude: item.latitude, longitude: item.longitude };
-            return renderMarker({
+            const node = renderMarker({
                 item,
                 selected: selectedMarkerId === item.id,
                 onPress: () => onMarkerPress?.(item.payload, item),
                 animateToCoordinate: () => animateToCoordinate(coordinate),
             });
+            if (!node) return null;
+            // react-native-map-clustering only recognizes a child as clusterable when
+            // `coordinate` is present on the element it was handed directly — our marker
+            // components wrap their own <Marker> internally, so it never sees it there.
+            return React.cloneElement(node as React.ReactElement<any>, { key: item.id, coordinate });
         });
     }, [visibleMarkers, selectedMarkerId, renderMarker, onMarkerPress, animateToCoordinate]);
 

@@ -170,6 +170,7 @@ export default function GameDetailsEditor(props: ComponentProps) {
                   value={state.title}
                   onChange={(e) => actions.setTitle(e.target.value)}
                   placeholder="למשל: כדורגל שישי בצהריים"
+                  InputProps={{ inputProps: { maxLength: 200 } }}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
@@ -257,6 +258,7 @@ export default function GameDetailsEditor(props: ComponentProps) {
                   value={state.description}
                   onChange={(e) => actions.setDescription(e.target.value)}
                   dir="rtl"
+                  InputProps={{ inputProps: { maxLength: 2000 } }}
                 />
                 
                 <TextField
@@ -270,6 +272,7 @@ export default function GameDetailsEditor(props: ComponentProps) {
                   value={state.welcomeMessage}
                   onChange={(e) => actions.setWelcomeMessage(e.target.value)}
                   dir="rtl"
+                  InputProps={{ inputProps: { maxLength: 2000 } }}
                 />
               </Grid>
 

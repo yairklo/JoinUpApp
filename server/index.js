@@ -147,9 +147,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const { requestContext } = require('./middleware/requestContext');
-const { createRateLimiter, writeMethodLimiter } = require('./middleware/rateLimit');
+const { createRateLimiter, writeMethodLimiter, readMethodLimiter } = require('./middleware/rateLimit');
 app.use(requestContext);
-app.use(createRateLimiter({ windowMs: 15 * 60 * 1000, max: 240, prefix: 'global' }));
+// Read/polling traffic (GET/HEAD): feed loads, notification-count polling (every 30s per open
+// tab), chat history, presence, etc. A single page can easily fire 5-10 GETs, and users with
+// several tabs/devices open multiply that. A single 240-req/15min bucket shared across ALL
+// methods was starving this normal interactive traffic long before anyone was abusing anything.
+// Split it out with a much higher ceiling and a short (1 min) window: short windows recover fast
+// (a burst only costs the client up to 60s of 429s instead of being locked out for 15 minutes),
+// while still capping runaway client-side retry/polling loops within that same minute.
+app.use(readMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 120, prefix: 'read' })));
+// Mutations (POST/PUT/PATCH/DELETE) keep the existing, deliberately stricter limiter untouched.
 app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 60, prefix: 'write' })));
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

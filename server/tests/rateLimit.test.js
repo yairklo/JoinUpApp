@@ -1,14 +1,18 @@
 const request = require('supertest');
 const express = require('express');
-const { createRateLimiter, writeMethodLimiter } = require('../middleware/rateLimit');
+const { createRateLimiter, writeMethodLimiter, readMethodLimiter } = require('../middleware/rateLimit');
 
-function appWithLimiter() {
+// Mirrors the production wiring in index.js: a generous read limiter gates GET/HEAD
+// (polling/feed traffic) and a separate, stricter write limiter gates mutations. The two
+// are independent buckets (different prefixes) so neither call inflates the other's count.
+function appWithLimiter({ readMax = 3, writeMax = 2 } = {}) {
   const app = express();
-  app.use(createRateLimiter({ windowMs: 60_000, max: 3, prefix: 'test-global', forceEnable: true }));
-  app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60_000, max: 2, prefix: 'test-write', forceEnable: true })));
+  app.use(readMethodLimiter(createRateLimiter({ windowMs: 60_000, max: readMax, prefix: 'test-read', forceEnable: true })));
+  app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60_000, max: writeMax, prefix: 'test-write', forceEnable: true })));
   app.get('/api/health', (_req, res) => res.json({ status: 'OK' }));
   app.get('/api/socket', (_req, res) => res.json({ ok: true }));
   app.get('/ok', (_req, res) => res.json({ ok: true }));
+  app.head('/ok', (_req, res) => res.status(200).end());
   app.post('/write', (_req, res) => res.json({ ok: true }));
   return app;
 }
@@ -83,5 +87,36 @@ describe('HTTP rate limiter', () => {
     expect(r2.statusCode).toEqual(200);
     expect(r3.statusCode).toEqual(200);
     expect(blocked.statusCode).toEqual(429);
+  });
+
+  test('read and write limiters are independent buckets: exhausting GETs does not block a POST', async () => {
+    const app = appWithLimiter({ readMax: 1, writeMax: 5 });
+    expect((await request(app).get('/ok')).statusCode).toEqual(200);
+    expect((await request(app).get('/ok')).statusCode).toEqual(429); // read bucket exhausted
+    expect((await request(app).post('/write')).statusCode).toEqual(200); // write bucket untouched
+  });
+
+  test('read and write limiters are independent buckets: exhausting POSTs does not block a GET', async () => {
+    const app = appWithLimiter({ readMax: 5, writeMax: 1 });
+    expect((await request(app).post('/write')).statusCode).toEqual(200);
+    expect((await request(app).post('/write')).statusCode).toEqual(429); // write bucket exhausted
+    expect((await request(app).get('/ok')).statusCode).toEqual(200); // read bucket untouched
+  });
+
+  test('HEAD requests count toward the read limiter like GET', async () => {
+    const app = appWithLimiter({ readMax: 2, writeMax: 5 });
+    expect((await request(app).get('/ok')).statusCode).toEqual(200);
+    expect((await request(app).head('/ok')).statusCode).toEqual(200);
+    expect((await request(app).get('/ok')).statusCode).toEqual(429);
+  });
+
+  test('the read GET ceiling is more generous than the old shared global limiter', async () => {
+    // Regression guard for the fix itself: polling-heavy interactive use (feed loads,
+    // notification-count polling, etc.) must not be starved by a low shared cap.
+    const app = appWithLimiter({ readMax: 120, writeMax: 60 });
+    for (let i = 0; i < 100; i++) {
+      // eslint-disable-next-line no-await-in-loop
+      expect((await request(app).get('/ok')).statusCode).toEqual(200);
+    }
   });
 });
