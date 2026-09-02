@@ -2,6 +2,7 @@ const {
   formatJerusalemDate,
   formatJerusalemTime,
   getJerusalemDayHour,
+  parseJerusalemTimeToUTC,
   buildActiveGameStartFilter,
   getActiveGameStartCutoff,
   ACTIVE_GAME_GRACE_MS,
@@ -25,6 +26,44 @@ describe('formatJerusalemTime', () => {
 
   test('returns empty string for an invalid date', () => {
     expect(formatJerusalemTime('not-a-date')).toEqual('');
+  });
+
+  test('normalizes a "24" hour to "00" (some ICU builds use a 1-24 cycle for midnight)', () => {
+    const spy = jest.spyOn(Intl.DateTimeFormat.prototype, 'formatToParts')
+      .mockReturnValue([{ type: 'hour', value: '24' }, { type: 'minute', value: '30' }]);
+    try {
+      expect(formatJerusalemTime('2026-08-31T21:30:00Z')).toEqual('00:30');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('parseJerusalemTimeToUTC', () => {
+  test('converts a Jerusalem local date+time to the equivalent UTC instant', () => {
+    // 21:30 Jerusalem on 2026-08-31 (UTC+3 in summer) is 18:30 UTC the same day
+    const result = parseJerusalemTimeToUTC('2026-08-31', '21:30');
+    expect(result.toISOString()).toEqual('2026-08-31T18:30:00.000Z');
+  });
+
+  test('rolls over to the next day when ICU reports hour "24" for midnight', () => {
+    // Simulate an ICU build that uses the 1-24 hour cycle: for the instant
+    // 2026-09-01T00:30 Jerusalem, it reports day=31 (Aug), hour=24 instead
+    // of day=01 (Sep), hour=00. Date.UTC must still resolve this correctly.
+    const spy = jest.spyOn(Intl.DateTimeFormat.prototype, 'formatToParts').mockReturnValue([
+      { type: 'year', value: '2026' },
+      { type: 'month', value: '08' },
+      { type: 'day', value: '31' },
+      { type: 'hour', value: '24' },
+      { type: 'minute', value: '30' },
+      { type: 'second', value: '00' },
+    ]);
+    try {
+      const result = parseJerusalemTimeToUTC('2026-08-31', '21:30');
+      expect(result.toISOString()).toEqual('2026-08-31T18:30:00.000Z');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

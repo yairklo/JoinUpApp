@@ -10,14 +10,25 @@ function parseJerusalemTimeToUTC(dateStr, timeStr) {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false,
+    // Deliberately no hour12 here: when both hour12 and hourCycle are set,
+    // hour12 wins per spec, and some ICU builds default hour12:false to the
+    // 1-24 cycle (midnight = "24") instead of 0-23. hourCycle alone is what
+    // actually pins the cycle everywhere.
     hourCycle: 'h23',
   });
   const parts = formatter.formatToParts(utcDate);
-  const partVal = (type) => parts.find((p) => p.type === type).value;
-  const formattedJerusalem = new Date(
-    `${partVal('year')}-${partVal('month')}-${partVal('day')}T${partVal('hour')}:${partVal('minute')}:${partVal('second')}Z`
-  );
+  const partVal = (type) => Number(parts.find((p) => p.type === type).value);
+  // Date.UTC overflows out-of-range fields into the next unit, so an h24
+  // "hour 24" (this ICU's midnight, whichever cycle it used) rolls into the
+  // next day exactly like it should - no manual wraparound needed.
+  const formattedJerusalem = new Date(Date.UTC(
+    partVal('year'),
+    partVal('month') - 1,
+    partVal('day'),
+    partVal('hour'),
+    partVal('minute'),
+    partVal('second')
+  ));
   const offsetMs = formattedJerusalem.getTime() - utcDate.getTime();
   return new Date(utcDate.getTime() - offsetMs);
 }
@@ -27,7 +38,6 @@ function getJerusalemDayHour(date = new Date()) {
     timeZone: TZ,
     weekday: 'short',
     hour: '2-digit',
-    hour12: false,
     hourCycle: 'h23',
   });
   const parts = formatter.formatToParts(date);
@@ -83,11 +93,12 @@ function formatJerusalemTime(dateInput) {
     timeZone: TZ,
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
     hourCycle: 'h23',
   });
   const parts = formatter.formatToParts(date);
-  const hour = parts.find((p) => p.type === 'hour')?.value || '';
+  // No day field here to overflow into, so normalize a "24" (this ICU's
+  // midnight in whichever hour cycle it actually used) to "00" directly.
+  const hour = (parts.find((p) => p.type === 'hour')?.value || '').replace(/^24$/, '00');
   const minute = parts.find((p) => p.type === 'minute')?.value || '';
   return `${hour}:${minute}`;
 }
