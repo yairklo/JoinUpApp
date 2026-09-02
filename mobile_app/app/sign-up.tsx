@@ -4,6 +4,7 @@ import { useSignUp } from '@clerk/clerk-expo'
 import { useRouter, Link } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { OAuth } from "@/components/OAuth";
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function SignUpScreen() {
     const { isLoaded, signUp, setActive } = useSignUp()
@@ -14,9 +15,14 @@ export default function SignUpScreen() {
     const [pendingVerification, setPendingVerification] = React.useState(false)
     const [code, setCode] = React.useState('')
     const [loading, setLoading] = React.useState(false)
+    const [agreedToTerms, setAgreedToTerms] = React.useState(false)
 
     const onSignUpPress = async () => {
         if (!isLoaded) return
+        if (!agreedToTerms) {
+            alert('יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך')
+            return
+        }
         setLoading(true)
 
         try {
@@ -100,16 +106,35 @@ export default function SignUpScreen() {
                                 </View>
 
                                 <TouchableOpacity
+                                    onPress={() => setAgreedToTerms((v) => !v)}
+                                    className="flex-row items-center mt-2"
+                                    activeOpacity={0.7}
+                                >
+                                    <View className={`w-6 h-6 rounded-md border-2 items-center justify-center mr-2 ${agreedToTerms ? 'bg-brand border-brand' : 'border-gray-300'}`}>
+                                        {agreedToTerms && <FontAwesome name="check" size={12} color="white" />}
+                                    </View>
+                                    <Text className="text-gray-600 flex-1 text-sm">
+                                        אני מאשר/ת שקראתי ומסכים/ה ל
+                                        <Link href={"/legal/terms" as any}><Text className="text-brand font-bold">תנאי השימוש</Text></Link>
+                                        {' '}ול
+                                        <Link href={"/legal/privacy" as any}><Text className="text-brand font-bold">מדיניות הפרטיות</Text></Link>
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
                                     onPress={onSignUpPress}
-                                    disabled={loading}
-                                    className={`w-full p-5 rounded-2xl items-center mt-4 bg-brand shadow-lg shadow-brand-pale ${loading ? 'opacity-70' : ''}`}
+                                    disabled={loading || !agreedToTerms}
+                                    className={`w-full p-5 rounded-2xl items-center mt-4 bg-brand shadow-lg shadow-brand-pale ${(loading || !agreedToTerms) ? 'opacity-40' : ''}`}
                                 >
                                     <Text className="text-white font-bold text-lg">
                                         {loading ? "Creating account..." : "Sign Up"}
                                     </Text>
                                 </TouchableOpacity>
 
-                                <OAuth />
+                                <OAuth
+                                    disabled={!agreedToTerms}
+                                    disabledMessage="יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך"
+                                />
 
                                 <View className="flex-row justify-center mt-8 pb-10">
                                     <Text className="text-gray-500 font-medium">Already have an account? </Text>

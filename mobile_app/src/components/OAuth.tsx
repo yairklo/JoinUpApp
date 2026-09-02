@@ -6,10 +6,14 @@ import { FontAwesome } from "@expo/vector-icons";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export function OAuth() {
+export function OAuth({ disabled, disabledMessage }: { disabled?: boolean; disabledMessage?: string }) {
     const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
 
     const onPress = useCallback(async () => {
+        if (disabled) {
+            if (disabledMessage) alert(disabledMessage);
+            return;
+        }
         try {
             const { createdSessionId, setActive } = await startOAuthFlow();
 
@@ -31,7 +35,7 @@ export function OAuth() {
 
             <TouchableOpacity
                 onPress={onPress}
-                className="w-full flex-row items-center justify-center bg-white border border-gray-200 p-4 rounded-2xl shadow-sm active:bg-gray-50"
+                className={`w-full flex-row items-center justify-center bg-white border border-gray-200 p-4 rounded-2xl shadow-sm active:bg-gray-50 ${disabled ? 'opacity-40' : ''}`}
             >
                 <FontAwesome name="google" size={20} color="#DB4437" />
                 <Text className="ml-3 text-gray-700 font-bold text-lg">Continue with Google</Text>

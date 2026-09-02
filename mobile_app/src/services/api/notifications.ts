@@ -18,7 +18,26 @@ export interface NotificationsResponse {
     unreadCount: number;
 }
 
+export interface NotificationSettings {
+    pushEnabled: boolean;
+    friendRequestsEnabled: boolean;
+    messagesEnabled: boolean;
+    gameRemindersEnabled: boolean;
+}
+
 export const notificationsApi = {
+    getSettings: (token: string) => {
+        return apiClient<NotificationSettings>('/api/notifications/settings', { token });
+    },
+
+    updateSettings: (settings: Partial<NotificationSettings>, token: string) => {
+        return apiClient<NotificationSettings>('/api/notifications/settings', {
+            method: 'PUT',
+            data: settings,
+            token,
+        });
+    },
+
     getAll: (token: string) => {
         return apiClient<NotificationsResponse>('/api/notifications', { token });
     },

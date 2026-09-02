@@ -39,7 +39,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const scrollContainerRef = useRef<any>(null);
     const isUserAtBottomRef = useRef(true);
     const prevMessagesLengthRef = useRef(0);
-    const typingTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+    const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     // Fix #5: track fetched user IDs to prevent re-fetching and cascading re-renders
     const fetchedUserIdsRef = useRef<Set<string>>(new Set());
     const otherUserIdRef = useRef<string | undefined>(undefined);

@@ -21,7 +21,9 @@ export default function CustomPointMarker({ coordinate }: CustomPointMarkerProps
             anchor={{ x: 0.5, y: 1.0 }}
             tracksViewChanges={tracksViewChanges}
             onLayout={() => setTracksViewChanges(false)}
-            cluster={false}
+            // react-native-map-clustering reads `cluster` off Marker children at runtime;
+            // it isn't in react-native-maps' own MarkerProps type.
+            {...({ cluster: false } as any)}
         >
             <MarkerPin visual={CUSTOM_POINT_VISUAL} selected />
         </Marker>

@@ -1,11 +1,15 @@
 require('dotenv').config();
 
+const { captureException } = require('./lib/sentry');
+
 // Surface fatal errors in Render logs instead of silent 502s
 process.on('uncaughtException', (err) => {
   console.error('[FATAL] uncaughtException:', err?.stack || err);
+  captureException(err);
 });
 process.on('unhandledRejection', (reason) => {
   console.error('[FATAL] unhandledRejection:', reason);
+  captureException(reason instanceof Error ? reason : new Error(String(reason)));
 });
 
 const express = require('express');
@@ -91,7 +95,9 @@ const LOCAL_DEV_ORIGIN_PATTERNS = [
   /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
   /^https?:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
   /^exp:\/\/[\w.-]+(:\d+)?$/i,
-  /^https?:\/\/[\w-]+\.vercel\.app$/i, // Vercel preview / staging deployments
+  // Vercel preview deployments of THIS project only (e.g. join-up-app-git-<branch>-<team>.vercel.app).
+  // Not a bare `*.vercel.app` wildcard — that would let any Vercel-hosted app pass CORS with credentials.
+  /^https:\/\/join-up-app(-[\w-]+)?\.vercel\.app$/i,
 ];
 
 function isLocalDevOrigin(origin) {
@@ -265,6 +271,17 @@ io.use(async (socket, next) => {
     socket.userId = claims.sub;
     if (!socket.userId) {
       return next(new Error('Unauthorized'));
+    }
+    try {
+      const { clerkClient } = require('./utils/auth');
+      const { resolveIsBanned } = require('./utils/admin');
+      const clerkUser = await clerkClient.users.getUser(socket.userId);
+      if (resolveIsBanned(clerkUser)) {
+        return next(new Error('Account suspended'));
+      }
+    } catch (e) {
+      // Clerk lookup failure shouldn't block a socket that already has a valid JWT
+      console.warn('[socket auth] ban check failed:', e.message);
     }
     next();
   } catch (err) {
@@ -1146,6 +1163,7 @@ app.use((err, req, res, next) => {
     message: err.message,
     stack: err.stack,
   }));
+  captureException(err, { requestId, path: req.originalUrl, method: req.method });
   const payload = { error: 'Something went wrong!', requestId };
   if (process.env.NODE_ENV !== 'production') payload.message = err.message;
   res.status(500).json(payload);

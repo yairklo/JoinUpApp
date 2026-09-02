@@ -103,6 +103,13 @@ export const usersApi = {
         });
     },
 
+    cancelFriendRequest: (requestId: string, token: string) => {
+        return apiClient(`/api/users/requests/${requestId}/cancel`, {
+            method: 'POST',
+            token
+        });
+    },
+
     sendFriendRequest: (receiverId: string, token: string) => {
         return apiClient('/api/users/requests', {
             method: 'POST',

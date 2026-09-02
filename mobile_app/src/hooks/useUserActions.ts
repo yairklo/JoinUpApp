@@ -121,12 +121,18 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
     };
 
     const handleCancelRequest = async () => {
-        // Backend doesn't seem to support cancelling sent requests for requester via API easily?
-        // Assuming decline works or just a "Coming Soon" alert if not implemented
-        // For now, let's use decline if we have requestId, but decline check verifies receiver.
-        // Effectively we can't cancel.
-        console.warn("Cancel request not fully implemented on backend for requester");
-        // Try decline? it will fail 404/403 probably.
+        if (!requestId) return;
+        setLoading(true);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await usersApi.cancelFriendRequest(requestId, token);
+            await checkStatus();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleMessage = async () => {

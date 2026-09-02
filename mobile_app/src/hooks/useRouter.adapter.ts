@@ -4,8 +4,8 @@ export function useRouter() {
     const router = useExpoRouter();
 
     return {
-        push: (href: string) => router.push(href),
-        replace: (href: string) => router.replace(href),
+        push: (href: string) => router.push(href as any),
+        replace: (href: string) => router.replace(href as any),
         back: () => router.back(),
         refresh: () => {
             // router.refresh() might not be fully equivalent to Next.js data refresh but serves a similar purpose

@@ -745,6 +745,22 @@ router.post('/requests/:id/accept', authenticateToken, async (req, res) => {
   }
 });
 
+// Cancel a request the caller sent (requester side; decline above is the receiver side)
+router.post('/requests/:id/cancel', authenticateToken, async (req, res) => {
+  try {
+    const reqRow = await prisma.friendRequest.findUnique({ where: { id: req.params.id } });
+    if (!reqRow || reqRow.requesterId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
+    await prisma.friendRequest.delete({ where: { id: reqRow.id } });
+
+    broadcastCounters(req.app.get('io'), prisma, reqRow.receiverId).catch(() => {});
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Cancel request error:', e);
+    res.status(500).json({ error: 'Failed to cancel request' });
+  }
+});
+
 // Decline request
 router.post('/requests/:id/decline', authenticateToken, async (req, res) => {
   try {

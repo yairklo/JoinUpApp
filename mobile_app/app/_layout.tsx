@@ -2,8 +2,19 @@ import { Slot, SplashScreen, Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
 import { useColorScheme, LogBox, View, Text, AppState, AppStateStatus } from "react-native";
+import * as Sentry from "@sentry/react-native";
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
+
+// Error monitoring. No-ops when the DSN isn't configured, so this stays
+// inert in local/dev builds until ops sets EXPO_PUBLIC_SENTRY_DSN.
+if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    environment: process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT || (__DEV__ ? "development" : "production"),
+    tracesSampleRate: Number(process.env.EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE || 0.1),
+  });
+}
 import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native";
 import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
 import { tokenStorage } from "@/services/api/client.adapter";
@@ -39,7 +50,7 @@ if (!publishableKey) {
   console.error("Missing Publishable Key. Please set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in your .env");
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [i18nLoaded, setI18nLoaded] = useState(false);
   const colorScheme = useColorScheme();
 
@@ -156,3 +167,5 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+
+export default Sentry.wrap(RootLayout);

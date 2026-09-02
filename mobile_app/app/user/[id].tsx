@@ -34,8 +34,8 @@ export default function UserProfileScreen() {
         
         if (id === currentUser.id) {
             setRelationship('self');
-            // If it's themselves, maybe redirect them to their own profile tab
-            router.replace('/(tabs)/profile');
+            // If it's themselves, redirect them to their own profile screen
+            router.replace('/user/profile');
             return;
         }
 
