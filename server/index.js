@@ -223,7 +223,24 @@ app.use('/api/admin', adminRoutes);
 // Health check
 let redisReady = false;
 let redisPub = null;
-app.get('/api/health', async (req, res) => {
+
+// Liveness probe: the container platform's healthcheck hits this every few seconds to
+// decide whether to restart the container. It must stay instant and dependency-free —
+// no DB/Redis round trip — otherwise it never lets Neon's compute suspend (a query every
+// 5s keeps resetting Neon's 5-minute idle timer, so the DB never goes to sleep).
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    jobs: enableBackgroundSchedulers ? 'on' : 'off',
+    http: enableHttpServer ? 'on' : 'off',
+    message: 'Football Fields API is running',
+    requestId: req.requestId,
+  });
+});
+
+// Readiness/deep check: actually touches the DB and Redis. Not meant to be polled on a
+// tight loop — use it for manual debugging or a low-frequency external monitor only.
+app.get('/api/health/deep', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     let redis = 'off';
