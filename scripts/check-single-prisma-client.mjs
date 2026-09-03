@@ -28,20 +28,34 @@ function isAllowed(filePath) {
   return ALLOWED_DIRS.some((dir) => filePath.startsWith(dir + path.sep));
 }
 
+const SOURCE_EXT = new Set(['.js', '.mjs', '.cjs']);
+
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full, out);
-    else if (entry.name.endsWith('.js')) out.push(full);
+    else if (SOURCE_EXT.has(path.extname(entry.name))) out.push(full);
   }
   return out;
+}
+
+// Coarse strip of // line comments and /* */ block comments — good enough for a guard script,
+// not a full JS parser. Does not try to avoid stripping "//" that appears inside a string
+// literal (e.g. a URL) — over-stripping only produces false negatives here, which is the
+// acceptable direction of error for a guard rail (miss a rare edge case rather than block a
+// commit over documentation text). Without this, a line like a code comment reading
+// "// don't do: new PrismaClient()" would itself trip the check (this has already nearly
+// happened — see server/docs/agents/database_rules.md, which uses that exact phrase in prose,
+// only spared because it's a .md file the walk doesn't scan).
+function stripComments(code) {
+  return code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 }
 
 const violations = [];
 for (const file of walk(serverRoot)) {
   if (isAllowed(file)) continue;
-  const content = fs.readFileSync(file, 'utf8');
+  const content = stripComments(fs.readFileSync(file, 'utf8'));
   if (/new\s+PrismaClient\s*\(/.test(content)) {
     violations.push(path.relative(repoRoot, file));
   }
