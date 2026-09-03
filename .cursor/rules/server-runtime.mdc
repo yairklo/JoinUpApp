@@ -1,0 +1,25 @@
+---
+description: Server runtime lessons — rate limiting, sockets, worker/API process split
+globs: server/middleware/rateLimit.js,server/socket/**,server/index.js,server/worker.js
+alwaysApply: false
+---
+
+# Server runtime (joinUp)
+
+## Rate limiter must not 429 health checks or Socket.IO
+- A global Express limiter counting `/api/health` (Render probes) or `/api/socket` (Engine.IO
+  polling) causes false 429s.
+  Fix: `server/middleware/rateLimit.js` must skip Jest (`NODE_ENV=test` / `JEST_WORKER_ID`),
+  `OPTIONS`, `/api/health`, and `/api/socket`. Do not count Engine.IO polling or health probes.
+
+## Batch socket permission lookups
+- `joinChats` must batch `ChatParticipant` lookups with `chatId: { in: ids }`
+  (`checkChatPermissionsBatch`). Never loop `checkChatPermission` / `findFirst` per room — homepage
+  reload was ~60 identical lookups.
+- Game list endpoints use `SEARCH_GAME_SELECT` (no nested `user`); keep full
+  `include: { user: true }` for `getGameById` only.
+
+## Worker / API process split
+- A dedicated jobs process is `node worker.js` (`RUN_HTTP_SERVER=false`). The web API sitting next to
+  it must set `RUN_BACKGROUND_JOBS=false` (see `00-core-invariants.mdc`). Worker socket emits go
+  through Redis `joinup:socket_events`.

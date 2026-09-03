@@ -68,6 +68,9 @@ server/firebase-service-account.json
 *.mobileprovision
 *.pem
 
+# Generated topology (regenerate with `npm run build:graph`)
+.graph-context.md
+
 # Heavy / scratch files at repo root (not needed in VCS or EAS)
 *.csv
 pexels-*.jpg

@@ -1,0 +1,26 @@
+---
+description: Prisma schema, migrations, and Neon connection lessons
+globs: server/prisma/**,server/lib/prisma.js,**/schema.prisma
+alwaysApply: false
+---
+
+# Prisma & DB (joinUp)
+
+## Neon connection topology
+- `schema.prisma` uses `DATABASE_URL` for pooled traffic and `DIRECT_DATABASE_URL` for direct
+  connection. Never point `DIRECT_DATABASE_URL` at a `-pooler` hostname.
+- `prisma migrate dev` requires `directUrl`.
+
+## Enum sync
+- `NotificationType` enum values used in code (e.g. `GAME_INVITATION`, `GAME_WAITLIST_OFFER`,
+  `GAME_REMOVED_PEER`, `GAME_ROLE_UPDATE`) must exist both in `schema.prisma` and in an applied
+  migration. If only `schema.prisma` is updated, `notification.create` fails silently while the rest
+  of the request (e.g. a roster join) still succeeds — users appear added with no notification.
+  Fix: update `schema.prisma` AND add an `ALTER TYPE ... ADD VALUE` migration in the same change.
+
+## Stale generated client
+- If `gameService` (or any service) writes a field present in `schema.prisma` but the local
+  `@prisma/client` was generated before that field existed, writes fail (e.g. create-game returns
+  500, cascading `testGame.id` undefined in dependent tests).
+  Fix: run `prisma generate` before `npm test` (already wired into `server`'s `npm test` script —
+  keep it wired if the script changes).
