@@ -29,7 +29,12 @@ for a template. No new tooling needed, just more files.
   profile update, image upload, friends list, `/search`, accept/decline request happy paths.
 - **`routes/search.js`** — no test at all for a user-facing discovery endpoint.
 - **`routes/fields.js`** — no test at all.
-- **`routes/auth.js`** — no test at all.
+- ~~`routes/auth.js` — no test at all.~~ **Correction:** `server/docs/agents/auth_pitfalls.md`
+  marks this file explicit legacy/dead code ("belongs to a legacy, file-based JSON store...
+  completely disconnected from Clerk and Prisma. NEVER extend or reference them"). Do not write
+  tests for it — that would validate a code path nothing should be routing through. Remove it
+  from any active-repo audit; if it's truly unreferenced, it's a deletion candidate, not a
+  coverage gap.
 - **`routes/gameTeams.js`** — `captainRole.test.js` covers role assignment but not team
   CRUD/rebalance endpoints directly.
 - **`services/moderationService.js`** — the AI content-moderation gate has no test. Worth at

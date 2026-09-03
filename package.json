@@ -1,5 +1,12 @@
 {
+  "scripts": {
+    "build:graph": "node scripts/generate-topology.mjs --output=.graph-context.md",
+    "check:graph": "node scripts/check-topology-freshness.mjs"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1"
+  },
+  "devDependencies": {
+    "gpt-tokenizer": "^4.0.0"
   }
 }

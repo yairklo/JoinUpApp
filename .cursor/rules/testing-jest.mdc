@@ -1,0 +1,24 @@
+---
+description: Jest integration-test lessons for the server package
+globs: server/**/*.test.js,server/index.js
+alwaysApply: false
+---
+
+# Jest / server tests (joinUp)
+
+## `--detectOpenHandles` timeout on `setInterval`
+- Requiring `server/index.js` in integration tests starts background schedulers
+  (review/lottery/pick/completion/series).
+  Fix: gate all top-level `setInterval`/`setTimeout` (and boot kicks) behind
+  `enableBackgroundSchedulers` when `NODE_ENV === 'test'` or `JEST_WORKER_ID` is set.
+
+## Open handle `TCPSERVERWRAP` / cascading `testGame.id` undefined
+- `require('../index')` calling `server.listen(...)` leaves a TCP handle open; host `PORT` clashes
+  can also make create-game fail so later tests read `undefined.id`.
+  Fix: skip `startServer()` / `server.listen` when `JEST_WORKER_ID` is set; export `{ app }` and hit
+  Express via `supertest(app)` — do not bind a real port in Jest. Integration tests must also pin
+  `PORT` (host env often sets `PORT=8787`) and hit that same port.
+
+## Dev install must include devDependencies
+- When `NODE_ENV=production`, `npm install` skips devDependencies (no `jest` / `typescript`) — keep
+  `include=dev` in package `.npmrc` (or pass `--include=dev`) for local quality gates to work.

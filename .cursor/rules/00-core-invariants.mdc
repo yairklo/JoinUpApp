@@ -1,0 +1,38 @@
+---
+description: Cross-cutting correctness/security invariants that apply regardless of which files are touched
+alwaysApply: true
+---
+
+# Core invariants (joinUp)
+
+These do not map cleanly to a single file glob, which is exactly why they are easy to miss if rules
+are only loaded by glob match. Treat this file as always in scope.
+
+## Auth & security
+- Chat write paths must use `authenticateToken` / `socket.userId` + `checkChatPermission`.
+- Never trust a client-supplied `userId`. Never fail-open a socket JWT check. Never leave
+  `POST /api/messages` public.
+- `req.user.isAdmin` comes from Clerk metadata (`isAdmin` / `role=admin`) or `ADMIN_USER_IDS`. Do not
+  hardcode `false` (or `true`).
+
+## Transactions
+- Roster joins, waitlist promotion, and game creation must be atomic.
+- Game + group chat pairing must happen in the same interactive transaction, where the group chat
+  `id` exactly equals the `game.id`.
+
+## Prisma client lifecycle
+- Import `prisma` from `server/lib/prisma.js`. Never instantiate `new PrismaClient()` inside an
+  Express request handler, a loop, or a worker tick (one client per process).
+
+## Background job idempotency
+- Scheduler handlers must claim work with `updateMany` on sentinel fields (`lotteryExecutedAt`,
+  `reminderSent`, `pickingOpenedAt`, `status`) so a second Render instance is a no-op.
+- Set `RUN_BACKGROUND_JOBS=false` on extra API instances so they do not arm in-memory timers.
+
+## Shared types
+- Shared client/server contracts live in `shared/` (`@joinup/shared`). Do not copy timezone/sports/
+  `Game` types between `next_app` and `mobile_app` — import the shared definition.
+
+## Payments
+- `Game.price` / `GameSeries.price` are display-only (pay at field). Do not add a payment processor
+  without a product brief.

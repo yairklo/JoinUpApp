@@ -1,0 +1,13 @@
+---
+description: Required CI gates for GitHub Actions
+globs: .github/workflows/**
+alwaysApply: false
+---
+
+# CI (joinUp)
+
+- `.github/workflows/ci.yml` must run the Next 15 build (`next_app`) + Prisma migrate + Jest
+  (`server`) on Node 20, against a disposable Postgres service, for PRs to `main`/`Dev` and pushes to
+  `Dev`.
+- Do not scope it to Next-only builds on PRs to `main`, and do not pin Node 18 — both have shipped
+  broken before (server tests silently never ran).
