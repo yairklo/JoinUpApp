@@ -22,3 +22,22 @@ alwaysApply: false
 ## Dev install must include devDependencies
 - When `NODE_ENV=production`, `npm install` skips devDependencies (no `jest` / `typescript`) — keep
   `include=dev` in package `.npmrc` (or pass `--include=dev`) for local quality gates to work.
+
+## Dev DB connection discipline (Neon autosuspend)
+The dev DB is Neon and autosuspends after 5 minutes with **zero** open connections. Every query —
+even one from an idle-but-connected process — resets that timer, so the goal is not "spread work
+out" (that repeatedly re-triggers the timer and never lets it fire) but **minimize total connected
+time and cluster the connections you do need**:
+- **Default the local Jest quality gate to the single new/changed test file**, not the full
+  `server/tests/` suite (`npx jest <file> --runInBand`), per `L3_review.md`. The full suite (~20+
+  files, 50-400+s depending on load) is for CI, which runs against its own disposable Postgres
+  service (see `ci-cd.mdc`) — that path doesn't touch the dev DB's timer at all.
+- **If you must run the full suite locally, don't deliberately delay or space it out** relative to
+  other agents' runs — a gap that's shorter than 5 minutes just keeps the DB awake for longer with
+  no benefit. If you know another agent is mid-run against the same dev DB, either wait for it to
+  finish and run immediately after (back-to-back, not spaced), or skip the full local run and rely
+  on CI's isolated Postgres instead.
+- Don't hold a Prisma client / DB connection open across long-running non-DB work (long compiles,
+  waiting on user input) — let it close so the timer can start.
+- Not every test needs a DB at all: a pure class/unit test (e.g. `moderationService.test.js`) can
+  often avoid touching Prisma entirely — check before assuming a DB connection is required.

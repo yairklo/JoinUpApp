@@ -21,5 +21,5 @@ alwaysApply: false
 
 ## Worker / API process split
 - A dedicated jobs process is `node worker.js` (`RUN_HTTP_SERVER=false`). The web API sitting next to
-  it must set `RUN_BACKGROUND_JOBS=false` (see `00-core-invariants.mdc`). Worker socket emits go
+  it must set `RUN_BACKGROUND_JOBS=false` (see `server-invariants.mdc`). Worker socket emits go
   through Redis `joinup:socket_events`.

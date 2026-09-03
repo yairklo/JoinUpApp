@@ -15,13 +15,13 @@ verify the diff produced by L2 against the plan L1 wrote — not to re-plan or r
    touched that wasn't planned.
 2. **Definition of Done:** the diff satisfies the `instruction` of every `plan.json` step marked
    done, with no partial/half-finished steps.
-3. **No regressions on invariants:** re-check the diff against `.cursor/rules/00-core-invariants.mdc`
-   specifically (auth, transactions, single Prisma client, background-job idempotency) — these are
-   the rules most likely to be silently missed since they don't map to one glob.
+3. **No regressions on invariants:** re-check the diff against `server-invariants.mdc` for any
+   `server/` file (auth, transactions, single Prisma client, background-job idempotency) — these are
+   the rules most likely to be silently missed since they don't map to one narrow glob.
 4. **Quality gates:** `next_app` build/typecheck and `mobile_app` typecheck/lint as `PROMPT.md`'s
    "Quality Gate Loop" defines. For `server`, **default to running only the new/changed test
    file(s)** (`cd server && PORT=3099 npx jest <file> --runInBand --detectOpenHandles --forceExit`)
-   rather than the full suite — see `00-core-invariants.mdc`'s Neon autosuspend section for why.
+   rather than the full suite — see `testing-jest.mdc`'s Neon autosuspend section for why.
    Run the full `server` suite locally only when the change plausibly affects shared setup/fixtures
    (not a single new test file) or right before a merge with no other agent concurrently active
    against the dev DB; otherwise trust CI's isolated-Postgres run for full-suite coverage. Do not
