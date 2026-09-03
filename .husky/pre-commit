@@ -1,0 +1,2 @@
+npm run check:rules
+npm run check:graph -- --warn-only
