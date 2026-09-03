@@ -1,7 +1,7 @@
 ---
 description: Prevent Vercel/Next TypeScript build failures (lessons from production deploys)
 globs: next_app/**/*.{ts,tsx}
-alwaysApply: true
+alwaysApply: false
 ---
 
 # TypeScript / Vercel quality (joinUp)

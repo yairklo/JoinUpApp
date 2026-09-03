@@ -1,0 +1,10 @@
+---
+description: Shared client/server type contracts — single source of truth
+globs: shared/**,next_app/src/**/*.ts,next_app/src/**/*.tsx,mobile_app/**/*.ts,mobile_app/**/*.tsx
+alwaysApply: false
+---
+
+# Shared types (joinUp)
+
+- Shared client/server contracts live in `shared/` (`@joinup/shared`). Do not copy timezone/sports/
+  `Game` types between `next_app` and `mobile_app` — import the shared definition instead.

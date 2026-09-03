@@ -1,0 +1,37 @@
+---
+description: Correctness/security invariants that apply anywhere in server/, regardless of which specific file
+globs: server/**
+alwaysApply: false
+---
+
+# Server-wide invariants (joinUp)
+
+These span multiple `server/` subdirectories (routes, services, workers, sockets), which is why
+they don't fit one narrower `.mdc` glob — but they're still server-only, so they don't belong in
+`00-core-invariants.mdc` (that file loads for every task in the repo, including pure `next_app`/
+`mobile_app` UI work that never touches this code).
+
+## Auth & security
+- Chat write paths must use `authenticateToken` / `socket.userId` + `checkChatPermission`.
+- Never trust a client-supplied `userId`. Never fail-open a socket JWT check. Never leave
+  `POST /api/messages` public.
+- `req.user.isAdmin` comes from Clerk metadata (`isAdmin` / `role=admin`) or `ADMIN_USER_IDS`. Do not
+  hardcode `false` (or `true`).
+
+## Transactions
+- Roster joins, waitlist promotion, and game creation must be atomic.
+- Game + group chat pairing must happen in the same interactive transaction, where the group chat
+  `id` exactly equals the `game.id`.
+
+## Prisma client lifecycle
+- Import `prisma` from `server/lib/prisma.js`. Never instantiate `new PrismaClient()` inside an
+  Express request handler, a loop, or a worker tick (one client per process).
+
+## Background job idempotency
+- Scheduler handlers must claim work with `updateMany` on sentinel fields (`lotteryExecutedAt`,
+  `reminderSent`, `pickingOpenedAt`, `status`) so a second Render instance is a no-op.
+- Set `RUN_BACKGROUND_JOBS=false` on extra API instances so they do not arm in-memory timers.
+
+## Payments
+- `Game.price` / `GameSeries.price` are display-only (pay at field). Do not add a payment processor
+  without a product brief.

@@ -1,58 +1,16 @@
 ---
-description: Cross-cutting correctness/security invariants that apply regardless of which files are touched
+description: The only rules that apply before you've even chosen what to edit — keep this file small
 alwaysApply: true
 ---
 
 # Core invariants (joinUp)
 
-These do not map cleanly to a single file glob, which is exactly why they are easy to miss if rules
-are only loaded by glob match. Treat this file as always in scope.
-
-## Auth & security
-- Chat write paths must use `authenticateToken` / `socket.userId` + `checkChatPermission`.
-- Never trust a client-supplied `userId`. Never fail-open a socket JWT check. Never leave
-  `POST /api/messages` public.
-- `req.user.isAdmin` comes from Clerk metadata (`isAdmin` / `role=admin`) or `ADMIN_USER_IDS`. Do not
-  hardcode `false` (or `true`).
-
-## Transactions
-- Roster joins, waitlist promotion, and game creation must be atomic.
-- Game + group chat pairing must happen in the same interactive transaction, where the group chat
-  `id` exactly equals the `game.id`.
-
-## Prisma client lifecycle
-- Import `prisma` from `server/lib/prisma.js`. Never instantiate `new PrismaClient()` inside an
-  Express request handler, a loop, or a worker tick (one client per process).
-
-## Background job idempotency
-- Scheduler handlers must claim work with `updateMany` on sentinel fields (`lotteryExecutedAt`,
-  `reminderSent`, `pickingOpenedAt`, `status`) so a second Render instance is a no-op.
-- Set `RUN_BACKGROUND_JOBS=false` on extra API instances so they do not arm in-memory timers.
-
-## Shared types
-- Shared client/server contracts live in `shared/` (`@joinup/shared`). Do not copy timezone/sports/
-  `Game` types between `next_app` and `mobile_app` — import the shared definition.
-
-## Payments
-- `Game.price` / `GameSeries.price` are display-only (pay at field). Do not add a payment processor
-  without a product brief.
-
-## Dev DB connection discipline (Neon autosuspend — blanket, applies to every agent/task)
-The dev DB is Neon and autosuspends after 5 minutes with **zero** open connections. Every query —
-even one from an idle-but-connected process — resets that timer, so the goal is not "spread work
-out" (that repeatedly re-triggers the timer and never lets it fire) but **minimize total connected
-time and cluster the connections you do need**:
-- **Default the local Jest quality gate to the single new/changed test file**, not the full
-  `server/tests/` suite (`npx jest <file> --runInBand`), per `L3_review.md`. The full suite (~20+
-  files, 50-400+s depending on load) is for CI, which runs against its own disposable Postgres
-  service (see `ci-cd.mdc`) — that path doesn't touch the dev DB's timer at all.
-- **If you must run the full suite locally, don't deliberately delay or space it out** relative to
-  other agents' runs — a gap that's shorter than 5 minutes just keeps the DB awake for longer with
-  no benefit. If you know another agent is mid-run against the same dev DB, either wait for it to
-  finish and run immediately after (back-to-back, not spaced), or skip the full local run and rely
-  on CI's isolated Postgres instead.
-- Don't hold a Prisma client / DB connection open across long-running non-DB work (long compiles,
-  waiting on user input) — let it close so the timer can start.
+> **Maintenance note — read before adding to this file.** This file is `alwaysApply: true`: every
+> token here is paid on every task, including a CSS-only `next_app` change. Before adding a bullet,
+> ask "does this apply outside `server/`, and before I've even picked a file?" If no, it belongs in
+> `server-invariants.mdc` (glob `server/**`) or another glob-scoped file instead — see the pointer
+> list in `AGENTS.md`. `npm run check:rules` fails the build if this file exceeds its token budget;
+> that's a forcing function to make this decision explicit, not a suggestion to raise the budget.
 
 ## Isolation (blanket, applies to every agent/task)
 **Never work directly in the shared main checkout.** Always create or reuse an isolated
