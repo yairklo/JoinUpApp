@@ -27,8 +27,12 @@ for a template. No new tooling needed, just more files.
 
 - **`routes/users.js`** — only `/me` and the new `/requests/*/cancel` are covered. Untested:
   profile update, image upload, friends list, `/search`, accept/decline request happy paths.
-- **`routes/search.js`** — no test at all for a user-facing discovery endpoint.
-- **`routes/fields.js`** — no test at all.
+- ~~`routes/search.js` — no test at all for a user-facing discovery endpoint.~~ Covered by
+  `server/tests/searchGlobal.test.js` (the file's one route, `GET /api/search/global`).
+- **`routes/fields.js`** — `server/tests/fieldsAdminCrud.test.js` now covers the admin-gated
+  write path (POST/PUT/DELETE + the 403 gate). Still untested: the read/search endpoints
+  (GET /, /cities, /map, /search, /type/:type) and the crowd-report endpoints
+  (/:id/analytics, /:id/report).
 - ~~`routes/auth.js` — no test at all.~~ **Correction:** `server/docs/agents/auth_pitfalls.md`
   marks this file explicit legacy/dead code ("belongs to a legacy, file-based JSON store...
   completely disconnected from Clerk and Prisma. NEVER extend or reference them"). Do not write
