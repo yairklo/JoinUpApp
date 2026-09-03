@@ -2,7 +2,8 @@
   "scripts": {
     "build:graph": "node scripts/generate-topology.mjs --output=.graph-context.md",
     "check:graph": "node scripts/check-topology-freshness.mjs",
-    "check:rules": "node scripts/check-rules-budget.mjs"
+    "check:rules": "node scripts/check-rules-budget.mjs",
+    "check:prisma-singleton": "node scripts/check-single-prisma-client.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1"

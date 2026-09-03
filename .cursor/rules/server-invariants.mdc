@@ -25,7 +25,10 @@ they don't fit one narrower `.mdc` glob — but they're still server-only, so th
 
 ## Prisma client lifecycle
 - Import `prisma` from `server/lib/prisma.js`. Never instantiate `new PrismaClient()` inside an
-  Express request handler, a loop, or a worker tick (one client per process).
+  Express request handler, a loop, or a worker tick (one client per process). This one isn't
+  Jest-testable in the normal behavioral sense — it's enforced by `npm run check:prisma-singleton`
+  (`scripts/check-single-prisma-client.mjs`) instead, a static scan with the same one-off-CLI-script
+  exception documented in `prisma-db.mdc`.
 
 ## Background job idempotency
 - Scheduler handlers must claim work with `updateMany` on sentinel fields (`lotteryExecutedAt`,
