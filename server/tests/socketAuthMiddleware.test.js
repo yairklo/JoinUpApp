@@ -1,19 +1,24 @@
+// createClerkClient is not mocked here on purpose: '../utils/auth' (below) is fully replaced,
+// so the real utils/auth.js — the only caller of createClerkClient — never actually loads.
 jest.mock('@clerk/backend', () => ({
   verifyToken: jest.fn(),
-  createClerkClient: jest.fn(() => ({ users: { getUser: jest.fn() } })),
 }));
 
 const mockGetUser = jest.fn();
+// authenticateToken/attachOptionalUser are not exercised by any test in this file — present only
+// because require('../index') below registers every route at module-load time, and Express
+// throws immediately if a wired-in middleware is undefined.
 jest.mock('../utils/auth', () => ({
   authenticateToken: (req, res, next) => next(),
   attachOptionalUser: (_req, _res, next) => next(),
-  clerkClient: { users: { getUser: (...args) => mockGetUser(...args) } },
+  clerkClient: { users: { getUser: mockGetUser } },
 }));
 
 const mockResolveIsBanned = jest.fn();
+// requireAdmin: same module-load-time reasoning as above, not exercised by this file's tests.
 jest.mock('../utils/admin', () => ({
   requireAdmin: (_req, _res, next) => next(),
-  resolveIsBanned: (...args) => mockResolveIsBanned(...args),
+  resolveIsBanned: mockResolveIsBanned,
 }));
 
 jest.mock('../workers/reviewWorker', () => ({
