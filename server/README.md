@@ -163,7 +163,8 @@ All endpoints return consistent error responses:
 
 ## Health Check
 
-- `GET /api/health` - Server health check
+- `GET /api/health` - Liveness probe (no DB/Redis call). Safe for a container platform to poll every few seconds.
+- `GET /api/health/deep` - Readiness check that also queries the DB and pings Redis. Not meant to be polled on a tight loop — a DB query on every hit prevents Neon's compute from ever suspending.
 
 ## Data Files
 
