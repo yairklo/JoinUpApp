@@ -75,3 +75,6 @@ pexels-*.jpg
 translate_*.py
 fix_*.py
 Mission_report*.txt
+
+# Generated tooling output (Graphify dependency graph)
+.graph-context.*

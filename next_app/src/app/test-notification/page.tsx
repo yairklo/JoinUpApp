@@ -64,7 +64,7 @@ export default function TestNotificationPage() {
 
                 <p style={{ fontSize: '12px', color: '#666' }}>
                     * Button 2 tests if your browser can display notifications at all (bypassing Firebase).
-                    If this doesn't work, check Windows Focus Assist / Browser Settings.
+                    If this doesn&apos;t work, check Windows Focus Assist / Browser Settings.
                 </p>
             </div>
         </div>
