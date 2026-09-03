@@ -43,16 +43,18 @@ describe('Admin-gated Field CRUD (POST/PUT/DELETE /api/fields)', () => {
   });
 
   test('POST /api/fields as non-admin is 403 and creates nothing', async () => {
-    const before = await prisma.field.count();
-
     const res = await request(app)
       .post('/api/fields')
       .set('Authorization', 'Bearer mock_fields_member')
       .send({ name: 'FieldsPilotShouldNotExist', location: 'Nowhere', type: 'open' });
 
     expect(res.statusCode).toEqual(403);
-    const after = await prisma.field.count();
-    expect(after).toEqual(before);
+    // Scoped to this test's own field name, not a global count — a global count.field.count()
+    // before/after comparison is a real flake risk under concurrent test runs against the
+    // shared dev DB (an unrelated field created/deleted by another process in between the two
+    // counts throws the comparison off); this stays correct no matter what else is running.
+    const leaked = await prisma.field.findFirst({ where: { name: 'FieldsPilotShouldNotExist' } });
+    expect(leaked).toBeNull();
   });
 
   test('POST /api/fields as admin creates a field (mapped shape)', async () => {
@@ -71,16 +73,15 @@ describe('Admin-gated Field CRUD (POST/PUT/DELETE /api/fields)', () => {
   });
 
   test('POST /api/fields missing a required field is 400, nothing created', async () => {
-    const before = await prisma.field.count();
-
     const res = await request(app)
       .post('/api/fields')
       .set('Authorization', 'Bearer mock_fields_admin')
       .send({ location: 'Missing Name Ave', type: 'open' });
 
     expect(res.statusCode).toEqual(400);
-    const after = await prisma.field.count();
-    expect(after).toEqual(before);
+    // Scoped by location (the one distinguishing field sent), same concurrency reasoning as above.
+    const leaked = await prisma.field.findFirst({ where: { location: 'Missing Name Ave' } });
+    expect(leaked).toBeNull();
   });
 
   test('PUT /api/fields/:id as admin updates only the supplied fields', async () => {
