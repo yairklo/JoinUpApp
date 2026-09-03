@@ -53,3 +53,22 @@ time and cluster the connections you do need**:
   on CI's isolated Postgres instead.
 - Don't hold a Prisma client / DB connection open across long-running non-DB work (long compiles,
   waiting on user input) — let it close so the timer can start.
+
+## Isolation (blanket, applies to every agent/task)
+**Never work directly in the shared main checkout.** Always create or reuse an isolated
+`git worktree` (see `.claude/worktrees/agent-*` for the existing convention) before editing any
+file, running installs, or running tests. Two agents editing/deleting files in the same physical
+directory at the same time is not a hypothetical: it has already happened here — a concurrent
+process working directly in the main checkout left the entire `shared/` package (used by both
+`next_app` and `mobile_app` via `file:../shared`) deleted from disk mid-session, uncommitted,
+with no replacement and no indication it was intentional. It was fully recoverable only because
+git still had it tracked (`git checkout HEAD -- <path>`) and nothing had been committed over the
+gap yet — do not rely on that luck happening again.
+- If you find yourself about to run a destructive-adjacent command (deleting/moving a directory,
+  a large rewrite, a dependency reinstall) and you are **not** in a dedicated worktree, stop and
+  create one first.
+- Commit early and often within your own worktree. The recovery above worked because the last
+  known-good state was one git checkout away — an uncommitted change with no git history behind
+  it is not recoverable the same way.
+- Before committing, check `git status` for changes you did not make (especially large deletions)
+  and leave them unstaged rather than folding them into your own commit — see the incident above.
