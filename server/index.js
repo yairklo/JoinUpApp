@@ -271,7 +271,9 @@ app.get('/api/health/deep', async (req, res) => {
   }
 });
 
-io.use(async (socket, next) => {
+// Extracted (not inlined into io.use) so it can be unit-tested directly with a mock socket/next,
+// without needing a real socket.io-client handshake. Behavior is unchanged from the inline version.
+async function socketAuthMiddleware(socket, next) {
   try {
     const token = socket.handshake.auth?.token ||
       (socket.handshake.headers?.authorization && socket.handshake.headers.authorization.startsWith('Bearer ')
@@ -305,7 +307,9 @@ io.use(async (socket, next) => {
     console.error("Socket token verification failed:", err.message);
     next(new Error('Unauthorized'));
   }
-});
+}
+
+io.use(socketAuthMiddleware);
 
 // A user is "online" if they have at least one active socket in their personal room
 function isUserOnline(userId) {
@@ -1231,4 +1235,4 @@ if (!process.env.JEST_WORKER_ID) {
   });
 }
 
-module.exports = { app, server, startServer };
+module.exports = { app, server, startServer, socketAuthMiddleware };
