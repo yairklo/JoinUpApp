@@ -10,4 +10,4 @@ Welcome to the workspace. Follow these pointers for context:
 Use `.graph-context.md` (lightweight dependency graph, `npm run build:graph`) for high-level structure and `ast-grep`/Grep for targeted searches.
 
 > [!WARNING]
-> Creating branches and commits is fine. Do NOT push to `main` (directly or via merge/force-push) — pushes to `main` are owned by the external dispatcher (dispatch-task.js) / the user. Pushing a feature branch or opening a PR for review is fine; ask first if unsure.
+> Creating branches, commits, and pushing feature branches (or opening PRs) is fine without asking first. Do NOT push to `main` (directly or via merge/force-push) — pushes to `main` are owned by the external dispatcher (dispatch-task.js) / the user.

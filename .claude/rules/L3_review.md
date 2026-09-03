@@ -18,10 +18,14 @@ verify the diff produced by L2 against the plan L1 wrote — not to re-plan or r
 3. **No regressions on invariants:** re-check the diff against `.cursor/rules/00-core-invariants.mdc`
    specifically (auth, transactions, single Prisma client, background-job idempotency) — these are
    the rules most likely to be silently missed since they don't map to one glob.
-4. **Quality gates:** run the same loop `PROMPT.md`'s "Quality Gate Loop" section already defines —
-   `cd next_app && npm run build` (if `next_app/package.json` exists), `cd server && npm test` (if
-   `server/package.json` has a `test` script), and `mobile_app`'s `typecheck`/`lint` script if
-   present. Do not invent a different gate set. All gates must pass before reporting success.
+4. **Quality gates:** `next_app` build/typecheck and `mobile_app` typecheck/lint as `PROMPT.md`'s
+   "Quality Gate Loop" defines. For `server`, **default to running only the new/changed test
+   file(s)** (`cd server && PORT=3099 npx jest <file> --runInBand --detectOpenHandles --forceExit`)
+   rather than the full suite — see `00-core-invariants.mdc`'s Neon autosuspend section for why.
+   Run the full `server` suite locally only when the change plausibly affects shared setup/fixtures
+   (not a single new test file) or right before a merge with no other agent concurrently active
+   against the dev DB; otherwise trust CI's isolated-Postgres run for full-suite coverage. Do not
+   invent a different gate set. All gates that do run must pass before reporting success.
 
 ## Output
 - If everything passes: report pass, list the gates that ran and their result.
