@@ -1,0 +1,3 @@
+npm run check:rules
+npm run check:prisma-singleton
+npm run check:graph -- --warn-only

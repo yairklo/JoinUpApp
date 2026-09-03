@@ -3,12 +3,14 @@
     "build:graph": "node scripts/generate-topology.mjs --output=.graph-context.md",
     "check:graph": "node scripts/check-topology-freshness.mjs",
     "check:rules": "node scripts/check-rules-budget.mjs",
-    "check:prisma-singleton": "node scripts/check-single-prisma-client.mjs"
+    "check:prisma-singleton": "node scripts/check-single-prisma-client.mjs",
+    "prepare": "husky"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1"
   },
   "devDependencies": {
-    "gpt-tokenizer": "^4.0.0"
+    "gpt-tokenizer": "^4.0.0",
+    "husky": "^9.1.7"
   }
 }
