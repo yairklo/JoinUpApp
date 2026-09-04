@@ -26,6 +26,11 @@ verify the diff produced by L2 against the plan L1 wrote — not to re-plan or r
    (not a single new test file) or right before a merge with no other agent concurrently active
    against the dev DB; otherwise trust CI's isolated-Postgres run for full-suite coverage. Do not
    invent a different gate set. All gates that do run must pass before reporting success.
+   If you want extra confidence beyond a single full-suite pass (e.g. an adversarial
+   revert-and-rerun to rule out a false pass), run it **once**, not twice — a sibling project
+   (MultiVendor) ran the full suite twice for exactly this reason on a single-fixture change and
+   that doubling was most of that review's cost. Compare against CI's last known-good run on
+   `main` instead of a second local run wherever that's available.
 
 ## Long-running gates: wait for real completion, but visibly
 
