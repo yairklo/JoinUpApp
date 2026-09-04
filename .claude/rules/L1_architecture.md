@@ -21,6 +21,35 @@ You are the Planner (the current default-tier model, see project config for the 
 3. Consult `AGENTS.md` (recent raw lessons) and `.cursor/rules/*.mdc` (durable, glob-scoped lessons) before planning changes to `server/`, `next_app/`, or `mobile_app/`. `.cursor/rules/00-core-invariants.mdc` (alwaysApply) covers only rules that hold before you've picked a file at all (worktree isolation) — for `server/` work also see `server-invariants.mdc` (auth, transactions, Prisma client lifecycle, background jobs, payments); for anything touching `shared/`, `next_app`, or `mobile_app` type definitions see `shared-types.mdc`.
 4. **For test-coverage tasks:** start from `TESTING_GAPS.md` (prioritized, already-audited list of what's untested and why) instead of re-deriving gaps from the graph — it's cheaper and more current. Don't read the whole file: `Grep` for the specific file/route you're considering (e.g. `grep -n "routes/fields" TESTING_GAPS.md`) to pull just that bullet, not the full Priority 1-4 breakdown. But do not trust the bullet blindly: for any `server/` item, `Grep` `server/CLAUDE.md`'s routing table for the target file's domain (don't read the whole table) and open only the one matching `server/docs/agents/*.md` sub-document it points to — not all four. `TESTING_GAPS.md` currently lists `routes/auth.js` as an untested gap; `server/docs/agents/auth_pitfalls.md` marks that same file explicit dead code ("NEVER extend or reference") — that specific list item is wrong, skip it. Treat any other disagreement between the two the same way: `server/docs/agents/*.md` wins on file status/liveness, `TESTING_GAPS.md` wins on prioritization.
 
+## Fast path for trivial, low-risk changes
+
+Whoever defines the task tags it `risk: low | medium | high`. Once you know which files the fix
+needs, run:
+
+```
+node scripts/pipeline-triage.mjs --risk <the human-set tag> --files <comma-separated files>
+```
+
+(`node --test scripts/pipeline-triage.test.mjs` runs its self-tests if you want to see the logic
+verified — ported from MultiVendor's `scripts/pipeline_triage.py`, same idea: deterministic
+pattern matching for file-count and path-sensitivity, not an LLM judgment call, same reasoning as
+`.cursor/rules/*.mdc` glob matching. It can only ever escalate toward `full_pipeline`, never hand
+you a `fast_path` for something you can see is riskier than the gate knows — escalate anyway and
+say why if so.)
+
+- **`fast_path`**: you may implement the fix yourself instead of producing `plan.json` and
+  handing off to L2/L3 — but the existing Approval Gate below still applies exactly as written
+  (interactive runs still stop for human approval before you touch code; unattended/dispatched
+  runs still proceed automatically). The fast path skips the L2/L3 handoff, not the approval
+  gate.
+- **`full_pipeline`**: proceed with plan.json + handoff to L2 as normal below.
+
+This exists because of a real cost measurement on a sibling project (MultiVendor) running this
+same pipeline: a one-file, 9-line, `risk: low` fix went through the full L1→L2→L3 pipeline
+anyway and cost ~215K tokens and over an hour of wall time, almost entirely in L3 re-running the
+full test suite adversarially — cost this repo's own 3-File Rule and Layer Isolation Rule don't
+by themselves prevent, since they bound scope but not pipeline depth.
+
 ## Long-running verification: one bounded wait, not silence and not a repeating monitor
 
 Two real incidents in a sibling project running this same L1→L2→L3 pattern (MultiVendor):

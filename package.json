@@ -4,6 +4,7 @@
     "check:graph": "node scripts/check-topology-freshness.mjs",
     "check:rules": "node scripts/check-rules-budget.mjs",
     "check:prisma-singleton": "node scripts/check-single-prisma-client.mjs",
+    "test:pipeline-triage": "node --test scripts/pipeline-triage.test.mjs",
     "prepare": "husky"
   },
   "dependencies": {
