@@ -59,6 +59,40 @@ const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { requireAdmin } = require('../utils/admin');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 
+const VALID_SPORT_TYPES = ['SOCCER', 'BASKETBALL', 'TENNIS'];
+
+// Validates an optional `supportedSports` field from a request body.
+// Returns { ok: true, value } with the normalized (uppercased) array, or
+// { ok: false, error } when present but malformed. Absent/undefined is valid
+// (caller should simply omit it from the write) since the field is optional.
+function parseSupportedSports(supportedSports) {
+  if (supportedSports === undefined) return { ok: true, value: undefined };
+  if (!Array.isArray(supportedSports) || supportedSports.length === 0) {
+    return { ok: false, error: 'supportedSports must be a non-empty array of sport types' };
+  }
+  const normalized = supportedSports.map((s) => String(s).toUpperCase());
+  const invalid = normalized.filter((s) => !VALID_SPORT_TYPES.includes(s));
+  if (invalid.length > 0) {
+    return { ok: false, error: `Invalid supportedSports value(s): ${invalid.join(', ')}. Must be one of ${VALID_SPORT_TYPES.join(', ')}` };
+  }
+  return { ok: true, value: normalized };
+}
+
+// Validates an optional lat/lng coordinate field. Absent/undefined is valid.
+function parseCoordinate(value, fieldName) {
+  if (value === undefined) return { ok: true, value: undefined };
+  if (value === null) return { ok: true, value: null };
+  const num = typeof value === 'number' ? value : Number(value);
+  if (typeof num !== 'number' || Number.isNaN(num) || !Number.isFinite(num)) {
+    return { ok: false, error: `${fieldName} must be a valid number` };
+  }
+  return { ok: true, value: num };
+}
+
+// Normalizes the optional string fields shared by create/update: empty
+// string/undefined behave like the existing `city` handling (blank -> null).
+const OPTIONAL_STRING_FIELDS = ['description', 'phone', 'email', 'neighborhood', 'street', 'streetNumber'];
+
 const router = express.Router();
 const fieldImageUpload = createImageUpload('fields');
 
@@ -394,7 +428,7 @@ router.get('/:id', async (req, res) => {
 // Create new field (Admin only)
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, location, city, price, type, image } = req.body;
+    const { name, location, city, price, type, image, supportedSports, lat, lng } = req.body;
 
     // Validate required fields
     if (!name || !location || !type) {
@@ -406,18 +440,40 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Type must be "open" or "closed"' });
     }
 
-    const savedField = await prisma.field.create({
-      data: {
-        name,
-        location,
-        city: city || null,
-        price: type === 'open' ? 0 : (price || 0),
-        rating: 0,
-        image: image || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
-        available: true,
-        type: type.toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN',
-      }
-    });
+    const sportsResult = parseSupportedSports(supportedSports);
+    if (!sportsResult.ok) {
+      return res.status(400).json({ error: sportsResult.error });
+    }
+
+    const latResult = parseCoordinate(lat, 'lat');
+    if (!latResult.ok) {
+      return res.status(400).json({ error: latResult.error });
+    }
+    const lngResult = parseCoordinate(lng, 'lng');
+    if (!lngResult.ok) {
+      return res.status(400).json({ error: lngResult.error });
+    }
+
+    const data = {
+      name,
+      location,
+      city: city || null,
+      price: type === 'open' ? 0 : (price || 0),
+      rating: 0,
+      image: image || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
+      available: true,
+      type: type.toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN',
+    };
+
+    if (sportsResult.value !== undefined) data.supportedSports = sportsResult.value;
+    if (latResult.value !== undefined) data.lat = latResult.value;
+    if (lngResult.value !== undefined) data.lng = lngResult.value;
+
+    for (const field of OPTIONAL_STRING_FIELDS) {
+      if (req.body[field] !== undefined) data[field] = req.body[field] || null;
+    }
+
+    const savedField = await prisma.field.create({ data });
     res.status(201).json(mapFieldForClient(savedField));
   } catch (error) {
     console.error('Create field error:', error);
@@ -428,7 +484,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 // Update field (Admin only)
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, location, city, price, type, image, available } = req.body;
+    const { name, location, city, price, type, image, available, supportedSports, lat, lng } = req.body;
     const updates = {};
 
     if (name !== undefined) updates.name = name;
@@ -443,6 +499,28 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     }
     if (image !== undefined) updates.image = image;
     if (available !== undefined) updates.available = available;
+
+    const sportsResult = parseSupportedSports(supportedSports);
+    if (!sportsResult.ok) {
+      return res.status(400).json({ error: sportsResult.error });
+    }
+    if (sportsResult.value !== undefined) updates.supportedSports = sportsResult.value;
+
+    const latResult = parseCoordinate(lat, 'lat');
+    if (!latResult.ok) {
+      return res.status(400).json({ error: latResult.error });
+    }
+    if (latResult.value !== undefined) updates.lat = latResult.value;
+
+    const lngResult = parseCoordinate(lng, 'lng');
+    if (!lngResult.ok) {
+      return res.status(400).json({ error: lngResult.error });
+    }
+    if (lngResult.value !== undefined) updates.lng = lngResult.value;
+
+    for (const field of OPTIONAL_STRING_FIELDS) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field] || null;
+    }
 
     const updatedField = await prisma.field.update({ where: { id: req.params.id }, data: updates });
     res.json(mapFieldForClient(updatedField));
