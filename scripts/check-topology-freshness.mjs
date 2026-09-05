@@ -2,6 +2,12 @@
 // Fails (or warns, with --warn-only) if .graph-context.md is older than the newest commit
 // touching tracked source directories, or if it has grown past the token budget. Run before
 // trusting the topology file for planning.
+//
+// Known limitation: this only compares against committed history (git log), not the working
+// tree — an uncommitted edit to a source file won't be detected as making the topology stale.
+// Deliberate tradeoff: a full mtime-walk of the working tree would be more accurate but heavier
+// and defeats the "lightweight" goal. Regenerate manually (npm run build:graph) after any batch
+// of uncommitted edits you want reflected before the next L1 planning pass.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';

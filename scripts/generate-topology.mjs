@@ -53,6 +53,15 @@ function normalizeImport(fromFile, spec) {
   return spec; // workspace-scoped package name, left as-is
 }
 
+// module.exports = { a, b: c, ...spread } — the dominant CommonJS export style in server/, and
+// not matched by any pattern above (module\.exports\.X = only catches property-assignment form).
+// Confirmed this was a real, not hypothetical, gap: server/lib/prisma.js — the single most
+// imported module in server/ — has only `module.exports = { prisma };` and no internal imports
+// (its requires are all external npm packages), so it was silently invisible in the graph
+// entirely (both exports and imports empty -> skipped as a "leaf file"). 28 files in server/ use
+// this export style.
+const CJS_OBJECT_EXPORT = /module\.exports\s*=\s*\{([^}]*)\}/;
+
 function extractExports(src) {
   const names = new Set();
   for (const re of EXPORT_PATTERNS) {
@@ -68,6 +77,16 @@ function extractExports(src) {
         names.add(m[1].trim());
       }
     }
+  }
+  const cjsObjectExport = CJS_OBJECT_EXPORT.exec(src);
+  if (cjsObjectExport) {
+    cjsObjectExport[1].split(',').forEach((entry) => {
+      const trimmed = entry.trim();
+      if (!trimmed || trimmed.startsWith('...')) return; // spread of another object, not itself a name
+      // `{ key: value }` exports the key (what importers see), not the value/alias.
+      const key = trimmed.split(':')[0].trim();
+      if (/^[A-Za-z0-9_$]+$/.test(key)) names.add(key);
+    });
   }
   if (DEFAULT_EXPORT_ONLY.test(src)) names.add('default');
   return [...names];
