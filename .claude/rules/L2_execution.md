@@ -29,4 +29,25 @@ completion. And a "done" report has to mean actually done: if your own turn is e
 verification run you started has finished, that is not a completed stage — say so explicitly
 rather than letting a finished-looking report imply results that don't exist yet.
 
+**This recurred in this exact repo despite the rule above already being written down.** An L2
+run hit a transient `ECONNREFUSED` from the shared dev Postgres (a cold-start/wake delay, not a
+real failure — the DB was reachable again within a minute), and instead of diagnosing the error
+class, re-ran the identical test 3 times, each time going idle and waiting to be "notified" —
+which some tool/mechanism satisfied by replaying its *entire* accumulated context on every idle
+tick. Four such cycles cost ~405K tokens combined before an outside check (a human, in that case)
+confirmed the DB was fine and told it to just run the command directly. Concretely:
+
+- **If the same command fails identically more than once, diagnose the actual error before
+  retrying again.** `ECONNREFUSED`/connection errors are categorically different from an
+  assertion failure — they mean "is the dependency even reachable right now," not "is my code
+  wrong." Check that directly (a trivial one-off query/ping) before assuming either "my code is
+  broken" or "I just need to wait longer."
+- **For a command expected to finish in under a minute or two once the environment is warm, just
+  run it as a normal foreground call.** The background+bounded-wait pattern above is for
+  genuinely long steps (a full test suite, a build) — do not reach for it, or for any
+  polling/monitoring mechanism, to wait out a few seconds of connection warm-up. If you find
+  yourself going idle "waiting to be notified" more than once for the same verification step,
+  that is the failure mode this section describes — stop, run the command directly instead, and
+  report the real result.
+
 Do not attempt to plan or architect new systems. Execute the given step and stop.
