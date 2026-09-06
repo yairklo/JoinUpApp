@@ -1,0 +1,51 @@
+[
+  {
+    "id": 1,
+    "title": "Web: add shared useIsAdmin hook for client-side admin gating",
+    "area": "web",
+    "files": ["next_app/src/hooks/useIsAdmin.ts"],
+    "description": "New hook consolidating the getToken -> usersApi.getMe(token) -> isAdmin check duplicated today in next_app/src/app/admin/fields/page.tsx (lines 37-54), next_app/src/app/admin/moderation/page.tsx (lines 27-44), and next_app/src/app/profile/settings/page.tsx (lines 66-90). Use Clerk's useAuth() for getToken/isLoaded/isSignedIn. Expose a status union so both a full-page gate (admin/layout.tsx) and a lightweight nav-link check (AppNavbar) can consume it: return { status: 'loading' | 'signed-out' | 'denied' | 'allowed', isAdmin: boolean, refresh: () => Promise<void> }. Logic: wait for isLoaded; call getToken(); if no token -> 'signed-out'; else call usersApi.getMe(token) (services/api/users.ts, CurrentUser.isAdmin field, line ~64) and set 'allowed' or 'denied'; catch -> 'denied' (fail closed, matching existing per-page catch behavior). isAdmin must still originate only from usersApi.getMe()'s server response (Clerk metadata / ADMIN_USER_IDS on the server) -- this hook only moves where that call happens, per .cursor/rules/00-core-invariants.mdc.",
+    "status": "todo"
+  },
+  {
+    "id": 2,
+    "title": "Web: add admin/layout.tsx with shared auth-gate and persistent nav",
+    "area": "web",
+    "files": ["next_app/src/app/admin/layout.tsx"],
+    "description": "New client layout ('use client') wrapping both admin pages. Uses the useIsAdmin hook from task 1. Render logic: status 'loading' -> centered CircularProgress (mirrors existing per-page spinner, e.g. fields/page.tsx lines 117-120); 'signed-out' -> the same SignedOut/SignInButton card each page currently renders individually (fields/page.tsx lines 105-114 wording, or a generic version since it's now shared across both routes); 'denied' -> Alert severity='warning' with the existing message ('אין הרשאת מפעיל...', fields/page.tsx line 122 wording); 'allowed' -> render a persistent nav (Tabs or a small button row) with two entries linking to /admin/fields ('ניהול מגרשים') and /admin/moderation ('הודעות שסומנו' / 'מודרציה'), using usePathname() from next/navigation to mark the active tab, followed by {children}. Wrap in the same Container maxWidth='md' sx={{py:6}} dir='rtl' shell currently duplicated in both pages so pages themselves no longer need it repeated for the auth-gate states (pages still use their own Container for their content below the nav, or the layout can provide the outer Container and pages render just their content -- keep whichever avoids double-nesting Container, prefer layout owns the outer Container/dir='rtl', pages drop theirs).",
+    "status": "todo"
+  },
+  {
+    "id": 3,
+    "title": "Web: simplify admin/fields and admin/moderation pages to drop duplicated auth-gate",
+    "area": "web",
+    "files": ["next_app/src/app/admin/fields/page.tsx", "next_app/src/app/admin/moderation/page.tsx"],
+    "description": "Remove the per-page allowed/loading-for-auth state and the me.isAdmin check now handled by admin/layout.tsx (task 2): in fields/page.tsx delete the SignedOut block (105-114), the allowed-related branches (117-122) and the 'if (!me.isAdmin) {...}' check inside load() (44-49); load() should still call getToken() and, if present, call fieldsApi.listForAdmin(token) directly (no admin-check needed -- if this component rendered at all, admin/layout.tsx already verified isAdmin). If no token, keep failing gracefully (setLoading(false)) since layout guarantees isAdmin but not necessarily a live token at the exact moment of this call. Apply the mirror change to moderation/page.tsx (SignedOut block 101-110, allowed checks 112-115, isAdmin check in load() 34-39). Also remove moderation/page.tsx's now-redundant cross-link button to /admin/fields (line 120, 'ניהול מגרשים') since the layout's persistent nav (task 2) already covers that route -- leave fields/page.tsx's 'חזרה למגרשים' button (line 127, links to public /fields) untouched, it is unrelated to admin cross-nav. Each page must still work correctly if visited directly, since the layout wraps every route under admin/.",
+    "status": "todo"
+  },
+  {
+    "id": 4,
+    "title": "Web: add isAdmin-gated Admin link to main nav (AppNavbar)",
+    "area": "web",
+    "files": ["next_app/src/components/AppNavbar.tsx"],
+    "description": "AppNavbar (wired into next_app/src/app/layout.tsx line 73, the real app header -- next_app/src/components/layout/navbar.tsx/app-shell.tsx are unused dead code, do not touch) currently has a desktop-only nav-links Stack (lines 112-130) with 'חיפוש משחקים' (/search) and 'מגרשים' (/fields) buttons using navLinkSx. Add a third Button, conditionally rendered only when the current user isAdmin (use the useIsAdmin hook from task 1; render nothing while loading/denied/signed-out), linking to /admin/fields (entry point into the whole admin section, whose layout/nav from task 2 covers navigating to /admin/moderation from there). Keep it inside the existing `display:{xs:'none', md:'flex'}` desktop-only Stack -- do not add it to BottomNav.tsx (fixed 5-slot grid, no admin gating today, out of scope) or attempt to add a profile dropdown (none exists in this codebase).",
+    "status": "todo"
+  },
+  {
+    "id": 5,
+    "title": "Web: refactor Settings page admin check to shared hook; keep existing admin shortcut Alert",
+    "area": "web",
+    "files": ["next_app/src/app/profile/settings/page.tsx"],
+    "description": "Replace the page's own isAdmin state (line 64) and the getMe() call folded into its Promise.all (lines 72-77) with the useIsAdmin hook from task 1, so this becomes the 3rd/last consumer instead of a 3rd independent implementation of the same check. Decision: keep the existing Alert block (lines 156-171, 'יש לך הרשאת מפעיל' with buttons to /admin/fields and /admin/moderation) as-is -- do not remove it. Justification: the new AppNavbar Admin link (task 4) is desktop-only (md+ breakpoint); BottomNav has no spare slot and isn't admin-gated; there is no profile/avatar menu elsewhere in this app to host an admin shortcut on mobile. Removing this Alert would regress the only mobile-reachable admin entry point with nothing to replace it, so both entry points should coexist.",
+    "status": "todo"
+  },
+  {
+    "id": 6,
+    "title": "Web quality gate: next build",
+    "area": "deploy",
+    "files": [],
+    "command": "cd next_app && npm run build",
+    "description": "Run the Next.js production build/typecheck after tasks 1-5 land (new admin/layout.tsx as a client layout, new hook, two simplified pages, two consumers of the hook) and fix any TypeScript/build errors before considering the change done, per repo convention (see plan-1785939333477.json task 30).",
+    "status": "todo"
+  }
+]
