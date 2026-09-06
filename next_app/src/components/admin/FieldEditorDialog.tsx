@@ -6,6 +6,7 @@ import { fieldsApi, Field } from "@/services/api/fields";
 import { SPORT_MAPPING } from "@/utils/sports";
 import ImageUploadField from "@/components/ImageUploadField";
 import FieldPhotoGallery from "@/components/admin/FieldPhotoGallery";
+import FieldLocationPicker from "@/components/admin/FieldLocationPicker";
 
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -48,6 +49,8 @@ interface FormState {
   phone: string;
   email: string;
   supportedSports: SportKey[];
+  lat: number | null;
+  lng: number | null;
 }
 
 const EMPTY_FORM: FormState = {
@@ -63,6 +66,8 @@ const EMPTY_FORM: FormState = {
   phone: "",
   email: "",
   supportedSports: ["SOCCER"],
+  lat: null,
+  lng: null,
 };
 
 function fieldToForm(field: Field): FormState {
@@ -79,6 +84,8 @@ function fieldToForm(field: Field): FormState {
     phone: field.phone || "",
     email: field.email || "",
     supportedSports: (field.supportedSports?.length ? field.supportedSports : ["SOCCER"]) as SportKey[],
+    lat: field.lat ?? null,
+    lng: field.lng ?? null,
   };
 }
 
@@ -138,6 +145,8 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
         phone: form.phone.trim() || undefined,
         email: form.email.trim() || undefined,
         supportedSports: form.supportedSports,
+        lat: form.lat ?? undefined,
+        lng: form.lng ?? undefined,
       };
 
       if (activeField) {
@@ -189,6 +198,15 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
             <TextField label="רחוב" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} fullWidth />
             <TextField label="מספר" value={form.streetNumber} onChange={(e) => setForm({ ...form, streetNumber: e.target.value })} sx={{ maxWidth: 120 }} />
           </Stack>
+
+          <FieldLocationPicker
+            lat={form.lat}
+            lng={form.lng}
+            addressForGeocoding={[form.street, form.streetNumber, form.neighborhood, form.city || form.location, "ישראל"]
+              .filter(Boolean)
+              .join(" ")}
+            onChange={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))}
+          />
 
           <Stack direction="row" spacing={2}>
             <TextField

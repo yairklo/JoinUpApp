@@ -19,6 +19,7 @@ import IconButton from "@mui/material/IconButton";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Switch from "@mui/material/Switch";
@@ -177,6 +178,15 @@ export default function AdminFieldsPage() {
                         {(field.supportedSports || []).map((s) => (
                           <Chip key={s} label={SPORT_MAPPING[s as keyof typeof SPORT_MAPPING] || s} size="small" />
                         ))}
+                        {(field.lat == null || field.lng == null) && (
+                          <Chip
+                            label="ללא מיקום במפה"
+                            size="small"
+                            color="warning"
+                            icon={<WarningAmberIcon />}
+                            onClick={() => openEdit(field)}
+                          />
+                        )}
                       </Stack>
                     </Box>
                   </Stack>
