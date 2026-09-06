@@ -30,8 +30,9 @@ for a template. No new tooling needed, just more files.
 - ~~`routes/search.js` — no test at all for a user-facing discovery endpoint.~~ Covered by
   `server/tests/searchGlobal.test.js` (the file's one route, `GET /api/search/global`).
 - **`routes/fields.js`** — `server/tests/fieldsAdminCrud.test.js` now covers the admin-gated
-  write path (POST/PUT/DELETE + the 403 gate). Still untested: the read/search endpoints
-  (GET /, /cities, /map, /search, /type/:type) and the crowd-report endpoints
+  write path (POST/PUT/DELETE, the 403 gate, the 9 optional detail columns with valid/invalid
+  input, and the image/photo-gallery upload+delete routes). Still untested: the read/search
+  endpoints (GET /, /cities, /map, /search, /type/:type) and the crowd-report endpoints
   (/:id/analytics, /:id/report).
 - ~~`routes/auth.js` — no test at all.~~ **Correction:** `server/docs/agents/auth_pitfalls.md`
   marks this file explicit legacy/dead code ("belongs to a legacy, file-based JSON store...
@@ -48,7 +49,9 @@ for a template. No new tooling needed, just more files.
   test, only `deleteMessageFromChat` indirectly via `adminActions.test.js`.
 - **`workers/cleanupWorker.js`**, **`workers/gameReminderWorker.js`** — no tests; both are
   scheduled jobs with real side effects (deleting notifications, sending reminders).
-- **`middleware/upload.js`** — no test on file-type/size validation.
+- ~~`middleware/upload.js` — no test on file-type/size validation.~~ Covered by
+  `server/tests/uploadMiddleware.test.js` (valid upload, disallowed MIME type, oversized file,
+  filename-never-trusted, and `deleteUploadedFile`'s external-URL/path-traversal guards).
 
 ## Priority 2 — next_app (26 pages, 60 components, 15 hooks, 0 component tests)
 
