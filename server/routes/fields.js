@@ -522,6 +522,69 @@ router.post('/:id/image', authenticateToken, requireAdmin, handleSingleUpload(fi
   }
 });
 
+// Remove field image without replacing it (Admin only) -- parity with users.js's
+// DELETE /:id/image, which fields.js was missing (only had the POST/upload half).
+router.delete('/:id/image', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const existing = await prisma.field.findUnique({ where: { id: req.params.id }, select: { image: true } });
+    if (!existing) return res.status(404).json({ error: 'Field not found' });
+    await prisma.field.update({ where: { id: req.params.id }, data: { image: null } });
+    if (existing.image) deleteUploadedFile(existing.image);
+    res.json({ image: null });
+  } catch (error) {
+    console.error('Remove field image error:', error);
+    res.status(500).json({ error: 'Failed to remove field image' });
+  }
+});
+
+// Append one photo to the field's gallery (Admin only). Uploads a single file per
+// call (matching the client's one-at-a-time picker) and pushes its URL onto the
+// existing `photos: String[]` column -- there was previously no endpoint at all
+// for this column, only the single `image` column had an upload route.
+router.post('/:id/photos', authenticateToken, requireAdmin, handleSingleUpload(fieldImageUpload, 'photo'), async (req, res) => {
+  try {
+    const existing = await prisma.field.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    if (!existing) return res.status(404).json({ error: 'Field not found' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const photoUrl = absoluteUrlFor(req, 'fields', req.file.filename);
+    const updated = await prisma.field.update({
+      where: { id: req.params.id },
+      data: { photos: { push: photoUrl } },
+    });
+    res.status(201).json(mapFieldForClient(updated));
+  } catch (error) {
+    console.error('Add field photo error:', error);
+    res.status(500).json({ error: 'Failed to add field photo' });
+  }
+});
+
+// Remove one photo from the field's gallery by URL (Admin only). Prisma has no
+// "remove by value" for scalar list columns, so this reads the current array,
+// filters it, and writes the result back with `set`.
+router.delete('/:id/photos', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'url is required' });
+
+    const existing = await prisma.field.findUnique({ where: { id: req.params.id }, select: { photos: true } });
+    if (!existing) return res.status(404).json({ error: 'Field not found' });
+
+    const remaining = existing.photos.filter((p) => p !== url);
+    const updated = await prisma.field.update({
+      where: { id: req.params.id },
+      data: { photos: { set: remaining } },
+    });
+    if (remaining.length !== existing.photos.length) deleteUploadedFile(url);
+    res.json(mapFieldForClient(updated));
+  } catch (error) {
+    console.error('Remove field photo error:', error);
+    res.status(500).json({ error: 'Failed to remove field photo' });
+  }
+});
+
 // Delete field (Admin only)
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -533,4 +596,4 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;
