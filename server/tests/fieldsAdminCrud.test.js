@@ -231,4 +231,113 @@ describe('Admin-gated Field CRUD (POST/PUT/DELETE /api/fields)', () => {
     const getAfter = await request(app).get(`/api/fields/${created.id}`);
     expect(getAfter.statusCode).toEqual(404);
   });
+
+  // 1x1 transparent PNG, small enough to inline as a test fixture rather than
+  // committing a binary file.
+  const TINY_PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64'
+  );
+
+  describe('Field image and photo gallery (Admin only)', () => {
+    test('POST /api/fields/:id/image then DELETE /api/fields/:id/image round-trips', async () => {
+      const created = await prisma.field.create({
+        data: { name: 'FieldsPilotImageRoundTrip', location: 'FieldsPilot Image Ave', type: 'OPEN' },
+      });
+      createdIds.push(created.id);
+
+      const upload = await request(app)
+        .post(`/api/fields/${created.id}/image`)
+        .set('Authorization', 'Bearer mock_fields_admin')
+        .attach('image', TINY_PNG, 'test.png');
+      expect(upload.statusCode).toEqual(200);
+      expect(upload.body.image).toEqual(expect.stringContaining('/uploads/fields/'));
+
+      const del = await request(app)
+        .delete(`/api/fields/${created.id}/image`)
+        .set('Authorization', 'Bearer mock_fields_admin');
+      expect(del.statusCode).toEqual(200);
+      expect(del.body.image).toBeNull();
+
+      const after = await prisma.field.findUnique({ where: { id: created.id } });
+      expect(after.image).toBeNull();
+    });
+
+    test('DELETE /api/fields/:id/image as non-admin is 403', async () => {
+      const created = await prisma.field.create({
+        data: { name: 'FieldsPilotImageAuthCheck', location: 'FieldsPilot Image Ave', type: 'OPEN' },
+      });
+      createdIds.push(created.id);
+
+      const res = await request(app)
+        .delete(`/api/fields/${created.id}/image`)
+        .set('Authorization', 'Bearer mock_fields_member');
+      expect(res.statusCode).toEqual(403);
+    });
+
+    test('POST /api/fields/:id/photos appends to the gallery without touching existing photos', async () => {
+      const created = await prisma.field.create({
+        data: {
+          name: 'FieldsPilotPhotosAppend',
+          location: 'FieldsPilot Photos Ave',
+          type: 'OPEN',
+          photos: ['https://example.com/existing.jpg'],
+        },
+      });
+      createdIds.push(created.id);
+
+      const res = await request(app)
+        .post(`/api/fields/${created.id}/photos`)
+        .set('Authorization', 'Bearer mock_fields_admin')
+        .attach('photo', TINY_PNG, 'test.png');
+      expect(res.statusCode).toEqual(201);
+      expect(res.body.photos).toHaveLength(2);
+      expect(res.body.photos[0]).toEqual('https://example.com/existing.jpg');
+      expect(res.body.photos[1]).toEqual(expect.stringContaining('/uploads/fields/'));
+    });
+
+    test('POST /api/fields/:id/photos with no file is 400', async () => {
+      const created = await prisma.field.create({
+        data: { name: 'FieldsPilotPhotosNoFile', location: 'FieldsPilot Photos Ave', type: 'OPEN' },
+      });
+      createdIds.push(created.id);
+
+      const res = await request(app)
+        .post(`/api/fields/${created.id}/photos`)
+        .set('Authorization', 'Bearer mock_fields_admin');
+      expect(res.statusCode).toEqual(400);
+    });
+
+    test('DELETE /api/fields/:id/photos removes only the matching URL', async () => {
+      const created = await prisma.field.create({
+        data: {
+          name: 'FieldsPilotPhotosRemove',
+          location: 'FieldsPilot Photos Ave',
+          type: 'OPEN',
+          photos: ['https://example.com/keep.jpg', 'https://example.com/remove.jpg'],
+        },
+      });
+      createdIds.push(created.id);
+
+      const res = await request(app)
+        .delete(`/api/fields/${created.id}/photos`)
+        .set('Authorization', 'Bearer mock_fields_admin')
+        .send({ url: 'https://example.com/remove.jpg' });
+      expect(res.statusCode).toEqual(200);
+      expect(res.body.photos).toEqual(['https://example.com/keep.jpg']);
+    });
+
+    test('DELETE /api/fields/:id/photos without a url is 400', async () => {
+      const created = await prisma.field.create({
+        data: { name: 'FieldsPilotPhotosNoUrl', location: 'FieldsPilot Photos Ave', type: 'OPEN' },
+      });
+      createdIds.push(created.id);
+
+      const res = await request(app)
+        .delete(`/api/fields/${created.id}/photos`)
+        .set('Authorization', 'Bearer mock_fields_admin')
+        .send({});
+      expect(res.statusCode).toEqual(400);
+    });
+  });
 });

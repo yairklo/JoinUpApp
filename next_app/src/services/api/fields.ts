@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, API_BASE } from './client';
 
 export interface Field {
     id: string;
@@ -81,11 +81,69 @@ export const fieldsApi = {
         });
     },
 
-    create: (data: { name: string; location: string; city?: string; type: 'open' | 'closed'; price?: number }, token: string) => {
+    create: (data: FieldWriteData & { name: string; location: string; type: 'open' | 'closed' }, token: string) => {
         return apiClient<Field>('/api/fields', { method: 'POST', data, token });
     },
 
-    update: (fieldId: string, data: Partial<{ name: string; location: string; city: string | null; type: 'open' | 'closed'; price: number; available: boolean }>, token: string) => {
+    update: (fieldId: string, data: Partial<FieldWriteData & { name: string; location: string; type: 'open' | 'closed'; available: boolean }>, token: string) => {
         return apiClient<Field>(`/api/fields/${fieldId}`, { method: 'PUT', data, token });
     },
+
+    delete: (fieldId: string, token: string) => {
+        return apiClient<{ message: string }>(`/api/fields/${fieldId}`, { method: 'DELETE', token });
+    },
+
+    uploadImage: async (fieldId: string, file: File, token: string): Promise<{ image: string }> => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await fetch(`${API_BASE}/api/fields/${fieldId}/image`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to upload image');
+        }
+        return res.json();
+    },
+
+    removeImage: (fieldId: string, token: string) => {
+        return apiClient<{ image: null }>(`/api/fields/${fieldId}/image`, { method: 'DELETE', token });
+    },
+
+    addPhoto: async (fieldId: string, file: File, token: string): Promise<Field> => {
+        const formData = new FormData();
+        formData.append('photo', file);
+        const res = await fetch(`${API_BASE}/api/fields/${fieldId}/photos`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to add photo');
+        }
+        return res.json();
+    },
+
+    removePhoto: (fieldId: string, url: string, token: string) => {
+        return apiClient<Field>(`/api/fields/${fieldId}/photos`, { method: 'DELETE', data: { url }, token });
+    },
 };
+
+// Optional detail fields shared by create/update, all backed by columns that
+// already exist on the Prisma Field model (see server/routes/fields.js).
+interface FieldWriteData {
+    city?: string;
+    price?: number;
+    description?: string;
+    supportedSports?: ('SOCCER' | 'BASKETBALL' | 'TENNIS')[];
+    phone?: string;
+    email?: string;
+    neighborhood?: string;
+    street?: string;
+    streetNumber?: string;
+    lat?: number;
+    lng?: number;
+}
