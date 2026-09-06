@@ -16,6 +16,7 @@ export interface Field {
     street?: string | null;
     streetNumber?: string | null;
     phone?: string | null;
+    email?: string | null;
     favoritesCount?: number;
     lat?: number | null;
     lng?: number | null;

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import Link from "next/link";
 import { fieldsApi, Field } from "@/services/api/fields";
+import { SPORT_MAPPING } from "@/utils/sports";
+import FieldEditorDialog from "@/components/admin/FieldEditorDialog";
 
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -11,25 +12,37 @@ import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
+import InputAdornment from "@mui/material/InputAdornment";
+import SearchIcon from "@mui/icons-material/Search";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Divider from "@mui/material/Divider";
+import Chip from "@mui/material/Chip";
+import Avatar from "@mui/material/Avatar";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
 
 export default function AdminFieldsPage() {
   const { getToken } = useAuth();
   const [fields, setFields] = useState<Field[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [location, setLocation] = useState("");
-  const [city, setCity] = useState("");
-  const [type, setType] = useState<"open" | "closed">("open");
-  const [price, setPrice] = useState("");
+  const [search, setSearch] = useState("");
+
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingField, setEditingField] = useState<Field | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Field | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     const token = await getToken();
@@ -49,32 +62,24 @@ export default function AdminFieldsPage() {
     });
   }, [load]);
 
-  const handleCreate = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      const token = await getToken();
-      if (!token) return;
-      await fieldsApi.create(
-        {
-          name: name.trim(),
-          location: location.trim(),
-          city: city.trim() || undefined,
-          type,
-          price: type === "closed" ? Number(price) || 0 : 0,
-        },
-        token
-      );
-      setName("");
-      setLocation("");
-      setCity("");
-      setPrice("");
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "יצירת המגרש נכשלה");
-    } finally {
-      setSaving(false);
-    }
+  const filteredFields = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return fields;
+    return fields.filter((f) =>
+      [f.name, f.city, f.location, f.neighborhood, f.street]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q))
+    );
+  }, [fields, search]);
+
+  const openCreate = () => {
+    setEditingField(null);
+    setEditorOpen(true);
+  };
+
+  const openEdit = (field: Field) => {
+    setEditingField(field);
+    setEditorOpen(true);
   };
 
   const toggleAvailable = async (field: Field) => {
@@ -88,6 +93,22 @@ export default function AdminFieldsPage() {
     }
   };
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      await fieldsApi.delete(deleteTarget.id, token);
+      setDeleteTarget(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "מחיקת המגרש נכשלה");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
@@ -98,76 +119,108 @@ export default function AdminFieldsPage() {
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
         <Typography variant="h5" fontWeight={800}>ניהול מגרשים</Typography>
-        <Button component={Link} href="/fields">חזרה למגרשים</Button>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+          מגרש חדש
+        </Button>
       </Stack>
 
-      <Card>
-        <CardContent>
-          <Typography fontWeight={700} mb={2}>מגרש חדש</Typography>
-          <Stack spacing={2}>
-            <TextField label="שם" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-            <TextField label="כתובת" value={location} onChange={(e) => setLocation(e.target.value)} fullWidth />
-            <TextField label="עיר" value={city} onChange={(e) => setCity(e.target.value)} fullWidth />
-            <TextField select label="סוג" value={type} onChange={(e) => setType(e.target.value as "open" | "closed")}>
-              <MenuItem value="open">פתוח</MenuItem>
-              <MenuItem value="closed">סגור / מקורה</MenuItem>
-            </TextField>
-            {type === "closed" && (
-              <TextField
-                label="מחיר לשעה (₪)"
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-              />
-            )}
-            {error && <Alert severity="error">{error}</Alert>}
-            <Button
-              variant="contained"
-              disabled={saving || !name.trim() || !location.trim()}
-              onClick={handleCreate}
-            >
-              {saving ? "שומר…" : "הוסף מגרש"}
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
+      {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+
+      <TextField
+        placeholder="חיפוש לפי שם, עיר או כתובת…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        fullWidth
+        size="small"
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon fontSize="small" />
+            </InputAdornment>
+          ),
+        }}
+      />
 
       <Card>
         <CardContent>
-          <Typography fontWeight={700} mb={2}>כל המגרשים ({fields.length})</Typography>
+          <Typography fontWeight={700} mb={2}>
+            {search ? `תוצאות (${filteredFields.length} מתוך ${fields.length})` : `כל המגרשים (${fields.length})`}
+          </Typography>
           <Divider sx={{ mb: 2 }} />
-          <Stack spacing={1.5}>
-            {fields.map((field) => (
-              <Stack
-                key={field.id}
-                direction={{ xs: "column", sm: "row" }}
-                justifyContent="space-between"
-                alignItems={{ sm: "center" }}
-                spacing={1}
-                sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}
-              >
-                <Box>
-                  <Typography fontWeight={700}>{field.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {field.city || field.location}
-                  </Typography>
-                </Box>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={field.available !== false}
-                      onChange={() => toggleAvailable(field)}
+          {filteredFields.length === 0 ? (
+            <Typography color="text.secondary" textAlign="center" py={4}>
+              {search ? "לא נמצאו מגרשים התואמים את החיפוש" : "אין עדיין מגרשים"}
+            </Typography>
+          ) : (
+            <Stack spacing={1.5}>
+              {filteredFields.map((field) => (
+                <Stack
+                  key={field.id}
+                  direction={{ xs: "column", sm: "row" }}
+                  justifyContent="space-between"
+                  alignItems={{ sm: "center" }}
+                  spacing={1.5}
+                  sx={{ py: 1.5, borderBottom: 1, borderColor: "divider" }}
+                >
+                  <Stack direction="row" spacing={1.5} alignItems="center" flex={1} minWidth={0}>
+                    <Avatar src={field.image || undefined} variant="rounded">
+                      {field.name?.[0]}
+                    </Avatar>
+                    <Box minWidth={0}>
+                      <Typography fontWeight={700} noWrap>{field.name}</Typography>
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {field.city || field.location}
+                      </Typography>
+                      <Stack direction="row" spacing={0.5} mt={0.5} flexWrap="wrap" useFlexGap>
+                        {(field.supportedSports || []).map((s) => (
+                          <Chip key={s} label={SPORT_MAPPING[s as keyof typeof SPORT_MAPPING] || s} size="small" />
+                        ))}
+                      </Stack>
+                    </Box>
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <FormControlLabel
+                      control={<Switch checked={field.available !== false} onChange={() => toggleAvailable(field)} />}
+                      label={field.available === false ? "מוסתר" : "גלוי"}
                     />
-                  }
-                  label={field.available === false ? "מוסתר" : "גלוי"}
-                />
-              </Stack>
-            ))}
-          </Stack>
+                    <IconButton onClick={() => openEdit(field)} aria-label="עריכה">
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton onClick={() => setDeleteTarget(field)} aria-label="מחיקה" color="error">
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                </Stack>
+              ))}
+            </Stack>
+          )}
         </CardContent>
       </Card>
+
+      <FieldEditorDialog
+        open={editorOpen}
+        field={editingField}
+        onClose={() => setEditorOpen(false)}
+        onSaved={() => load()}
+      />
+
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} dir="rtl">
+        <DialogTitle>מחיקת מגרש</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            האם למחוק את המגרש &quot;{deleteTarget?.name}&quot;? פעולה זו אינה הפיכה.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>ביטול</Button>
+          <Button color="error" variant="contained" onClick={handleDeleteConfirm} disabled={deleting}>
+            {deleting ? "מוחק…" : "מחק"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
