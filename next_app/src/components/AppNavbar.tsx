@@ -27,6 +27,7 @@ import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 import StadiumOutlinedIcon from "@mui/icons-material/StadiumOutlined";
 import AddIcon from "@mui/icons-material/Add";
+import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 
 // Internal Components & Context
 import AuthButtons from "@/components/AuthButtons";
@@ -35,6 +36,7 @@ import ChatList from "@/components/ChatList";
 import NotificationPanel from "@/components/NotificationPanel";
 import GlobalSearchOmnibar from "@/components/GlobalSearchOmnibar";
 import { useNotificationCounters } from "@/context/NotificationCountersContext";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 export default function AppNavbar() {
   const [mounted, setMounted] = useState(false);
@@ -43,6 +45,7 @@ export default function AppNavbar() {
   const router = useRouter();
   const theme = useTheme();
   const { friendRequests } = useNotificationCounters();
+  const { isAdmin } = useIsAdmin();
 
   useEffect(() => {
     setMounted(true);
@@ -127,6 +130,16 @@ export default function AppNavbar() {
               >
                 מגרשים
               </Button>
+              {isAdmin && (
+                <Button
+                  component={Link}
+                  href="/admin/fields"
+                  startIcon={<AdminPanelSettingsOutlinedIcon />}
+                  sx={navLinkSx}
+                >
+                  ניהול
+                </Button>
+              )}
             </Stack>
           </Stack>
 

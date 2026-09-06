@@ -5,6 +5,7 @@ import { useUser, useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/next
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usersApi, PrivacyLevel, PrivacySettings } from "@/services/api/users";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 import Container from "@mui/material/Container";
 import Card from "@mui/material/Card";
@@ -38,6 +39,7 @@ export default function PrivacySettingsPage() {
     const { user } = useUser();
     const { getToken } = useAuth();
     const router = useRouter();
+    const { isAdmin } = useIsAdmin();
 
     const [values, setValues] = useState<Record<FieldKey, FieldValue>>({
         privacyFriends: "DEFAULT",
@@ -61,7 +63,6 @@ export default function PrivacySettingsPage() {
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isAdmin, setIsAdmin] = useState(false);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -69,12 +70,8 @@ export default function PrivacySettingsPage() {
         (async () => {
             try {
                 const token = await getToken();
-                const [data, me] = await Promise.all([
-                    usersApi.getProfile(user.id, token || undefined),
-                    token ? usersApi.getMe(token).catch(() => null) : Promise.resolve(null),
-                ]);
+                const data = await usersApi.getProfile(user.id, token || undefined);
                 if (!active) return;
-                if (me?.isAdmin) setIsAdmin(true);
                 const ps = data.privacySettings;
                 if (ps) {
                     setValues({
