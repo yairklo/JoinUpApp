@@ -39,6 +39,7 @@ const authenticateToken = (req, res, next) => {
       const user = await clerkClient.users.getUser(userId);
       req.user = mapAuthenticatedUser(userId, user);
     } catch (e) {
+      console.error(`[auth] clerkClient.users.getUser(${userId}) failed, falling back to ADMIN_USER_IDS-only isAdmin check:`, e.message);
       req.user = mapAuthenticatedUser(userId, null);
     }
     if (req.user.isBanned) {

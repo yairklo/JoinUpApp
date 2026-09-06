@@ -81,3 +81,8 @@ Mission_report*.txt
 
 # Generated tooling output (Graphify dependency graph)
 .graph-context.*
+
+# Per-task pipeline scratch artifact (see .claude/rules/L1_architecture.md) --
+# never meant to be committed, only regenerated fresh per task. Note: this
+# does NOT ignore .claude/rules/ -- those files are real repo content.
+.claude/plan.json
