@@ -106,6 +106,118 @@ describe('Admin-gated Field CRUD (POST/PUT/DELETE /api/fields)', () => {
     expect(res.body.city).toEqual('FieldsPilotUpdateCity');
   });
 
+  test('POST /api/fields as admin persists the new optional detail fields', async () => {
+    const res = await request(app)
+      .post('/api/fields')
+      .set('Authorization', 'Bearer mock_fields_admin')
+      .send({
+        name: 'FieldsPilotExtrasCreated',
+        location: 'FieldsPilot Extras Ave',
+        type: 'open',
+        description: 'A nice pitch',
+        supportedSports: ['soccer', 'BASKETBALL'],
+        phone: '050-1234567',
+        email: 'field@example.com',
+        neighborhood: 'FieldsPilot Hood',
+        street: 'FieldsPilot St',
+        streetNumber: '12',
+        lat: 32.08,
+        lng: 34.78,
+      });
+
+    expect(res.statusCode).toEqual(201);
+    expect(res.body.supportedSports).toEqual(['SOCCER', 'BASKETBALL']);
+    expect(res.body.description).toEqual('A nice pitch');
+    expect(res.body.phone).toEqual('050-1234567');
+    expect(res.body.email).toEqual('field@example.com');
+    expect(res.body.neighborhood).toEqual('FieldsPilot Hood');
+    expect(res.body.street).toEqual('FieldsPilot St');
+    expect(res.body.streetNumber).toEqual('12');
+    expect(res.body.lat).toEqual(32.08);
+    expect(res.body.lng).toEqual(34.78);
+
+    createdIds.push(res.body.id);
+  });
+
+  test('POST /api/fields with an invalid supportedSports entry is 400, nothing created', async () => {
+    const res = await request(app)
+      .post('/api/fields')
+      .set('Authorization', 'Bearer mock_fields_admin')
+      .send({
+        name: 'FieldsPilotBadSports',
+        location: 'FieldsPilot BadSports Ave',
+        type: 'open',
+        supportedSports: ['SOCCER', 'HOCKEY'],
+      });
+
+    expect(res.statusCode).toEqual(400);
+    const leaked = await prisma.field.findFirst({ where: { name: 'FieldsPilotBadSports' } });
+    expect(leaked).toBeNull();
+  });
+
+  test('POST /api/fields with non-finite lat/lng is 400, nothing created', async () => {
+    const res = await request(app)
+      .post('/api/fields')
+      .set('Authorization', 'Bearer mock_fields_admin')
+      .send({
+        name: 'FieldsPilotBadLatLng',
+        location: 'FieldsPilot BadLatLng Ave',
+        type: 'open',
+        lat: 'not-a-number',
+      });
+
+    expect(res.statusCode).toEqual(400);
+    const leaked = await prisma.field.findFirst({ where: { name: 'FieldsPilotBadLatLng' } });
+    expect(leaked).toBeNull();
+  });
+
+  test('PUT /api/fields/:id updates only the supplied new fields, leaving others untouched', async () => {
+    const created = await prisma.field.create({
+      data: {
+        name: 'FieldsPilotExtrasBeforeUpdate',
+        location: 'FieldsPilot Extras Update Ave',
+        type: 'OPEN',
+        description: 'Original description',
+        supportedSports: ['SOCCER'],
+        lat: 32.05,
+        lng: 34.75,
+      },
+    });
+    createdIds.push(created.id);
+
+    const res = await request(app)
+      .put(`/api/fields/${created.id}`)
+      .set('Authorization', 'Bearer mock_fields_admin')
+      .send({ description: 'new description' });
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.description).toEqual('new description');
+    // supportedSports/lat/lng were not in the PUT body — must be unchanged.
+    expect(res.body.supportedSports).toEqual(['SOCCER']);
+    expect(res.body.lat).toEqual(32.05);
+    expect(res.body.lng).toEqual(34.75);
+  });
+
+  test('PUT /api/fields/:id with invalid supportedSports is 400 and applies no partial update', async () => {
+    const created = await prisma.field.create({
+      data: {
+        name: 'FieldsPilotExtrasNoPartial',
+        location: 'FieldsPilot Extras NoPartial Ave',
+        type: 'OPEN',
+      },
+    });
+    createdIds.push(created.id);
+
+    const res = await request(app)
+      .put(`/api/fields/${created.id}`)
+      .set('Authorization', 'Bearer mock_fields_admin')
+      .send({ name: 'ShouldNotApply', supportedSports: ['NOT_A_SPORT'] });
+
+    expect(res.statusCode).toEqual(400);
+    const unchanged = await prisma.field.findUnique({ where: { id: created.id } });
+    expect(unchanged.name).toEqual('FieldsPilotExtrasNoPartial');
+  });
+
   test('DELETE /api/fields/:id as admin removes the row', async () => {
     const created = await prisma.field.create({
       data: { name: 'FieldsPilotToDelete', location: 'FieldsPilot Delete Ave', type: 'OPEN' },
