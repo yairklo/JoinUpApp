@@ -55,6 +55,45 @@ function hasBoundingBox(query) {
   const { minLat, maxLat, minLng, maxLng } = query;
   return !!(minLat && maxLat && minLng && maxLng);
 }
+
+const VALID_SPORT_TYPES = ['SOCCER', 'BASKETBALL', 'TENNIS'];
+
+// Validates the 9 optional Field detail columns shared by POST/PUT. Returns
+// { data } with only the keys present in `body` (so callers can spread the
+// result into a create/update payload without disturbing omitted fields), or
+// { error } if something present is invalid. Callers must check `error` and
+// bail out (400) before touching the database, so an invalid field never lets
+// other valid fields in the same request partially commit.
+function validateOptionalFieldExtras(body) {
+  const data = {};
+  const stringFields = ['description', 'phone', 'email', 'neighborhood', 'street', 'streetNumber'];
+  for (const field of stringFields) {
+    if (body[field] !== undefined) data[field] = body[field] || null;
+  }
+
+  if (body.supportedSports !== undefined) {
+    const sports = Array.isArray(body.supportedSports) ? body.supportedSports.map((v) => String(v).toUpperCase()) : null;
+    if (!sports || sports.length === 0 || !sports.every((v) => VALID_SPORT_TYPES.includes(v))) {
+      return { error: 'supportedSports must be a non-empty array of SOCCER/BASKETBALL/TENNIS' };
+    }
+    data.supportedSports = sports;
+  }
+
+  if (body.lat !== undefined) {
+    const lat = Number(body.lat);
+    if (!Number.isFinite(lat)) return { error: 'lat/lng must be valid numbers' };
+    data.lat = lat;
+  }
+
+  if (body.lng !== undefined) {
+    const lng = Number(body.lng);
+    if (!Number.isFinite(lng)) return { error: 'lat/lng must be valid numbers' };
+    data.lng = lng;
+  }
+
+  return { data };
+}
+
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { requireAdmin } = require('../utils/admin');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
@@ -406,6 +445,11 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Type must be "open" or "closed"' });
     }
 
+    const extras = validateOptionalFieldExtras(req.body);
+    if (extras.error) {
+      return res.status(400).json({ error: extras.error });
+    }
+
     const savedField = await prisma.field.create({
       data: {
         name,
@@ -416,6 +460,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
         image: image || 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=300&fit=crop',
         available: true,
         type: type.toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN',
+        ...extras.data,
       }
     });
     res.status(201).json(mapFieldForClient(savedField));
@@ -429,20 +474,25 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { name, location, city, price, type, image, available } = req.body;
-    const updates = {};
 
+    if (type !== undefined && !['open', 'closed'].includes(type)) {
+      return res.status(400).json({ error: 'Type must be "open" or "closed"' });
+    }
+
+    const extras = validateOptionalFieldExtras(req.body);
+    if (extras.error) {
+      return res.status(400).json({ error: extras.error });
+    }
+
+    const updates = {};
     if (name !== undefined) updates.name = name;
     if (location !== undefined) updates.location = location;
     if (city !== undefined) updates.city = city || null;
     if (price !== undefined) updates.price = price;
-    if (type !== undefined) {
-      if (!['open', 'closed'].includes(type)) {
-        return res.status(400).json({ error: 'Type must be "open" or "closed"' });
-      }
-      updates.type = type.toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN';
-    }
+    if (type !== undefined) updates.type = type.toUpperCase() === 'CLOSED' ? 'CLOSED' : 'OPEN';
     if (image !== undefined) updates.image = image;
     if (available !== undefined) updates.available = available;
+    Object.assign(updates, extras.data);
 
     const updatedField = await prisma.field.update({ where: { id: req.params.id }, data: updates });
     res.json(mapFieldForClient(updatedField));
