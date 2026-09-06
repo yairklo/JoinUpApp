@@ -180,7 +180,7 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth dir="rtl">
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen dir="rtl">
       <DialogTitle>{isEdit ? `עריכת מגרש: ${field?.name}` : "מגרש חדש"}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} mt={1}>
@@ -189,12 +189,12 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
           <TextField label="שם *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} fullWidth />
           <TextField label="כתובת *" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} fullWidth />
 
-          <Stack direction="row" spacing={2}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField label="עיר" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} fullWidth />
             <TextField label="שכונה" value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} fullWidth />
           </Stack>
 
-          <Stack direction="row" spacing={2}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField label="רחוב" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} fullWidth />
             <TextField label="מספר" value={form.streetNumber} onChange={(e) => setForm({ ...form, streetNumber: e.target.value })} sx={{ maxWidth: 120 }} />
           </Stack>
@@ -208,7 +208,7 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
             onChange={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))}
           />
 
-          <Stack direction="row" spacing={2}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField
               select
               label="סוג"
@@ -254,7 +254,7 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
             minRows={2}
           />
 
-          <Stack direction="row" spacing={2}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField label="טלפון" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} fullWidth />
             <TextField label="אימייל" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} fullWidth />
           </Stack>
