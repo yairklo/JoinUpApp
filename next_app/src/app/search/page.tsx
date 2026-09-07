@@ -90,6 +90,10 @@ export default function SearchPage() {
   const lastBoundsRef = useRef<Bounds | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const [targetLocation, setTargetLocation] = useState<[number, number] | null>(null);
+  // The user's own resolved GPS position -- distinct from targetLocation
+  // (which also gets set by picking a city) so the map can mark it as "you
+  // are here" instead of drawing it like a game/field pin.
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   // Mobile-only: switch between results list and full-screen map
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
 
@@ -114,7 +118,9 @@ export default function SearchPage() {
     setLocationError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setTargetLocation([pos.coords.latitude, pos.coords.longitude]);
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setTargetLocation(coords);
+        setUserLocation(coords);
         setLocating(false);
       },
       (err) => {
@@ -526,6 +532,7 @@ export default function SearchPage() {
           onBoundsChanged={handleBoundsChanged}
           onGameSelect={(id) => router.push(`/games/${id}`)}
           targetLocation={targetLocation}
+          userLocation={userLocation}
         />
       </Box>
 
