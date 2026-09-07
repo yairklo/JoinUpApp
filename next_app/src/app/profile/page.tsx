@@ -286,14 +286,17 @@ export default function ProfilePage() {
           gender: form.gender || null,
         }),
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Save failed");
+      }
       const updated = await res.json();
       setProfile(updated);
       setEditing(false);
       setSaveSuccess(true);
     } catch (e) {
       // Keep `editing` true and the unsaved form data intact so the user doesn't lose their edits.
-      setSaveError("השמירה נכשלה, נסה שוב");
+      setSaveError(e instanceof Error && e.message !== "Save failed" ? e.message : "השמירה נכשלה, נסה שוב");
     } finally {
       setSaving(false);
     }

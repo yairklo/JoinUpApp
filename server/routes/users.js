@@ -574,6 +574,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
     });
     res.json(mapUserPublic(full, { includeContact: true }));
   } catch (error) {
+    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+      return res.status(409).json({ error: 'כתובת האימייל הזו כבר בשימוש על ידי משתמש אחר' });
+    }
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Failed to update user' });
   }
