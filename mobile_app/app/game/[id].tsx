@@ -11,6 +11,7 @@ import { useSeriesLogic } from '@/hooks/useSeriesLogic';
 import { useTranslation } from 'react-i18next';
 import PendingRequestsList from '@/components/PendingRequestsList';
 import GameRatingsPanel from '@/components/GameRatingsPanel';
+import GameDetailsSkeleton from '@/components/GameDetailsSkeleton';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
@@ -167,11 +168,7 @@ export default function GameDetailsScreen() {
     };
 
     if (loading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#059669" />
-            </View>
-        );
+        return <GameDetailsSkeleton />;
     }
 
     if (!game) {
