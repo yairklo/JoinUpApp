@@ -13,7 +13,7 @@ import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import Grid from "@mui/material/Grid"; // MUI v6 Grid
-import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
+import Autocomplete from "@mui/material/Autocomplete";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import Switch from "@mui/material/Switch";
@@ -39,11 +39,11 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import IconButton from "@mui/material/IconButton";
 
 import { SPORT_MAPPING, SportType } from "@/utils/sports";
+import { usePaginatedFields } from "@/hooks/usePaginatedFields";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 type FieldOption = { id: string; name: string; location?: string | null; inputValue?: string };
-const filter = createFilterOptions<FieldOption>();
 
 // Per-sport defaults applied when the user switches sport (see the sport Select's onChange).
 // Tennis isn't a team-format sport, so maxPlayers drops to a doubles-sized default and teamSize
@@ -105,8 +105,9 @@ function NewGamePageInner() {
   const markTouched = () => setFormTouched(true);
 
   // Field Logic
-  const [fields, setFields] = useState<FieldOption[]>([]);
   const [selectedField, setSelectedField] = useState<FieldOption | null>(null);
+  const [fieldSearchInput, setFieldSearchInput] = useState("");
+  const [debouncedFieldSearch, setDebouncedFieldSearch] = useState("");
   const [newFieldMode, setNewFieldMode] = useState(false);
   const [newField, setNewField] = useState<{ name: string; location: string; type: "open" | "closed" }>({
     name: "",
@@ -162,36 +163,40 @@ function NewGamePageInner() {
   }
   const nextQuarterTimeStr = useMemo(() => roundUpToNextQuarter(today), []);
 
-  // 1. Fetch Fields
+  // 1. Debounce the field search box, then let usePaginatedFields (the same
+  // paginated `/api/fields?take=&q=` endpoint the fields browser and admin
+  // list use) search server-side instead of loading the entire ~900+ row
+  // table on every mount just to populate this autocomplete.
   useEffect(() => {
-    let ignore = false;
-    async function fetchFields() {
-      try {
-        const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
-        if (!res.ok) return;
-        const arr = await res.json();
-        if (!ignore) setFields(arr);
+    const t = setTimeout(() => setDebouncedFieldSearch(fieldSearchInput), 400);
+    return () => clearTimeout(t);
+  }, [fieldSearchInput]);
 
-        // Handle URL param pre-fill
-        if (urlFieldId && !ignore) {
-          // אם הגענו עם ID, ננסה למצוא אותו ברשימה או נביא אותו ספציפית
-          const found = arr.find((f: any) => f.id === urlFieldId);
-          if (found) {
-            setSelectedField(found);
-          } else {
-            // If not in list (maybe pagination?), fetch specific
-            fetch(`${API_BASE}/api/fields/${urlFieldId}`)
-              .then(r => r.ok ? r.json() : null)
-              .then(f => {
-                if (f && !ignore) setSelectedField(f);
-              });
-          }
-        }
-      } catch { }
-    }
-    fetchFields();
+  const { fields: fieldResults } = usePaginatedFields({ q: debouncedFieldSearch });
+  const fields: FieldOption[] = useMemo(
+    () => fieldResults.map((f) => ({ id: f.id, name: f.name, location: f.location })),
+    [fieldResults]
+  );
+
+  // Pre-fill the selected field directly from the ?fieldId= URL param.
+  useEffect(() => {
+    if (!urlFieldId) return;
+    let ignore = false;
+    fetch(`${API_BASE}/api/fields/${urlFieldId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(f => {
+        if (f && !ignore) setSelectedField(f);
+      });
     return () => { ignore = true; };
   }, [urlFieldId]);
+
+  // Keep the (controlled) search box text in sync whenever a field is selected
+  // programmatically rather than by typing — the ?fieldId=/?seriesId= prefills
+  // above call setSelectedField() directly, bypassing the Autocomplete's own
+  // input-change handler.
+  useEffect(() => {
+    setFieldSearchInput(selectedField?.name || "");
+  }, [selectedField]);
 
   // 1b. Prefill from series defaults (fieldId/fieldName/fieldLocation/time/duration), still editable
   useEffect(() => {
@@ -485,6 +490,8 @@ function NewGamePageInner() {
                       ) : (
                         <Autocomplete
                           value={selectedField}
+                          inputValue={fieldSearchInput}
+                          onInputChange={(event, newInputValue) => setFieldSearchInput(newInputValue)}
                           onChange={(event, newValue) => {
                             markTouched();
                             if (typeof newValue === 'string') {
@@ -500,9 +507,13 @@ function NewGamePageInner() {
                             }
                           }}
                           filterOptions={(options, params) => {
-                            const filtered = filter(options, params);
+                            // The options passed in are already server-filtered by `q`
+                            // (see usePaginatedFields above), so just append the
+                            // "add new field" pseudo-option instead of re-filtering
+                            // them again against MUI's own text matcher.
                             const { inputValue } = params;
                             const isExisting = options.some((option) => inputValue === option.name);
+                            const filtered = [...options];
                             if (inputValue !== '' && !isExisting) {
                               filtered.push({ inputValue, name: `הוסף "${inputValue}"`, id: "NEW" });
                             }

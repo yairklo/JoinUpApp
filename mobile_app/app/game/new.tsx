@@ -45,6 +45,7 @@ export default function NewGameScreen() {
 
     const [cities, setCities] = useState<string[]>([]);
     const [fields, setFields] = useState<any[]>([]);
+    const [fieldsLoading, setFieldsLoading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
@@ -289,16 +290,17 @@ export default function NewGameScreen() {
     }, [mapSelectedField, customPoint, confirmMapFieldSelection, confirmCustomMapPoint]);
 
     // Prefill field/location/time/duration from a series' defaults, keeping every field editable.
-    const loadSeriesDefaults = async (seriesId: string, fieldList: any[], cityList: string[]) => {
+    const loadSeriesDefaults = async (seriesId: string, cityList: string[]) => {
         try {
             const series: any = await seriesApi.getById(seriesId);
 
             if (series.fieldId) {
-                const found = fieldList.find((f: any) => f.id === series.fieldId);
-                if (found) {
-                    setSelectedField(found);
-                    if (found.city) setSelectedCity(found.city);
-                } else {
+                try {
+                    const field = await fieldsApi.getById(series.fieldId);
+                    setSelectedField(field);
+                    if (field?.city) setSelectedCity(field.city);
+                    else if (cityList.length > 0) setSelectedCity(cityList[0]);
+                } catch {
                     setSelectedField({
                         id: series.fieldId,
                         name: series.fieldName || '',
@@ -331,21 +333,20 @@ export default function NewGameScreen() {
     const loadInitialData = async () => {
         setLoading(true);
         try {
-            const [cityList, fieldList] = await Promise.all([
-                fieldsApi.getCities(),
-                fieldsApi.getAll()
-            ]);
+            const cityList = await fieldsApi.getCities();
             setCities(cityList);
-            setFields(fieldList);
-            
+
             if (prefilledFieldId) {
-                const found = fieldList.find((f: any) => f.id === prefilledFieldId);
-                if (found) {
-                    setSelectedField(found);
-                    if (found.city) setSelectedCity(found.city);
+                try {
+                    const field = await fieldsApi.getById(prefilledFieldId);
+                    setSelectedField(field);
+                    if (field?.city) setSelectedCity(field.city);
+                    else if (cityList.length > 0) setSelectedCity(cityList[0]);
+                } catch {
+                    if (cityList.length > 0) setSelectedCity(cityList[0]);
                 }
             } else if (prefilledSeriesId) {
-                await loadSeriesDefaults(prefilledSeriesId, fieldList, cityList);
+                await loadSeriesDefaults(prefilledSeriesId, cityList);
             } else if (cityList.length > 0) {
                 setSelectedCity(cityList[0]);
             }
@@ -357,7 +358,27 @@ export default function NewGameScreen() {
         }
     };
 
-    const filteredFields = fields.filter(f => !selectedCity || f.city === selectedCity || f.location?.includes(selectedCity));
+    // Fetch just the selected city's fields (bounded) instead of the entire
+    // ~900+ row table, refetching whenever the user switches city chips.
+    useEffect(() => {
+        if (!selectedCity) {
+            setFields([]);
+            return;
+        }
+        let ignore = false;
+        (async () => {
+            setFieldsLoading(true);
+            try {
+                const page = await fieldsApi.getPage({ take: 200, skip: 0, city: selectedCity });
+                if (!ignore) setFields(page.items);
+            } catch (error) {
+                console.error('Failed to load fields for city', error);
+            } finally {
+                if (!ignore) setFieldsLoading(false);
+            }
+        })();
+        return () => { ignore = true; };
+    }, [selectedCity]);
 
     const handleSubmit = async () => {
         if (!selectedField && !customPoint) {
@@ -550,9 +571,12 @@ export default function NewGameScreen() {
                         ))}
                     </ScrollView>
 
-                    <Text className="text-sm text-gray-500 mb-2">בחר מגרש:</Text>
+                    <View className="flex-row items-center mb-2">
+                        <Text className="text-sm text-gray-500">בחר מגרש:</Text>
+                        {fieldsLoading && <ActivityIndicator size="small" className="ml-2" />}
+                    </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {filteredFields.map(field => (
+                        {fields.map(field => (
                             <TouchableOpacity
                                 key={field.id}
                                 onPress={() => setSelectedField(field)}

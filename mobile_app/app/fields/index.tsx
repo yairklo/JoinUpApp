@@ -1,5 +1,5 @@
-import { View, Text, TouchableOpacity, TextInput, Image, ScrollView } from 'react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, TextInput, Image, FlatList, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -7,36 +7,83 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { fieldsApi, Field } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 
+const PAGE_SIZE = 24;
+
 export default function FieldsDirectoryScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const [fields, setFields] = useState<Field[]>([]);
+    const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [query, setQuery] = useState('');
+    const [debouncedQuery, setDebouncedQuery] = useState('');
+
+    // Bumped on every fetch-from-scratch so a slow, superseded search request
+    // can't clobber state after a newer one already landed.
+    const requestSeq = useRef(0);
 
     useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                const data = await fieldsApi.getAll();
-                if (!cancelled) setFields(Array.isArray(data) ? data : []);
-            } catch (e) {
-                console.error('Failed to load fields', e);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        })();
-        return () => { cancelled = true; };
-    }, []);
+        const timer = setTimeout(() => setDebouncedQuery(query.trim()), 400);
+        return () => clearTimeout(timer);
+    }, [query]);
 
-    const filtered = useMemo(() => {
-        const q = query.trim().toLowerCase();
-        if (!q) return fields;
-        return fields.filter((f) => {
-            const hay = [f.name, f.location, f.city, f.neighborhood].filter(Boolean).join(' ').toLowerCase();
-            return hay.includes(q);
-        });
-    }, [fields, query]);
+    const fetchPage = useCallback(async (skip: number, append: boolean) => {
+        const seq = ++requestSeq.current;
+        if (append) setLoadingMore(true); else setLoading(true);
+        try {
+            // Paginated + server-searched — avoids fetching and filtering the
+            // entire (900+ row) fields table on every screen open/keystroke.
+            const page = await fieldsApi.getPage({ take: PAGE_SIZE, skip, q: debouncedQuery });
+            if (seq !== requestSeq.current) return;
+            setFields((prev) => (append ? [...prev, ...page.items] : page.items));
+            setHasMore(page.hasMore);
+        } catch (e) {
+            console.error('Failed to load fields', e);
+        } finally {
+            if (seq === requestSeq.current) {
+                if (append) setLoadingMore(false); else setLoading(false);
+            }
+        }
+    }, [debouncedQuery]);
+
+    useEffect(() => {
+        fetchPage(0, false);
+    }, [fetchPage]);
+
+    const loadMore = () => {
+        if (loading || loadingMore || !hasMore) return;
+        fetchPage(fields.length, true);
+    };
+
+    const renderField = ({ item: field }: { item: Field }) => (
+        <TouchableOpacity
+            onPress={() => router.push(`/field/${field.id}`)}
+            className="flex-row items-center px-4 py-3 border-b border-gray-100 bg-white"
+            accessibilityRole="button"
+        >
+            {field.image ? (
+                <Image source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100" />
+            ) : (
+                <View className="w-14 h-14 rounded-xl mr-3 bg-brand-mist items-center justify-center">
+                    <FontAwesome name="map-marker" size={20} color="#059669" />
+                </View>
+            )}
+            <View className="flex-1">
+                <Text className="text-base font-bold text-gray-900" numberOfLines={1}>{field.name}</Text>
+                <Text className="text-sm text-gray-500 mt-0.5" numberOfLines={1}>
+                    {field.city || field.location || ''}
+                </Text>
+                <Text className="text-xs text-gray-400 mt-0.5">
+                    {field.type === 'closed' ? t('field.closedField') : t('field.openField')}
+                    {typeof field.price === 'number' && field.price > 0
+                        ? ` · ${t('field.pricePerHour', { price: field.price })}`
+                        : ` · ${t('field.freePrice')}`}
+                </Text>
+            </View>
+            <FontAwesome name="chevron-left" size={12} color="#d1d5db" />
+        </TouchableOpacity>
+    );
 
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
@@ -65,7 +112,7 @@ export default function FieldsDirectoryScreen() {
                 <View className="flex-1 justify-center items-center">
                     <LoadingMotif id="pin-drop" label="טוען מגרשים…" />
                 </View>
-            ) : filtered.length === 0 ? (
+            ) : fields.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-8">
                     <FontAwesome name="map-marker" size={32} color="#d1d5db" />
                     <Text className="text-gray-500 mt-3 text-center">
@@ -73,37 +120,19 @@ export default function FieldsDirectoryScreen() {
                     </Text>
                 </View>
             ) : (
-                <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
-                    {filtered.map((field) => (
-                        <TouchableOpacity
-                            key={field.id}
-                            onPress={() => router.push(`/field/${field.id}`)}
-                            className="flex-row items-center px-4 py-3 border-b border-gray-100 bg-white"
-                            accessibilityRole="button"
-                        >
-                            {field.image ? (
-                                <Image source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100" />
-                            ) : (
-                                <View className="w-14 h-14 rounded-xl mr-3 bg-brand-mist items-center justify-center">
-                                    <FontAwesome name="map-marker" size={20} color="#059669" />
-                                </View>
-                            )}
-                            <View className="flex-1">
-                                <Text className="text-base font-bold text-gray-900" numberOfLines={1}>{field.name}</Text>
-                                <Text className="text-sm text-gray-500 mt-0.5" numberOfLines={1}>
-                                    {field.city || field.location || ''}
-                                </Text>
-                                <Text className="text-xs text-gray-400 mt-0.5">
-                                    {field.type === 'closed' ? t('field.closedField') : t('field.openField')}
-                                    {typeof field.price === 'number' && field.price > 0
-                                        ? ` · ${t('field.pricePerHour', { price: field.price })}`
-                                        : ` · ${t('field.freePrice')}`}
-                                </Text>
-                            </View>
-                            <FontAwesome name="chevron-left" size={12} color="#d1d5db" />
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                <FlatList
+                    data={fields}
+                    keyExtractor={(field) => field.id}
+                    renderItem={renderField}
+                    keyboardShouldPersistTaps="handled"
+                    onEndReachedThreshold={0.4}
+                    onEndReached={loadMore}
+                    ListFooterComponent={loadingMore ? (
+                        <View className="py-4 items-center">
+                            <ActivityIndicator />
+                        </View>
+                    ) : null}
+                />
             )}
         </SafeAreaView>
     );

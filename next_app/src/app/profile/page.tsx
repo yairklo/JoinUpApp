@@ -109,6 +109,8 @@ export default function ProfilePage() {
   const [gamesTab, setGamesTab] = useState(0);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; name?: string | null; imageUrl?: string | null; city?: string | null }>>([]);
   const [searchFocused, setSearchFocused] = useState(false);
 
   const [editing, setEditing] = useState(false);
@@ -178,8 +180,9 @@ export default function ProfilePage() {
         setProfile(await res.json());
       } catch { }
     })();
-    fetch(`${API_BASE}/api/users`).then(r => r.json()).then(setAllUsers).catch(() => { });
-    fetch(`${API_BASE}/api/users/${userId}/friends`).then(r => r.json()).then(setFriends).catch(() => { });
+    // Bounded to a handful of rows — this only feeds the "people you may know"
+    // widget below, which renders at most 6 of them.
+    fetch(`${API_BASE}/api/users?take=7`).then(r => r.json()).then(setAllUsers).catch(() => { });
     fetch(`${API_BASE}/api/users/${userId}/friends`).then(r => r.json()).then(setFriends).catch(() => { });
     (async () => {
       try {
@@ -202,6 +205,30 @@ export default function ProfilePage() {
     })();
   }, [userId]);
 
+  // Debounce the inline "search players" box, then search server-side
+  // (the same /api/users/search endpoint the dedicated search-players page
+  // uses) instead of filtering the full user list on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!debouncedSearchQuery) {
+      setSearchResults([]);
+      return;
+    }
+    let ignore = false;
+    (async () => {
+      try {
+        const token = await getToken({ template: undefined }).catch(() => "");
+        if (!token) return;
+        const results = await usersApi.search(debouncedSearchQuery, token);
+        if (!ignore) setSearchResults(results);
+      } catch { }
+    })();
+    return () => { ignore = true; };
+  }, [debouncedSearchQuery, getToken]);
 
   useEffect(() => {
     if (!profile) return;
@@ -727,8 +754,7 @@ export default function ProfilePage() {
                     {searchFocused && searchQuery.trim() !== '' && (
                       <Card elevation={4} sx={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, mt: 1, maxHeight: 300, overflowY: 'auto' }}>
                         <List dense>
-                          {allUsers
-                            .filter(u => u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase())))
+                          {searchResults
                             .slice(0, 5)
                             .map(u => (
                               <ListItem key={u.id} component="div" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => router.push(`/users/${u.id}`)}>

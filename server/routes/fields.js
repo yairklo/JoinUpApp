@@ -106,7 +106,7 @@ const fieldImageUpload = createImageUpload('fields');
 // query when `q`/`sport` are actually present, so callers that never send
 // them (map, game-creator pickers) see no behavior change.
 function applyBrowseFilters(where, query) {
-  const { q, sport } = query;
+  const { q, sport, city } = query;
   if (q) {
     where.OR = ['name', 'location', 'city', 'neighborhood', 'street'].map((field) => ({
       [field]: { contains: String(q), mode: 'insensitive' },
@@ -114,6 +114,9 @@ function applyBrowseFilters(where, query) {
   }
   if (sport && sport !== 'ALL') {
     where.supportedSports = { has: String(sport).toUpperCase() };
+  }
+  if (city) {
+    where.city = String(city);
   }
   return where;
 }

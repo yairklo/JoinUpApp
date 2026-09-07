@@ -21,6 +21,36 @@ const nextConfig: NextConfig = {
     // Ideally fix types and set this back to false.
     ignoreBuildErrors: false,
   },
+  async headers() {
+    // Static brand/content images under /public default to `max-age=0,
+    // must-revalidate` like everything else served from there, forcing a
+    // revalidation round-trip on every single page load. They aren't
+    // content-hashed (unlike _next/static/*), so avoid `immutable` — a
+    // moderate max-age plus stale-while-revalidate still lets a swapped
+    // file propagate within a day instead of caching it away for a year.
+    // sw.js/workbox-*.js/manifest.json are deliberately left untouched:
+    // the service worker must keep revalidating on every load to roll out.
+    return [
+      {
+        source: "/images/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" },
+        ],
+      },
+      {
+        source: "/icons/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" },
+        ],
+      },
+      {
+        source: "/:file(hero_bg\\.jpg|favicon\\.svg|file\\.svg|globe\\.svg|next\\.svg|vercel\\.svg|window\\.svg)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" },
+        ],
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(withPWA(nextConfig as any), {

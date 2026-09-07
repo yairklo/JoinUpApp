@@ -163,10 +163,6 @@ export default function EditGameScreen() {
     const isManager = game ? game.managers?.some((m: any) => m.id === user?.id) : false;
     const canManage = isOrganizer || isManager;
 
-    const filteredFields = fields.filter(
-        (f) => !selectedCity || f.city === selectedCity || f.location?.includes(selectedCity)
-    );
-
     useEffect(() => {
         fetchGame();
         loadFields();
@@ -174,21 +170,8 @@ export default function EditGameScreen() {
 
     const loadFields = async () => {
         try {
-            const [cityList, fieldList] = await Promise.all([
-                fieldsApi.getCities(),
-                fieldsApi.getAll(),
-            ]);
+            const cityList = await fieldsApi.getCities();
             setCities(cityList || []);
-            setFields((prev) => {
-                const list = [...(fieldList || [])];
-                // Keep any currently selected / prefilled venue that isn't in the public list
-                for (const existing of prev) {
-                    if (existing?.id && !list.some((f: any) => f.id === existing.id)) {
-                        list.unshift(existing);
-                    }
-                }
-                return list;
-            });
             if (cityList?.length) {
                 setSelectedCity((prev) => prev || cityList[0]);
             }
@@ -196,6 +179,32 @@ export default function EditGameScreen() {
             console.error('Failed to load fields', error);
         }
     };
+
+    // Fetch just the selected city's fields (bounded) instead of the entire
+    // ~900+ row table, refetching whenever the city changes.
+    useEffect(() => {
+        if (!selectedCity) return;
+        let ignore = false;
+        (async () => {
+            try {
+                const page = await fieldsApi.getPage({ take: 200, skip: 0, city: selectedCity });
+                if (ignore) return;
+                setFields((prev) => {
+                    const list = [...page.items];
+                    // Keep any currently selected / prefilled venue that isn't in this city's list
+                    for (const existing of prev) {
+                        if (existing?.id && !list.some((f: any) => f.id === existing.id)) {
+                            list.unshift(existing);
+                        }
+                    }
+                    return list;
+                });
+            } catch (error) {
+                console.error('Failed to load fields for city', error);
+            }
+        })();
+        return () => { ignore = true; };
+    }, [selectedCity]);
 
     const fetchGame = async () => {
         try {
@@ -638,7 +647,7 @@ export default function EditGameScreen() {
 
                             <Text className={`text-sm text-gray-500 mb-2 ${isRtl ? 'text-right' : 'text-left'}`}>בחר מגרש:</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                {filteredFields.map((field) => (
+                                {fields.map((field) => (
                                     <TouchableOpacity
                                         key={field.id}
                                         onPress={() => {
