@@ -1066,94 +1066,109 @@ async function runWeeklySeriesGeneration() {
     });
 
     for (const s of seriesList) {
-      if (typeof s.dayOfWeek !== 'number' || !s.time || !s.fieldId) continue;
+      try {
+        if (typeof s.dayOfWeek !== 'number' || !s.time || !s.fieldId) continue;
 
-      // Count future games
-      const futureGames = await prisma.game.findMany({
-        where: { seriesId: s.id, start: { gte: now } },
-        orderBy: { start: 'asc' }
-      });
+        // GameSeries.fieldId has no FK/cascade relation to Field (unlike Game.fieldId),
+        // so a deleted field leaves the series pointing at nothing forever. Deactivate
+        // it here instead of letting every future run fail the same Game.create().
+        const field = await prisma.field.findUnique({ where: { id: s.fieldId }, select: { id: true } });
+        if (!field) {
+          await prisma.gameSeries.update({ where: { id: s.id }, data: { isActive: false } });
+          console.warn(`Series ${s.id} references a deleted field (${s.fieldId}); deactivating.`);
+          continue;
+        }
 
-      // Ensure at least 4 future games
-      const TARGET = 4;
-      if (futureGames.length >= TARGET) continue;
-
-      // Fetch subscribers
-      const subs = await prisma.seriesParticipant.findMany({
-        where: { seriesId: s.id },
-        select: { userId: true }
-      });
-      const subscriberIds = Array.from(new Set((subs || []).map(x => x.userId).filter(Boolean)));
-
-      // Compute next start
-      let nextStart = futureGames.length
-        ? new Date(futureGames[futureGames.length - 1].start.getTime() + 7 * 24 * 60 * 60 * 1000)
-        : nextWeeklyOccurrenceFrom(now, s.dayOfWeek, s.time);
-
-      const pendingCreates = [];
-      while (futureGames.length + pendingCreates.length < TARGET) {
-        // Participants: organizer + subscribers within capacity
-        const maxCap = Number(s.maxPlayers);
-        const participantsCreate = [];
-        participantsCreate.push({
-          userId: s.organizerId,
-          status: 'CONFIRMED'
+        // Count future games
+        const futureGames = await prisma.game.findMany({
+          where: { seriesId: s.id, start: { gte: now } },
+          orderBy: { start: 'asc' }
         });
-        let remaining = Math.max(0, maxCap - 1);
-        for (const uid of subscriberIds) {
-          if (uid === s.organizerId) continue;
-          if (remaining > 0) {
-            participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
-            remaining -= 1;
-          } else {
-            participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+
+        // Ensure at least 4 future games
+        const TARGET = 4;
+        if (futureGames.length >= TARGET) continue;
+
+        // Fetch subscribers
+        const subs = await prisma.seriesParticipant.findMany({
+          where: { seriesId: s.id },
+          select: { userId: true }
+        });
+        const subscriberIds = Array.from(new Set((subs || []).map(x => x.userId).filter(Boolean)));
+
+        // Compute next start
+        let nextStart = futureGames.length
+          ? new Date(futureGames[futureGames.length - 1].start.getTime() + 7 * 24 * 60 * 60 * 1000)
+          : nextWeeklyOccurrenceFrom(now, s.dayOfWeek, s.time);
+
+        const pendingCreates = [];
+        while (futureGames.length + pendingCreates.length < TARGET) {
+          // Participants: organizer + subscribers within capacity
+          const maxCap = Number(s.maxPlayers);
+          const participantsCreate = [];
+          participantsCreate.push({
+            userId: s.organizerId,
+            status: 'CONFIRMED'
+          });
+          let remaining = Math.max(0, maxCap - 1);
+          for (const uid of subscriberIds) {
+            if (uid === s.organizerId) continue;
+            if (remaining > 0) {
+              participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
+              remaining -= 1;
+            } else {
+              participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
+            }
           }
-        }
 
-        let regOpen = null;
-        if (typeof s.autoOpenRegistrationHours === 'number') {
-          regOpen = new Date(nextStart.getTime() - s.autoOpenRegistrationHours * 3600000);
-        }
+          let regOpen = null;
+          if (typeof s.autoOpenRegistrationHours === 'number') {
+            regOpen = new Date(nextStart.getTime() - s.autoOpenRegistrationHours * 3600000);
+          }
 
-        pendingCreates.push({
-          participantIds: participantsCreate.map((p) => p.userId),
-          start: nextStart,
-          data: {
-            fieldId: s.fieldId,
-            seriesId: s.id,
+          pendingCreates.push({
+            participantIds: participantsCreate.map((p) => p.userId),
             start: nextStart,
-            duration: Math.round(Number(s.duration) || 1),
-            maxPlayers: Number(s.maxPlayers),
-            price: s.price ?? 0,
-            isOpenToJoin: true,
-            isFriendsOnly: false,
-            lotteryEnabled: false,
-            organizerInLottery: false,
-            description: '',
-            organizerId: s.organizerId,
-            participants: { create: participantsCreate },
-            roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } },
-            sport: s.sport || 'SOCCER',
-            registrationOpensAt: regOpen
-          }
-        });
+            data: {
+              fieldId: s.fieldId,
+              seriesId: s.id,
+              start: nextStart,
+              duration: Math.round(Number(s.duration) || 1),
+              maxPlayers: Number(s.maxPlayers),
+              price: s.price ?? 0,
+              isOpenToJoin: true,
+              isFriendsOnly: false,
+              lotteryEnabled: false,
+              organizerInLottery: false,
+              description: '',
+              organizerId: s.organizerId,
+              participants: { create: participantsCreate },
+              roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } },
+              sport: s.sport || 'SOCCER',
+              registrationOpensAt: regOpen
+            }
+          });
 
-        nextStart = new Date(nextStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-      }
+          nextStart = new Date(nextStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+        }
 
-      if (pendingCreates.length) {
-        const { createGroupChatForGame } = require('./services/gameService');
-        const created = await prisma.$transaction(async (tx) => {
-          const games = [];
-          for (const occ of pendingCreates) {
-            const game = await tx.game.create({ data: occ.data });
-            await createGroupChatForGame(tx, game.id, occ.participantIds);
-            games.push(game);
-          }
-          return games;
-        }, { timeout: 30000, maxWait: 10000 });
-        for (const g of created) gameScheduler.resyncGame(g);
-        console.log(`🗓️  Generated ${pendingCreates.length} weekly instances for series ${s.id}`);
+        if (pendingCreates.length) {
+          const { createGroupChatForGame } = require('./services/gameService');
+          const created = await prisma.$transaction(async (tx) => {
+            const games = [];
+            for (const occ of pendingCreates) {
+              const game = await tx.game.create({ data: occ.data });
+              await createGroupChatForGame(tx, game.id, occ.participantIds);
+              games.push(game);
+            }
+            return games;
+          }, { timeout: 30000, maxWait: 10000 });
+          for (const g of created) gameScheduler.resyncGame(g);
+          console.log(`🗓️  Generated ${pendingCreates.length} weekly instances for series ${s.id}`);
+        }
+      } catch (seriesErr) {
+        // Isolate failures per series so one bad series doesn't abort the whole batch.
+        console.error(`Weekly series generation error for series ${s.id}:`, seriesErr);
       }
     }
   } catch (e) {
