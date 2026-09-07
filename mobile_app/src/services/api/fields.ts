@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, API_BASE } from './client';
 import type { MapBounds } from '@/components/map/types';
 
 export interface Field {
@@ -17,9 +17,35 @@ export interface Field {
     street?: string | null;
     streetNumber?: string | null;
     phone?: string | null;
+    email?: string | null;
     favoritesCount?: number;
     lat?: number | null;
     lng?: number | null;
+    available?: boolean;
+}
+
+// Optional detail fields shared by create/update, all backed by columns that
+// already exist on the Prisma Field model (see server/routes/fields.js). Mirrors
+// next_app/src/services/api/fields.ts's FieldWriteData.
+export interface FieldWriteData {
+    city?: string;
+    price?: number;
+    description?: string;
+    supportedSports?: ('SOCCER' | 'BASKETBALL' | 'TENNIS')[];
+    phone?: string;
+    email?: string;
+    neighborhood?: string;
+    street?: string;
+    streetNumber?: string;
+    lat?: number;
+    lng?: number;
+}
+
+/** A locally-picked image (from expo-image-picker) ready for a multipart upload. */
+export interface PickedImage {
+    uri: string;
+    name: string;
+    type: string;
 }
 
 export interface BusyCell {
@@ -88,5 +114,62 @@ export const fieldsApi = {
             data: { busyLevel },
             token
         });
-    }
+    },
+
+    // --- Admin-only (requireAdmin on the server; the token must belong to an admin user) ---
+
+    listForAdmin: (token: string) => {
+        return apiClient<Field[]>('/api/fields?includeUnavailable=true', { token, cache: 'no-store' });
+    },
+
+    create: (data: FieldWriteData & { name: string; location: string; type: 'open' | 'closed' }, token: string) => {
+        return apiClient<Field>('/api/fields', { method: 'POST', data, token });
+    },
+
+    update: (fieldId: string, data: Partial<FieldWriteData & { name: string; location: string; type: 'open' | 'closed'; available: boolean }>, token: string) => {
+        return apiClient<Field>(`/api/fields/${fieldId}`, { method: 'PUT', data, token });
+    },
+
+    delete: (fieldId: string, token: string) => {
+        return apiClient<{ message: string }>(`/api/fields/${fieldId}`, { method: 'DELETE', token });
+    },
+
+    // RN's fetch/FormData needs { uri, name, type } for a file part, not a web File object.
+    uploadImage: async (fieldId: string, image: PickedImage, token: string): Promise<{ image: string }> => {
+        const formData = new FormData();
+        formData.append('image', image as unknown as Blob);
+        const res = await fetch(`${API_BASE}/api/fields/${fieldId}/image`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to upload image');
+        }
+        return res.json();
+    },
+
+    removeImage: (fieldId: string, token: string) => {
+        return apiClient<{ image: null }>(`/api/fields/${fieldId}/image`, { method: 'DELETE', token });
+    },
+
+    addPhoto: async (fieldId: string, image: PickedImage, token: string): Promise<Field> => {
+        const formData = new FormData();
+        formData.append('photo', image as unknown as Blob);
+        const res = await fetch(`${API_BASE}/api/fields/${fieldId}/photos`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to add photo');
+        }
+        return res.json();
+    },
+
+    removePhoto: (fieldId: string, url: string, token: string) => {
+        return apiClient<Field>(`/api/fields/${fieldId}/photos`, { method: 'DELETE', data: { url }, token });
+    },
 };

@@ -10,6 +10,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 const POSITION_OPTIONS: Record<string, string[]> = {
     SOCCER: ['שוער', 'בלם', 'מגן', 'קשר', 'חלוץ'],
@@ -37,6 +38,7 @@ export default function ProfileScreen() {
     const { user } = useUser();
     const { signOut, getToken } = useAuth();
     const router = useRouter();
+    const { isAdmin } = useIsAdmin();
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -234,6 +236,15 @@ export default function ProfileScreen() {
                 <Text className="flex-1 text-center font-extrabold text-lg text-gray-900">
                     {t('profile.personalDetails', 'הפרופיל שלי')}
                 </Text>
+                {isAdmin && (
+                    <TouchableOpacity
+                        onPress={() => router.push('/admin/fields')}
+                        className="w-10 h-10 items-center justify-center"
+                        accessibilityLabel="ניהול"
+                    >
+                        <FontAwesome name="shield" size={19} color="#374151" />
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity
                     onPress={() => router.push('/profile/settings')}
                     className="w-10 h-10 items-center justify-center"

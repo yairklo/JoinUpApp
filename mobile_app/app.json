@@ -18,7 +18,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
-        ]
+        ],
+        "NSPhotoLibraryUsageDescription": "כדי לצרף תמונות למגרש שאתם מנהלים באפליקציה"
       }
     },
     "android": {
@@ -57,7 +58,13 @@
           "color": "#2563eb"
         }
       ],
-      "@sentry/react-native"
+      "@sentry/react-native",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "כדי לצרף תמונות למגרש שאתם מנהלים באפליקציה"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
