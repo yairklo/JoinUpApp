@@ -32,6 +32,12 @@ export function usePaginatedFields({
   const [loading, setLoading] = useState(!initialItems && enabled);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set once the very first fetch-from-scratch completes and never cleared
+  // again, so callers can tell "no data yet at all" (show a full-page
+  // loader) apart from "refetching because the search/filter changed" (keep
+  // the existing UI — search box included — mounted and just show inline
+  // loading feedback instead of unmounting it out from under the user).
+  const [loadedOnce, setLoadedOnce] = useState(!!initialItems);
 
   // Bumped on every new fetch-from-scratch so a slow, superseded request
   // can't clobber state after a newer search/filter already landed.
@@ -63,7 +69,10 @@ export function usePaginatedFields({
       } finally {
         if (seq === requestSeq.current) {
           if (append) setLoadingMore(false);
-          else setLoading(false);
+          else {
+            setLoading(false);
+            setLoadedOnce(true);
+          }
         }
       }
     },
@@ -86,5 +95,18 @@ export function usePaginatedFields({
 
   const reload = useCallback(() => fetchPage(0, false), [fetchPage]);
 
-  return { fields, total, hasMore, loading, loadingMore, error, loadMore, reload };
+  return {
+    fields,
+    total,
+    hasMore,
+    loading,
+    // True only for the very first fetch (no data on screen yet) — safe to
+    // gate a full-page loader on. Once any data has loaded, later refetches
+    // (e.g. typing in a search box) only toggle `loading`, not this.
+    isInitialLoad: loading && !loadedOnce,
+    loadingMore,
+    error,
+    loadMore,
+    reload,
+  };
 }

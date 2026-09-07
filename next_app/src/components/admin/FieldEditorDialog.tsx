@@ -14,6 +14,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Autocomplete from "@mui/material/Autocomplete";
 import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
@@ -98,12 +99,17 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
   // Track the just-created field so a "create" session can immediately offer
   // image/photo upload without forcing a second "edit" round-trip.
   const [savedField, setSavedField] = useState<Field | null>(null);
+  // Existing cities across all fields, so the city input can offer a pick
+  // list instead of forcing free typing (which produced inconsistent
+  // spellings/duplicates like "תל אביב" vs "ת"א").
+  const [cities, setCities] = useState<string[]>([]);
 
   useEffect(() => {
     if (open) {
       setForm(field ? fieldToForm(field) : EMPTY_FORM);
       setSavedField(field);
       setError(null);
+      fieldsApi.getCities().then(setCities).catch(() => {});
     }
   }, [open, field]);
 
@@ -190,7 +196,16 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
           <TextField label="כתובת *" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} fullWidth />
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <TextField label="עיר" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} fullWidth />
+            <Autocomplete
+              freeSolo
+              fullWidth
+              options={cities}
+              value={form.city}
+              inputValue={form.city}
+              onInputChange={(_event, value) => setForm((f) => ({ ...f, city: value }))}
+              onChange={(_event, value) => setForm((f) => ({ ...f, city: value || "" }))}
+              renderInput={(params) => <TextField {...params} label="עיר" placeholder="בחרו עיר קיימת או הקלידו חדשה" />}
+            />
             <TextField label="שכונה" value={form.neighborhood} onChange={(e) => setForm({ ...form, neighborhood: e.target.value })} fullWidth />
           </Stack>
 

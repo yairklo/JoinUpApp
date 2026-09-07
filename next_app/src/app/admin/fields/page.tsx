@@ -34,6 +34,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
+import CircularProgress from "@mui/material/CircularProgress";
 
 export default function AdminFieldsPage() {
   const { getToken } = useAuth();
@@ -60,6 +61,7 @@ export default function AdminFieldsPage() {
     fields,
     total,
     loading,
+    isInitialLoad,
     loadingMore,
     hasMore,
     error: loadError,
@@ -109,7 +111,7 @@ export default function AdminFieldsPage() {
     }
   };
 
-  if (!token || loading) {
+  if (!token || isInitialLoad) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
         <LoadingMotif id="pin-drop" label="טוען מגרשים…" />
@@ -147,16 +149,19 @@ export default function AdminFieldsPage() {
 
       <Card>
         <CardContent>
-          <Typography fontWeight={700} mb={2}>
-            {debouncedSearch ? `תוצאות (${fields.length} מתוך ${total})` : `כל המגרשים (${total})`}
-          </Typography>
+          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+            <Typography fontWeight={700}>
+              {debouncedSearch ? `תוצאות (${fields.length} מתוך ${total})` : `כל המגרשים (${total})`}
+            </Typography>
+            {loading && <CircularProgress size={16} />}
+          </Stack>
           <Divider sx={{ mb: 2 }} />
-          {fields.length === 0 ? (
+          {!loading && fields.length === 0 ? (
             <Typography color="text.secondary" textAlign="center" py={4}>
               {debouncedSearch ? "לא נמצאו מגרשים התואמים את החיפוש" : "אין עדיין מגרשים"}
             </Typography>
           ) : (
-            <Stack spacing={1.5}>
+            <Stack spacing={1.5} sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 150ms ease" }}>
               {fields.map((field) => (
                 <Stack
                   key={field.id}
