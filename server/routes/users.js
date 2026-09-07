@@ -527,7 +527,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     const data = {
       ...(typeof name !== 'undefined' ? { name } : {}),
-      ...(typeof email !== 'undefined' ? { email } : {}),
+      ...(typeof email !== 'undefined' ? { email: email || null } : {}),
       ...(typeof phone !== 'undefined' ? { phone } : {}),
       ...(typeof imageUrl !== 'undefined' ? { imageUrl } : {}),
       ...(typeof city !== 'undefined' ? { city } : {}),
