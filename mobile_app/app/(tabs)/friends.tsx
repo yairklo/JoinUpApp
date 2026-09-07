@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, Alert, RefreshControl } from 'react-native';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { usersApi } from '../../src/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 export default function FriendsScreen() {
     const { t } = useTranslation();
@@ -99,7 +100,7 @@ export default function FriendsScreen() {
     if (loading && !refreshing) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <ActivityIndicator size="large" color="#059669" />
+                <LoadingMotif id="crowd-wave" label="טוען חברים…" />
             </SafeAreaView>
         );
     }

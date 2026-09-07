@@ -434,7 +434,7 @@ export function PageLoading({
   return (
     <Box
       sx={{
-        minHeight: 240,
+        minHeight: { xs: "55vh", md: "65vh" },
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

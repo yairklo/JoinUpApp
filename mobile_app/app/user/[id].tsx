@@ -6,6 +6,7 @@ import { usersApi, UserProfile, ProfileMatch } from '../../src/services/api/user
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 
 const PAGE_SIZE = 5;
@@ -145,7 +146,7 @@ export default function UserProfileScreen() {
     if (loading) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <ActivityIndicator size="large" color="#059669" />
+                <LoadingMotif id="crowd-wave" label="טוען שחקן…" />
             </SafeAreaView>
         );
     }

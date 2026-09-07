@@ -1,10 +1,11 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Image, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Image, ScrollView } from 'react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fieldsApi, Field } from '@/services/api';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 export default function FieldsDirectoryScreen() {
     const { t } = useTranslation();
@@ -62,7 +63,7 @@ export default function FieldsDirectoryScreen() {
 
             {loading ? (
                 <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#059669" />
+                    <LoadingMotif id="pin-drop" label="טוען מגרשים…" />
                 </View>
             ) : filtered.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-8">

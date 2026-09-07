@@ -6,6 +6,7 @@ import { seriesApi, usersApi } from '@/services/api';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -160,7 +161,7 @@ export default function SeriesScreen() {
                     <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Series Details')}</Text>
                 </View>
                 <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#059669" />
+                    <LoadingMotif id="passing-lane" label="טוען קבוצה…" />
                 </View>
             </SafeAreaView>
         );

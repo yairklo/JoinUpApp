@@ -20,7 +20,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import CircularProgress from "@mui/material/CircularProgress";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import Alert from "@mui/material/Alert";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -113,7 +113,7 @@ export default function AdminFieldsPage() {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
-        <CircularProgress />
+        <LoadingMotif id="pin-drop" label="טוען מגרשים…" />
       </Box>
     );
   }

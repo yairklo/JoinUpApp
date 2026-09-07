@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, ActivityIndicator, Alert } from 'r
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { ratingsApi, GameRatingTeammate } from '@/services/api/ratings';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 
 function StarRow({
@@ -88,7 +89,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
     if (loading) {
         return (
             <View className="py-6 items-center">
-                <ActivityIndicator size="small" color="#059669" />
+                <LoadingMotif id="bouncing-ball" />
             </View>
         );
     }

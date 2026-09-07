@@ -6,6 +6,7 @@ import { usersApi } from '../../src/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 export default function SearchPlayersScreen() {
     const router = useRouter();
@@ -182,7 +183,7 @@ export default function SearchPlayersScreen() {
 
             {loading && (
                 <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#059669" />
+                    <LoadingMotif id="crowd-wave" label="טוען שחקנים…" />
                 </View>
             )}
 

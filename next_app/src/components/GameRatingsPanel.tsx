@@ -12,6 +12,7 @@ import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import Rating from "@mui/material/Rating";
 import CircularProgress from "@mui/material/CircularProgress";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 
@@ -72,7 +73,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" py={3}>
-                <CircularProgress size={24} />
+                <LoadingMotif id="bouncing-ball" />
             </Box>
         );
     }

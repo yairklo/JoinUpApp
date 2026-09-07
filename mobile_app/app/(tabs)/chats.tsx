@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import React, { useState, useCallback, useMemo } from 'react';
 import { useUser } from '@clerk/clerk-expo';
@@ -6,6 +6,7 @@ import { useChat, ChatPreview, dedupeChatsById } from '@/context/ChatContext';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 // Extracted + memoized chat item — only re-renders when its own data changes
 const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel, onPress }: {
@@ -137,7 +138,7 @@ export default function ChatsScreen() {
     if (loadingChats && !refreshing) {
         return (
             <View className="flex-1 justify-center items-center">
-                <ActivityIndicator size="large" color="#059669" />
+                <LoadingMotif id="message-stack" label="טוען צ'אטים…" />
             </View>
         );
     }
