@@ -9,12 +9,12 @@ import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
-import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Chip from "@mui/material/Chip";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -117,7 +117,7 @@ export default function PendingJoinRequests({
   if (loading) {
     return (
       <Card elevation={2} sx={{ p: 2, mb: 2, display: "flex", justifyContent: "center" }}>
-        <CircularProgress size={24} />
+        <LoadingMotif id="passing-lane" />
       </Card>
     );
   }

@@ -17,10 +17,10 @@ import {
     useMediaQuery,
     useTheme,
     Badge,
-    CircularProgress,
     Tabs,
     Tab
 } from "@mui/material";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import ChatIcon from "@mui/icons-material/Chat";
 import PersonIcon from "@mui/icons-material/Person";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
@@ -164,7 +164,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
             <List sx={{ p: 0, overflowY: 'auto', flex: 1 }}>
                 {loadingChats && chats.length === 0 ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                        <CircularProgress />
+                        <LoadingMotif id="message-stack" />
                     </Box>
                 ) : filteredChats.length === 0 ? (
                     <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary', mt: 4 }}>

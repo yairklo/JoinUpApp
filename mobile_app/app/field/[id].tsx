@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, FlatList } from 'react-native';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
@@ -7,6 +7,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fieldsApi, Field, FieldAnalytics, FieldScheduleGame, BusyCell } from '@/services/api';
 import { SPORT_MAPPING } from '@/utils/sports';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 const CHART_MAX_HEIGHT = 120;
 
@@ -100,7 +101,7 @@ export default function FieldProfileScreen() {
             <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50">
                 <FieldProfileHeader title={t('field.profile')} onBack={() => router.back()} />
                 <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#059669" />
+                    <LoadingMotif id="pin-drop" label="טוען מגרש…" />
                 </View>
             </SafeAreaView>
         );

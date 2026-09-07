@@ -10,7 +10,7 @@ import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 
@@ -86,7 +86,7 @@ export default function AdminModerationPage() {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
+      <Box display="flex" justifyContent="center" py={8}><LoadingMotif id="brand-pulse" label="טוען ניהול…" /></Box>
     );
   }
 

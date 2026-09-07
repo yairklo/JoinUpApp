@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useFocusEffect } from 'expo-router';
 import { Game } from '@/types/game';
@@ -12,6 +12,7 @@ import { useSyncedGames } from '@/hooks/useSyncedGames';
 import { useTranslation } from 'react-i18next';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 function isMyGame(game: Game, userId?: string | null) {
     if (!userId) return false;
@@ -82,7 +83,7 @@ export default function MyGamesSection() {
     if (loading && games.length === 0) {
         return (
             <View className="py-6 items-center">
-                <ActivityIndicator size="small" color="#059669" />
+                <LoadingMotif id="bouncing-ball" />
             </View>
         );
     }

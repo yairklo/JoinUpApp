@@ -27,6 +27,10 @@
     "./types/game": {
       "types": "./types/game.ts",
       "default": "./types/game.ts"
+    },
+    "./loadingMotifs": {
+      "types": "./loadingMotifs.d.ts",
+      "default": "./loadingMotifs.js"
     }
   },
   "devDependencies": {

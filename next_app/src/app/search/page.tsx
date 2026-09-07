@@ -11,6 +11,7 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import InlineErrorRow from "@/components/InlineErrorRow";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getLoadErrorMessage } from "@/utils/apiError";
@@ -18,7 +19,6 @@ import { getLoadErrorMessage } from "@/utils/apiError";
 // MUI
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
@@ -32,7 +32,7 @@ import GroupIcon from "@mui/icons-material/Group";
 // Dynamically import the map to avoid SSR issues with Leaflet using window
 const SearchMapComponent = dynamic(
   () => import("@/components/SearchMapComponent"),
-  { ssr: false, loading: () => <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box> }
+  { ssr: false, loading: () => <Box p={4} display="flex" justifyContent="center"><LoadingMotif id="pin-drop" /></Box> }
 );
 
 const SPORTS = Object.entries(SPORT_MAPPING).map(([id, label]) => ({ id, label }));
@@ -431,7 +431,7 @@ export default function SearchPage() {
 
         {loading && games.length === 0 ? (
           <Box display="flex" justifyContent="center" p={4}>
-            <CircularProgress />
+            <LoadingMotif id="dribble" label="טוען משחקים…" />
           </Box>
         ) : error && games.length === 0 ? (
           <InlineErrorRow message={error} onRetry={performSearch} />

@@ -10,13 +10,13 @@ import {
   TextField,
   IconButton,
   Stack,
-  CircularProgress,
   useTheme,
   Fab,
   Badge,
   Zoom,
   Avatar
 } from "@mui/material";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import SendIcon from "@mui/icons-material/Send";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
@@ -180,7 +180,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         >
           {state.isLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <CircularProgress />
+              <LoadingMotif id="message-stack" />
             </Box>
           ) : (
             <>

@@ -10,7 +10,7 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import TextField from "@mui/material/TextField";
 import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
@@ -281,7 +281,7 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" py={6}>
-        <CircularProgress />
+        <LoadingMotif id="passing-lane" label="טוען בחירת קבוצות…" />
       </Box>
     );
   }

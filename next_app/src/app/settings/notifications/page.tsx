@@ -13,6 +13,7 @@ import Switch from '@mui/material/Switch';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import Divider from '@mui/material/Divider';
 
 // Icons
@@ -118,7 +119,7 @@ export default function NotificationSettingsPage() {
     if (loading) {
         return (
             <Container maxWidth="sm" sx={{ py: 8, textAlign: 'center' }}>
-                <CircularProgress />
+                <LoadingMotif id="brand-pulse" label="טוען התראות…" />
             </Container>
         );
     }

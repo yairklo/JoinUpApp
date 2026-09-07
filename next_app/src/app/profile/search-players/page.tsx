@@ -16,7 +16,6 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
-import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
@@ -29,6 +28,7 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
 import Avatar from "@/components/Avatar";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 
 // 1. העברנו את כל הלוגיקה וה-UI לרכיב פנימי
 function SearchPlayersContent() {
@@ -156,7 +156,7 @@ function SearchPlayersContent() {
 
       {loading && (
         <Box display="flex" justifyContent="center" py={8}>
-          <CircularProgress />
+          <LoadingMotif id="crowd-wave" label="טוען שחקנים…" />
         </Box>
       )}
 
@@ -254,7 +254,7 @@ export default function SearchPlayersPage() {
   return (
     <Suspense fallback={
       <Box display="flex" justifyContent="center" py={8}>
-        <CircularProgress />
+        <LoadingMotif id="crowd-wave" label="טוען שחקנים…" />
       </Box>
     }>
       <SearchPlayersContent />

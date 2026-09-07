@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
-import CircularProgress from "@mui/material/CircularProgress";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 // RTL: "forward" points left
 import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 import IconButton from "@mui/material/IconButton";
@@ -57,7 +57,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
     if (loading && games.length === 0) {
         return (
             <Box display="flex" justifyContent="center" p={2}>
-                <CircularProgress size={20} />
+                <LoadingMotif id="dribble" />
             </Box>
         );
     }

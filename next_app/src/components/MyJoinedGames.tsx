@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
-import CircularProgress from "@mui/material/CircularProgress";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 // RTL: "forward" points left
 import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 
@@ -35,7 +35,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
   if (!isLoaded || loading) {
     return (
       <Box display="flex" justifyContent="center" p={2}>
-        <CircularProgress size={24} />
+        <LoadingMotif id="bouncing-ball" />
       </Box>
     );
   }

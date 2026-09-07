@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { gamesApi, fieldsApi } from '@/services/api';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import { useAuth } from '@clerk/clerk-expo';
 import { Game } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -577,7 +578,7 @@ export default function SearchScreen() {
                     ListEmptyComponent={
                         <View className="items-center mt-10">
                             {loading ? (
-                                <ActivityIndicator color="#059669" />
+                                <LoadingMotif id="dribble" />
                             ) : (
                                 <Text className="text-gray-400">{t('search.noGamesFound')}</Text>
                             )}

@@ -9,7 +9,6 @@ import {
     ListItemButton,
     ListItemText,
     Button,
-    CircularProgress,
     Typography,
     Box,
     Divider,
@@ -18,6 +17,7 @@ import {
 import { Notifications as NotificationsIcon } from '@mui/icons-material';
 import { useAuth } from '@clerk/nextjs';
 import { useNotifications } from '@/hooks/useNotifications';
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import { Notification } from '@/services/api/notifications';
 import { chatsApi } from '@/services/api/chats';
 
@@ -112,7 +112,7 @@ export default function NotificationPanel() {
                 <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     {loading && notifications.length === 0 ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4, flex: 1 }}>
-                            <CircularProgress size={24} />
+                            <LoadingMotif id="message-stack" />
                         </Box>
                     ) : notifications.length === 0 ? (
                         <Box sx={{ p: 4, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>

@@ -6,6 +6,7 @@ import { useUser, useAuth } from '@clerk/clerk-expo';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
 import { usersApi, PrivacyLevel } from '../../src/services/api/users';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 type FieldKey = 'privacyFriends' | 'privacyGames' | 'privacyMessages';
 type FieldValue = PrivacyLevel | 'DEFAULT';
@@ -92,7 +93,7 @@ export default function PrivacySettingsScreen() {
 
             {loading ? (
                 <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#059669" />
+                    <LoadingMotif id="brand-pulse" label="טוען הגדרות…" />
                 </View>
             ) : (
                 <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>

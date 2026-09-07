@@ -1,9 +1,10 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { gamesApi } from '@/services/api';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SocketManager } from '@/services/socketManager';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -325,7 +326,7 @@ export default function LiveTeamManagementScreen() {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Stack.Screen options={{ title: t('teams.live'), headerShown: true }} />
-        <ActivityIndicator size="large" />
+        <LoadingMotif id="passing-lane" label="טוען בחירת קבוצות…" />
       </SafeAreaView>
     );
   }

@@ -6,6 +6,7 @@ import { usersApi, UserProfile } from '../../src/services/api/users';
 import { gamesApi } from '../../src/services/api/games';
 import { Game } from '@/types/game';
 import { API_BASE } from '../../src/services/api/client';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -217,7 +218,7 @@ export default function ProfileScreen() {
     if (loading) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <ActivityIndicator size="large" color="#059669" />
+                <LoadingMotif id="brand-pulse" label="טוען פרופיל…" />
             </SafeAreaView>
         );
     }

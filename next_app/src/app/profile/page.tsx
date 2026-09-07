@@ -19,7 +19,6 @@ import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemAvatar from "@mui/material/ListItemAvatar";
 import ListItemText from "@mui/material/ListItemText";
-import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import Chip from "@mui/material/Chip";
@@ -47,6 +46,7 @@ import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettin
 
 
 // Custom Components
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import { SPORT_MAPPING, POSITION_OPTIONS } from "@/utils/sports";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
@@ -347,7 +347,7 @@ export default function ProfilePage() {
       <SignedIn>
         {!profile ? (
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-            <CircularProgress />
+            <LoadingMotif id="brand-pulse" label="טוען פרופיל…" />
           </Box>
         ) : (
           // ראשית: Grid Container

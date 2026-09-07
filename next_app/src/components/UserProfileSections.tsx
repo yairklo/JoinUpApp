@@ -16,6 +16,7 @@ import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
@@ -70,7 +71,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" py={3}>
-                <CircularProgress size={24} />
+                <LoadingMotif id="crowd-wave" />
             </Box>
         );
     }
