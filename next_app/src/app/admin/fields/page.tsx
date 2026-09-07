@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { fieldsApi, Field } from "@/services/api/fields";
+import { usePaginatedFields } from "@/hooks/usePaginatedFields";
+import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { SPORT_MAPPING } from "@/utils/sports";
 import FieldEditorDialog from "@/components/admin/FieldEditorDialog";
 
@@ -35,43 +37,40 @@ import DialogActions from "@mui/material/DialogActions";
 
 export default function AdminFieldsPage() {
   const { getToken } = useAuth();
-  const [fields, setFields] = useState<Field[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [token, setToken] = useState<string | undefined>();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingField, setEditingField] = useState<Field | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Field | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async () => {
-    const token = await getToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    const list = await fieldsApi.listForAdmin(token);
-    setFields(Array.isArray(list) ? list : []);
-    setLoading(false);
+  useEffect(() => {
+    getToken().then((t) => setToken(t || undefined));
   }, [getToken]);
 
   useEffect(() => {
-    load().catch((e) => {
-      console.error(e);
-      setLoading(false);
-    });
-  }, [load]);
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const filteredFields = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return fields;
-    return fields.filter((f) =>
-      [f.name, f.city, f.location, f.neighborhood, f.street]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q))
-    );
-  }, [fields, search]);
+  const {
+    fields,
+    total,
+    loading,
+    loadingMore,
+    hasMore,
+    error: loadError,
+    loadMore,
+    reload,
+  } = usePaginatedFields({
+    q: debouncedSearch,
+    includeUnavailable: true,
+    token,
+    enabled: !!token,
+  });
 
   const openCreate = () => {
     setEditingField(null);
@@ -85,10 +84,10 @@ export default function AdminFieldsPage() {
 
   const toggleAvailable = async (field: Field) => {
     try {
-      const token = await getToken();
-      if (!token) return;
-      await fieldsApi.update(field.id, { available: !field.available }, token);
-      await load();
+      const t = await getToken();
+      if (!t) return;
+      await fieldsApi.update(field.id, { available: !field.available }, t);
+      await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "עדכון המגרש נכשל");
     }
@@ -98,11 +97,11 @@ export default function AdminFieldsPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const token = await getToken();
-      if (!token) return;
-      await fieldsApi.delete(deleteTarget.id, token);
+      const t = await getToken();
+      if (!t) return;
+      await fieldsApi.delete(deleteTarget.id, t);
       setDeleteTarget(null);
-      await load();
+      await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "מחיקת המגרש נכשלה");
     } finally {
@@ -110,7 +109,7 @@ export default function AdminFieldsPage() {
     }
   };
 
-  if (loading) {
+  if (!token || loading) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
         <LoadingMotif id="pin-drop" label="טוען מגרשים…" />
@@ -127,7 +126,9 @@ export default function AdminFieldsPage() {
         </Button>
       </Stack>
 
-      {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+      {(error || loadError) && (
+        <Alert severity="error" onClose={() => setError(null)}>{error || loadError}</Alert>
+      )}
 
       <TextField
         placeholder="חיפוש לפי שם, עיר או כתובת…"
@@ -147,16 +148,16 @@ export default function AdminFieldsPage() {
       <Card>
         <CardContent>
           <Typography fontWeight={700} mb={2}>
-            {search ? `תוצאות (${filteredFields.length} מתוך ${fields.length})` : `כל המגרשים (${fields.length})`}
+            {debouncedSearch ? `תוצאות (${fields.length} מתוך ${total})` : `כל המגרשים (${total})`}
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          {filteredFields.length === 0 ? (
+          {fields.length === 0 ? (
             <Typography color="text.secondary" textAlign="center" py={4}>
-              {search ? "לא נמצאו מגרשים התואמים את החיפוש" : "אין עדיין מגרשים"}
+              {debouncedSearch ? "לא נמצאו מגרשים התואמים את החיפוש" : "אין עדיין מגרשים"}
             </Typography>
           ) : (
             <Stack spacing={1.5}>
-              {filteredFields.map((field) => (
+              {fields.map((field) => (
                 <Stack
                   key={field.id}
                   direction={{ xs: "column", sm: "row" }}
@@ -207,6 +208,7 @@ export default function AdminFieldsPage() {
               ))}
             </Stack>
           )}
+          <InfiniteScrollSentinel hasMore={hasMore} loading={loadingMore} onVisible={loadMore} />
         </CardContent>
       </Card>
 
@@ -214,7 +216,7 @@ export default function AdminFieldsPage() {
         open={editorOpen}
         field={editingField}
         onClose={() => setEditorOpen(false)}
-        onSaved={() => load()}
+        onSaved={() => reload()}
       />
 
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} dir="rtl">

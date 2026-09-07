@@ -2,36 +2,23 @@ import FieldsBrowser from "@/components/FieldsBrowser";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-
-type Field = {
-  id: string;
-  name: string;
-  location: string;
-  price: number;
-  rating: number;
-  image: string;
-  available: boolean;
-  type: "open" | "closed";
-  supportedSports?: string[];
-  description?: string;
-  games: Array<{ id: string; date: string; time: string }>;
-  favoritesCount?: number;
-};
+import type { FieldListItem } from "@/services/api/fields";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
+const PAGE_SIZE = 24;
 
-async function fetchFields(): Promise<Field[]> {
+async function fetchFirstPage(): Promise<{ items: FieldListItem[]; total: number; hasMore: boolean }> {
   try {
-    const res = await fetch(`${API_BASE}/api/fields`, { cache: "no-store" });
-    if (!res.ok) return [];
+    const res = await fetch(`${API_BASE}/api/fields?take=${PAGE_SIZE}&skip=0`, { cache: "no-store" });
+    if (!res.ok) return { items: [], total: 0, hasMore: false };
     return res.json();
   } catch {
-    return [];
+    return { items: [], total: 0, hasMore: false };
   }
 }
 
 export default async function FieldsPage() {
-  const fields = await fetchFields();
+  const { items, total, hasMore } = await fetchFirstPage();
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 }, px: { xs: 2, sm: 3 } }}>
@@ -44,22 +31,7 @@ export default async function FieldsPage() {
         </Typography>
       </Box>
 
-      {fields.length === 0 ? (
-        <Box
-          sx={{
-            textAlign: "center",
-            py: 8,
-            borderRadius: 4,
-            bgcolor: "action.hover",
-          }}
-        >
-          <Typography variant="body1" color="text.secondary">
-            לא נמצאו מגרשים כרגע. נסו שוב מאוחר יותר.
-          </Typography>
-        </Box>
-      ) : (
-        <FieldsBrowser fields={fields} />
-      )}
+      <FieldsBrowser initialItems={items} initialTotal={total} initialHasMore={hasMore} />
     </Container>
   );
 }
