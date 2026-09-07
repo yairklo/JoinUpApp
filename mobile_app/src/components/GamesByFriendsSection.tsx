@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useGamesByFriends } from '@/hooks/useGamesByFriends';
 import GameCard from './GameCard';
 import JoinGameButton from './JoinGameButton';
@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 
 export default function GamesByFriendsSection({ sportFilter }: { sportFilter?: string }) {
     const { games, loading } = useGamesByFriends();
@@ -20,7 +21,7 @@ export default function GamesByFriendsSection({ sportFilter }: { sportFilter?: s
     if (loading && games.length === 0) {
         return (
             <View className="py-6 items-center">
-                <ActivityIndicator size="small" color="#059669" />
+                <LoadingMotif id="crowd-wave" />
             </View>
         );
     }

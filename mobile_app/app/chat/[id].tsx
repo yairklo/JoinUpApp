@@ -1,4 +1,4 @@
-import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Alert, Keyboard, Image } from 'react-native';
+import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, Keyboard, Image } from 'react-native';
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useChatLogic } from '@/hooks/useChatLogic';
@@ -6,6 +6,7 @@ import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import MessageBubble from '@/components/chat/MessageBubble';
 import ReplyPreview from '@/components/chat/ReplyPreview';
 import { ChatMessage } from '@/types/chat';
@@ -124,7 +125,7 @@ export default function ChatScreen() {
     if (isLoading && messages.length === 0) {
         return (
             <View className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#059669" />
+                <LoadingMotif id="message-stack" label="טוען שיחה…" />
             </View>
         );
     }

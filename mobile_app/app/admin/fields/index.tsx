@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { fieldsApi, Field } from '@/services/api/fields';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING } from '@/utils/sports';
 
 /**
@@ -128,7 +129,7 @@ export default function AdminFieldsListScreen() {
 
             {loading ? (
                 <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#059669" />
+                    <LoadingMotif id="pin-drop" label="טוען מגרשים…" />
                 </View>
             ) : filteredFields.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-8">

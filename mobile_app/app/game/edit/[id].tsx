@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { gamesApi, fieldsApi, usersApi } from '@/services/api';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Game } from '@/types/game';
@@ -524,7 +525,7 @@ export default function EditGameScreen() {
     if (loading) {
         return (
             <SafeAreaView className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#059669" />
+                <LoadingMotif id="pin-drop" label="טוען עריכת משחק…" />
             </SafeAreaView>
         );
     }

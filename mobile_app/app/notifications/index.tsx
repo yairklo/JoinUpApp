@@ -1,4 +1,4 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity } from 'react-native';
 import React, { useCallback } from 'react';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useNotifications } from '@/context/NotificationContext';
 import type { Notification } from '@/services/api/notifications';
 import { chatsApi } from '@/services/api/chats';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import { formatNotificationDate, getNotificationKey } from '@/utils/notificationDisplay';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
@@ -137,7 +138,7 @@ export default function NotificationsScreen() {
             <View className="flex-1 bg-white">
                 {loading && notifications.length === 0 ? (
                     <View className="flex-1 justify-center items-center">
-                        <ActivityIndicator size="large" color="#059669" />
+                        <LoadingMotif id="message-stack" label="טוען התראות…" />
                     </View>
                 ) : (
                     <FlatList

@@ -19,6 +19,7 @@ import MenuItem from "@mui/material/MenuItem";
 import InputLabel from "@mui/material/InputLabel";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
@@ -169,7 +170,7 @@ export default function PrivacySettingsPage() {
 
                         {loading ? (
                             <Box display="flex" justifyContent="center" py={4}>
-                                <CircularProgress size={28} />
+                                <LoadingMotif id="brand-pulse" />
                             </Box>
                         ) : (
                             <Stack spacing={3}>

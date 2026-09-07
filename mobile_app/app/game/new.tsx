@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { gamesApi, fieldsApi, usersApi, seriesApi } from '@/services/api';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import type { Field } from '@/services/api/fields';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -469,7 +470,7 @@ export default function NewGameScreen() {
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center">
-                <ActivityIndicator size="large" color="#059669" />
+                <LoadingMotif id="pin-drop" label="טוען יצירת משחק…" />
             </View>
         );
     }

@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { Box, Typography, CircularProgress } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import ChatList from "@/components/ChatList";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 
 export default function ChatsIndexPage() {
     const { user, isLoaded, isSignedIn } = useUser();
@@ -19,7 +20,7 @@ export default function ChatsIndexPage() {
     if (!isLoaded) {
         return (
             <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-                <CircularProgress />
+                <LoadingMotif id="message-stack" label="טוען צ'אטים…" />
             </Box>
         );
     }

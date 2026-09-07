@@ -1,4 +1,4 @@
-import { View, Text, RefreshControl, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, RefreshControl, TouchableOpacity, ScrollView } from 'react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useGamesByDate } from '@/hooks/useGamesByDate';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import SeriesSection from '@/components/SeriesSection';
 import GamesByCitySection from '@/components/GamesByCitySection';
 import GamesByFriendsSection from '@/components/GamesByFriendsSection';
 import GlobalSearchOmnibar from '@/components/GlobalSearchOmnibar';
+import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING } from '@/utils/sports';
 
 const SPORTS = [
@@ -146,7 +147,7 @@ export default function HomeScreen() {
 
         {loading && games.length === 0 ? (
           <View className="py-10 items-center justify-center">
-            <ActivityIndicator size="large" color={BRAND} />
+            <LoadingMotif id="kickoff-ripple" label="טוען משחקים…" />
           </View>
         ) : cappedGames.length > 0 ? (
           <View className="mt-2">
