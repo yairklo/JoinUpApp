@@ -41,12 +41,14 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import SearchIcon from "@mui/icons-material/Search";
 import SettingsIcon from "@mui/icons-material/Settings";
+import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 
 // MUI Form
 
 
 // Custom Components
 import { SPORT_MAPPING, POSITION_OPTIONS } from "@/utils/sports";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 import Avatar from "@/components/Avatar";
 import ImageUploadField from "@/components/ImageUploadField";
@@ -90,6 +92,7 @@ import { useRouter } from "next/navigation";
 export default function ProfilePage() {
   const { user } = useUser();
   const { getToken } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const router = useRouter();
   const userId = user?.id;
 
@@ -387,6 +390,14 @@ export default function ProfilePage() {
                         >
                           <SettingsIcon />
                         </IconButton>
+                        {isAdmin && (
+                          <IconButton
+                            aria-label="ניהול"
+                            onClick={() => router.push("/admin/fields")}
+                          >
+                            <AdminPanelSettingsOutlinedIcon />
+                          </IconButton>
+                        )}
                       </Stack>
                     )}
                   </Box>
