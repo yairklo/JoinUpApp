@@ -67,19 +67,15 @@ const formatShortDate = (dateStr?: string) => {
 
 type GameGroup = { key: string; lat: number; lng: number; games: Game[] };
 
+// Uncontrolled initial center -- @vis.gl/react-google-maps only applies this
+// once, at mount, so it's a static fallback only. The real "center on the
+// user" behavior comes from `targetLocation`, which the search page sets
+// once it resolves geolocation and which BoundsListener below reacts to on
+// every change (see its `targetLocation` effect) -- unlike this prop, that
+// one actually re-pans an already-mounted map.
+const DEFAULT_CENTER = { lat: 32.0853, lng: 34.7818 }; // Tel Aviv
+
 export default function SearchMapComponent({ games, emptyFields = [], onBoundsChanged, onGameSelect, targetLocation }: SearchMapComponentProps) {
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number }>({ lat: 32.0853, lng: 34.7818 }); // Default Tel Aviv
-
-  // Attempt to get user geolocation on mount
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {} // Silent fallback to default
-      );
-    }
-  }, []);
-
   // Group games that have identical coordinates so they don't visually overlap perfectly
   const groupedGames: GameGroup[] = useMemo(() => {
     const map = new Map<string, GameGroup>();
@@ -104,7 +100,7 @@ export default function SearchMapComponent({ games, emptyFields = [], onBoundsCh
       <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he">
         <GoogleMap
           mapId="DEMO_MAP_ID"
-          defaultCenter={userLocation}
+          defaultCenter={DEFAULT_CENTER}
           defaultZoom={12}
           gestureHandling="greedy"
           disableDefaultUI={false}
