@@ -48,10 +48,10 @@ export function useGamesByCity(initialCity?: string) {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    if (!ignore) setDisplayedCity(data.city || "Tel Aviv");
+                    if (!ignore) setDisplayedCity(data.city || "תל אביב-יפו");
                 }
             } catch (e) {
-                if (!ignore) setDisplayedCity("Tel Aviv");
+                if (!ignore) setDisplayedCity("תל אביב-יפו");
             }
         }
         fetchUserCity();

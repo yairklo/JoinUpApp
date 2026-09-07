@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -9,7 +9,10 @@ import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import SearchIcon from "@mui/icons-material/Search";
 
-import FieldCard, { type Field } from "@/components/FieldCard";
+import FieldCard from "@/components/FieldCard";
+import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
+import { usePaginatedFields } from "@/hooks/usePaginatedFields";
+import type { FieldListItem } from "@/services/api/fields";
 import { SportFilter, SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 
 const FILTERS: { label: string; value: SportFilter }[] = [
@@ -19,22 +22,35 @@ const FILTERS: { label: string; value: SportFilter }[] = [
   { label: SPORT_MAPPING.TENNIS, value: "TENNIS" },
 ];
 
-export default function FieldsBrowser({ fields }: { fields: Field[] }) {
+export default function FieldsBrowser({
+  initialItems,
+  initialTotal,
+  initialHasMore,
+}: {
+  initialItems: FieldListItem[];
+  initialTotal: number;
+  initialHasMore: boolean;
+}) {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sportFilter, setSportFilter] = useState<SportFilter>("ALL");
 
-  const filteredFields = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return fields.filter((f) => {
-      const matchesSearch =
-        !query ||
-        f.name.toLowerCase().includes(query) ||
-        f.location.toLowerCase().includes(query);
-      const matchesSport =
-        sportFilter === "ALL" || (f.supportedSports || []).includes(sportFilter);
-      return matchesSearch && matchesSport;
-    });
-  }, [fields, search, sportFilter]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Re-fetches from scratch whenever the search text or sport filter
+  // changes, and only reuses the server-rendered first page when neither
+  // filter is active — so the search box doesn't re-request page 1 on mount.
+  const isDefaultView = !debouncedSearch && sportFilter === "ALL";
+  const { fields, loading, loadingMore, hasMore, error, loadMore } = usePaginatedFields({
+    q: debouncedSearch,
+    sport: sportFilter,
+    initialItems: isDefaultView ? initialItems : undefined,
+    initialTotal: isDefaultView ? initialTotal : undefined,
+    initialHasMore: isDefaultView ? initialHasMore : undefined,
+  });
 
   return (
     <Box>
@@ -109,7 +125,13 @@ export default function FieldsBrowser({ fields }: { fields: Field[] }) {
         </Box>
       </Box>
 
-      {filteredFields.length === 0 ? (
+      {error && (
+        <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+      )}
+
+      {!loading && fields.length === 0 ? (
         <Box
           sx={{
             textAlign: "center",
@@ -119,26 +141,33 @@ export default function FieldsBrowser({ fields }: { fields: Field[] }) {
           }}
         >
           <Typography variant="body1" color="text.secondary">
-            לא נמצאו מגרשים התואמים לחיפוש. נסו מילות חיפוש אחרות או סננון שונה.
+            {debouncedSearch || sportFilter !== "ALL"
+              ? "לא נמצאו מגרשים התואמים לחיפוש. נסו מילות חיפוש אחרות או סננון שונה."
+              : "לא נמצאו מגרשים כרגע. נסו שוב מאוחר יותר."}
           </Typography>
         </Box>
       ) : (
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: {
-              xs: "1fr",
-              sm: "repeat(2, 1fr)",
-              md: "repeat(3, 1fr)",
-              lg: "repeat(4, 1fr)",
-            },
-            gap: 2.5,
-          }}
-        >
-          {filteredFields.map((f) => (
-            <FieldCard key={f.id} field={f} />
-          ))}
-        </Box>
+        <>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                sm: "repeat(2, 1fr)",
+                md: "repeat(3, 1fr)",
+                lg: "repeat(4, 1fr)",
+              },
+              gap: 2.5,
+              opacity: loading ? 0.6 : 1,
+              transition: "opacity 150ms ease",
+            }}
+          >
+            {fields.map((f) => (
+              <FieldCard key={f.id} field={f} />
+            ))}
+          </Box>
+          <InfiniteScrollSentinel hasMore={hasMore} loading={loadingMore} onVisible={loadMore} />
+        </>
       )}
     </Box>
   );

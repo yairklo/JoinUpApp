@@ -101,12 +101,49 @@ const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFil
 const router = express.Router();
 const fieldImageUpload = createImageUpload('fields');
 
-// Get all fields
+// Adds the browse/admin pages' free-text (name/location/city/neighborhood/
+// street) and sport filters on top of a base where-clause. Only touches the
+// query when `q`/`sport` are actually present, so callers that never send
+// them (map, game-creator pickers) see no behavior change.
+function applyBrowseFilters(where, query) {
+  const { q, sport } = query;
+  if (q) {
+    where.OR = ['name', 'location', 'city', 'neighborhood', 'street'].map((field) => ({
+      [field]: { contains: String(q), mode: 'insensitive' },
+    }));
+  }
+  if (sport && sport !== 'ALL') {
+    where.supportedSports = { has: String(sport).toUpperCase() };
+  }
+  return where;
+}
+
+// Get all fields. Pass `take` to page the result as { items, total, hasMore }
+// instead of a bare array — used by the public fields browser so it doesn't
+// have to fetch and render the entire (900+ row) table on every load.
 router.get('/', attachOptionalUser, async (req, res) => {
   try {
     const includeUnavailable = String(req.query.includeUnavailable) === 'true' && !!req.user?.isAdmin;
+    const where = applyBrowseFilters(includeUnavailable ? {} : { available: true }, req.query);
+
+    if (typeof req.query.take !== 'undefined') {
+      const take = Math.min(Math.max(parseInt(req.query.take, 10) || 24, 1), 100);
+      const skip = Math.max(parseInt(req.query.skip, 10) || 0, 0);
+      const [fields, total] = await Promise.all([
+        prisma.field.findMany({
+          where,
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+          include: { _count: { select: { favorites: true } } },
+          take,
+          skip,
+        }),
+        prisma.field.count({ where }),
+      ]);
+      return res.json({ items: fields.map(mapFieldForClient), total, hasMore: skip + fields.length < total });
+    }
+
     const fields = await prisma.field.findMany({
-      where: includeUnavailable ? {} : { available: true },
+      where,
       orderBy: { name: 'asc' },
       include: { _count: { select: { favorites: true } } }
     });

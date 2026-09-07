@@ -50,6 +50,23 @@ export interface FieldAnalytics {
     reportWindowDays: number;
 }
 
+// Same wire shape as Field, but with the handful of properties every list/card
+// view actually renders (location, price, rating, type) narrowed to required —
+// the backend always populates them (non-null columns with defaults), so
+// paginated consumers (FieldCard, the admin list) can rely on them directly.
+export interface FieldListItem extends Field {
+    location: string;
+    price: number;
+    rating: number;
+    type: 'open' | 'closed';
+}
+
+export interface FieldsPage {
+    items: FieldListItem[];
+    total: number;
+    hasMore: boolean;
+}
+
 export const fieldsApi = {
     getAll: () => {
         return apiClient<Field[]>('/api/fields', { cache: 'no-store' });
@@ -57,6 +74,24 @@ export const fieldsApi = {
 
     listForAdmin: (token: string) => {
         return apiClient<Field[]>('/api/fields?includeUnavailable=true', { token, cache: 'no-store' });
+    },
+
+    // Paginated variant of getAll/listForAdmin — used by the fields browser
+    // and the admin fields list, both of which render one card/row per field
+    // and don't need the whole (900+ row) table up front.
+    getPage: ({ take, skip, q, sport, includeUnavailable, token }: {
+        take: number;
+        skip: number;
+        q?: string;
+        sport?: string;
+        includeUnavailable?: boolean;
+        token?: string;
+    }) => {
+        const params = new URLSearchParams({ take: String(take), skip: String(skip) });
+        if (q) params.set('q', q);
+        if (sport && sport !== 'ALL') params.set('sport', sport);
+        if (includeUnavailable) params.set('includeUnavailable', 'true');
+        return apiClient<FieldsPage>(`/api/fields?${params.toString()}`, { token, cache: 'no-store' });
     },
 
     getById: (fieldId: string) => {
