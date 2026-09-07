@@ -133,7 +133,16 @@ export const usersApi = {
     },
 
     search: (query: string, token: string) => {
-        return apiClient<{ id: string; name?: string | null; imageUrl?: string | null }[]>(
+        return apiClient<Array<{
+            id: string;
+            name?: string | null;
+            email?: string | null;
+            imageUrl?: string | null;
+            city?: string | null;
+            friendshipStatus?: 'none' | 'friends' | 'pending';
+            requestId?: string | null;
+            isRequestSender?: boolean;
+        }>>(
             `/api/users/search?q=${encodeURIComponent(query)}`,
             { token }
         );

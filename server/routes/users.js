@@ -207,11 +207,17 @@ router.put('/profile/settings', authenticateToken, async (req, res) => {
   }
 });
 
-// List users (public basic listing)
+// List users (public basic listing). Pass `take` to bound the result — used by
+// the profile page's "people you may know" widget, which only ever renders a
+// handful of rows and previously fetched the entire users table to do it.
 router.get('/', async (req, res) => {
   try {
+    const take = typeof req.query.take !== 'undefined'
+      ? Math.min(Math.max(parseInt(req.query.take, 10) || 20, 1), 100)
+      : undefined;
     const users = await prisma.user.findMany({
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
+      ...(take ? { take } : {}),
     });
     res.json(users.map(u => ({ id: u.id, name: u.name, imageUrl: u.imageUrl, city: u.city })));
   } catch (error) {

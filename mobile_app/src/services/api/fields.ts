@@ -75,9 +75,35 @@ export interface FieldAnalytics {
     reportWindowDays: number;
 }
 
+export interface FieldsPage {
+    items: Field[];
+    total: number;
+    hasMore: boolean;
+}
+
 export const fieldsApi = {
     getAll: () => {
         return apiClient<Field[]>('/api/fields', { cache: 'no-store' });
+    },
+
+    // Paginated/filtered variant of getAll — mirrors next_app's fieldsApi.getPage
+    // against the same `/api/fields?take=&skip=&q=&city=` endpoint, so callers
+    // don't have to fetch and filter the entire (900+ row) table client-side.
+    getPage: ({ take, skip, q, sport, city, includeUnavailable, token }: {
+        take: number;
+        skip: number;
+        q?: string;
+        sport?: string;
+        city?: string;
+        includeUnavailable?: boolean;
+        token?: string;
+    }) => {
+        const params = new URLSearchParams({ take: String(take), skip: String(skip) });
+        if (q) params.set('q', q);
+        if (sport && sport !== 'ALL') params.set('sport', sport);
+        if (city) params.set('city', city);
+        if (includeUnavailable) params.set('includeUnavailable', 'true');
+        return apiClient<FieldsPage>(`/api/fields?${params.toString()}`, { token, cache: 'no-store' });
     },
 
     getById: (fieldId: string) => {
