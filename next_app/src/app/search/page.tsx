@@ -14,6 +14,7 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import RouteLoading from "@/components/motion/RouteLoading";
+import CityPicker, { CityPickerHandle } from "@/components/CityPicker";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLoadErrorMessage } from "@/utils/apiError";
 
@@ -24,11 +25,8 @@ import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
-import MenuItem from "@mui/material/MenuItem";
 import SearchIcon from "@mui/icons-material/Search";
 import GroupIcon from "@mui/icons-material/Group";
-import MyLocationIcon from "@mui/icons-material/MyLocation";
-import CircularProgress from "@mui/material/CircularProgress";
 
 // Dynamically import the map to avoid SSR issues with Leaflet using window
 const SearchMapComponent = dynamic(
@@ -87,7 +85,6 @@ function SearchPageInner() {
   );
   const [showEmptyFields, setShowEmptyFields] = useState(false);
   const [emptyFields, setEmptyFields] = useState<any[]>([]);
-  const [cities, setCities] = useState<string[]>([]);
 
   const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
   const lastBoundsRef = useRef<Bounds | null>(null);
@@ -103,63 +100,18 @@ function SearchPageInner() {
   // Mobile-only: switch between results list and full-screen map
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
 
-  const [locating, setLocating] = useState(() => !param("city"));
-  const [locationError, setLocationError] = useState<string | null>(null);
-
-  // Requests the browser's geolocation and, on success, centers the map/search
-  // on it the same way picking a city does. Exposed as a button (not just an
-  // on-mount effect) because some mobile browsers silently drop a geolocation
-  // request that isn't triggered by a direct user gesture -- no prompt, no
-  // error, it just times out.
-  const detectLocation = useCallback(() => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      setLocating(false);
-      setLocationError("הדפדפן הזה לא תומך באיתור מיקום אוטומטי");
-      return;
-    }
-    if (!window.isSecureContext) {
-      setLocating(false);
-      setLocationError("איתור מיקום פועל רק בחיבור מאובטח (HTTPS) — אפשר לבחור עיר ידנית");
-      return;
-    }
-    setLocating(true);
-    setLocationError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        setTargetLocation(coords);
-        setUserLocation(coords);
-        setLocating(false);
-      },
-      (err) => {
-        setLocating(false);
-        setLocationError(
-          err.code === err.PERMISSION_DENIED
-            ? "שיתוף המיקום נחסם. כדי לאפשר, יש לאשר גישה למיקום להגדרות האתר בדפדפן — או לבחור עיר ידנית"
-            : "לא הצלחנו לאתר את המיקום שלך. אפשר לבחור עיר ידנית"
-        );
-      },
-      { timeout: 10000 }
-    );
-  }, []);
-
-  useEffect(() => {
-    // Only skip geolocation when the city param actually resolved to known coordinates
-    // (set via CITY_COORDS above) -- an unrecognized/unlisted city (e.g. from a rail's
-    // "See all" link using a real DB city name outside the hardcoded list) should still
-    // fall back to GPS instead of leaving the map with no location at all.
-    if (selectedCity && CITY_COORDS[selectedCity]) {
-      setLocating(false);
-      return;
-    }
-    detectLocation();
-    // Only ever auto-run once on mount; the button re-triggers it manually.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    fieldsApi.getCities().then(res => setCities(res)).catch(console.error);
-  }, []);
+  // Only skip auto-geolocation when the city param actually resolved to known
+  // coordinates (CITY_COORDS above) -- an unrecognized/unlisted city (e.g. from
+  // a rail's "See all" link using a real DB city name outside the hardcoded
+  // list) should still fall back to GPS instead of leaving the map with no
+  // location at all. Geolocation itself (button + auto-run-once-on-mount) now
+  // lives in the shared CityPicker; this page just supplies the coordinates
+  // callback and keeps `locating` in sync for the map-loading overlay below.
+  const cityPickerRef = useRef<CityPickerHandle>(null);
+  const [locating, setLocating] = useState(() => {
+    const city = param("city");
+    return !(city && CITY_COORDS[city]);
+  });
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 400);
@@ -426,48 +378,33 @@ function SearchPageInner() {
               מגרשים פנויים
             </Button>
 
-              <TextField
-              select
-              id="search-city-select"
+          </Stack>
+
+          <Box id="search-city-select">
+            <CityPicker
+              ref={cityPickerRef}
               value={selectedCity}
-              onChange={(e) => {
-                const city = e.target.value;
+              onChange={(city) => {
                 setSelectedCity(city);
                 if (city && CITY_COORDS[city]) {
                   setTargetLocation(CITY_COORDS[city]);
                 } else if (city) {
                   // City isn't in the hardcoded coordinate table -- fall back to GPS
                   // rather than leaving the map centered on nothing/the wrong place.
-                  detectLocation();
+                  cityPickerRef.current?.detectLocation();
                 }
               }}
-              size="small"
-              sx={{ minWidth: 120 }}
-              label="עיר"
-            >
-              <MenuItem value="">כל הערים</MenuItem>
-              {cities.map((city) => (
-                <MenuItem key={city} value={city}>{city}</MenuItem>
-              ))}
-            </TextField>
-
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={detectLocation}
-              disabled={locating}
-              startIcon={locating ? <CircularProgress size={14} /> : <MyLocationIcon />}
-              sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
-            >
-              המיקום שלי
-            </Button>
-          </Stack>
-
-          {locationError && (
-            <Typography variant="caption" color="text.secondary">
-              {locationError}
-            </Typography>
-          )}
+              includeAllCitiesOption
+              allowGeolocation
+              detectOnMount={!(selectedCity && CITY_COORDS[selectedCity])}
+              onLocationDetected={(coords) => {
+                setTargetLocation(coords);
+                setUserLocation(coords);
+              }}
+              onLocatingChange={setLocating}
+              fullWidth
+            />
+          </Box>
 
           {/* Date Picker Section with "השבוע הקרוב" Chip */}
           <Stack direction="row" spacing={1} alignItems="center" width="100%">
@@ -538,7 +475,7 @@ function SearchPageInner() {
                   setNetworkGames(false);
                   setShowEmptyFields(false);
                   setSelectedCity("");
-                  if (!userLocation) detectLocation();
+                  if (!userLocation) cityPickerRef.current?.detectLocation();
                 }}
               />
             )}
