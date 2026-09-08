@@ -309,9 +309,9 @@ function NewGamePageInner() {
 
       // Logic Validation
       if (form.lotteryEnabled) {
-        if (!form.lotteryDate || !form.lotteryTime) throw new Error("Please select lottery date and time");
+        if (!form.lotteryDate || !form.lotteryTime) throw new Error("יש לבחור תאריך ושעה להגרלה");
         const lotteryTs = new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).getTime();
-        if (lotteryTs >= startTs) throw new Error("Lottery time must be before game start");
+        if (lotteryTs >= startTs) throw new Error("זמן ההגרלה חייב להיות לפני תחילת המשחק");
       }
 
       let registrationOpensAt: string | undefined = undefined;
@@ -400,9 +400,19 @@ function NewGamePageInner() {
       )}
 
       <SignedOut>
-        <Alert severity="warning" action={<SignInButton mode="modal"><Button color="inherit" size="small">התחבר</Button></SignInButton>}>
-          עליך להתחבר כדי ליצור משחק.
-        </Alert>
+        <Box sx={{ textAlign: "center", py: 6, px: 2 }}>
+          <Typography variant="h5" fontWeight={700} mb={1.5}>
+            רוצה ליצור משחק?
+          </Typography>
+          <Typography variant="body1" color="text.secondary" mb={3} maxWidth={420} mx="auto">
+            התחברו כדי לקבוע מגרש, שעה ומספר שחקנים, ולהזמין חברים למשחק שלכם תוך שניות.
+          </Typography>
+          <SignInButton mode="modal">
+            <Button variant="contained" size="large" sx={{ bgcolor: "#10b981", color: "#022c22", "&:hover": { bgcolor: "#34d399" } }}>
+              התחבר כדי להמשיך
+            </Button>
+          </SignInButton>
+        </Box>
       </SignedOut>
 
       <SignedIn>

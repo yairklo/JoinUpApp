@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useEffect, useState, useCallback } from "react";
+import { useAuth, useUser, SignInButton } from "@clerk/nextjs";
 import Box from "@mui/material/Box";
-import CircularProgress from "@mui/material/CircularProgress";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
 
 import SeriesHeaderCard from "@/components/SeriesHeaderCard";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import FullPageList from "@/components/FullPageList";
+import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
+import InlineErrorRow from "@/components/InlineErrorRow";
+import { getLoadErrorMessage } from "@/utils/apiError";
 import { useSeriesCreatedListener, useSeriesDeletedListener, SeriesPayload } from "@/context/GameUpdateContext";
 
 type Series = {
@@ -28,6 +32,9 @@ import { SportFilter } from "@/utils/sports";
 export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
     const [seriesList, setSeriesList] = useState<Series[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
+    const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
     const [isMySeriesSeeAllOpen, setIsMySeriesSeeAllOpen] = useState(false);
     const [isJoinSeriesSeeAllOpen, setIsJoinSeriesSeeAllOpen] = useState(false);
     const { getToken, isSignedIn } = useAuth();
@@ -64,6 +71,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
 
         async function run() {
             setLoading(true);
+            setError(null);
             try {
                 const token = await getToken({ template: undefined }).catch(() => "");
 
@@ -79,7 +87,10 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                 if (!ignore) setSeriesList(data);
             } catch (err) {
                 console.error("Error loading series:", err);
-                if (!ignore) setSeriesList([]);
+                if (!ignore) {
+                    setSeriesList([]);
+                    setError(getLoadErrorMessage(err));
+                }
             } finally {
                 if (!ignore) setLoading(false);
             }
@@ -88,7 +99,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
         return () => {
             ignore = true;
         };
-    }, [getToken]);
+    }, [getToken, reloadKey]);
 
     const filteredSeries = seriesList.filter((s) => {
         if (sportFilter === "ALL") return true;
@@ -96,14 +107,42 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
     });
 
     if (loading) {
-        /* Optional: loading state or just return null to not jump layout */
-        return null;
+        return (
+            <GamesHorizontalList title="קבוצות פעילות">
+                <GameCardSkeletonRow />
+            </GamesHorizontalList>
+        );
+    }
+
+    if (error) {
+        return (
+            <GamesHorizontalList title="קבוצות פעילות">
+                <Box p={2} width="100%">
+                    <InlineErrorRow message={error} onRetry={refetch} />
+                </Box>
+            </GamesHorizontalList>
+        );
     }
 
     const mySeries = isSignedIn ? filteredSeries.filter((s) => s.isSubscribed) : [];
     const joinableSeries = filteredSeries.filter((s) => !s.isSubscribed);
 
-    if (mySeries.length === 0 && joinableSeries.length === 0) return null;
+    if (mySeries.length === 0 && joinableSeries.length === 0) {
+        return (
+            <GamesHorizontalList title="קבוצות פעילות">
+                <Box p={2} width="100%">
+                    <Typography variant="body2" color="text.secondary">
+                        {isSignedIn ? "אין עדיין קבוצות פעילות" : "התחבר כדי לשחק עם חברים בקבוצה קבועה"}
+                    </Typography>
+                    {!isSignedIn && (
+                        <SignInButton mode="modal">
+                            <Button size="small" variant="outlined" sx={{ mt: 1 }}>התחבר</Button>
+                        </SignInButton>
+                    )}
+                </Box>
+            </GamesHorizontalList>
+        );
+    }
 
     const renderCard = (s: Series, key?: string) => (
         <SeriesHeaderCard
