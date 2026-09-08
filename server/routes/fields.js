@@ -484,6 +484,7 @@ function mapIssueForClient(i, viewerId) {
     parentId: i.parentId,
     category: i.category,
     description: i.description,
+    photoUrl: i.photoUrl,
     status: i.status,
     createdAt: i.createdAt,
     updatedAt: i.updatedAt,
@@ -808,6 +809,62 @@ router.delete('/:id/issues/:issueId', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Delete field issue error:', error);
     res.status(500).json({ error: 'Failed to delete field issue' });
+  }
+});
+
+// POST /api/fields/:id/issues/:issueId/photo - Attach/replace a photo on your own report (author only).
+router.post('/:id/issues/:issueId/photo', authenticateToken, handleSingleUpload(fieldImageUpload, 'photo'), async (req, res) => {
+  try {
+    const { id: fieldId, issueId } = req.params;
+    const issue = await prisma.fieldIssueReport.findUnique({ where: { id: issueId } });
+    if (!issue || issue.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Issue not found' });
+    }
+    if (issue.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to edit this report' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const photoUrl = absoluteUrlFor(req, 'fields', req.file.filename);
+    const updated = await prisma.fieldIssueReport.update({
+      where: { id: issueId },
+      data: { photoUrl },
+      include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
+    });
+    if (issue.photoUrl) deleteUploadedFile(issue.photoUrl);
+
+    res.status(201).json(mapIssueForClient(updated, req.user.id));
+  } catch (error) {
+    console.error('Upload field issue photo error:', error);
+    res.status(500).json({ error: 'Failed to upload photo' });
+  }
+});
+
+// DELETE /api/fields/:id/issues/:issueId/photo - Remove the photo from your own report (author or admin).
+router.delete('/:id/issues/:issueId/photo', authenticateToken, async (req, res) => {
+  try {
+    const { id: fieldId, issueId } = req.params;
+    const issue = await prisma.fieldIssueReport.findUnique({ where: { id: issueId } });
+    if (!issue || issue.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Issue not found' });
+    }
+    if (issue.userId !== req.user.id && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Not authorized to edit this report' });
+    }
+
+    const updated = await prisma.fieldIssueReport.update({
+      where: { id: issueId },
+      data: { photoUrl: null },
+      include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
+    });
+    if (issue.photoUrl) deleteUploadedFile(issue.photoUrl);
+
+    res.json(mapIssueForClient(updated, req.user.id));
+  } catch (error) {
+    console.error('Remove field issue photo error:', error);
+    res.status(500).json({ error: 'Failed to remove photo' });
   }
 });
 

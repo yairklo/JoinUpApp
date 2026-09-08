@@ -1,7 +1,6 @@
 "use client";
 import type { KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 // MUI
 import CardMedia from "@mui/material/CardMedia";
@@ -10,20 +9,13 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import IconButton from "@mui/material/IconButton";
 
 // Icons
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
-import AddIcon from "@mui/icons-material/Add";
-import CloseIcon from "@mui/icons-material/Close";
 import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
 import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
 
 import FavoriteButton from "@/components/FavoriteButton";
-import NewGameInline from "@/components/NewGameInline";
 import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
 import { SPORT_IMAGES, SportType } from "@/utils/sports";
 
@@ -57,7 +49,6 @@ const chipOverlaySx = {
 
 export default function FieldCard({ field }: { field: Field }) {
   const router = useRouter();
-  const [showNewGame, setShowNewGame] = useState(false);
   const href = `/fields/${field.id}`;
   const primarySport = field.supportedSports?.find(
     (s): s is SportType => s in SPORT_IMAGES
@@ -181,57 +172,7 @@ export default function FieldCard({ field }: { field: Field }) {
             </Typography>
           </Stack>
         </Box>
-
-        <Stack
-          direction="row"
-          justifyContent="flex-end"
-          sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider", minWidth: 0 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <IconButton
-            size="small"
-            onClick={() => setShowNewGame(true)}
-            aria-label="משחק חדש במגרש הזה"
-            sx={{
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 999,
-              flexShrink: 0,
-            }}
-          >
-            <AddIcon fontSize="small" />
-          </IconButton>
-        </Stack>
       </CardContent>
-
-      <Dialog
-        open={showNewGame}
-        onClose={() => setShowNewGame(false)}
-        onClick={(e) => e.stopPropagation()}
-        fullWidth
-        maxWidth="sm"
-        dir="rtl"
-      >
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: 700 }}>
-          <Box sx={{ minWidth: 0, paddingInlineEnd: 1 }}>
-            משחק חדש ב{field.name}
-            <Typography variant="body2" color="text.secondary" noWrap>
-              {field.location}
-            </Typography>
-          </Box>
-          <IconButton onClick={() => setShowNewGame(false)} aria-label="סגור">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <NewGameInline
-            fieldId={field.id}
-            onCreated={() => {
-              setShowNewGame(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
     </MotionCard>
   );
 }

@@ -4,6 +4,7 @@ import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useRouter, Stack } from 'expo-router';
 import { usersApi, UserProfile } from '../../src/services/api/users';
 import { gamesApi } from '../../src/services/api/games';
+import { fieldsApi } from '../../src/services/api/fields';
 import { Game } from '@/types/game';
 import { API_BASE } from '../../src/services/api/client';
 import LoadingMotif from '@/components/loading/LoadingMotif';
@@ -53,6 +54,13 @@ export default function ProfileScreen() {
 
     // Sport picker modal
     const [sportModalVisible, setSportModalVisible] = useState(false);
+    // City picker modal
+    const [cityModalVisible, setCityModalVisible] = useState(false);
+    const [cities, setCities] = useState<string[]>([]);
+
+    useEffect(() => {
+        fieldsApi.getCities().then(setCities).catch(() => {});
+    }, []);
     const [availableSports, setAvailableSports] = useState<{ id: string; name: string }[]>([]);
 
     const [myGames, setMyGames] = useState<Game[]>([]);
@@ -327,13 +335,15 @@ export default function ProfileScreen() {
                     <View className="mb-4">
                         <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.city', 'עיר')}</Text>
                         {isEditing ? (
-                            <TextInput
-                                value={form.city}
-                                onChangeText={(val) => setForm(prev => ({ ...prev, city: val }))}
-                                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-right text-sm"
-                                placeholder="למשל: תל אביב, חיפה..."
-                                placeholderTextColor="#9ca3af"
-                            />
+                            <TouchableOpacity
+                                onPress={() => setCityModalVisible(true)}
+                                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex-row items-center"
+                            >
+                                <FontAwesome name="chevron-left" size={12} color="#9ca3af" style={{ marginLeft: 8 }} />
+                                <Text className={form.city ? "text-gray-800 text-right text-sm flex-1" : "text-gray-400 text-right text-sm flex-1"}>
+                                    {form.city || 'בחרו עיר מהרשימה'}
+                                </Text>
+                            </TouchableOpacity>
                         ) : (
                             <Text className="text-gray-800 font-bold text-base text-right">{profile?.city || t('profile.unknownCity', 'לא צוין')}</Text>
                         )}
@@ -674,6 +684,47 @@ export default function ProfileScreen() {
                             ListEmptyComponent={
                                 <View className="items-center py-8">
                                     <Text className="text-gray-400">כבר הוספת את כל ענפי הספורט הזמינים</Text>
+                                </View>
+                            }
+                        />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* City Picker Modal */}
+            <Modal
+                animationType="slide"
+                transparent
+                visible={cityModalVisible}
+                onRequestClose={() => setCityModalVisible(false)}
+            >
+                <View className="flex-1 justify-end bg-black/50">
+                    <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '60%' }}>
+                        <View className="flex-row justify-between items-center mb-4">
+                            <Text className="text-xl font-bold text-gray-800">בחרו עיר</Text>
+                            <TouchableOpacity onPress={() => setCityModalVisible(false)}>
+                                <FontAwesome name="times" size={22} color="#6b7280" />
+                            </TouchableOpacity>
+                        </View>
+                        <FlatList
+                            data={cities}
+                            keyExtractor={(item) => item}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setForm(prev => ({ ...prev, city: item }));
+                                        setCityModalVisible(false);
+                                    }}
+                                    className="py-4 border-b border-gray-100"
+                                >
+                                    <Text className={`text-lg text-right ${form.city === item ? 'text-brand font-bold' : 'text-gray-800'}`}>
+                                        {item}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                            ListEmptyComponent={
+                                <View className="items-center py-8">
+                                    <ActivityIndicator size="small" color="#059669" />
                                 </View>
                             }
                         />

@@ -32,6 +32,7 @@ export type LiveGame = {
   start?: string;
   duration?: number;
   title?: string | null;
+  fieldId?: string;
   fieldName: string;
   fieldLocation: string;
   currentPlayers: number;
@@ -247,6 +248,7 @@ export default function GameLiveSection({
             ? `${game.fieldName} • ${game.fieldLocation}`
             : game.fieldLocation
         }
+        fieldHref={game.fieldId ? `/fields/${game.fieldId}` : undefined}
         currentPlayers={headerCount}
         maxPlayers={game.maxPlayers}
         sport={game.sport}
@@ -307,23 +309,29 @@ export default function GameLiveSection({
             <Card
               elevation={0}
               sx={{
-                height: "100%",
+                // Bounded independently of the left column's content height (participants
+                // list can grow arbitrarily long) -- without a cap here, a long roster
+                // stretches this card to match via the Grid row's default stretch
+                // alignment, pushing the message input far below the fold.
+                height: { xs: "min(75vh, 560px)", md: "min(100%, 640px)" },
                 minHeight: 400,
+                display: "flex",
+                flexDirection: "column",
                 border: "1px solid",
                 borderColor: "rgba(148,163,184,0.16)",
                 boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
               }}
             >
-              <Box p={{ xs: 2.5, md: 3 }} height="100%">
+              <Box p={{ xs: 2.5, md: 3 }} pb={{ xs: 1.5, md: 2 }} sx={{ flexShrink: 0 }}>
                 <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>
                   צ&apos;אט המשחק
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
                   שוחחו עם שאר המשתתפים בזמן אמת
                 </Typography>
-                <Box sx={{ height: 1, borderTop: 1, borderColor: "divider", pt: 2 }}>
-                  <Chat roomId={game.chatRoomId || game.id} chatName={game.title || "Game Chat"} hideHeaderName />
-                </Box>
+              </Box>
+              <Box sx={{ flex: 1, minHeight: 0, borderTop: 1, borderColor: "divider" }}>
+                <Chat roomId={game.chatRoomId || game.id} chatName={game.title || "Game Chat"} hideHeaderName />
               </Box>
             </Card>
           </Grid>

@@ -197,7 +197,7 @@ router.get('/:seriesId', async (req, res) => {
       gameQueryArgs.take = 10;
     }
 
-    const [organizer, subscribers, upcoming] = await Promise.all([
+    const [organizer, subscribers, upcoming, field] = await Promise.all([
       prisma.user.findUnique({
         where: { id: series.organizerId },
         select: { id: true, name: true, imageUrl: true }
@@ -206,7 +206,10 @@ router.get('/:seriesId', async (req, res) => {
         where: { seriesId },
         include: { user: { select: { id: true, name: true, imageUrl: true } } }
       }),
-      prisma.game.findMany(gameQueryArgs)
+      prisma.game.findMany(gameQueryArgs),
+      series.fieldId
+        ? prisma.field.findUnique({ where: { id: series.fieldId }, select: { lat: true, lng: true } })
+        : Promise.resolve(null)
     ]);
 
     const upcomingGames = (upcoming || []).map(g => {
@@ -226,6 +229,8 @@ router.get('/:seriesId', async (req, res) => {
       fieldId: series.fieldId ?? null,
       fieldName: series.fieldName,
       fieldLocation: series.fieldLocation,
+      fieldLat: typeof field?.lat === 'number' ? field.lat : null,
+      fieldLng: typeof field?.lng === 'number' ? field.lng : null,
       time: series.time,
       duration: series.duration,
       dayOfWeek: series.dayOfWeek ?? null,

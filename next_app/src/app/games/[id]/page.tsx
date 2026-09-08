@@ -1,4 +1,3 @@
-import Link from "next/link";
 import GameLiveSection from "@/components/GameLiveSection";
 import { auth } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
@@ -140,40 +139,11 @@ export default async function GameDetails(props: {
               teams: game.teams,
               waitlistParticipants: game.waitlistParticipants,
               pickSessionStatus: (game as { pickSessionStatus?: string }).pickSessionStatus,
+              fieldId: game.fieldId,
             }}
             viewerId={userId}
             canManageSeries={canManageSeries}
           />
-
-          {game.fieldId && (
-            <Box mt={1.5}>
-              <Link href={`/fields/${game.fieldId}`} style={{ textDecoration: "none" }}>
-                <Box
-                  component="span"
-                  sx={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 0.5,
-                    px: 1.5,
-                    py: 0.75,
-                    borderRadius: 999,
-                    fontSize: "0.8125rem",
-                    fontWeight: 700,
-                    color: "primary.main",
-                    bgcolor: "rgba(16,185,129,0.1)",
-                    border: "1px solid",
-                    borderColor: "rgba(16,185,129,0.25)",
-                    transition: "background-color 150ms ease",
-                    "&:hover": {
-                      bgcolor: "rgba(16,185,129,0.16)",
-                    },
-                  }}
-                >
-                  לפרופיל המגרש: לוח משחקים ושעות עומס ←
-                </Box>
-              </Link>
-            </Box>
-          )}
 
           <Box mt={2}>
             <GameActions

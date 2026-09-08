@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { fieldsApi, FieldIssueCategory, FieldIssueReport, FieldFlagReason } from '@/services/api';
+import { fieldsApi, FieldIssueCategory, FieldIssueReport, FieldFlagReason, PickedImage } from '@/services/api';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
+import { pickOneImage } from '@/utils/pickImage';
 
 const CATEGORIES: FieldIssueCategory[] = ['POTHOLE', 'LIGHTING', 'SURFACE', 'GOAL_NET', 'FENCE', 'OTHER'];
 
@@ -42,6 +43,7 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
     const [loading, setLoading] = useState(true);
     const [category, setCategory] = useState<FieldIssueCategory>('POTHOLE');
     const [description, setDescription] = useState('');
+    const [photo, setPhoto] = useState<PickedImage | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [done, setDone] = useState(false);
     const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -69,16 +71,43 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
         try {
             const token = await getToken();
             if (!token) return;
-            const created = await fieldsApi.addIssue(fieldId, { category, description: description.trim() || undefined }, token);
+            let created = await fieldsApi.addIssue(fieldId, { category, description: description.trim() || undefined }, token);
+            if (photo) {
+                try {
+                    created = await fieldsApi.uploadIssuePhoto(fieldId, created.id, photo, token);
+                } catch (e) {
+                    console.error('Failed to upload field issue photo', e);
+                }
+            }
             setIssues((prev) => [created, ...prev]);
             setDescription('');
+            setPhoto(null);
             setDone(true);
         } catch (e) {
             console.error('Failed to add field issue', e);
         } finally {
             setSubmitting(false);
         }
-    }, [submitting, fieldId, category, description, getToken]);
+    }, [submitting, fieldId, category, description, photo, getToken]);
+
+    const pickPhoto = useCallback(async () => {
+        const image = await pickOneImage();
+        if (image) setPhoto(image);
+    }, []);
+
+    const removePhoto = useCallback(async (issue: FieldIssueReport) => {
+        setBusyId(issue.id);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const updated = await fieldsApi.removeIssuePhoto(fieldId, issue.id, token);
+            setIssues((prev) => replaceInTree(prev, issue.id, updated));
+        } catch (e) {
+            console.error('Failed to remove field issue photo', e);
+        } finally {
+            setBusyId(null);
+        }
+    }, [fieldId, getToken]);
 
     const submitReply = useCallback(async (parentId: string) => {
         const trimmed = replyText.trim();
@@ -221,6 +250,21 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
                     issue.description ? <Text className="text-gray-700 text-sm mt-1">{issue.description}</Text> : null
                 )}
 
+                {issue.photoUrl && !isEditing && (
+                    <View className="mt-2" style={{ width: 140, position: 'relative' }}>
+                        <Image source={{ uri: issue.photoUrl }} style={{ width: 140, height: 100, borderRadius: 8 }} />
+                        {isOwn && (
+                            <TouchableOpacity
+                                onPress={() => removePhoto(issue)}
+                                disabled={isBusy}
+                                style={{ position: 'absolute', top: 4, left: 4, backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 999, padding: 2 }}
+                            >
+                                <FontAwesome name="times" size={12} color="#374151" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
+
                 <View className="flex-row items-center mt-1 flex-wrap" style={{ gap: 10 }}>
                     <TouchableOpacity className="flex-row items-center" onPress={() => react(issue, 'LIKE')} disabled={isBusy} style={{ gap: 4 }}>
                         <FontAwesome name={issue.viewerReaction === 'LIKE' ? 'thumbs-up' : 'thumbs-o-up'} size={14} color={issue.viewerReaction === 'LIKE' ? '#059669' : '#6b7280'} />
@@ -300,7 +344,7 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
                             </TouchableOpacity>
                         ))}
                     </View>
-                    <View className="flex-row items-center" style={{ gap: 8 }}>
+                    <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                         <TextInput
                             value={description}
                             onChangeText={setDescription}
@@ -319,6 +363,20 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
                             )}
                         </TouchableOpacity>
                     </View>
+                    <TouchableOpacity onPress={pickPhoto} className="flex-row items-center self-start" disabled={submitting}>
+                        <FontAwesome name="camera" size={14} color="#6b7280" />
+                        <Text className="text-gray-600 text-xs font-bold ml-2">
+                            {photo ? photo.name : t('field.attachPhoto')}
+                        </Text>
+                    </TouchableOpacity>
+                    {photo && (
+                        <View className="flex-row items-center mt-2" style={{ gap: 8 }}>
+                            <Image source={{ uri: photo.uri }} style={{ width: 60, height: 60, borderRadius: 8 }} />
+                            <TouchableOpacity onPress={() => setPhoto(null)}>
+                                <FontAwesome name="times-circle" size={18} color="#9ca3af" />
+                            </TouchableOpacity>
+                        </View>
+                    )}
                     {done && (
                         <Text className="text-green-600 text-xs font-bold mt-2">{t('field.issueReported')}</Text>
                     )}

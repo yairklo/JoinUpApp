@@ -11,6 +11,7 @@ import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
+import Autocomplete from "@mui/material/Autocomplete";
 import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
@@ -55,6 +56,7 @@ import ImageUploadField from "@/components/ImageUploadField";
 import AddFriendButton from "@/components/AddFriendButton";
 import { Game } from "@/types/game";
 import { gamesApi } from "@/services/api/games";
+import { fieldsApi } from "@/services/api/fields";
 import { usersApi } from "@/services/api/users";
 
 type PublicUser = {
@@ -104,6 +106,7 @@ export default function ProfilePage() {
   // used to give AddFriendButton its real initial state instead of always starting as "not sent".
   const [outgoingPendingIds, setOutgoingPendingIds] = useState<Set<string>>(new Set());
   const [availableSports, setAvailableSports] = useState<Array<{ id: string; name: string }>>([]);
+  const [cities, setCities] = useState<string[]>([]);
 
   const [myGames, setMyGames] = useState<Game[]>([]);
   const [gamesTab, setGamesTab] = useState(0);
@@ -184,6 +187,7 @@ export default function ProfilePage() {
     // widget below, which renders at most 6 of them.
     fetch(`${API_BASE}/api/users?take=7`).then(r => r.json()).then(setAllUsers).catch(() => { });
     fetch(`${API_BASE}/api/users/${userId}/friends`).then(r => r.json()).then(setFriends).catch(() => { });
+    fieldsApi.getCities().then(setCities).catch(() => { });
     (async () => {
       try {
         const token = await getToken({ template: undefined }).catch(() => "");
@@ -491,7 +495,17 @@ export default function ProfilePage() {
                         />
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="עיר" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} size="small" />
+                        <Autocomplete
+                          freeSolo
+                          fullWidth
+                          size="small"
+                          options={cities}
+                          value={form.city}
+                          inputValue={form.city}
+                          onInputChange={(_event, value) => setForm((f) => ({ ...f, city: value }))}
+                          onChange={(_event, value) => setForm((f) => ({ ...f, city: value || "" }))}
+                          renderInput={(params) => <TextField {...params} label="עיר" placeholder="בחרו עיר מהרשימה או הקלידו" />}
+                        />
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField fullWidth label="אימייל" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} size="small" />

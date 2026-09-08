@@ -1,4 +1,5 @@
 import { View, Text, Switch, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Image, Share } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -240,16 +241,47 @@ export default function SeriesScreen() {
                     </View>
 
                     {/* Info rows */}
-                    <View className="flex-row items-center mb-2">
-                        <FontAwesome name="map-marker" size={16} color="#6b7280" style={{ width: 24 }} />
-                        <Text className="text-gray-600 text-base flex-1" numberOfLines={1}>
-                            {series.fieldLocation || series.fieldName}
-                        </Text>
-                    </View>
+                    {series.fieldId ? (
+                        <TouchableOpacity
+                            onPress={() => router.push(`/field/${series.fieldId}`)}
+                            className="flex-row items-center mb-2"
+                        >
+                            <FontAwesome name="map-marker" size={16} color="#059669" style={{ width: 24 }} />
+                            <Text className="text-brand text-base font-bold flex-1" numberOfLines={1}>
+                                {series.fieldLocation || series.fieldName}
+                            </Text>
+                            <FontAwesome name="chevron-left" size={12} color="#059669" />
+                        </TouchableOpacity>
+                    ) : (
+                        <View className="flex-row items-center mb-2">
+                            <FontAwesome name="map-marker" size={16} color="#6b7280" style={{ width: 24 }} />
+                            <Text className="text-gray-600 text-base flex-1" numberOfLines={1}>
+                                {series.fieldLocation || series.fieldName}
+                            </Text>
+                        </View>
+                    )}
                     <View className="flex-row items-center mb-5">
                         <FontAwesome name="clock-o" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base">{dayName}, {series.time}</Text>
                     </View>
+
+                    {typeof series.fieldLat === 'number' && typeof series.fieldLng === 'number' && (
+                        <View style={{ height: 160, borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+                            <MapView
+                                style={{ flex: 1 }}
+                                initialRegion={{
+                                    latitude: series.fieldLat,
+                                    longitude: series.fieldLng,
+                                    latitudeDelta: 0.01,
+                                    longitudeDelta: 0.01,
+                                }}
+                                scrollEnabled={false}
+                                zoomEnabled={false}
+                            >
+                                <Marker coordinate={{ latitude: series.fieldLat, longitude: series.fieldLng }} title={series.fieldName} />
+                            </MapView>
+                        </View>
+                    )}
 
                     {/* Subscribe button */}
                     <TouchableOpacity

@@ -6,6 +6,7 @@ import FieldBusyChart from "@/components/FieldBusyChart";
 import FieldScheduleTrack from "@/components/FieldScheduleTrack";
 import CrowdReportWidget from "@/components/CrowdReportWidget";
 import GameLocationMap from "@/components/GameLocationMap";
+import FieldNewGameButton from "@/components/FieldNewGameButton";
 import FieldCommentsSection from "@/components/FieldCommentsSection";
 import FieldIssueReportSection from "@/components/FieldIssueReportSection";
 
@@ -165,6 +166,12 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
                 </Typography>
               )}
             </Stack>
+
+            {userId && (
+              <Box sx={{ mt: 2 }}>
+                <FieldNewGameButton fieldId={field.id} fieldName={field.name} />
+              </Box>
+            )}
           </Box>
         </Card>
 
