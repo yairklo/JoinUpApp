@@ -2,13 +2,10 @@
 
 import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import LoadingMotif from "@/components/motion/LoadingMotif";
-// RTL: "forward" points left
-import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 import IconButton from "@mui/material/IconButton";
 import SearchIcon from "@mui/icons-material/Search";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -88,6 +85,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 teamSize={g.teamSize}
                 price={g.price}
                 isJoined={joined}
+                href={`/games/${g.id}`}
             >
                 {joined ? (
                     <LeaveGameButton
@@ -110,9 +108,6 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                         }}
                     />
                 )}
-                <Link href={`/games/${g.id}`} passHref legacyBehavior>
-                    <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>פרטים</Button>
-                </Link>
             </GameHeaderCard>
         );
     };

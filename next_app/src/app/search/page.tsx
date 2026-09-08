@@ -12,7 +12,6 @@ import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import LoadingMotif from "@/components/motion/LoadingMotif";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getLoadErrorMessage } from "@/utils/apiError";
 
@@ -24,10 +23,10 @@ import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import MenuItem from "@mui/material/MenuItem";
-// RTL: "forward" points left
-import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
 import GroupIcon from "@mui/icons-material/Group";
+import MyLocationIcon from "@mui/icons-material/MyLocation";
+import CircularProgress from "@mui/material/CircularProgress";
 
 // Dynamically import the map to avoid SSR issues with Leaflet using window
 const SearchMapComponent = dynamic(
@@ -88,8 +87,56 @@ export default function SearchPage() {
   const lastBoundsRef = useRef<Bounds | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const [targetLocation, setTargetLocation] = useState<[number, number] | null>(null);
+  // The user's own resolved GPS position -- distinct from targetLocation
+  // (which also gets set by picking a city) so the map can mark it as "you
+  // are here" instead of drawing it like a game/field pin.
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   // Mobile-only: switch between results list and full-screen map
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
+
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Requests the browser's geolocation and, on success, centers the map/search
+  // on it the same way picking a city does. Exposed as a button (not just an
+  // on-mount effect) because some mobile browsers silently drop a geolocation
+  // request that isn't triggered by a direct user gesture -- no prompt, no
+  // error, it just times out.
+  const detectLocation = useCallback(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setLocationError("הדפדפן הזה לא תומך באיתור מיקום אוטומטי");
+      return;
+    }
+    if (!window.isSecureContext) {
+      setLocationError("איתור מיקום פועל רק בחיבור מאובטח (HTTPS) — אפשר לבחור עיר ידנית");
+      return;
+    }
+    setLocating(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setTargetLocation(coords);
+        setUserLocation(coords);
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        setLocationError(
+          err.code === err.PERMISSION_DENIED
+            ? "שיתוף המיקום נחסם. כדי לאפשר, יש לאשר גישה למיקום להגדרות האתר בדפדפן — או לבחור עיר ידנית"
+            : "לא הצלחנו לאתר את המיקום שלך. אפשר לבחור עיר ידנית"
+        );
+      },
+      { timeout: 10000 }
+    );
+  }, []);
+
+  useEffect(() => {
+    detectLocation();
+    // Only ever auto-run once on mount; the button re-triggers it manually.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     fieldsApi.getCities().then(res => setCities(res)).catch(console.error);
@@ -263,6 +310,7 @@ export default function SearchPage() {
         price={g.price}
         isJoined={joined}
         fullWidth
+        href={`/games/${g.id}`}
       >
         {joined ? (
           <LeaveGameButton
@@ -279,11 +327,6 @@ export default function SearchPage() {
             onJoined={() => handleGameJoined(g.id)}
           />
         )}
-        <Link href={`/games/${g.id}`} passHref legacyBehavior>
-          <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>
-            פרטים
-          </Button>
-        </Link>
       </GameHeaderCard>
     );
   };
@@ -382,7 +425,24 @@ export default function SearchPage() {
                 <MenuItem key={city} value={city}>{city}</MenuItem>
               ))}
             </TextField>
+
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={detectLocation}
+              disabled={locating}
+              startIcon={locating ? <CircularProgress size={14} /> : <MyLocationIcon />}
+              sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
+            >
+              המיקום שלי
+            </Button>
           </Stack>
+
+          {locationError && (
+            <Typography variant="caption" color="text.secondary">
+              {locationError}
+            </Typography>
+          )}
 
           {/* Date Picker Section with "השבוע הקרוב" Chip */}
           <Stack direction="row" spacing={1} alignItems="center" width="100%">
@@ -465,6 +525,7 @@ export default function SearchPage() {
           onBoundsChanged={handleBoundsChanged}
           onGameSelect={(id) => router.push(`/games/${id}`)}
           targetLocation={targetLocation}
+          userLocation={userLocation}
         />
       </Box>
 
