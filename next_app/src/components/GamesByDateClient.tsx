@@ -15,7 +15,7 @@ import Chip from "@mui/material/Chip";
 import { useGamesByDate } from "@/hooks/useGamesByDate";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { SportFilter, sportLabel } from "@/utils/sports";
-import { formatJerusalemDate } from "@/utils/timezone";
+import { formatJerusalemDate, formatJerusalemDateLong } from "@/utils/timezone";
 
 import GamesDateNav from "@/components/GamesDateNav";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
@@ -149,12 +149,12 @@ export default function GamesByDateClient({
           <Typography variant="body1" color="text.secondary">
             {sportFilter !== "ALL"
               ? `לא נמצאו משחקי ${sportLabel(sportFilter)} בתאריך זה`
-              : `לא נמצאו משחקים בתאריך ${selectedDate}.`}
+              : `לא נמצאו משחקים בתאריך ${formatJerusalemDateLong(selectedDate)}.`}
           </Typography>
           <Button
             size="small"
             sx={{ mt: 1 }}
-            onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
+            onClick={() => setSelectedDate(todayIso)}
           >
             חזור להיום
           </Button>
@@ -175,7 +175,7 @@ export default function GamesByDateClient({
         </Box>
       ) : (
         <GamesHorizontalList
-          title={`משחקים בתאריך ${selectedDate}`}
+          title={`משחקים בתאריך ${formatJerusalemDateLong(selectedDate)}`}
           seeAllHref={buildSearchHref({ sport: sportFilter, date: selectedDate })}
         >
           {currentDayGames.map(renderGameCard)}

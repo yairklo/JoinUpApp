@@ -11,6 +11,7 @@ import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
 import { styled, alpha } from "@mui/material/styles";
+import { formatJerusalemWeekdayShort } from "@/utils/timezone";
 
 // Helper date formatter
 function ymd(d: Date): string {
@@ -23,7 +24,10 @@ function ymd(d: Date): string {
 function getDayLabel(d: Date, isToday: boolean, isTomorrow: boolean) {
   if (isToday) return "היום";
   if (isTomorrow) return "מחר";
-  return d.toLocaleDateString("he-IL", { weekday: "short", day: "numeric" });
+  // Explicit Jerusalem timeZone -- a bare toLocaleDateString here would render
+  // differently server (Node, usually UTC) vs client (real user zone) and
+  // trip a hydration mismatch (frontend_rules.md §2.1).
+  return formatJerusalemWeekdayShort(d);
 }
 
 // Styled Tab for "Pill" look
