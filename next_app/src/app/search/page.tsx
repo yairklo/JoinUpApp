@@ -315,10 +315,14 @@ function SearchPageInner() {
         },
       }}
     >
-      {/* Filters + results pane */}
+      {/* Filters + results pane. Fixed max width (not a % of the viewport) so a
+          single-column card list doesn't stretch into an oversized column on
+          wide desktop monitors -- the map pane below picks up the remaining
+          space via flex: 1 instead of a matching percentage. */}
       <Box
         sx={{
-          width: { xs: "100%", md: "40%" },
+          width: { xs: "100%", md: 420, lg: 460 },
+          flexShrink: { md: 0 },
           height: "100%",
           // Mobile: keep both panes mounted (Leaflet needs real dimensions),
           // reveal only the active one
@@ -483,10 +487,12 @@ function SearchPageInner() {
         )}
       </Box>
 
-      {/* Map pane */}
+      {/* Map pane -- fills whatever width the fixed-width list pane doesn't use. */}
       <Box
         sx={{
-          width: { xs: "100%", md: "60%" },
+          width: { xs: "100%" },
+          flex: { md: 1 },
+          minWidth: 0,
           height: "100%",
           position: { xs: "absolute", md: "sticky" },
           inset: { xs: 0, md: "auto" },
