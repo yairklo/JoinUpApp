@@ -25,6 +25,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import HistoryIcon from "@mui/icons-material/History";
+import Link from "next/link";
 
 const EMPTY: GlobalSearchResults = { users: [], fields: [], games: [] };
 const RECENT_KEY = "joinup:recent-searches";
@@ -162,7 +163,7 @@ export default function GlobalSearchOmnibar() {
                         setRecent(readRecent());
                         setOpen(true);
                     }}
-                    placeholder="חפש אנשים, מגרשים או משחקים..."
+                    placeholder="חפש שחקנים, קבוצות או מגרשים..."
                     InputProps={{
                         startAdornment: (
                             <InputAdornment position="start">
@@ -313,6 +314,28 @@ export default function GlobalSearchOmnibar() {
                                 )}
                             </List>
                         )}
+
+                        <Box
+                            component={Link}
+                            href="/search"
+                            onClick={() => setOpen(false)}
+                            sx={{
+                                display: "block",
+                                px: 2,
+                                py: 1.25,
+                                textAlign: "center",
+                                textDecoration: "none",
+                                fontSize: "0.8125rem",
+                                fontWeight: 600,
+                                color: "primary.main",
+                                borderTop: 1,
+                                borderColor: "divider",
+                                bgcolor: "action.hover",
+                                "&:hover": { bgcolor: "action.selected" },
+                            }}
+                        >
+                            מחפש משחקים לפי אזור ותאריך? עבור למפת המשחקים 🗺️
+                        </Box>
                     </Paper>
                 )}
             </Box>

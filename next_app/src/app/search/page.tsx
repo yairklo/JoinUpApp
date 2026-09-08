@@ -386,7 +386,7 @@ function SearchPageInner() {
         {/* Search Header */}
         <Stack spacing={2} mb={3}>
           <Typography variant="h5" fontWeight={800} sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" } }}>
-            חיפוש משחקים
+            מפת משחקים
           </Typography>
 
           {/* Copy kept honest with what this page actually queries: only /api/games/search
