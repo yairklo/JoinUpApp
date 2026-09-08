@@ -30,6 +30,7 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import AddIcon from "@mui/icons-material/Add";
 
 import { useGameCreator, FieldOption } from "@/hooks/useGameCreator";
+import { formatHebrewDate, HEBREW_DATE_INPUT_PROPS } from "@/utils/hebrewDate";
 
 const filter = createFilterOptions<FieldOption>();
 
@@ -162,7 +163,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                     size="small"
                     InputLabelProps={{ shrink: true }}
                     value={state.form.date}
-                    slotProps={{ htmlInput: { min: state.todayStr } }}
+                    slotProps={{ htmlInput: { min: state.todayStr, ...HEBREW_DATE_INPUT_PROPS } }}
+                    helperText={formatHebrewDate(state.form.date)}
                     onChange={(e) => actions.update("date", e.target.value)}
                   />
                 </Grid>
@@ -222,10 +224,14 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                       onChange={(e) => actions.update("description", e.target.value)}
                     />
 
-                    <Stack direction="row" spacing={3} alignItems="center" flexWrap="wrap">
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Typography variant="subtitle2" fontWeight={800} mb={0.5}>גישה ופרטיות</Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                        משחק לחברים בלבד מוסתר מהחיפוש. אישור ידני דורש אישור המארגן לכל מצטרף.
+                      </Typography>
                       <FormControlLabel
                         control={<Switch checked={state.form.isFriendsOnly} onChange={(e) => actions.update("isFriendsOnly", e.target.checked)} />}
-                        label="חברים בלבד (פרטי)"
+                        label="חברים בלבד"
                       />
                       <FormControlLabel
                         control={
@@ -234,17 +240,24 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                             onChange={(e) => actions.update("joinPolicy", e.target.checked ? "REQUIRES_APPROVAL" : "INSTANT")}
                           />
                         }
-                        label="דורש אישור הצטרפות"
+                        label="אישור ידני להצטרפות"
                       />
+                    </Paper>
+
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Typography variant="subtitle2" fontWeight={800} mb={0.5}>הרשמה ומקומות</Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                        הגרלה בוחרת שחקנים במועד שנקבע. פתיחה עתידית חוסמת הרשמה עד התאריך שבחרת.
+                      </Typography>
                       <FormControlLabel
                         control={<Switch checked={state.form.lotteryEnabled} onChange={(e) => actions.update("lotteryEnabled", e.target.checked)} />}
-                        label="אפשר הגרלה"
+                        label="הגרלה"
                       />
                       <FormControlLabel
                         control={<Switch checked={state.form.futureRegistration} onChange={(e) => actions.update("futureRegistration", e.target.checked)} />}
-                        label="פתיחת הרשמה עתידית"
+                        label="פתיחה עתידית להרשמה"
                       />
-                    </Stack>
+                    </Paper>
 
                     <Collapse in={state.form.lotteryEnabled}>
                       <Paper variant="outlined" sx={{ p: 2, bgcolor: 'warning.light', borderColor: 'warning.main' }}>
@@ -261,6 +274,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                                 size="small"
                                 InputLabelProps={{ shrink: true }}
                                 value={state.form.lotteryDate}
+                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+                                helperText={formatHebrewDate(state.form.lotteryDate)}
                                 onChange={(e) => actions.update("lotteryDate", e.target.value)}
                               />
                             </Grid>
@@ -356,6 +371,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                                 size="small"
                                 InputLabelProps={{ shrink: true }}
                                 value={state.form.futureRegDate}
+                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+                                helperText={formatHebrewDate(state.form.futureRegDate)}
                                 onChange={(e) => actions.update("futureRegDate", e.target.value)}
                               />
                             </Grid>

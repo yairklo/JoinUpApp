@@ -180,7 +180,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                 <Grid size={{ xs: 12, md: 7 }}>
                     <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
                         <GroupsIcon color="primary" />
-                        חברי הקבוצה ({series.subscribers.length})
+                        חברי הקבוצה הקבועים ({series.subscribers.length})
                     </Typography>
                     <Card elevation={2}>
                         <CardContent>
@@ -204,7 +204,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                 </Grid>
                             ) : (
                                 <Typography variant="body2" color="text.secondary" align="center" py={3}>
-                                    עדיין אין חברים בקבוצה. היו הראשונים!
+                                    אין חברים קבועים בקבוצה עדיין. אפשר להצטרף לקבוצה, או להשתתף במשחק בודד מהרשימה.
                                 </Typography>
                             )}
                             <SeriesMembersPanel
@@ -224,6 +224,9 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                     <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
                         <EventIcon color="primary" />
                         משחקים קרובים
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        השתתפות במשחק ספציפי אינה מצטרפת אותך לקבוצה הקבועה.
                     </Typography>
                     <Card elevation={2}>
                         <List disablePadding>
@@ -248,7 +251,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                             </ListItemAvatar>
                                             <ListItemText
                                                 primary={new Date(game.date).toLocaleDateString('he-IL', { weekday: 'long' })}
-                                                secondary={`${game.currentPlayers} / ${game.maxPlayers} שחקנים`}
+                                                secondary={`${game.currentPlayers} / ${game.maxPlayers} שחקנים · השתתף במשחק`}
                                                 primaryTypographyProps={{ fontWeight: 'bold' }}
                                             />
                                             <ArrowForwardIcon color="action" fontSize="small" />

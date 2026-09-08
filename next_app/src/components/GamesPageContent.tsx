@@ -12,6 +12,7 @@ import GamesByDateClient from "@/components/GamesByDateClient";
 import GamesByFriendsClient from "@/components/GamesByFriendsClient";
 import GamesByCityClient from "@/components/GamesByCityClient";
 import SeriesSectionClient from "@/components/SeriesSectionClient";
+import LoginInventoryToast from "@/components/LoginInventoryToast";
 import { SportFilter, SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 
 const FILTERS: { label: string; value: SportFilter }[] = [
@@ -109,6 +110,16 @@ export default function GamesPageContent({
                                 );
                             })}
                         </Box>
+                        {sportFilter !== "ALL" && (
+                            <Chip
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                onDelete={() => setSportFilter("ALL")}
+                                label={`${SPORT_EMOJI[sportFilter] || ""} ${SPORT_MAPPING[sportFilter]}`.trim()}
+                                sx={{ mt: 1, fontWeight: 700 }}
+                            />
+                        )}
                     </Box>
 
                     <Box>
@@ -137,6 +148,7 @@ export default function GamesPageContent({
 
                 </Stack>
             </Container>
+            <LoginInventoryToast />
         </GameUpdateProvider>
     );
 }

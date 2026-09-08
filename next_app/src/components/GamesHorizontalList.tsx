@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
@@ -14,12 +15,14 @@ export default function GamesHorizontalList({
   children,
   isOnColoredBackground = false,
   onSeeAll,
+  seeAllHref,
   customHeaderAction,
 }: {
   title: string;
   children: React.ReactNode;
   isOnColoredBackground?: boolean;
   onSeeAll?: () => void;
+  seeAllHref?: string;
   customHeaderAction?: React.ReactNode;
 }) {
   return (
@@ -57,7 +60,26 @@ export default function GamesHorizontalList({
           {customHeaderAction}
         </Box>
 
-        {onSeeAll && (
+        {seeAllHref ? (
+          <Button
+            size="small"
+            component={Link}
+            href={seeAllHref}
+            endIcon={<ArrowBackIcon fontSize="small" />}
+            sx={{
+              flexShrink: 0,
+              fontWeight: 600,
+              fontSize: { xs: "0.8rem", sm: "0.875rem" },
+              color: isOnColoredBackground ? "rgba(255,255,255,0.9)" : "text.secondary",
+              "&:hover": {
+                color: isOnColoredBackground ? "common.white" : "primary.main",
+                bgcolor: isOnColoredBackground ? "rgba(255,255,255,0.1)" : "action.hover",
+              },
+            }}
+          >
+            הכל
+          </Button>
+        ) : onSeeAll ? (
           <Button
             size="small"
             onClick={onSeeAll}
@@ -75,7 +97,7 @@ export default function GamesHorizontalList({
           >
             הכל
           </Button>
-        )}
+        ) : null}
       </Box>
 
       <Reveal>

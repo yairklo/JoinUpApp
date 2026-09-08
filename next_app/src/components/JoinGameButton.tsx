@@ -13,6 +13,7 @@ import Tooltip from "@mui/material/Tooltip";
 import LockIcon from "@mui/icons-material/LockClock";
 
 import { gamesApi } from "@/services/api/games";
+import { mapJoinError } from "@/utils/apiError";
 
 export default function JoinGameButton({
   gameId,
@@ -58,7 +59,7 @@ export default function JoinGameButton({
   const isRegistrationClosed = openDate && now < openDate;
 
   async function join() {
-    if (isRegistrationClosed || pending) return;
+    if (isRegistrationClosed || pending || viewerParticipationStatus === "CONFIRMED") return;
     setError(null);
     setLoading(true);
     try {
@@ -72,7 +73,7 @@ export default function JoinGameButton({
 
       if (onJoined) onJoined(body);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to join");
+      setError(mapJoinError(e));
     } finally {
       setLoading(false);
     }
@@ -86,7 +87,7 @@ export default function JoinGameButton({
       const body = await gamesApi.confirmWaitlist(gameId, accept, token || "");
       if (onJoined) onJoined(body);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to process waitlist offer");
+      setError(mapJoinError(e));
     } finally {
       setLoading(false);
     }
@@ -100,7 +101,7 @@ export default function JoinGameButton({
       const body = await gamesApi.leave(gameId, token || "");
       if (onJoined) onJoined(body);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to cancel waitlist registration");
+      setError(mapJoinError(e));
     } finally {
       setLoading(false);
     }
@@ -169,6 +170,10 @@ export default function JoinGameButton({
               בטל הרשמה כמחליף
             </Button>
           </Box>
+        ) : viewerParticipationStatus === "CONFIRMED" ? (
+          <Button disabled variant="outlined" color="success" size="small">
+            אתה בפנים
+          </Button>
         ) : pending ? (
           <Button
             disabled
@@ -223,7 +228,7 @@ export default function JoinGameButton({
               },
             }}
           >
-            {loading ? "מצטרף..." : joinPolicy === "REQUIRES_APPROVAL" ? "בקש להצטרף" : "הצטרף"}
+            {loading ? "מצטרף..." : joinPolicy === "REQUIRES_APPROVAL" ? "בקש להצטרף" : "הצטרף למשחק"}
           </Button>
         )}
 

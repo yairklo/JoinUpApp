@@ -40,8 +40,8 @@ const FLAG_REASON_LABELS: Record<FieldFlagReason, string> = {
   OTHER: "אחר",
 };
 
-const CATEGORY_LABELS: Record<FieldIssueCategory, string> = {
-  POTHOLE: "בור במגרש",
+export const CATEGORY_LABELS: Record<string, string> = {
+  POTHOLE: "מפגע במגרש",
   LIGHTING: "תאורה לקויה",
   SURFACE: "משטח פגום",
   GOAL_NET: "שער/רשת פגומים",

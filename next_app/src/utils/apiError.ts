@@ -63,3 +63,26 @@ export function mapFriendRequestError(error: unknown): string {
 
   return "שליחת הבקשה נכשלה, נסה שוב";
 }
+
+export function mapJoinError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : "";
+  const normalized = raw.toLowerCase();
+  if (normalized.includes("already a participant") || normalized.includes("already a confirmed")) {
+    return "אתה כבר רשום למשחק זה";
+  }
+  if (normalized.includes("not yet open") || normalized.includes("registration is not yet open")) {
+    return "ההרשמה טרם נפתחה";
+  }
+  if (normalized.includes("not open for joining")) return "ההרשמה למשחק זה סגורה";
+  if (normalized.includes("declined")) return "בקשת ההצטרפות נדחתה";
+  if (normalized.includes("spot is already offered")) return "כבר הוצע לך מקום";
+  if (normalized.includes("failed to join")) return "ההצטרפות נכשלה, נסה שוב";
+  return getActionErrorMessage(error);
+}
+
+export function mapLeaveError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : "";
+  const normalized = raw.toLowerCase();
+  if (normalized.includes("failed to leave")) return "היציאה מהמשחק נכשלה, נסה שוב";
+  return getActionErrorMessage(error);
+}

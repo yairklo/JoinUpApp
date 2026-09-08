@@ -16,12 +16,20 @@ import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import { fieldsApi } from "@/services/api/fields";
+import { CATEGORY_LABELS as ISSUE_CATEGORY_LABELS } from "@/components/FieldIssueReportSection";
 
 const FLAG_REASON_LABELS: Record<FieldFlagReason, string> = {
   OFFENSIVE: "תוכן פוגעני",
   FALSE_INFO: "מידע שקרי",
   SPAM: "ספאם",
   OTHER: "אחר",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  OPEN: "פתוח",
+  RESOLVED: "טופל",
+  PENDING: "ממתין",
+  DISMISSED: "התעלמו",
 };
 
 export default function AdminModerationPage() {
@@ -249,7 +257,7 @@ export default function AdminModerationPage() {
           <Card key={row.id}>
             <CardContent>
               <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-                <Chip size="small" label={row.status} />
+                <Chip size="small" label={STATUS_LABELS[row.status] || row.status} />
                 <Typography variant="caption" color="text.secondary">{row.userId}</Typography>
               </Stack>
               <Typography sx={{ whiteSpace: "pre-wrap" }}>{row.content}</Typography>
@@ -343,7 +351,7 @@ export default function AdminModerationPage() {
                     <Chip size="small" color="warning" label={FLAG_REASON_LABELS[flag.reason]} />
                     <Typography variant="caption" color="text.secondary">{flag.issue.fieldName}</Typography>
                     <Typography variant="caption" fontWeight={700}>{flag.issue.user.name || flag.issue.user.id}</Typography>
-                    {flag.issue.category && <Chip size="small" label={flag.issue.category} />}
+                    {flag.issue.category && <Chip size="small" label={ISSUE_CATEGORY_LABELS[flag.issue.category] || flag.issue.category} />}
                     {flag.issue.user.blockedFromFieldSocial && <Chip size="small" color="error" label="חסום" />}
                   </Stack>
                   {flag.issue.description && <Typography sx={{ whiteSpace: "pre-wrap" }}>{flag.issue.description}</Typography>}
@@ -423,8 +431,8 @@ export default function AdminModerationPage() {
                   <Stack direction="row" spacing={1} alignItems="center" mb={1} flexWrap="wrap" useFlexGap>
                     <Typography variant="caption" color="text.secondary">{row.fieldName}</Typography>
                     <Typography variant="caption" fontWeight={700}>{row.user.name || row.user.id}</Typography>
-                    {row.category && <Chip size="small" label={row.category} />}
-                    <Chip size="small" color={row.status === "OPEN" ? "default" : "success"} label={row.status} />
+                    {row.category && <Chip size="small" label={ISSUE_CATEGORY_LABELS[row.category] || row.category} />}
+                    <Chip size="small" color={row.status === "OPEN" ? "default" : "success"} label={STATUS_LABELS[row.status] || row.status} />
                     {row.parentId && <Chip size="small" label="תגובה לדיווח" />}
                     {row.user.blockedFromFieldSocial && <Chip size="small" color="error" label="חסום" />}
                   </Stack>

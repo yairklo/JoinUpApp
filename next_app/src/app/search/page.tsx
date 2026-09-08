@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { gamesApi } from "@/services/api/games";
 import { fieldsApi } from "@/services/api/fields";
@@ -12,7 +13,8 @@ import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import LoadingMotif from "@/components/motion/LoadingMotif";
-import { useRouter } from "next/navigation";
+import RouteLoading from "@/components/motion/RouteLoading";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getLoadErrorMessage } from "@/utils/apiError";
 
 // MUI
@@ -61,24 +63,28 @@ import ViewListIcon from "@mui/icons-material/ViewList";
 
 type Bounds = { minLat: number; maxLat: number; minLng: number; maxLng: number };
 
-export default function SearchPage() {
+function SearchPageInner() {
   const { getToken, userId } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const param = (key: string) => searchParams?.get(key) || "";
 
   const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
-  const [query, setQuery] = useState("");
-  // The text the search actually runs against — kept separate from `query` so every
-  // keystroke doesn't fire a fresh /api/games/search request (was the main source of
-  // "too many requests" reports: typing a short word could fire 5-10 requests back to back).
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [selectedSport, setSelectedSport] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(""); // YYYY-MM-DD
-  const [selectedCity, setSelectedCity] = useState<string>("");
-  const [networkGames, setNetworkGames] = useState(false);
+  const [query, setQuery] = useState(() => param("q"));
+  const [debouncedQuery, setDebouncedQuery] = useState(() => param("q"));
+  const [selectedSport, setSelectedSport] = useState<string | null>(() => {
+    const sport = param("sport");
+    return sport && SPORTS.some((s) => s.id === sport) ? sport : null;
+  });
+  const [selectedDate, setSelectedDate] = useState<string>(() => param("date"));
+  const [selectedCity, setSelectedCity] = useState<string>(() => param("city"));
+  const [networkGames, setNetworkGames] = useState(
+    () => param("network") === "1" || param("network") === "true"
+  );
   const [showEmptyFields, setShowEmptyFields] = useState(false);
   const [emptyFields, setEmptyFields] = useState<any[]>([]);
   const [cities, setCities] = useState<string[]>([]);
@@ -86,7 +92,10 @@ export default function SearchPage() {
   const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
   const lastBoundsRef = useRef<Bounds | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
-  const [targetLocation, setTargetLocation] = useState<[number, number] | null>(null);
+  const [targetLocation, setTargetLocation] = useState<[number, number] | null>(() => {
+    const city = param("city");
+    return city && CITY_COORDS[city] ? CITY_COORDS[city] : null;
+  });
   // The user's own resolved GPS position -- distinct from targetLocation
   // (which also gets set by picking a city) so the map can mark it as "you
   // are here" instead of drawing it like a game/field pin.
@@ -94,7 +103,7 @@ export default function SearchPage() {
   // Mobile-only: switch between results list and full-screen map
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
 
-  const [locating, setLocating] = useState(false);
+  const [locating, setLocating] = useState(() => !param("city"));
   const [locationError, setLocationError] = useState<string | null>(null);
 
   // Requests the browser's geolocation and, on success, centers the map/search
@@ -104,10 +113,12 @@ export default function SearchPage() {
   // error, it just times out.
   const detectLocation = useCallback(() => {
     if (typeof window === "undefined" || !navigator.geolocation) {
+      setLocating(false);
       setLocationError("הדפדפן הזה לא תומך באיתור מיקום אוטומטי");
       return;
     }
     if (!window.isSecureContext) {
+      setLocating(false);
       setLocationError("איתור מיקום פועל רק בחיבור מאובטח (HTTPS) — אפשר לבחור עיר ידנית");
       return;
     }
@@ -133,6 +144,14 @@ export default function SearchPage() {
   }, []);
 
   useEffect(() => {
+    // Only skip geolocation when the city param actually resolved to known coordinates
+    // (set via CITY_COORDS above) -- an unrecognized/unlisted city (e.g. from a rail's
+    // "See all" link using a real DB city name outside the hardcoded list) should still
+    // fall back to GPS instead of leaving the map with no location at all.
+    if (selectedCity && CITY_COORDS[selectedCity]) {
+      setLocating(false);
+      return;
+    }
     detectLocation();
     // Only ever auto-run once on mount; the button re-triggers it manually.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -407,14 +426,19 @@ export default function SearchPage() {
               מגרשים פנויים
             </Button>
 
-            <TextField
+              <TextField
               select
+              id="search-city-select"
               value={selectedCity}
               onChange={(e) => {
                 const city = e.target.value;
                 setSelectedCity(city);
                 if (city && CITY_COORDS[city]) {
                   setTargetLocation(CITY_COORDS[city]);
+                } else if (city) {
+                  // City isn't in the hardcoded coordinate table -- fall back to GPS
+                  // rather than leaving the map centered on nothing/the wrong place.
+                  detectLocation();
                 }
               }}
               size="small"
@@ -486,8 +510,8 @@ export default function SearchPage() {
           ))}
         </Stack>
 
-        <Typography variant="subtitle2" color="text.secondary" mb={2}>
-          {games.length} משחקים נמצאו
+        <Typography variant="subtitle2" color="text.secondary" mb={2} minHeight="1.5em">
+          {loading || locating ? null : `${games.length} משחקים נמצאו`}
         </Typography>
 
         {loading && games.length === 0 ? (
@@ -499,10 +523,24 @@ export default function SearchPage() {
         ) : (
           <Stack spacing={2}>
             {games.map(renderGameCard)}
-            {games.length === 0 && (
-              <Box textAlign="center" p={4} bgcolor="action.hover" borderRadius={2}>
-                <Typography color="text.secondary">לא נמצאו משחקים באזור זה</Typography>
-              </Box>
+            {!loading && !locating && games.length === 0 && (
+              <SearchEmptyState
+                noLocation={!userLocation && !targetLocation}
+                filtersActive={!!(selectedSport || selectedDate || selectedCity || networkGames || debouncedQuery || showEmptyFields)}
+                onPickCity={() => {
+                  document.getElementById("search-city-select")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+                onClearFilters={() => {
+                  setSelectedSport(null);
+                  setSelectedDate("");
+                  setQuery("");
+                  setDebouncedQuery("");
+                  setNetworkGames(false);
+                  setShowEmptyFields(false);
+                  setSelectedCity("");
+                  if (!userLocation) detectLocation();
+                }}
+              />
             )}
           </Stack>
         )}
@@ -527,6 +565,7 @@ export default function SearchPage() {
           onGameSelect={(id) => router.push(`/games/${id}`)}
           targetLocation={targetLocation}
           userLocation={userLocation}
+          loading={loading || locating}
         />
       </Box>
 
@@ -557,3 +596,59 @@ export default function SearchPage() {
     </Box>
   );
 }
+
+function SearchEmptyState({
+  noLocation,
+  filtersActive,
+  onPickCity,
+  onClearFilters,
+}: {
+  noLocation: boolean;
+  filtersActive: boolean;
+  onPickCity: () => void;
+  onClearFilters: () => void;
+}) {
+  if (noLocation) {
+    return (
+      <Box textAlign="center" p={4} bgcolor="action.hover" borderRadius={2}>
+        <Typography color="text.secondary" mb={2}>
+          הפעל מיקום או בחר עיר כדי לראות משחקים באזורך
+        </Typography>
+        <Button variant="contained" size="small" onClick={onPickCity}>
+          בחר עיר
+        </Button>
+      </Box>
+    );
+  }
+  if (filtersActive) {
+    return (
+      <Box textAlign="center" p={4} bgcolor="action.hover" borderRadius={2}>
+        <Typography color="text.secondary" mb={2}>
+          לא נמצאו תוצאות לפילטרים שנבחרו
+        </Typography>
+        <Button variant="outlined" size="small" onClick={onClearFilters}>
+          נקה פילטרים
+        </Button>
+      </Box>
+    );
+  }
+  return (
+    <Box textAlign="center" p={4} bgcolor="action.hover" borderRadius={2}>
+      <Typography color="text.secondary" mb={2}>
+        לא נמצאו משחקים השבוע באזור זה — נסה להרחיב טווח חיפוש או ליצור משחק חדש
+      </Typography>
+      <Button component={Link} href="/games/new" variant="outlined" size="small">
+        יצירת משחק
+      </Button>
+    </Box>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<RouteLoading id="dribble" label="טוען חיפוש…" />}>
+      <SearchPageInner />
+    </Suspense>
+  );
+}
+

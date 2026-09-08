@@ -170,11 +170,14 @@ export default async function GameDetails(props: {
             />
 
             {canManageSeries && (
-              <Accordion sx={{ mt: 2 }}>
+              <Accordion id="game-manage" defaultExpanded sx={{ mt: 2 }}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  ניהול המשחק
+                  ניהול משחק
                 </AccordionSummary>
                 <AccordionDetails>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    עריכת פרטים, ניהול קבוצות, הגרלה, רשימת המתנה, בחירת שחקנים וביטול המשחק.
+                  </Typography>
                   <GameDetailsEditor
                     gameId={game.id}
                     initialTime={game.time}

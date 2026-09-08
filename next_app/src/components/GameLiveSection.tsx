@@ -257,11 +257,43 @@ export default function GameLiveSection({
         fullWidth
       >
         {joined ? (
-          <LeaveGameButton
-            gameId={game.id}
-            currentPlayers={game.participants?.length || 0}
-            onLeft={mergeAndSet}
-          />
+          <Box display="flex" flexDirection="column" alignItems="flex-end" gap={0.5}>
+            <Typography variant="body2" fontWeight={800} color="success.main">
+              אתה בפנים
+            </Typography>
+            <Box display="flex" alignItems="center" gap={1}>
+              {canManageSeries && (
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  size="small"
+                  onClick={() => {
+                    document.getElementById("game-manage")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  נהל משחק
+                </Button>
+              )}
+              <LeaveGameButton
+                gameId={game.id}
+                currentPlayers={game.participants?.length || 0}
+                onLeft={mergeAndSet}
+                alwaysConfirm
+                leaveLabel="בטל השתתפות"
+              />
+            </Box>
+          </Box>
+        ) : canManageSeries ? (
+          <Button
+            variant="contained"
+            color="primary"
+            size="small"
+            onClick={() => {
+              document.getElementById("game-manage")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          >
+            נהל משחק
+          </Button>
         ) : !isWaitlistOfferPending && !isWaitlisted ? (
           <JoinGameButton
             gameId={game.id}

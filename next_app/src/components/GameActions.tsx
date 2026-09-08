@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import GameLocationMap from "@/components/GameLocationMap";
 
 // MUI
@@ -7,6 +7,8 @@ import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 // Icons
 import NavigationOutlinedIcon from "@mui/icons-material/NavigationOutlined";
@@ -46,29 +48,29 @@ export default function GameActions({
       ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
       : undefined;
 
-  // Single Share button: show native share sheet when available;
-  // If the user cancels, do nothing. If not supported, copy to clipboard.
+  const [copied, setCopied] = useState(false);
+
   const share = async () => {
     if (navigator.share) {
       try {
         await navigator.share({ title: fieldName || "JoinUp", text: shareText, url: gameUrl });
         return;
       } catch (err: unknown) {
-        // If the user closed/cancelled the sheet, do nothing and do not fallback to web
         const name = err && typeof err === "object" && "name" in err ? String((err as { name?: unknown }).name) : "";
-        if (name === "AbortError" || name === "NotAllowedError") {
-          return;
-        }
-        // Other errors: continue to clipboard fallback
+        if (name === "AbortError" || name === "NotAllowedError") return;
+        // fall through to the clipboard/WhatsApp fallback below
       }
     }
+    let copiedOk = false;
     try {
       await navigator.clipboard.writeText(shareText);
-      alert("הקישור הועתק");
+      copiedOk = true;
+      setCopied(true);
     } catch {
-      // last resort: open a simple WhatsApp web share
-      const web = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-      window.open(web, "_blank");
+      // fall through
+    }
+    if (!copiedOk) {
+      window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
     }
   };
 
@@ -104,6 +106,16 @@ export default function GameActions({
           שיתוף
         </Button>
       </Stack>
+      <Snackbar
+        open={copied}
+        autoHideDuration={2500}
+        onClose={() => setCopied(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setCopied(false)} severity="success" variant="filled" sx={{ width: "100%" }}>
+          הקישור הועתק ללוח
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

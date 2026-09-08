@@ -8,11 +8,12 @@ import Button from "@mui/material/Button";
 
 import SeriesHeaderCard from "@/components/SeriesHeaderCard";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
-import FullPageList from "@/components/FullPageList";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
+import FullPageList from "@/components/FullPageList";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import { getLoadErrorMessage } from "@/utils/apiError";
 import { useSeriesCreatedListener, useSeriesDeletedListener, SeriesPayload } from "@/context/GameUpdateContext";
+import { SportFilter, sportLabel } from "@/utils/sports";
 
 type Series = {
     id: string;
@@ -27,16 +28,14 @@ type Series = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-import { SportFilter } from "@/utils/sports";
-
 export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
     const [seriesList, setSeriesList] = useState<Series[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
-    const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
     const [isMySeriesSeeAllOpen, setIsMySeriesSeeAllOpen] = useState(false);
     const [isJoinSeriesSeeAllOpen, setIsJoinSeriesSeeAllOpen] = useState(false);
+    const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
     const { getToken, isSignedIn } = useAuth();
     const { user } = useUser();
     const userId = user?.id;
@@ -136,7 +135,11 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
             <GamesHorizontalList title="קבוצות פעילות">
                 <Box p={2} width="100%">
                     <Typography variant="body2" color="text.secondary">
-                        {isSignedIn ? "אין עדיין קבוצות פעילות" : "התחבר כדי לשחק עם חברים בקבוצה קבועה"}
+                        {isSignedIn
+                            ? (sportFilter !== "ALL"
+                                ? `לא נמצאו קבוצות ${sportLabel(sportFilter)}`
+                                : "אין עדיין קבוצות פעילות")
+                            : "התחבר כדי לשחק עם חברים בקבוצה קבועה"}
                     </Typography>
                     {!isSignedIn && (
                         <SignInButton mode="modal">

@@ -40,6 +40,7 @@ import IconButton from "@mui/material/IconButton";
 
 import { SPORT_MAPPING, SportType } from "@/utils/sports";
 import { usePaginatedFields } from "@/hooks/usePaginatedFields";
+import { formatHebrewDate, HEBREW_DATE_INPUT_PROPS } from "@/utils/hebrewDate";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -587,12 +588,12 @@ function NewGamePageInner() {
                     size="small"
                     InputLabelProps={{ shrink: true }}
                     value={form.date}
-                    slotProps={{ htmlInput: { min: todayStr } }}
+                    slotProps={{ htmlInput: { min: todayStr, ...HEBREW_DATE_INPUT_PROPS } }}
                     error={!!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() < Date.now()}
                     helperText={
                       !!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() < Date.now()
                         ? "לא ניתן ליצור משחק בעבר"
-                        : ""
+                        : formatHebrewDate(form.date)
                     }
                     onChange={(e) => update("date", e.target.value)}
                   />
@@ -722,45 +723,35 @@ function NewGamePageInner() {
                       helperText={`${form.description.length}/2000`}
                     />
 
-                    <TextField
-                      label="הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)"
-                      multiline
-                      rows={3}
-                      fullWidth
-                      value={form.welcomeMessage}
-                      onChange={(e) => update("welcomeMessage", e.target.value)}
-                      dir="rtl"
-                      slotProps={{ htmlInput: { maxLength: 2000 } }}
-                      helperText={`${form.welcomeMessage.length}/2000`}
-                    />
-
-                    <Stack direction="row-reverse" spacing={3} alignItems="center" justifyContent="flex-start">
-                      <FormControlLabel
-                        control={<Switch checked={form.isFriendsOnly} onChange={(e) => update("isFriendsOnly", e.target.checked)} />}
-                        label="לחברים בלבד (פרטי)"
-                        sx={{ flexDirection: 'row-reverse', ml: 2 }}
-                      />
-
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={form.joinPolicy === "REQUIRES_APPROVAL"}
-                            onChange={(e) => update("joinPolicy", e.target.checked ? "REQUIRES_APPROVAL" : "INSTANT")}
-                          />
-                        }
-                        label="דורש אישור הצטרפות"
-                        sx={{ flexDirection: 'row-reverse', ml: 2 }}
-                      />
-
-                      {/* Public Later Settings */}
-                      <Collapse in={form.isFriendsOnly} style={{ width: '100%' }}>
-                        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50', borderColor: 'grey.300', mb: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={0.5}>גישה ופרטיות</Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" mb={2}>
+                        משחק לחברים בלבד מוסתר מהחיפוש הציבורי. אישור ידני דורש שהמארגן יאשר כל מצטרף.
+                      </Typography>
+                      <Stack spacing={1}>
+                        <FormControlLabel
+                          control={<Switch checked={form.isFriendsOnly} onChange={(e) => update("isFriendsOnly", e.target.checked)} />}
+                          label="חברים בלבד"
+                          sx={{ flexDirection: 'row-reverse', ml: 0, mr: 0, justifyContent: 'space-between' }}
+                        />
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={form.joinPolicy === "REQUIRES_APPROVAL"}
+                              onChange={(e) => update("joinPolicy", e.target.checked ? "REQUIRES_APPROVAL" : "INSTANT")}
+                            />
+                          }
+                          label="אישור ידני להצטרפות"
+                          sx={{ flexDirection: 'row-reverse', ml: 0, mr: 0, justifyContent: 'space-between' }}
+                        />
+                      </Stack>
+                      <Collapse in={form.isFriendsOnly}>
+                        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50', borderColor: 'grey.300', mt: 1 }}>
                           <FormControlLabel
                             control={<Switch checked={form.makePublicLater} onChange={(e) => update("makePublicLater", e.target.checked)} />}
                             label="פתח לציבור במועד מאוחר יותר"
                             sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0, mb: form.makePublicLater ? 2 : 0 }}
                           />
-
                           <Collapse in={form.makePublicLater}>
                             <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" mb={2} align="right">
                               מועד הפיכת המשחק לציבורי
@@ -774,6 +765,8 @@ function NewGamePageInner() {
                                   size="small"
                                   InputLabelProps={{ shrink: true }}
                                   value={form.publicDate}
+                                  slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+                                  helperText={formatHebrewDate(form.publicDate)}
                                   onChange={(e) => update("publicDate", e.target.value)}
                                 />
                               </Grid>
@@ -792,95 +785,115 @@ function NewGamePageInner() {
                           </Collapse>
                         </Paper>
                       </Collapse>
+                    </Paper>
 
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={0.5}>הרשמה ומקומות</Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" mb={2}>
+                        הגרלה בוחרת שחקנים במועד שנקבע. פתיחה עתידית להרשמה חוסמת הצטרפות עד התאריך שבחרת.
+                      </Typography>
                       <FormControlLabel
                         control={<Switch checked={form.lotteryEnabled} onChange={(e) => update("lotteryEnabled", e.target.checked)} />}
-                        label="אפשר הגרלה"
-                        sx={{ flexDirection: 'row-reverse' }}
+                        label="הגרלה"
+                        sx={{ flexDirection: 'row-reverse', ml: 0, mr: 0, justifyContent: 'space-between', width: '100%' }}
                       />
-                    </Stack>
+                      <Collapse in={form.lotteryEnabled}>
+                        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'warning.light', borderColor: 'warning.main', mt: 1 }}>
+                          <Typography variant="subtitle2" fontWeight="bold" color="warning.contrastText" mb={2} align="right">
+                            הגדרות הגרלה
+                          </Typography>
+                          <Grid container spacing={2} direction="row-reverse">
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                              <TextField
+                                label="תאריך הגרלה"
+                                type="date"
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                value={form.lotteryDate}
+                                slotProps={{ htmlInput: { min: todayStr, ...HEBREW_DATE_INPUT_PROPS } }}
+                                helperText={formatHebrewDate(form.lotteryDate)}
+                                onChange={(e) => update("lotteryDate", e.target.value)}
+                              />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                              <TextField
+                                label="שעת הגרלה"
+                                type="time"
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                value={form.lotteryTime}
+                                onChange={(e) => update("lotteryTime", e.target.value)}
+                              />
+                            </Grid>
+                            <Grid size={12}>
+                              <FormControlLabel
+                                control={<Checkbox checked={form.organizerInLottery} onChange={(e) => update("organizerInLottery", e.target.checked)} />}
+                                label="כלול מארגן בהגרלה (ללא אישור אוטומטי)"
+                                sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                              />
+                            </Grid>
+                          </Grid>
+                        </Paper>
+                      </Collapse>
+                      <FormControlLabel
+                        control={<Switch checked={form.futureRegistration} onChange={(e) => update("futureRegistration", e.target.checked)} />}
+                        label="פתיחה עתידית להרשמה"
+                        sx={{ flexDirection: 'row-reverse', ml: 0, mr: 0, justifyContent: 'space-between', width: '100%', mt: 1 }}
+                      />
+                      <Collapse in={form.futureRegistration}>
+                        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.light', borderColor: 'info.main', mt: 1 }}>
+                          <Typography variant="subtitle2" fontWeight="bold" color="info.contrastText" mb={2} align="right">
+                            מועד פתיחת הרשמה
+                          </Typography>
+                          <Grid container spacing={2} direction="row-reverse">
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                              <TextField
+                                label="תאריך פתיחה"
+                                type="date"
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                value={form.futureRegDate}
+                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+                                helperText={formatHebrewDate(form.futureRegDate)}
+                                onChange={(e) => update("futureRegDate", e.target.value)}
+                              />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                              <TextField
+                                label="שעת פתיחה"
+                                type="time"
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                                value={form.futureRegTime}
+                                onChange={(e) => update("futureRegTime", e.target.value)}
+                              />
+                            </Grid>
+                          </Grid>
+                        </Paper>
+                      </Collapse>
+                    </Paper>
 
-                    {/* Lottery Settings */}
-                    <Collapse in={form.lotteryEnabled}>
-                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'warning.light', borderColor: 'warning.main' }}>
-                        <Typography variant="subtitle2" fontWeight="bold" color="warning.contrastText" mb={2} align="right">
-                          הגדרות הגרלה
-                        </Typography>
-                        <Grid container spacing={2} direction="row-reverse">
-                          <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField
-                              label="תאריך הגרלה"
-                              type="date"
-                              fullWidth
-                              size="small"
-                              InputLabelProps={{ shrink: true }}
-                              value={form.lotteryDate}
-                              slotProps={{ htmlInput: { min: todayStr } }}
-                              onChange={(e) => update("lotteryDate", e.target.value)}
-                            />
-                          </Grid>
-                          <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField
-                              label="שעת הגרלה"
-                              type="time"
-                              fullWidth
-                              size="small"
-                              InputLabelProps={{ shrink: true }}
-                              value={form.lotteryTime}
-                              onChange={(e) => update("lotteryTime", e.target.value)}
-                            />
-                          </Grid>
-                          <Grid size={12}>
-                            <FormControlLabel
-                              control={<Checkbox checked={form.organizerInLottery} onChange={(e) => update("organizerInLottery", e.target.checked)} />}
-                              label="כלול מארגן בהגרלה (ללא אישור אוטומטי)"
-                              sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
-                            />
-                          </Grid>
-                        </Grid>
-                      </Paper>
-
-                    </Collapse>
-
-                    <FormControlLabel
-                      control={<Switch checked={form.futureRegistration} onChange={(e) => update("futureRegistration", e.target.checked)} />}
-                      label="פתיחת רישום עתידית"
-                      sx={{ flexDirection: 'row-reverse' }}
-                    />
-
-                    {/* Future Registration Settings */}
-                    <Collapse in={form.futureRegistration}>
-                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.light', borderColor: 'info.main' }}>
-                        <Typography variant="subtitle2" fontWeight="bold" color="info.contrastText" mb={2} align="right">
-                          מועד פתיחת הרשמה
-                        </Typography>
-                        <Grid container spacing={2} direction="row-reverse">
-                          <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField
-                              label="תאריך פתיחה"
-                              type="date"
-                              fullWidth
-                              size="small"
-                              InputLabelProps={{ shrink: true }}
-                              value={form.futureRegDate}
-                              // slotProps={{ htmlInput: { min: todayStr } }} // Optional: restrict to future dates
-                              onChange={(e) => update("futureRegDate", e.target.value)}
-                            />
-                          </Grid>
-                          <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField
-                              label="שעת פתיחה"
-                              type="time"
-                              fullWidth
-                              size="small"
-                              InputLabelProps={{ shrink: true }}
-                              value={form.futureRegTime}
-                              onChange={(e) => update("futureRegTime", e.target.value)}
-                            />
-                          </Grid>
-                        </Grid>
-                      </Paper>
-                    </Collapse>
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Typography variant="subtitle1" fontWeight={800} mb={0.5}>תקשורת</Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" mb={2}>
+                        הודעת פתיחה נשלחת אוטומטית בפרטי לכל מי שמצטרף למשחק.
+                      </Typography>
+                      <TextField
+                        label="הודעת פתיחה אוטומטית"
+                        multiline
+                        rows={3}
+                        fullWidth
+                        value={form.welcomeMessage}
+                        onChange={(e) => update("welcomeMessage", e.target.value)}
+                        dir="rtl"
+                        slotProps={{ htmlInput: { maxLength: 2000 } }}
+                        helperText={`${form.welcomeMessage.length}/2000`}
+                      />
+                    </Paper>
                   </Stack>
                 </Collapse>
               </Box>

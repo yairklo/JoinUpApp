@@ -99,6 +99,12 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
                         ...game,
                         currentPlayers: Math.max(0, game.currentPlayers - 1),
                         participants: participants.filter((p) => p.id !== userId),
+                        // Clear the viewer's own stale confirmed/waitlisted status so JoinGameButton
+                        // doesn't keep rendering a disabled "אתה בפנים" state after they just left --
+                        // otherwise this optimistic patch clears `participants` but leaves
+                        // `viewerParticipationStatus` pointing at the old value until the next
+                        // `game:updated` broadcast arrives.
+                        ...(userId === myId ? { viewerParticipationStatus: null } : {}),
                     };
                 }
             })
