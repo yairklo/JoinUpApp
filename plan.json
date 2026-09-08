@@ -7,7 +7,7 @@
       "server/routes/fields.js"
     ],
     "description": "Guests with no saved city and no GPS permission need a sensible default city instead of a hardcoded/broken one (P0-3 of the UX backlog). No such aggregate exists today (confirmed: grep for 'groupBy' in server/ shows no city-activity query; server/routes/fields.js:169-192 only has GET /cities, an alphabetical distinct list).\n\nAdd a new route directly after the existing `router.get('/cities', ...)` handler (server/routes/fields.js:169-192), before the '// Slim bbox query for map markers' comment at line 194:\n\n```js\n// Most active city by upcoming/recent game volume -- used as the guest default city\n// (no saved city, no GPS permission) instead of a hardcoded literal.\nrouter.get('/cities/top', async (req, res) => {\n  try {\n    const rows = await prisma.$queryRaw`\n      SELECT f.city AS city, COUNT(g.id)::int AS count\n      FROM \"Field\" f\n      JOIN \"Game\" g ON g.\"fieldId\" = f.id\n      WHERE f.city IS NOT NULL\n        AND g.start >= NOW() - INTERVAL '30 days'\n      GROUP BY f.city\n      ORDER BY count DESC\n      LIMIT 1\n    `;\n    res.json({ city: rows[0]?.city || null });\n  } catch (error) {\n    console.error('Get top city error:', error);\n    res.status(500).json({ error: 'Failed to get top city' });\n  }\n});\n```\n\nFollow the exact `prisma` import already used at the top of this file (do not re-import). This is a plain additive read-only route -- no schema/migration change, matches the Prisma-6/PostgreSQL stack described in server/CLAUDE.md. Response shape is intentionally `{ city: string | null }` (null when there are no games in the last 30 days at all) so callers can fall back to a static default without a second error branch.",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 2,
@@ -17,7 +17,7 @@
       "next_app/src/hooks/useGamesByDate.ts"
     ],
     "description": "Confirmed root cause of P0-1 (\"today's games\" rail flashing 'לא נמצאו משחקים בתאריך...' before cards load): `useGamesByDate` (next_app/src/hooks/useGamesByDate.ts:12) initializes `const [loading, setLoading] = useState(false);`. The fetch effect (lines 41-90) does `if (!isLoaded) return;` before calling `setLoading(true)` -- so between mount and Clerk's `isLoaded` becoming true, `loading` is `false` and `games` is `[]`. The consumer, `GamesByDateClient.tsx:129-182`, renders the skeleton only `if (loading)` (line 129) and the Hebrew empty-state message otherwise (line 155 `currentDayGames.length === 0`) -- so during that gap it shows the empty-state message, not the skeleton.\n\nFix: change line 12 to `const [loading, setLoading] = useState(true);`. Do not change anything else in this hook -- the existing effect already sets `loading` to `false` only in its `finally` block (line 84) once the fetch settles (or immediately if `isLoaded` is already true on mount, e.g. for a returning authenticated user, where behavior is unaffected). No changes needed in GamesByDateClient.tsx -- its render logic is already correct once `loading` starts `true`.",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 3,
@@ -28,7 +28,7 @@
       "next_app/src/components/GamesByCityClient.tsx"
     ],
     "description": "Confirmed bug (P0-3 on web): in `useGamesByCity.ts`, the \"fetch user city\" effect (lines 35-59) does `if (!isLoaded || initialCity) return; if (!user) return;` -- for a guest (`user` is null) it returns without ever calling `setDisplayedCity`. The \"fetch games\" effect (lines 62-91) does `if (!displayedCity) return;` -- so for guests neither effect runs and `loading` (initialized `true` at line 13) never flips to `false`: guests see an infinite spinner in the 'משחקים ב...' rail forever. There is also a duplicated hardcoded fallback literal `\"תל אביב-יפו\"` at lines 51 and 54.\n\nFix `next_app/src/hooks/useGamesByCity.ts`:\n1. Replace the \"Fetch User City\" effect (lines 35-59) so that when `isLoaded && !initialCity`:\n   - If `user` exists: keep the existing fetch-user-profile-city logic as-is (lines 40-58), but change both fallback literals (`\"תל אביב-יפו\"` at lines 51 and 54) to a `DEFAULT_CITY` constant (see below) instead of the inline literal.\n   - If `user` is null (guest): fetch `` `${API_BASE}/api/fields/cities/top` `` (added in task 1 of this plan) and `setDisplayedCity(data.city || DEFAULT_CITY)`; on any fetch error, `setDisplayedCity(DEFAULT_CITY)`. This must run for guests too (remove the `if (!user) return;` early exit), so the fetch-games effect always eventually gets a non-empty `displayedCity` and `loading` resolves to `false`.\n2. Add `const DEFAULT_CITY = \"תל אביב-יפו\";` near the top of the file (module scope) and use it in both places instead of the repeated literal.\n3. Add a small city-alias normalizer so `\"תל אביב\"` and `\"תל אביב-יפו\"` are treated as the same city (per backlog P0-3 \"normalized Hebrew city catalog with aliases\"): add `const CITY_ALIASES: Record<string, string> = { \"תל אביב\": \"תל אביב-יפו\", \"Tel Aviv\": \"תל אביב-יפו\", \"Tel Aviv-Yafo\": \"תל אביב-יפו\" };` and a `normalizeCity(c: string) { return CITY_ALIASES[c] || c; }` helper, applied to `displayedCity` inside the `predicate` callback (line 19-22, use `normalizeCity(displayedCity)` and `normalizeCity(game.city)` before comparing) and when setting `displayedCity` from any source (server profile city, top-city endpoint, or manual selection).\n\nFix `next_app/src/components/GamesByCityClient.tsx` (per P0-3's explicit UI ask: \"visible chip/button: 'מציג משחקים ב[שם עיר] • שנה עיר'\"): the component already has an edit-city `IconButton` + `Dialog` (lines 39-47, 120-155) but it's a small icon, not a prominent labeled chip. Replace the `customHeaderAction` `IconButton` at lines 120-124 with a `Chip` (MUI `Chip`, `clickable`, `onClick={handleEditClick}`) labeled `` `מציג משחקים ב${displayedCity} • שנה עיר` `` placed above or beside the `GamesHorizontalList` title -- keep `handleEditClick`/the existing `Dialog` (lines 136-155) unchanged, only swap the trigger element and its visual prominence.",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 4,
@@ -38,7 +38,7 @@
       "mobile_app/src/hooks/useGamesByCity.ts"
     ],
     "description": "Same bug family as task 3, confirmed in the mobile app: `mobile_app/src/hooks/useGamesByCity.ts:54,57` fall back to the literal English string `'Tel Aviv'` (not `'תל אביב-יפו'` like the web hook) -- since field/game `city` values in the DB are Hebrew, this fallback never matches anything, guests see 0 results. Additionally the same guest-stuck-loading bug as task 3 exists here: the \"fetch user city\" effect (lines 39-63) does `if (!userId) return;` (line 41) so for guests `displayedCity` never gets set and the fetch-games effect (lines 65-98) never runs, leaving `loading` (initialized `true`, line 15) stuck forever.\n\nFix:\n1. Add `const DEFAULT_CITY = 'תל אביב-יפו';` at module scope and replace both `'Tel Aviv'` literals (lines 54 and 57) with `DEFAULT_CITY`.\n2. Change the \"fetch user city\" effect (lines 39-63) so that when `isLoaded && !initialCity` and `userId` is falsy (guest), it calls `fetch(`${API_BASE}/api/fields/cities/top`)` (new endpoint added in task 1) and does `setDisplayedCity(data.city || DEFAULT_CITY)`, falling back to `DEFAULT_CITY` on any error -- mirror the try/catch shape already used for the authenticated-user branch (lines 45-59) so both paths resolve `displayedCity` and unstick `loading`.\n3. Add the same city-alias normalization as task 3 (`CITY_ALIASES`/`normalizeCity`, covering `'תל אביב'`, `'Tel Aviv'`, `'Tel Aviv-Yafo'` -> `'תל אביב-יפו'`) applied in the `predicate` callback (lines 19-22).\n\nDo not touch `mobile_app/src/components/GamesByCitySection.tsx` in this task -- it only consumes `displayedCity`/`loading` from the hook and needs no changes for this fix (no UI chip requirement was raised for mobile in the backlog, unlike web task 3).",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 5,
@@ -48,7 +48,7 @@
       "next_app/src/services/api/games.ts"
     ],
     "description": "Confirmed root cause of P0-2 (guest sport filter on /search has no effect on results/count/map): `gamesApi.search()` (next_app/src/services/api/games.ts:63-66) picks the backend endpoint by token presence:\n```js\nsearch: (params, token, signal) => {\n    const endpoint = token ? '/api/games/search' : '/api/games/public';\n    return apiClient<Game[]>(`${endpoint}?${params.toString()}`, { token, signal });\n},\n```\nA guest's `getToken()` resolves to `null`/`undefined` (next_app/src/app/search/page.tsx:162,177: `const token = await getToken(); ... gamesApi.search(params, token || undefined, ...)`), so guests always hit `GET /api/games/public`. That route (server/routes/games.js:40-46 -> `getPublicGames`, server/services/gameService.js:1584-1608) destructures ONLY `{ fieldId, date, isOpenToJoin }` from the query -- `sport`, `q`, `city`, and the map bounding-box params are silently dropped, so sport selection, text search, city, and map-panning have zero effect for guests.\n\nThe fix is NOT a server change: `GET /api/games/search` (server/routes/games.js:113-119) already uses `attachOptionalUser` (not `authenticateToken`) -- confirmed in server/utils/auth.js:53-58, it calls `next()` immediately when there's no Authorization header, so `searchGames(req.query, undefined)` runs the full filter pipeline (server/services/gameService.js:986-1092, sport filter at lines 1037-1039) for guests exactly like for authenticated users; `buildVisibilityWhere(undefined)` (gameService.js:318-326) already correctly restricts guests to non-friends-only games only, same visibility `/public` provides today.\n\nFix: in `next_app/src/services/api/games.ts`, change the `search` method to always call `/api/games/search`, regardless of token:\n```ts\nsearch: (params: URLSearchParams, token?: string, signal?: AbortSignal) => {\n    return apiClient<Game[]>(`/api/games/search?${params.toString()}`, { token, signal });\n},\n```\nDo not remove the `/api/games/public` server route or `getPublicGames` service function in this task -- out of scope, no other caller currently depends on this change beyond what's listed here (confirmed via grep: the only web caller of `gamesApi.search` is `next_app/src/app/search/page.tsx:177` and `next_app/src/hooks/useGamesByDate.ts:60`, both benefit identically from this fix, no other file needs edits).",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 6,
@@ -58,7 +58,7 @@
       "mobile_app/src/services/api/games.ts"
     ],
     "description": "Same bug and same fix as task 5, confirmed present identically in the mobile client: `mobile_app/src/services/api/games.ts:39` has `const endpoint = token ? '/api/games/search' : '/api/games/public';`. Change it to always use `/api/games/search` (drop the ternary, same as task 5's web fix) -- the backend route already supports optional auth for guests (see task 5's description for the full server-side confirmation, unchanged here since it's the same backend). Callers unaffected/no other changes needed: `mobile_app/app/(tabs)/search.tsx:139` and `mobile_app/src/hooks/useGamesByDate.ts:81` both call `gamesApi.search(...)` and will simply start getting properly filtered results for guests too.",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 7,
@@ -68,7 +68,7 @@
       "next_app/src/components/HomeHero.tsx"
     ],
     "description": "Per approved product decision (P0-4): the Hero's primary CTA must route directly to `/search` with the label \"גלה את כל המשחקים השבוע\", not create-a-game. Currently (next_app/src/components/HomeHero.tsx:198-216): primary button is `<Button component={Link} href=\"/games/new\" variant=\"contained\" ... startIcon={<AddIcon />}>צור משחק חדש</Button>`, secondary (lines 218-238) is `<Button variant=\"outlined\" onClick={scrollToGames} endIcon={<KeyboardArrowDownIcon />}>הצטרף למשחק</Button>` (scrolls to `#games-feed` in-page, no navigation).\n\nSwap the two buttons' roles:\n1. Primary button (currently lines 198-216): change `href=\"/games/new\"` to `href=\"/search\"`, change the label from `צור משחק חדש` to `גלה את כל המשחקים השבוע`, and swap `startIcon={<AddIcon />}` for a map/compass icon consistent with task 11 of this plan's search-page rebrand (`import ExploreIcon from \"@mui/icons-material/Explore\";` or `MapIcon` from `@mui/icons-material/Map` -- prefer `ExploreIcon`, add the import at the top alongside the other `@mui/icons-material/*` imports).\n2. Secondary button (currently lines 218-238): change to `component={Link} href=\"/games/new\"`, remove the `onClick={scrollToGames}`/`endIcon={<KeyboardArrowDownIcon />}` (no longer an in-page scroll), swap `endIcon` for `startIcon={<AddIcon />}` (moved from the old primary), and change the label to `צור משחק חדש`.\n3. Once neither button calls `scrollToGames`, remove the now-unused `scrollToGames` function (lines 22-27) and the `id=\"games-feed\"` target becomes unused from this component's perspective -- do NOT remove `id=\"games-feed\"` from `GamesPageContent.tsx` itself (out of scope / other anchors may still reference it), only clean up this file's own now-dead code.\n4. Leave the `KeyboardArrowDownIcon` import removed if no longer used elsewhere in this file (confirm before deleting the import line).",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 8,
@@ -78,7 +78,7 @@
       "next_app/src/components/GamesByDateClient.tsx"
     ],
     "description": "Per P0-4: when today's date rail has 0 games, show an explicit prompt directing to the week-wide map/search view instead of leaving the user thinking the product is empty. The empty-state branch already exists at next_app/src/components/GamesByDateClient.tsx:155-174 (`currentDayGames.length === 0`), currently showing just the message + a \"חזור להיום\" button.\n\nAdd, inside that same `Box` (after the existing \"חזור להיום\" `Button` at lines 167-173, still inside the `sx={{ bgcolor: \"action.hover\", ... }}` container from lines 156-162): a new line of text \"אין משחקים להיום? צפה במשחקי השבוע במפת המשחקים\" followed by a `Button` (`component={Link} href=\"/search\" variant=\"outlined\" size=\"small\"`, add `import Link from \"next/link\";` at the top if not already imported -- check first) labeled \"למפת המשחקים\". Keep the existing \"חזור להיום\" button as-is (it's still useful when the user navigated away from today via the date nav); the new prompt is additional, not a replacement.",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 9,
@@ -88,7 +88,7 @@
       "next_app/src/utils/apiError.ts"
     ],
     "description": "Per P0-5: all failures currently collapse into the single generic string \"אירעה שגיאה בטעינת הנתונים\" (`getLoadErrorMessage`, next_app/src/utils/apiError.ts:15-20), differentiating only 429. Retry already exists everywhere this is used (`InlineErrorRow.tsx` renders a \"נסה שוב\" button wired to `onRetry` in every consumer -- GamesByDateClient.tsx:154, GamesByCityClient.tsx:62-67, GamesByFriendsClient.tsx:42-47, MyJoinedGames.tsx:39-45, search/page.tsx:496-497) so no retry-wiring changes are needed, only the message differentiation.\n\nConfirmed error shape available to differentiate on: `apiClient()` (next_app/src/services/api/client.ts:46-66) throws a plain `Error` with `.status` set to the HTTP status code for any non-2xx response (line 51-53); a genuine network/offline failure (fetch itself rejects, e.g. `TypeError: Failed to fetch`) reaches the same `catch` block and gets rethrown WITHOUT a `.status` property, so `getErrorStatus(error)` (apiError.ts:5-11) already reliably returns `undefined` for offline/network failures and a real HTTP status for server responses -- this mirrors the pattern already proven in `mapFriendRequestError` (apiError.ts:33-49, lines 44-45: `if (normalized.includes(\"failed to fetch\") || normalized.includes(\"networkerror\")) return \"בעיית תקשורת, בדוק את החיבור לאינטרנט\";`).\n\nRewrite `getLoadErrorMessage` (lines 15-20) to:\n```ts\nexport function getLoadErrorMessage(error: unknown): string {\n  const status = getErrorStatus(error);\n  if (status === 429) return \"יותר מדי בקשות, נסה שוב בעוד רגע\";\n  if (status === 401 || status === 403) return \"יש להתחבר מחדש כדי לצפות בתוכן הזה\";\n  if (typeof status === \"number\" && status >= 500) return \"שגיאת שרת זמנית, נסה שוב בעוד רגע\";\n  if (status === undefined) {\n    const raw = error instanceof Error ? error.message.toLowerCase() : \"\";\n    if (raw.includes(\"failed to fetch\") || raw.includes(\"networkerror\") || raw.includes(\"network request failed\")) {\n      return \"בעיית תקשורת, בדוק את החיבור לאינטרנט ונסה שוב\";\n    }\n  }\n  return \"אירעה שגיאה בטעינת הנתונים\";\n}\n```\nApply the identical differentiation to `getActionErrorMessage` (lines 23-28), keeping its distinct base fallback string (\"אירעה שגיאה, נסה שוב\") for the final `return`. Do not change `mapFriendRequestError` (lines 33-49) -- it already has its own, more specific differentiation and is out of scope here. No changes needed in any consumer file -- `InlineErrorRow` and every call site already just render whatever string these functions return.",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 10,
@@ -98,7 +98,7 @@
       "server/services/gameService.js"
     ],
     "description": "Preparatory step for P0-6 (public/open badges on game cards). Confirmed gap: `isFriendsOnly` exists on the shared `Game` type (shared/types/game.ts:71) and is already returned for single-game detail (`mapGameForClient`, gameService.js:154), but is NOT included in `SEARCH_GAME_SELECT` (gameService.js:205-237) nor returned by `mapGameForSearchClient` (gameService.js:239-290) -- so list/rail/search game cards (which all go through `fetchMappedListGames` -> `mapGameForSearchClient`) cannot currently render a public/friends-only badge; the field simply isn't in the payload.\n\n1. Add `isFriendsOnly: true,` to `SEARCH_GAME_SELECT` (gameService.js:205-237), anywhere alongside the other top-level boolean fields (e.g. next to `isOpenToJoin: true,` at line 223).\n2. Add `isFriendsOnly: !!game.isFriendsOnly,` to the object returned by `mapGameForSearchClient` (gameService.js:250-289), following the same `!!` boolean-coercion style already used for it in `mapGameForClient` (line 154) -- place it near `isOpenToJoin: game.isOpenToJoin,` (line 274).\n\nNote all list results guests can already see are filtered to `isFriendsOnly === false` (or currently-unlocked) by `buildVisibilityWhere` (gameService.js:318-326), so this is purely additive data exposure for the badge UI in the next task, not a visibility/security change.",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 11,
@@ -108,7 +108,7 @@
       "next_app/src/components/GameHeaderCard.tsx"
     ],
     "description": "Depends on task 10 (server must return `isFriendsOnly` first). Per P0-6: add a small contextual badge to public matches so guests understand what they're seeing (\"משחק ציבורי\" / \"פתוח לכולם\").\n\nIn `next_app/src/components/GameHeaderCard.tsx`, add an optional prop `isFriendsOnly?: boolean` to the component's props type (alongside the other optional props declared at lines 53-60ish, e.g. next to `fieldHref`). When `isFriendsOnly === false` (explicitly, not just falsy/undefined, since older cached payloads before task 10 ships may omit the field entirely -- only show the badge when the server has actually told us it's public), render a small `Chip` (reuse the existing `chipOverlaySx` style object already defined at lines 21-35 in this file for visual consistency with other overlay chips) labeled \"פתוח לכולם\", placed alongside/near wherever the existing sport/status chips are rendered in this card's markup (read the rest of the component body past line 60 to find the existing chip row before adding this one, and match its exact placement/spacing pattern rather than inventing a new layout region).",
-    "status": "todo"
+    "status": "done"
   },
   {
     "id": 12,
@@ -120,6 +120,6 @@
       "next_app/src/components/GamesByFriendsClient.tsx"
     ],
     "description": "Depends on tasks 10 and 11. Pass the new `isFriendsOnly` field through to `GameHeaderCard` in each of the three rail components' `renderGameCard` functions (all three follow the identical pattern already read: GamesByDateClient.tsx:54-98, GamesByCityClient.tsx:70-113, and the equivalent in GamesByFriendsClient.tsx). In each file's `<GameHeaderCard ...>` call, add the prop `isFriendsOnly={g.isFriendsOnly}` alongside the existing props (e.g. next to `price={g.price}`). Do not add this to `MyJoinedGames.tsx` or `SeriesSectionClient.tsx` -- badge is for public-discovery rails, not the user's own joined games (out of scope, matches the backlog's framing of 'public matches' badges as a discovery-trust signal, not something needed on games the guest already knows they're in... though guests can't be in games at all, so this mainly matters for the logged-in-viewing-others-games case; keeping scope to the three discovery rails as the backlog's examples describe).",
-    "status": "todo"
+    "status": "done"
   }
 ]

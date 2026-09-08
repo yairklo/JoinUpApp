@@ -10,19 +10,35 @@ export function getErrorStatus(error: unknown): number | undefined {
   return undefined;
 }
 
-// Generic "failed to load data" copy, distinguishing 429 (rate limited) from
-// everything else (500s, network errors, etc). Used by feed/list hooks.
+// Differentiates network/offline failures (no HTTP status at all -- the fetch
+// itself rejected) from real HTTP error responses, so callers can render more
+// specific Hebrew copy than one generic string for every failure type.
+function isNetworkError(error: unknown): boolean {
+  const raw = error instanceof Error ? error.message.toLowerCase() : "";
+  return raw.includes("failed to fetch") || raw.includes("networkerror") || raw.includes("network request failed");
+}
+
+// Generic "failed to load data" copy, distinguishing rate limiting, auth,
+// server errors, and offline/network failures. Used by feed/list hooks.
 export function getLoadErrorMessage(error: unknown): string {
-  if (getErrorStatus(error) === 429) {
-    return "יותר מדי בקשות, נסה שוב בעוד רגע";
+  const status = getErrorStatus(error);
+  if (status === 429) return "יותר מדי בקשות, נסה שוב בעוד רגע";
+  if (status === 401 || status === 403) return "יש להתחבר מחדש כדי לצפות בתוכן הזה";
+  if (typeof status === "number" && status >= 500) return "שגיאת שרת זמנית, נסה שוב בעוד רגע";
+  if (status === undefined && isNetworkError(error)) {
+    return "בעיית תקשורת, בדוק את החיבור לאינטרנט ונסה שוב";
   }
   return "אירעה שגיאה בטעינת הנתונים";
 }
 
 // Generic "failed to save/submit" copy for mutation-style calls (POST/PUT/DELETE).
 export function getActionErrorMessage(error: unknown): string {
-  if (getErrorStatus(error) === 429) {
-    return "יותר מדי בקשות, נסה שוב בעוד רגע";
+  const status = getErrorStatus(error);
+  if (status === 429) return "יותר מדי בקשות, נסה שוב בעוד רגע";
+  if (status === 401 || status === 403) return "יש להתחבר מחדש כדי לצפות בתוכן הזה";
+  if (typeof status === "number" && status >= 500) return "שגיאת שרת זמנית, נסה שוב בעוד רגע";
+  if (status === undefined && isNetworkError(error)) {
+    return "בעיית תקשורת, בדוק את החיבור לאינטרנט ונסה שוב";
   }
   return "אירעה שגיאה, נסה שוב";
 }

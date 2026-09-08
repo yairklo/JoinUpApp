@@ -68,6 +68,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                 teamSize={g.teamSize}
                 price={g.price}
                 isJoined={joined}
+                isFriendsOnly={g.isFriendsOnly}
                 href={`/games/${g.id}`}
             >
                 {joined ? (

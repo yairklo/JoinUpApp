@@ -5,6 +5,18 @@ import { Game } from '@/types/game';
 import { useSyncedGames } from './useSyncedGames';
 import { getLoadErrorMessage } from '@/utils/apiError';
 
+const DEFAULT_CITY = "תל אביב-יפו";
+
+const CITY_ALIASES: Record<string, string> = {
+    "תל אביב": DEFAULT_CITY,
+    "Tel Aviv": DEFAULT_CITY,
+    "Tel Aviv-Yafo": DEFAULT_CITY,
+};
+
+function normalizeCity(city: string): string {
+    return CITY_ALIASES[city] || city;
+}
+
 export function useGamesByCity(initialCity?: string) {
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
@@ -18,7 +30,8 @@ export function useGamesByCity(initialCity?: string) {
 
     const predicate = useCallback((game: Game) => {
         if (!displayedCity) return false;
-        return game.city === displayedCity || game.fieldLocation?.includes(displayedCity);
+        const normalizedDisplayed = normalizeCity(displayedCity);
+        return normalizeCity(game.city || "") === normalizedDisplayed || game.fieldLocation?.includes(displayedCity);
     }, [displayedCity]);
 
     const { games, setGames } = useSyncedGames([], predicate);
@@ -31,16 +44,16 @@ export function useGamesByCity(initialCity?: string) {
             .catch(err => console.error("Failed to load cities", err));
     }, []);
 
-    // Fetch User City
+    // Fetch User City (authenticated) or the most active city (guest)
     useEffect(() => {
         if (!isLoaded || initialCity) return;
-        if (!user) return;
 
         let ignore = false;
+
         async function fetchUserCity() {
             try {
                 const token = await getToken();
-                // We don't have a specialized User API for 'get full user object' yet in users.ts, 
+                // We don't have a specialized User API for 'get full user object' yet in users.ts,
                 // only 'getProfile'. Let's assume we can add it or just fetch here responsibly.
                 // For speed, I'll fetch here, but ideally this goes to usersApi.
                 const res = await fetch(`${API_BASE}/api/users/${user?.id}`, {
@@ -48,13 +61,28 @@ export function useGamesByCity(initialCity?: string) {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    if (!ignore) setDisplayedCity(data.city || "תל אביב-יפו");
+                    if (!ignore) setDisplayedCity(normalizeCity(data.city || DEFAULT_CITY));
                 }
             } catch (e) {
-                if (!ignore) setDisplayedCity("תל אביב-יפו");
+                if (!ignore) setDisplayedCity(DEFAULT_CITY);
             }
         }
-        fetchUserCity();
+
+        async function fetchTopCity() {
+            try {
+                const res = await fetch(`${API_BASE}/api/fields/cities/top`);
+                const data = await res.json();
+                if (!ignore) setDisplayedCity(normalizeCity(data.city || DEFAULT_CITY));
+            } catch (e) {
+                if (!ignore) setDisplayedCity(DEFAULT_CITY);
+            }
+        }
+
+        if (user) {
+            fetchUserCity();
+        } else {
+            fetchTopCity();
+        }
         return () => { ignore = true; };
     }, [isLoaded, user, initialCity, getToken]);
 

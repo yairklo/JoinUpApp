@@ -221,6 +221,7 @@ const SEARCH_GAME_SELECT = {
   organizerId: true,
   status: true,
   isOpenToJoin: true,
+  isFriendsOnly: true,
   field: {
     select: {
       id: true,
@@ -272,6 +273,7 @@ function mapGameForSearchClient(game, viewerId) {
     organizerId: game.organizerId || null,
     status: game.status || null,
     isOpenToJoin: game.isOpenToJoin,
+    isFriendsOnly: !!game.isFriendsOnly,
     viewerParticipationStatus,
     participants: (game.participants || [])
       .filter((p) => p.status === 'CONFIRMED')

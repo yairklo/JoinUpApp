@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
@@ -70,6 +71,7 @@ export default function GamesByDateClient({
         teamSize={g.teamSize}
         price={g.price}
         isJoined={joined}
+        isFriendsOnly={g.isFriendsOnly}
         href={`/games/${g.id}`}
       >
         {joined ? (
@@ -170,6 +172,18 @@ export default function GamesByDateClient({
             onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
           >
             חזור להיום
+          </Button>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            אין משחקים להיום? צפה במשחקי השבוע במפת המשחקים
+          </Typography>
+          <Button
+            component={Link}
+            href="/search"
+            variant="outlined"
+            size="small"
+            sx={{ mt: 1 }}
+          >
+            למפת המשחקים
           </Button>
         </Box>
       ) : (

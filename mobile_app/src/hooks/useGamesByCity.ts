@@ -6,6 +6,18 @@ import { useSyncedGames } from './useSyncedGames';
 import { useAuthTokenRef } from './useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
 
+const DEFAULT_CITY = 'תל אביב-יפו';
+
+const CITY_ALIASES: Record<string, string> = {
+    'תל אביב': DEFAULT_CITY,
+    'Tel Aviv': DEFAULT_CITY,
+    'Tel Aviv-Yafo': DEFAULT_CITY,
+};
+
+function normalizeCity(city: string): string {
+    return CITY_ALIASES[city] || city;
+}
+
 export function useGamesByCity(initialCity?: string) {
     const { user, isLoaded } = useUser();
     const userId = user?.id;
@@ -18,7 +30,8 @@ export function useGamesByCity(initialCity?: string) {
 
     const predicate = useCallback((game: Game) => {
         if (!displayedCity) return false;
-        return game.city === displayedCity || game.fieldLocation?.includes(displayedCity);
+        const normalizedDisplayed = normalizeCity(displayedCity);
+        return normalizeCity(game.city || '') === normalizedDisplayed || game.fieldLocation?.includes(displayedCity);
     }, [displayedCity]);
 
     const { games, setGames } = useSyncedGames([], predicate);
@@ -38,7 +51,6 @@ export function useGamesByCity(initialCity?: string) {
 
     useEffect(() => {
         if (!isLoaded || initialCity) return;
-        if (!userId) return;
 
         const controller = new AbortController();
 
@@ -51,14 +63,28 @@ export function useGamesByCity(initialCity?: string) {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    if (!controller.signal.aborted) setDisplayedCity(data.city || 'Tel Aviv');
+                    if (!controller.signal.aborted) setDisplayedCity(normalizeCity(data.city || DEFAULT_CITY));
                 }
             } catch (e) {
-                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCity('Tel Aviv');
+                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCity(DEFAULT_CITY);
             }
         }
 
-        fetchUserCity();
+        async function fetchTopCity() {
+            try {
+                const res = await fetch(`${API_BASE}/api/fields/cities/top`, { signal: controller.signal });
+                const data = await res.json();
+                if (!controller.signal.aborted) setDisplayedCity(normalizeCity(data.city || DEFAULT_CITY));
+            } catch (e) {
+                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCity(DEFAULT_CITY);
+            }
+        }
+
+        if (userId) {
+            fetchUserCity();
+        } else {
+            fetchTopCity();
+        }
         return () => controller.abort();
     }, [isLoaded, userId, initialCity, getTokenRef]);
 

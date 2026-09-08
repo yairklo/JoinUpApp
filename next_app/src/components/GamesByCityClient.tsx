@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import LoadingMotif from "@/components/motion/LoadingMotif";
-import IconButton from "@mui/material/IconButton";
+import Chip from "@mui/material/Chip";
 import SearchIcon from "@mui/icons-material/Search";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
@@ -85,6 +85,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 teamSize={g.teamSize}
                 price={g.price}
                 isJoined={joined}
+                isFriendsOnly={g.isFriendsOnly}
                 href={`/games/${g.id}`}
             >
                 {joined ? (
@@ -118,9 +119,14 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 title={`משחקים ב${displayedCity}`}
                 onSeeAll={() => setIsSeeAllOpen(true)}
                 customHeaderAction={
-                    <IconButton size="small" onClick={handleEditClick} sx={{ ml: 1, opacity: 0.8 }} title="חפש עיר">
-                        <SearchIcon fontSize="small" />
-                    </IconButton>
+                    <Chip
+                        size="small"
+                        clickable
+                        onClick={handleEditClick}
+                        icon={<SearchIcon fontSize="small" />}
+                        label={`מציג משחקים ב${displayedCity} • שנה עיר`}
+                        sx={{ ml: 1, fontWeight: 600 }}
+                    />
                 }
             >
                 {filteredGames.length === 0 ? (

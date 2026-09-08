@@ -61,8 +61,7 @@ export type PickSessionState = {
 
 export const gamesApi = {
     search: (params: URLSearchParams, token?: string, signal?: AbortSignal) => {
-        const endpoint = token ? '/api/games/search' : '/api/games/public';
-        return apiClient<Game[]>(`${endpoint}?${params.toString()}`, { token, signal });
+        return apiClient<Game[]>(`/api/games/search?${params.toString()}`, { token, signal });
     },
 
     getMyGames: (token: string) => {

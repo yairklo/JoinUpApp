@@ -47,6 +47,7 @@ export default function GameHeaderCard({
   price,
   children,
   isJoined,
+  isFriendsOnly,
   fullWidth = false,
   href,
   fieldHref,
@@ -63,6 +64,8 @@ export default function GameHeaderCard({
   price?: number | null;
   children?: React.ReactNode;
   isJoined?: boolean;
+  /** When explicitly `false` (server confirmed the game is public), shows a "פתוח לכולם" badge. Leave undefined to hide the badge (e.g. payloads that don't carry this field yet). */
+  isFriendsOnly?: boolean;
   fullWidth?: boolean;
   /** When set, the whole card navigates here on click (footer actions stop propagation so they don't also navigate). */
   href?: string;
@@ -184,6 +187,19 @@ export default function GameHeaderCard({
               />
             ) : (
               <Box />
+            )}
+            {isFriendsOnly === false && (
+              <Chip
+                size="small"
+                label="פתוח לכולם"
+                sx={{
+                  ...chipOverlaySx,
+                  flexShrink: 0,
+                  color: "#fff",
+                  bgcolor: "rgba(2,6,23,0.55)",
+                  backdropFilter: "blur(6px)",
+                }}
+              />
             )}
             {isJoined && (
               <Chip

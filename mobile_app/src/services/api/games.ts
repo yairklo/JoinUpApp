@@ -36,9 +36,8 @@ export interface JoinGameResponse extends Game {
 export const gamesApi = {
     // GET Methods
     search: (params: URLSearchParams, token?: string, signal?: AbortSignal) => {
-        const endpoint = token ? '/api/games/search' : '/api/games/public';
         const search = params.toString();
-        return apiClient<Game[]>(search ? `${endpoint}?${search}` : endpoint, { token, signal });
+        return apiClient<Game[]>(search ? `/api/games/search?${search}` : '/api/games/search', { token, signal });
     },
 
     getMyGames: (token: string, signal?: AbortSignal) => {

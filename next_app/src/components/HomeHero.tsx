@@ -12,19 +12,12 @@ import AddIcon from "@mui/icons-material/Add";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
 import SportsTennisIcon from "@mui/icons-material/SportsTennis";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import ExploreIcon from "@mui/icons-material/Explore";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function HomeHero() {
     const reduced = useReducedMotion();
-
-    const scrollToGames = () => {
-        const element = document.getElementById("games-feed");
-        if (element) {
-            element.scrollIntoView({ behavior: "smooth" });
-        }
-    };
 
     return (
         <Box
@@ -197,10 +190,10 @@ export default function HomeHero() {
                     >
                         <Button
                             component={Link}
-                            href="/games/new"
+                            href="/search"
                             variant="contained"
                             size="large"
-                            startIcon={<AddIcon />}
+                            startIcon={<ExploreIcon />}
                             sx={{
                                 width: { xs: "100%", sm: "auto" },
                                 minWidth: { sm: 200 },
@@ -212,14 +205,15 @@ export default function HomeHero() {
                                 "&:hover": { bgcolor: "#34d399" },
                             }}
                         >
-                            צור משחק חדש
+                            גלה את כל המשחקים השבוע
                         </Button>
 
                         <Button
+                            component={Link}
+                            href="/games/new"
                             variant="outlined"
                             size="large"
-                            onClick={scrollToGames}
-                            endIcon={<KeyboardArrowDownIcon />}
+                            startIcon={<AddIcon />}
                             sx={{
                                 width: { xs: "100%", sm: "auto" },
                                 minWidth: { sm: 200 },
@@ -234,7 +228,7 @@ export default function HomeHero() {
                                 },
                             }}
                         >
-                            הצטרף למשחק
+                            צור משחק חדש
                         </Button>
                     </Stack>
                 </Box>

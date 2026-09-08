@@ -191,6 +191,27 @@ router.get('/cities', async (req, res) => {
   }
 });
 
+// Most active city by upcoming/recent game volume -- used as the guest default city
+// (no saved city, no GPS permission) instead of a hardcoded literal.
+router.get('/cities/top', async (req, res) => {
+  try {
+    const rows = await prisma.$queryRaw`
+      SELECT f.city AS city, COUNT(g.id)::int AS count
+      FROM "Field" f
+      JOIN "Game" g ON g."fieldId" = f.id
+      WHERE f.city IS NOT NULL
+        AND g.start >= NOW() - INTERVAL '30 days'
+      GROUP BY f.city
+      ORDER BY count DESC
+      LIMIT 1
+    `;
+    res.json({ city: rows[0]?.city || null });
+  } catch (error) {
+    console.error('Get top city error:', error);
+    res.status(500).json({ error: 'Failed to get top city' });
+  }
+});
+
 // Slim bbox query for map markers — no relational counts
 router.get('/map', async (req, res) => {
   try {
