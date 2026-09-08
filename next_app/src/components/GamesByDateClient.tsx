@@ -2,15 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Skeleton from "@mui/material/Skeleton";
-// RTL: "forward" points left
-import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import GroupIcon from "@mui/icons-material/Group";
 
@@ -73,6 +70,7 @@ export default function GamesByDateClient({
         teamSize={g.teamSize}
         price={g.price}
         isJoined={joined}
+        href={`/games/${g.id}`}
       >
         {joined ? (
           <LeaveGameButton
@@ -95,18 +93,6 @@ export default function GamesByDateClient({
             }}
           />
         )}
-
-        <Link href={`/games/${g.id}`} passHref legacyBehavior>
-          <Button
-            component="a"
-            variant="text"
-            color="primary"
-            size="small"
-            endIcon={<ArrowForwardIcon />}
-          >
-            פרטים
-          </Button>
-        </Link>
       </GameHeaderCard>
     );
   };
