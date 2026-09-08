@@ -18,6 +18,7 @@ import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Game } from "@/types/game";
 import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -31,6 +32,7 @@ interface SearchMapComponentProps {
   // which also gets set by picking a city) -- rendered as a distinct "you
   // are here" dot instead of a game/field pin.
   userLocation?: [number, number] | null;
+  loading?: boolean;
 }
 
 const SPORT_COLORS: Record<string, string> = {
@@ -81,7 +83,7 @@ type GameGroup = { key: string; lat: number; lng: number; games: Game[] };
 // one actually re-pans an already-mounted map.
 const DEFAULT_CENTER = { lat: 32.0853, lng: 34.7818 }; // Tel Aviv
 
-export default function SearchMapComponent({ games, emptyFields = [], onBoundsChanged, onGameSelect, targetLocation, userLocation }: SearchMapComponentProps) {
+export default function SearchMapComponent({ games, emptyFields = [], onBoundsChanged, onGameSelect, targetLocation, userLocation, loading = false }: SearchMapComponentProps) {
   // Group games that have identical coordinates so they don't visually overlap perfectly
   const groupedGames: GameGroup[] = useMemo(() => {
     const map = new Map<string, GameGroup>();
@@ -102,7 +104,23 @@ export default function SearchMapComponent({ games, emptyFields = [], onBoundsCh
   }
 
   return (
-    <div style={{ width: "100%", height: "100%" }}>
+    <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      {loading && (
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "rgba(248, 250, 252, 0.78)",
+            pointerEvents: "none",
+          }}
+        >
+          <LoadingMotif id="pin-drop" label="טוען מפה…" />
+        </Box>
+      )}
       <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he">
         <GoogleMap
           mapId="DEMO_MAP_ID"

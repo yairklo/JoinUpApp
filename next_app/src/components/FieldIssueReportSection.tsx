@@ -41,7 +41,7 @@ const FLAG_REASON_LABELS: Record<FieldFlagReason, string> = {
 };
 
 const CATEGORY_LABELS: Record<FieldIssueCategory, string> = {
-  POTHOLE: "בור במגרש",
+  POTHOLE: "מפגע במגרש",
   LIGHTING: "תאורה לקויה",
   SURFACE: "משטח פגום",
   GOAL_NET: "שער/רשת פגומים",

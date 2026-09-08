@@ -22,8 +22,8 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
-import FullPageList from "@/components/FullPageList";
 import InlineErrorRow from "@/components/InlineErrorRow";
+import { buildSearchHref } from "@/utils/searchHref";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
     const { games, loading, error, refetch, displayedCity, setDisplayedCity, availableCities } = useGamesByCity(initialCity);
@@ -32,7 +32,6 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
     const userId = user?.id || "";
     const { notifyGameUpdate } = useGameUpdate();
 
-    const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [tempCity, setTempCity] = useState("");
 
@@ -119,7 +118,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
         <>
             <GamesHorizontalList
                 title={`משחקים ב${displayedCity}`}
-                onSeeAll={() => setIsSeeAllOpen(true)}
+                seeAllHref={buildSearchHref({ sport: sportFilter, city: displayedCity })}
                 customHeaderAction={
                     <Chip
                         size="small"
@@ -134,7 +133,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 {filteredGames.length === 0 ? (
                     <Box p={2} width="100%">
                         <Typography variant="body2" color="text.secondary">
-                            לא נמצאו משחקים ב{displayedCity}{sportFilter !== "ALL" ? ` עבור ${SPORT_MAPPING[sportFilter] || sportFilter}` : ""}.
+                            לא נמצאו {sportFilter !== "ALL" ? `משחקי ${SPORT_MAPPING[sportFilter] || sportFilter}` : "משחקים"} ב{displayedCity}.
                             <Button size="small" onClick={handleEditClick} startIcon={<SearchIcon />}>חפש עיר אחרת</Button>
                         </Typography>
                     </Box>
@@ -161,14 +160,6 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                     </Box>
                 </Box>
             </Dialog>
-
-            <FullPageList
-                open={isSeeAllOpen}
-                onClose={() => setIsSeeAllOpen(false)}
-                title={`משחקים ב${displayedCity}`}
-                items={filteredGames}
-                renderItem={renderGameCard}
-            />
         </>
     );
 }

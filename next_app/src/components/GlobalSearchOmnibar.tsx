@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { searchApi, GlobalSearchResults } from "@/services/api/search";
-import { SPORT_MAPPING } from "@/utils/sports";
+import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 import Avatar from "@/components/Avatar";
 
 // MUI
@@ -24,8 +24,38 @@ import ClickAwayListener from "@mui/material/ClickAwayListener";
 import SearchIcon from "@mui/icons-material/Search";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
+import HistoryIcon from "@mui/icons-material/History";
 
 const EMPTY: GlobalSearchResults = { users: [], fields: [], games: [] };
+const RECENT_KEY = "joinup:recent-searches";
+const SUGGESTED_SPORTS: { id: string; label: string; href: string }[] = [
+    { id: "SOCCER", label: SPORT_MAPPING.SOCCER, href: "/search?sport=SOCCER" },
+    { id: "BASKETBALL", label: SPORT_MAPPING.BASKETBALL, href: "/search?sport=BASKETBALL" },
+    { id: "TENNIS", label: SPORT_MAPPING.TENNIS, href: "/search?sport=TENNIS" },
+];
+const SUGGESTED_VENUES = [
+    { label: "תל אביב-יפו", href: "/search?city=תל אביב-יפו" },
+    { label: "ירושלים", href: "/search?city=ירושלים" },
+    { label: "חיפה", href: "/search?city=חיפה" },
+];
+
+function readRecent(): string[] {
+    if (typeof window === "undefined") return [];
+    try {
+        const raw = window.localStorage.getItem(RECENT_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string").slice(0, 5) : [];
+    } catch {
+        return [];
+    }
+}
+
+function writeRecent(query: string) {
+    const q = query.trim();
+    if (q.length < 2) return;
+    const next = [q, ...readRecent().filter((x) => x !== q)].slice(0, 5);
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+}
 
 export default function GlobalSearchOmnibar() {
     const router = useRouter();
@@ -35,6 +65,7 @@ export default function GlobalSearchOmnibar() {
     const [results, setResults] = useState<GlobalSearchResults>(EMPTY);
     const [loading, setLoading] = useState(false);
     const [open, setOpen] = useState(false);
+    const [recent, setRecent] = useState<string[]>([]);
 
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
     const abortRef = useRef<AbortController | null>(null);
@@ -75,6 +106,9 @@ export default function GlobalSearchOmnibar() {
         setOpen(true);
         if (val.trim().length < 2) {
             setResults(EMPTY);
+            setLoading(false);
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            return;
         }
         setLoading(true);
         if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -88,21 +122,24 @@ export default function GlobalSearchOmnibar() {
         };
     }, []);
 
-    const go = (path: string) => {
+    const trimmed = query.trim();
+    const showSuggestions = open && trimmed.length < 2;
+    const hasResults =
+        results.users.length > 0 ||
+        results.fields.length > 0 ||
+        results.games.length > 0;
+
+    const go = (path: string, recentQuery?: string) => {
+        const stored = recentQuery || (query.trim().length >= 2 ? query.trim() : "");
+        if (stored) writeRecent(stored);
+        setRecent(readRecent());
         setOpen(false);
         setQuery("");
         setResults(EMPTY);
         router.push(path);
     };
 
-    const trimmed = query.trim();
-    const hasResults =
-        results.users.length > 0 ||
-        results.fields.length > 0 ||
-        results.games.length > 0;
-    
-    // Only show dropdown if we have results, OR if we finished loading and found nothing
-    const showDropdown = open && trimmed.length >= 2 && (hasResults || !loading);
+    const showDropdown = open && (showSuggestions || (trimmed.length >= 2 && (hasResults || !loading)));
 
     return (
         <ClickAwayListener onClickAway={() => setOpen(false)}>
@@ -121,7 +158,10 @@ export default function GlobalSearchOmnibar() {
                     fullWidth
                     value={query}
                     onChange={(e) => handleChange(e.target.value)}
-                    onFocus={() => setOpen(true)}
+                    onFocus={() => {
+                        setRecent(readRecent());
+                        setOpen(true);
+                    }}
                     placeholder="חפש אנשים, מגרשים או משחקים..."
                     InputProps={{
                         startAdornment: (
@@ -152,7 +192,46 @@ export default function GlobalSearchOmnibar() {
                             borderRadius: 2,
                         }}
                     >
-                        {!hasResults && !loading ? (
+                        {showSuggestions ? (
+                            <List dense disablePadding>
+                                {recent.length > 0 && (
+                                    <>
+                                        <SectionHeader label="חיפושים אחרונים" />
+                                        {recent.map((item) => (
+                                            <ListItemButton
+                                                key={item}
+                                                onClick={() => go(`/search?q=${encodeURIComponent(item)}`, item)}
+                                                sx={{ gap: 1.5 }}
+                                            >
+                                                <HistoryIcon fontSize="small" color="action" />
+                                                <ListItemText primary={item} />
+                                            </ListItemButton>
+                                        ))}
+                                    </>
+                                )}
+                                <SectionHeader label="ענפים פופולריים" />
+                                {SUGGESTED_SPORTS.map((s) => (
+                                    <ListItemButton key={s.id} onClick={() => go(s.href)} sx={{ gap: 1.5 }}>
+                                        <SportsSoccerIcon color="primary" fontSize="small" />
+                                        <ListItemText primary={`${SPORT_EMOJI[s.id as keyof typeof SPORT_EMOJI] || ""} ${s.label}`.trim()} />
+                                    </ListItemButton>
+                                ))}
+                                <SectionHeader label="ערים נפוצות" />
+                                {SUGGESTED_VENUES.map((v) => (
+                                    <ListItemButton key={v.label} onClick={() => go(v.href)}>
+                                        <ListItemText
+                                            primary={v.label}
+                                            secondary={
+                                                <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                                                    <LocationOnIcon sx={{ fontSize: 14 }} />
+                                                    מגרשים ומשחקים
+                                                </Box>
+                                            }
+                                        />
+                                    </ListItemButton>
+                                ))}
+                            </List>
+                        ) : !hasResults && !loading ? (
                             <Box sx={{ p: 3, textAlign: "center" }}>
                                 <Typography variant="body2" color="text.secondary">
                                     לא נמצאו תוצאות

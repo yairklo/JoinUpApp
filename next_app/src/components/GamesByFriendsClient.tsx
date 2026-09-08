@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useUser, SignInButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
@@ -10,14 +9,14 @@ import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
 
 import { useGamesByFriends } from "@/hooks/useGamesByFriends";
 import { useGameUpdate } from "@/context/GameUpdateContext";
-import { SportFilter } from "@/utils/sports";
+import { SportFilter, SPORT_MAPPING } from "@/utils/sports";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
-import FullPageList from "@/components/FullPageList";
 import InlineErrorRow from "@/components/InlineErrorRow";
+import { buildSearchHref } from "@/utils/searchHref";
 
 export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
     const { games, loading, error, refetch } = useGamesByFriends();
@@ -26,14 +25,12 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
     const userId = user?.id || "";
     const { notifyGameUpdate } = useGameUpdate();
 
-    const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
-
     const filteredGames = games.filter((g) => {
         if (sportFilter === "ALL") return true;
         return g.sport === sportFilter;
     });
 
-    if (loading) {
+    if (loading && games.length === 0) {
         return (
             <GamesHorizontalList title="משחקים עם חברים">
                 <GameCardSkeletonRow />
@@ -56,7 +53,11 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
             <GamesHorizontalList title="משחקים עם חברים">
                 <Box p={2} width="100%">
                     <Typography variant="body2" color="text.secondary">
-                        {user ? "עדיין אין משחקים עם חברים כרגע — הזמינו חברים או מצאו משחק חדש" : "התחבר כדי לראות משחקים עם חברים"}
+                        {user
+                            ? (sportFilter !== "ALL"
+                                ? `לא נמצאו משחקי ${SPORT_MAPPING[sportFilter] || sportFilter} עם חברים`
+                                : "עדיין אין משחקים עם חברים כרגע — הזמינו חברים או מצאו משחק חדש")
+                            : "התחבר כדי לראות משחקים עם חברים"}
                     </Typography>
                     {!user && (
                         <SignInButton mode="modal">
@@ -119,18 +120,10 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
         <>
             <GamesHorizontalList
                 title="משחקים עם חברים"
-                onSeeAll={() => setIsSeeAllOpen(true)}
+                seeAllHref={buildSearchHref({ sport: sportFilter, network: true })}
             >
                 {filteredGames.map(renderGameCard)}
             </GamesHorizontalList>
-
-            <FullPageList
-                open={isSeeAllOpen}
-                onClose={() => setIsSeeAllOpen(false)}
-                title="משחקים עם חברים"
-                items={filteredGames}
-                renderItem={renderGameCard}
-            />
         </>
     );
 }

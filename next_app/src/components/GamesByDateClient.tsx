@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -14,7 +14,7 @@ import Chip from "@mui/material/Chip";
 
 import { useGamesByDate } from "@/hooks/useGamesByDate";
 import { useGameUpdate } from "@/context/GameUpdateContext";
-import { SportFilter } from "@/utils/sports";
+import { SportFilter, SPORT_MAPPING } from "@/utils/sports";
 
 import GamesDateNav from "@/components/GamesDateNav";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
@@ -22,8 +22,8 @@ import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
-import FullPageList from "@/components/FullPageList";
 import InlineErrorRow from "@/components/InlineErrorRow";
+import { buildSearchHref } from "@/utils/searchHref";
 
 export default function GamesByDateClient({
   initialDate,
@@ -35,8 +35,7 @@ export default function GamesByDateClient({
   sportFilter?: SportFilter;
 }) {
   const [networkGames, setNetworkGames] = useState(false);
-  const { selectedDate, setSelectedDate, games, loading, error, refetch, groups } = useGamesByDate(initialDate, fieldId, networkGames);
-  const [isSeeAllOpen, setIsSeeAllOpen] = useState(false);
+  const { selectedDate, setSelectedDate, loading, error, refetch, groups } = useGamesByDate(initialDate, fieldId, networkGames);
 
   const { user } = useUser();
   const router = useRouter();
@@ -45,11 +44,6 @@ export default function GamesByDateClient({
   const todayIso = new Date().toISOString().split("T")[0];
 
   const currentDayGames = (groups[selectedDate] || []).filter((g) => {
-    if (sportFilter === "ALL") return true;
-    return g.sport === sportFilter;
-  });
-
-  const allFilteredGames = games.filter((g) => {
     if (sportFilter === "ALL") return true;
     return g.sport === sportFilter;
   });
@@ -150,7 +144,9 @@ export default function GamesByDateClient({
           }}
         >
           <Typography variant="body1" color="text.secondary">
-            לא נמצאו משחקים בתאריך {selectedDate}.
+            {sportFilter !== "ALL"
+              ? `לא נמצאו משחקי ${SPORT_MAPPING[sportFilter] || sportFilter} בתאריך זה`
+              : `לא נמצאו משחקים בתאריך ${selectedDate}.`}
           </Typography>
           <Button
             size="small"
@@ -177,20 +173,11 @@ export default function GamesByDateClient({
       ) : (
         <GamesHorizontalList
           title={`משחקים בתאריך ${selectedDate}`}
-          onSeeAll={() => setIsSeeAllOpen(true)}
+          seeAllHref={buildSearchHref({ sport: sportFilter, date: selectedDate })}
         >
           {currentDayGames.map(renderGameCard)}
         </GamesHorizontalList>
       )}
-
-      {/* Full Screen Overlay for See All */}
-      <FullPageList
-        open={isSeeAllOpen}
-        onClose={() => setIsSeeAllOpen(false)}
-        title={`משחקים בתאריך ${selectedDate}`}
-        items={allFilteredGames}
-        renderItem={renderGameCard}
-      />
     </Box>
   );
 }

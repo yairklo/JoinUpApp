@@ -17,16 +17,31 @@ import ExitToAppIcon from "@mui/icons-material/ExitToApp";
 import LoginIcon from "@mui/icons-material/Login";
 
 import { gamesApi } from "@/services/api/games";
+import { mapLeaveError } from "@/utils/apiError";
 
-export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: { gameId: string; onLeft?: (updatedGame?: any) => void; currentPlayers?: number }) {
+export default function LeaveGameButton({
+  gameId,
+  onLeft,
+  currentPlayers = 0,
+  alwaysConfirm = false,
+  leaveLabel = "צא מהמשחק",
+}: {
+  gameId: string;
+  onLeft?: (updatedGame?: any) => void;
+  currentPlayers?: number;
+  alwaysConfirm?: boolean;
+  leaveLabel?: string;
+}) {
   const { getToken } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openConfirm, setOpenConfirm] = useState(false);
 
+  const isLastPlayer = currentPlayers === 1;
+
   const handleClick = () => {
-    if (currentPlayers === 1) {
+    if (alwaysConfirm || isLastPlayer) {
       setOpenConfirm(true);
     } else {
       leave();
@@ -47,7 +62,7 @@ export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: 
 
       if (onLeft) onLeft(data);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to leave");
+      setError(mapLeaveError(e));
     } finally {
       setLoading(false);
     }
@@ -72,7 +87,7 @@ export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: 
           size="small"
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ExitToAppIcon />}
         >
-          {loading ? "יוצא..." : "צא מהמשחק"}
+          {loading ? "יוצא..." : leaveLabel}
         </Button>
         {error && (
           <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
@@ -89,11 +104,13 @@ export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: 
         dir="rtl"
       >
         <DialogTitle id="alert-dialog-title">
-          {"עזיבת המשחק ומחיקתו"}
+          {isLastPlayer ? "עזיבת המשחק ומחיקתו" : "ביטול השתתפות"}
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            אתה השחקן האחרון במשחק. עזיבתך תגרום למחיקת המשחק לצמיתות. האם להמשיך?
+            {isLastPlayer
+              ? "אתה השחקן האחרון במשחק. עזיבתך תגרום למחיקת המשחק לצמיתות. האם להמשיך?"
+              : "האם לבטל את ההשתתפות במשחק?"}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -101,7 +118,7 @@ export default function LeaveGameButton({ gameId, onLeft, currentPlayers = 0 }: 
             ביטול
           </Button>
           <Button onClick={leave} color="error" autoFocus>
-            מחק וצא
+            {isLastPlayer ? "מחק וצא" : "בטל השתתפות"}
           </Button>
         </DialogActions>
       </Dialog>
