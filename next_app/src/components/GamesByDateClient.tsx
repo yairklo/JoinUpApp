@@ -15,6 +15,7 @@ import Chip from "@mui/material/Chip";
 import { useGamesByDate } from "@/hooks/useGamesByDate";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { SportFilter } from "@/utils/sports";
+import { formatJerusalemDate } from "@/utils/timezone";
 
 import GamesDateNav from "@/components/GamesDateNav";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
@@ -42,7 +43,9 @@ export default function GamesByDateClient({
   const router = useRouter();
   const userId = user?.id || "";
   const { notifyGameUpdate } = useGameUpdate();
-  const todayIso = new Date().toISOString().split("T")[0];
+  // Jerusalem-local date, not UTC -- toISOString() disagrees with the local calendar day
+  // for a few hours around midnight Israel time (see frontend_rules.md §2.1).
+  const todayIso = formatJerusalemDate(new Date());
 
   const currentDayGames = (groups[selectedDate] || []).filter((g) => {
     if (sportFilter === "ALL") return true;

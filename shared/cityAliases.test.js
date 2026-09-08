@@ -21,6 +21,12 @@ describe('city aliases', () => {
     expect(normalizeCity(null)).toBe('');
   });
 
+  test('normalizeCity matches English aliases case-insensitively, like the DB-side comparison', () => {
+    expect(normalizeCity('tel aviv')).toBe(DEFAULT_CITY);
+    expect(normalizeCity('TEL AVIV')).toBe(DEFAULT_CITY);
+    expect(normalizeCity('tel aviv-yafo')).toBe(DEFAULT_CITY);
+  });
+
   test('expandCityAliases includes every spelling in the group', () => {
     const expanded = expandCityAliases('תל אביב');
     expect(expanded).toEqual(expect.arrayContaining([DEFAULT_CITY, 'תל אביב', 'Tel Aviv', 'Tel Aviv-Yafo']));
