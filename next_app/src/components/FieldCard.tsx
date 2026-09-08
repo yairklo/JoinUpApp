@@ -1,5 +1,6 @@
 "use client";
-import Link from "next/link";
+import type { KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 // MUI
@@ -9,7 +10,6 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
-import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -21,7 +21,6 @@ import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import WbSunnyOutlinedIcon from "@mui/icons-material/WbSunnyOutlined";
 import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
-import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 
 import FavoriteButton from "@/components/FavoriteButton";
 import NewGameInline from "@/components/NewGameInline";
@@ -57,7 +56,9 @@ const chipOverlaySx = {
 } as const;
 
 export default function FieldCard({ field }: { field: Field }) {
+  const router = useRouter();
   const [showNewGame, setShowNewGame] = useState(false);
+  const href = `/fields/${field.id}`;
   const primarySport = field.supportedSports?.find(
     (s): s is SportType => s in SPORT_IMAGES
   );
@@ -75,6 +76,15 @@ export default function FieldCard({ field }: { field: Field }) {
       {...cardHoverProps}
       elevation={0}
       dir="rtl"
+      onClick={() => router.push(href)}
+      onKeyDown={(e: KeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          router.push(href);
+        }
+      }}
+      role="link"
+      tabIndex={0}
       sx={{
         display: "flex",
         flexDirection: "column",
@@ -86,6 +96,8 @@ export default function FieldCard({ field }: { field: Field }) {
         boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
         transition: "box-shadow 0.2s ease, border-color 0.2s ease",
         minWidth: 0,
+        cursor: "pointer",
+        WebkitTapHighlightColor: "transparent",
         "@media (hover: hover)": {
           "&:hover": {
             borderColor: "rgba(5,150,105,0.3)",
@@ -172,20 +184,10 @@ export default function FieldCard({ field }: { field: Field }) {
 
         <Stack
           direction="row"
-          spacing={1}
+          justifyContent="flex-end"
           sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider", minWidth: 0 }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <Button
-            component={Link}
-            href={`/fields/${field.id}`}
-            variant="contained"
-            size="small"
-            fullWidth
-            startIcon={<SportsSoccerIcon sx={{ fontSize: 16 }} />}
-            aria-label={`לפרופיל המגרש ומשחקים ${field.name}`}
-          >
-            לפרופיל המגרש ומשחקים
-          </Button>
           <IconButton
             size="small"
             onClick={() => setShowNewGame(true)}
@@ -202,7 +204,14 @@ export default function FieldCard({ field }: { field: Field }) {
         </Stack>
       </CardContent>
 
-      <Dialog open={showNewGame} onClose={() => setShowNewGame(false)} fullWidth maxWidth="sm" dir="rtl">
+      <Dialog
+        open={showNewGame}
+        onClose={() => setShowNewGame(false)}
+        onClick={(e) => e.stopPropagation()}
+        fullWidth
+        maxWidth="sm"
+        dir="rtl"
+      >
         <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: 700 }}>
           <Box sx={{ minWidth: 0, paddingInlineEnd: 1 }}>
             משחק חדש ב{field.name}

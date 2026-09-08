@@ -444,40 +444,90 @@ router.post('/:id/report', authenticateToken, async (req, res) => {
 });
 
 const VALID_ISSUE_CATEGORIES = ['POTHOLE', 'LIGHTING', 'SURFACE', 'GOAL_NET', 'FENCE', 'OTHER'];
+const VALID_FLAG_REASONS = ['OFFENSIVE', 'FALSE_INFO', 'SPAM', 'OTHER'];
 const MAX_TEXT_LENGTH = 1000;
+const USER_SELECT = { id: true, name: true, imageUrl: true };
 
-function mapCommentForClient(c) {
-  return { id: c.id, text: c.text, createdAt: c.createdAt, user: c.user };
+// Field comments/issue-reports are a separate, lighter-weight moderation surface from
+// the account-level Clerk `isBanned` flag (server/routes/admin.js) -- a user can be
+// blocked here without losing access to the rest of the app. authenticateToken's
+// req.user comes from Clerk only, so this column (on our own User row) needs its own lookup.
+async function isBlockedFromFieldSocial(userId) {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { blockedFromFieldSocial: true } });
+  return !!u?.blockedFromFieldSocial;
 }
 
-function mapIssueForClient(i) {
-  return { id: i.id, category: i.category, description: i.description, status: i.status, createdAt: i.createdAt };
+function reactionSummary(reactions, viewerId) {
+  const likeCount = (reactions || []).filter((r) => r.type === 'LIKE').length;
+  const dislikeCount = (reactions || []).filter((r) => r.type === 'DISLIKE').length;
+  const viewerReaction = viewerId ? (reactions || []).find((r) => r.userId === viewerId)?.type || null : null;
+  return { likeCount, dislikeCount, viewerReaction };
 }
 
-// GET /api/fields/:id/comments - Public list of player comments on a field.
-router.get('/:id/comments', async (req, res) => {
+function mapCommentForClient(c, viewerId) {
+  return {
+    id: c.id,
+    parentId: c.parentId,
+    text: c.text,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+    edited: c.updatedAt.getTime() !== c.createdAt.getTime(),
+    user: c.user,
+    ...reactionSummary(c.reactions, viewerId),
+    replies: (c.replies || []).map((r) => mapCommentForClient(r, viewerId)),
+  };
+}
+
+function mapIssueForClient(i, viewerId) {
+  return {
+    id: i.id,
+    parentId: i.parentId,
+    category: i.category,
+    description: i.description,
+    status: i.status,
+    createdAt: i.createdAt,
+    updatedAt: i.updatedAt,
+    edited: i.updatedAt.getTime() !== i.createdAt.getTime(),
+    user: i.user,
+    ...reactionSummary(i.reactions, viewerId),
+    replies: (i.replies || []).map((r) => mapIssueForClient(r, viewerId)),
+  };
+}
+
+const REPLIES_INCLUDE = {
+  orderBy: { createdAt: 'asc' },
+  include: { user: { select: USER_SELECT }, reactions: true },
+};
+
+// GET /api/fields/:id/comments - Public list of player comments on a field
+// (top-level comments with one level of replies nested inside each).
+router.get('/:id/comments', attachOptionalUser, async (req, res) => {
   try {
     const fieldId = req.params.id;
     const comments = await prisma.fieldComment.findMany({
-      where: { fieldId },
+      where: { fieldId, parentId: null },
       orderBy: { createdAt: 'desc' },
-      include: { user: { select: { id: true, name: true, imageUrl: true } } },
+      include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
     });
-    res.json(comments.map(mapCommentForClient));
+    res.json(comments.map((c) => mapCommentForClient(c, req.user?.id)));
   } catch (error) {
     console.error('Get field comments error:', error);
     res.status(500).json({ error: 'Failed to get field comments' });
   }
 });
 
-// POST /api/fields/:id/comments - Add a comment to a field.
+// POST /api/fields/:id/comments - Add a comment, or (with parentId) a single-level reply to one.
 router.post('/:id/comments', authenticateToken, async (req, res) => {
   try {
     const fieldId = req.params.id;
     const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+    const parentId = typeof req.body?.parentId === 'string' ? req.body.parentId : null;
 
     if (!text || text.length > MAX_TEXT_LENGTH) {
       return res.status(400).json({ error: `text must be a non-empty string up to ${MAX_TEXT_LENGTH} characters` });
+    }
+    if (await isBlockedFromFieldSocial(req.user.id)) {
+      return res.status(403).json({ error: 'You are blocked from commenting on fields' });
     }
 
     const field = await prisma.field.findUnique({ where: { id: fieldId }, select: { id: true } });
@@ -485,19 +535,59 @@ router.post('/:id/comments', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Field not found' });
     }
 
+    if (parentId) {
+      const parent = await prisma.fieldComment.findUnique({ where: { id: parentId }, select: { fieldId: true, parentId: true } });
+      if (!parent || parent.fieldId !== fieldId) {
+        return res.status(404).json({ error: 'Parent comment not found' });
+      }
+      if (parent.parentId) {
+        return res.status(400).json({ error: 'Cannot reply to a reply' });
+      }
+    }
+
     const comment = await prisma.fieldComment.create({
-      data: { fieldId, userId: req.user.id, text },
-      include: { user: { select: { id: true, name: true, imageUrl: true } } },
+      data: { fieldId, userId: req.user.id, text, parentId },
+      include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
     });
 
-    res.status(201).json(mapCommentForClient(comment));
+    res.status(201).json(mapCommentForClient(comment, req.user.id));
   } catch (error) {
     console.error('Add field comment error:', error);
     res.status(500).json({ error: 'Failed to add field comment' });
   }
 });
 
+// PATCH /api/fields/:id/comments/:commentId - Edit own comment/reply text.
+router.patch('/:id/comments/:commentId', authenticateToken, async (req, res) => {
+  try {
+    const { id: fieldId, commentId } = req.params;
+    const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+    if (!text || text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({ error: `text must be a non-empty string up to ${MAX_TEXT_LENGTH} characters` });
+    }
+
+    const comment = await prisma.fieldComment.findUnique({ where: { id: commentId } });
+    if (!comment || comment.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+    if (comment.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized to edit this comment' });
+    }
+
+    const updated = await prisma.fieldComment.update({
+      where: { id: commentId },
+      data: { text },
+      include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
+    });
+    res.json(mapCommentForClient(updated, req.user.id));
+  } catch (error) {
+    console.error('Edit field comment error:', error);
+    res.status(500).json({ error: 'Failed to edit field comment' });
+  }
+});
+
 // DELETE /api/fields/:id/comments/:commentId - Remove a comment (author or admin only).
+// Cascades to its replies (schema onDelete: Cascade on parentId).
 router.delete('/:id/comments/:commentId', authenticateToken, async (req, res) => {
   try {
     const { id: fieldId, commentId } = req.params;
@@ -517,33 +607,102 @@ router.delete('/:id/comments/:commentId', authenticateToken, async (req, res) =>
   }
 });
 
-// GET /api/fields/:id/issues - Public list of reported physical defects at a field.
-router.get('/:id/issues', async (req, res) => {
+// POST /api/fields/:id/comments/:commentId/react - Toggle a like/dislike on a comment.
+// Posting the same type the viewer already has clears their reaction; a different type replaces it.
+router.post('/:id/comments/:commentId/react', authenticateToken, async (req, res) => {
+  try {
+    const { id: fieldId, commentId } = req.params;
+    const type = String(req.body?.type || '').toUpperCase();
+    if (!['LIKE', 'DISLIKE'].includes(type)) {
+      return res.status(400).json({ error: 'type must be LIKE or DISLIKE' });
+    }
+
+    const comment = await prisma.fieldComment.findUnique({ where: { id: commentId }, select: { fieldId: true } });
+    if (!comment || comment.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    const existing = await prisma.fieldCommentReaction.findUnique({
+      where: { commentId_userId: { commentId, userId: req.user.id } },
+    });
+    if (existing && existing.type === type) {
+      await prisma.fieldCommentReaction.delete({ where: { id: existing.id } });
+    } else {
+      await prisma.fieldCommentReaction.upsert({
+        where: { commentId_userId: { commentId, userId: req.user.id } },
+        create: { commentId, userId: req.user.id, type },
+        update: { type },
+      });
+    }
+
+    const reactions = await prisma.fieldCommentReaction.findMany({ where: { commentId } });
+    res.json(reactionSummary(reactions, req.user.id));
+  } catch (error) {
+    console.error('React to field comment error:', error);
+    res.status(500).json({ error: 'Failed to react to comment' });
+  }
+});
+
+// POST /api/fields/:id/comments/:commentId/flag - Report a comment as offensive/false/spam
+// for admin review (server/routes/admin.js's field-comment-flags list). Re-reporting the
+// same comment just updates the reason/details (upsert on the unique commentId+reporter pair).
+router.post('/:id/comments/:commentId/flag', authenticateToken, async (req, res) => {
+  try {
+    const { id: fieldId, commentId } = req.params;
+    const reason = String(req.body?.reason || '').toUpperCase();
+    const details = typeof req.body?.details === 'string' ? req.body.details.trim().slice(0, MAX_TEXT_LENGTH) : null;
+    if (!VALID_FLAG_REASONS.includes(reason)) {
+      return res.status(400).json({ error: `reason must be one of ${VALID_FLAG_REASONS.join(', ')}` });
+    }
+
+    const comment = await prisma.fieldComment.findUnique({ where: { id: commentId }, select: { fieldId: true } });
+    if (!comment || comment.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    await prisma.fieldCommentFlag.upsert({
+      where: { commentId_reporterId: { commentId, reporterId: req.user.id } },
+      create: { commentId, reporterId: req.user.id, reason, details },
+      update: { reason, details, status: 'PENDING' },
+    });
+
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    console.error('Flag field comment error:', error);
+    res.status(500).json({ error: 'Failed to report comment' });
+  }
+});
+
+// GET /api/fields/:id/issues - Public list of reported physical defects at a field
+// (top-level reports with one level of replies nested inside each).
+router.get('/:id/issues', attachOptionalUser, async (req, res) => {
   try {
     const fieldId = req.params.id;
     const issues = await prisma.fieldIssueReport.findMany({
-      where: { fieldId },
+      where: { fieldId, parentId: null },
       orderBy: { createdAt: 'desc' },
+      include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
     });
-    res.json(issues.map(mapIssueForClient));
+    res.json(issues.map((i) => mapIssueForClient(i, req.user?.id)));
   } catch (error) {
     console.error('Get field issues error:', error);
     res.status(500).json({ error: 'Failed to get field issues' });
   }
 });
 
-// POST /api/fields/:id/issues - Report a physical defect (pothole, broken lighting, etc.) at a field.
+// POST /api/fields/:id/issues - Report a physical defect (category required), or
+// (with parentId) a single-level reply to a report (plain text, no category).
 router.post('/:id/issues', authenticateToken, async (req, res) => {
   try {
     const fieldId = req.params.id;
-    const category = String(req.body?.category || '').toUpperCase();
+    const parentId = typeof req.body?.parentId === 'string' ? req.body.parentId : null;
     const description = typeof req.body?.description === 'string' ? req.body.description.trim() : null;
 
-    if (!VALID_ISSUE_CATEGORIES.includes(category)) {
-      return res.status(400).json({ error: `category must be one of ${VALID_ISSUE_CATEGORIES.join(', ')}` });
-    }
     if (description && description.length > MAX_TEXT_LENGTH) {
       return res.status(400).json({ error: `description must be up to ${MAX_TEXT_LENGTH} characters` });
+    }
+    if (await isBlockedFromFieldSocial(req.user.id)) {
+      return res.status(403).json({ error: 'You are blocked from reporting issues on fields' });
     }
 
     const field = await prisma.field.findUnique({ where: { id: fieldId }, select: { id: true } });
@@ -551,40 +710,167 @@ router.post('/:id/issues', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Field not found' });
     }
 
+    let category = null;
+    if (parentId) {
+      if (!description) {
+        return res.status(400).json({ error: 'description is required for a reply' });
+      }
+      const parent = await prisma.fieldIssueReport.findUnique({ where: { id: parentId }, select: { fieldId: true, parentId: true } });
+      if (!parent || parent.fieldId !== fieldId) {
+        return res.status(404).json({ error: 'Parent report not found' });
+      }
+      if (parent.parentId) {
+        return res.status(400).json({ error: 'Cannot reply to a reply' });
+      }
+    } else {
+      category = String(req.body?.category || '').toUpperCase();
+      if (!VALID_ISSUE_CATEGORIES.includes(category)) {
+        return res.status(400).json({ error: `category must be one of ${VALID_ISSUE_CATEGORIES.join(', ')}` });
+      }
+    }
+
     const issue = await prisma.fieldIssueReport.create({
-      data: { fieldId, userId: req.user.id, category, description: description || null, status: 'OPEN' },
+      data: { fieldId, userId: req.user.id, category, description: description || null, parentId, status: 'OPEN' },
+      include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
     });
 
-    res.status(201).json(mapIssueForClient(issue));
+    res.status(201).json(mapIssueForClient(issue, req.user.id));
   } catch (error) {
     console.error('Add field issue error:', error);
     res.status(500).json({ error: 'Failed to add field issue' });
   }
 });
 
-// PATCH /api/fields/:id/issues/:issueId - Resolve/reopen a reported defect (Admin only).
-router.patch('/:id/issues/:issueId', authenticateToken, requireAdmin, async (req, res) => {
+// PATCH /api/fields/:id/issues/:issueId - Either resolve/reopen (admin only, body.status)
+// or edit the report/reply's own text (author only, body.description).
+router.patch('/:id/issues/:issueId', authenticateToken, async (req, res) => {
   try {
     const { id: fieldId, issueId } = req.params;
-    const status = String(req.body?.status || '').toUpperCase();
-    if (!['OPEN', 'RESOLVED'].includes(status)) {
-      return res.status(400).json({ error: 'status must be OPEN or RESOLVED' });
-    }
-
     const issue = await prisma.fieldIssueReport.findUnique({ where: { id: issueId } });
     if (!issue || issue.fieldId !== fieldId) {
       return res.status(404).json({ error: 'Issue not found' });
     }
 
-    const updated = await prisma.fieldIssueReport.update({
-      where: { id: issueId },
-      data: { status, resolvedAt: status === 'RESOLVED' ? new Date() : null },
-    });
+    if (req.body?.status !== undefined) {
+      if (!req.user.isAdmin) {
+        return res.status(403).json({ error: 'Only admins can change issue status' });
+      }
+      const status = String(req.body.status).toUpperCase();
+      if (!['OPEN', 'RESOLVED'].includes(status)) {
+        return res.status(400).json({ error: 'status must be OPEN or RESOLVED' });
+      }
+      const updated = await prisma.fieldIssueReport.update({
+        where: { id: issueId },
+        data: { status, resolvedAt: status === 'RESOLVED' ? new Date() : null },
+        include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
+      });
+      return res.json(mapIssueForClient(updated, req.user.id));
+    }
 
-    res.json(mapIssueForClient(updated));
+    if (req.body?.description !== undefined) {
+      if (issue.userId !== req.user.id) {
+        return res.status(403).json({ error: 'Not authorized to edit this report' });
+      }
+      const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+      if (!description || description.length > MAX_TEXT_LENGTH) {
+        return res.status(400).json({ error: `description must be a non-empty string up to ${MAX_TEXT_LENGTH} characters` });
+      }
+      const updated = await prisma.fieldIssueReport.update({
+        where: { id: issueId },
+        data: { description },
+        include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
+      });
+      return res.json(mapIssueForClient(updated, req.user.id));
+    }
+
+    return res.status(400).json({ error: 'Provide either status or description to update' });
   } catch (error) {
     console.error('Update field issue error:', error);
     res.status(500).json({ error: 'Failed to update field issue' });
+  }
+});
+
+// DELETE /api/fields/:id/issues/:issueId - Remove a report/reply (author or admin only).
+// Cascades to its replies (schema onDelete: Cascade on parentId).
+router.delete('/:id/issues/:issueId', authenticateToken, async (req, res) => {
+  try {
+    const { id: fieldId, issueId } = req.params;
+    const issue = await prisma.fieldIssueReport.findUnique({ where: { id: issueId } });
+    if (!issue || issue.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Issue not found' });
+    }
+    if (issue.userId !== req.user.id && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Not authorized to delete this report' });
+    }
+
+    await prisma.fieldIssueReport.delete({ where: { id: issueId } });
+    res.json({ message: 'Report deleted' });
+  } catch (error) {
+    console.error('Delete field issue error:', error);
+    res.status(500).json({ error: 'Failed to delete field issue' });
+  }
+});
+
+// POST /api/fields/:id/issues/:issueId/react - Toggle a like/dislike on a report.
+router.post('/:id/issues/:issueId/react', authenticateToken, async (req, res) => {
+  try {
+    const { id: fieldId, issueId } = req.params;
+    const type = String(req.body?.type || '').toUpperCase();
+    if (!['LIKE', 'DISLIKE'].includes(type)) {
+      return res.status(400).json({ error: 'type must be LIKE or DISLIKE' });
+    }
+
+    const issue = await prisma.fieldIssueReport.findUnique({ where: { id: issueId }, select: { fieldId: true } });
+    if (!issue || issue.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Issue not found' });
+    }
+
+    const existing = await prisma.fieldIssueReportReaction.findUnique({
+      where: { issueId_userId: { issueId, userId: req.user.id } },
+    });
+    if (existing && existing.type === type) {
+      await prisma.fieldIssueReportReaction.delete({ where: { id: existing.id } });
+    } else {
+      await prisma.fieldIssueReportReaction.upsert({
+        where: { issueId_userId: { issueId, userId: req.user.id } },
+        create: { issueId, userId: req.user.id, type },
+        update: { type },
+      });
+    }
+
+    const reactions = await prisma.fieldIssueReportReaction.findMany({ where: { issueId } });
+    res.json(reactionSummary(reactions, req.user.id));
+  } catch (error) {
+    console.error('React to field issue error:', error);
+    res.status(500).json({ error: 'Failed to react to report' });
+  }
+});
+
+// POST /api/fields/:id/issues/:issueId/flag - Report an issue/reply as offensive/false/spam.
+router.post('/:id/issues/:issueId/flag', authenticateToken, async (req, res) => {
+  try {
+    const { id: fieldId, issueId } = req.params;
+    const reason = String(req.body?.reason || '').toUpperCase();
+    const details = typeof req.body?.details === 'string' ? req.body.details.trim().slice(0, MAX_TEXT_LENGTH) : null;
+    if (!VALID_FLAG_REASONS.includes(reason)) {
+      return res.status(400).json({ error: `reason must be one of ${VALID_FLAG_REASONS.join(', ')}` });
+    }
+
+    const issue = await prisma.fieldIssueReport.findUnique({ where: { id: issueId }, select: { fieldId: true } });
+    if (!issue || issue.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Issue not found' });
+    }
+
+    await prisma.fieldIssueReportFlag.upsert({
+      where: { issueId_reporterId: { issueId, reporterId: req.user.id } },
+      create: { issueId, reporterId: req.user.id, reason, details },
+      update: { reason, details, status: 'PENDING' },
+    });
+
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    console.error('Flag field issue error:', error);
+    res.status(500).json({ error: 'Failed to report issue' });
   }
 });
 

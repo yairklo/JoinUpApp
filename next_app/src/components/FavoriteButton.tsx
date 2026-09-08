@@ -70,7 +70,10 @@ export default function FavoriteButton({ fieldId }: { fieldId: string }) {
 
   return (
     <IconButton
-      onClick={toggle}
+      onClick={(e) => {
+        e.stopPropagation();
+        toggle();
+      }}
       disabled={loading}
       aria-pressed={isFav}
       aria-label={isFav ? "הסר ממועדפים" : "הוסף למועדפים"}

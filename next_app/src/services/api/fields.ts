@@ -50,11 +50,21 @@ export interface FieldAnalytics {
     reportWindowDays: number;
 }
 
+export type ReactionType = 'LIKE' | 'DISLIKE';
+export type FieldFlagReason = 'OFFENSIVE' | 'FALSE_INFO' | 'SPAM' | 'OTHER';
+
 export interface FieldComment {
     id: string;
+    parentId?: string | null;
     text: string;
     createdAt: string;
+    updatedAt: string;
+    edited: boolean;
     user: { id: string; name?: string | null; imageUrl?: string | null };
+    likeCount: number;
+    dislikeCount: number;
+    viewerReaction: ReactionType | null;
+    replies: FieldComment[];
 }
 
 export type FieldIssueCategory = 'POTHOLE' | 'LIGHTING' | 'SURFACE' | 'GOAL_NET' | 'FENCE' | 'OTHER';
@@ -62,10 +72,18 @@ export type FieldIssueStatus = 'OPEN' | 'RESOLVED';
 
 export interface FieldIssueReport {
     id: string;
-    category: FieldIssueCategory;
+    parentId?: string | null;
+    category: FieldIssueCategory | null;
     description?: string | null;
     status: FieldIssueStatus;
     createdAt: string;
+    updatedAt: string;
+    edited: boolean;
+    user: { id: string; name?: string | null; imageUrl?: string | null };
+    likeCount: number;
+    dislikeCount: number;
+    viewerReaction: ReactionType | null;
+    replies: FieldIssueReport[];
 }
 
 // Same wire shape as Field, but with the handful of properties every list/card
@@ -135,24 +153,62 @@ export const fieldsApi = {
         });
     },
 
-    getComments: (fieldId: string) => {
-        return apiClient<FieldComment[]>(`/api/fields/${fieldId}/comments`, { cache: 'no-store' });
+    getComments: (fieldId: string, token?: string) => {
+        return apiClient<FieldComment[]>(`/api/fields/${fieldId}/comments`, { token, cache: 'no-store' });
     },
 
-    addComment: (fieldId: string, text: string, token: string) => {
-        return apiClient<FieldComment>(`/api/fields/${fieldId}/comments`, { method: 'POST', data: { text }, token });
+    addComment: (fieldId: string, text: string, token: string, parentId?: string) => {
+        return apiClient<FieldComment>(`/api/fields/${fieldId}/comments`, { method: 'POST', data: { text, parentId }, token });
+    },
+
+    editComment: (fieldId: string, commentId: string, text: string, token: string) => {
+        return apiClient<FieldComment>(`/api/fields/${fieldId}/comments/${commentId}`, { method: 'PATCH', data: { text }, token });
     },
 
     deleteComment: (fieldId: string, commentId: string, token: string) => {
         return apiClient<{ message: string }>(`/api/fields/${fieldId}/comments/${commentId}`, { method: 'DELETE', token });
     },
 
-    getIssues: (fieldId: string) => {
-        return apiClient<FieldIssueReport[]>(`/api/fields/${fieldId}/issues`, { cache: 'no-store' });
+    reactToComment: (fieldId: string, commentId: string, type: ReactionType, token: string) => {
+        return apiClient<{ likeCount: number; dislikeCount: number; viewerReaction: ReactionType | null }>(
+            `/api/fields/${fieldId}/comments/${commentId}/react`,
+            { method: 'POST', data: { type }, token }
+        );
     },
 
-    addIssue: (fieldId: string, data: { category: FieldIssueCategory; description?: string }, token: string) => {
+    flagComment: (fieldId: string, commentId: string, reason: FieldFlagReason, details: string | undefined, token: string) => {
+        return apiClient<{ ok: true }>(`/api/fields/${fieldId}/comments/${commentId}/flag`, { method: 'POST', data: { reason, details }, token });
+    },
+
+    getIssues: (fieldId: string, token?: string) => {
+        return apiClient<FieldIssueReport[]>(`/api/fields/${fieldId}/issues`, { token, cache: 'no-store' });
+    },
+
+    addIssue: (fieldId: string, data: { category?: FieldIssueCategory; description?: string; parentId?: string }, token: string) => {
         return apiClient<FieldIssueReport>(`/api/fields/${fieldId}/issues`, { method: 'POST', data, token });
+    },
+
+    editIssue: (fieldId: string, issueId: string, description: string, token: string) => {
+        return apiClient<FieldIssueReport>(`/api/fields/${fieldId}/issues/${issueId}`, { method: 'PATCH', data: { description }, token });
+    },
+
+    setIssueStatus: (fieldId: string, issueId: string, status: FieldIssueStatus, token: string) => {
+        return apiClient<FieldIssueReport>(`/api/fields/${fieldId}/issues/${issueId}`, { method: 'PATCH', data: { status }, token });
+    },
+
+    deleteIssue: (fieldId: string, issueId: string, token: string) => {
+        return apiClient<{ message: string }>(`/api/fields/${fieldId}/issues/${issueId}`, { method: 'DELETE', token });
+    },
+
+    reactToIssue: (fieldId: string, issueId: string, type: ReactionType, token: string) => {
+        return apiClient<{ likeCount: number; dislikeCount: number; viewerReaction: ReactionType | null }>(
+            `/api/fields/${fieldId}/issues/${issueId}/react`,
+            { method: 'POST', data: { type }, token }
+        );
+    },
+
+    flagIssue: (fieldId: string, issueId: string, reason: FieldFlagReason, details: string | undefined, token: string) => {
+        return apiClient<{ ok: true }>(`/api/fields/${fieldId}/issues/${issueId}/flag`, { method: 'POST', data: { reason, details }, token });
     },
 
     create: (data: FieldWriteData & { name: string; location: string; type: 'open' | 'closed' }, token: string) => {

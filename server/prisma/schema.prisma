@@ -9,58 +9,64 @@ datasource db {
 }
 
 model User {
-  id                   String                    @id
-  email                String?                   @unique
-  name                 String?
-  imageUrl             String?
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
-  city                 String?
-  phone                String?
-  birthDate            DateTime?
+  id                        String                     @id
+  email                     String?                    @unique
+  name                      String?
+  imageUrl                  String?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  city                      String?
+  phone                     String?
+  birthDate                 DateTime?
   /// Optional binary gender for profile display (MALE = גבר, FEMALE = אישה)
-  gender               Gender?
-  reputation           Int                       @default(50)
-  privacyFriends       PrivacyLevel?
-  privacyGames         PrivacyLevel?
-  privacyMessages      PrivacyLevel?
-  chatParticipations   ChatParticipant[]
-  favoriteFields       FavoriteField[]
-  fieldComments        FieldComment[]
-  fieldIssueReports    FieldIssueReport[]
-  requestsRecv         FriendRequest[]           @relation("Recv")
-  requestsSent         FriendRequest[]           @relation("Sent")
-  friendshipsA         Friendship[]              @relation("A")
-  friendshipsB         Friendship[]              @relation("B")
-  organizedGames       Game[]                    @relation("OrganizerGames")
-  organizedSeries      GameSeries[]              @relation("OrganizerSeries")
-  gameRoles            GameRole[]
-  messages             Message[]
-  notifications        Notification[]            @relation("UserNotifications")
-  participations       Participation[]
-  seriesSubscriptions  SeriesParticipant[]
-  devices              UserDevice[]              @relation("UserDevices")
-  notificationSettings UserNotificationSettings? @relation("UserNotificationSettings")
-  positions            UserPosition[]
-  ratingsGiven         UserRating[]              @relation("RatingsGiven")
-  ratingsReceived      UserRating[]              @relation("RatingsReceived")
-  sports               UserSport[]
+  gender                    Gender?
+  reputation                Int                        @default(50)
+  privacyFriends            PrivacyLevel?
+  privacyGames              PrivacyLevel?
+  privacyMessages           PrivacyLevel?
+  /// Global block from commenting/reporting on fields (narrower than a full account ban).
+  blockedFromFieldSocial    Boolean                    @default(false)
+  chatParticipations        ChatParticipant[]
+  favoriteFields            FavoriteField[]
+  fieldComments             FieldComment[]
+  fieldCommentReactions     FieldCommentReaction[]
+  fieldCommentFlags         FieldCommentFlag[]
+  fieldIssueReports         FieldIssueReport[]
+  fieldIssueReportReactions FieldIssueReportReaction[]
+  fieldIssueReportFlags     FieldIssueReportFlag[]
+  requestsRecv              FriendRequest[]            @relation("Recv")
+  requestsSent              FriendRequest[]            @relation("Sent")
+  friendshipsA              Friendship[]               @relation("A")
+  friendshipsB              Friendship[]               @relation("B")
+  organizedGames            Game[]                     @relation("OrganizerGames")
+  organizedSeries           GameSeries[]               @relation("OrganizerSeries")
+  gameRoles                 GameRole[]
+  messages                  Message[]
+  notifications             Notification[]             @relation("UserNotifications")
+  participations            Participation[]
+  seriesSubscriptions       SeriesParticipant[]
+  devices                   UserDevice[]               @relation("UserDevices")
+  notificationSettings      UserNotificationSettings?  @relation("UserNotificationSettings")
+  positions                 UserPosition[]
+  ratingsGiven              UserRating[]               @relation("RatingsGiven")
+  ratingsReceived           UserRating[]               @relation("RatingsReceived")
+  sports                    UserSport[]
 }
 
 model Field {
-  id              String          @id @default(cuid())
+  id              String             @id @default(cuid())
   name            String
   location        String
   description     String?
-  price           Int             @default(0)
-  rating          Float           @default(0)
+  price           Int                @default(0)
+  rating          Float              @default(0)
   image           String?
-  available       Boolean         @default(true)
+  available       Boolean            @default(true)
   type            FieldType
   lat             Float?
   lng             Float?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   city            String?
   email           String?
   featuresJson    Json?
@@ -69,7 +75,7 @@ model Field {
   photos          String[]
   street          String?
   streetNumber    String?
-  supportedSports SportType[]     @default([SOCCER])
+  supportedSports SportType[]        @default([SOCCER])
   favorites       FavoriteField[]
   reports         FieldReport[]
   comments        FieldComment[]
@@ -81,17 +87,74 @@ model Field {
   @@index([city])
 }
 
-/// Free-text comment left by a player on a field's profile page.
+enum ReactionType {
+  LIKE
+  DISLIKE
+}
+
+enum FieldFlagReason {
+  OFFENSIVE
+  FALSE_INFO
+  SPAM
+  OTHER
+}
+
+enum FieldFlagStatus {
+  PENDING
+  DISMISSED
+}
+
+/// Free-text comment left by a player on a field's profile page. `parentId` supports
+/// one level of replies (a reply's own parentId must point at a top-level comment).
 model FieldComment {
-  id        String   @id @default(cuid())
+  id        String                 @id @default(cuid())
   fieldId   String
   userId    String
+  parentId  String?
   text      String
-  createdAt DateTime @default(now())
-  field     Field    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  field     Field                  @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    FieldComment?          @relation("FieldCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   FieldComment[]         @relation("FieldCommentReplies")
+  reactions FieldCommentReaction[]
+  flags     FieldCommentFlag[]
 
   @@index([fieldId, createdAt])
+  @@index([parentId])
+}
+
+/// A user flagging a FieldComment as offensive/false/spam for admin review
+/// (server/routes/admin.js's field-comment-flags endpoints). Unique per
+/// (commentId, reporterId) so re-reporting the same comment is a no-op upsert.
+model FieldCommentFlag {
+  id         String          @id @default(cuid())
+  commentId  String
+  reporterId String
+  reason     FieldFlagReason
+  details    String?
+  status     FieldFlagStatus @default(PENDING)
+  createdAt  DateTime        @default(now())
+  comment    FieldComment    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporter   User            @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, reporterId])
+  @@index([status])
+}
+
+/// One user's like/dislike on a FieldComment. Unique per (commentId, userId) so a
+/// second reaction from the same user replaces (never adds to) their first.
+model FieldCommentReaction {
+  id        String       @id @default(cuid())
+  commentId String
+  userId    String
+  type      ReactionType
+  createdAt DateTime     @default(now())
+  comment   FieldComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
 }
 
 enum FieldIssueCategory {
@@ -109,20 +172,59 @@ enum FieldIssueStatus {
 }
 
 /// Player-reported physical defect at a field (pothole, broken lighting, etc.).
+/// `parentId` supports one level of replies to a report; a reply has no `category`
+/// (that's a top-level-report-only concept) and never changes `status`.
 model FieldIssueReport {
-  id          String             @id @default(cuid())
+  id          String                     @id @default(cuid())
   fieldId     String
   userId      String
-  category    FieldIssueCategory
+  parentId    String?
+  category    FieldIssueCategory?
   description String?
-  status      FieldIssueStatus   @default(OPEN)
-  createdAt   DateTime           @default(now())
+  status      FieldIssueStatus           @default(OPEN)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
   resolvedAt  DateTime?
-  field       Field              @relation(fields: [fieldId], references: [id], onDelete: Cascade)
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  field       Field                      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  user        User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      FieldIssueReport?          @relation("FieldIssueReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     FieldIssueReport[]         @relation("FieldIssueReplies")
+  reactions   FieldIssueReportReaction[]
+  flags       FieldIssueReportFlag[]
 
   @@index([fieldId, status])
   @@index([fieldId, createdAt])
+  @@index([parentId])
+}
+
+/// A user flagging a FieldIssueReport as offensive/false/spam for admin review.
+/// Unique per (issueId, reporterId) so re-reporting the same report is a no-op upsert.
+model FieldIssueReportFlag {
+  id         String           @id @default(cuid())
+  issueId    String
+  reporterId String
+  reason     FieldFlagReason
+  details    String?
+  status     FieldFlagStatus  @default(PENDING)
+  createdAt  DateTime         @default(now())
+  issue      FieldIssueReport @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  reporter   User             @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, reporterId])
+  @@index([status])
+}
+
+/// One user's like/dislike on a FieldIssueReport. Unique per (issueId, userId).
+model FieldIssueReportReaction {
+  id        String           @id @default(cuid())
+  issueId   String
+  userId    String
+  type      ReactionType
+  createdAt DateTime         @default(now())
+  issue     FieldIssueReport @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, userId])
 }
 
 /// Crowdsourced crowd-level log submitted by players viewing a field.
