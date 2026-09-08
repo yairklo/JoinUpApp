@@ -7,16 +7,23 @@ import AlertTitle from "@mui/material/AlertTitle";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
+import Grid from "@mui/material/Grid";
+import Card from "@mui/material/Card";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import PendingJoinRequests from "@/components/PendingJoinRequests";
+import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
+import GameRatingsPanel from "@/components/GameRatingsPanel";
+import Chat from "@/components/Chat";
 import { useSocket } from "@/context/SocketContext";
 import { normalizeIncomingGame } from "@/utils/timezone";
 import { gamesApi } from "@/services/api/games";
 import { useAuth } from "@clerk/nextjs";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
+type Manager = { id: string; name?: string; avatar?: string; role?: string };
+type Team = { id: string; name: string; color: string; playerIds: string[] };
 
 export type LiveGame = {
   id: string;
@@ -40,6 +47,14 @@ export type LiveGame = {
   lotteryEnabled?: boolean;
   lotteryPending?: boolean;
   totalSignups?: number;
+  organizerId: string;
+  chatRoomId?: string;
+  overbooked?: boolean;
+  lotteryAt?: string | null;
+  managers?: Manager[];
+  teams?: Team[];
+  waitlistParticipants?: Participant[];
+  pickSessionStatus?: string | null;
 };
 
 // Owns the "live" slice of a game's state (header counts, join/leave button, pending requests)
@@ -263,6 +278,57 @@ export default function GameLiveSection({
           <PendingJoinRequests gameId={game.id} onDecision={mergeAndSet} />
         </Box>
       )}
+
+      <Grid container spacing={{ xs: 3, md: 4 }} mt={0.5}>
+        <Grid size={{ xs: 12, md: 7 }}>
+          <TeamBuilderWrapper
+            gameId={game.id}
+            participants={game.participants}
+            organizerId={game.organizerId}
+            initialManagers={game.managers || []}
+            maxPlayers={game.maxPlayers}
+            currentUserId={viewerId}
+            initialTeams={game.teams || []}
+            lotteryData={{
+              enabled: !!game.lotteryEnabled,
+              pending: !!game.lotteryPending,
+              overbooked: !!game.overbooked,
+              at: game.lotteryAt || null,
+              signups: game.totalSignups || 0,
+            }}
+            waitlistParticipants={game.waitlistParticipants || []}
+            pickSessionStatus={game.pickSessionStatus || null}
+          />
+          {joined && <GameRatingsPanel gameId={game.id} />}
+        </Grid>
+
+        {joined ? (
+          <Grid size={{ xs: 12, md: 5 }}>
+            <Card
+              elevation={0}
+              sx={{
+                height: "100%",
+                minHeight: 400,
+                border: "1px solid",
+                borderColor: "rgba(148,163,184,0.16)",
+                boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
+              }}
+            >
+              <Box p={{ xs: 2.5, md: 3 }} height="100%">
+                <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>
+                  צ&apos;אט המשחק
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  שוחחו עם שאר המשתתפים בזמן אמת
+                </Typography>
+                <Box sx={{ height: 1, borderTop: 1, borderColor: "divider", pt: 2 }}>
+                  <Chat roomId={game.chatRoomId || game.id} chatName={game.title || "Game Chat"} hideHeaderName />
+                </Box>
+              </Box>
+            </Card>
+          </Grid>
+        ) : null}
+      </Grid>
     </>
   );
 }

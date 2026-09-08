@@ -50,6 +50,24 @@ export interface FieldAnalytics {
     reportWindowDays: number;
 }
 
+export interface FieldComment {
+    id: string;
+    text: string;
+    createdAt: string;
+    user: { id: string; name?: string | null; imageUrl?: string | null };
+}
+
+export type FieldIssueCategory = 'POTHOLE' | 'LIGHTING' | 'SURFACE' | 'GOAL_NET' | 'FENCE' | 'OTHER';
+export type FieldIssueStatus = 'OPEN' | 'RESOLVED';
+
+export interface FieldIssueReport {
+    id: string;
+    category: FieldIssueCategory;
+    description?: string | null;
+    status: FieldIssueStatus;
+    createdAt: string;
+}
+
 // Same wire shape as Field, but with the handful of properties every list/card
 // view actually renders (location, price, rating, type) narrowed to required —
 // the backend always populates them (non-null columns with defaults), so
@@ -115,6 +133,26 @@ export const fieldsApi = {
             data: { busyLevel },
             token
         });
+    },
+
+    getComments: (fieldId: string) => {
+        return apiClient<FieldComment[]>(`/api/fields/${fieldId}/comments`, { cache: 'no-store' });
+    },
+
+    addComment: (fieldId: string, text: string, token: string) => {
+        return apiClient<FieldComment>(`/api/fields/${fieldId}/comments`, { method: 'POST', data: { text }, token });
+    },
+
+    deleteComment: (fieldId: string, commentId: string, token: string) => {
+        return apiClient<{ message: string }>(`/api/fields/${fieldId}/comments/${commentId}`, { method: 'DELETE', token });
+    },
+
+    getIssues: (fieldId: string) => {
+        return apiClient<FieldIssueReport[]>(`/api/fields/${fieldId}/issues`, { cache: 'no-store' });
+    },
+
+    addIssue: (fieldId: string, data: { category: FieldIssueCategory; description?: string }, token: string) => {
+        return apiClient<FieldIssueReport>(`/api/fields/${fieldId}/issues`, { method: 'POST', data, token });
     },
 
     create: (data: FieldWriteData & { name: string; location: string; type: 'open' | 'closed' }, token: string) => {
