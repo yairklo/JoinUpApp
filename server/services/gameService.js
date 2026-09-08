@@ -1050,8 +1050,11 @@ async function searchGames(queryParams, viewerId) {
     ];
   }
 
-  // Add city filter (aliases like "תל אביב" / "Tel Aviv" match the canonical DB spelling)
-  if (city) {
+  // Add city filter (aliases like "תל אביב" / "Tel Aviv" match the canonical DB spelling).
+  // Guard with .trim() -- a whitespace-only city normalizes to "", and prismaFieldCityFilter
+  // returns {} (no constraint) for that, which would otherwise silently drop the filter
+  // entirely instead of leaving it unapplied like an omitted city param.
+  if (city && String(city).trim()) {
     where.field = { ...where.field, ...prismaFieldCityFilter(city) };
   }
 
@@ -1673,7 +1676,7 @@ async function getFriendsGames(userId) {
 }
 
 async function getCityGames(city, viewerId) {
-  if (!city) return [];
+  if (!city || !String(city).trim()) return [];
   return fetchMappedListGames(
     {
       AND: [
@@ -1730,7 +1733,7 @@ async function getTodayCityGames(city, viewerId) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const where = {
     start: buildActiveGameStartFilter(todayStr),
-    ...(city ? { field: prismaFieldCityFilter(city) } : {}),
+    ...(city && String(city).trim() ? { field: prismaFieldCityFilter(city) } : {}),
   };
   return fetchMappedListGames(
     { AND: [buildVisibilityWhere(viewerId), where] },

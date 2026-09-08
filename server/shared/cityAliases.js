@@ -12,10 +12,18 @@ const CITY_ALIASES = {
   'Tel Aviv-Yafo': DEFAULT_CITY,
 };
 
+// Case-insensitive lookup so e.g. "tel aviv" / "TEL AVIV" resolve the same alias as "Tel Aviv" --
+// matches the DB-side comparison (Prisma `mode: 'insensitive'`), so a live socket event carrying
+// a differently-cased city isn't silently dropped by this client-side predicate while the REST
+// fetch (which goes through the DB's case-insensitive match) would have included it.
+const CITY_ALIASES_LOWER = Object.fromEntries(
+  Object.entries(CITY_ALIASES).map(([alias, canonical]) => [alias.toLowerCase(), canonical])
+);
+
 function normalizeCity(city) {
   const trimmed = String(city || '').trim();
   if (!trimmed) return '';
-  return CITY_ALIASES[trimmed] || trimmed;
+  return CITY_ALIASES[trimmed] || CITY_ALIASES_LOWER[trimmed.toLowerCase()] || trimmed;
 }
 
 function expandCityAliases(city) {
