@@ -144,7 +144,11 @@ function SearchPageInner() {
   }, []);
 
   useEffect(() => {
-    if (selectedCity) {
+    // Only skip geolocation when the city param actually resolved to known coordinates
+    // (set via CITY_COORDS above) -- an unrecognized/unlisted city (e.g. from a rail's
+    // "See all" link using a real DB city name outside the hardcoded list) should still
+    // fall back to GPS instead of leaving the map with no location at all.
+    if (selectedCity && CITY_COORDS[selectedCity]) {
       setLocating(false);
       return;
     }
@@ -431,6 +435,10 @@ function SearchPageInner() {
                 setSelectedCity(city);
                 if (city && CITY_COORDS[city]) {
                   setTargetLocation(CITY_COORDS[city]);
+                } else if (city) {
+                  // City isn't in the hardcoded coordinate table -- fall back to GPS
+                  // rather than leaving the map centered on nothing/the wrong place.
+                  detectLocation();
                 }
               }}
               size="small"
@@ -517,8 +525,8 @@ function SearchPageInner() {
             {games.map(renderGameCard)}
             {!loading && !locating && games.length === 0 && (
               <SearchEmptyState
-                noLocation={!userLocation && !selectedCity}
-                filtersActive={!!(selectedSport || selectedDate || networkGames || debouncedQuery || showEmptyFields)}
+                noLocation={!userLocation && !targetLocation}
+                filtersActive={!!(selectedSport || selectedDate || selectedCity || networkGames || debouncedQuery || showEmptyFields)}
                 onPickCity={() => {
                   document.getElementById("search-city-select")?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
@@ -529,6 +537,8 @@ function SearchPageInner() {
                   setDebouncedQuery("");
                   setNetworkGames(false);
                   setShowEmptyFields(false);
+                  setSelectedCity("");
+                  if (!userLocation) detectLocation();
                 }}
               />
             )}

@@ -51,24 +51,23 @@ export default function GameActions({
   const [copied, setCopied] = useState(false);
 
   const share = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: fieldName || "JoinUp", text: shareText, url: gameUrl });
+        return;
+      } catch (err: unknown) {
+        const name = err && typeof err === "object" && "name" in err ? String((err as { name?: unknown }).name) : "";
+        if (name === "AbortError" || name === "NotAllowedError") return;
+        // fall through to the clipboard/WhatsApp fallback below
+      }
+    }
     let copiedOk = false;
     try {
-      await navigator.clipboard.writeText(gameUrl);
+      await navigator.clipboard.writeText(shareText);
       copiedOk = true;
       setCopied(true);
     } catch {
       // fall through
-    }
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: fieldName || "JoinUp", text: shareText, url: gameUrl });
-      } catch (err: unknown) {
-        const name = err && typeof err === "object" && "name" in err ? String((err as { name?: unknown }).name) : "";
-        if (name !== "AbortError" && name !== "NotAllowedError" && !copiedOk) {
-          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
-        }
-      }
-      return;
     }
     if (!copiedOk) {
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");

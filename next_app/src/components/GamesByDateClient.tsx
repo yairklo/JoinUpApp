@@ -14,7 +14,7 @@ import Chip from "@mui/material/Chip";
 
 import { useGamesByDate } from "@/hooks/useGamesByDate";
 import { useGameUpdate } from "@/context/GameUpdateContext";
-import { SportFilter, SPORT_MAPPING } from "@/utils/sports";
+import { SportFilter, sportLabel } from "@/utils/sports";
 
 import GamesDateNav from "@/components/GamesDateNav";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
@@ -145,7 +145,7 @@ export default function GamesByDateClient({
         >
           <Typography variant="body1" color="text.secondary">
             {sportFilter !== "ALL"
-              ? `לא נמצאו משחקי ${SPORT_MAPPING[sportFilter] || sportFilter} בתאריך זה`
+              ? `לא נמצאו משחקי ${sportLabel(sportFilter)} בתאריך זה`
               : `לא נמצאו משחקים בתאריך ${selectedDate}.`}
           </Typography>
           <Button

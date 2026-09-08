@@ -9,7 +9,7 @@ import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
 
 import { useGamesByFriends } from "@/hooks/useGamesByFriends";
 import { useGameUpdate } from "@/context/GameUpdateContext";
-import { SportFilter, SPORT_MAPPING } from "@/utils/sports";
+import { SportFilter, sportLabel } from "@/utils/sports";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
@@ -55,7 +55,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                     <Typography variant="body2" color="text.secondary">
                         {user
                             ? (sportFilter !== "ALL"
-                                ? `לא נמצאו משחקי ${SPORT_MAPPING[sportFilter] || sportFilter} עם חברים`
+                                ? `לא נמצאו משחקי ${sportLabel(sportFilter)} עם חברים`
                                 : "עדיין אין משחקים עם חברים כרגע — הזמינו חברים או מצאו משחק חדש")
                             : "התחבר כדי לראות משחקים עם חברים"}
                     </Typography>

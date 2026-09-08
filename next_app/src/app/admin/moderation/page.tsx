@@ -16,20 +16,12 @@ import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import { fieldsApi } from "@/services/api/fields";
+import { CATEGORY_LABELS as ISSUE_CATEGORY_LABELS } from "@/components/FieldIssueReportSection";
 
 const FLAG_REASON_LABELS: Record<FieldFlagReason, string> = {
   OFFENSIVE: "תוכן פוגעני",
   FALSE_INFO: "מידע שקרי",
   SPAM: "ספאם",
-  OTHER: "אחר",
-};
-
-const ISSUE_CATEGORY_LABELS: Record<string, string> = {
-  POTHOLE: "מפגע במגרש",
-  LIGHTING: "תאורה לקויה",
-  SURFACE: "משטח פגום",
-  GOAL_NET: "שער/רשת פגומים",
-  FENCE: "גדר פגומה",
   OTHER: "אחר",
 };
 

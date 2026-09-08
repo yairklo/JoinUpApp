@@ -9,11 +9,11 @@ import Button from "@mui/material/Button";
 import SeriesHeaderCard from "@/components/SeriesHeaderCard";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
+import FullPageList from "@/components/FullPageList";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import { getLoadErrorMessage } from "@/utils/apiError";
 import { useSeriesCreatedListener, useSeriesDeletedListener, SeriesPayload } from "@/context/GameUpdateContext";
-import { SportFilter, SPORT_MAPPING } from "@/utils/sports";
-import { buildSearchHref } from "@/utils/searchHref";
+import { SportFilter, sportLabel } from "@/utils/sports";
 
 type Series = {
     id: string;
@@ -33,6 +33,8 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
+    const [isMySeriesSeeAllOpen, setIsMySeriesSeeAllOpen] = useState(false);
+    const [isJoinSeriesSeeAllOpen, setIsJoinSeriesSeeAllOpen] = useState(false);
     const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
     const { getToken, isSignedIn } = useAuth();
     const { user } = useUser();
@@ -135,7 +137,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     <Typography variant="body2" color="text.secondary">
                         {isSignedIn
                             ? (sportFilter !== "ALL"
-                                ? `לא נמצאו קבוצות ${SPORT_MAPPING[sportFilter] || sportFilter}`
+                                ? `לא נמצאו קבוצות ${sportLabel(sportFilter)}`
                                 : "אין עדיין קבוצות פעילות")
                             : "התחבר כדי לשחק עם חברים בקבוצה קבועה"}
                     </Typography>
@@ -166,21 +168,41 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
     return (
         <>
             {mySeries.length > 0 && (
-                <GamesHorizontalList
-                    title="הקבוצות שלי"
-                    seeAllHref={buildSearchHref({ sport: sportFilter })}
-                >
-                    {mySeries.map((s) => renderCard(s))}
-                </GamesHorizontalList>
+                <>
+                    <GamesHorizontalList
+                        title="הקבוצות שלי"
+                        onSeeAll={() => setIsMySeriesSeeAllOpen(true)}
+                    >
+                        {mySeries.map((s) => renderCard(s))}
+                    </GamesHorizontalList>
+
+                    <FullPageList
+                        open={isMySeriesSeeAllOpen}
+                        onClose={() => setIsMySeriesSeeAllOpen(false)}
+                        title="הקבוצות שלי"
+                        items={mySeries}
+                        renderItem={(s) => renderCard(s)}
+                    />
+                </>
             )}
 
             {joinableSeries.length > 0 && (
-                <GamesHorizontalList
-                    title="הצטרפו לקבוצה"
-                    seeAllHref={buildSearchHref({ sport: sportFilter })}
-                >
-                    {joinableSeries.map((s) => renderCard(s))}
-                </GamesHorizontalList>
+                <>
+                    <GamesHorizontalList
+                        title="הצטרפו לקבוצה"
+                        onSeeAll={() => setIsJoinSeriesSeeAllOpen(true)}
+                    >
+                        {joinableSeries.map((s) => renderCard(s))}
+                    </GamesHorizontalList>
+
+                    <FullPageList
+                        open={isJoinSeriesSeeAllOpen}
+                        onClose={() => setIsJoinSeriesSeeAllOpen(false)}
+                        title="הצטרפו לקבוצה"
+                        items={joinableSeries}
+                        renderItem={(s) => renderCard(s)}
+                    />
+                </>
             )}
         </>
     );

@@ -4,6 +4,7 @@ export function formatHebrewDate(iso?: string | null): string {
   const parsed = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(parsed.getTime())) return "בחר תאריך";
   return parsed.toLocaleDateString("he-IL", {
+    timeZone: "Asia/Jerusalem",
     weekday: "short",
     day: "numeric",
     month: "long",

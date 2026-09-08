@@ -16,7 +16,7 @@ import Dialog from "@mui/material/Dialog"; // Ensure imported
 
 import { useGamesByCity } from "@/hooks/useGamesByCity";
 import { useGameUpdate } from "@/context/GameUpdateContext";
-import { SportFilter, SPORT_MAPPING } from "@/utils/sports";
+import { SportFilter, sportLabel } from "@/utils/sports";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
@@ -133,7 +133,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 {filteredGames.length === 0 ? (
                     <Box p={2} width="100%">
                         <Typography variant="body2" color="text.secondary">
-                            לא נמצאו {sportFilter !== "ALL" ? `משחקי ${SPORT_MAPPING[sportFilter] || sportFilter}` : "משחקים"} ב{displayedCity}.
+                            לא נמצאו {sportFilter !== "ALL" ? `משחקי ${sportLabel(sportFilter)}` : "משחקים"} ב{displayedCity}.
                             <Button size="small" onClick={handleEditClick} startIcon={<SearchIcon />}>חפש עיר אחרת</Button>
                         </Typography>
                     </Box>
