@@ -59,10 +59,10 @@ export default function FieldScheduleTrack({ schedule }: { schedule: ScheduleGam
               <Typography variant="subtitle2" fontWeight={700} noWrap>
                 {game.title || SPORT_MAPPING[game.sport] || game.sport}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {game.date} · {game.time}
+              <Typography variant="body2" color="text.secondary" dir="rtl" sx={{ mt: 0.5, unicodeBidi: "isolate" }}>
+                {game.date ? game.date.split("-").reverse().join("/") : ""} · {game.time}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" dir="rtl" sx={{ unicodeBidi: "isolate" }}>
                 {game.duration} {game.duration === 1 ? "שעה" : "שעות"}
                 {game.price ? ` · ₪${game.price}` : " · חינם"}
               </Typography>
