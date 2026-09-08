@@ -13,7 +13,9 @@ import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Game } from "@/types/game";
 import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 
@@ -25,6 +27,10 @@ interface SearchMapComponentProps {
   onBoundsChanged?: (bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => void;
   onGameSelect?: (gameId: string) => void;
   targetLocation?: [number, number] | null;
+  // The user's own resolved GPS position (as opposed to `targetLocation`,
+  // which also gets set by picking a city) -- rendered as a distinct "you
+  // are here" dot instead of a game/field pin.
+  userLocation?: [number, number] | null;
 }
 
 const SPORT_COLORS: Record<string, string> = {
@@ -67,19 +73,15 @@ const formatShortDate = (dateStr?: string) => {
 
 type GameGroup = { key: string; lat: number; lng: number; games: Game[] };
 
-export default function SearchMapComponent({ games, emptyFields = [], onBoundsChanged, onGameSelect, targetLocation }: SearchMapComponentProps) {
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number }>({ lat: 32.0853, lng: 34.7818 }); // Default Tel Aviv
+// Uncontrolled initial center -- @vis.gl/react-google-maps only applies this
+// once, at mount, so it's a static fallback only. The real "center on the
+// user" behavior comes from `targetLocation`, which the search page sets
+// once it resolves geolocation and which BoundsListener below reacts to on
+// every change (see its `targetLocation` effect) -- unlike this prop, that
+// one actually re-pans an already-mounted map.
+const DEFAULT_CENTER = { lat: 32.0853, lng: 34.7818 }; // Tel Aviv
 
-  // Attempt to get user geolocation on mount
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {} // Silent fallback to default
-      );
-    }
-  }, []);
-
+export default function SearchMapComponent({ games, emptyFields = [], onBoundsChanged, onGameSelect, targetLocation, userLocation }: SearchMapComponentProps) {
   // Group games that have identical coordinates so they don't visually overlap perfectly
   const groupedGames: GameGroup[] = useMemo(() => {
     const map = new Map<string, GameGroup>();
@@ -104,13 +106,17 @@ export default function SearchMapComponent({ games, emptyFields = [], onBoundsCh
       <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he">
         <GoogleMap
           mapId="DEMO_MAP_ID"
-          defaultCenter={userLocation}
+          defaultCenter={DEFAULT_CENTER}
           defaultZoom={12}
           gestureHandling="greedy"
           disableDefaultUI={false}
           style={{ width: "100%", height: "100%" }}
         >
           <BoundsListener onBoundsChanged={onBoundsChanged} targetLocation={targetLocation} />
+
+          {userLocation && (
+            <UserLocationMarker lat={userLocation[0]} lng={userLocation[1]} />
+          )}
 
           {groupedGames.map((group) => (
             <GameGroupMarker key={group.key} group={group} onGameSelect={onGameSelect} />
@@ -175,6 +181,46 @@ function BoundsListener({
   return null;
 }
 
+// Classic "you are here" blue dot -- kept visually distinct from the sport-colored
+// game pins and the gray empty-field pins so it doesn't get mistaken for either.
+function UserLocationMarker({ lat, lng }: { lat: number; lng: number }) {
+  return (
+    <AdvancedMarker position={{ lat, lng }} zIndex={1}>
+      <div style={{ position: "relative", width: 22, height: 22 }}>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            background: "rgba(37, 99, 235, 0.25)",
+            animation: "joinup-user-location-pulse 2.2s ease-out infinite",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 14,
+            height: 14,
+            borderRadius: "50%",
+            background: "#2563eb",
+            border: "2.5px solid white",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+          }}
+        />
+        <style>{`
+          @keyframes joinup-user-location-pulse {
+            0% { transform: scale(0.6); opacity: 0.8; }
+            100% { transform: scale(2.2); opacity: 0; }
+          }
+        `}</style>
+      </div>
+    </AdvancedMarker>
+  );
+}
+
 function GameGroupMarker({ group, onGameSelect }: { group: GameGroup; onGameSelect?: (gameId: string) => void }) {
   const [open, setOpen] = useState(false);
   const firstGame = group.games[0];
@@ -235,12 +281,20 @@ function GameGroupMarker({ group, onGameSelect }: { group: GameGroup; onGameSele
           maxWidth={300}
           pixelOffset={[0, -10]}
         >
-          <Box sx={{ p: 0.5 }}>
-            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1.25 }}>
-              <PlaceRoundedIcon sx={{ fontSize: 18, color: "primary.main" }} />
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.25 }}>
-                {firstGame.field?.name || firstGame.fieldName || "מיקום המשחק"}
-              </Typography>
+          <Box sx={{ p: 1.5 }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1.25 }}>
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
+                <PlaceRoundedIcon sx={{ fontSize: 18, color: "primary.main", flexShrink: 0 }} />
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontWeight: 800, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {firstGame.field?.name || firstGame.fieldName || "מיקום המשחק"}
+                </Typography>
+              </Stack>
+              <IconButton size="small" onClick={() => setOpen(false)} aria-label="סגירה" sx={{ flexShrink: 0, m: -0.5 }}>
+                <CloseRoundedIcon fontSize="small" />
+              </IconButton>
             </Stack>
             <Stack spacing={0.75}>
               {group.games.map((g) => {
@@ -328,10 +382,21 @@ function EmptyFieldMarker({ field }: { field: any }) {
           maxWidth={260}
           pixelOffset={[0, -10]}
         >
-          <Box sx={{ p: 0.5, textAlign: "center" }}>
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5} sx={{ mb: 0.5 }}>
-              <PlaceRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+          <Box sx={{ p: 1.5, textAlign: "center", position: "relative" }}>
+            <IconButton
+              size="small"
+              onClick={() => setOpen(false)}
+              aria-label="סגירה"
+              sx={{ position: "absolute", top: 0, insetInlineEnd: 0 }}
+            >
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+            <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5} sx={{ mb: 0.5, px: 3 }}>
+              <PlaceRoundedIcon sx={{ fontSize: 18, color: "text.secondary", flexShrink: 0 }} />
+              <Typography
+                variant="subtitle2"
+                sx={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
                 {field.name}
               </Typography>
             </Stack>

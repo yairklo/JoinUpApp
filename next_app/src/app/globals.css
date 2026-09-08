@@ -97,6 +97,22 @@ body,
   }
 }
 
+/* Google Maps InfoWindow (@vis.gl/react-google-maps): Google's own inner
+   wrapper divs (injected client-side, not something our React tree renders)
+   apply their own padding and an auto-height `overflow: auto`, which shows
+   an ugly extra scroll rail alongside our content's already-thin scrollbar
+   the moment content is a hair taller than Google's computed max-height.
+   Our own InfoWindow content owns padding and sizing directly (see
+   SearchMapComponent), so drop Google's box down to a plain unstyled
+   container instead of a second scroll region. */
+.gm-style-iw-d {
+  overflow: hidden !important;
+  max-height: none !important;
+}
+.gm-style-iw-c {
+  padding: 0 !important;
+}
+
 /* Reduce motion for users who prefer it */
 @media (prefers-reduced-motion: reduce) {
   *,
