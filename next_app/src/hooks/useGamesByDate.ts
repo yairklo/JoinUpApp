@@ -9,7 +9,7 @@ export function useGamesByDate(initialDate: string, fieldId?: string, networkGam
     const { isLoaded } = useUser();
     const { getToken } = useAuth();
     const [selectedDate, setSelectedDate] = useState<string>(initialDate);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
     const refetch = useCallback(() => setReloadKey((k) => k + 1), []);

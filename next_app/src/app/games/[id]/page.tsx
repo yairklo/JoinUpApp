@@ -1,5 +1,6 @@
 import GameLiveSection from "@/components/GameLiveSection";
 import { auth } from "@clerk/nextjs/server";
+import { SignInButton } from "@clerk/nextjs";
 import GameActions from "@/components/GameActions";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
@@ -10,6 +11,12 @@ import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; name?: string; avatar?: string; role?: string };
@@ -106,7 +113,16 @@ export default async function GameDetails(props: {
 
   return (
     <main>
-      <Container maxWidth="lg" sx={{ py: { xs: 2.5, md: 4 }, px: { xs: 2, sm: 3 } }}>
+      <Container
+        maxWidth="lg"
+        sx={{
+          py: { xs: 2.5, md: 4 },
+          px: { xs: 2, sm: 3 },
+          pb: !userId
+            ? { xs: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 80px)", md: 10 }
+            : { xs: 2.5, md: 4 },
+        }}
+      >
         {/* Header Section */}
         <Box mb={4}>
           <GameLiveSection
@@ -153,41 +169,75 @@ export default async function GameDetails(props: {
               lng={game.fieldLng ?? null}
             />
 
-            <GameDetailsEditor
-              gameId={game.id}
-              initialTime={game.time}
-              initialDate={game.date}
-              initialMaxPlayers={game.maxPlayers}
-              initialSport={game.sport}
-              initialRegistrationOpensAt={game.registrationOpensAt}
-              initialFriendsOnlyUntil={game.friendsOnlyUntil}
-              initialIsFriendsOnly={!!game.isFriendsOnly}
-              initialJoinPolicy={game.joinPolicy}
-              initialTitle={game.title}
-              initialTeamSize={game.teamSize}
-              initialPrice={game.price}
-              initialDuration={game.duration}
-              initialDescription={game.description}
-              initialWelcomeMessage={game.welcomeMessage}
-              initialFieldId={game.fieldId}
-              initialFieldName={game.fieldName}
-              initialFieldLocation={game.fieldLocation}
-              canManage={canManageSeries}
-            />
+            {canManageSeries && (
+              <Accordion sx={{ mt: 2 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  ניהול המשחק
+                </AccordionSummary>
+                <AccordionDetails>
+                  <GameDetailsEditor
+                    gameId={game.id}
+                    initialTime={game.time}
+                    initialDate={game.date}
+                    initialMaxPlayers={game.maxPlayers}
+                    initialSport={game.sport}
+                    initialRegistrationOpensAt={game.registrationOpensAt}
+                    initialFriendsOnlyUntil={game.friendsOnlyUntil}
+                    initialIsFriendsOnly={!!game.isFriendsOnly}
+                    initialJoinPolicy={game.joinPolicy}
+                    initialTitle={game.title}
+                    initialTeamSize={game.teamSize}
+                    initialPrice={game.price}
+                    initialDuration={game.duration}
+                    initialDescription={game.description}
+                    initialWelcomeMessage={game.welcomeMessage}
+                    initialFieldId={game.fieldId}
+                    initialFieldName={game.fieldName}
+                    initialFieldLocation={game.fieldLocation}
+                    canManage={canManageSeries}
+                  />
 
-            <Divider sx={{ my: 2 }} />
+                  <Divider sx={{ my: 2 }} />
 
-            <SeriesManager
-              gameId={game.id}
-              seriesId={game.seriesId}
-              canManage={canManageSeries}
-              gameData={{
-                time: game.time,
-                date: game.date
-              }}
-            />
+                  <SeriesManager
+                    gameId={game.id}
+                    seriesId={game.seriesId}
+                    canManage={canManageSeries}
+                    gameData={{
+                      time: game.time,
+                      date: game.date
+                    }}
+                  />
+                </AccordionDetails>
+              </Accordion>
+            )}
           </Box>
         </Box>
+
+        {!userId && (
+          <Box
+            sx={{
+              position: "fixed",
+              bottom: { xs: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))", md: 0 },
+              insetInline: 0,
+              zIndex: (t) => t.zIndex.appBar - 1,
+              py: 1.5,
+              px: 2,
+              bgcolor: "background.paper",
+              borderTop: 1,
+              borderColor: "divider",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2,
+            }}
+          >
+            <Typography variant="body2" fontWeight={600}>התחבר כדי להצטרף למשחק</Typography>
+            <SignInButton mode="modal">
+              <Button variant="contained" size="small">התחבר</Button>
+            </SignInButton>
+          </Box>
+        )}
 
       </Container>
     </main>

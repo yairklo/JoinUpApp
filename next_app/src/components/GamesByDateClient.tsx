@@ -3,19 +3,21 @@
 import { useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-import Stack from "@mui/material/Stack";
-import Skeleton from "@mui/material/Skeleton";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import GroupIcon from "@mui/icons-material/Group";
+import Tooltip from "@mui/material/Tooltip";
+import Chip from "@mui/material/Chip";
 
 import { useGamesByDate } from "@/hooks/useGamesByDate";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { SportFilter } from "@/utils/sports";
 
 import GamesDateNav from "@/components/GamesDateNav";
+import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
@@ -40,6 +42,7 @@ export default function GamesByDateClient({
   const router = useRouter();
   const userId = user?.id || "";
   const { notifyGameUpdate } = useGameUpdate();
+  const todayIso = new Date().toISOString().split("T")[0];
 
   const currentDayGames = (groups[selectedDate] || []).filter((g) => {
     if (sportFilter === "ALL") return true;
@@ -70,6 +73,7 @@ export default function GamesByDateClient({
         teamSize={g.teamSize}
         price={g.price}
         isJoined={joined}
+        isFriendsOnly={g.isFriendsOnly}
         href={`/games/${g.id}`}
       >
         {joined ? (
@@ -115,41 +119,25 @@ export default function GamesByDateClient({
       </Box>
 
       <Box display="flex" justifyContent="flex-start" mb={2} px={1}>
-        <Button
-          variant={networkGames ? "contained" : "outlined"}
-          size="small"
-          onClick={() => setNetworkGames(!networkGames)}
-          startIcon={<GroupIcon />}
-          sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
-        >
-          רשת המכרים
-        </Button>
+        <Tooltip title={user ? "מציג משחקים של חברים וחברים של חברים" : "זמין למשתמשים מחוברים בלבד"}>
+          <span>
+            <Button
+              variant={networkGames ? "contained" : "outlined"}
+              size="small"
+              disabled={!user}
+              onClick={() => setNetworkGames(!networkGames)}
+              startIcon={<GroupIcon />}
+              endIcon={networkGames ? <Chip size="small" label="פעיל" sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.25)", color: "inherit" }} /> : undefined}
+              sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
+            >
+              רשת המכרים
+            </Button>
+          </span>
+        </Tooltip>
       </Box>
 
       {loading ? (
-        <Stack direction="row" spacing={1.5} px={1} sx={{ overflow: "hidden" }}>
-          {[0, 1, 2].map((i) => (
-            <Box
-              key={i}
-              sx={{
-                minWidth: { xs: 252, sm: 300 },
-                maxWidth: { xs: 268, sm: 320 },
-                flexShrink: 0,
-                borderRadius: { xs: 4, sm: 5 },
-                overflow: "hidden",
-                border: "1px solid",
-                borderColor: "rgba(148,163,184,0.16)",
-              }}
-            >
-              <Skeleton variant="rectangular" height={132} animation="wave" />
-              <Box sx={{ p: 2, pt: 1.75 }}>
-                <Skeleton variant="text" width="70%" height={28} animation="wave" />
-                <Skeleton variant="text" width="45%" height={20} animation="wave" />
-                <Skeleton variant="rounded" height={6} sx={{ mt: 1.5, borderRadius: 999 }} animation="wave" />
-              </Box>
-            </Box>
-          ))}
-        </Stack>
+        <GameCardSkeletonRow />
       ) : error ? (
         <InlineErrorRow message={error} onRetry={refetch} />
       ) : currentDayGames.length === 0 ? (
@@ -170,6 +158,20 @@ export default function GamesByDateClient({
             onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
           >
             חזור להיום
+          </Button>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            {selectedDate === todayIso
+              ? "אין משחקים להיום? צפה במשחקי השבוע במפת המשחקים"
+              : "אין משחקים בתאריך הזה? צפה במשחקי השבוע במפת המשחקים"}
+          </Typography>
+          <Button
+            component={Link}
+            href="/search"
+            variant="outlined"
+            size="small"
+            sx={{ mt: 1 }}
+          >
+            למפת המשחקים
           </Button>
         </Box>
       ) : (

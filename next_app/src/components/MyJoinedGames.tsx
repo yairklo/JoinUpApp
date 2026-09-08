@@ -1,8 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { SignInButton } from "@clerk/nextjs";
+import Link from "next/link";
 import Box from "@mui/material/Box";
-import LoadingMotif from "@/components/motion/LoadingMotif";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import LeaveGameButton from "@/components/LeaveGameButton";
@@ -30,22 +34,39 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
 
   if (!isLoaded || loading) {
     return (
-      <Box display="flex" justifyContent="center" p={2}>
-        <LoadingMotif id="bouncing-ball" />
-      </Box>
+      <GamesHorizontalList title="המשחקים שלי">
+        <GameCardSkeletonRow />
+      </GamesHorizontalList>
     );
   }
 
   if (error && filteredGames.length === 0) {
     return (
-      <Box p={2}>
-        <InlineErrorRow message={error} onRetry={refetch} />
-      </Box>
+      <GamesHorizontalList title="המשחקים שלי">
+        <Box p={2} width="100%">
+          <InlineErrorRow message={error} onRetry={refetch} />
+        </Box>
+      </GamesHorizontalList>
     );
   }
 
   if (filteredGames.length === 0) {
-    return null;
+    return (
+      <GamesHorizontalList title="המשחקים שלי">
+        <Box p={2} width="100%">
+          <Typography variant="body2" color="text.secondary">
+            {userId ? "עדיין אין לך משחקים פעילים — מצא משחק והצטרף" : "התחבר כדי לראות את המשחקים שלך"}
+          </Typography>
+          {userId ? (
+            <Button component={Link} href="/search" size="small" variant="outlined" sx={{ mt: 1 }}>מצא משחק</Button>
+          ) : (
+            <SignInButton mode="modal">
+              <Button size="small" variant="outlined" sx={{ mt: 1 }}>התחבר</Button>
+            </SignInButton>
+          )}
+        </Box>
+      </GamesHorizontalList>
+    );
   }
 
   return (

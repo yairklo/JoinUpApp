@@ -12,6 +12,7 @@ const {
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { notifyUserAddedToGame, notifyUserRemovedFromGame } = require('../utils/addedToGameNotification');
 const { sanitizeFreeText } = require('../utils/sanitize');
+const { prismaFieldCityFilter } = require('../utils/cityAliases');
 const gameScheduler = require('./gameScheduler');
 
 // Defense-in-depth limits for free-text fields written by end users. React auto-escapes these
@@ -221,6 +222,7 @@ const SEARCH_GAME_SELECT = {
   organizerId: true,
   status: true,
   isOpenToJoin: true,
+  isFriendsOnly: true,
   field: {
     select: {
       id: true,
@@ -272,6 +274,7 @@ function mapGameForSearchClient(game, viewerId) {
     organizerId: game.organizerId || null,
     status: game.status || null,
     isOpenToJoin: game.isOpenToJoin,
+    isFriendsOnly: !!game.isFriendsOnly,
     viewerParticipationStatus,
     participants: (game.participants || [])
       .filter((p) => p.status === 'CONFIRMED')
@@ -1047,9 +1050,9 @@ async function searchGames(queryParams, viewerId) {
     ];
   }
 
-  // Add city filter
+  // Add city filter (aliases like "תל אביב" / "Tel Aviv" match the canonical DB spelling)
   if (city) {
-    where.field = { ...where.field, city: String(city) };
+    where.field = { ...where.field, ...prismaFieldCityFilter(city) };
   }
 
   // Add Bounding Box filter (Spatial bounds)
@@ -1676,7 +1679,7 @@ async function getCityGames(city, viewerId) {
       AND: [
         buildVisibilityWhere(viewerId),
         { start: { gte: getActiveGameStartCutoff() } },
-        { field: { city: { equals: String(city), mode: 'insensitive' } } },
+        { field: prismaFieldCityFilter(city) },
       ],
     },
     viewerId
@@ -1727,7 +1730,7 @@ async function getTodayCityGames(city, viewerId) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const where = {
     start: buildActiveGameStartFilter(todayStr),
-    ...(city ? { field: { city: { equals: String(city), mode: 'insensitive' } } } : {}),
+    ...(city ? { field: prismaFieldCityFilter(city) } : {}),
   };
   return fetchMappedListGames(
     { AND: [buildVisibilityWhere(viewerId), where] },

@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignInButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
-import LoadingMotif from "@/components/motion/LoadingMotif";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
 
 import { useGamesByFriends } from "@/hooks/useGamesByFriends";
 import { useGameUpdate } from "@/context/GameUpdateContext";
@@ -33,21 +35,38 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
 
     if (loading) {
         return (
-            <Box display="flex" justifyContent="center" p={2}>
-                <LoadingMotif id="crowd-wave" />
-            </Box>
+            <GamesHorizontalList title="משחקים עם חברים">
+                <GameCardSkeletonRow />
+            </GamesHorizontalList>
         );
     }
 
     if (error && filteredGames.length === 0) {
         return (
-            <Box p={2}>
-                <InlineErrorRow message={error} onRetry={refetch} />
-            </Box>
+            <GamesHorizontalList title="משחקים עם חברים">
+                <Box p={2} width="100%">
+                    <InlineErrorRow message={error} onRetry={refetch} />
+                </Box>
+            </GamesHorizontalList>
         );
     }
 
-    if (filteredGames.length === 0) return null;
+    if (filteredGames.length === 0) {
+        return (
+            <GamesHorizontalList title="משחקים עם חברים">
+                <Box p={2} width="100%">
+                    <Typography variant="body2" color="text.secondary">
+                        {user ? "עדיין אין משחקים עם חברים כרגע — הזמינו חברים או מצאו משחק חדש" : "התחבר כדי לראות משחקים עם חברים"}
+                    </Typography>
+                    {!user && (
+                        <SignInButton mode="modal">
+                            <Button size="small" variant="outlined" sx={{ mt: 1 }}>התחבר</Button>
+                        </SignInButton>
+                    )}
+                </Box>
+            </GamesHorizontalList>
+        );
+    }
 
     const renderGameCard = (g: any) => {
         const joined = !!userId && (g.participants || []).some((p: any) => p.id === userId);
@@ -68,6 +87,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                 teamSize={g.teamSize}
                 price={g.price}
                 isJoined={joined}
+                isFriendsOnly={g.isFriendsOnly}
                 href={`/games/${g.id}`}
             >
                 {joined ? (

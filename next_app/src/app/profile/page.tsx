@@ -373,9 +373,19 @@ export default function ProfilePage() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <SignedOut>
-        <Alert severity="warning" action={<SignInButton mode="modal"><Button color="inherit" size="small">התחבר</Button></SignInButton>}>
-          עליך להתחבר כדי לצפות ולערוך את הפרופיל שלך.
-        </Alert>
+        <Box sx={{ textAlign: "center", py: 6, px: 2 }}>
+          <Typography variant="h5" fontWeight={700} mb={1.5}>
+            הפרופיל שלך מחכה לך
+          </Typography>
+          <Typography variant="body1" color="text.secondary" mb={3} maxWidth={420} mx="auto">
+            התחברו כדי לצפות במשחקים שלכם, לנהל חברים ולערוך את פרטי הפרופיל.
+          </Typography>
+          <SignInButton mode="modal">
+            <Button variant="contained" size="large" sx={{ bgcolor: "#10b981", color: "#022c22", "&:hover": { bgcolor: "#34d399" } }}>
+              התחבר כדי להמשיך
+            </Button>
+          </SignInButton>
+        </Box>
       </SignedOut>
 
       <SignedIn>

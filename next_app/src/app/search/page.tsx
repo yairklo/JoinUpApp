@@ -309,6 +309,7 @@ export default function SearchPage() {
         teamSize={g.teamSize}
         price={g.price}
         isJoined={joined}
+        isFriendsOnly={g.isFriendsOnly}
         fullWidth
         href={`/games/${g.id}`}
       >

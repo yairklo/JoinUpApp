@@ -21,6 +21,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import Paper from "@mui/material/Paper";
+import LoadingMotif from "@/components/motion/LoadingMotif";
 
 // Icons
 import MapIcon from "@mui/icons-material/Map";
@@ -39,7 +40,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
   const [showMap, setShowMap] = useState(false);
 
   const MapWithNoSSR = useMemo(
-    () => dynamic(() => import("./MapComponent"), { ssr: false, loading: () => <div className="p-4 text-center">Loading map...</div> }),
+    () => dynamic(() => import("./MapComponent"), { ssr: false, loading: () => <Box sx={{ p: 4, display: "flex", justifyContent: "center" }}><LoadingMotif id="pin-drop" /></Box> }),
     []
   );
 

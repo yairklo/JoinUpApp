@@ -1,24 +1,32 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-expo';
 import { gamesApi, API_BASE } from '@/services/api';
 import { Game } from '@/types/game';
 import { useSyncedGames } from './useSyncedGames';
 import { useAuthTokenRef } from './useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
+import {
+    DEFAULT_CITY,
+    normalizeCity,
+    expandCityAliases,
+} from '@joinup/shared/cityAliases';
 
 export function useGamesByCity(initialCity?: string) {
     const { user, isLoaded } = useUser();
     const userId = user?.id;
     const getTokenRef = useAuthTokenRef();
 
-    const [displayedCity, setDisplayedCity] = useState(initialCity || '');
+    const [displayedCity, setDisplayedCityState] = useState(initialCity ? normalizeCity(initialCity) : '');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [availableCities, setAvailableCities] = useState<string[]>([]);
 
     const predicate = useCallback((game: Game) => {
         if (!displayedCity) return false;
-        return game.city === displayedCity || game.fieldLocation?.includes(displayedCity);
+        const normalizedDisplayed = normalizeCity(displayedCity);
+        if (normalizeCity(game.city || '') === normalizedDisplayed) return true;
+        if (!game.fieldLocation) return false;
+        return expandCityAliases(displayedCity).some((token) => game.fieldLocation!.includes(token));
     }, [displayedCity]);
 
     const { games, setGames } = useSyncedGames([], predicate);
@@ -38,7 +46,6 @@ export function useGamesByCity(initialCity?: string) {
 
     useEffect(() => {
         if (!isLoaded || initialCity) return;
-        if (!userId) return;
 
         const controller = new AbortController();
 
@@ -51,14 +58,34 @@ export function useGamesByCity(initialCity?: string) {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    if (!controller.signal.aborted) setDisplayedCity(data.city || 'Tel Aviv');
+                    if (!controller.signal.aborted) setDisplayedCityState(normalizeCity(data.city || DEFAULT_CITY));
+                } else if (!controller.signal.aborted) {
+                    setDisplayedCityState(DEFAULT_CITY);
                 }
             } catch (e) {
-                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCity('Tel Aviv');
+                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCityState(DEFAULT_CITY);
             }
         }
 
-        fetchUserCity();
+        async function fetchTopCity() {
+            try {
+                const res = await fetch(`${API_BASE}/api/fields/cities/top`, { signal: controller.signal });
+                if (!res.ok) {
+                    if (!controller.signal.aborted) setDisplayedCityState(DEFAULT_CITY);
+                    return;
+                }
+                const data = await res.json();
+                if (!controller.signal.aborted) setDisplayedCityState(normalizeCity(data.city || DEFAULT_CITY));
+            } catch (e) {
+                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCityState(DEFAULT_CITY);
+            }
+        }
+
+        if (userId) {
+            fetchUserCity();
+        } else {
+            fetchTopCity();
+        }
         return () => controller.abort();
     }, [isLoaded, userId, initialCity, getTokenRef]);
 
@@ -96,6 +123,10 @@ export function useGamesByCity(initialCity?: string) {
         fetchGames();
         return () => controller.abort();
     }, [displayedCity, getTokenRef, setGames]);
+
+    const setDisplayedCity = useCallback((city: string) => {
+        setDisplayedCityState(normalizeCity(city));
+    }, []);
 
     return { games, loading, error, displayedCity, setDisplayedCity, availableCities, isLoaded };
 }

@@ -5,8 +5,8 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
-import LoadingMotif from "@/components/motion/LoadingMotif";
-import IconButton from "@mui/material/IconButton";
+import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
+import Chip from "@mui/material/Chip";
 import SearchIcon from "@mui/icons-material/Search";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
@@ -53,17 +53,19 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
 
     if (loading && games.length === 0) {
         return (
-            <Box display="flex" justifyContent="center" p={2}>
-                <LoadingMotif id="dribble" />
-            </Box>
+            <GamesHorizontalList title={displayedCity ? `משחקים ב${displayedCity}` : "משחקים לפי עיר"}>
+                <GameCardSkeletonRow />
+            </GamesHorizontalList>
         );
     }
 
     if (error && games.length === 0) {
         return (
-            <Box p={2}>
-                <InlineErrorRow message={error} onRetry={refetch} />
-            </Box>
+            <GamesHorizontalList title={displayedCity ? `משחקים ב${displayedCity}` : "משחקים לפי עיר"}>
+                <Box p={2} width="100%">
+                    <InlineErrorRow message={error} onRetry={refetch} />
+                </Box>
+            </GamesHorizontalList>
         );
     }
 
@@ -85,6 +87,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 teamSize={g.teamSize}
                 price={g.price}
                 isJoined={joined}
+                isFriendsOnly={g.isFriendsOnly}
                 href={`/games/${g.id}`}
             >
                 {joined ? (
@@ -118,9 +121,14 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 title={`משחקים ב${displayedCity}`}
                 onSeeAll={() => setIsSeeAllOpen(true)}
                 customHeaderAction={
-                    <IconButton size="small" onClick={handleEditClick} sx={{ ml: 1, opacity: 0.8 }} title="חפש עיר">
-                        <SearchIcon fontSize="small" />
-                    </IconButton>
+                    <Chip
+                        size="small"
+                        clickable
+                        onClick={handleEditClick}
+                        icon={<SearchIcon fontSize="small" />}
+                        label="שנה עיר"
+                        sx={{ ml: 1, fontWeight: 600 }}
+                    />
                 }
             >
                 {filteredGames.length === 0 ? (
