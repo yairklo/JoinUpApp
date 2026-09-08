@@ -48,6 +48,7 @@ export type PickSessionState = {
     }[];
     bench: { id: string; name?: string | null; avatar?: string | null }[];
     managerPickChatId: string | null;
+    game?: { fieldName?: string | null; fieldLat?: number | null; fieldLng?: number | null } | null;
     pendingTrades: {
         id: string;
         proposerId: string;

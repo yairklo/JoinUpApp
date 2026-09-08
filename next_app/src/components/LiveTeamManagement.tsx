@@ -16,6 +16,7 @@ import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Avatar from "@/components/Avatar";
 import Chat from "@/components/Chat";
+import GameLocationMap from "@/components/GameLocationMap";
 import { useSocket } from "@/context/SocketContext";
 import { gamesApi, PickSessionState } from "@/services/api/games";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -301,6 +302,12 @@ export default function LiveTeamManagement({ gameId, currentUserId }: Props) {
   return (
     <Stack spacing={2}>
       {error && <Alert severity="error">{error}</Alert>}
+
+      {typeof state.game?.fieldLat === "number" && typeof state.game?.fieldLng === "number" && (
+        <Paper sx={{ overflow: "hidden" }}>
+          <GameLocationMap lat={state.game.fieldLat} lng={state.game.fieldLng} title={state.game.fieldName || undefined} height={220} />
+        </Paper>
+      )}
 
       {isOrganizer && (
         <Paper sx={{ p: 2 }}>

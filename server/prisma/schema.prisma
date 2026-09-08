@@ -26,6 +26,8 @@ model User {
   privacyMessages      PrivacyLevel?
   chatParticipations   ChatParticipant[]
   favoriteFields       FavoriteField[]
+  fieldComments        FieldComment[]
+  fieldIssueReports    FieldIssueReport[]
   requestsRecv         FriendRequest[]           @relation("Recv")
   requestsSent         FriendRequest[]           @relation("Sent")
   friendshipsA         Friendship[]              @relation("A")
@@ -70,11 +72,57 @@ model Field {
   supportedSports SportType[]     @default([SOCCER])
   favorites       FavoriteField[]
   reports         FieldReport[]
+  comments        FieldComment[]
+  issueReports    FieldIssueReport[]
   games           Game[]
 
   @@index([lat, lng])
   @@index([available, lat, lng])
   @@index([city])
+}
+
+/// Free-text comment left by a player on a field's profile page.
+model FieldComment {
+  id        String   @id @default(cuid())
+  fieldId   String
+  userId    String
+  text      String
+  createdAt DateTime @default(now())
+  field     Field    @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([fieldId, createdAt])
+}
+
+enum FieldIssueCategory {
+  POTHOLE
+  LIGHTING
+  SURFACE
+  GOAL_NET
+  FENCE
+  OTHER
+}
+
+enum FieldIssueStatus {
+  OPEN
+  RESOLVED
+}
+
+/// Player-reported physical defect at a field (pothole, broken lighting, etc.).
+model FieldIssueReport {
+  id          String             @id @default(cuid())
+  fieldId     String
+  userId      String
+  category    FieldIssueCategory
+  description String?
+  status      FieldIssueStatus   @default(OPEN)
+  createdAt   DateTime           @default(now())
+  resolvedAt  DateTime?
+  field       Field              @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([fieldId, status])
+  @@index([fieldId, createdAt])
 }
 
 /// Crowdsourced crowd-level log submitted by players viewing a field.

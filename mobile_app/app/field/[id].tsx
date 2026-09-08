@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Image, FlatList } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
@@ -8,6 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { fieldsApi, Field, FieldAnalytics, FieldScheduleGame, BusyCell } from '@/services/api';
 import { SPORT_MAPPING } from '@/utils/sports';
 import LoadingMotif from '@/components/loading/LoadingMotif';
+import FieldCommentsSection from '@/components/FieldCommentsSection';
+import FieldIssueReportSection from '@/components/FieldIssueReportSection';
 
 const CHART_MAX_HEIGHT = 120;
 
@@ -193,6 +196,24 @@ export default function FieldProfileScreen() {
                     </View>
                 </View>
 
+                {typeof field.lat === 'number' && typeof field.lng === 'number' && (
+                    <View className="bg-white mb-4 shadow-sm" style={{ height: 200, overflow: 'hidden' }}>
+                        <MapView
+                            style={{ flex: 1 }}
+                            initialRegion={{
+                                latitude: field.lat,
+                                longitude: field.lng,
+                                latitudeDelta: 0.01,
+                                longitudeDelta: 0.01,
+                            }}
+                            scrollEnabled={false}
+                            zoomEnabled={false}
+                        >
+                            <Marker coordinate={{ latitude: field.lat, longitude: field.lng }} title={field.name} />
+                        </MapView>
+                    </View>
+                )}
+
                 {analytics && (
                     <>
                         {/* JoinUp Roster Schedule */}
@@ -293,6 +314,9 @@ export default function FieldProfileScreen() {
                         </View>
                     </>
                 )}
+
+                <FieldCommentsSection fieldId={fieldId} />
+                <FieldIssueReportSection fieldId={fieldId} />
             </ScrollView>
 
             {/* Crowdsource Feedback Widget — flex footer inside SafeAreaView, not absolute */}

@@ -5,6 +5,9 @@ import { SPORT_MAPPING } from "@/utils/sports";
 import FieldBusyChart from "@/components/FieldBusyChart";
 import FieldScheduleTrack from "@/components/FieldScheduleTrack";
 import CrowdReportWidget from "@/components/CrowdReportWidget";
+import GameLocationMap from "@/components/GameLocationMap";
+import FieldCommentsSection from "@/components/FieldCommentsSection";
+import FieldIssueReportSection from "@/components/FieldIssueReportSection";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -33,6 +36,8 @@ type Field = {
   streetNumber?: string | null;
   phone?: string | null;
   favoritesCount?: number;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 type BusyCell = { avg: number | null; samples: number };
@@ -163,6 +168,12 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
           </Box>
         </Card>
 
+        {typeof field.lat === "number" && typeof field.lng === "number" && (
+          <Card sx={{ mb: 3, overflow: "hidden" }}>
+            <GameLocationMap lat={field.lat} lng={field.lng} title={field.name} height={280} />
+          </Card>
+        )}
+
         {!userId && (
           <Alert severity="info" sx={{ mb: 3 }}>
             יש להתחבר כדי לצפות בלוח המשחקים ובנתוני העומס של המגרש.
@@ -189,6 +200,9 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
             </Card>
           </>
         )}
+
+        <FieldCommentsSection fieldId={field.id} />
+        <FieldIssueReportSection fieldId={field.id} />
 
         {/* Crowdsource Feedback Widget (sticky) */}
         {userId && <CrowdReportWidget fieldId={field.id} />}

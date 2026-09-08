@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -32,6 +33,7 @@ type PickState = {
   }[];
   bench: { id: string; name?: string | null }[];
   managerPickChatId: string | null;
+  game?: { fieldName?: string | null; fieldLat?: number | null; fieldLng?: number | null } | null;
   pendingTrades: {
     id: string;
     proposerId: string;
@@ -335,6 +337,27 @@ export default function LiveTeamManagementScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
       <Stack.Screen options={{ title: t('teams.live'), headerShown: true }} />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+        {typeof state.game?.fieldLat === 'number' && typeof state.game?.fieldLng === 'number' && (
+          <View style={{ height: 160, borderRadius: 12, overflow: 'hidden' }}>
+            <MapView
+              style={{ flex: 1 }}
+              initialRegion={{
+                latitude: state.game.fieldLat,
+                longitude: state.game.fieldLng,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              scrollEnabled={false}
+              zoomEnabled={false}
+            >
+              <Marker
+                coordinate={{ latitude: state.game.fieldLat, longitude: state.game.fieldLng }}
+                title={state.game.fieldName || undefined}
+              />
+            </MapView>
+          </View>
+        )}
+
         {isOrganizer && (
           <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, gap: 8 }}>
             <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.scheduleTitle')}</Text>

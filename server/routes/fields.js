@@ -443,6 +443,151 @@ router.post('/:id/report', authenticateToken, async (req, res) => {
   }
 });
 
+const VALID_ISSUE_CATEGORIES = ['POTHOLE', 'LIGHTING', 'SURFACE', 'GOAL_NET', 'FENCE', 'OTHER'];
+const MAX_TEXT_LENGTH = 1000;
+
+function mapCommentForClient(c) {
+  return { id: c.id, text: c.text, createdAt: c.createdAt, user: c.user };
+}
+
+function mapIssueForClient(i) {
+  return { id: i.id, category: i.category, description: i.description, status: i.status, createdAt: i.createdAt };
+}
+
+// GET /api/fields/:id/comments - Public list of player comments on a field.
+router.get('/:id/comments', async (req, res) => {
+  try {
+    const fieldId = req.params.id;
+    const comments = await prisma.fieldComment.findMany({
+      where: { fieldId },
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { id: true, name: true, imageUrl: true } } },
+    });
+    res.json(comments.map(mapCommentForClient));
+  } catch (error) {
+    console.error('Get field comments error:', error);
+    res.status(500).json({ error: 'Failed to get field comments' });
+  }
+});
+
+// POST /api/fields/:id/comments - Add a comment to a field.
+router.post('/:id/comments', authenticateToken, async (req, res) => {
+  try {
+    const fieldId = req.params.id;
+    const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+
+    if (!text || text.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({ error: `text must be a non-empty string up to ${MAX_TEXT_LENGTH} characters` });
+    }
+
+    const field = await prisma.field.findUnique({ where: { id: fieldId }, select: { id: true } });
+    if (!field) {
+      return res.status(404).json({ error: 'Field not found' });
+    }
+
+    const comment = await prisma.fieldComment.create({
+      data: { fieldId, userId: req.user.id, text },
+      include: { user: { select: { id: true, name: true, imageUrl: true } } },
+    });
+
+    res.status(201).json(mapCommentForClient(comment));
+  } catch (error) {
+    console.error('Add field comment error:', error);
+    res.status(500).json({ error: 'Failed to add field comment' });
+  }
+});
+
+// DELETE /api/fields/:id/comments/:commentId - Remove a comment (author or admin only).
+router.delete('/:id/comments/:commentId', authenticateToken, async (req, res) => {
+  try {
+    const { id: fieldId, commentId } = req.params;
+    const comment = await prisma.fieldComment.findUnique({ where: { id: commentId } });
+    if (!comment || comment.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+    if (comment.userId !== req.user.id && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Not authorized to delete this comment' });
+    }
+
+    await prisma.fieldComment.delete({ where: { id: commentId } });
+    res.json({ message: 'Comment deleted' });
+  } catch (error) {
+    console.error('Delete field comment error:', error);
+    res.status(500).json({ error: 'Failed to delete field comment' });
+  }
+});
+
+// GET /api/fields/:id/issues - Public list of reported physical defects at a field.
+router.get('/:id/issues', async (req, res) => {
+  try {
+    const fieldId = req.params.id;
+    const issues = await prisma.fieldIssueReport.findMany({
+      where: { fieldId },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(issues.map(mapIssueForClient));
+  } catch (error) {
+    console.error('Get field issues error:', error);
+    res.status(500).json({ error: 'Failed to get field issues' });
+  }
+});
+
+// POST /api/fields/:id/issues - Report a physical defect (pothole, broken lighting, etc.) at a field.
+router.post('/:id/issues', authenticateToken, async (req, res) => {
+  try {
+    const fieldId = req.params.id;
+    const category = String(req.body?.category || '').toUpperCase();
+    const description = typeof req.body?.description === 'string' ? req.body.description.trim() : null;
+
+    if (!VALID_ISSUE_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: `category must be one of ${VALID_ISSUE_CATEGORIES.join(', ')}` });
+    }
+    if (description && description.length > MAX_TEXT_LENGTH) {
+      return res.status(400).json({ error: `description must be up to ${MAX_TEXT_LENGTH} characters` });
+    }
+
+    const field = await prisma.field.findUnique({ where: { id: fieldId }, select: { id: true } });
+    if (!field) {
+      return res.status(404).json({ error: 'Field not found' });
+    }
+
+    const issue = await prisma.fieldIssueReport.create({
+      data: { fieldId, userId: req.user.id, category, description: description || null, status: 'OPEN' },
+    });
+
+    res.status(201).json(mapIssueForClient(issue));
+  } catch (error) {
+    console.error('Add field issue error:', error);
+    res.status(500).json({ error: 'Failed to add field issue' });
+  }
+});
+
+// PATCH /api/fields/:id/issues/:issueId - Resolve/reopen a reported defect (Admin only).
+router.patch('/:id/issues/:issueId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id: fieldId, issueId } = req.params;
+    const status = String(req.body?.status || '').toUpperCase();
+    if (!['OPEN', 'RESOLVED'].includes(status)) {
+      return res.status(400).json({ error: 'status must be OPEN or RESOLVED' });
+    }
+
+    const issue = await prisma.fieldIssueReport.findUnique({ where: { id: issueId } });
+    if (!issue || issue.fieldId !== fieldId) {
+      return res.status(404).json({ error: 'Issue not found' });
+    }
+
+    const updated = await prisma.fieldIssueReport.update({
+      where: { id: issueId },
+      data: { status, resolvedAt: status === 'RESOLVED' ? new Date() : null },
+    });
+
+    res.json(mapIssueForClient(updated));
+  } catch (error) {
+    console.error('Update field issue error:', error);
+    res.status(500).json({ error: 'Failed to update field issue' });
+  }
+});
+
 // Get field by ID
 router.get('/:id', async (req, res) => {
   try {

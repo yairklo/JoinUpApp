@@ -1,20 +1,13 @@
-import Avatar from "@/components/Avatar";
-import Chat from "@/components/Chat";
 import Link from "next/link";
 import GameLiveSection from "@/components/GameLiveSection";
 import { auth } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
-import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
-import GameRatingsPanel from "@/components/GameRatingsPanel";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
 
 // MUI Imports
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
-import Card from "@mui/material/Card";
-import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
@@ -94,7 +87,6 @@ export default async function GameDetails(props: {
   const token = await getToken().catch(() => null);
   const game = await fetchGame(id, token);
   const userId = authUserId || "";
-  const joined = !!userId && (game?.participants || []).some((p) => p.id === userId);
 
   if (!game) {
     return (
@@ -140,6 +132,14 @@ export default async function GameDetails(props: {
               lotteryEnabled: game.lotteryEnabled,
               lotteryPending: game.lotteryPending,
               totalSignups: game.totalSignups,
+              organizerId: game.organizerId,
+              chatRoomId: game.chatRoomId,
+              overbooked: game.overbooked,
+              lotteryAt: game.lotteryAt,
+              managers: game.managers,
+              teams: game.teams,
+              waitlistParticipants: game.waitlistParticipants,
+              pickSessionStatus: (game as { pickSessionStatus?: string }).pickSessionStatus,
             }}
             viewerId={userId}
             canManageSeries={canManageSeries}
@@ -219,66 +219,6 @@ export default async function GameDetails(props: {
           </Box>
         </Box>
 
-        {/* Main Grid Layout */}
-        <Grid container spacing={{ xs: 3, md: 4 }}>
-
-          {/* Left Column: Participants & Team Builder */}
-          <Grid size={{ xs: 12, md: 7 }}>
-            <TeamBuilderWrapper
-              gameId={game.id}
-              participants={game.participants}
-              organizerId={game.organizerId}
-              initialManagers={game.managers || []}
-              maxPlayers={game.maxPlayers}
-              currentUserId={userId}
-              initialTeams={game.teams || []}
-              lotteryData={{
-                enabled: !!game.lotteryEnabled,
-                pending: !!game.lotteryPending,
-                overbooked: !!game.overbooked,
-                at: game.lotteryAt || null,
-                signups: game.totalSignups || 0
-              }}
-              waitlistParticipants={game.waitlistParticipants || []}
-              pickSessionStatus={(game as { pickSessionStatus?: string }).pickSessionStatus || null}
-            />
-            {joined && (
-              <GameRatingsPanel gameId={game.id} />
-            )}
-          </Grid>
-
-          {/* Right Column: Chat */}
-          {joined ? (
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Card
-                elevation={0}
-                sx={{
-                  height: "100%",
-                  minHeight: 400,
-                  border: "1px solid",
-                  borderColor: "rgba(148,163,184,0.16)",
-                  boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
-                }}
-              >
-                <Box p={{ xs: 2.5, md: 3 }} height="100%">
-                  <Typography
-                    variant="h6"
-                    fontWeight={800}
-                    sx={{ letterSpacing: "-0.02em" }}
-                  >
-                    צ&apos;אט המשחק
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    שוחחו עם שאר המשתתפים בזמן אמת
-                  </Typography>
-                  <Box sx={{ height: 1, borderTop: 1, borderColor: 'divider', pt: 2 }}>
-                    <Chat roomId={game.chatRoomId || game.id} chatName={game.title || "Game Chat"} hideHeaderName />
-                  </Box>
-                </Box>
-              </Card>
-            </Grid>
-          ) : null}
-        </Grid>
       </Container>
     </main>
   );

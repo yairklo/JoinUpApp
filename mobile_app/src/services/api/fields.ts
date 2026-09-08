@@ -81,6 +81,24 @@ export interface FieldsPage {
     hasMore: boolean;
 }
 
+export interface FieldComment {
+    id: string;
+    text: string;
+    createdAt: string;
+    user: { id: string; name?: string | null; imageUrl?: string | null };
+}
+
+export type FieldIssueCategory = 'POTHOLE' | 'LIGHTING' | 'SURFACE' | 'GOAL_NET' | 'FENCE' | 'OTHER';
+export type FieldIssueStatus = 'OPEN' | 'RESOLVED';
+
+export interface FieldIssueReport {
+    id: string;
+    category: FieldIssueCategory;
+    description?: string | null;
+    status: FieldIssueStatus;
+    createdAt: string;
+}
+
 export const fieldsApi = {
     getAll: () => {
         return apiClient<Field[]>('/api/fields', { cache: 'no-store' });
@@ -140,6 +158,26 @@ export const fieldsApi = {
             data: { busyLevel },
             token
         });
+    },
+
+    getComments: (fieldId: string) => {
+        return apiClient<FieldComment[]>(`/api/fields/${fieldId}/comments`, { cache: 'no-store' });
+    },
+
+    addComment: (fieldId: string, text: string, token: string) => {
+        return apiClient<FieldComment>(`/api/fields/${fieldId}/comments`, { method: 'POST', data: { text }, token });
+    },
+
+    deleteComment: (fieldId: string, commentId: string, token: string) => {
+        return apiClient<{ message: string }>(`/api/fields/${fieldId}/comments/${commentId}`, { method: 'DELETE', token });
+    },
+
+    getIssues: (fieldId: string) => {
+        return apiClient<FieldIssueReport[]>(`/api/fields/${fieldId}/issues`, { cache: 'no-store' });
+    },
+
+    addIssue: (fieldId: string, data: { category: FieldIssueCategory; description?: string }, token: string) => {
+        return apiClient<FieldIssueReport>(`/api/fields/${fieldId}/issues`, { method: 'POST', data, token });
     },
 
     // --- Admin-only (requireAdmin on the server; the token must belong to an admin user) ---
