@@ -1,12 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import LoadingMotif from "@/components/motion/LoadingMotif";
-// RTL: "forward" points left
-import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import LeaveGameButton from "@/components/LeaveGameButton";
@@ -73,6 +69,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
               teamSize={g.teamSize}
               price={g.price}
               isJoined={true}
+              href={`/games/${g.id}`}
             >
               <LeaveGameButton
                 gameId={g.id}
@@ -82,17 +79,6 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
                   router.refresh(); // Refresh to update other lists
                 }}
               />
-
-              <Button
-                component={Link}
-                href={`/games/${g.id}`}
-                variant="text" // Corrected variant
-                color="primary"
-                size="small"
-                endIcon={<ArrowForwardIcon />}
-              >
-                פרטים
-              </Button>
             </GameHeaderCard>
           );
         })}

@@ -177,6 +177,24 @@ export default function AppNavbar() {
               צור משחק
             </Button>
 
+            {isAdmin && (
+              <Tooltip title="ניהול">
+                <IconButton
+                  component={Link}
+                  href="/admin/fields"
+                  color="inherit"
+                  size="small"
+                  aria-label="ניהול"
+                  // The desktop nav (line ~116) already shows a "ניהול" text link from md up,
+                  // so this icon-only button covers the gap below md, where that link -- the
+                  // only admin entry point in the app -- is display:none and unreachable.
+                  sx={{ p: { xs: 0.75, md: 1 }, display: { xs: "inline-flex", md: "none" } }}
+                >
+                  <AdminPanelSettingsOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+
             <Tooltip title={mode === "dark" ? "מצב בהיר" : "מצב כהה"}>
               <IconButton
                 onClick={toggleColorMode}

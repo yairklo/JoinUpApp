@@ -2,12 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
-import Link from "next/link";
-import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
-// RTL: "forward" points left
-import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 
 import SeriesHeaderCard from "@/components/SeriesHeaderCard";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
@@ -119,19 +115,8 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
             subscriberCount={s.subscriberCount}
             sport={s.sport}
             isSubscribed={s.isSubscribed}
-        >
-            <Button
-                component={Link}
-                href={`/series/${s.id}`}
-                variant="outlined"
-                color="secondary"
-                size="small"
-                fullWidth
-                endIcon={<ArrowForwardIcon />}
-            >
-                לעמוד הקבוצה
-            </Button>
-        </SeriesHeaderCard>
+            href={`/series/${s.id}`}
+        />
     );
 
     return (

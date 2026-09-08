@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
@@ -43,6 +44,7 @@ export default function SeriesHeaderCard({
     children,
     isSubscribed,
     fullWidth = false,
+    href,
 }: {
     name: string;
     fieldName: string;
@@ -53,7 +55,10 @@ export default function SeriesHeaderCard({
     children?: React.ReactNode;
     isSubscribed?: boolean;
     fullWidth?: boolean;
+    /** When set, the whole card navigates here on click (footer actions stop propagation so they don't also navigate). */
+    href?: string;
 }) {
+    const router = useRouter();
     const dayName = typeof dayOfWeek === "number" ? DAYS[dayOfWeek] : "שבועי";
     const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
         ? SPORT_IMAGES[sport as SportType]
@@ -64,6 +69,19 @@ export default function SeriesHeaderCard({
             {...cardHoverProps}
             elevation={0}
             dir="rtl"
+            onClick={href ? () => router.push(href) : undefined}
+            onKeyDown={
+                href
+                    ? (e: React.KeyboardEvent) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            router.push(href);
+                        }
+                    }
+                    : undefined
+            }
+            role={href ? "link" : undefined}
+            tabIndex={href ? 0 : undefined}
             sx={{
                 width: fullWidth ? "100%" : undefined,
                 minWidth: fullWidth ? 0 : { xs: 252, sm: 300 },
@@ -82,6 +100,7 @@ export default function SeriesHeaderCard({
                     : "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 1px 3px rgba(15,23,42,0.06)",
                 transition: "box-shadow 0.2s ease, border-color 0.2s ease",
                 WebkitTapHighlightColor: "transparent",
+                cursor: href ? "pointer" : undefined,
                 "@media (hover: hover)": {
                     "&:hover": {
                         borderColor: isSubscribed ? "rgba(16,185,129,0.5)" : "rgba(99,102,241,0.35)",
@@ -224,6 +243,7 @@ export default function SeriesHeaderCard({
                         alignItems="center"
                         flexWrap="wrap"
                         useFlexGap
+                        onClick={(e) => e.stopPropagation()}
                         sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider", minWidth: 0 }}
                     >
                         {children}

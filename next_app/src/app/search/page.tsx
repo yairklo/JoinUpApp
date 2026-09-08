@@ -12,7 +12,6 @@ import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import LoadingMotif from "@/components/motion/LoadingMotif";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getLoadErrorMessage } from "@/utils/apiError";
 
@@ -24,8 +23,6 @@ import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import MenuItem from "@mui/material/MenuItem";
-// RTL: "forward" points left
-import ArrowForwardIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
 import GroupIcon from "@mui/icons-material/Group";
 import MyLocationIcon from "@mui/icons-material/MyLocation";
@@ -313,6 +310,7 @@ export default function SearchPage() {
         price={g.price}
         isJoined={joined}
         fullWidth
+        href={`/games/${g.id}`}
       >
         {joined ? (
           <LeaveGameButton
@@ -329,11 +327,6 @@ export default function SearchPage() {
             onJoined={() => handleGameJoined(g.id)}
           />
         )}
-        <Link href={`/games/${g.id}`} passHref legacyBehavior>
-          <Button component="a" variant="text" color="primary" size="small" endIcon={<ArrowForwardIcon />}>
-            פרטים
-          </Button>
-        </Link>
       </GameHeaderCard>
     );
   };
