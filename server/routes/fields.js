@@ -1,7 +1,9 @@
 const express = require('express');
+const { Prisma } = require('@prisma/client');
 const { prisma } = require('../lib/prisma');
 const dataManager = require('../utils/dataManager');
 const { getJerusalemDayHour } = require('../utils/timezone');
+const { sqlCanonicalCityExpr } = require('../utils/cityAliases');
 
 function mapFieldForClient(f) {
   if (!f) return f;
@@ -191,17 +193,24 @@ router.get('/cities', async (req, res) => {
   }
 });
 
-// Most active city by upcoming/recent game volume -- used as the guest default city
-// (no saved city, no GPS permission) instead of a hardcoded literal.
+// Most active city by upcoming OPEN game volume -- used as the guest default city
+// (no saved city, no GPS permission) instead of a hardcoded literal. Alias spellings
+// (e.g. תל אביב / Tel Aviv) are coalesced so they don't split the count.
 router.get('/cities/top', async (req, res) => {
   try {
+    const canonicalCity = Prisma.raw(sqlCanonicalCityExpr('f.city'));
     const rows = await prisma.$queryRaw`
-      SELECT f.city AS city, COUNT(g.id)::int AS count
-      FROM "Field" f
-      JOIN "Game" g ON g."fieldId" = f.id
-      WHERE f.city IS NOT NULL
-        AND g.start >= NOW() - INTERVAL '30 days'
-      GROUP BY f.city
+      SELECT city, COUNT(id)::int AS count
+      FROM (
+        SELECT ${canonicalCity} AS city, g.id
+        FROM "Field" f
+        JOIN "Game" g ON g."fieldId" = f.id
+        WHERE f.city IS NOT NULL
+          AND f.city <> ''
+          AND g.status = 'OPEN'
+          AND g.start >= NOW()
+      ) active
+      GROUP BY city
       ORDER BY count DESC
       LIMIT 1
     `;

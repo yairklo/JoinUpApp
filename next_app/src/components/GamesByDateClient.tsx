@@ -42,6 +42,7 @@ export default function GamesByDateClient({
   const router = useRouter();
   const userId = user?.id || "";
   const { notifyGameUpdate } = useGameUpdate();
+  const todayIso = new Date().toISOString().split("T")[0];
 
   const currentDayGames = (groups[selectedDate] || []).filter((g) => {
     if (sportFilter === "ALL") return true;
@@ -159,7 +160,9 @@ export default function GamesByDateClient({
             חזור להיום
           </Button>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            אין משחקים להיום? צפה במשחקי השבוע במפת המשחקים
+            {selectedDate === todayIso
+              ? "אין משחקים להיום? צפה במשחקי השבוע במפת המשחקים"
+              : "אין משחקים בתאריך הזה? צפה במשחקי השבוע במפת המשחקים"}
           </Typography>
           <Button
             component={Link}

@@ -113,7 +113,16 @@ export default async function GameDetails(props: {
 
   return (
     <main>
-      <Container maxWidth="lg" sx={{ py: { xs: 2.5, md: 4 }, px: { xs: 2, sm: 3 } }}>
+      <Container
+        maxWidth="lg"
+        sx={{
+          py: { xs: 2.5, md: 4 },
+          px: { xs: 2, sm: 3 },
+          pb: !userId
+            ? { xs: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 80px)", md: 10 }
+            : { xs: 2.5, md: 4 },
+        }}
+      >
         {/* Header Section */}
         <Box mb={4}>
           <GameLiveSection
@@ -208,10 +217,10 @@ export default async function GameDetails(props: {
         {!userId && (
           <Box
             sx={{
-              position: "sticky",
+              position: "fixed",
               bottom: { xs: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))", md: 0 },
+              insetInline: 0,
               zIndex: (t) => t.zIndex.appBar - 1,
-              mt: 3,
               py: 1.5,
               px: 2,
               bgcolor: "background.paper",

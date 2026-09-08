@@ -1,29 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth, useUser } from '@clerk/nextjs';
-import { gamesApi, API_BASE } from '@/services/api'; // user city still needs manual fetch
+import { gamesApi, API_BASE } from '@/services/api';
 import { Game } from '@/types/game';
 import { useSyncedGames } from './useSyncedGames';
 import { getLoadErrorMessage } from '@/utils/apiError';
+import {
+    DEFAULT_CITY,
+    normalizeCity,
+    expandCityAliases,
+} from '@joinup/shared/cityAliases';
 
-const DEFAULT_CITY = "תל אביב-יפו";
-
-const CITY_ALIASES: Record<string, string> = {
-    "תל אביב": DEFAULT_CITY,
-    "Tel Aviv": DEFAULT_CITY,
-    "Tel Aviv-Yafo": DEFAULT_CITY,
-};
-
-const ALL_CITY_TOKENS = [DEFAULT_CITY, ...Object.keys(CITY_ALIASES)];
-
-export function normalizeCity(city: string): string {
-    return CITY_ALIASES[city] || city;
-}
+export { normalizeCity };
 
 export function useGamesByCity(initialCity?: string) {
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
 
-    const [displayedCity, setDisplayedCity] = useState(initialCity || "");
+    const [displayedCity, setDisplayedCity] = useState(initialCity ? normalizeCity(initialCity) : "");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reloadKey, setReloadKey] = useState(0);
@@ -35,14 +28,11 @@ export function useGamesByCity(initialCity?: string) {
         const normalizedDisplayed = normalizeCity(displayedCity);
         if (normalizeCity(game.city || "") === normalizedDisplayed) return true;
         if (!game.fieldLocation) return false;
-        return ALL_CITY_TOKENS.some(
-            (token) => normalizeCity(token) === normalizedDisplayed && game.fieldLocation!.includes(token)
-        );
+        return expandCityAliases(displayedCity).some((token) => game.fieldLocation!.includes(token));
     }, [displayedCity]);
 
     const { games, setGames } = useSyncedGames([], predicate);
 
-    // Fetch cities list
     useEffect(() => {
         fetch(`${API_BASE}/api/fields/cities`)
             .then(res => res.json())
@@ -50,7 +40,6 @@ export function useGamesByCity(initialCity?: string) {
             .catch(err => console.error("Failed to load cities", err));
     }, []);
 
-    // Fetch User City (authenticated) or the most active city (guest)
     useEffect(() => {
         if (!isLoaded || initialCity) return;
 
@@ -59,15 +48,14 @@ export function useGamesByCity(initialCity?: string) {
         async function fetchUserCity() {
             try {
                 const token = await getToken();
-                // We don't have a specialized User API for 'get full user object' yet in users.ts,
-                // only 'getProfile'. Let's assume we can add it or just fetch here responsibly.
-                // For speed, I'll fetch here, but ideally this goes to usersApi.
                 const res = await fetch(`${API_BASE}/api/users/${user?.id}`, {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (res.ok) {
                     const data = await res.json();
                     if (!ignore) setDisplayedCity(normalizeCity(data.city || DEFAULT_CITY));
+                } else if (!ignore) {
+                    setDisplayedCity(DEFAULT_CITY);
                 }
             } catch (e) {
                 if (!ignore) setDisplayedCity(DEFAULT_CITY);
@@ -77,6 +65,10 @@ export function useGamesByCity(initialCity?: string) {
         async function fetchTopCity() {
             try {
                 const res = await fetch(`${API_BASE}/api/fields/cities/top`);
+                if (!res.ok) {
+                    if (!ignore) setDisplayedCity(DEFAULT_CITY);
+                    return;
+                }
                 const data = await res.json();
                 if (!ignore) setDisplayedCity(normalizeCity(data.city || DEFAULT_CITY));
             } catch (e) {
@@ -92,7 +84,6 @@ export function useGamesByCity(initialCity?: string) {
         return () => { ignore = true; };
     }, [isLoaded, user, initialCity, getToken]);
 
-    // Fetch Games
     useEffect(() => {
         if (!displayedCity) return;
         let ignore = false;

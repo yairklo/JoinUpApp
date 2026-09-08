@@ -1,31 +1,22 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-expo';
 import { gamesApi, API_BASE } from '@/services/api';
 import { Game } from '@/types/game';
 import { useSyncedGames } from './useSyncedGames';
 import { useAuthTokenRef } from './useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
-
-const DEFAULT_CITY = 'תל אביב-יפו';
-
-const CITY_ALIASES: Record<string, string> = {
-    'תל אביב': DEFAULT_CITY,
-    'Tel Aviv': DEFAULT_CITY,
-    'Tel Aviv-Yafo': DEFAULT_CITY,
-};
-
-const ALL_CITY_TOKENS = [DEFAULT_CITY, ...Object.keys(CITY_ALIASES)];
-
-function normalizeCity(city: string): string {
-    return CITY_ALIASES[city] || city;
-}
+import {
+    DEFAULT_CITY,
+    normalizeCity,
+    expandCityAliases,
+} from '@joinup/shared/cityAliases';
 
 export function useGamesByCity(initialCity?: string) {
     const { user, isLoaded } = useUser();
     const userId = user?.id;
     const getTokenRef = useAuthTokenRef();
 
-    const [displayedCity, setDisplayedCity] = useState(initialCity || '');
+    const [displayedCity, setDisplayedCityState] = useState(initialCity ? normalizeCity(initialCity) : '');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [availableCities, setAvailableCities] = useState<string[]>([]);
@@ -35,9 +26,7 @@ export function useGamesByCity(initialCity?: string) {
         const normalizedDisplayed = normalizeCity(displayedCity);
         if (normalizeCity(game.city || '') === normalizedDisplayed) return true;
         if (!game.fieldLocation) return false;
-        return ALL_CITY_TOKENS.some(
-            (token) => normalizeCity(token) === normalizedDisplayed && game.fieldLocation!.includes(token)
-        );
+        return expandCityAliases(displayedCity).some((token) => game.fieldLocation!.includes(token));
     }, [displayedCity]);
 
     const { games, setGames } = useSyncedGames([], predicate);
@@ -69,20 +58,26 @@ export function useGamesByCity(initialCity?: string) {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    if (!controller.signal.aborted) setDisplayedCity(normalizeCity(data.city || DEFAULT_CITY));
+                    if (!controller.signal.aborted) setDisplayedCityState(normalizeCity(data.city || DEFAULT_CITY));
+                } else if (!controller.signal.aborted) {
+                    setDisplayedCityState(DEFAULT_CITY);
                 }
             } catch (e) {
-                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCity(DEFAULT_CITY);
+                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCityState(DEFAULT_CITY);
             }
         }
 
         async function fetchTopCity() {
             try {
                 const res = await fetch(`${API_BASE}/api/fields/cities/top`, { signal: controller.signal });
+                if (!res.ok) {
+                    if (!controller.signal.aborted) setDisplayedCityState(DEFAULT_CITY);
+                    return;
+                }
                 const data = await res.json();
-                if (!controller.signal.aborted) setDisplayedCity(normalizeCity(data.city || DEFAULT_CITY));
+                if (!controller.signal.aborted) setDisplayedCityState(normalizeCity(data.city || DEFAULT_CITY));
             } catch (e) {
-                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCity(DEFAULT_CITY);
+                if (!isAbortError(e) && !controller.signal.aborted) setDisplayedCityState(DEFAULT_CITY);
             }
         }
 
@@ -128,6 +123,10 @@ export function useGamesByCity(initialCity?: string) {
         fetchGames();
         return () => controller.abort();
     }, [displayedCity, getTokenRef, setGames]);
+
+    const setDisplayedCity = useCallback((city: string) => {
+        setDisplayedCityState(normalizeCity(city));
+    }, []);
 
     return { games, loading, error, displayedCity, setDisplayedCity, availableCities, isLoaded };
 }

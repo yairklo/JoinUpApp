@@ -81,7 +81,11 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
 
-                if (!res.ok) throw new Error("Failed to fetch active series");
+                if (!res.ok) {
+                    const err = new Error("Failed to fetch active series") as Error & { status?: number };
+                    err.status = res.status;
+                    throw err;
+                }
                 const data: Series[] = await res.json();
 
                 if (!ignore) setSeriesList(data);

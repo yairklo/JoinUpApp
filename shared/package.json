@@ -31,6 +31,10 @@
     "./loadingMotifs": {
       "types": "./loadingMotifs.d.ts",
       "default": "./loadingMotifs.js"
+    },
+    "./cityAliases": {
+      "types": "./cityAliases.d.ts",
+      "default": "./cityAliases.js"
     }
   },
   "devDependencies": {

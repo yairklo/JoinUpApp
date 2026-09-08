@@ -52,14 +52,20 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
     });
 
     if (loading && games.length === 0) {
-        return <GameCardSkeletonRow />;
+        return (
+            <GamesHorizontalList title={displayedCity ? `משחקים ב${displayedCity}` : "משחקים לפי עיר"}>
+                <GameCardSkeletonRow />
+            </GamesHorizontalList>
+        );
     }
 
     if (error && games.length === 0) {
         return (
-            <Box p={2}>
-                <InlineErrorRow message={error} onRetry={refetch} />
-            </Box>
+            <GamesHorizontalList title={displayedCity ? `משחקים ב${displayedCity}` : "משחקים לפי עיר"}>
+                <Box p={2} width="100%">
+                    <InlineErrorRow message={error} onRetry={refetch} />
+                </Box>
+            </GamesHorizontalList>
         );
     }
 
@@ -120,7 +126,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                         clickable
                         onClick={handleEditClick}
                         icon={<SearchIcon fontSize="small" />}
-                        label={`מציג משחקים ב${displayedCity} • שנה עיר`}
+                        label="שנה עיר"
                         sx={{ ml: 1, fontWeight: 600 }}
                     />
                 }
