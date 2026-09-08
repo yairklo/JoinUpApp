@@ -39,3 +39,4 @@ The lessons that used to accumulate here have been promoted into glob-scoped rul
 
 ## New lessons (not yet promoted)
 - Live pick bench must never include managers/captains: `ensureManagerTeams` alone is not enough — also `assignManagersToOwnTeams` (set `participation.teamId`), filter managers out of `computeBench`, block `makePick` of managers, and mirror the filter on web/mobile derived bench/unassigned lists.
+- Do not revert `next_app/package-lock.json` after a Windows `npm install`: that drops `@emnapi/core` / `@emnapi/runtime` optional entries that Linux `npm ci` in CI requires. Commit the lockfile, or regenerate it on Node 20 Linux.
