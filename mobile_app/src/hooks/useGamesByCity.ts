@@ -14,6 +14,8 @@ const CITY_ALIASES: Record<string, string> = {
     'Tel Aviv-Yafo': DEFAULT_CITY,
 };
 
+const ALL_CITY_TOKENS = [DEFAULT_CITY, ...Object.keys(CITY_ALIASES)];
+
 function normalizeCity(city: string): string {
     return CITY_ALIASES[city] || city;
 }
@@ -31,7 +33,11 @@ export function useGamesByCity(initialCity?: string) {
     const predicate = useCallback((game: Game) => {
         if (!displayedCity) return false;
         const normalizedDisplayed = normalizeCity(displayedCity);
-        return normalizeCity(game.city || '') === normalizedDisplayed || game.fieldLocation?.includes(displayedCity);
+        if (normalizeCity(game.city || '') === normalizedDisplayed) return true;
+        if (!game.fieldLocation) return false;
+        return ALL_CITY_TOKENS.some(
+            (token) => normalizeCity(token) === normalizedDisplayed && game.fieldLocation!.includes(token)
+        );
     }, [displayedCity]);
 
     const { games, setGames } = useSyncedGames([], predicate);
