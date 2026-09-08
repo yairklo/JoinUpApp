@@ -239,7 +239,7 @@ export default function ProfileScreen() {
                 </Text>
                 {isAdmin && (
                     <TouchableOpacity
-                        onPress={() => router.push('/admin/fields')}
+                        onPress={() => router.push('/admin')}
                         className="w-10 h-10 items-center justify-center"
                         accessibilityLabel="ניהול"
                     >

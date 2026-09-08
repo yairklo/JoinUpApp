@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { FieldFlagReason } from './fields';
 
 export type PrivacyLevel = 'EVERYONE' | 'FRIENDS_ONLY';
 
@@ -67,6 +68,53 @@ export interface CurrentUser {
     email: string | null;
     city: string | null;
     isAdmin: boolean;
+}
+
+export interface AdminFieldUser {
+    id: string;
+    name?: string | null;
+    imageUrl?: string | null;
+    blockedFromFieldSocial: boolean;
+}
+
+export interface AdminFieldComment {
+    id: string;
+    fieldId: string;
+    fieldName: string;
+    parentId?: string | null;
+    text: string;
+    createdAt: string;
+    user: AdminFieldUser;
+}
+
+export interface AdminFieldIssue {
+    id: string;
+    fieldId: string;
+    fieldName: string;
+    parentId?: string | null;
+    category: string | null;
+    description?: string | null;
+    status: 'OPEN' | 'RESOLVED';
+    createdAt: string;
+    user: AdminFieldUser;
+}
+
+export interface AdminFieldCommentFlag {
+    id: string;
+    reason: FieldFlagReason;
+    details?: string | null;
+    createdAt: string;
+    reporter: { id: string; name?: string | null };
+    comment: { id: string; fieldId: string; fieldName: string; text: string; user: AdminFieldUser };
+}
+
+export interface AdminFieldIssueFlag {
+    id: string;
+    reason: FieldFlagReason;
+    details?: string | null;
+    createdAt: string;
+    reporter: { id: string; name?: string | null };
+    issue: { id: string; fieldId: string; fieldName: string; category: string | null; description?: string | null; user: AdminFieldUser };
 }
 
 export const usersApi = {
@@ -158,5 +206,39 @@ export const usersApi = {
             `/api/users/${userId}/match-history?skip=${skip}&take=${take}`,
             { token }
         );
-    }
+    },
+
+    // --- Admin-only field-content moderation (mirrors next_app's usersApi) ---
+
+    blockUserFromFieldSocial: (userId: string, token: string) => {
+        return apiClient<{ ok: true }>(`/api/admin/users/${userId}/block-field-social`, { method: 'POST', token });
+    },
+
+    unblockUserFromFieldSocial: (userId: string, token: string) => {
+        return apiClient<{ ok: true }>(`/api/admin/users/${userId}/unblock-field-social`, { method: 'POST', token });
+    },
+
+    listFieldComments: (token: string) => {
+        return apiClient<AdminFieldComment[]>('/api/admin/field-comments', { token, cache: 'no-store' });
+    },
+
+    listFieldIssues: (token: string) => {
+        return apiClient<AdminFieldIssue[]>('/api/admin/field-issues', { token, cache: 'no-store' });
+    },
+
+    listFieldCommentFlags: (token: string) => {
+        return apiClient<AdminFieldCommentFlag[]>('/api/admin/field-comment-flags', { token, cache: 'no-store' });
+    },
+
+    dismissFieldCommentFlag: (flagId: string, token: string) => {
+        return apiClient<{ ok: true }>(`/api/admin/field-comment-flags/${flagId}/dismiss`, { method: 'POST', token });
+    },
+
+    listFieldIssueFlags: (token: string) => {
+        return apiClient<AdminFieldIssueFlag[]>('/api/admin/field-issue-flags', { token, cache: 'no-store' });
+    },
+
+    dismissFieldIssueFlag: (flagId: string, token: string) => {
+        return apiClient<{ ok: true }>(`/api/admin/field-issue-flags/${flagId}/dismiss`, { method: 'POST', token });
+    },
 };
