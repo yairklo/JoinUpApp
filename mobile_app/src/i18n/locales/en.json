@@ -242,7 +242,8 @@
     "flagOffensive": "Offensive content",
     "flagFalseInfo": "False information",
     "flagSpam": "Spam",
-    "flagOther": "Other"
+    "flagOther": "Other",
+    "attachPhoto": "Attach photo"
   },
   "series": {
     "badge": "Weekly group",

@@ -106,6 +106,7 @@ export interface FieldIssueReport {
     parentId?: string | null;
     category: FieldIssueCategory | null;
     description?: string | null;
+    photoUrl?: string | null;
     status: FieldIssueStatus;
     createdAt: string;
     updatedAt: string;
@@ -219,6 +220,25 @@ export const fieldsApi = {
 
     deleteIssue: (fieldId: string, issueId: string, token: string) => {
         return apiClient<{ message: string }>(`/api/fields/${fieldId}/issues/${issueId}`, { method: 'DELETE', token });
+    },
+
+    uploadIssuePhoto: async (fieldId: string, issueId: string, image: PickedImage, token: string): Promise<FieldIssueReport> => {
+        const formData = new FormData();
+        formData.append('photo', image as unknown as Blob);
+        const res = await fetch(`${API_BASE}/api/fields/${fieldId}/issues/${issueId}/photo`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to upload photo');
+        }
+        return res.json();
+    },
+
+    removeIssuePhoto: (fieldId: string, issueId: string, token: string) => {
+        return apiClient<FieldIssueReport>(`/api/fields/${fieldId}/issues/${issueId}/photo`, { method: 'DELETE', token });
     },
 
     reactToIssue: (fieldId: string, issueId: string, type: ReactionType, token: string) => {

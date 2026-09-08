@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import SeriesSubscribeButton from "@/components/SeriesSubscribeButton";
 import SeriesSettingsEditor from "@/components/SeriesSettingsEditor";
 import SeriesMembersPanel from "@/components/SeriesMembersPanel";
+import GameLocationMap from "@/components/GameLocationMap";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -37,6 +38,8 @@ type SeriesDetails = {
     fieldId?: string | null;
     fieldName: string;
     fieldLocation: string;
+    fieldLat?: number | null;
+    fieldLng?: number | null;
     time: string;
     duration: number;
     dayOfWeek: number | null;
@@ -107,19 +110,33 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                             <Typography variant="h4" fontWeight="bold">
                                 {series.title || series.fieldName}
                             </Typography>
-                            <Stack direction="row" spacing={2} sx={{ mt: 1, color: 'text.secondary' }}>
+                            <Stack direction="row" spacing={2} sx={{ mt: 1, color: 'text.secondary' }} flexWrap="wrap" useFlexGap>
                                 {series.title && (
-                                    <Box display="flex" alignItems="center" gap={0.5}>
-                                        <Typography variant="body2">{series.fieldName}</Typography>
+                                    <Box
+                                        component={series.fieldId ? Link : "div"}
+                                        href={series.fieldId ? `/fields/${series.fieldId}` : undefined}
+                                        display="flex"
+                                        alignItems="center"
+                                        gap={0.5}
+                                        sx={series.fieldId ? { color: "primary.main", fontWeight: 700, textDecoration: "none", "&:hover": { textDecoration: "underline" } } : undefined}
+                                    >
+                                        <Typography variant="body2" fontWeight="inherit" color="inherit">{series.fieldName}</Typography>
                                     </Box>
                                 )}
+                                <Box
+                                    component={series.fieldId ? Link : "div"}
+                                    href={series.fieldId ? `/fields/${series.fieldId}` : undefined}
+                                    display="flex"
+                                    alignItems="center"
+                                    gap={0.5}
+                                    sx={series.fieldId ? { color: "primary.main", fontWeight: 700, textDecoration: "none", "&:hover": { textDecoration: "underline" } } : undefined}
+                                >
+                                    <LocationOnIcon fontSize="small" />
+                                    <Typography variant="body2" fontWeight="inherit" color="inherit">{series.fieldLocation}</Typography>
+                                </Box>
                                 <Box display="flex" alignItems="center" gap={0.5}>
                                     <AccessTimeIcon fontSize="small" />
                                     <Typography variant="body2">יום {dayName} בשעה {series.time}</Typography>
-                                </Box>
-                                <Box display="flex" alignItems="center" gap={0.5}>
-                                    <LocationOnIcon fontSize="small" />
-                                    <Typography variant="body2">{series.fieldLocation}</Typography>
                                 </Box>
                             </Stack>
                         </Box>
@@ -150,6 +167,12 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                     </Box>
                 </CardContent>
             </Card>
+
+            {typeof series.fieldLat === "number" && typeof series.fieldLng === "number" && (
+                <Card sx={{ mb: 4, overflow: "hidden" }}>
+                    <GameLocationMap lat={series.fieldLat} lng={series.fieldLng} title={series.fieldName} height={240} />
+                </Card>
+            )}
 
             <Grid container spacing={4}>
 

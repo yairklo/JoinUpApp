@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
@@ -48,6 +49,7 @@ export default function GameHeaderCard({
   isJoined,
   fullWidth = false,
   href,
+  fieldHref,
 }: {
   time: string;
   date?: string;
@@ -64,6 +66,8 @@ export default function GameHeaderCard({
   fullWidth?: boolean;
   /** When set, the whole card navigates here on click (footer actions stop propagation so they don't also navigate). */
   href?: string;
+  /** When set, the subtitle (field name/location) becomes its own link to the field's profile page. */
+  fieldHref?: string;
 }) {
   const router = useRouter();
   function formatEndTime(startTime: string, hours: number | undefined): string {
@@ -270,12 +274,31 @@ export default function GameHeaderCard({
             {title || "משחק ללא שם"}
           </Typography>
           {subtitle && (
-            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5, color: "text.secondary", minWidth: 0 }}>
+            <Stack
+              direction="row"
+              spacing={0.5}
+              alignItems="center"
+              component={fieldHref ? NextLink : "div"}
+              href={fieldHref}
+              onClick={fieldHref ? (e: React.MouseEvent) => e.stopPropagation() : undefined}
+              sx={{
+                mt: 0.5,
+                minWidth: 0,
+                width: "fit-content",
+                maxWidth: "100%",
+                color: fieldHref ? "primary.main" : "text.secondary",
+                textDecoration: "none",
+                ...(fieldHref && {
+                  "&:hover": { textDecoration: "underline" },
+                }),
+              }}
+            >
               <PlaceOutlinedIcon sx={{ fontSize: 15, flexShrink: 0 }} />
               <Typography
                 variant="body2"
                 sx={{
                   fontSize: "0.82rem",
+                  fontWeight: fieldHref ? 700 : 400,
                   display: "-webkit-box",
                   overflow: "hidden",
                   WebkitBoxOrient: "vertical",

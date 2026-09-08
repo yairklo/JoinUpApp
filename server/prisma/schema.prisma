@@ -181,6 +181,7 @@ model FieldIssueReport {
   parentId    String?
   category    FieldIssueCategory?
   description String?
+  photoUrl    String?
   status      FieldIssueStatus           @default(OPEN)
   createdAt   DateTime                   @default(now())
   updatedAt   DateTime                   @updatedAt

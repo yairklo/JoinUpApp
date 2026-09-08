@@ -30,6 +30,8 @@ import ThumbDownIcon from "@mui/icons-material/ThumbDown";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
+import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
+import CloseIcon from "@mui/icons-material/Close";
 
 const FLAG_REASON_LABELS: Record<FieldFlagReason, string> = {
   OFFENSIVE: "תוכן פוגעני",
@@ -72,6 +74,7 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<FieldIssueCategory>("POTHOLE");
   const [description, setDescription] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -114,9 +117,17 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
         setError("יש להתחבר כדי לדווח על ליקוי");
         return;
       }
-      const created = await fieldsApi.addIssue(fieldId, { category, description: description.trim() || undefined }, token);
+      let created = await fieldsApi.addIssue(fieldId, { category, description: description.trim() || undefined }, token);
+      if (photo) {
+        try {
+          created = await fieldsApi.uploadIssuePhoto(fieldId, created.id, photo, token);
+        } catch (e) {
+          console.error("[FIELD ISSUE] Failed to upload photo:", e);
+        }
+      }
       setIssues((prev) => [created, ...prev]);
       setDescription("");
+      setPhoto(null);
       setShowSuccess(true);
     } catch (e) {
       setError(getActionErrorMessage(e));
@@ -174,6 +185,21 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
       if (!token) return;
       await fieldsApi.deleteIssue(fieldId, issueId, token);
       setIssues((prev) => removeFromTree(prev, issueId));
+    } catch (e) {
+      setError(getActionErrorMessage(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const removePhoto = async (issue: FieldIssueReport) => {
+    setBusyId(issue.id);
+    setError(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const updated = await fieldsApi.removeIssuePhoto(fieldId, issue.id, token);
+      setIssues((prev) => replaceInTree(prev, issue.id, updated));
     } catch (e) {
       setError(getActionErrorMessage(e));
     } finally {
@@ -288,6 +314,35 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
             )
           )}
 
+          {issue.photoUrl && !isEditing && (
+            <Box sx={{ mt: 1, position: "relative", display: "inline-block" }}>
+              <Box
+                component="a"
+                href={issue.photoUrl}
+                target="_blank"
+                rel="noreferrer"
+                sx={{ display: "block" }}
+              >
+                <Box
+                  component="img"
+                  src={issue.photoUrl}
+                  alt="תמונת הליקוי"
+                  sx={{ maxWidth: 220, maxHeight: 160, borderRadius: 2, display: "block", objectFit: "cover" }}
+                />
+              </Box>
+              {isOwn && (
+                <IconButton
+                  size="small"
+                  onClick={() => removePhoto(issue)}
+                  disabled={isBusy}
+                  sx={{ position: "absolute", top: 4, left: 4, bgcolor: "rgba(255,255,255,0.85)", "&:hover": { bgcolor: "rgba(255,255,255,0.95)" } }}
+                >
+                  <CloseIcon fontSize="inherit" />
+                </IconButton>
+              )}
+            </Box>
+          )}
+
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }} flexWrap="wrap">
             <IconButton size="small" onClick={() => react(issue, "LIKE")} disabled={isBusy} color={issue.viewerReaction === "LIKE" ? "primary" : "default"}>
               {issue.viewerReaction === "LIKE" ? <ThumbUpIcon fontSize="inherit" /> : <ThumbUpOutlinedIcon fontSize="inherit" />}
@@ -369,32 +424,56 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
       </Typography>
 
       {userId ? (
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "flex-start", mb: 2 }}>
-          <Select
-            size="small"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as FieldIssueCategory)}
-            disabled={submitting}
-            sx={{ minWidth: 160 }}
-          >
-            {CATEGORIES.map((c) => (
-              <MenuItem key={c} value={c}>
-                {CATEGORY_LABELS[c]}
-              </MenuItem>
-            ))}
-          </Select>
-          <TextField
-            size="small"
-            placeholder="תיאור (לא חובה)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            disabled={submitting}
-            inputProps={{ maxLength: 1000 }}
-            sx={{ flex: 1, minWidth: 200 }}
-          />
-          <Button variant="contained" color="warning" onClick={submit} disabled={submitting} sx={{ minWidth: 96 }}>
-            {submitting ? <CircularProgress size={20} color="inherit" /> : "דווח"}
-          </Button>
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <Select
+              size="small"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as FieldIssueCategory)}
+              disabled={submitting}
+              sx={{ minWidth: 160 }}
+            >
+              {CATEGORIES.map((c) => (
+                <MenuItem key={c} value={c}>
+                  {CATEGORY_LABELS[c]}
+                </MenuItem>
+              ))}
+            </Select>
+            <TextField
+              size="small"
+              placeholder="תיאור (לא חובה)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              disabled={submitting}
+              inputProps={{ maxLength: 1000 }}
+              sx={{ flex: 1, minWidth: 200 }}
+            />
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<PhotoCameraOutlinedIcon />}
+              disabled={submitting}
+            >
+              {photo ? "תמונה נבחרה" : "צרף תמונה"}
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => setPhoto(e.target.files?.[0] || null)}
+              />
+            </Button>
+            <Button variant="contained" color="warning" onClick={submit} disabled={submitting} sx={{ minWidth: 96 }}>
+              {submitting ? <CircularProgress size={20} color="inherit" /> : "דווח"}
+            </Button>
+          </Box>
+          {photo && (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+              <Typography variant="caption" color="text.secondary">{photo.name}</Typography>
+              <IconButton size="small" onClick={() => setPhoto(null)}>
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            </Stack>
+          )}
         </Box>
       ) : (
         <Alert severity="info" sx={{ mb: 2 }}>יש להתחבר כדי לדווח על ליקוי.</Alert>

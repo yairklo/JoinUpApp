@@ -242,7 +242,8 @@
     "flagOffensive": "תוכן פוגעני",
     "flagFalseInfo": "מידע שקרי",
     "flagSpam": "ספאם",
-    "flagOther": "אחר"
+    "flagOther": "אחר",
+    "attachPhoto": "צרף תמונה"
   },
   "series": {
     "badge": "קבוצה שבועית",

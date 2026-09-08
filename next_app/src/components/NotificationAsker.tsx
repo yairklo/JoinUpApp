@@ -71,8 +71,9 @@ export default function NotificationAsker() {
                     insetInlineStart: { xs: 16, md: 20 },
                     zIndex: 1200,
                     boxShadow: "0 8px 20px rgba(5,150,105,0.4)",
-                    width: { xs: 48, md: "auto" },
-                    height: { xs: 48, md: 48 },
+                    width: 48,
+                    height: 48,
+                    minWidth: 48,
                 }}
             >
                 <NotificationsActiveOutlinedIcon fontSize="small" />

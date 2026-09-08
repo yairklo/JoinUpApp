@@ -24,7 +24,7 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import SearchIcon from "@mui/icons-material/Search";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
-import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import StadiumOutlinedIcon from "@mui/icons-material/StadiumOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
@@ -220,16 +220,16 @@ export default function AppNavbar() {
                   )}
 
                   {user && (
-                    <Tooltip title="חברים">
+                    <Tooltip title="פרופיל">
                       <IconButton
                         color="inherit"
                         size="small"
-                        aria-label="חברים"
+                        aria-label="פרופיל"
                         sx={{ p: 1, display: { xs: "none", md: "inline-flex" } }}
                         onClick={() => router.push("/profile")}
                       >
                         <Badge badgeContent={friendRequests} color="error">
-                          <PeopleAltOutlinedIcon fontSize="small" />
+                          <PersonOutlineIcon fontSize="small" />
                         </Badge>
                       </IconButton>
                     </Tooltip>
