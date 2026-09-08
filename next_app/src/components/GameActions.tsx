@@ -1,21 +1,16 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import GameLocationMap from "@/components/GameLocationMap";
 
 // MUI
 import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import IconButton from "@mui/material/IconButton";
 
 // Icons
-import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import NavigationOutlinedIcon from "@mui/icons-material/NavigationOutlined";
 import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
-import CloseIcon from "@mui/icons-material/Close";
 
 export default function GameActions({
   gameId,
@@ -34,7 +29,6 @@ export default function GameActions({
   const gameUrl = origin ? `${origin}/games/${gameId}` : `/games/${gameId}`;
 
   const shareText = `${fieldName ? `${fieldName} – ` : ""}הצטרפו למשחק: ${gameUrl}`;
-  const [mapOpen, setMapOpen] = useState(false);
 
   // Compute a native-friendly navigation URL (iOS -> Apple Maps; others -> Google Maps)
   const isIOS =
@@ -80,18 +74,13 @@ export default function GameActions({
 
   return (
     <Box component="section" dir="rtl" sx={{ mb: 2 }}>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        {isLoc && (
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<MapOutlinedIcon fontSize="small" />}
-            onClick={() => setMapOpen(true)}
-          >
-            הצג במפה
-          </Button>
-        )}
+      {isLoc && (
+        <Card sx={{ mb: 1.5, overflow: "hidden", borderRadius: 3 }}>
+          <GameLocationMap lat={lat as number} lng={lng as number} title={fieldName} height={220} />
+        </Card>
+      )}
 
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
         {isLoc && navHref && (
           <Button
             component="a"
@@ -115,30 +104,6 @@ export default function GameActions({
           שיתוף
         </Button>
       </Stack>
-
-      {/* Map dialog */}
-      {isLoc && (
-        <Dialog open={mapOpen} onClose={() => setMapOpen(false)} fullWidth maxWidth="md" dir="rtl">
-          <DialogTitle
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              fontWeight: 700,
-            }}
-          >
-            {fieldName || "מיקום המשחק"}
-            <IconButton onClick={() => setMapOpen(false)} aria-label="סגור">
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent sx={{ pt: 0 }}>
-            <Box sx={{ borderRadius: 3, overflow: "hidden" }}>
-              <GameLocationMap lat={lat as number} lng={lng as number} title={fieldName} height={360} />
-            </Box>
-          </DialogContent>
-        </Dialog>
-      )}
     </Box>
   );
 }
