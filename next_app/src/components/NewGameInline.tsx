@@ -308,7 +308,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                           אופציונלי. זמן ההגרלה מערבב את סדר תור המנהלים; תחילת הבחירה פותחת את המסך החי אוטומטית. ניתן לערוך מאוחר יותר.
                         </Typography>
                         <Grid container spacing={2}>
-                          <Grid size={6}>
+                            <Grid size={6}>
                             <TextField
                               label="תאריך הגרלת מנהלים"
                               type="date"
@@ -316,6 +316,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                               size="small"
                               InputLabelProps={{ shrink: true }}
                               value={state.form.pickDrawDate}
+                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+                              helperText={formatHebrewDate(state.form.pickDrawDate)}
                               onChange={(e) => actions.update("pickDrawDate", e.target.value)}
                             />
                           </Grid>
@@ -338,6 +340,8 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                               size="small"
                               InputLabelProps={{ shrink: true }}
                               value={state.form.pickingStartDate}
+                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+                              helperText={formatHebrewDate(state.form.pickingStartDate)}
                               onChange={(e) => actions.update("pickingStartDate", e.target.value)}
                             />
                           </Grid>

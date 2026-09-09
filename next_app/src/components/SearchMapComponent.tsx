@@ -7,6 +7,7 @@ import {
   AdvancedMarker,
   InfoWindow,
   useMap,
+  useMapsLibrary,
 } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import Box from "@mui/material/Box";
@@ -20,8 +21,10 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Game } from "@/types/game";
 import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 import LoadingMotif from "@/components/motion/LoadingMotif";
+import { isValidLatLng } from "@/utils/geo";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
 
 interface SearchMapComponentProps {
   games: Game[];
@@ -100,13 +103,19 @@ export default function SearchMapComponent({
   hoveredGameId = null,
   onHoverGame,
 }: SearchMapComponentProps) {
+  const [apiError, setApiError] = useState<unknown>(null);
+  const safeUserLocation =
+    userLocation && isValidLatLng(userLocation[0], userLocation[1]) ? userLocation : null;
+  const safeTarget =
+    targetLocation && isValidLatLng(targetLocation[0], targetLocation[1]) ? targetLocation : null;
+
   // Group games that have identical coordinates so they don't visually overlap perfectly
   const groupedGames: GameGroup[] = useMemo(() => {
     const map = new Map<string, GameGroup>();
     for (const game of games) {
       const lat = game.customLat ?? game.fieldLat ?? game.field?.lat;
       const lng = game.customLng ?? game.fieldLng ?? game.field?.lng;
-      if (typeof lat !== "number" || typeof lng !== "number") continue;
+      if (!isValidLatLng(lat, lng)) continue;
       const key = `${lat},${lng}`;
       const existing = map.get(key);
       if (existing) existing.games.push(game);
@@ -117,6 +126,14 @@ export default function SearchMapComponent({
 
   if (!GOOGLE_MAPS_API_KEY) {
     return <div style={{ color: "#64748b", fontSize: 14, padding: 16 }}>מפה לא זמינה כרגע.</div>;
+  }
+
+  if (apiError) {
+    return (
+      <div style={{ color: "#64748b", fontSize: 14, padding: 16, height: "100%" }}>
+        המפה לא נטענה. אפשר להמשיך לחפש ברשימה.
+      </div>
+    );
   }
 
   return (
@@ -137,19 +154,28 @@ export default function SearchMapComponent({
           <LoadingMotif id="pin-drop" label="טוען מפה…" />
         </Box>
       )}
-      <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he">
+      <APIProvider
+        apiKey={GOOGLE_MAPS_API_KEY}
+        language="he"
+        region="IL"
+        libraries={["marker"]}
+        onError={(err) => {
+          console.error("[SearchMap] Maps API error:", err);
+          setApiError(err);
+        }}
+      >
         <GoogleMap
-          mapId="DEMO_MAP_ID"
+          mapId={GOOGLE_MAPS_MAP_ID}
           defaultCenter={DEFAULT_CENTER}
           defaultZoom={12}
           gestureHandling="greedy"
           disableDefaultUI={false}
           style={{ width: "100%", height: "100%" }}
         >
-          <BoundsListener onBoundsChanged={onBoundsChanged} targetLocation={targetLocation} />
+          <BoundsListener onBoundsChanged={onBoundsChanged} targetLocation={safeTarget} />
 
-          {userLocation && (
-            <UserLocationMarker lat={userLocation[0]} lng={userLocation[1]} />
+          {safeUserLocation && (
+            <UserLocationMarker lat={safeUserLocation[0]} lng={safeUserLocation[1]} />
           )}
 
           <ClusteredGameMarkers
@@ -160,7 +186,7 @@ export default function SearchMapComponent({
           />
 
           {emptyFields.map((field, idx) => {
-            if (typeof field.lat !== "number" || typeof field.lng !== "number") return null;
+            if (!isValidLatLng(field.lat, field.lng)) return null;
             return <EmptyFieldMarker key={`empty-${idx}`} field={field} />;
           })}
         </GoogleMap>
@@ -209,9 +235,14 @@ function BoundsListener({
   }, [map, handleCameraChanged]);
 
   useEffect(() => {
-    if (targetLocation && map) {
-      map.panTo({ lat: targetLocation[0], lng: targetLocation[1] });
+    if (!targetLocation || !map) return;
+    const [lat, lng] = targetLocation;
+    if (!isValidLatLng(lat, lng)) return;
+    try {
+      map.panTo({ lat, lng });
       map.setZoom(12);
+    } catch (e) {
+      console.warn("[SearchMap] panTo failed:", e);
     }
   }, [targetLocation, map]);
 
@@ -221,6 +252,8 @@ function BoundsListener({
 // Classic "you are here" blue dot -- kept visually distinct from the sport-colored
 // game pins and the gray empty-field pins so it doesn't get mistaken for either.
 function UserLocationMarker({ lat, lng }: { lat: number; lng: number }) {
+  const markerLib = useMapsLibrary("marker");
+  if (!markerLib) return null;
   return (
     <AdvancedMarker position={{ lat, lng }} zIndex={1}>
       <div style={{ position: "relative", width: 22, height: 22 }}>
@@ -330,6 +363,7 @@ function ClusteredGameMarkers({
   onHoverGame?: (gameId: string | null) => void;
 }) {
   const map = useMap();
+  const markerLib = useMapsLibrary("marker");
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const contentByKeyRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const [selectedGroup, setSelectedGroup] = useState<GameGroup | null>(null);
@@ -340,13 +374,18 @@ function ClusteredGameMarkers({
   // participant count changed) is unnecessary overhead on top of the marker rebuild below.
   useEffect(() => {
     if (!map) return;
-    const clusterer = new MarkerClusterer({ map });
-    clustererRef.current = clusterer;
-    return () => {
-      clusterer.clearMarkers();
-      clusterer.setMap(null);
-      clustererRef.current = null;
-    };
+    try {
+      const clusterer = new MarkerClusterer({ map });
+      clustererRef.current = clusterer;
+      return () => {
+        clusterer.clearMarkers();
+        clusterer.setMap(null);
+        clustererRef.current = null;
+      };
+    } catch (e) {
+      console.error("[SearchMap] MarkerClusterer init failed:", e);
+      return undefined;
+    }
   }, [map]);
 
   // NOTE: this still rebuilds every marker on any `groups` change (e.g. one game's
@@ -358,33 +397,39 @@ function ClusteredGameMarkers({
   // the more expensive clusterer-object recreation on every change (above).
   useEffect(() => {
     const clusterer = clustererRef.current;
-    if (!map || !clusterer) return;
+    const AdvancedMarkerElement = markerLib?.AdvancedMarkerElement;
+    if (!map || !clusterer || typeof AdvancedMarkerElement !== "function") return;
 
-    const markers = groups.map((group) => {
-      const content = buildGroupMarkerContent(group);
-      contentByKeyRef.current.set(group.key, content);
+    try {
+      const markers = groups.map((group) => {
+        const content = buildGroupMarkerContent(group);
+        contentByKeyRef.current.set(group.key, content);
 
-      const marker = new google.maps.marker.AdvancedMarkerElement({
-        position: { lat: group.lat, lng: group.lng },
-        content,
+        const marker = new AdvancedMarkerElement({
+          position: { lat: group.lat, lng: group.lng },
+          content,
+        });
+
+        marker.addListener("click", () => setSelectedGroup(group));
+        content.addEventListener("mouseenter", () => onHoverGame?.(group.games[0].id));
+        content.addEventListener("mouseleave", () => onHoverGame?.(null));
+
+        return marker;
       });
 
-      marker.addListener("click", () => setSelectedGroup(group));
-      content.addEventListener("mouseenter", () => onHoverGame?.(group.games[0].id));
-      content.addEventListener("mouseleave", () => onHoverGame?.(null));
-
-      return marker;
-    });
-
-    clusterer.clearMarkers();
-    clusterer.addMarkers(markers);
-
-    return () => {
       clusterer.clearMarkers();
-      contentByKeyRef.current.clear();
-    };
+      clusterer.addMarkers(markers);
+
+      return () => {
+        clusterer.clearMarkers();
+        contentByKeyRef.current.clear();
+      };
+    } catch (e) {
+      console.error("[SearchMap] Failed to create clustered markers:", e);
+      return undefined;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, groups]);
+  }, [map, markerLib, groups]);
 
   // Keep the open InfoWindow's data in sync with the current result set: if its group is
   // still present (same location key), refresh it with the latest games/counts; if the
@@ -491,6 +536,8 @@ function ClusteredGameMarkers({
 
 function EmptyFieldMarker({ field }: { field: any }) {
   const [open, setOpen] = useState(false);
+  const markerLib = useMapsLibrary("marker");
+  if (!markerLib) return null;
   return (
     <>
       <AdvancedMarker position={{ lat: field.lat, lng: field.lng }} onClick={() => setOpen((v) => !v)}>

@@ -17,6 +17,7 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import CardMedia from "@mui/material/CardMedia";
 import { SPORT_IMAGES, SPORT_MAPPING, SPORT_EMOJI, SportType } from "@/utils/sports";
 import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
+import { formatHebrewDateShort } from "@/utils/hebrewDate";
 
 const chipOverlaySx = {
   height: 24,
@@ -240,7 +241,7 @@ export default function GameHeaderCard({
                 dir="ltr"
                 sx={{ unicodeBidi: "isolate" }}
               >
-                {time}–{end}{date ? ` • ${date}` : ""}
+                {time}–{end}{date ? ` • ${formatHebrewDateShort(date)}` : ""}
               </Typography>
             </Stack>
 

@@ -1,14 +1,16 @@
 "use client";
 
-import React from "react";
+import React, { useRef } from "react";
 import Link from "next/link";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
-// In RTL "forward" points left, so ArrowBack is the visually-correct glyph
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { Reveal } from "@/components/motion/Reveal";
 
 export default function GamesHorizontalList({
@@ -26,10 +28,31 @@ export default function GamesHorizontalList({
   onSeeAll?: () => void;
   seeAllHref?: string;
   customHeaderAction?: React.ReactNode;
-  /** Background refetch while this rail already has content on screen -- a
-   * thin progress line instead of swapping content back to a skeleton. */
   isRefreshing?: boolean;
 }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const childCount = React.Children.count(children);
+  const showArrows = childCount > 1;
+
+  const scrollByCard = (direction: 1 | -1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const amount = Math.min(320, el.clientWidth * 0.75);
+    // RTL row: "next" (toward later cards / visual left) is positive scrollLeft in most engines.
+    el.scrollBy({ left: direction * amount, behavior: "smooth" });
+  };
+
+  const seeAllButtonSx = {
+    flexShrink: 0,
+    fontWeight: 600,
+    fontSize: { xs: "0.8rem", sm: "0.875rem" },
+    color: isOnColoredBackground ? "rgba(255,255,255,0.9)" : "text.secondary",
+    "&:hover": {
+      color: isOnColoredBackground ? "common.white" : "primary.main",
+      bgcolor: isOnColoredBackground ? "rgba(255,255,255,0.1)" : "action.hover",
+    },
+  } as const;
+
   return (
     <Box sx={{ mb: { xs: 3, md: 4 }, mx: { xs: -2, sm: 0 }, position: "relative" }}>
       {isRefreshing && (
@@ -51,6 +74,7 @@ export default function GamesHorizontalList({
         alignItems="center"
         mb={1.5}
         px={{ xs: 2, sm: 1 }}
+        gap={1}
       >
         <Box display="flex" alignItems="center" gap={1} minWidth={0}>
           <Box
@@ -78,67 +102,86 @@ export default function GamesHorizontalList({
           {customHeaderAction}
         </Box>
 
-        {seeAllHref ? (
-          <Button
-            size="small"
-            component={Link}
-            href={seeAllHref}
-            endIcon={<ArrowBackIcon fontSize="small" />}
-            sx={{
-              flexShrink: 0,
-              fontWeight: 600,
-              fontSize: { xs: "0.8rem", sm: "0.875rem" },
-              color: isOnColoredBackground ? "rgba(255,255,255,0.9)" : "text.secondary",
-              "&:hover": {
-                color: isOnColoredBackground ? "common.white" : "primary.main",
-                bgcolor: isOnColoredBackground ? "rgba(255,255,255,0.1)" : "action.hover",
-              },
-            }}
-          >
-            הכל
-          </Button>
-        ) : onSeeAll ? (
-          <Button
-            size="small"
-            onClick={onSeeAll}
-            endIcon={<ArrowBackIcon fontSize="small" />}
-            sx={{
-              flexShrink: 0,
-              fontWeight: 600,
-              fontSize: { xs: "0.8rem", sm: "0.875rem" },
-              color: isOnColoredBackground ? "rgba(255,255,255,0.9)" : "text.secondary",
-              "&:hover": {
-                color: isOnColoredBackground ? "common.white" : "primary.main",
-                bgcolor: isOnColoredBackground ? "rgba(255,255,255,0.1)" : "action.hover",
-              },
-            }}
-          >
-            הכל
-          </Button>
-        ) : null}
+        <Box display="flex" alignItems="center" gap={0.5} flexShrink={0}>
+          {showArrows && (
+            <Box sx={{ display: { xs: "none", md: "flex" }, gap: 0.5 }}>
+              <IconButton
+                size="small"
+                aria-label="הקודם"
+                onClick={() => scrollByCard(-1)}
+                sx={{
+                  border: 1,
+                  borderColor: "divider",
+                  color: isOnColoredBackground ? "common.white" : "text.secondary",
+                }}
+              >
+                <ChevronRightIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                aria-label="הבא"
+                onClick={() => scrollByCard(1)}
+                sx={{
+                  border: 1,
+                  borderColor: "divider",
+                  color: isOnColoredBackground ? "common.white" : "text.secondary",
+                }}
+              >
+                <ChevronLeftIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          )}
+          {seeAllHref ? (
+            <Button size="small" component={Link} href={seeAllHref} endIcon={<ArrowBackIcon fontSize="small" />} sx={seeAllButtonSx}>
+              הכל
+            </Button>
+          ) : onSeeAll ? (
+            <Button size="small" onClick={onSeeAll} endIcon={<ArrowBackIcon fontSize="small" />} sx={seeAllButtonSx}>
+              הכל
+            </Button>
+          ) : null}
+        </Box>
       </Box>
 
       <Reveal>
-        <Stack
-          direction="row"
-          spacing={1.5}
-          className="carousel-edge"
-          sx={{
-            overflowX: "auto",
-            pb: 1.5,
-            px: { xs: 2, sm: 1 },
-            scrollbarWidth: "none",
-            "&::-webkit-scrollbar": { display: "none" },
-            scrollSnapType: "x mandatory",
-            scrollPaddingInline: { xs: 16, sm: 8 },
-            WebkitOverflowScrolling: "touch",
-            "& > *": {
-              scrollSnapAlign: "start",
-            },
-          }}
-        >
-          {children}
-        </Stack>
+        <Box sx={{ position: "relative" }}>
+          <Stack
+            ref={scrollerRef}
+            direction="row"
+            spacing={1.5}
+            className="carousel-edge"
+            sx={{
+              overflowX: "auto",
+              pb: 1.5,
+              px: { xs: 2, sm: 1 },
+              paddingInlineEnd: { xs: 6, sm: 5 },
+              justifyContent: childCount <= 1 ? { xs: "flex-start", md: "center" } : "flex-start",
+              scrollbarWidth: "none",
+              "&::-webkit-scrollbar": { display: "none" },
+              scrollSnapType: "x mandatory",
+              scrollPaddingInline: { xs: 16, sm: 8 },
+              WebkitOverflowScrolling: "touch",
+              "& > *": {
+                scrollSnapAlign: "start",
+              },
+            }}
+          >
+            {children}
+          </Stack>
+          {showArrows && (
+            <Box
+              sx={{
+                display: { xs: "block", md: "none" },
+                pointerEvents: "none",
+                position: "absolute",
+                insetBlock: 0,
+                insetInlineEnd: 0,
+                width: 40,
+                background: "linear-gradient(to left, var(--mui-palette-background-default, #fff) 0%, transparent 100%)",
+              }}
+            />
+          )}
+        </Box>
       </Reveal>
     </Box>
   );

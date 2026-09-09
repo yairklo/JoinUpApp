@@ -674,7 +674,7 @@ export default function ProfilePage() {
                           onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
                           size="small"
                           InputLabelProps={{ shrink: true }}
-                          slotProps={{ htmlInput: { max: todayStr } }}
+                          slotProps={{ htmlInput: { max: todayStr, lang: "he-IL" } }}
                           error={!!birthDateError}
                           helperText={birthDateError}
                         />

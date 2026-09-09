@@ -185,7 +185,9 @@ router.get('/cities', async (req, res) => {
       orderBy: { city: 'asc' }
     });
 
-    const cities = fields.map(f => f.city).filter(Boolean);
+    const cities = fields
+      .map(f => f.city)
+      .filter((c) => c && !/^(other city|unknown|n\/?a|test)$/i.test(String(c).trim()));
     res.json(cities);
   } catch (error) {
     console.error('Get cities error:', error);

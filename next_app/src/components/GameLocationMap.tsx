@@ -24,7 +24,7 @@ export default function GameLocationMap({
 
   return (
     <div style={{ width: "100%", height }}>
-      <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he">
+      <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he" region="IL" libraries={["marker"]}>
         <Map
           mapId="DEMO_MAP_ID"
           defaultCenter={center}

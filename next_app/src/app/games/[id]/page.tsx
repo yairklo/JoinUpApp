@@ -13,10 +13,9 @@ import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Link from "next/link";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; name?: string; avatar?: string; role?: string };
@@ -170,15 +169,25 @@ export default async function GameDetails(props: {
             />
 
             {canManageSeries && (
-              <Accordion id="game-manage" defaultExpanded sx={{ mt: 2 }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Paper id="game-manage" variant="outlined" sx={{ mt: 2, p: { xs: 2, sm: 2.5 } }}>
+                <Typography variant="h6" fontWeight={800}>
                   ניהול משחק
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    עריכת פרטים, ניהול קבוצות, הגרלה, רשימת המתנה, בחירת שחקנים וביטול המשחק.
-                  </Typography>
-                  <GameDetailsEditor
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  כלים למארגן: עריכת פרטים, תפקידים, קבוצות, הגרלה, רשימת המתנה ובחירת שחקנים.
+                </Typography>
+                <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} mb={2}>
+                  <Button
+                    component={Link}
+                    href={`/games/${game.id}/team-management`}
+                    variant="contained"
+                    size="small"
+                    sx={{ textTransform: "none", fontWeight: 700 }}
+                  >
+                    קבוצות ובחירה חיה
+                  </Button>
+                </Stack>
+                <GameDetailsEditor
                     gameId={game.id}
                     initialTime={game.time}
                     initialDate={game.date}
@@ -211,8 +220,7 @@ export default async function GameDetails(props: {
                       date: game.date
                     }}
                   />
-                </AccordionDetails>
-              </Accordion>
+              </Paper>
             )}
           </Box>
         </Box>

@@ -15,8 +15,11 @@ import InlineErrorRow from "@/components/InlineErrorRow";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import RouteLoading from "@/components/motion/RouteLoading";
 import CityPicker, { CityPickerHandle } from "@/components/CityPicker";
+import MapErrorBoundary from "@/components/MapErrorBoundary";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLoadErrorMessage } from "@/utils/apiError";
+import { asLatLngTuple } from "@/utils/geo";
+import { formatHebrewDate, HEBREW_DATE_INPUT_PROPS } from "@/utils/hebrewDate";
 
 // MUI
 import Box from "@mui/material/Box";
@@ -103,18 +106,28 @@ function SearchPageInner() {
   // hovering a card highlights its pin, hovering a pin highlights its card.
   const [hoveredGameId, setHoveredGameId] = useState<string | null>(null);
 
-  // Only skip auto-geolocation when the city param actually resolved to known
-  // coordinates (CITY_COORDS above) -- an unrecognized/unlisted city (e.g. from
-  // a rail's "See all" link using a real DB city name outside the hardcoded
-  // list) should still fall back to GPS instead of leaving the map with no
-  // location at all. Geolocation itself (button + auto-run-once-on-mount) now
-  // lives in the shared CityPicker; this page just supplies the coordinates
-  // callback and keeps `locating` in sync for the map-loading overlay below.
+  // Geolocation lives in CityPicker. Do not assume a GPS lookup is in-flight on
+  // first paint — auto-detect only runs if permission is already granted, and a
+  // failed/throwing lookup must not leave the map overlay stuck or crash the page.
   const cityPickerRef = useRef<CityPickerHandle>(null);
-  const [locating, setLocating] = useState(() => {
-    const city = param("city");
-    return !(city && CITY_COORDS[city]);
-  });
+  const [locating, setLocating] = useState(false);
+  const [mapEnabled, setMapEnabled] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(min-width: 900px)").matches
+  );
+
+  useEffect(() => {
+    const wide = window.matchMedia("(min-width: 900px)");
+    const sync = () => {
+      if (wide.matches) setMapEnabled(true);
+    };
+    sync();
+    wide.addEventListener("change", sync);
+    return () => wide.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (mobileView === "map") setMapEnabled(true);
+  }, [mobileView]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 400);
@@ -150,6 +163,9 @@ function SearchPageInner() {
 
       const results = await gamesApi.search(params, token || undefined, controller.signal);
       if (controller.signal.aborted) return;
+      if (!Array.isArray(results)) {
+        throw new Error("תגובת החיפוש אינה תקינה");
+      }
 
       // If no specific date is provided, filter for upcoming 7 days visually as well (mirror mobile)
       let finalGames = results;
@@ -408,18 +424,16 @@ function SearchPageInner() {
                 setSelectedCity(city);
                 if (city && CITY_COORDS[city]) {
                   setTargetLocation(CITY_COORDS[city]);
-                } else if (city) {
-                  // City isn't in the hardcoded coordinate table -- fall back to GPS
-                  // rather than leaving the map centered on nothing/the wrong place.
-                  cityPickerRef.current?.detectLocation();
                 }
               }}
               includeAllCitiesOption
               allowGeolocation
               detectOnMount={!(selectedCity && CITY_COORDS[selectedCity])}
               onLocationDetected={(coords) => {
-                setTargetLocation(coords);
-                setUserLocation(coords);
+                const tuple = asLatLngTuple(coords);
+                if (!tuple) return;
+                setTargetLocation(tuple);
+                setUserLocation(tuple);
               }}
               onLocatingChange={setLocating}
               fullWidth
@@ -442,6 +456,8 @@ function SearchPageInner() {
               InputLabelProps={{ shrink: true }}
               size="small"
               fullWidth
+              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+              helperText={selectedDate ? formatHebrewDate(selectedDate) : " "}
             />
           </Stack>
         </Stack>
@@ -525,17 +541,23 @@ function SearchPageInner() {
           top: 0,
         }}
       >
-        <SearchMapComponent
-          games={games}
-          emptyFields={emptyFields}
-          onBoundsChanged={handleBoundsChanged}
-          onGameSelect={(id) => router.push(`/games/${id}`)}
-          targetLocation={targetLocation}
-          userLocation={userLocation}
-          loading={loading || locating}
-          hoveredGameId={hoveredGameId}
-          onHoverGame={setHoveredGameId}
-        />
+        {mapEnabled ? (
+          <MapErrorBoundary>
+            <SearchMapComponent
+              games={games}
+              emptyFields={emptyFields}
+              onBoundsChanged={handleBoundsChanged}
+              onGameSelect={(id) => router.push(`/games/${id}`)}
+              targetLocation={targetLocation}
+              userLocation={userLocation}
+              loading={loading || locating}
+              hoveredGameId={hoveredGameId}
+              onHoverGame={setHoveredGameId}
+            />
+          </MapErrorBoundary>
+        ) : (
+          <Box sx={{ height: "100%", bgcolor: "action.hover" }} />
+        )}
       </Box>
 
       {/* Mobile: floating list/map toggle */}
