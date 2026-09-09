@@ -7,6 +7,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { heIL } from "@clerk/localizations";
 import AppNavbar from "@/components/AppNavbar";
 import BottomNav from "@/components/BottomNav";
+import Footer from "@/components/Footer";
 import ThemeRegistry from "@/components/theme/themeRegistry";
 import NotificationAsker from "@/components/NotificationAsker";
 
@@ -75,6 +76,8 @@ export default function RootLayout({
                   <main className="app-main">
                     {children}
                   </main>
+
+                  <Footer />
 
                   <BottomNav />
                   <FloatingChatWindow />
