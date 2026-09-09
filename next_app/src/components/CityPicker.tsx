@@ -14,7 +14,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MyLocationIcon from "@mui/icons-material/MyLocation";
 import { fieldsApi } from "@/services/api/fields";
 import { normalizeCity } from "@joinup/shared/cityAliases";
-import { isValidLatLng, sanitizeCityList } from "@/utils/geo";
+import { asLatLngTuple, sanitizeCityList } from "@/utils/geo";
 
 const ALL_CITIES_LABEL = "כל הערים";
 
@@ -127,13 +127,12 @@ const CityPicker = forwardRef<CityPickerHandle, CityPickerProps>(function CityPi
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setLocatingBoth(false);
-          const lat = pos?.coords?.latitude;
-          const lng = pos?.coords?.longitude;
-          if (!isValidLatLng(lat, lng)) {
+          const tuple = asLatLngTuple([pos?.coords?.latitude, pos?.coords?.longitude]);
+          if (!tuple) {
             setLocationError("לא הצלחנו לאתר את המיקום שלך. אפשר לבחור עיר ידנית");
             return;
           }
-          onLocationDetected?.([lat, lng]);
+          onLocationDetected?.(tuple);
         },
         (err) => {
           setLocatingBoth(false);

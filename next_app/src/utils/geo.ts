@@ -1,5 +1,5 @@
 /** Finite WGS-84 pair — Google Maps panTo / AdvancedMarker throw on NaN or out-of-range. */
-export function isValidLatLng(lat: unknown, lng: unknown): lat is number {
+export function isValidLatLng(lat: unknown, lng: unknown): boolean {
   return (
     typeof lat === "number" &&
     typeof lng === "number" &&

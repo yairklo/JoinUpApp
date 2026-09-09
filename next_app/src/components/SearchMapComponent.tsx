@@ -116,10 +116,12 @@ export default function SearchMapComponent({
       const lat = game.customLat ?? game.fieldLat ?? game.field?.lat;
       const lng = game.customLng ?? game.fieldLng ?? game.field?.lng;
       if (!isValidLatLng(lat, lng)) continue;
-      const key = `${lat},${lng}`;
+      const safeLat = Number(lat);
+      const safeLng = Number(lng);
+      const key = `${safeLat},${safeLng}`;
       const existing = map.get(key);
       if (existing) existing.games.push(game);
-      else map.set(key, { key, lat, lng, games: [game] });
+      else map.set(key, { key, lat: safeLat, lng: safeLng, games: [game] });
     }
     return Array.from(map.values());
   }, [games]);
