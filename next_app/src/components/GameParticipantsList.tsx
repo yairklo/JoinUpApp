@@ -87,6 +87,11 @@ export default function GameParticipantsList({
   const canManage = viewerIsOrganizer || viewerIsManager;
 
   const [allFriends, setAllFriends] = useState<any[]>([]);
+  // Total friend count before filtering out ones already in the game -- distinguishes "you have
+  // no friends at all" from "all your friends are already in this game" (both otherwise leave
+  // `allFriends` empty). `null` means the fetch hasn't resolved yet.
+  const [totalFriendsCount, setTotalFriendsCount] = useState<number | null>(null);
+  const [friendSearchInput, setFriendSearchInput] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<any[]>([]);
   const [addingFriends, setAddingFriends] = useState(false);
 
@@ -96,11 +101,24 @@ export default function GameParticipantsList({
         .then((r) => r.json())
         .then((arr) => {
           const existingIds = new Set(participants.map((p) => p.id));
+          setTotalFriendsCount((arr || []).length);
           setAllFriends((arr || []).filter((f: any) => !existingIds.has(f.id)));
         })
         .catch((e) => console.error("Failed to load friends", e));
     }
   }, [canManage, userId, participants]);
+
+  // Three distinct empty states for the invite-friends search, instead of one misleading
+  // "לא נמצאו חברים" for all of them (see BUG-B1): no friends at all, every friend is already in
+  // this game, or a search that matched nothing among the remaining candidates.
+  const friendsNoOptionsText =
+    totalFriendsCount === null
+      ? "טוען חברים…"
+      : totalFriendsCount === 0
+      ? "עדיין אין לך חברים. הוסף חברים ואז תוכל להזמין לכאן."
+      : friendSearchInput.trim() === ""
+      ? "כל החברים שלך כבר במשחק הזה."
+      : "לא נמצאו חברים התואמים לחיפוש";
 
   const handleAddFriends = async () => {
     if (selectedFriends.length === 0) return;
@@ -321,6 +339,10 @@ export default function GameParticipantsList({
                 onChange={(event, newValue) => {
                   setSelectedFriends(newValue);
                 }}
+                inputValue={friendSearchInput}
+                onInputChange={(event, newInputValue) => {
+                  setFriendSearchInput(newInputValue);
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -337,7 +359,7 @@ export default function GameParticipantsList({
                     </li>
                   );
                 }}
-                noOptionsText="לא נמצאו חברים"
+                noOptionsText={friendsNoOptionsText}
                 sx={{ flexGrow: 1 }}
               />
               <Button

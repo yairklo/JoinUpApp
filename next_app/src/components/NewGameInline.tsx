@@ -175,6 +175,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                     fullWidth
                     size="small"
                     InputLabelProps={{ shrink: true }}
+                    slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                     value={state.form.time}
                     onChange={(e) => actions.update("time", e.target.value)}
                   />
@@ -286,6 +287,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                                 fullWidth
                                 size="small"
                                 InputLabelProps={{ shrink: true }}
+                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 value={state.form.lotteryTime}
                                 onChange={(e) => actions.update("lotteryTime", e.target.value)}
                               />
@@ -328,6 +330,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                               fullWidth
                               size="small"
                               InputLabelProps={{ shrink: true }}
+                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                               value={state.form.pickDrawTime}
                               onChange={(e) => actions.update("pickDrawTime", e.target.value)}
                             />
@@ -352,6 +355,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                               fullWidth
                               size="small"
                               InputLabelProps={{ shrink: true }}
+                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                               value={state.form.pickingStartTime}
                               onChange={(e) => actions.update("pickingStartTime", e.target.value)}
                             />
@@ -387,6 +391,7 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                                 fullWidth
                                 size="small"
                                 InputLabelProps={{ shrink: true }}
+                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 value={state.form.futureRegTime}
                                 onChange={(e) => actions.update("futureRegTime", e.target.value)}
                               />

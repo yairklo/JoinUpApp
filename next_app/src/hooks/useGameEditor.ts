@@ -4,23 +4,20 @@ import { useRouter } from "next/navigation";
 import { gamesApi, UpdateGameDTO, fieldsApi } from "@/services/api";
 import type { FieldOption } from "@/hooks/useGameCreator";
 import { toIsoDateInput } from "@/utils/hebrewDate";
+import { formatJerusalemDate, formatJerusalemTime, parseJerusalemTimeToUTC } from "@/utils/timezone";
 
 // Helper functions (moved from component)
+// `iso` is a real UTC instant (registrationOpensAt/friendsOnlyUntil from the DB) -- these must
+// read it back out via the Jerusalem formatters, not local Date getters, or the date/time shown
+// in the edit form drifts by the server/browser's own timezone offset from what was actually set.
 export function getIsoDatePart(iso: string | null | undefined) {
     if (!iso) return "";
-    const d = new Date(iso);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return formatJerusalemDate(iso);
 }
 
 export function getIsoTimePart(iso: string | null | undefined) {
     if (!iso) return "";
-    const d = new Date(iso);
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
+    return formatJerusalemTime(iso);
 }
 
 export interface GameEditorProps {
@@ -142,7 +139,11 @@ export function useGameEditor({
 
     const resetForm = () => {
         setTime(initialTime);
-        setDate(initialDate);
+        // Must go through toIsoDateInput like the initial useState above -- setting the raw
+        // `initialDate` directly can leave the native date input showing blank (it requires an
+        // exact YYYY-MM-DD value) even though the Hebrew helper text below it still renders a
+        // date, since formatHebrewDate normalizes internally.
+        setDate(toIsoDateInput(initialDate));
         setMaxPlayers(initialMaxPlayers);
         setSport(initialSport || "SOCCER");
         setTitle(initialTitle || "");
@@ -209,15 +210,18 @@ export function useGameEditor({
 
             let registrationOpensAt = null;
             if (futureRegEnabled && regDate && regTime) {
-                registrationOpensAt = new Date(`${regDate}T${regTime}:00`).toISOString();
+                registrationOpensAt = parseJerusalemTimeToUTC(regDate, regTime).toISOString();
             }
 
             let friendsOnlyUntil = null;
             if (makePublicLater && publicDate && publicTime) {
-                friendsOnlyUntil = new Date(`${publicDate}T${publicTime}:00`).toISOString();
+                friendsOnlyUntil = parseJerusalemTimeToUTC(publicDate, publicTime).toISOString();
             }
 
-            const start = new Date(`${date}T${time}:00`).toISOString();
+            // date/time are Jerusalem-local wall-clock values typed into the edit form -- must go
+            // through parseJerusalemTimeToUTC, not a bare `new Date(...)`, which the JS engine
+            // interprets in whatever timezone it's running in (the visitor's browser).
+            const start = parseJerusalemTimeToUTC(date, time).toISOString();
 
             const updateData: UpdateGameDTO & { start?: string } = {
                 start,

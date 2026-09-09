@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { fieldsApi, gamesApi } from '@/services/api';
+import { formatJerusalemDate, parseJerusalemTimeToUTC } from '@/utils/timezone';
 
 export type FieldOption = { id: string; name: string; location?: string | null; inputValue?: string };
 
@@ -48,7 +49,8 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
 
     // Time Helpers
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    // Jerusalem calendar date, not UTC -- see games/new/page.tsx's todayStr for why.
+    const todayStr = formatJerusalemDate(today);
 
     function roundUpToNextQuarter(d: Date) {
         const t = new Date(d.getTime());
@@ -112,18 +114,22 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
 
             if (form.lotteryEnabled) {
                 if (!form.lotteryDate || !form.lotteryTime) throw new Error("יש לבחור תאריך ושעת הגרלה");
-                const startTs = new Date(`${form.date}T${form.time}:00`).getTime();
-                const lotteryTs = new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).getTime();
+                const startTs = parseJerusalemTimeToUTC(form.date, form.time).getTime();
+                const lotteryTs = parseJerusalemTimeToUTC(form.lotteryDate, form.lotteryTime).getTime();
                 if (lotteryTs >= startTs) throw new Error("שעת ההגרלה חייבת להיות לפני תחילת המשחק");
             }
 
+            // Every date+time pair here is Jerusalem-local wall-clock input, so it's converted to a
+            // real UTC instant client-side (via parseJerusalemTimeToUTC) before being sent -- sending
+            // the raw "YYYY-MM-DDTHH:MM:00" string instead would leave the server to parse it with
+            // `new Date(...)`, which uses the server process's own timezone, not Jerusalem's.
             const pickDrawAt =
                 form.pickDrawDate && form.pickDrawTime
-                    ? `${form.pickDrawDate}T${form.pickDrawTime}:00`
+                    ? parseJerusalemTimeToUTC(form.pickDrawDate, form.pickDrawTime).toISOString()
                     : undefined;
             const pickingStartsAt =
                 form.pickingStartDate && form.pickingStartTime
-                    ? `${form.pickingStartDate}T${form.pickingStartTime}:00`
+                    ? parseJerusalemTimeToUTC(form.pickingStartDate, form.pickingStartTime).toISOString()
                     : undefined;
             if (pickDrawAt && pickingStartsAt) {
                 if (new Date(pickingStartsAt).getTime() < new Date(pickDrawAt).getTime()) {
@@ -139,7 +145,7 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
                     : {}),
                 isOpenToJoin: !form.isFriendsOnly,
                 title: form.title || null,
-                lotteryAt: form.lotteryEnabled ? `${form.lotteryDate}T${form.lotteryTime}:00` : undefined,
+                lotteryAt: form.lotteryEnabled ? parseJerusalemTimeToUTC(form.lotteryDate, form.lotteryTime).toISOString() : undefined,
                 pickDrawAt,
                 pickingStartsAt,
             };
