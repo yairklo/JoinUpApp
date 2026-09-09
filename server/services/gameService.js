@@ -1525,7 +1525,10 @@ async function updateGame(gameId, body, userId, io) {
       ...(typeof friendsOnlyUntil !== 'undefined'
         ? { friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null }
         : {}),
-      ...(typeof start !== 'undefined' ? { start: new Date(start) } : {}),
+      // Editing the time must let a fresh reminder fire for the new start -- otherwise once
+      // reminderSent flips true, gameScheduler.resyncGame's `!game.reminderSent` guard skips
+      // re-arming forever, silently disabling all future reminders for this game.
+      ...(typeof start !== 'undefined' ? { start: new Date(start), reminderSent: false } : {}),
       ...(fieldUpdate || {}),
       ...pickScheduleUpdates,
     },
