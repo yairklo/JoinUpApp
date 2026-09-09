@@ -90,8 +90,11 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                 if (!ignore) setSeriesList(data);
             } catch (err) {
                 console.error("Error loading series:", err);
+                // Keep whatever list is already on screen (e.g. a background
+                // refetch that failed) instead of wiping it out from under
+                // the user -- the error state below only replaces the rail
+                // when there was nothing to show in the first place.
                 if (!ignore) {
-                    setSeriesList([]);
                     setError(getLoadErrorMessage(err));
                 }
             } finally {
@@ -109,7 +112,10 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
         return s.sport === sportFilter;
     });
 
-    if (loading) {
+    // Only show the full skeleton for a true initial load -- a background
+    // refetch (reloadKey bump, socket-triggered refresh) keeps whatever
+    // series are already rendered instead of blanking the rail.
+    if (loading && filteredSeries.length === 0) {
         return (
             <GamesHorizontalList title="קבוצות פעילות">
                 <GameCardSkeletonRow />
@@ -117,7 +123,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
         );
     }
 
-    if (error) {
+    if (error && filteredSeries.length === 0) {
         return (
             <GamesHorizontalList title="קבוצות פעילות">
                 <Box p={2} width="100%">
@@ -172,6 +178,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     <GamesHorizontalList
                         title="הקבוצות שלי"
                         onSeeAll={() => setIsMySeriesSeeAllOpen(true)}
+                        isRefreshing={loading}
                     >
                         {mySeries.map((s) => renderCard(s))}
                     </GamesHorizontalList>
@@ -191,6 +198,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     <GamesHorizontalList
                         title="הצטרפו לקבוצה"
                         onSeeAll={() => setIsJoinSeriesSeeAllOpen(true)}
+                        isRefreshing={loading}
                     >
                         {joinableSeries.map((s) => renderCard(s))}
                     </GamesHorizontalList>

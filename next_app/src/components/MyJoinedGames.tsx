@@ -32,7 +32,10 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
     return g.sport === sportFilter;
   });
 
-  if (!isLoaded || loading) {
+  // Only show the full skeleton for a true initial load (no data on screen
+  // yet) -- a background refetch (e.g. after leaving a game elsewhere)
+  // keeps the already-rendered cards up instead of blanking them out.
+  if (!isLoaded || (loading && filteredGames.length === 0)) {
     return (
       <GamesHorizontalList title="המשחקים שלי">
         <GameCardSkeletonRow />
@@ -71,7 +74,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
 
   return (
     <Box>
-      <GamesHorizontalList title="המשחקים שלי">
+      <GamesHorizontalList title="המשחקים שלי" isRefreshing={loading}>
         {filteredGames.map((g) => {
           const mainTitle = g.title || g.fieldName;
           const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;

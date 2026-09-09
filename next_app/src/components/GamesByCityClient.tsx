@@ -118,6 +118,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
             <GamesHorizontalList
                 title={`משחקים ב${displayedCity}`}
                 seeAllHref={buildSearchHref({ sport: sportFilter, city: displayedCity })}
+                isRefreshing={loading}
                 customHeaderAction={
                     <Chip
                         size="small"

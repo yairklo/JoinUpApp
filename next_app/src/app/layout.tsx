@@ -10,6 +10,7 @@ import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
 import ThemeRegistry from "@/components/theme/themeRegistry";
 import NotificationAsker from "@/components/NotificationAsker";
+import OfflineStatusToast from "@/components/OfflineStatusToast";
 
 import { ChatProvider } from "@/context/ChatContext";
 import FloatingChatWindow from "@/components/FloatingChatWindow";
@@ -82,6 +83,7 @@ export default function RootLayout({
                   <BottomNav />
                   <FloatingChatWindow />
                   <NotificationAsker />
+                  <OfflineStatusToast />
                 </NotificationCountersProvider>
               </ChatProvider>
             </ThemeRegistry>

@@ -133,9 +133,9 @@ export default function GamesByDateClient({
         </Tooltip>
       </Box>
 
-      {loading ? (
+      {loading && currentDayGames.length === 0 ? (
         <GameCardSkeletonRow />
-      ) : error ? (
+      ) : error && currentDayGames.length === 0 ? (
         <InlineErrorRow message={error} onRetry={refetch} />
       ) : currentDayGames.length === 0 ? (
         <Box
@@ -177,6 +177,7 @@ export default function GamesByDateClient({
         <GamesHorizontalList
           title={`משחקים בתאריך ${formatJerusalemDateLong(selectedDate)}`}
           seeAllHref={buildSearchHref({ sport: sportFilter, date: selectedDate })}
+          isRefreshing={loading}
         >
           {currentDayGames.map(renderGameCard)}
         </GamesHorizontalList>
