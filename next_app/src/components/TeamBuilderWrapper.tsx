@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 
 import GameParticipantsList from "@/components/GameParticipantsList";
 import TeamBuilderDialog, { Team } from "@/components/TeamBuilderDialog";
+import { normalizeName } from "@/utils/normalizeName";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; name?: string; avatar?: string; role?: string };
@@ -194,9 +195,9 @@ export default function TeamBuilderWrapper({
                     <Link key={p.id} href={`/users/${p.id}`} passHref legacyBehavior>
                       <ListItemButton component="a" sx={{ borderRadius: 2 }}>
                         <ListItemAvatar>
-                          <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="sm" />
+                          <Avatar src={p.avatar} alt={normalizeName(p.name) || p.id} name={normalizeName(p.name) || p.id} size="sm" />
                         </ListItemAvatar>
-                        <ListItemText primary={p.name || p.id} secondary="ממתין להגרלה" />
+                        <ListItemText primary={normalizeName(p.name) || p.id} secondary="ממתין להגרלה" />
                         <Chip label="רשימת המתנה" size="small" color="warning" variant="outlined" />
                       </ListItemButton>
                     </Link>
