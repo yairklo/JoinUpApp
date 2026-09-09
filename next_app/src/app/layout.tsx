@@ -7,8 +7,10 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { heIL } from "@clerk/localizations";
 import AppNavbar from "@/components/AppNavbar";
 import BottomNav from "@/components/BottomNav";
+import Footer from "@/components/Footer";
 import ThemeRegistry from "@/components/theme/themeRegistry";
 import NotificationAsker from "@/components/NotificationAsker";
+import OfflineStatusToast from "@/components/OfflineStatusToast";
 
 import { ChatProvider } from "@/context/ChatContext";
 import FloatingChatWindow from "@/components/FloatingChatWindow";
@@ -76,9 +78,12 @@ export default function RootLayout({
                     {children}
                   </main>
 
+                  <Footer />
+
                   <BottomNav />
                   <FloatingChatWindow />
                   <NotificationAsker />
+                  <OfflineStatusToast />
                 </NotificationCountersProvider>
               </ChatProvider>
             </ThemeRegistry>

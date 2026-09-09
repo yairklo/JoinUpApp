@@ -108,7 +108,7 @@ export default function TabLayout() {
         name="search"
         options={{
           title: t('tabs.search'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="map-marker" color={color} />,
         }}
       />
 

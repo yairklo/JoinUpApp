@@ -121,6 +121,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
             <GamesHorizontalList
                 title="משחקים עם חברים"
                 seeAllHref={buildSearchHref({ sport: sportFilter, network: true })}
+                isRefreshing={loading}
             >
                 {filteredGames.map(renderGameCard)}
             </GamesHorizontalList>

@@ -284,16 +284,29 @@ export default function GameLiveSection({
             </Box>
           </Box>
         ) : canManageSeries ? (
-          <Button
-            variant="contained"
-            color="primary"
-            size="small"
-            onClick={() => {
-              document.getElementById("game-manage")?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }}
-          >
-            נהל משחק
-          </Button>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Button
+              variant={!isWaitlistOfferPending && !isWaitlisted ? "outlined" : "contained"}
+              color="primary"
+              size="small"
+              onClick={() => {
+                document.getElementById("game-manage")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              נהל משחק
+            </Button>
+            {!isWaitlistOfferPending && !isWaitlisted && (
+              <JoinGameButton
+                gameId={game.id}
+                registrationOpensAt={game.registrationOpensAt}
+                joinPolicy={game.joinPolicy}
+                viewerParticipationStatus={game.viewerParticipationStatus}
+                waitlistOfferPending={game.waitlistOfferPending}
+                onJoined={mergeAndSet}
+                onRequestSent={mergeAndSet}
+              />
+            )}
+          </Box>
         ) : !isWaitlistOfferPending && !isWaitlisted ? (
           <JoinGameButton
             gameId={game.id}

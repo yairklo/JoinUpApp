@@ -5,6 +5,8 @@ import { useAuth, useUser, SignInButton } from "@clerk/nextjs";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 import SeriesHeaderCard from "@/components/SeriesHeaderCard";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
@@ -90,8 +92,11 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                 if (!ignore) setSeriesList(data);
             } catch (err) {
                 console.error("Error loading series:", err);
+                // Keep whatever list is already on screen (e.g. a background
+                // refetch that failed) instead of wiping it out from under
+                // the user -- the error state below only replaces the rail
+                // when there was nothing to show in the first place.
                 if (!ignore) {
-                    setSeriesList([]);
                     setError(getLoadErrorMessage(err));
                 }
             } finally {
@@ -109,7 +114,10 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
         return s.sport === sportFilter;
     });
 
-    if (loading) {
+    // Only show the full skeleton for a true initial load -- a background
+    // refetch (reloadKey bump, socket-triggered refresh) keeps whatever
+    // series are already rendered instead of blanking the rail.
+    if (loading && filteredSeries.length === 0) {
         return (
             <GamesHorizontalList title="קבוצות פעילות">
                 <GameCardSkeletonRow />
@@ -117,7 +125,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
         );
     }
 
-    if (error) {
+    if (error && filteredSeries.length === 0) {
         return (
             <GamesHorizontalList title="קבוצות פעילות">
                 <Box p={2} width="100%">
@@ -172,6 +180,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     <GamesHorizontalList
                         title="הקבוצות שלי"
                         onSeeAll={() => setIsMySeriesSeeAllOpen(true)}
+                        isRefreshing={loading}
                     >
                         {mySeries.map((s) => renderCard(s))}
                     </GamesHorizontalList>
@@ -191,6 +200,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     <GamesHorizontalList
                         title="הצטרפו לקבוצה"
                         onSeeAll={() => setIsJoinSeriesSeeAllOpen(true)}
+                        isRefreshing={loading}
                     >
                         {joinableSeries.map((s) => renderCard(s))}
                     </GamesHorizontalList>
@@ -204,6 +214,30 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     />
                 </>
             )}
+
+            {/* A background refetch (reloadKey bump, socket-triggered refresh) that fails while
+                series are already on screen doesn't replace the rail (see the render logic
+                above), but it should still surface *something* -- otherwise the list can go
+                silently stale with no indication and no way to retry. */}
+            <Snackbar
+                open={!!error}
+                autoHideDuration={6000}
+                onClose={() => setError(null)}
+                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            >
+                <Alert
+                    severity="warning"
+                    variant="filled"
+                    onClose={() => setError(null)}
+                    action={
+                        <Button color="inherit" size="small" onClick={() => { setError(null); refetch(); }}>
+                            נסה שוב
+                        </Button>
+                    }
+                >
+                    {error}
+                </Alert>
+            </Snackbar>
         </>
     );
 }

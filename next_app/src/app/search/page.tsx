@@ -14,6 +14,7 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import RouteLoading from "@/components/motion/RouteLoading";
+import CityPicker, { CityPickerHandle } from "@/components/CityPicker";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLoadErrorMessage } from "@/utils/apiError";
 
@@ -24,11 +25,8 @@ import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
-import MenuItem from "@mui/material/MenuItem";
 import SearchIcon from "@mui/icons-material/Search";
 import GroupIcon from "@mui/icons-material/Group";
-import MyLocationIcon from "@mui/icons-material/MyLocation";
-import CircularProgress from "@mui/material/CircularProgress";
 
 // Dynamically import the map to avoid SSR issues with Leaflet using window
 const SearchMapComponent = dynamic(
@@ -87,7 +85,6 @@ function SearchPageInner() {
   );
   const [showEmptyFields, setShowEmptyFields] = useState(false);
   const [emptyFields, setEmptyFields] = useState<any[]>([]);
-  const [cities, setCities] = useState<string[]>([]);
 
   const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
   const lastBoundsRef = useRef<Bounds | null>(null);
@@ -102,64 +99,22 @@ function SearchPageInner() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   // Mobile-only: switch between results list and full-screen map
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
+  // Hover sync between the results list and the map pins (SearchMapComponent) --
+  // hovering a card highlights its pin, hovering a pin highlights its card.
+  const [hoveredGameId, setHoveredGameId] = useState<string | null>(null);
 
-  const [locating, setLocating] = useState(() => !param("city"));
-  const [locationError, setLocationError] = useState<string | null>(null);
-
-  // Requests the browser's geolocation and, on success, centers the map/search
-  // on it the same way picking a city does. Exposed as a button (not just an
-  // on-mount effect) because some mobile browsers silently drop a geolocation
-  // request that isn't triggered by a direct user gesture -- no prompt, no
-  // error, it just times out.
-  const detectLocation = useCallback(() => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      setLocating(false);
-      setLocationError("הדפדפן הזה לא תומך באיתור מיקום אוטומטי");
-      return;
-    }
-    if (!window.isSecureContext) {
-      setLocating(false);
-      setLocationError("איתור מיקום פועל רק בחיבור מאובטח (HTTPS) — אפשר לבחור עיר ידנית");
-      return;
-    }
-    setLocating(true);
-    setLocationError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-        setTargetLocation(coords);
-        setUserLocation(coords);
-        setLocating(false);
-      },
-      (err) => {
-        setLocating(false);
-        setLocationError(
-          err.code === err.PERMISSION_DENIED
-            ? "שיתוף המיקום נחסם. כדי לאפשר, יש לאשר גישה למיקום להגדרות האתר בדפדפן — או לבחור עיר ידנית"
-            : "לא הצלחנו לאתר את המיקום שלך. אפשר לבחור עיר ידנית"
-        );
-      },
-      { timeout: 10000 }
-    );
-  }, []);
-
-  useEffect(() => {
-    // Only skip geolocation when the city param actually resolved to known coordinates
-    // (set via CITY_COORDS above) -- an unrecognized/unlisted city (e.g. from a rail's
-    // "See all" link using a real DB city name outside the hardcoded list) should still
-    // fall back to GPS instead of leaving the map with no location at all.
-    if (selectedCity && CITY_COORDS[selectedCity]) {
-      setLocating(false);
-      return;
-    }
-    detectLocation();
-    // Only ever auto-run once on mount; the button re-triggers it manually.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    fieldsApi.getCities().then(res => setCities(res)).catch(console.error);
-  }, []);
+  // Only skip auto-geolocation when the city param actually resolved to known
+  // coordinates (CITY_COORDS above) -- an unrecognized/unlisted city (e.g. from
+  // a rail's "See all" link using a real DB city name outside the hardcoded
+  // list) should still fall back to GPS instead of leaving the map with no
+  // location at all. Geolocation itself (button + auto-run-once-on-mount) now
+  // lives in the shared CityPicker; this page just supplies the coordinates
+  // callback and keeps `locating` in sync for the map-loading overlay below.
+  const cityPickerRef = useRef<CityPickerHandle>(null);
+  const [locating, setLocating] = useState(() => {
+    const city = param("city");
+    return !(city && CITY_COORDS[city]);
+  });
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 400);
@@ -314,40 +269,53 @@ function SearchPageInner() {
     const mainTitle = g.title || g.fieldName;
     const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
 
+    const isHovered = g.id === hoveredGameId;
+
     return (
-      <GameHeaderCard
+      <Box
         key={g.id}
-        time={g.time}
-        date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
-        durationHours={g.duration ?? 1}
-        title={mainTitle || "Game"}
-        subtitle={subtitle || ""}
-        currentPlayers={g.currentPlayers}
-        maxPlayers={g.maxPlayers}
-        sport={g.sport}
-        teamSize={g.teamSize}
-        price={g.price}
-        isJoined={joined}
-        isFriendsOnly={g.isFriendsOnly}
-        fullWidth
-        href={`/games/${g.id}`}
+        onMouseEnter={() => setHoveredGameId(g.id)}
+        onMouseLeave={() => setHoveredGameId(null)}
+        sx={{
+          borderRadius: 3,
+          transition: "box-shadow 150ms ease, background-color 150ms ease",
+          boxShadow: isHovered ? "0 0 0 2px rgba(37,99,235,0.55)" : "none",
+          bgcolor: isHovered ? "action.hover" : "transparent",
+        }}
       >
-        {joined ? (
-          <LeaveGameButton
-            gameId={g.id}
-            currentPlayers={g.currentPlayers}
-            onLeft={() => handleGameLeft(g.id)}
-          />
-        ) : (
-          <JoinGameButton
-            gameId={g.id}
-            registrationOpensAt={g.registrationOpensAt}
-            joinPolicy={g.joinPolicy}
-            viewerParticipationStatus={g.viewerParticipationStatus}
-            onJoined={() => handleGameJoined(g.id)}
-          />
-        )}
-      </GameHeaderCard>
+        <GameHeaderCard
+          time={g.time}
+          date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
+          durationHours={g.duration ?? 1}
+          title={mainTitle || "Game"}
+          subtitle={subtitle || ""}
+          currentPlayers={g.currentPlayers}
+          maxPlayers={g.maxPlayers}
+          sport={g.sport}
+          teamSize={g.teamSize}
+          price={g.price}
+          isJoined={joined}
+          isFriendsOnly={g.isFriendsOnly}
+          fullWidth
+          href={`/games/${g.id}`}
+        >
+          {joined ? (
+            <LeaveGameButton
+              gameId={g.id}
+              currentPlayers={g.currentPlayers}
+              onLeft={() => handleGameLeft(g.id)}
+            />
+          ) : (
+            <JoinGameButton
+              gameId={g.id}
+              registrationOpensAt={g.registrationOpensAt}
+              joinPolicy={g.joinPolicy}
+              viewerParticipationStatus={g.viewerParticipationStatus}
+              onJoined={() => handleGameJoined(g.id)}
+            />
+          )}
+        </GameHeaderCard>
+      </Box>
     );
   };
 
@@ -363,10 +331,14 @@ function SearchPageInner() {
         },
       }}
     >
-      {/* Filters + results pane */}
+      {/* Filters + results pane. Fixed max width (not a % of the viewport) so a
+          single-column card list doesn't stretch into an oversized column on
+          wide desktop monitors -- the map pane below picks up the remaining
+          space via flex: 1 instead of a matching percentage. */}
       <Box
         sx={{
-          width: { xs: "100%", md: "40%" },
+          width: { xs: "100%", md: 420, lg: 460 },
+          flexShrink: { md: 0 },
           height: "100%",
           // Mobile: keep both panes mounted (Leaflet needs real dimensions),
           // reveal only the active one
@@ -386,7 +358,7 @@ function SearchPageInner() {
         {/* Search Header */}
         <Stack spacing={2} mb={3}>
           <Typography variant="h5" fontWeight={800} sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" } }}>
-            חיפוש משחקים
+            מפת משחקים
           </Typography>
 
           {/* Copy kept honest with what this page actually queries: only /api/games/search
@@ -426,48 +398,33 @@ function SearchPageInner() {
               מגרשים פנויים
             </Button>
 
-              <TextField
-              select
-              id="search-city-select"
+          </Stack>
+
+          <Box id="search-city-select">
+            <CityPicker
+              ref={cityPickerRef}
               value={selectedCity}
-              onChange={(e) => {
-                const city = e.target.value;
+              onChange={(city) => {
                 setSelectedCity(city);
                 if (city && CITY_COORDS[city]) {
                   setTargetLocation(CITY_COORDS[city]);
                 } else if (city) {
                   // City isn't in the hardcoded coordinate table -- fall back to GPS
                   // rather than leaving the map centered on nothing/the wrong place.
-                  detectLocation();
+                  cityPickerRef.current?.detectLocation();
                 }
               }}
-              size="small"
-              sx={{ minWidth: 120 }}
-              label="עיר"
-            >
-              <MenuItem value="">כל הערים</MenuItem>
-              {cities.map((city) => (
-                <MenuItem key={city} value={city}>{city}</MenuItem>
-              ))}
-            </TextField>
-
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={detectLocation}
-              disabled={locating}
-              startIcon={locating ? <CircularProgress size={14} /> : <MyLocationIcon />}
-              sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
-            >
-              המיקום שלי
-            </Button>
-          </Stack>
-
-          {locationError && (
-            <Typography variant="caption" color="text.secondary">
-              {locationError}
-            </Typography>
-          )}
+              includeAllCitiesOption
+              allowGeolocation
+              detectOnMount={!(selectedCity && CITY_COORDS[selectedCity])}
+              onLocationDetected={(coords) => {
+                setTargetLocation(coords);
+                setUserLocation(coords);
+              }}
+              onLocatingChange={setLocating}
+              fullWidth
+            />
+          </Box>
 
           {/* Date Picker Section with "השבוע הקרוב" Chip */}
           <Stack direction="row" spacing={1} alignItems="center" width="100%">
@@ -538,7 +495,15 @@ function SearchPageInner() {
                   setNetworkGames(false);
                   setShowEmptyFields(false);
                   setSelectedCity("");
-                  if (!userLocation) detectLocation();
+                  // The city selection may have moved targetLocation away from the user's
+                  // actual GPS position -- snap back to it if we already have it, otherwise
+                  // (re)try detecting it, instead of leaving the map centered on the city
+                  // that was just cleared.
+                  if (userLocation) {
+                    setTargetLocation(userLocation);
+                  } else {
+                    cityPickerRef.current?.detectLocation();
+                  }
                 }}
               />
             )}
@@ -546,10 +511,12 @@ function SearchPageInner() {
         )}
       </Box>
 
-      {/* Map pane */}
+      {/* Map pane -- fills whatever width the fixed-width list pane doesn't use. */}
       <Box
         sx={{
-          width: { xs: "100%", md: "60%" },
+          width: { xs: "100%" },
+          flex: { md: 1 },
+          minWidth: 0,
           height: "100%",
           position: { xs: "absolute", md: "sticky" },
           inset: { xs: 0, md: "auto" },
@@ -566,6 +533,8 @@ function SearchPageInner() {
           targetLocation={targetLocation}
           userLocation={userLocation}
           loading={loading || locating}
+          hoveredGameId={hoveredGameId}
+          onHoverGame={setHoveredGameId}
         />
       </Box>
 

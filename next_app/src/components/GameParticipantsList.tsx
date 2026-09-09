@@ -27,6 +27,7 @@ import Button from "@mui/material/Button";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import CircularProgress from "@mui/material/CircularProgress";
+import { normalizeName } from "@/utils/normalizeName";
 
 // Icons
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -226,10 +227,10 @@ export default function GameParticipantsList({
             <Link href={`/users/${p.id}`} passHref legacyBehavior>
                 <Box component="a" sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0 }}>
                   <ListItemAvatar sx={{ minWidth: "auto", mr: 2 }}>
-                    <Avatar src={p.avatar} alt={p.name || p.id} name={p.name || p.id} size="md" />
+                    <Avatar src={p.avatar} alt={normalizeName(p.name) || p.id} name={normalizeName(p.name) || p.id} size="md" />
                   </ListItemAvatar>
                   <ListItemText
-                    primary={p.name || "משתמש לא ידוע"}
+                    primary={normalizeName(p.name) || "משתמש לא ידוע"}
                     primaryTypographyProps={{ fontWeight: 500, noWrap: true }}
                     secondary={isOrg ? "מארגן" : isMgr ? "מנהל" : "שחקן"}
                   />
@@ -245,7 +246,7 @@ export default function GameParticipantsList({
 
               {showMenu && (
                 <IconButton
-                  aria-label="options"
+                  aria-label="אפשרויות"
                   onClick={(e) => openMenu(e, p)}
                   size="small"
                 >
@@ -297,7 +298,7 @@ export default function GameParticipantsList({
             <AvatarGroup max={5} sx={{ "& .MuiAvatar-root": { width: 32, height: 32, fontSize: 14 } }}>
               {participants.map((p) => (
                 <Box key={p.id}>
-                  <Avatar src={p.avatar} alt={p.name || "?"} name={p.name || "?"} size="sm" />
+                  <Avatar src={p.avatar} alt={normalizeName(p.name) || "?"} name={normalizeName(p.name) || "?"} size="sm" />
                 </Box>
               ))}
             </AvatarGroup>
@@ -315,7 +316,7 @@ export default function GameParticipantsList({
               <Autocomplete
                 multiple
                 options={allFriends}
-                getOptionLabel={(option) => option.name || ""}
+                getOptionLabel={(option) => normalizeName(option.name)}
                 value={selectedFriends}
                 onChange={(event, newValue) => {
                   setSelectedFriends(newValue);
@@ -332,7 +333,7 @@ export default function GameParticipantsList({
                   const { key, ...otherProps } = props;
                   return (
                     <li key={option.id} {...otherProps} style={{ direction: "rtl" }}>
-                      {option.name}
+                      {normalizeName(option.name)}
                     </li>
                   );
                 }}

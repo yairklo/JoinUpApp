@@ -70,9 +70,26 @@ body,
   }
 }
 
-/* Soft horizontal edge fade for carousel rows on mobile */
+/* Soft horizontal edge fade for carousel rows -- hints that there's more
+   content to scroll to without needing extra JS/arrows. Fades both edges
+   symmetrically (rather than only the "trailing" edge) so it reads
+   correctly regardless of scroll position or RTL/LTR direction. */
 .carousel-edge {
   -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 20px,
+    black calc(100% - 20px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 20px,
+    black calc(100% - 20px),
+    transparent 100%
+  );
 }
 
 /* Subtle, modern scrollbars (desktop) */

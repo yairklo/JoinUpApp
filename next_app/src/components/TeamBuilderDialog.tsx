@@ -31,6 +31,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import SaveIcon from "@mui/icons-material/Save";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import { normalizeName } from "@/utils/normalizeName";
 
 // Types
 type Participant = { id: string; name: string | null; avatar?: string | null };
@@ -185,7 +186,7 @@ export default function TeamBuilderDialog({
         {/* --- Top Bar --- */}
         <AppBar sx={{ position: "relative", bgcolor: "white", color: "text.primary" }} elevation={1}>
           <Toolbar>
-            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
+            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="סגור">
               <CloseIcon />
             </IconButton>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div" fontWeight="bold">
@@ -219,8 +220,8 @@ export default function TeamBuilderDialog({
               {unassignedPlayers.map((p) => (
                 <Chip
                   key={p.id}
-                  avatar={<Avatar src={p.avatar} name={p.name || "?"} alt={p.name || "?"} size="sm" />}
-                  label={p.name?.split(" ")[0]}
+                  avatar={<Avatar src={p.avatar} name={normalizeName(p.name) || "?"} alt={normalizeName(p.name) || "?"} size="sm" />}
+                  label={normalizeName(p.name).split(" ")[0]}
                   onClick={() => handlePlayerSelect(p.id)}
                   color={selectedPlayerId === p.id ? "primary" : "default"}
                   variant={selectedPlayerId === p.id ? "filled" : "outlined"}
@@ -320,9 +321,9 @@ export default function TeamBuilderDialog({
                                              transition: '0.2s'
                                          }}
                                        >
-                                           <Avatar src={p.avatar} name={p.name||"?"} alt="" size="sm" />
+                                           <Avatar src={p.avatar} name={normalizeName(p.name) || "?"} alt="" size="sm" />
                                            <Typography variant="body2" noWrap sx={{ ml: 1, fontWeight: 500, fontSize: '0.85rem' }}>
-                                               {p.name?.split(" ")[0]}
+                                               {normalizeName(p.name).split(" ")[0]}
                                            </Typography>
                                            {selectedPlayerId === pid && (
                                                 <IconButton 

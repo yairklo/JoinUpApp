@@ -11,7 +11,8 @@ const MotionLink = motion.create(Link);
 
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
-import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import MapRoundedIcon from "@mui/icons-material/MapRounded";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import StadiumRoundedIcon from "@mui/icons-material/StadiumRounded";
 import StadiumOutlinedIcon from "@mui/icons-material/StadiumOutlined";
@@ -20,7 +21,7 @@ import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 
 const ITEMS = [
   { href: "/games", label: "בית", icon: HomeOutlinedIcon, activeIcon: HomeRoundedIcon },
-  { href: "/search", label: "חיפוש", icon: SearchRoundedIcon, activeIcon: SearchRoundedIcon },
+  { href: "/search", label: "מפה", icon: MapOutlinedIcon, activeIcon: MapRoundedIcon },
   { href: "/games/new", label: "", icon: AddRoundedIcon, activeIcon: AddRoundedIcon, fab: true },
   { href: "/fields", label: "מגרשים", icon: StadiumOutlinedIcon, activeIcon: StadiumRoundedIcon },
   { href: "/profile", label: "פרופיל", icon: PersonOutlineRoundedIcon, activeIcon: PersonRoundedIcon },

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "חיפוש משחקים | JoinUp",
+  title: "מפת משחקים | JoinUp",
 };
 
 export default function SearchLayout({ children }: { children: React.ReactNode }) {

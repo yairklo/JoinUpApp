@@ -17,6 +17,7 @@ import UserProfileActions from "@/components/UserProfileActions";
 import UserProfileSections from "@/components/UserProfileSections";
 import UserProfileRating from "@/components/UserProfileRating";
 import { SPORT_MAPPING } from "@/utils/sports";
+import { normalizeName } from "@/utils/normalizeName";
 
 type PublicUser = {
     id: string;
@@ -60,7 +61,7 @@ export default async function UserPublicPage(props: {
     if (!u) {
         return (
             <Container maxWidth="sm" sx={{ mt: 4 }}>
-                <Alert severity="error">User not found</Alert>
+                <Alert severity="error">המשתמש לא נמצא</Alert>
             </Container>
         );
     }
@@ -88,8 +89,8 @@ export default async function UserPublicPage(props: {
                             <Box sx={{ p: 0.5, bgcolor: 'background.paper', borderRadius: '50%' }}>
                                 <Avatar
                                     src={u.imageUrl}
-                                    alt={u.name || u.id}
-                                    name={u.name || u.id}
+                                    alt={normalizeName(u.name) || u.id}
+                                    name={normalizeName(u.name) || u.id}
                                     size="lg" // You might want to add 'xl' size to your Avatar component later for this specific page
                                 />
                             </Box>
@@ -98,7 +99,7 @@ export default async function UserPublicPage(props: {
                         {/* Name & Location */}
                         <Box mt={2} mb={3}>
                             <Typography variant="h4" fontWeight="bold" gutterBottom>
-                                {u.name || "Unknown User"}
+                                {normalizeName(u.name) || "משתמש"}
                             </Typography>
 
                             <UserProfileRating
@@ -112,13 +113,13 @@ export default async function UserPublicPage(props: {
                                     <Typography variant="body1">{u.city}</Typography>
                                 </Stack>
                             ) : (
-                                <Typography variant="body2" color="text.secondary">Location not specified</Typography>
+                                <Typography variant="body2" color="text.secondary">מיקום לא צוין</Typography>
                             )}
 
                             <Box mt={2}>
                                 <UserProfileActions
                                     targetUserId={id}
-                                    targetUserName={u.name || "Unknown User"}
+                                    targetUserName={normalizeName(u.name) || "משתמש"}
                                     targetUserImage={u.imageUrl}
                                 />
                             </Box>
@@ -132,11 +133,11 @@ export default async function UserPublicPage(props: {
                             {/* Contact */}
                             <Box>
                                 <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
-                                    Contact
+                                    יצירת קשר
                                 </Typography>
                                 <Stack direction="row" alignItems="center" gap={1.5} mt={1}>
                                     <EmailIcon color="action" fontSize="small" />
-                                    <Typography variant="body1">{u.email || "No email visible"}</Typography>
+                                    <Typography variant="body1">{u.email || "אימייל לא זמין"}</Typography>
                                 </Stack>
                             </Box>
 
@@ -144,7 +145,7 @@ export default async function UserPublicPage(props: {
                             {u.age && (
                                 <Box>
                                     <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
-                                        Age
+                                        גיל
                                     </Typography>
                                     <Typography variant="body1">{u.age}</Typography>
                                 </Box>
@@ -163,7 +164,7 @@ export default async function UserPublicPage(props: {
                             {/* Sports & Positions */}
                             <Box>
                                 <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase" gutterBottom>
-                                    Sports & Positions
+                                    ענפי ספורט ותפקידים
                                 </Typography>
                                 {(u.sports && u.sports.length > 0) ? (
                                     <Stack spacing={2} mt={1}>

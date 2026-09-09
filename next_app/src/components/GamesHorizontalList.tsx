@@ -6,6 +6,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
+import LinearProgress from "@mui/material/LinearProgress";
 // In RTL "forward" points left, so ArrowBack is the visually-correct glyph
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Reveal } from "@/components/motion/Reveal";
@@ -17,6 +18,7 @@ export default function GamesHorizontalList({
   onSeeAll,
   seeAllHref,
   customHeaderAction,
+  isRefreshing = false,
 }: {
   title: string;
   children: React.ReactNode;
@@ -24,9 +26,25 @@ export default function GamesHorizontalList({
   onSeeAll?: () => void;
   seeAllHref?: string;
   customHeaderAction?: React.ReactNode;
+  /** Background refetch while this rail already has content on screen -- a
+   * thin progress line instead of swapping content back to a skeleton. */
+  isRefreshing?: boolean;
 }) {
   return (
-    <Box sx={{ mb: { xs: 3, md: 4 }, mx: { xs: -2, sm: 0 } }}>
+    <Box sx={{ mb: { xs: 3, md: 4 }, mx: { xs: -2, sm: 0 }, position: "relative" }}>
+      {isRefreshing && (
+        <LinearProgress
+          sx={{
+            position: "absolute",
+            top: 0,
+            insetInlineStart: 0,
+            insetInlineEnd: 0,
+            height: 2,
+            borderRadius: 1,
+            bgcolor: "transparent",
+          }}
+        />
+      )}
       <Box
         display="flex"
         justifyContent="space-between"

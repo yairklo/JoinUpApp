@@ -21,7 +21,7 @@ import { motion } from "framer-motion";
 
 // Icons
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
-import SearchIcon from "@mui/icons-material/Search";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
@@ -117,10 +117,10 @@ export default function AppNavbar() {
               <Button
                 component={Link}
                 href="/search"
-                startIcon={<SearchIcon />}
+                startIcon={<MapOutlinedIcon />}
                 sx={navLinkSx}
               >
-                חיפוש משחקים
+                מפת משחקים
               </Button>
               <Button
                 component={Link}

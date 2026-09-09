@@ -234,7 +234,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         <Zoom in={state.showScrollButton}>
           <Box onClick={scrollToBottom} sx={{ position: "absolute", bottom: 16, [isRTL ? "left" : "right"]: 16, zIndex: 20, cursor: "pointer" }}>
             <Badge badgeContent={state.unreadNewMessages} color="error">
-              <Fab color="primary" size="small" aria-label="scroll down"><KeyboardArrowDownIcon /></Fab>
+              <Fab color="primary" size="small" aria-label="גלול למטה"><KeyboardArrowDownIcon /></Fab>
             </Badge>
           </Box>
         </Zoom>

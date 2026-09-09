@@ -8,8 +8,6 @@ import Box from "@mui/material/Box";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
 import Chip from "@mui/material/Chip";
 import SearchIcon from "@mui/icons-material/Search";
-import Autocomplete from "@mui/material/Autocomplete";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 
 import Dialog from "@mui/material/Dialog"; // Ensure imported
@@ -23,6 +21,7 @@ import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import InlineErrorRow from "@/components/InlineErrorRow";
+import CityPicker from "@/components/CityPicker";
 import { buildSearchHref } from "@/utils/searchHref";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
@@ -119,6 +118,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
             <GamesHorizontalList
                 title={`משחקים ב${displayedCity}`}
                 seeAllHref={buildSearchHref({ sport: sportFilter, city: displayedCity })}
+                isRefreshing={loading}
                 customHeaderAction={
                     <Chip
                         size="small"
@@ -146,12 +146,12 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                         <SearchIcon color="action" />
                         חפש עיר
                     </Typography>
-                    <Autocomplete
-                        options={availableCities}
-                        value={availableCities.includes(tempCity) ? tempCity : null}
-                        onChange={(event, newValue) => { setTempCity(newValue || ""); }}
-                        renderInput={(params) => <TextField {...params} label="שם העיר" placeholder="בחר עיר..." autoFocus />}
-                        noOptionsText="לא נמצאו ערים"
+                    <CityPicker
+                        value={tempCity}
+                        onChange={setTempCity}
+                        cities={availableCities}
+                        label="שם העיר"
+                        autoFocus
                         fullWidth
                     />
                     <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
