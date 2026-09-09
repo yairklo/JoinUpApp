@@ -28,7 +28,8 @@ import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { SPORT_MAPPING } from "@/utils/sports";
 import { useGameEditor, GameEditorProps } from "@/hooks/useGameEditor";
 import type { FieldOption } from "@/hooks/useGameCreator";
-import { formatHebrewDate, HEBREW_DATE_INPUT_PROPS } from "@/utils/hebrewDate";
+import { formatHebrewDate } from "@/utils/hebrewDate";
+import { HebrewDateField, HebrewTimeField } from "@/components/HebrewDateTimeField";
 
 export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
   value,
@@ -175,26 +176,20 @@ export default function GameDetailsEditor(props: ComponentProps) {
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <TextField
+                <HebrewDateField
                   label="תאריך"
-                  type="date"
                   fullWidth
                   value={state.date}
                   onChange={(e) => actions.setDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                   helperText={formatHebrewDate(state.date)}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <TextField
+                <HebrewTimeField
                   label="שעה"
-                  type="time"
                   fullWidth
                   value={state.time}
                   onChange={(e) => actions.setTime(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
@@ -291,26 +286,20 @@ export default function GameDetailsEditor(props: ComponentProps) {
                   <Collapse in={state.futureRegEnabled}>
                     <Grid container spacing={2} mt={1}>
                       <Grid size={{ xs: 6 }}>
-                        <TextField
+                        <HebrewDateField
                           label="תאריך פתיחה"
-                          type="date"
                           fullWidth
                           value={state.regDate}
                           onChange={(e) => actions.setRegDate(e.target.value)}
-                          InputLabelProps={{ shrink: true }}
-                          slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                           helperText={formatHebrewDate(state.regDate)}
                         />
                       </Grid>
                       <Grid size={{ xs: 6 }}>
-                        <TextField
+                        <HebrewTimeField
                           label="שעה"
-                          type="time"
                           fullWidth
                           value={state.regTime}
                           onChange={(e) => actions.setRegTime(e.target.value)}
-                          InputLabelProps={{ shrink: true }}
-                          slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                         />
                       </Grid>
                     </Grid>
@@ -343,26 +332,20 @@ export default function GameDetailsEditor(props: ComponentProps) {
                       <Collapse in={state.makePublicLater}>
                         <Grid container spacing={2} mt={1}>
                           <Grid size={{ xs: 6 }}>
-                            <TextField
+                            <HebrewDateField
                               label="תאריך פתיחה לציבור"
-                              type="date"
                               fullWidth
                               value={state.publicDate}
                               onChange={(e) => actions.setPublicDate(e.target.value)}
-                              InputLabelProps={{ shrink: true }}
-                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                               helperText={formatHebrewDate(state.publicDate)}
                             />
                           </Grid>
                           <Grid size={{ xs: 6 }}>
-                            <TextField
+                            <HebrewTimeField
                               label="שעת פתיחה"
-                              type="time"
                               fullWidth
                               value={state.publicTime}
                               onChange={(e) => actions.setPublicTime(e.target.value)}
-                              InputLabelProps={{ shrink: true }}
-                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                             />
                           </Grid>
                         </Grid>

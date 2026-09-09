@@ -413,7 +413,9 @@ function ClusteredGameMarkers({
           content,
         });
 
-        marker.addListener("click", () => setSelectedGroup(group));
+        // AdvancedMarkerElement dispatches "gmp-click", not the classic Marker's "click" --
+        // using "click" here still works but logs a deprecation warning in the console.
+        marker.addListener("gmp-click", () => setSelectedGroup(group));
         content.addEventListener("mouseenter", () => onHoverGame?.(group.games[0].id));
         content.addEventListener("mouseleave", () => onHoverGame?.(null));
 

@@ -156,7 +156,10 @@ export default function GamesHorizontalList({
               pb: 1.5,
               px: { xs: 2, sm: 1 },
               paddingInlineEnd: { xs: 6, sm: 5 },
-              justifyContent: childCount <= 1 ? { xs: "flex-start", md: "center" } : "flex-start",
+              // A single card centered in a full-width rail on desktop reads as a rendering
+              // glitch (floating alone in a sea of whitespace) rather than "here's one result" --
+              // keep it aligned with the rail's start like every other card count instead.
+              justifyContent: "flex-start",
               scrollbarWidth: "none",
               "&::-webkit-scrollbar": { display: "none" },
               scrollSnapType: "x mandatory",

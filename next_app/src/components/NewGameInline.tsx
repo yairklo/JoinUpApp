@@ -30,7 +30,8 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import AddIcon from "@mui/icons-material/Add";
 
 import { useGameCreator, FieldOption } from "@/hooks/useGameCreator";
-import { formatHebrewDate, HEBREW_DATE_INPUT_PROPS } from "@/utils/hebrewDate";
+import { formatHebrewDate } from "@/utils/hebrewDate";
+import { HebrewDateField, HebrewTimeField } from "@/components/HebrewDateTimeField";
 
 const filter = createFilterOptions<FieldOption>();
 
@@ -156,26 +157,21 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                   />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
-                  <TextField
+                  <HebrewDateField
                     label="תאריך"
-                    type="date"
                     fullWidth
                     size="small"
-                    InputLabelProps={{ shrink: true }}
                     value={state.form.date}
-                    slotProps={{ htmlInput: { min: state.todayStr, ...HEBREW_DATE_INPUT_PROPS } }}
+                    min={state.todayStr}
                     helperText={formatHebrewDate(state.form.date)}
                     onChange={(e) => actions.update("date", e.target.value)}
                   />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
-                  <TextField
+                  <HebrewTimeField
                     label="שעה"
-                    type="time"
                     fullWidth
                     size="small"
-                    InputLabelProps={{ shrink: true }}
-                    slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                     value={state.form.time}
                     onChange={(e) => actions.update("time", e.target.value)}
                   />
@@ -268,26 +264,20 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                           </Typography>
                           <Grid container spacing={2}>
                             <Grid size={6}>
-                              <TextField
+                              <HebrewDateField
                                 label="תאריך הגרלה"
-                                type="date"
                                 fullWidth
                                 size="small"
-                                InputLabelProps={{ shrink: true }}
                                 value={state.form.lotteryDate}
-                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 helperText={formatHebrewDate(state.form.lotteryDate)}
                                 onChange={(e) => actions.update("lotteryDate", e.target.value)}
                               />
                             </Grid>
                             <Grid size={6}>
-                              <TextField
+                              <HebrewTimeField
                                 label="שעת הגרלה"
-                                type="time"
                                 fullWidth
                                 size="small"
-                                InputLabelProps={{ shrink: true }}
-                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 value={state.form.lotteryTime}
                                 onChange={(e) => actions.update("lotteryTime", e.target.value)}
                               />
@@ -311,51 +301,39 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                         </Typography>
                         <Grid container spacing={2}>
                             <Grid size={6}>
-                            <TextField
+                            <HebrewDateField
                               label="תאריך הגרלת מנהלים"
-                              type="date"
                               fullWidth
                               size="small"
-                              InputLabelProps={{ shrink: true }}
                               value={state.form.pickDrawDate}
-                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                               helperText={formatHebrewDate(state.form.pickDrawDate)}
                               onChange={(e) => actions.update("pickDrawDate", e.target.value)}
                             />
                           </Grid>
                           <Grid size={6}>
-                            <TextField
+                            <HebrewTimeField
                               label="שעת הגרלת מנהלים"
-                              type="time"
                               fullWidth
                               size="small"
-                              InputLabelProps={{ shrink: true }}
-                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                               value={state.form.pickDrawTime}
                               onChange={(e) => actions.update("pickDrawTime", e.target.value)}
                             />
                           </Grid>
                           <Grid size={6}>
-                            <TextField
+                            <HebrewDateField
                               label="תאריך תחילת בחירה"
-                              type="date"
                               fullWidth
                               size="small"
-                              InputLabelProps={{ shrink: true }}
                               value={state.form.pickingStartDate}
-                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                               helperText={formatHebrewDate(state.form.pickingStartDate)}
                               onChange={(e) => actions.update("pickingStartDate", e.target.value)}
                             />
                           </Grid>
                           <Grid size={6}>
-                            <TextField
+                            <HebrewTimeField
                               label="שעת תחילת בחירה"
-                              type="time"
                               fullWidth
                               size="small"
-                              InputLabelProps={{ shrink: true }}
-                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                               value={state.form.pickingStartTime}
                               onChange={(e) => actions.update("pickingStartTime", e.target.value)}
                             />
@@ -372,26 +350,20 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                           </Typography>
                           <Grid container spacing={2}>
                             <Grid size={6}>
-                              <TextField
+                              <HebrewDateField
                                 label="תאריך פתיחה"
-                                type="date"
                                 fullWidth
                                 size="small"
-                                InputLabelProps={{ shrink: true }}
                                 value={state.form.futureRegDate}
-                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 helperText={formatHebrewDate(state.form.futureRegDate)}
                                 onChange={(e) => actions.update("futureRegDate", e.target.value)}
                               />
                             </Grid>
                             <Grid size={6}>
-                              <TextField
+                              <HebrewTimeField
                                 label="שעת פתיחה"
-                                type="time"
                                 fullWidth
                                 size="small"
-                                InputLabelProps={{ shrink: true }}
-                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 value={state.form.futureRegTime}
                                 onChange={(e) => actions.update("futureRegTime", e.target.value)}
                               />
