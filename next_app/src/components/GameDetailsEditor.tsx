@@ -194,6 +194,7 @@ export default function GameDetailsEditor(props: ComponentProps) {
                   value={state.time}
                   onChange={(e) => actions.setTime(e.target.value)}
                   InputLabelProps={{ shrink: true }}
+                  slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
@@ -309,6 +310,7 @@ export default function GameDetailsEditor(props: ComponentProps) {
                           value={state.regTime}
                           onChange={(e) => actions.setRegTime(e.target.value)}
                           InputLabelProps={{ shrink: true }}
+                          slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                         />
                       </Grid>
                     </Grid>
@@ -360,6 +362,7 @@ export default function GameDetailsEditor(props: ComponentProps) {
                               value={state.publicTime}
                               onChange={(e) => actions.setPublicTime(e.target.value)}
                               InputLabelProps={{ shrink: true }}
+                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                             />
                           </Grid>
                         </Grid>

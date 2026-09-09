@@ -41,6 +41,7 @@ import IconButton from "@mui/material/IconButton";
 import { SPORT_MAPPING, SportType } from "@/utils/sports";
 import { usePaginatedFields } from "@/hooks/usePaginatedFields";
 import { formatHebrewDate, HEBREW_DATE_INPUT_PROPS } from "@/utils/hebrewDate";
+import { formatJerusalemDate, parseJerusalemTimeToUTC } from "@/utils/timezone";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -150,7 +151,10 @@ function NewGamePageInner() {
 
   // --- Helpers ---
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  // Must be the Jerusalem calendar date, not the UTC one -- `toISOString()` rolls back to
+  // "yesterday" for Israeli visitors between midnight and ~2-3am local time, which would let
+  // the date picker's `min` accept an already-past day.
+  const todayStr = formatJerusalemDate(today);
 
   function roundUpToNextQuarter(d: Date) {
     const t = new Date(d.getTime());
@@ -256,7 +260,7 @@ function NewGamePageInner() {
   // and a typed address without a pin is enough too.
   const hasNewFieldAddress = newFieldMode ? (!!newField.location.trim() || !!customPoint) : true;
 
-  const isFutureStart = !!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() >= Date.now();
+  const isFutureStart = !!(form.date && form.time) && parseJerusalemTimeToUTC(form.date, form.time).getTime() >= Date.now();
   const validNumbers =
     form.maxPlayers > 0 &&
     form.duration > 0 &&
@@ -305,30 +309,34 @@ function NewGamePageInner() {
       const token = await getToken({ template: undefined }).catch(() => "");
       const fieldIdToUse = selectedField?.id || "";
 
-      const startIso = `${form.date}T${form.time}:00`;
-      const startTs = new Date(startIso).getTime();
+      // Every date+time pair typed in this form is a Jerusalem-local wall-clock value, so it must
+      // be converted via parseJerusalemTimeToUTC (not a bare `new Date(...)`, which the JS engine
+      // interprets in whatever timezone it's running in -- the visitor's browser, which isn't
+      // always Israel).
+      const startDate = parseJerusalemTimeToUTC(form.date, form.time);
+      const startTs = startDate.getTime();
 
       // Logic Validation
       if (form.lotteryEnabled) {
         if (!form.lotteryDate || !form.lotteryTime) throw new Error("יש לבחור תאריך ושעה להגרלה");
-        const lotteryTs = new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).getTime();
+        const lotteryTs = parseJerusalemTimeToUTC(form.lotteryDate, form.lotteryTime).getTime();
         if (lotteryTs >= startTs) throw new Error("זמן ההגרלה חייב להיות לפני תחילת המשחק");
       }
 
       let registrationOpensAt: string | undefined = undefined;
       if (form.futureRegistration) {
         if (!form.futureRegDate || !form.futureRegTime) throw new Error("אנא בחר תאריך ושעה לפתיחת הרישום");
-        const openTs = new Date(`${form.futureRegDate}T${form.futureRegTime}:00`).getTime();
+        const openTs = parseJerusalemTimeToUTC(form.futureRegDate, form.futureRegTime).getTime();
         if (openTs >= startTs) throw new Error("זמן פתיחת הרישום חייב להיות לפני תחילת המשחק");
-        registrationOpensAt = new Date(`${form.futureRegDate}T${form.futureRegTime}:00`).toISOString();
+        registrationOpensAt = new Date(openTs).toISOString();
       }
 
       let friendsOnlyUntil: string | undefined = undefined;
       if (form.isFriendsOnly && form.makePublicLater) {
         if (!form.publicDate || !form.publicTime) throw new Error("אנא בחר תאריך ושעה לפתיחת המשחק לציבור");
-        const publicTs = new Date(`${form.publicDate}T${form.publicTime}:00`).getTime();
+        const publicTs = parseJerusalemTimeToUTC(form.publicDate, form.publicTime).getTime();
         if (publicTs >= startTs) throw new Error("המשחק חייב להיפתח לציבור לפני שהמשחק מתחיל");
-        friendsOnlyUntil = new Date(`${form.publicDate}T${form.publicTime}:00`).toISOString();
+        friendsOnlyUntil = new Date(publicTs).toISOString();
       }
 
       const res = await fetch(`${API_BASE}/api/games`, {
@@ -340,7 +348,7 @@ function NewGamePageInner() {
         body: JSON.stringify({
           fieldId: fieldIdToUse,
           ...form,
-          start: new Date(startIso).toISOString(),
+          start: startDate.toISOString(),
           // New Field Logic
           ...(newFieldMode && !fieldIdToUse
             ? {
@@ -355,7 +363,7 @@ function NewGamePageInner() {
           ...(customPoint ? { customLat: customPoint.lat, customLng: customPoint.lng } : {}),
 
           title: form.title || null,
-          lotteryAt: form.lotteryEnabled ? new Date(`${form.lotteryDate}T${form.lotteryTime}:00`).toISOString() : undefined,
+          lotteryAt: form.lotteryEnabled ? parseJerusalemTimeToUTC(form.lotteryDate, form.lotteryTime).toISOString() : undefined,
           registrationOpensAt,
           friendsOnlyUntil,
           invitedParticipantIds
@@ -589,9 +597,9 @@ function NewGamePageInner() {
                     InputLabelProps={{ shrink: true }}
                     value={form.date}
                     slotProps={{ htmlInput: { min: todayStr, ...HEBREW_DATE_INPUT_PROPS } }}
-                    error={!!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() < Date.now()}
+                    error={!!(form.date && form.time) && parseJerusalemTimeToUTC(form.date, form.time).getTime() < Date.now()}
                     helperText={
-                      !!(form.date && form.time) && new Date(`${form.date}T${form.time}:00`).getTime() < Date.now()
+                      !!(form.date && form.time) && parseJerusalemTimeToUTC(form.date, form.time).getTime() < Date.now()
                         ? "לא ניתן ליצור משחק בעבר"
                         : formatHebrewDate(form.date)
                     }
@@ -605,6 +613,7 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     InputLabelProps={{ shrink: true }}
+                    slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                     value={form.time}
                     onChange={(e) => update("time", e.target.value)}
                   />
@@ -777,6 +786,7 @@ function NewGamePageInner() {
                                   fullWidth
                                   size="small"
                                   InputLabelProps={{ shrink: true }}
+                                  slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                   value={form.publicTime}
                                   onChange={(e) => update("publicTime", e.target.value)}
                                 />
@@ -823,6 +833,7 @@ function NewGamePageInner() {
                                 fullWidth
                                 size="small"
                                 InputLabelProps={{ shrink: true }}
+                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 value={form.lotteryTime}
                                 onChange={(e) => update("lotteryTime", e.target.value)}
                               />
@@ -868,6 +879,7 @@ function NewGamePageInner() {
                                 fullWidth
                                 size="small"
                                 InputLabelProps={{ shrink: true }}
+                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 value={form.futureRegTime}
                                 onChange={(e) => update("futureRegTime", e.target.value)}
                               />

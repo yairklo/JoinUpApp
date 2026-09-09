@@ -1,9 +1,10 @@
 import {
   formatJerusalemDate,
   formatJerusalemTime,
+  parseJerusalemTimeToUTC,
 } from '@joinup/shared/timezone';
 
-export { formatJerusalemDate, formatJerusalemTime };
+export { formatJerusalemDate, formatJerusalemTime, parseJerusalemTimeToUTC };
 
 const JERUSALEM_TZ = 'Asia/Jerusalem';
 

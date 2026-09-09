@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, forwardRef } from "react";
+import { useState, useEffect, forwardRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -31,6 +31,9 @@ import EditIcon from "@mui/icons-material/Edit";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import SaveIcon from "@mui/icons-material/Save";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import ShuffleIcon from "@mui/icons-material/Shuffle";
+import SearchIcon from "@mui/icons-material/Search";
+import InputAdornment from "@mui/material/InputAdornment";
 import { normalizeName } from "@/utils/normalizeName";
 
 // Types
@@ -90,7 +93,13 @@ export default function TeamBuilderDialog({
   );
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  
+  const [benchSearch, setBenchSearch] = useState("");
+  // Native window.confirm() can silently no-op in some contexts (PWA standalone mode,
+  // automated browsers) -- the click registers but the dialog never resolves, which reads as
+  // "the button does nothing". These track an inline "tap again to confirm" step instead.
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmRemoveTeamId, setConfirmRemoveTeamId] = useState<string | null>(null);
+
   // Edit Dialog State
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [tempTeamName, setTempTeamName] = useState("");
@@ -99,6 +108,11 @@ export default function TeamBuilderDialog({
   // Derived: Unassigned players
   const assignedPlayerIds = new Set(teams.flatMap((t) => t.playerIds));
   const unassignedPlayers = participants.filter((p) => !assignedPlayerIds.has(p.id));
+  const visibleUnassignedPlayers = benchSearch.trim()
+    ? unassignedPlayers.filter((p) =>
+        normalizeName(p.name).toLowerCase().includes(benchSearch.trim().toLowerCase())
+      )
+    : unassignedPlayers;
 
   // --- Logic ---
 
@@ -110,9 +124,12 @@ export default function TeamBuilderDialog({
   };
 
   const handleRemoveTeam = (teamId: string) => {
-    if (confirm("למחוק את הקבוצה? השחקנים יחזרו לספסל.")) {
-      setTeams(teams.filter((t) => t.id !== teamId));
+    if (confirmRemoveTeamId !== teamId) {
+      setConfirmRemoveTeamId(teamId);
+      return;
     }
+    setTeams(teams.filter((t) => t.id !== teamId));
+    setConfirmRemoveTeamId(null);
   };
 
   const handlePlayerSelect = (pid: string) => {
@@ -146,9 +163,28 @@ export default function TeamBuilderDialog({
   };
 
   const handleReset = () => {
-    if (confirm("לאפס את כל הסגלים?")) {
-      setTeams(teams.map((t) => ({ ...t, playerIds: [] })));
+    if (!confirmReset) {
+      setConfirmReset(true);
+      return;
     }
+    setTeams(teams.map((t) => ({ ...t, playerIds: [] })));
+    setConfirmReset(false);
+  };
+
+  // Fills all unassigned players into the existing teams, balancing by always handing the next
+  // player to whichever team currently has the fewest -- a stable, evenly-spread result with no
+  // manual click-per-player, per the "quick assign should actually assign" fix.
+  const handleQuickAssign = () => {
+    if (teams.length === 0 || unassignedPlayers.length === 0) return;
+    setTeams((prev) => {
+      const next = prev.map((t) => ({ ...t, playerIds: [...t.playerIds] }));
+      for (const p of unassignedPlayers) {
+        const smallest = next.reduce((min, t) => (t.playerIds.length < min.playerIds.length ? t : min), next[0]);
+        smallest.playerIds.push(p.id);
+      }
+      return next;
+    });
+    setSelectedPlayerId(null);
   };
 
   const handleSaveTeams = () => {
@@ -174,6 +210,16 @@ export default function TeamBuilderDialog({
   // Helper to find player details
   const getP = (id: string) => participants.find((p) => p.id === id);
 
+  // Drop any pending "tap again to confirm" state when the dialog closes, so reopening it
+  // doesn't leave a stale confirm armed from a previous visit.
+  useEffect(() => {
+    if (!open) {
+      setConfirmReset(false);
+      setConfirmRemoveTeamId(null);
+      setBenchSearch("");
+    }
+  }, [open]);
+
   return (
     <>
       <Dialog
@@ -198,26 +244,70 @@ export default function TeamBuilderDialog({
           </Toolbar>
         </AppBar>
 
-        <Box sx={{ p: 2, maxWidth: 1000, mx: "auto", width: "100%" }}>
-          
+        <Box dir="rtl" sx={{ p: 2, maxWidth: 1000, mx: "auto", width: "100%" }}>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            בחרו שחקן מהספסל ואז הקישו על קבוצה כדי לשבץ אותו, או השתמשו ב&quot;שיבוץ מהיר&quot; למילוי אוטומטי מאוזן.
+          </Typography>
+
           {/* --- The Bench (Unassigned) --- */}
           <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: "1px solid", borderColor: "divider" }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} mb={2}>
               <Typography variant="subtitle1" fontWeight="bold" color="text.secondary">
                 הספסל ({unassignedPlayers.length})
               </Typography>
-              <Button size="small" color="error" startIcon={<RestartAltIcon />} onClick={handleReset}>
-                איפוס הכל
-              </Button>
+              <Box display="flex" gap={1}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ShuffleIcon />}
+                  onClick={handleQuickAssign}
+                  disabled={teams.length === 0 || unassignedPlayers.length === 0}
+                >
+                  שיבוץ מהיר
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  variant={confirmReset ? "contained" : "text"}
+                  startIcon={<RestartAltIcon />}
+                  onClick={handleReset}
+                >
+                  {confirmReset ? "לאשר איפוס?" : "איפוס הכל"}
+                </Button>
+              </Box>
             </Box>
 
-            <Box display="flex" flexWrap="wrap" gap={1}>
+            {unassignedPlayers.length > 8 && (
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="חיפוש בספסל..."
+                value={benchSearch}
+                onChange={(e) => setBenchSearch(e.target.value)}
+                sx={{ mb: 1.5 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
+
+            <Box display="flex" flexWrap="wrap" gap={1} sx={{ maxHeight: 260, overflowY: "auto", pb: 0.5 }}>
               {unassignedPlayers.length === 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
                   הספסל ריק! כולם משחקים.
                 </Typography>
               )}
-              {unassignedPlayers.map((p) => (
+              {unassignedPlayers.length > 0 && visibleUnassignedPlayers.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                  לא נמצאו שחקנים התואמים לחיפוש
+                </Typography>
+              )}
+              {visibleUnassignedPlayers.map((p) => (
                 <Chip
                   key={p.id}
                   avatar={<Avatar src={p.avatar} name={normalizeName(p.name) || "?"} alt={normalizeName(p.name) || "?"} size="sm" />}
@@ -225,8 +315,8 @@ export default function TeamBuilderDialog({
                   onClick={() => handlePlayerSelect(p.id)}
                   color={selectedPlayerId === p.id ? "primary" : "default"}
                   variant={selectedPlayerId === p.id ? "filled" : "outlined"}
-                  sx={{ 
-                    transition: "all 0.2s", 
+                  sx={{
+                    transition: "all 0.2s",
                     transform: selectedPlayerId === p.id ? "scale(1.05)" : "scale(1)",
                     borderWidth: selectedPlayerId === p.id ? 0 : 1
                   }}
@@ -246,7 +336,7 @@ export default function TeamBuilderDialog({
                     elevation={isTarget ? 4 : 1}
                     onClick={() => isTarget && handleAssignToTeam(team.id)}
                     sx={{
-                      minHeight: 200,
+                      minHeight: team.playerIds.length === 0 ? 140 : "auto",
                       borderRadius: 3,
                       position: "relative",
                       overflow: "hidden",
@@ -282,19 +372,25 @@ export default function TeamBuilderDialog({
                         <IconButton size="small" onClick={(e) => startEdit(team, e)} sx={{ color: "white" }}>
                           <EditIcon fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleRemoveTeam(team.id); }} sx={{ color: "white" }}>
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
+                        <Tooltip title={confirmRemoveTeamId === team.id ? "הקישו שוב כדי לאשר מחיקה" : "מחק קבוצה"}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveTeam(team.id); }}
+                            sx={{ color: confirmRemoveTeamId === team.id ? "#fecaca" : "white" }}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       </Box>
                     </Box>
 
                     {/* Player List inside Team */}
                     <Box p={2}>
                       {team.playerIds.length === 0 ? (
-                        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height={120} color="text.secondary" gap={1}>
-                            <PersonAddIcon sx={{ opacity: 0.3, fontSize: 40 }} />
-                            <Typography variant="caption">
-                                {isTarget ? "הקישו כאן כדי להוסיף שחקן" : "הסגל ריק"}
+                        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height={100} color={isTarget ? team.color : "text.secondary"} gap={1}>
+                            <PersonAddIcon sx={{ opacity: isTarget ? 0.6 : 0.3, fontSize: 40 }} />
+                            <Typography variant="caption" fontWeight={isTarget ? 700 : 400}>
+                                {isTarget ? "הקישו כאן כדי להוסיף שחקן" : "בחרו שחקן מהספסל והקישו כאן"}
                             </Typography>
                         </Box>
                       ) : (
