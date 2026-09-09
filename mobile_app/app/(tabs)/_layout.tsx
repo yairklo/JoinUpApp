@@ -96,85 +96,10 @@ export default function TabLayout() {
         lazy: true,
       }}>
       <Tabs.Screen
-        name="index"
-        options={{
-          title: t('tabs.games'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="soccer-ball-o" color={color} />,
-          headerTitle: 'JoinUp',
-          headerRight: HeaderRight,
-        }}
-      />
-      <Tabs.Screen
         name="search"
         options={{
           title: t('tabs.search'),
           tabBarIcon: ({ color }) => <TabBarIcon name="map-marker" color={color} />,
-        }}
-      />
-
-      {/* Center create FAB */}
-      <Tabs.Screen
-        name="create"
-        options={{
-          title: '',
-          tabBarLabel: () => null,
-          tabBarIcon: () => (
-            <View
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                marginTop: -22,
-                backgroundColor: BRAND,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 4,
-                borderColor: isDark ? '#0b1220' : '#f6f8fa',
-                ...Platform.select({
-                  ios: {
-                    shadowColor: '#059669',
-                    shadowOpacity: 0.45,
-                    shadowRadius: 10,
-                    shadowOffset: { width: 0, height: 6 },
-                  },
-                  android: { elevation: 8 },
-                }),
-              }}
-            >
-              <Ionicons name="add" size={30} color="#fff" />
-            </View>
-          ),
-          tabBarButton: (props) => (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="צור משחק"
-              activeOpacity={0.85}
-              onPress={() => router.push('/game/new')}
-              style={props.style}
-              className="items-center justify-center"
-            >
-              {props.children}
-            </TouchableOpacity>
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="chats"
-        options={{
-          title: t('tabs.chats'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="comments" color={color} />,
-          tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
-          tabBarBadgeStyle: { backgroundColor: '#ef4444' },
-        }}
-      />
-      <Tabs.Screen
-        name="friends"
-        options={{
-          title: t('tabs.friends'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
-          tabBarBadge: friendRequests > 0 ? friendRequests : undefined,
-          tabBarBadgeStyle: { backgroundColor: '#ef4444' },
         }}
       />
 
@@ -195,6 +120,61 @@ export default function TabLayout() {
               {props.children}
             </TouchableOpacity>
           ),
+        }}
+      />
+
+      {/* Center tab: games — visually elevated/larger since it's the app's home tab */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t('tabs.games'),
+          tabBarIcon: ({ color, focused }) => (
+            <View
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 26,
+                marginTop: -18,
+                backgroundColor: focused ? BRAND : (isDark ? '#1e293b' : '#e6f6ef'),
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 4,
+                borderColor: isDark ? '#0b1220' : '#f6f8fa',
+                ...Platform.select({
+                  ios: {
+                    shadowColor: '#059669',
+                    shadowOpacity: 0.35,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 4 },
+                  },
+                  android: { elevation: 6 },
+                }),
+              }}
+            >
+              <FontAwesome name="soccer-ball-o" size={24} color={focused ? '#fff' : color} />
+            </View>
+          ),
+          headerTitle: 'JoinUp',
+          headerRight: HeaderRight,
+        }}
+      />
+
+      <Tabs.Screen
+        name="chats"
+        options={{
+          title: t('tabs.chats'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="comments" color={color} />,
+          tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#ef4444' },
+        }}
+      />
+      <Tabs.Screen
+        name="friends"
+        options={{
+          title: t('tabs.friends'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+          tabBarBadge: friendRequests > 0 ? friendRequests : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#ef4444' },
         }}
       />
     </Tabs>

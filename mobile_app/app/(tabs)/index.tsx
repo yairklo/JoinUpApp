@@ -1,9 +1,10 @@
-import { View, Text, RefreshControl, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, RefreshControl, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useGamesByDate } from '@/hooks/useGamesByDate';
 import { useRouter } from 'expo-router';
 import { Game } from '@/types/game';
 import { useUser } from '@clerk/clerk-expo';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GameCard from '@/components/GameCard';
 import JoinGameButton from '@/components/JoinGameButton';
 import LeaveGameButton from '@/components/LeaveGameButton';
@@ -34,6 +35,7 @@ export default function HomeScreen() {
   const today = new Date().toISOString().split('T')[0];
   const { games, loading, refreshGames, selectedDate, setSelectedDate, error } = useGamesByDate(today);
   const { user } = useUser();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSport, setSelectedSport] = useState('ALL');
 
@@ -180,6 +182,36 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Floating "create game" button — moved off the tab bar to keep it uncluttered */}
+      <TouchableOpacity
+        onPress={() => router.push('/game/new')}
+        accessibilityRole="button"
+        accessibilityLabel="צור משחק"
+        activeOpacity={0.85}
+        style={{
+          position: 'absolute',
+          right: 20,
+          bottom: 64 + (insets.bottom > 0 ? insets.bottom : 8) + 16,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: BRAND,
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...Platform.select({
+            ios: {
+              shadowColor: '#059669',
+              shadowOpacity: 0.45,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 6 },
+            },
+            android: { elevation: 8 },
+          }),
+        }}
+      >
+        <Ionicons name="add" size={30} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
