@@ -99,6 +99,9 @@ function SearchPageInner() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   // Mobile-only: switch between results list and full-screen map
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
+  // Hover sync between the results list and the map pins (SearchMapComponent) --
+  // hovering a card highlights its pin, hovering a pin highlights its card.
+  const [hoveredGameId, setHoveredGameId] = useState<string | null>(null);
 
   // Only skip auto-geolocation when the city param actually resolved to known
   // coordinates (CITY_COORDS above) -- an unrecognized/unlisted city (e.g. from
@@ -266,40 +269,53 @@ function SearchPageInner() {
     const mainTitle = g.title || g.fieldName;
     const subtitle = g.title ? `${g.fieldName} • ${g.fieldLocation}` : g.fieldLocation;
 
+    const isHovered = g.id === hoveredGameId;
+
     return (
-      <GameHeaderCard
+      <Box
         key={g.id}
-        time={g.time}
-        date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
-        durationHours={g.duration ?? 1}
-        title={mainTitle || "Game"}
-        subtitle={subtitle || ""}
-        currentPlayers={g.currentPlayers}
-        maxPlayers={g.maxPlayers}
-        sport={g.sport}
-        teamSize={g.teamSize}
-        price={g.price}
-        isJoined={joined}
-        isFriendsOnly={g.isFriendsOnly}
-        fullWidth
-        href={`/games/${g.id}`}
+        onMouseEnter={() => setHoveredGameId(g.id)}
+        onMouseLeave={() => setHoveredGameId(null)}
+        sx={{
+          borderRadius: 3,
+          transition: "box-shadow 150ms ease, background-color 150ms ease",
+          boxShadow: isHovered ? "0 0 0 2px rgba(37,99,235,0.55)" : "none",
+          bgcolor: isHovered ? "action.hover" : "transparent",
+        }}
       >
-        {joined ? (
-          <LeaveGameButton
-            gameId={g.id}
-            currentPlayers={g.currentPlayers}
-            onLeft={() => handleGameLeft(g.id)}
-          />
-        ) : (
-          <JoinGameButton
-            gameId={g.id}
-            registrationOpensAt={g.registrationOpensAt}
-            joinPolicy={g.joinPolicy}
-            viewerParticipationStatus={g.viewerParticipationStatus}
-            onJoined={() => handleGameJoined(g.id)}
-          />
-        )}
-      </GameHeaderCard>
+        <GameHeaderCard
+          time={g.time}
+          date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
+          durationHours={g.duration ?? 1}
+          title={mainTitle || "Game"}
+          subtitle={subtitle || ""}
+          currentPlayers={g.currentPlayers}
+          maxPlayers={g.maxPlayers}
+          sport={g.sport}
+          teamSize={g.teamSize}
+          price={g.price}
+          isJoined={joined}
+          isFriendsOnly={g.isFriendsOnly}
+          fullWidth
+          href={`/games/${g.id}`}
+        >
+          {joined ? (
+            <LeaveGameButton
+              gameId={g.id}
+              currentPlayers={g.currentPlayers}
+              onLeft={() => handleGameLeft(g.id)}
+            />
+          ) : (
+            <JoinGameButton
+              gameId={g.id}
+              registrationOpensAt={g.registrationOpensAt}
+              joinPolicy={g.joinPolicy}
+              viewerParticipationStatus={g.viewerParticipationStatus}
+              onJoined={() => handleGameJoined(g.id)}
+            />
+          )}
+        </GameHeaderCard>
+      </Box>
     );
   };
 
@@ -509,6 +525,8 @@ function SearchPageInner() {
           targetLocation={targetLocation}
           userLocation={userLocation}
           loading={loading || locating}
+          hoveredGameId={hoveredGameId}
+          onHoverGame={setHoveredGameId}
         />
       </Box>
 
