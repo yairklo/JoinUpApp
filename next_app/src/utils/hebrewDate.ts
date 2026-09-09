@@ -2,7 +2,8 @@
 export function toIsoDateInput(value?: string | null): string {
   if (!value) return "";
   const trimmed = value.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const iso = trimmed.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/);
+  if (iso) return iso[1];
   const dmy = trimmed.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
   if (dmy) {
     return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;

@@ -25,6 +25,7 @@ import { isValidLatLng } from "@/utils/geo";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
+const MAPS_LIBRARIES: ("marker")[] = ["marker"];
 
 interface SearchMapComponentProps {
   games: Game[];
@@ -160,7 +161,7 @@ export default function SearchMapComponent({
         apiKey={GOOGLE_MAPS_API_KEY}
         language="he"
         region="IL"
-        libraries={["marker"]}
+        libraries={MAPS_LIBRARIES}
         onError={(err) => {
           console.error("[SearchMap] Maps API error:", err);
           setApiError(err);

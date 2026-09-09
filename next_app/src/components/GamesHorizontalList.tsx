@@ -38,8 +38,9 @@ export default function GamesHorizontalList({
     const el = scrollerRef.current;
     if (!el) return;
     const amount = Math.min(320, el.clientWidth * 0.75);
-    // RTL row: "next" (toward later cards / visual left) is positive scrollLeft in most engines.
-    el.scrollBy({ left: direction * amount, behavior: "smooth" });
+    // In RTL, "next" (toward later cards / visual left) requires a negative scroll delta.
+    // "Previous" (toward earlier cards / visual right) requires a positive scroll delta.
+    el.scrollBy({ left: -direction * amount, behavior: "smooth" });
   };
 
   const seeAllButtonSx = {
@@ -177,7 +178,7 @@ export default function GamesHorizontalList({
                 insetBlock: 0,
                 insetInlineEnd: 0,
                 width: 40,
-                background: "linear-gradient(to left, var(--mui-palette-background-default, #fff) 0%, transparent 100%)",
+                background: "linear-gradient(to right, var(--mui-palette-background-default, #fff) 0%, transparent 100%)",
               }}
             />
           )}

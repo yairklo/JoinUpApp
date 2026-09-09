@@ -111,9 +111,7 @@ function SearchPageInner() {
   // failed/throwing lookup must not leave the map overlay stuck or crash the page.
   const cityPickerRef = useRef<CityPickerHandle>(null);
   const [locating, setLocating] = useState(false);
-  const [mapEnabled, setMapEnabled] = useState(() =>
-    typeof window !== "undefined" && window.matchMedia("(min-width: 900px)").matches
-  );
+  const [mapEnabled, setMapEnabled] = useState(false);
 
   useEffect(() => {
     const wide = window.matchMedia("(min-width: 900px)");
