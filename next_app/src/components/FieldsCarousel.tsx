@@ -92,7 +92,7 @@ export default function FieldsCarousel({ fields }: { fields: Field[] }) {
               sx={{
                 display: { xs: "none", md: "inline-flex" },
                 position: "absolute",
-                insetInlineStart: 4,
+                insetInlineEnd: 4,
                 top: "40%",
                 transform: "translateY(-50%)",
                 zIndex: 2,
@@ -114,7 +114,7 @@ export default function FieldsCarousel({ fields }: { fields: Field[] }) {
               sx={{
                 display: { xs: "none", md: "inline-flex" },
                 position: "absolute",
-                insetInlineEnd: 4,
+                insetInlineStart: 4,
                 top: "40%",
                 transform: "translateY(-50%)",
                 zIndex: 2,

@@ -495,7 +495,15 @@ function SearchPageInner() {
                   setNetworkGames(false);
                   setShowEmptyFields(false);
                   setSelectedCity("");
-                  if (!userLocation) cityPickerRef.current?.detectLocation();
+                  // The city selection may have moved targetLocation away from the user's
+                  // actual GPS position -- snap back to it if we already have it, otherwise
+                  // (re)try detecting it, instead of leaving the map centered on the city
+                  // that was just cleared.
+                  if (userLocation) {
+                    setTargetLocation(userLocation);
+                  } else {
+                    cityPickerRef.current?.detectLocation();
+                  }
                 }}
               />
             )}

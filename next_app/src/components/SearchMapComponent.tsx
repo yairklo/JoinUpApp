@@ -334,8 +334,31 @@ function ClusteredGameMarkers({
   const contentByKeyRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const [selectedGroup, setSelectedGroup] = useState<GameGroup | null>(null);
 
+  // The clusterer instance itself is created once per `map` (not per `groups` change) --
+  // re-instantiating MarkerClusterer's internal grid/algorithm state on every real-time
+  // join/leave event (which produces a new `groups` array even when only one game's
+  // participant count changed) is unnecessary overhead on top of the marker rebuild below.
   useEffect(() => {
     if (!map) return;
+    const clusterer = new MarkerClusterer({ map });
+    clustererRef.current = clusterer;
+    return () => {
+      clusterer.clearMarkers();
+      clusterer.setMap(null);
+      clustererRef.current = null;
+    };
+  }, [map]);
+
+  // NOTE: this still rebuilds every marker on any `groups` change (e.g. one game's
+  // currentPlayers count updating via socket still recreates all markers, not just that
+  // group's), same as this codebase's other clusterer usage in MapComponent.tsx. A fully
+  // incremental per-key add/update/remove reconciliation would close that gap, but touches
+  // live Google Maps marker/listener lifecycle code that isn't practical to verify without a
+  // real Maps API key and browser -- deliberately not attempted blind here. What's fixed is
+  // the more expensive clusterer-object recreation on every change (above).
+  useEffect(() => {
+    const clusterer = clustererRef.current;
+    if (!map || !clusterer) return;
 
     const markers = groups.map((group) => {
       const content = buildGroupMarkerContent(group);
@@ -353,17 +376,26 @@ function ClusteredGameMarkers({
       return marker;
     });
 
-    const clusterer = new MarkerClusterer({ map, markers });
-    clustererRef.current = clusterer;
+    clusterer.clearMarkers();
+    clusterer.addMarkers(markers);
 
     return () => {
       clusterer.clearMarkers();
-      clusterer.setMap(null);
-      clustererRef.current = null;
       contentByKeyRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, groups]);
+
+  // Keep the open InfoWindow's data in sync with the current result set: if its group is
+  // still present (same location key), refresh it with the latest games/counts; if the
+  // group no longer exists at all (filtered out, moved away), close the InfoWindow instead
+  // of leaving it showing a stale/removed group.
+  useEffect(() => {
+    setSelectedGroup((prev) => {
+      if (!prev) return prev;
+      return groups.find((g) => g.key === prev.key) ?? null;
+    });
+  }, [groups]);
 
   // Highlight whichever pin's group contains the list-hovered game, without
   // rebuilding the clusterer (that would fight with the library's own

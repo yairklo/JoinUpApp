@@ -109,6 +109,10 @@ export default function GlobalSearchOmnibar() {
             setResults(EMPTY);
             setLoading(false);
             if (debounceRef.current) clearTimeout(debounceRef.current);
+            // Also cancel a request already in flight from a previous, longer query --
+            // otherwise it can still resolve after this point and overwrite the just-cleared
+            // results with stale data (performSearch only checks `aborted`, not staleness).
+            if (abortRef.current) abortRef.current.abort();
             return;
         }
         setLoading(true);

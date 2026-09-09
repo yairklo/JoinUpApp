@@ -129,8 +129,13 @@ const CityPicker = forwardRef<CityPickerHandle, CityPickerProps>(function CityPi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // `value` is always normalized to its canonical spelling (see onChange below), but `options`
+  // is the raw, unnormalized city list from the DB -- it may only ever contain a non-canonical
+  // alias (e.g. "תל אביב") and never the literal canonical string ("תל אביב-יפו"). Matching by
+  // exact string equality would then show the field as blank despite a valid selection, so match
+  // by normalized form instead and display whichever spelling actually exists in `options`.
   const displayValue = value
-    ? (options.includes(value) ? value : null)
+    ? (options.find((o) => normalizeCity(o) === normalizeCity(value)) ?? null)
     : (includeAllCitiesOption ? ALL_CITIES_LABEL : null);
 
   return (

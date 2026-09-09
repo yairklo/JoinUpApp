@@ -17,6 +17,7 @@ import UserProfileActions from "@/components/UserProfileActions";
 import UserProfileSections from "@/components/UserProfileSections";
 import UserProfileRating from "@/components/UserProfileRating";
 import { SPORT_MAPPING } from "@/utils/sports";
+import { normalizeName } from "@/utils/normalizeName";
 
 type PublicUser = {
     id: string;
@@ -88,8 +89,8 @@ export default async function UserPublicPage(props: {
                             <Box sx={{ p: 0.5, bgcolor: 'background.paper', borderRadius: '50%' }}>
                                 <Avatar
                                     src={u.imageUrl}
-                                    alt={u.name || u.id}
-                                    name={u.name || u.id}
+                                    alt={normalizeName(u.name) || u.id}
+                                    name={normalizeName(u.name) || u.id}
                                     size="lg" // You might want to add 'xl' size to your Avatar component later for this specific page
                                 />
                             </Box>
@@ -98,7 +99,7 @@ export default async function UserPublicPage(props: {
                         {/* Name & Location */}
                         <Box mt={2} mb={3}>
                             <Typography variant="h4" fontWeight="bold" gutterBottom>
-                                {u.name || "משתמש"}
+                                {normalizeName(u.name) || "משתמש"}
                             </Typography>
 
                             <UserProfileRating
@@ -118,7 +119,7 @@ export default async function UserPublicPage(props: {
                             <Box mt={2}>
                                 <UserProfileActions
                                     targetUserId={id}
-                                    targetUserName={u.name || "משתמש"}
+                                    targetUserName={normalizeName(u.name) || "משתמש"}
                                     targetUserImage={u.imageUrl}
                                 />
                             </Box>

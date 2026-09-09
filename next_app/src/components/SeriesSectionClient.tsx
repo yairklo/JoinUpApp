@@ -5,6 +5,8 @@ import { useAuth, useUser, SignInButton } from "@clerk/nextjs";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 import SeriesHeaderCard from "@/components/SeriesHeaderCard";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
@@ -212,6 +214,30 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     />
                 </>
             )}
+
+            {/* A background refetch (reloadKey bump, socket-triggered refresh) that fails while
+                series are already on screen doesn't replace the rail (see the render logic
+                above), but it should still surface *something* -- otherwise the list can go
+                silently stale with no indication and no way to retry. */}
+            <Snackbar
+                open={!!error}
+                autoHideDuration={6000}
+                onClose={() => setError(null)}
+                anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            >
+                <Alert
+                    severity="warning"
+                    variant="filled"
+                    onClose={() => setError(null)}
+                    action={
+                        <Button color="inherit" size="small" onClick={() => { setError(null); refetch(); }}>
+                            נסה שוב
+                        </Button>
+                    }
+                >
+                    {error}
+                </Alert>
+            </Snackbar>
         </>
     );
 }

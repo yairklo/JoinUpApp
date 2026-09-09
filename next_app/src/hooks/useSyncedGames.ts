@@ -93,7 +93,17 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
                     };
                 } else {
                     // LEAVE
-                    if (!userExists) return game;
+                    if (!userExists) {
+                        // `participants` here is CONFIRMED-only (see mapGameForClient server-side) --
+                        // a viewer leaving from the WAITLISTED status never appears in it, so without
+                        // this branch their own stale viewerParticipationStatus ("WAITLISTED") would
+                        // never get cleared, leaving JoinGameButton stuck showing a waitlisted state
+                        // after they already left.
+                        if (userId === myId && game.viewerParticipationStatus) {
+                            return { ...game, viewerParticipationStatus: null };
+                        }
+                        return game;
+                    }
 
                     return {
                         ...game,
