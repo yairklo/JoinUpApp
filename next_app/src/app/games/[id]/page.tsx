@@ -173,7 +173,7 @@ export default async function GameDetails(props: {
                   ניהול משחק
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  כלים למארגן: עריכת פרטים, תפקידים, קבוצות, הגרלה, רשימת המתנה ובחירת שחקנים.
+                  עריכת פרטי המשחק, וניהול סדרת משחקים שבועית אם יש כזו. תפקידים, קבוצות, הגרלה ורשימת המתנה מנוהלים למעלה, ליד רשימת השחקנים.
                 </Typography>
                 <GameDetailsEditor
                     gameId={game.id}

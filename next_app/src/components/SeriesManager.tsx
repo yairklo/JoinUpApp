@@ -170,7 +170,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
         fullWidth
         sx={{ mt: 1, borderRadius: 2, justifyContent: "flex-start" }}
       >
-        הפוך לקבוצה שבועית
+        צור סדרת משחקים שבועית
       </Button>
 
       <Dialog open={state.open} onClose={actions.handleCloseCreateDialog} fullWidth maxWidth="sm">
