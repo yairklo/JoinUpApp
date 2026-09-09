@@ -50,6 +50,14 @@ if (!publishableKey) {
   console.error("Missing Publishable Key. Please set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in your .env");
 }
 
+// Live keys are on a *.vercel.app domain, which can't be CNAME'd to Clerk's
+// Frontend API (no DNS control over vercel.app). next_app already solves this
+// for web with a proxy at /__clerk (see clerkFrontendApiProxy.ts) — mobile has
+// no "same origin" to rely on, so it needs the same proxy's absolute URL here.
+const clerkProxyUrl = publishableKey?.startsWith("pk_live_")
+  ? "https://join-up-app.vercel.app/__clerk"
+  : undefined;
+
 function RootLayout() {
   const [i18nLoaded, setI18nLoaded] = useState(false);
   const colorScheme = useColorScheme();
@@ -81,7 +89,7 @@ function RootLayout() {
 
   return (
     <I18nextProvider i18n={i18n}>
-      <ClerkProvider tokenCache={tokenStorage} publishableKey={publishableKey}>
+      <ClerkProvider tokenCache={tokenStorage} publishableKey={publishableKey} proxyUrl={clerkProxyUrl}>
         <ClerkLoaded>
           <AuthGuard>
             <ThemeProvider value={colorScheme === 'dark' ? CyberDarkTheme : DefaultTheme}>
