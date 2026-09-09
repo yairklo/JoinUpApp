@@ -30,7 +30,7 @@ export default function ChatsIndexPage() {
     return (
         <Box sx={{ height: "calc(100vh - 70px)", p: 0, bgcolor: "background.paper" }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "primary.main", color: "primary.contrastText" }}>
-                <Typography variant="h6" fontWeight="bold">הצ'אטים שלי</Typography>
+                <Typography variant="h6" fontWeight="bold">הצ&apos;אטים שלי</Typography>
             </Box>
 
             <ChatList
