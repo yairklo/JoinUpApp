@@ -177,6 +177,26 @@ export default function TabLayout() {
           tabBarBadgeStyle: { backgroundColor: '#ef4444' },
         }}
       />
+
+      <Tabs.Screen
+        name="fields"
+        options={{
+          title: t('tabs.fields'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="th-list" color={color} />,
+          tabBarButton: (props) => (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('tabs.fields')}
+              activeOpacity={0.7}
+              onPress={() => router.push('/fields')}
+              style={props.style}
+              className="items-center justify-center"
+            >
+              {props.children}
+            </TouchableOpacity>
+          ),
+        }}
+      />
     </Tabs>
   );
 }

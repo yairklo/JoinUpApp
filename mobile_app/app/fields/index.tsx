@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, TextInput, Image, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Image, FlatList, ActivityIndicator, ScrollView } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -6,8 +6,18 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fieldsApi, Field } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
+import FavoriteButton from '@/components/FavoriteButton';
+import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 
 const PAGE_SIZE = 24;
+
+type SportFilter = 'ALL' | 'SOCCER' | 'BASKETBALL' | 'TENNIS';
+const FILTERS: { label: string; value: SportFilter }[] = [
+    { label: 'הכל', value: 'ALL' },
+    { label: SPORT_MAPPING.SOCCER, value: 'SOCCER' },
+    { label: SPORT_MAPPING.BASKETBALL, value: 'BASKETBALL' },
+    { label: SPORT_MAPPING.TENNIS, value: 'TENNIS' },
+];
 
 export default function FieldsDirectoryScreen() {
     const { t } = useTranslation();
@@ -18,6 +28,7 @@ export default function FieldsDirectoryScreen() {
     const [loadingMore, setLoadingMore] = useState(false);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
+    const [sportFilter, setSportFilter] = useState<SportFilter>('ALL');
 
     // Bumped on every fetch-from-scratch so a slow, superseded search request
     // can't clobber state after a newer one already landed.
@@ -34,7 +45,7 @@ export default function FieldsDirectoryScreen() {
         try {
             // Paginated + server-searched — avoids fetching and filtering the
             // entire (900+ row) fields table on every screen open/keystroke.
-            const page = await fieldsApi.getPage({ take: PAGE_SIZE, skip, q: debouncedQuery });
+            const page = await fieldsApi.getPage({ take: PAGE_SIZE, skip, q: debouncedQuery, sport: sportFilter });
             if (seq !== requestSeq.current) return;
             setFields((prev) => (append ? [...prev, ...page.items] : page.items));
             setHasMore(page.hasMore);
@@ -45,7 +56,7 @@ export default function FieldsDirectoryScreen() {
                 if (append) setLoadingMore(false); else setLoading(false);
             }
         }
-    }, [debouncedQuery]);
+    }, [debouncedQuery, sportFilter]);
 
     useEffect(() => {
         fetchPage(0, false);
@@ -62,13 +73,18 @@ export default function FieldsDirectoryScreen() {
             className="flex-row items-center px-4 py-3 border-b border-gray-100 bg-white"
             accessibilityRole="button"
         >
-            {field.image ? (
-                <Image source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100" />
-            ) : (
-                <View className="w-14 h-14 rounded-xl mr-3 bg-brand-mist items-center justify-center">
-                    <FontAwesome name="map-marker" size={20} color="#059669" />
+            <View style={{ position: 'relative' }}>
+                {field.image ? (
+                    <Image source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100" />
+                ) : (
+                    <View className="w-14 h-14 rounded-xl mr-3 bg-brand-mist items-center justify-center">
+                        <FontAwesome name="map-marker" size={20} color="#059669" />
+                    </View>
+                )}
+                <View style={{ position: 'absolute', top: -4, right: -4 }}>
+                    <FavoriteButton fieldId={field.id} size={14} />
                 </View>
-            )}
+            </View>
             <View className="flex-1">
                 <Text className="text-base font-bold text-gray-900" numberOfLines={1}>{field.name}</Text>
                 <Text className="text-sm text-gray-500 mt-0.5" numberOfLines={1}>
@@ -106,6 +122,26 @@ export default function FieldsDirectoryScreen() {
                         className="flex-1 ml-2 text-base text-gray-800"
                     />
                 </View>
+            </View>
+
+            <View className="px-4 pb-3 border-b border-gray-100">
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {FILTERS.map((f) => {
+                        const selected = sportFilter === f.value;
+                        const emoji = f.value !== 'ALL' ? SPORT_EMOJI[f.value] : undefined;
+                        return (
+                            <TouchableOpacity
+                                key={f.value}
+                                onPress={() => setSportFilter(f.value)}
+                                className={`mr-2 px-4 py-1.5 rounded-full border ${selected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                            >
+                                <Text className={selected ? 'text-white font-bold text-sm' : 'text-gray-600 text-sm'}>
+                                    {emoji ? `${emoji} ${f.label}` : f.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
             </View>
 
             {loading ? (

@@ -11,6 +11,7 @@ import { SPORT_MAPPING } from '@/utils/sports';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import FieldCommentsSection from '@/components/FieldCommentsSection';
 import FieldIssueReportSection from '@/components/FieldIssueReportSection';
+import FavoriteButton from '@/components/FavoriteButton';
 
 const CHART_MAX_HEIGHT = 120;
 
@@ -164,7 +165,12 @@ export default function FieldProfileScreen() {
                 {/* Field Header & Info */}
                 <View className="bg-white mb-4 shadow-sm">
                     {field.image ? (
-                        <Image source={{ uri: field.image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
+                        <View style={{ position: 'relative' }}>
+                            <Image source={{ uri: field.image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
+                            <View style={{ position: 'absolute', top: 12, right: 12 }}>
+                                <FavoriteButton fieldId={fieldId} />
+                            </View>
+                        </View>
                     ) : null}
                     <View className="p-4">
                         <Text className="text-2xl font-bold text-gray-800">{field.name}</Text>
@@ -188,11 +194,24 @@ export default function FieldProfileScreen() {
                             ))}
                         </View>
 
+                        {field.description ? (
+                            <Text className="text-gray-600 text-sm mt-3">{field.description}</Text>
+                        ) : null}
+
                         <Text className="text-gray-500 text-sm mt-3">
                             {!field.price || field.price <= 0
                                 ? t('field.freePrice')
                                 : t('field.pricePerHour', { price: field.price })}
                         </Text>
+
+                        {userId && (
+                            <TouchableOpacity
+                                onPress={() => router.push(`/game/new?fieldId=${fieldId}`)}
+                                className="bg-brand rounded-xl py-3 mt-3 items-center"
+                            >
+                                <Text className="text-white font-bold">{t('field.createGameHere', 'צור משחק חדש במגרש הזה')}</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
 
