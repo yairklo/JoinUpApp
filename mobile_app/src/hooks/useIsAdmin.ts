@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/clerk-expo';
 import { usersApi } from '@/services/api/users';
+import { useAuthTokenRef } from './useAuthTokenRef';
 
 export type IsAdminStatus = 'loading' | 'signed-out' | 'denied' | 'allowed';
 
@@ -10,7 +11,8 @@ export type IsAdminStatus = 'loading' | 'signed-out' | 'denied' | 'allowed';
  * moves where that call happens, it never determines admin status itself.
  */
 export function useIsAdmin() {
-    const { getToken, isLoaded, isSignedIn } = useAuth();
+    const { isLoaded, isSignedIn } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const [status, setStatus] = useState<IsAdminStatus>('loading');
 
     const refresh = useCallback(async () => {
@@ -21,7 +23,7 @@ export function useIsAdmin() {
         }
         setStatus('loading');
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) {
                 setStatus('signed-out');
                 return;
@@ -32,7 +34,10 @@ export function useIsAdmin() {
             console.error(e);
             setStatus('denied');
         }
-    }, [isLoaded, isSignedIn, getToken]);
+        // getTokenRef is a ref object -- its identity never changes, so it's safe here
+        // without retriggering this callback (and the effect below) on every render,
+        // unlike Clerk's getToken function itself (see useAuthTokenRef.ts).
+    }, [isLoaded, isSignedIn, getTokenRef]);
 
     useEffect(() => {
         refresh();
