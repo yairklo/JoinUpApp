@@ -1,7 +1,7 @@
 import { Slot, SplashScreen, Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import { useColorScheme, LogBox, View, Text, AppState, AppStateStatus } from "react-native";
+import { useColorScheme, LogBox, View, Text, AppState, AppStateStatus, Platform } from "react-native";
 import * as Sentry from "@sentry/react-native";
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
@@ -16,7 +16,7 @@ if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
   });
 }
 import { ThemeProvider, DarkTheme, DefaultTheme } from "@react-navigation/native";
-import { ClerkProvider, ClerkLoaded, useAuth } from "@clerk/clerk-expo";
+import { ClerkProvider, ClerkLoaded, useAuth, getClerkInstance } from "@clerk/clerk-expo";
 import { tokenStorage } from "@/services/api/client.adapter";
 import { ChatProvider } from "@/context/ChatContext";
 import { NotificationProvider } from "@/context/NotificationContext";
@@ -52,11 +52,31 @@ if (!publishableKey) {
 
 // Live keys are on a *.vercel.app domain, which can't be CNAME'd to Clerk's
 // Frontend API (no DNS control over vercel.app). next_app already solves this
-// for web with a proxy at /__clerk (see clerkFrontendApiProxy.ts) — mobile has
-// no "same origin" to rely on, so it needs the same proxy's absolute URL here.
+// for web with a proxy at /__clerk (see clerkFrontendApiProxy.ts). This prop
+// only takes effect for Expo *web* — @clerk/clerk-expo's native singleton
+// (provider/singleton/createClerkInstance.js) calls `new ClerkClass(publishableKey)`
+// with no options object at all, so proxyUrl/domain can't reach it that way.
 const clerkProxyUrl = publishableKey?.startsWith("pk_live_")
   ? "https://join-up-app.vercel.app/__clerk"
   : undefined;
+
+// Native (iOS/Android) workaround for the same problem: since the singleton gives
+// us no way to configure the Frontend API host, rewrite requests to the broken
+// raw domain onto the working proxy via the (public, if "__unstable__") request
+// interceptor hook instead. Confirmed additive — this doesn't replace the
+// singleton's own onBeforeRequest (which sets the native auth header).
+if ((Platform.OS === "ios" || Platform.OS === "android") && publishableKey?.startsWith("pk_live_")) {
+  const BROKEN_FAPI_HOST = "clerk.join-up-app.vercel.app";
+  const WORKING_PROXY_ORIGIN = "https://join-up-app.vercel.app";
+  const WORKING_PROXY_PREFIX = "/__clerk";
+  const clerkInstance: any = getClerkInstance({ publishableKey, tokenCache: tokenStorage });
+  clerkInstance.__unstable__onBeforeRequest(async (requestInit: any) => {
+    const url = requestInit?.url;
+    if (url instanceof URL && url.hostname === BROKEN_FAPI_HOST) {
+      requestInit.url = new URL(`${WORKING_PROXY_ORIGIN}${WORKING_PROXY_PREFIX}${url.pathname}${url.search}`);
+    }
+  });
+}
 
 function RootLayout() {
   const [i18nLoaded, setI18nLoaded] = useState(false);
