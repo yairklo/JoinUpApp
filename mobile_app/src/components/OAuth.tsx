@@ -1,13 +1,13 @@
 import React, { useCallback } from "react";
 import * as WebBrowser from "expo-web-browser";
-import { useOAuth } from "@clerk/clerk-expo";
+import { useSSO } from "@clerk/clerk-expo";
 import { TouchableOpacity, Text, View } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export function OAuth({ disabled, disabledMessage }: { disabled?: boolean; disabledMessage?: string }) {
-    const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+    const { startSSOFlow } = useSSO();
 
     const onPress = useCallback(async () => {
         if (disabled) {
@@ -15,7 +15,7 @@ export function OAuth({ disabled, disabledMessage }: { disabled?: boolean; disab
             return;
         }
         try {
-            const { createdSessionId, setActive } = await startOAuthFlow();
+            const { createdSessionId, setActive } = await startSSOFlow({ strategy: "oauth_google" });
 
             if (createdSessionId) {
                 setActive!({ session: createdSessionId });
@@ -23,7 +23,7 @@ export function OAuth({ disabled, disabledMessage }: { disabled?: boolean; disab
         } catch (err) {
             console.error("OAuth error", err);
         }
-    }, [startOAuthFlow]);
+    }, [startSSOFlow]);
 
     return (
         <View className="w-full mt-6">
