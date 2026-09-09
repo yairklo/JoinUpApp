@@ -39,8 +39,10 @@ export function formatJerusalemWeekdayShort(dateInput: Date | string | number): 
   }).format(date);
 }
 
-export function normalizeIncomingGame<T extends { start?: string }>(payload: T): T {
-  if (!payload || !payload.start) return payload;
+export function normalizeIncomingGame<T extends { start?: string }>(
+  payload: T
+): T & { date: string; time: string } {
+  if (!payload || !payload.start) return payload as T & { date: string; time: string };
   try {
     return {
       ...payload,
@@ -49,6 +51,6 @@ export function normalizeIncomingGame<T extends { start?: string }>(payload: T):
     };
   } catch (e) {
     console.error("[normalizeIncomingGame] Failed to format incoming game date/time", e);
-    return payload;
+    return payload as T & { date: string; time: string };
   }
 }

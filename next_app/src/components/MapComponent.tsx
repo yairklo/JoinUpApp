@@ -63,10 +63,22 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
       setUserLocation({ lat: 32.0853, lng: 34.7818 });
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => setUserLocation({ lat: 32.0853, lng: 34.7818 })
-    );
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos?.coords?.latitude;
+          const lng = pos?.coords?.longitude;
+          if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
+            setUserLocation({ lat, lng });
+          } else {
+            setUserLocation({ lat: 32.0853, lng: 34.7818 });
+          }
+        },
+        () => setUserLocation({ lat: 32.0853, lng: 34.7818 })
+      );
+    } catch {
+      setUserLocation({ lat: 32.0853, lng: 34.7818 });
+    }
   }, []);
 
   const fieldMarkers: FieldWithCoords[] = useMemo(() => {
@@ -89,7 +101,7 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
 
   return (
     <div style={{ width: "100%", height: 450 }}>
-      <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he">
+      <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he" region="IL" libraries={["marker"]}>
         <GoogleMap
           mapId="DEMO_MAP_ID"
           defaultCenter={userLocation}

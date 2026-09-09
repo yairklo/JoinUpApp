@@ -4,7 +4,7 @@ import { Heebo } from "next/font/google";
 import "./globals.css";
 
 import { ClerkProvider } from "@clerk/nextjs";
-import { heIL } from "@clerk/localizations";
+import { clerkAppearance, clerkHe } from "@/lib/clerkHe";
 import AppNavbar from "@/components/AppNavbar";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
@@ -60,7 +60,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})} localization={heIL}>
+    <ClerkProvider
+      {...(clerkProxyUrl ? { proxyUrl: clerkProxyUrl } : {})}
+      localization={clerkHe}
+      appearance={clerkAppearance}
+    >
       <html lang="he" dir="rtl">
         <head>
           <link rel="icon" href="/favicon.svg" />

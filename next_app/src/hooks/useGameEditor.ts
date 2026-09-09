@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { gamesApi, UpdateGameDTO, fieldsApi } from "@/services/api";
 import type { FieldOption } from "@/hooks/useGameCreator";
+import { toIsoDateInput } from "@/utils/hebrewDate";
 
 // Helper functions (moved from component)
 export function getIsoDatePart(iso: string | null | undefined) {
@@ -71,7 +72,7 @@ export function useGameEditor({
 
     // Form State
     const [time, setTime] = useState(initialTime);
-    const [date, setDate] = useState(initialDate);
+    const [date, setDate] = useState(() => toIsoDateInput(initialDate));
     const [maxPlayers, setMaxPlayers] = useState(initialMaxPlayers);
     const [sport, setSport] = useState(initialSport);
     const [title, setTitle] = useState(initialTitle || "");

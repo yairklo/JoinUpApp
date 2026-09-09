@@ -17,7 +17,6 @@ import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
@@ -197,17 +196,30 @@ export default function AdminFieldsPage() {
                     </Box>
                   </Stack>
 
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
                     <FormControlLabel
                       control={<Switch checked={field.available !== false} onChange={() => toggleAvailable(field)} />}
                       label={field.available === false ? "מוסתר" : "גלוי"}
                     />
-                    <IconButton onClick={() => openEdit(field)} aria-label="עריכה">
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton onClick={() => setDeleteTarget(field)} aria-label="מחיקה" color="error">
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => openEdit(field)}
+                      startIcon={<EditIcon />}
+                      sx={{ textTransform: "none" }}
+                    >
+                      עריכה
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => setDeleteTarget(field)}
+                      startIcon={<DeleteIcon />}
+                      sx={{ textTransform: "none" }}
+                    >
+                      מחיקה
+                    </Button>
                   </Stack>
                 </Stack>
               ))}

@@ -137,7 +137,7 @@ export default function FieldLocationPicker(props: FieldLocationPickerProps) {
     );
   }
   return (
-    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he">
+    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he" region="IL" libraries={["marker"]}>
       <PickerInner {...props} />
     </APIProvider>
   );

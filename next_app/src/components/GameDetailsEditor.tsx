@@ -28,6 +28,7 @@ import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { SPORT_MAPPING } from "@/utils/sports";
 import { useGameEditor, GameEditorProps } from "@/hooks/useGameEditor";
 import type { FieldOption } from "@/hooks/useGameCreator";
+import { formatHebrewDate, HEBREW_DATE_INPUT_PROPS } from "@/utils/hebrewDate";
 
 export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
   value,
@@ -181,6 +182,8 @@ export default function GameDetailsEditor(props: ComponentProps) {
                   value={state.date}
                   onChange={(e) => actions.setDate(e.target.value)}
                   InputLabelProps={{ shrink: true }}
+                  slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+                  helperText={formatHebrewDate(state.date)}
                 />
               </Grid>
               <Grid size={{ xs: 6 }}>
@@ -294,6 +297,8 @@ export default function GameDetailsEditor(props: ComponentProps) {
                           value={state.regDate}
                           onChange={(e) => actions.setRegDate(e.target.value)}
                           InputLabelProps={{ shrink: true }}
+                          slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+                          helperText={formatHebrewDate(state.regDate)}
                         />
                       </Grid>
                       <Grid size={{ xs: 6 }}>
@@ -343,6 +348,8 @@ export default function GameDetailsEditor(props: ComponentProps) {
                               value={state.publicDate}
                               onChange={(e) => actions.setPublicDate(e.target.value)}
                               InputLabelProps={{ shrink: true }}
+                              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
+                              helperText={formatHebrewDate(state.publicDate)}
                             />
                           </Grid>
                           <Grid size={{ xs: 6 }}>
