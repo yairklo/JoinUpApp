@@ -1,6 +1,7 @@
-import { Redirect } from 'expo-router';
+import React from 'react';
+import FieldsDirectoryScreen from '../fields/index';
 
-/** Tab slot for the Fields directory — navigation is handled in the tab bar button. */
-export default function FieldsTabPlaceholder() {
-  return <Redirect href="/fields" />;
+/** Fields directory rendered directly within the bottom tab navigation. */
+export default function FieldsTabScreen() {
+  return <FieldsDirectoryScreen isTab={true} />;
 }

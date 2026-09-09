@@ -101,7 +101,7 @@ export default function MyGamesSection() {
     return (
         <View className="mb-6">
             <View className="px-5 mb-3 flex-row justify-between items-end">
-                <Text className="text-xl font-black text-gray-900">{t('home.myGames')}</Text>
+                <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">{t('home.myGames')}</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {games.map((game) => (

@@ -1,4 +1,4 @@
-import { View, Text, RefreshControl, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, Text, RefreshControl, TouchableOpacity, ScrollView, Platform, I18nManager } from 'react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useGamesByDate } from '@/hooks/useGamesByDate';
 import { useRouter } from 'expo-router';
@@ -19,14 +19,6 @@ import GlobalSearchOmnibar from '@/components/GlobalSearchOmnibar';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING } from '@/utils/sports';
 
-const SPORTS = [
-  { id: 'ALL', label: 'הכל' },
-  ...Object.keys(SPORT_MAPPING).map(key => ({
-      id: key,
-      label: SPORT_MAPPING[key]
-  }))
-];
-
 const BRAND = '#059669';
 
 export default function HomeScreen() {
@@ -38,6 +30,14 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSport, setSelectedSport] = useState('ALL');
+
+  const sportsList = useMemo(() => [
+    { id: 'ALL', label: t('sports.all', 'הכל') },
+    ...Object.keys(SPORT_MAPPING).map(key => ({
+      id: key,
+      label: t('sports.' + key.toLowerCase(), SPORT_MAPPING[key])
+    }))
+  ], [t]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -88,22 +88,36 @@ export default function HomeScreen() {
     <View className="flex-1 bg-brand-mist/40 dark:bg-cyber-bg">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingVertical: 10, paddingBottom: 110 }}
+        contentContainerStyle={{ paddingVertical: 10, paddingBottom: 130 + (insets.bottom > 0 ? insets.bottom : 8) }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />
         }
       >
-        {/* Compact welcome / brand hero */}
+        {/* Compact welcome / brand hero with quick CTA */}
         <View className="mx-5 mb-4 rounded-3xl overflow-hidden bg-brand-dark px-5 py-5">
-          <Text className="text-brand-pale font-bold text-xs uppercase tracking-widest mb-1">
-            {t('home.welcomeBack')}
-          </Text>
-          <Text className="text-2xl font-black text-white mb-1">
-            היי {user?.firstName || t('home.friend')}
-          </Text>
-          <Text className="text-brand-pale/90 text-sm leading-5">
-            מוצאים משחק. מצטרפים. משחקים.
-          </Text>
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-2">
+              <Text className="text-brand-pale font-bold text-xs uppercase tracking-widest mb-1">
+                {t('home.welcomeBack')}
+              </Text>
+              <Text className="text-2xl font-black text-white mb-1">
+                {t('home.greeting', { name: user?.firstName || t('home.friend') })}
+              </Text>
+              <Text className="text-brand-pale/90 text-sm leading-5">
+                {t('home.tagline')}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push('/game/new')}
+              className="bg-brand py-2.5 px-3 rounded-2xl flex-row items-center border border-brand-light/30 shadow-sm"
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={18} color="#fff" />
+              <Text className="text-white font-bold text-xs ml-1">
+                {t('newGame.createGame', 'צור משחק')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <GlobalSearchOmnibar />
@@ -114,7 +128,7 @@ export default function HomeScreen() {
           className="mb-4"
           contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 8 }}
         >
-          {SPORTS.map((s) => {
+          {sportsList.map((s) => {
             const isActive = selectedSport === s.id;
             return (
               <TouchableOpacity
@@ -160,7 +174,9 @@ export default function HomeScreen() {
                 onPress={() => router.push({ pathname: '/(tabs)/search', params: { date: selectedDate, hideMap: 'true', sport: selectedSport !== 'ALL' ? selectedSport : undefined } })}
                 className="mx-5 mb-4 p-4 rounded-2xl border border-brand-pale bg-brand-mist items-center"
               >
-                <Text className="text-brand-dark font-bold text-center">הצג הכל ({filteredGames.length})</Text>
+                <Text className="text-brand-dark font-bold text-center">
+                  {t('home.showAll', { count: filteredGames.length, defaultValue: `הצג הכל (${filteredGames.length})` })}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -183,20 +199,21 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* Floating "create game" button — moved off the tab bar to keep it uncluttered */}
+      {/* Extended Floating "create game" button */}
       <TouchableOpacity
         onPress={() => router.push('/game/new')}
         accessibilityRole="button"
-        accessibilityLabel="צור משחק"
-        activeOpacity={0.85}
+        accessibilityLabel={t('newGame.createGame', 'צור משחק')}
+        activeOpacity={0.88}
         style={{
           position: 'absolute',
-          right: 20,
+          ...(I18nManager.isRTL ? { left: 20 } : { right: 20 }),
           bottom: 64 + (insets.bottom > 0 ? insets.bottom : 8) + 16,
-          width: 56,
-          height: 56,
-          borderRadius: 28,
+          height: 50,
+          paddingHorizontal: 18,
+          borderRadius: 25,
           backgroundColor: BRAND,
+          flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           ...Platform.select({
@@ -210,7 +227,10 @@ export default function HomeScreen() {
           }),
         }}
       >
-        <Ionicons name="add" size={30} color="#fff" />
+        <Ionicons name="add" size={24} color="#fff" />
+        <Text className="text-white font-black text-sm ml-1.5">
+          {t('newGame.createGame', 'צור משחק')}
+        </Text>
       </TouchableOpacity>
     </View>
   );

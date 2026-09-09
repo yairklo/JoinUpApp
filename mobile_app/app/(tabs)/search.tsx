@@ -15,6 +15,7 @@ import GameMapMarker from '@/components/map/GameMapMarker';
 import EmptyFieldMapMarker from '@/components/map/EmptyFieldMapMarker';
 import { MapBounds, MapMarkerItem } from '@/components/map/types';
 import { getSportColorHex, getSportIconName, getFieldSportTags } from '@/utils/mapSport';
+import { SPORT_MAPPING } from '@/utils/sports';
 
 type SearchMapPayload =
     | { kind: 'games'; games: Game[] }
@@ -52,13 +53,12 @@ export default function SearchScreen() {
     const [emptyFields, setEmptyFields] = useState<any[]>([]);
     const [selectedEmptyField, setSelectedEmptyField] = useState<any | null>(null);
     
-    // Import SPORT_MAPPING to ensure alignment with our global sports list
-    const { SPORT_MAPPING } = require('@/utils/sports');
-    
-    const SPORTS = Object.keys(SPORT_MAPPING).map(key => ({
-        id: key,
-        label: SPORT_MAPPING[key]
-    }));
+    const SPORTS = useMemo(() => {
+        return Object.keys(SPORT_MAPPING).map(key => ({
+            id: key,
+            label: t(`sports.${key}`, SPORT_MAPPING[key])
+        }));
+    }, [t]);
 
     useEffect(() => {
         loadCities();
@@ -339,7 +339,12 @@ export default function SearchScreen() {
                 </View>
 
                 {/* Filter Chips */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    className="-mx-4 flex-row"
+                    contentContainerStyle={{ paddingHorizontal: 16 }}
+                >
                     <TouchableOpacity
                         onPress={() => setIsMapView(!isMapView)}
                         className={`mr-2 px-4 py-2 rounded-full border ${isMapView ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}

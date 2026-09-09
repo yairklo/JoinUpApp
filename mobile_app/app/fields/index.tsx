@@ -18,7 +18,7 @@ const FILTERS: { label: string; value: SportFilter }[] = [
     ...SPORT_KEYS.map((key) => ({ label: SPORT_MAPPING[key], value: key })),
 ];
 
-export default function FieldsDirectoryScreen() {
+export default function FieldsDirectoryScreen({ isTab = false }: { isTab?: boolean }) {
     const { t } = useTranslation();
     const router = useRouter();
     const [fields, setFields] = useState<Field[]>([]);
@@ -100,16 +100,21 @@ export default function FieldsDirectoryScreen() {
         </TouchableOpacity>
     );
 
+    const Container = isTab ? View : SafeAreaView;
+    const containerProps = isTab ? { className: "flex-1 bg-white" } : { edges: ['top'] as const, className: "flex-1 bg-white" };
+
     return (
-        <SafeAreaView edges={['top']} className="flex-1 bg-white">
-            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3" accessibilityRole="button">
-                    <FontAwesome name="arrow-left" size={20} color="#4b5563" />
-                </TouchableOpacity>
-                <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>
-                    {t('field.directory', 'מגרשים')}
-                </Text>
-            </View>
+        <Container {...containerProps}>
+            {!isTab && (
+                <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
+                    <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3" accessibilityRole="button">
+                        <FontAwesome name="arrow-left" size={20} color="#4b5563" />
+                    </TouchableOpacity>
+                    <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>
+                        {t('field.directory', 'מגרשים')}
+                    </Text>
+                </View>
+            )}
 
             <View className="px-4 py-3 border-b border-gray-100">
                 <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
@@ -124,7 +129,11 @@ export default function FieldsDirectoryScreen() {
             </View>
 
             <View className="px-4 pb-3 border-b border-gray-100">
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 4 }}
+                >
                     {FILTERS.map((f) => {
                         const emoji = f.value !== 'ALL' ? SPORT_EMOJI[f.value] : undefined;
                         return (
@@ -159,6 +168,7 @@ export default function FieldsDirectoryScreen() {
                     keyboardShouldPersistTaps="handled"
                     onEndReachedThreshold={0.4}
                     onEndReached={loadMore}
+                    contentContainerStyle={{ paddingBottom: isTab ? 90 : 20 }}
                     ListFooterComponent={loadingMore ? (
                         <View className="py-4 items-center">
                             <ActivityIndicator />
@@ -166,6 +176,6 @@ export default function FieldsDirectoryScreen() {
                     ) : null}
                 />
             )}
-        </SafeAreaView>
+        </Container>
     );
 }

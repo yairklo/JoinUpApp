@@ -9,6 +9,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/components/map/AppBaseMap';
 import FieldMapMarker from '@/components/map/FieldMapMarker';
 import CustomPointMarker from '@/components/map/CustomPointMarker';
@@ -34,6 +35,13 @@ function regionFromCoordinate(coordinate: MapCoordinate, delta = 0.1): MapRegion
     return { ...coordinate, latitudeDelta: delta, longitudeDelta: delta };
 }
 
+function getInitialGameTime() {
+    const d = new Date();
+    d.setHours(d.getHours() + 1);
+    d.setMinutes(0, 0, 0);
+    return d;
+}
+
 export default function NewGameScreen() {
     const { t } = useTranslation();
     const { getToken } = useAuth();
@@ -42,6 +50,7 @@ export default function NewGameScreen() {
     const params = useLocalSearchParams<{ fieldId?: string; seriesId?: string }>();
     const prefilledFieldId = params.fieldId;
     const prefilledSeriesId = params.seriesId;
+    const insets = useSafeAreaInsets();
 
     const [cities, setCities] = useState<string[]>([]);
     const [fields, setFields] = useState<any[]>([]);
@@ -63,7 +72,7 @@ export default function NewGameScreen() {
     const [selectedCity, setSelectedCity] = useState('');
     const [selectedField, setSelectedField] = useState<any>(null);
     const [date, setDate] = useState(new Date());
-    const [time, setTime] = useState(new Date());
+    const [time, setTime] = useState(getInitialGameTime);
     const [maxPlayers, setMaxPlayers] = useState('14');
     const [price, setPrice] = useState('0');
     const [description, setDescription] = useState('');
@@ -382,7 +391,29 @@ export default function NewGameScreen() {
 
     const handleSubmit = async () => {
         if (!selectedField && !customPoint) {
-            Alert.alert("Error", "אנא בחר מגרש או סמן מיקום במפה");
+            Alert.alert(t('game.validationError', 'שגיאת ולידציה'), t('newGame.mustSelectFieldOrPoint', 'אנא בחר מגרש או סמן מיקום במפה'));
+            return;
+        }
+
+        // Combine Date and Time safely using local timezone components
+        const gameDate = new Date(date);
+        const year = gameDate.getFullYear();
+        const month = (gameDate.getMonth() + 1).toString().padStart(2, '0');
+        const day = gameDate.getDate().toString().padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        // Format time string HH:mm
+        const hours = time.getHours().toString().padStart(2, '0');
+        const minutes = time.getMinutes().toString().padStart(2, '0');
+        const timeString = `${hours}:${minutes}`;
+
+        // Client-side validation: must be in the future
+        const startDateTime = new Date(`${dateStr}T${timeString}:00`);
+        if (startDateTime.getTime() <= Date.now()) {
+            Alert.alert(
+                t('game.validationError', 'שגיאת ולידציה'),
+                t('game.timeMustBeInFuture', 'שעת המשחק חייבת להיות בעתיד')
+            );
             return;
         }
 
@@ -391,20 +422,8 @@ export default function NewGameScreen() {
             const token = await getToken();
             if (!token) return;
 
-            // Combine Date and Time safely using local timezone components
-            const gameDate = new Date(date);
-            const year = gameDate.getFullYear();
-            const month = (gameDate.getMonth() + 1).toString().padStart(2, '0');
-            const day = gameDate.getDate().toString().padStart(2, '0');
-            const dateStr = `${year}-${month}-${day}`;
-
-            // Format time string HH:mm
-            const hours = time.getHours().toString().padStart(2, '0');
-            const minutes = time.getMinutes().toString().padStart(2, '0');
-            const timeString = `${hours}:${minutes}`;
-
             // Create combined local datetime and cast to strict UTC ISO string
-            const start = new Date(`${dateStr}T${timeString}:00`).toISOString();
+            const start = startDateTime.toISOString();
 
             let registrationOpensAt = undefined;
             if (futureRegistration) {
@@ -466,7 +485,7 @@ export default function NewGameScreen() {
             router.replace(`/game/${result.id}`);
         } catch (error: any) {
             console.error("Create game failed", error);
-            Alert.alert("Error", error.response?.data?.error || "Failed to create game");
+            Alert.alert(t('game.error', 'שגיאה'), error.response?.data?.error || t('editGame.updateFailed', 'Failed to create game'));
         } finally {
             setSubmitting(false);
         }
@@ -498,13 +517,16 @@ export default function NewGameScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: 'משחק חדש', headerShown: true }} />
-            <ScrollView className="flex-1 bg-gray-50 p-4">
+            <Stack.Screen options={{ title: t('newGame.newGame', 'משחק חדש'), headerShown: true }} />
+            <ScrollView
+                className="flex-1 bg-gray-50"
+                contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom, 16) + 32 }}
+            >
 
                 {/* Sport Selection */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
                     <Text className="text-lg font-bold mb-2 text-gray-800">{t('newGame.sport')}</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row" contentContainerStyle={{ paddingHorizontal: 4 }}>
                         {Object.keys(SPORT_MAPPING).map(s => {
                             const isSelected = sport === s;
                             return (
@@ -514,7 +536,7 @@ export default function NewGameScreen() {
                                     className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
                                 >
                                     <Text className={`${isSelected ? 'text-white' : 'text-gray-700'} font-medium`}>
-                                        {SPORT_MAPPING[s]}
+                                        {t('sports.' + s.toLowerCase(), SPORT_MAPPING[s])}
                                     </Text>
                                 </TouchableOpacity>
                             );
@@ -524,11 +546,11 @@ export default function NewGameScreen() {
 
                 {/* Title */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">כותרת משחק (אופציונלי)</Text>
+                    <Text className="text-lg font-bold mb-2 text-gray-800">{t('newGame.title', 'כותרת המשחק (לא חובה)')}</Text>
                     <TextInput
                         value={title}
                         onChangeText={setTitle}
-                        placeholder="לדוגמה: כדורגל שישי!"
+                        placeholder={t('newGame.titlePlaceholder', 'לדוגמה: כדורגל שישי!')}
                         className="bg-gray-100 p-3 rounded-lg text-left"
                     />
                 </View>
@@ -536,30 +558,30 @@ export default function NewGameScreen() {
                 {/* Field Selection */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
                     <View className="flex-row justify-between items-center mb-2">
-                        <Text className="text-lg font-bold text-gray-800">מיקום</Text>
+                        <Text className="text-lg font-bold text-gray-800">{t('newGame.location', 'מיקום')}</Text>
                         <TouchableOpacity onPress={openMapModal} className="flex-row items-center bg-brand-mist px-3 py-1 rounded-full border border-brand-pale">
                             <FontAwesome name="map-marker" size={14} color="#059669" style={{ marginRight: 6 }} />
-                            <Text className="text-brand-dark font-bold text-xs">בחר במפה</Text>
+                            <Text className="text-brand-dark font-bold text-xs">{t('newGame.selectOnMap', 'בחר במפה')}</Text>
                         </TouchableOpacity>
                     </View>
 
                     {customPoint && !selectedField && (
                         <View className="bg-green-50 p-3 rounded-lg mb-3 border border-green-200">
-                            <Text className="text-green-800 font-bold mb-1">✓ מיקום נבחר מהמפה</Text>
+                            <Text className="text-green-800 font-bold mb-1">✓ {t('newGame.customPoint', 'מיקום נבחר מהמפה')}</Text>
                             <TextInput
                                 value={customFieldName}
                                 onChangeText={setCustomFieldName}
-                                placeholder="שם המיקום (אופציונלי)"
+                                placeholder={t('newGame.customPoint', 'שם המיקום (אופציונלי)')}
                                 className="bg-white p-2 rounded border border-green-100 text-sm mt-1"
                             />
                             <TouchableOpacity onPress={() => setCustomPoint(null)} className="mt-2">
-                                <Text className="text-red-500 text-xs font-bold">הסר בחירה</Text>
+                                <Text className="text-red-500 text-xs font-bold">{t('friends.remove', 'הסר בחירה')}</Text>
                             </TouchableOpacity>
                         </View>
                     )}
 
                     {/* City Selector */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3" contentContainerStyle={{ paddingHorizontal: 4 }}>
                         {cities.map(city => (
                             <TouchableOpacity
                                 key={city}
@@ -572,10 +594,10 @@ export default function NewGameScreen() {
                     </ScrollView>
 
                     <View className="flex-row items-center mb-2">
-                        <Text className="text-sm text-gray-500">בחר מגרש:</Text>
+                        <Text className="text-sm text-gray-500">{t('newGame.selectFieldPrompt', 'בחר מגרש:')}</Text>
                         {fieldsLoading && <ActivityIndicator size="small" className="ml-2" />}
                     </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
                         {fields.map(field => (
                             <TouchableOpacity
                                 key={field.id}
@@ -591,13 +613,13 @@ export default function NewGameScreen() {
 
                 {/* Date & Time */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-4 text-gray-800">מתי?</Text>
+                    <Text className="text-lg font-bold mb-4 text-gray-800">{t('newGame.when', 'מתי?')}</Text>
                     <View className="flex-row justify-between">
                         <TouchableOpacity
                             onPress={() => setShowDatePicker(true)}
                             className="flex-1 bg-gray-100 p-3 rounded-lg mr-2 items-center"
                         >
-                            <Text className="text-gray-500 text-xs mb-1">תאריך</Text>
+                            <Text className="text-gray-500 text-xs mb-1">{t('newGame.date', 'תאריך')}</Text>
                             <Text className="text-gray-800 font-medium">{date.toLocaleDateString()}</Text>
                         </TouchableOpacity>
 
@@ -605,7 +627,7 @@ export default function NewGameScreen() {
                             onPress={() => setShowTimePicker(true)}
                             className="flex-1 bg-gray-100 p-3 rounded-lg ml-2 items-center"
                         >
-                            <Text className="text-gray-500 text-xs mb-1">שעה</Text>
+                            <Text className="text-gray-500 text-xs mb-1">{t('newGame.time', 'שעה')}</Text>
                             <Text className="text-gray-800 font-medium">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
                         </TouchableOpacity>
                     </View>
@@ -623,7 +645,7 @@ export default function NewGameScreen() {
                     <Text className="text-lg font-bold mb-4 text-gray-800">{t('game.details')}</Text>
 
                     <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700">משך זמן (שעות)</Text>
+                        <Text className="text-gray-700">{t('newGame.durationHours', 'משך זמן (שעות)')}</Text>
                         <TextInput
                             value={duration}
                             onChangeText={(v) => setDuration(v.replace(/[^0-9]/g, ''))}
@@ -643,12 +665,12 @@ export default function NewGameScreen() {
                     </View>
 
                     <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700">גודל קבוצה (אופציונלי)</Text>
+                        <Text className="text-gray-700">{t('newGame.teamSize', 'גודל קבוצה (אופציונלי)')}</Text>
                         <TextInput
                             value={teamSize}
                             onChangeText={(v) => setTeamSize(v.replace(/[^0-9]/g, ''))}
                             keyboardType="numeric"
-                            placeholder="e.g. 5"
+                            placeholder={t('newGame.teamSizePlaceholder', 'לדוגמה: 5')}
                             className="bg-gray-100 p-2 rounded-lg w-20 text-center"
                         />
                     </View>
@@ -664,23 +686,23 @@ export default function NewGameScreen() {
                     </View>
 
                     <View className="flex-row items-center justify-between mb-4">
-                        <Text className="text-gray-700 font-bold">משחק פרטי (לחברים בלבד)</Text>
+                        <Text className="text-gray-700 font-bold">{t('newGame.privateGame', 'משחק פרטי (לחברים בלבד)')}</Text>
                         <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#059669' }} />
                     </View>
 
                     <View className="flex-row items-center justify-between">
-                        <Text className="text-gray-700 font-bold">דורש אישור הצטרפות</Text>
+                        <Text className="text-gray-700 font-bold">{t('newGame.requiresApproval', 'דורש אישור הצטרפות')}</Text>
                         <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#059669' }} />
                     </View>
                 </View>
 
                 {/* Optional Description */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">מידע נוסף</Text>
+                    <Text className="text-lg font-bold mb-2 text-gray-800">{t('newGame.additionalInfo', 'מידע נוסף')}</Text>
                     <TextInput
                         value={description}
                         onChangeText={setDescription}
-                        placeholder="הוראות מיוחדות?"
+                        placeholder={t('newGame.specialInstructions', 'הוראות מיוחדות?')}
                         multiline
                         className="bg-gray-100 p-3 rounded-lg h-24 text-top"
                     />
@@ -688,11 +710,11 @@ export default function NewGameScreen() {
 
                 {/* Auto Welcome Message */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)</Text>
+                    <Text className="text-lg font-bold mb-2 text-gray-800">{t('newGame.autoWelcomeMessage', 'הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)')}</Text>
                     <TextInput
                         value={welcomeMessage}
                         onChangeText={setWelcomeMessage}
-                        placeholder="לדוגמה: אהלן! לשלם בביט למספר 054-1234567"
+                        placeholder={t('newGame.autoWelcomePlaceholder', 'לדוגמה: אהלן! לשלם בביט למספר 054-1234567')}
                         multiline
                         className="bg-gray-100 p-3 rounded-lg h-24 text-top"
                     />
@@ -700,18 +722,18 @@ export default function NewGameScreen() {
 
                 {/* צרף חברים */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
-                    <Text className="text-lg font-bold mb-2 text-gray-800">צרף חברים למשחק</Text>
+                    <Text className="text-lg font-bold mb-2 text-gray-800">{t('newGame.addFriends', 'צרף חברים למשחק')}</Text>
                     <TextInput
                         value={searchFriendQuery}
                         onChangeText={setSearchFriendQuery}
-                        placeholder="חפש חברים..."
+                        placeholder={t('newGame.searchFriendsPlaceholder', 'חפש חברים...')}
                         className="bg-gray-100 p-2 rounded-lg text-right mb-3 text-sm"
                     />
                     
                     {friends.length === 0 ? (
-                        <Text className="text-gray-400 text-xs text-center my-2">אין חברים ברשימה</Text>
+                        <Text className="text-gray-400 text-xs text-center my-2">{t('friends.noFriends', 'אין חברים ברשימה')}</Text>
                     ) : (
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row" contentContainerStyle={{ paddingHorizontal: 4 }}>
                             {friends
                                 .filter(f => !searchFriendQuery || f.name?.toLowerCase().includes(searchFriendQuery.toLowerCase()))
                                 .map(friend => {
@@ -751,7 +773,7 @@ export default function NewGameScreen() {
                 {/* Advanced Options */}
                 <View className="bg-white p-4 rounded-xl mb-6 shadow-sm">
                     <TouchableOpacity onPress={() => setShowAdvanced(!showAdvanced)} className="flex-row justify-between items-center py-2">
-                        <Text className="text-lg font-bold text-gray-800">אפשרויות מתקדמות</Text>
+                        <Text className="text-lg font-bold text-gray-800">{t('newGame.advancedOptions', 'אפשרויות מתקדמות')}</Text>
                         <FontAwesome name={showAdvanced ? "chevron-up" : "chevron-down"} size={16} color="#4b5563" />
                     </TouchableOpacity>
 
@@ -761,7 +783,7 @@ export default function NewGameScreen() {
                             {/* הרשמה עתידית */}
                             <View className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
                                 <View className="flex-row items-center justify-between mb-4">
-                                    <Text className="text-gray-800 font-bold text-sm">הרשמה עתידית</Text>
+                                    <Text className="text-gray-800 font-bold text-sm">{t('newGame.futureRegistration', 'הרשמה עתידית')}</Text>
                                     <Switch value={futureRegistration} onValueChange={setFutureRegistration} trackColor={{ true: '#059669' }} />
                                 </View>
                                 {futureRegistration && (
@@ -779,7 +801,7 @@ export default function NewGameScreen() {
                             {/* Lottery */}
                             <View className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-100">
                                 <View className="flex-row items-center justify-between mb-4">
-                                    <Text className="text-orange-900 font-bold text-sm">מערכת הגרלה</Text>
+                                    <Text className="text-orange-900 font-bold text-sm">{t('newGame.lotterySystem', 'מערכת הגרלה')}</Text>
                                     <Switch value={lotteryEnabled} onValueChange={setLotteryEnabled} trackColor={{ true: '#f97316' }} />
                                 </View>
                                 {lotteryEnabled && (
@@ -793,7 +815,7 @@ export default function NewGameScreen() {
                                             </TouchableOpacity>
                                         </View>
                                         <View className="flex-row items-center justify-between">
-                                            <Text className="text-orange-900 text-xs">כלול מארגן בהגרלה</Text>
+                                            <Text className="text-orange-900 text-xs">{t('editGame.organizerInLottery', 'כלול מארגן בהגרלה')}</Text>
                                             <Switch value={organizerInLottery} onValueChange={setOrganizerInLottery} trackColor={{ true: '#f97316' }} />
                                         </View>
                                     </>
@@ -804,7 +826,7 @@ export default function NewGameScreen() {
                             {isPrivate && (
                                 <View className="mb-2 p-4 bg-green-50 rounded-lg border border-green-100">
                                     <View className="flex-row items-center justify-between mb-4">
-                                        <Text className="text-green-900 font-bold text-sm">פתח לציבור בהמשך</Text>
+                                        <Text className="text-green-900 font-bold text-sm">{t('editGame.makePublicLater', 'פתח לציבור בהמשך')}</Text>
                                         <Switch value={makePublicLater} onValueChange={setMakePublicLater} trackColor={{ true: '#22c55e' }} />
                                     </View>
                                     {makePublicLater && (
@@ -844,7 +866,7 @@ export default function NewGameScreen() {
                     className={`p-4 rounded-xl items-center mb-10 ${submitting ? 'bg-brand-soft' : 'bg-brand'}`}
                 >
                     <Text className="text-white font-bold text-lg">
-                        {submitting ? 'יוצר...' : 'צור משחק'}
+                        {submitting ? t('newGame.creating', 'יוצר...') : t('newGame.createGame', 'צור משחק')}
                     </Text>
                 </TouchableOpacity>
 
@@ -853,9 +875,9 @@ export default function NewGameScreen() {
             <Modal visible={showMapModal} animationType="slide" onRequestClose={() => setShowMapModal(false)}>
                 <View className="flex-1 bg-white">
                     <View className="flex-row justify-between items-center p-4 border-b border-gray-200 pt-10">
-                        <Text className="text-lg font-bold">בחר מיקום</Text>
+                        <Text className="text-lg font-bold">{t('newGame.selectLocationModalTitle', 'בחר מיקום')}</Text>
                         <TouchableOpacity onPress={() => setShowMapModal(false)}>
-                            <Text className="text-brand font-bold">סגור</Text>
+                            <Text className="text-brand font-bold">{t('newGame.close', 'סגור')}</Text>
                         </TouchableOpacity>
                     </View>
 

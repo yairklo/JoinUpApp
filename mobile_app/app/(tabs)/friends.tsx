@@ -74,12 +74,12 @@ export default function FriendsScreen() {
 
     const handleRemoveFriend = async (friendId: string) => {
         Alert.alert(
-            t('profile.removeFriendConfirmTitle', 'הסרת חבר'),
-            t('profile.removeFriendConfirmDesc', 'האם אתה בטוח שברצונך להסיר חבר זה?'),
+            t('friends.removeFriendConfirmTitle', 'הסרת חבר'),
+            t('friends.removeFriendConfirmDesc', 'האם אתה בטוח שברצונך להסיר חבר זה?'),
             [
                 { text: t('common.cancel', 'ביטול'), style: 'cancel' },
                 {
-                    text: t('profile.removeFriend', 'הסר'),
+                    text: t('friends.remove', 'הסר'),
                     style: 'destructive',
                     onPress: async () => {
                         try {
@@ -89,7 +89,7 @@ export default function FriendsScreen() {
                                 loadSocialData();
                             }
                         } catch (err) {
-                            Alert.alert(t('error', 'שגיאה'), t('profile.failedToRemove', 'Failed to remove friend'));
+                            Alert.alert(t('common.error', 'שגיאה'), t('profile.failedToRemove', 'Failed to remove friend'));
                         }
                     }
                 }
@@ -100,7 +100,7 @@ export default function FriendsScreen() {
     if (loading && !refreshing) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <LoadingMotif id="crowd-wave" label="טוען חברים…" />
+                <LoadingMotif id="crowd-wave" label={t('friends.loadingFriends', 'טוען חברים…')} />
             </SafeAreaView>
         );
     }
@@ -119,16 +119,16 @@ export default function FriendsScreen() {
                     <View className="w-12 h-12 bg-brand-mist rounded-full items-center justify-center mb-3">
                         <FontAwesome name="user-plus" size={20} color="#059669" />
                     </View>
-                    <Text className="text-lg font-black text-gray-900 mb-1 text-center">מצא חברים חדשים</Text>
+                    <Text className="text-lg font-black text-gray-900 mb-1 text-center">{t('friends.findNewFriends', 'מצא חברים חדשים')}</Text>
                     <Text className="text-gray-500 text-sm text-center mb-4 leading-5">
-                        חפש שחקנים אחרים באזורך כדי לתאם איתם משחקים ולהתחיל לשחק יחד!
+                        {t('friends.findNewFriendsDesc', 'חפש שחקנים אחרים באזורך כדי לתאם איתם משחקים ולהתחיל לשחק יחד!')}
                     </Text>
                     <TouchableOpacity
                         onPress={() => router.push('/user/search-players')}
                         className="bg-brand px-6 py-3 rounded-xl flex-row items-center justify-center w-full shadow-sm"
                     >
                         <FontAwesome name="search" size={14} color="white" style={{ marginRight: 8 }} />
-                        <Text className="text-white font-bold text-base">חפש שחקנים</Text>
+                        <Text className="text-white font-bold text-base">{t('friends.searchPlayers', 'חפש שחקנים')}</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -137,7 +137,7 @@ export default function FriendsScreen() {
                     <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mx-4 mb-4">
                         <Text className="font-extrabold text-gray-900 mb-3 flex-row items-center text-right">
                             <FontAwesome name="bell" size={16} color="#eab308" style={{ marginRight: 6 }} />
-                            {' '}{t('profile.incomingRequests', 'בקשות חברות נכנסות')} ({incomingRequests.length})
+                            {' '}{t('friends.incomingRequests', 'בקשות חברות נכנסות')} ({incomingRequests.length})
                         </Text>
                         {incomingRequests.map(req => (
                             <View key={req.id} className="flex-row items-center justify-between py-2 border-b border-gray-50 last:border-b-0">
@@ -171,13 +171,13 @@ export default function FriendsScreen() {
                 <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mx-4">
                     <Text className="font-extrabold text-gray-900 mb-4 flex-row items-center text-right">
                         <FontAwesome name="users" size={16} color="#059669" style={{ marginRight: 6 }} />
-                        {' '}{t('profile.myFriends', 'החברים שלי')} ({friends.length})
+                        {' '}{t('friends.myFriends', 'החברים שלי')} ({friends.length})
                     </Text>
                     {friends.length === 0 ? (
                         <View className="items-center py-6">
                             <FontAwesome name="users" size={36} color="#d1d5db" />
                             <Text className="text-gray-400 mt-2 text-center text-sm leading-5">
-                                {t('profile.noFriends', 'עדיין אין לך חברים ברשת.')}
+                                {t('friends.noFriends', 'עדיין אין לך חברים ברשת.')}
                             </Text>
                         </View>
                     ) : (
@@ -194,7 +194,7 @@ export default function FriendsScreen() {
                                     onPress={() => handleRemoveFriend(friend.id)}
                                     className="bg-red-50 px-3 py-1.5 rounded-lg border border-red-100"
                                 >
-                                    <Text className="text-xs text-red-600 font-bold">{t('profile.removeFriend', 'הסר')}</Text>
+                                    <Text className="text-xs text-red-600 font-bold">{t('friends.remove', 'הסר')}</Text>
                                 </TouchableOpacity>
                             </View>
                         ))
