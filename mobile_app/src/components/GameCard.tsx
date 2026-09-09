@@ -25,7 +25,7 @@ export default function GameCard({ game, isJoined, children }: GameCardProps) {
     const { t } = useTranslation();
     const sportKey = (game.sport || "DEFAULT").toUpperCase();
     const sportImg = SPORT_IMAGES[sportKey] || SPORT_IMAGES.DEFAULT;
-    const sportLabel = t('sports.' + sportKey.toLowerCase(), SPORT_MAPPING[sportKey] || game.sport || t("sports.all", "ספורט"));
+    const sportLabel = t('sports.' + sportKey.toLowerCase(), SPORT_MAPPING[sportKey] || game.sport || t("sports.sport", "ספורט"));
     const occupancyPercentage = Math.min((game.currentPlayers / game.maxPlayers) * 100, 100);
     const isFull = game.currentPlayers >= game.maxPlayers;
     const spotsLeft = Math.max(0, game.maxPlayers - game.currentPlayers);

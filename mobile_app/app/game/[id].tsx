@@ -111,29 +111,32 @@ export default function GameDetailsScreen() {
 
     const handleעזוב = async () => {
         if (!game) return;
-        const isOrganizer = game.organizerId === user?.id;
         Alert.alert(
-            isOrganizer ? t('game.cancelGameTitle', 'ביטול משחק') : t('game.confirmLeaveTitle', 'עזיבת משחק'),
-            isOrganizer ? t('game.cancelGameConfirm', 'אתה המארגן של המשחק. עזיבה תבטל ותמחק את המשחק לכל המשתתפים. האם להמשיך?') : t('game.confirmLeaveMessage', 'האם אתה בטוח שברצונך לעזוב את המשחק?'),
+            t('game.confirmLeaveTitle', 'עזיבת משחק'),
+            t('game.confirmLeaveMessage', 'האם אתה בטוח שברצונך לעזוב את המשחק?'),
             [
                 { text: t('common.cancel', 'ביטול'), style: "cancel" },
                 {
-                    text: isOrganizer ? t('game.cancelGame', 'בטל משחק') : t('game.leave', 'עזוב'),
+                    text: t('game.leave', 'עזוב'),
                     style: "destructive",
                     onPress: async () => {
                         setActionLoading(true);
                         try {
                             const token = await getToken();
                             if (!token) return;
-                            await gamesApi.leave(game.id, token);
+                            const res = await gamesApi.leave(game.id, token);
                             notifyGameUpdate(game.id, "leave", user?.id || "");
                             Alert.alert(
-                                t('game.success', 'הצלחה'),
-                                isOrganizer ? t('game.gameCancelledSuccess', 'המשחק בוטל בהצלחה.') : t('game.leftGameSuccess', 'עזבת את המשחק בהצלחה.')
+                                t('common.success', 'הצלחה'),
+                                t('game.leftGameSuccess', 'עזבת את המשחק בהצלחה.')
                             );
-                            router.replace('/(tabs)');
+                            if ((res as any)?.deleted) {
+                                router.replace('/(tabs)');
+                            } else {
+                                await fetchGame();
+                            }
                         } catch (err: any) {
-                            Alert.alert(t('game.error', 'שגיאה'), err?.message || err?.response?.data?.error || "הפעולה נכשלה");
+                            Alert.alert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || "הפעולה נכשלה");
                         } finally {
                             setActionLoading(false);
                         }
@@ -484,7 +487,7 @@ export default function GameDetailsScreen() {
                                 disabled={actionLoading}
                                 className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
                             >
-                                <Text className="text-red-600 font-bold text-lg">{isOrganizer ? t('game.cancelGame', 'בטל משחק') : t('game.leaveGame', 'עזוב משחק')}</Text>
+                                <Text className="text-red-600 font-bold text-lg">{t('game.leaveGame', 'עזוב משחק')}</Text>
                             </TouchableOpacity>
                         </View>
                     ) : isWaitlisted ? (

@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Tabs, Link, useRouter } from 'expo-router';
+import { Tabs, Link } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TouchableOpacity, Text, View, useColorScheme, Image, Platform } from 'react-native';
+import { TouchableOpacity, Text, View, useColorScheme, Image } from 'react-native';
 import i18n, { changeLanguage } from '@/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
@@ -24,7 +24,6 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user } = useUser();
   const { friendRequests, unreadMessages } = useNotificationCounters();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const isDark = colorScheme === 'dark';
 

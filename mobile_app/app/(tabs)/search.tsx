@@ -56,7 +56,7 @@ export default function SearchScreen() {
     const SPORTS = useMemo(() => {
         return Object.keys(SPORT_MAPPING).map(key => ({
             id: key,
-            label: t(`sports.${key}`, SPORT_MAPPING[key])
+            label: t('sports.' + key.toLowerCase(), SPORT_MAPPING[key])
         }));
     }, [t]);
 

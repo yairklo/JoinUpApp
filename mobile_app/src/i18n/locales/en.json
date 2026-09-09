@@ -213,6 +213,11 @@
     "selectLocationModalTitle": "Select Location",
     "close": "Close",
     "customPoint": "Custom Location",
+    "locationSelectedFromMap": "Location selected from map",
+    "customLocationNamePlaceholder": "Location name (optional)",
+    "removeSelection": "Remove selection",
+    "createFailed": "Failed to create game",
+    "loadFieldsFailed": "Failed to load fields data",
     "mustSelectFieldOrPoint": "Please select a field or pick a location on the map"
   },
   "chat": {
@@ -253,6 +258,7 @@
     "directory": "Fields",
     "searchPlaceholder": "Search a field or city",
     "emptyDirectory": "No fields found",
+    "loadingFields": "Loading fields…",
     "profile": "Field Profile",
     "notFound": "Field not found",
     "openField": "Open field (outdoor)",
@@ -419,6 +425,7 @@
     "loadingFriends": "Loading friends…"
   },
   "sports": {
+    "sport": "Sport",
     "all": "All",
     "soccer": "Football",
     "basketball": "Basketball",

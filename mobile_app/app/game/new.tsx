@@ -361,7 +361,7 @@ export default function NewGameScreen() {
             }
         } catch (error) {
             console.error("Failed to load data", error);
-            Alert.alert("Error", "Failed to load fields data");
+            Alert.alert(t('common.error', 'שגיאה'), t('newGame.loadFieldsFailed', 'טעינת המגרשים נכשלה'));
         } finally {
             setLoading(false);
         }
@@ -485,7 +485,7 @@ export default function NewGameScreen() {
             router.replace(`/game/${result.id}`);
         } catch (error: any) {
             console.error("Create game failed", error);
-            Alert.alert(t('game.error', 'שגיאה'), error.response?.data?.error || t('editGame.updateFailed', 'Failed to create game'));
+            Alert.alert(t('common.error', 'שגיאה'), error.response?.data?.error || t('newGame.createFailed', 'יצירת המשחק נכשלה'));
         } finally {
             setSubmitting(false);
         }
@@ -567,15 +567,15 @@ export default function NewGameScreen() {
 
                     {customPoint && !selectedField && (
                         <View className="bg-green-50 p-3 rounded-lg mb-3 border border-green-200">
-                            <Text className="text-green-800 font-bold mb-1">✓ {t('newGame.customPoint', 'מיקום נבחר מהמפה')}</Text>
+                            <Text className="text-green-800 font-bold mb-1">✓ {t('newGame.locationSelectedFromMap', 'מיקום נבחר מהמפה')}</Text>
                             <TextInput
                                 value={customFieldName}
                                 onChangeText={setCustomFieldName}
-                                placeholder={t('newGame.customPoint', 'שם המיקום (אופציונלי)')}
+                                placeholder={t('newGame.customLocationNamePlaceholder', 'שם המיקום (אופציונלי)')}
                                 className="bg-white p-2 rounded border border-green-100 text-sm mt-1"
                             />
                             <TouchableOpacity onPress={() => setCustomPoint(null)} className="mt-2">
-                                <Text className="text-red-500 text-xs font-bold">{t('friends.remove', 'הסר בחירה')}</Text>
+                                <Text className="text-red-500 text-xs font-bold">{t('newGame.removeSelection', 'הסר בחירה')}</Text>
                             </TouchableOpacity>
                         </View>
                     )}

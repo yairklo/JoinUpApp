@@ -213,6 +213,11 @@
     "selectLocationModalTitle": "בחר מיקום",
     "close": "סגור",
     "customPoint": "מיקום מותאם אישית",
+    "locationSelectedFromMap": "מיקום נבחר מהמפה",
+    "customLocationNamePlaceholder": "שם המיקום (אופציונלי)",
+    "removeSelection": "הסר בחירה",
+    "createFailed": "יצירת המשחק נכשלה",
+    "loadFieldsFailed": "טעינת המגרשים נכשלה",
     "mustSelectFieldOrPoint": "אנא בחר מגרש או סמן מיקום במפה"
   },
   "chat": {
@@ -253,6 +258,7 @@
     "directory": "מגרשים",
     "searchPlaceholder": "חפש מגרש או עיר",
     "emptyDirectory": "לא נמצאו מגרשים",
+    "loadingFields": "טוען מגרשים…",
     "profile": "פרופיל מגרש",
     "notFound": "המגרש לא נמצא",
     "openField": "מגרש פתוח",
@@ -419,6 +425,7 @@
     "loadingFriends": "טוען חברים…"
   },
   "sports": {
+    "sport": "ספורט",
     "all": "הכל",
     "soccer": "כדורגל",
     "basketball": "כדורסל",

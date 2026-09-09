@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, TextInput, Image, FlatList, ActivityIndicator, ScrollView } from 'react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -13,10 +13,6 @@ import { SPORT_KEYS, SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 const PAGE_SIZE = 24;
 
 type SportFilter = string; // 'ALL' or one of SPORT_KEYS
-const FILTERS: { label: string; value: SportFilter }[] = [
-    { label: 'הכל', value: 'ALL' },
-    ...SPORT_KEYS.map((key) => ({ label: SPORT_MAPPING[key], value: key })),
-];
 
 export default function FieldsDirectoryScreen({ isTab = false }: { isTab?: boolean }) {
     const { t } = useTranslation();
@@ -28,6 +24,14 @@ export default function FieldsDirectoryScreen({ isTab = false }: { isTab?: boole
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [sportFilter, setSportFilter] = useState<SportFilter>('ALL');
+
+    const filters = useMemo(() => [
+        { label: t('sports.all', 'הכל'), value: 'ALL' as SportFilter },
+        ...SPORT_KEYS.map((key) => ({
+            label: t('sports.' + key.toLowerCase(), SPORT_MAPPING[key]),
+            value: key as SportFilter,
+        })),
+    ], [t]);
 
     // Bumped on every fetch-from-scratch so a slow, superseded search request
     // can't clobber state after a newer one already landed.
@@ -134,7 +138,7 @@ export default function FieldsDirectoryScreen({ isTab = false }: { isTab?: boole
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 4 }}
                 >
-                    {FILTERS.map((f) => {
+                    {filters.map((f) => {
                         const emoji = f.value !== 'ALL' ? SPORT_EMOJI[f.value] : undefined;
                         return (
                             <FilterPill
@@ -151,7 +155,7 @@ export default function FieldsDirectoryScreen({ isTab = false }: { isTab?: boole
 
             {loading ? (
                 <View className="flex-1 justify-center items-center">
-                    <LoadingMotif id="pin-drop" label="טוען מגרשים…" />
+                    <LoadingMotif id="pin-drop" label={t('field.loadingFields', 'טוען מגרשים…')} />
                 </View>
             ) : fields.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-8">
