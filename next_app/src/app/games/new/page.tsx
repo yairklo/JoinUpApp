@@ -40,8 +40,9 @@ import IconButton from "@mui/material/IconButton";
 
 import { SPORT_MAPPING, SportType } from "@/utils/sports";
 import { usePaginatedFields } from "@/hooks/usePaginatedFields";
-import { formatHebrewDate, HEBREW_DATE_INPUT_PROPS } from "@/utils/hebrewDate";
+import { formatHebrewDate } from "@/utils/hebrewDate";
 import { formatJerusalemDate, parseJerusalemTimeToUTC } from "@/utils/timezone";
+import { HebrewDateField, HebrewTimeField } from "@/components/HebrewDateTimeField";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -589,14 +590,12 @@ function NewGamePageInner() {
                   />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
-                  <TextField
+                  <HebrewDateField
                     label="תאריך"
-                    type="date"
                     fullWidth
                     size="small"
-                    InputLabelProps={{ shrink: true }}
                     value={form.date}
-                    slotProps={{ htmlInput: { min: todayStr, ...HEBREW_DATE_INPUT_PROPS } }}
+                    min={todayStr}
                     error={!!(form.date && form.time) && parseJerusalemTimeToUTC(form.date, form.time).getTime() < Date.now()}
                     helperText={
                       !!(form.date && form.time) && parseJerusalemTimeToUTC(form.date, form.time).getTime() < Date.now()
@@ -607,13 +606,10 @@ function NewGamePageInner() {
                   />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
-                  <TextField
+                  <HebrewTimeField
                     label="שעה"
-                    type="time"
                     fullWidth
                     size="small"
-                    InputLabelProps={{ shrink: true }}
-                    slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                     value={form.time}
                     onChange={(e) => update("time", e.target.value)}
                   />
@@ -767,26 +763,20 @@ function NewGamePageInner() {
                             </Typography>
                             <Grid container spacing={2} direction="row-reverse">
                               <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
+                                <HebrewDateField
                                   label="תאריך פתיחה לציבור"
-                                  type="date"
                                   fullWidth
                                   size="small"
-                                  InputLabelProps={{ shrink: true }}
                                   value={form.publicDate}
-                                  slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                   helperText={formatHebrewDate(form.publicDate)}
                                   onChange={(e) => update("publicDate", e.target.value)}
                                 />
                               </Grid>
                               <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
+                                <HebrewTimeField
                                   label="שעת פתיחה לציבור"
-                                  type="time"
                                   fullWidth
                                   size="small"
-                                  InputLabelProps={{ shrink: true }}
-                                  slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                   value={form.publicTime}
                                   onChange={(e) => update("publicTime", e.target.value)}
                                 />
@@ -814,26 +804,21 @@ function NewGamePageInner() {
                           </Typography>
                           <Grid container spacing={2} direction="row-reverse">
                             <Grid size={{ xs: 12, sm: 6 }}>
-                              <TextField
+                              <HebrewDateField
                                 label="תאריך הגרלה"
-                                type="date"
                                 fullWidth
                                 size="small"
-                                InputLabelProps={{ shrink: true }}
                                 value={form.lotteryDate}
-                                slotProps={{ htmlInput: { min: todayStr, ...HEBREW_DATE_INPUT_PROPS } }}
+                                min={todayStr}
                                 helperText={formatHebrewDate(form.lotteryDate)}
                                 onChange={(e) => update("lotteryDate", e.target.value)}
                               />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                              <TextField
+                              <HebrewTimeField
                                 label="שעת הגרלה"
-                                type="time"
                                 fullWidth
                                 size="small"
-                                InputLabelProps={{ shrink: true }}
-                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 value={form.lotteryTime}
                                 onChange={(e) => update("lotteryTime", e.target.value)}
                               />
@@ -860,26 +845,20 @@ function NewGamePageInner() {
                           </Typography>
                           <Grid container spacing={2} direction="row-reverse">
                             <Grid size={{ xs: 12, sm: 6 }}>
-                              <TextField
+                              <HebrewDateField
                                 label="תאריך פתיחה"
-                                type="date"
                                 fullWidth
                                 size="small"
-                                InputLabelProps={{ shrink: true }}
                                 value={form.futureRegDate}
-                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 helperText={formatHebrewDate(form.futureRegDate)}
                                 onChange={(e) => update("futureRegDate", e.target.value)}
                               />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                              <TextField
+                              <HebrewTimeField
                                 label="שעת פתיחה"
-                                type="time"
                                 fullWidth
                                 size="small"
-                                InputLabelProps={{ shrink: true }}
-                                slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
                                 value={form.futureRegTime}
                                 onChange={(e) => update("futureRegTime", e.target.value)}
                               />

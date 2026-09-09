@@ -10,6 +10,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
+import { HebrewTimeField } from "@/components/HebrewDateTimeField";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -196,14 +197,12 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
 
                                     <Grid container spacing={2}>
                                         <Grid size={{ xs: 12, sm: state.seriesType === 'WEEKLY' ? 4 : 6 }}>
-                                            <TextField
+                                            <HebrewTimeField
                                                 label="שעה קבועה"
-                                                type="time"
                                                 fullWidth
                                                 size="small"
                                                 value={state.time}
                                                 onChange={(e) => actions.setTime(e.target.value)}
-                                                InputLabelProps={{ shrink: true }}
                                             />
                                         </Grid>
                                         <Grid size={{ xs: 12, sm: state.seriesType === 'WEEKLY' ? 4 : 6 }}>

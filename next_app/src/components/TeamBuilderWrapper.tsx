@@ -101,33 +101,40 @@ export default function TeamBuilderWrapper({
   return (
     <>
       {canManage && (
-        <Box mb={2} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-          <Typography variant="h6" fontWeight="bold">
-            סגל המשחק
-          </Typography>
-          <Box display="flex" gap={1} flexWrap="wrap">
-            <Button
-              component={Link}
-              href={`/games/${gameId}/team-management`}
-              variant="contained"
-              color="secondary"
-              startIcon={<SportsEsportsIcon />}
-              size="small"
-              sx={{ borderRadius: 2, textTransform: "none" }}
-            >
-              ניהול קבוצות חי
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <GroupsIcon />}
-              onClick={() => setIsDialogOpen(true)}
-              size="small"
-              disabled={saving}
-              sx={{ borderRadius: 2, textTransform: "none" }}
-            >
-              {saving ? "שומר..." : "שיבוץ מהיר"}
-            </Button>
+        <Box mb={2}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+            <Typography variant="h6" fontWeight="bold">
+              סגל המשחק
+            </Typography>
+            <Box display="flex" gap={1} flexWrap="wrap">
+              {/* Primary path: the full live screen where managers/captains pick players. */}
+              <Button
+                component={Link}
+                href={`/games/${gameId}/team-management`}
+                variant="contained"
+                startIcon={<SportsEsportsIcon />}
+                size="small"
+                sx={{ borderRadius: 2, textTransform: "none" }}
+              >
+                ניהול קבוצות חי
+              </Button>
+              {/* Secondary path: a quick manual editor for a simple game with no live draft. */}
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <GroupsIcon />}
+                onClick={() => setIsDialogOpen(true)}
+                size="small"
+                disabled={saving}
+                sx={{ borderRadius: 2, textTransform: "none" }}
+              >
+                {saving ? "שומר..." : "עריכה ידנית מהירה"}
+              </Button>
+            </Box>
           </Box>
+          <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
+            ניהול קבוצות חי פותח מסך מלא לבחירת שחקנים על ידי מנהלים. עריכה ידנית מהירה משבצת קבוצות בעצמך, כאן במקום.
+          </Typography>
         </Box>
       )}
 

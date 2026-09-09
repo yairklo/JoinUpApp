@@ -9,6 +9,7 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
 import Card from "@mui/material/Card";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
@@ -112,6 +113,20 @@ export default function GameLiveSection({
 
   const mergeAndSet = (updated?: any) => {
     if (updated) setGame((prev) => ({ ...prev, ...normalizeIncomingGame(updated) }));
+  };
+
+  // "נהל משחק" jumps to the management panel already on this same page rather than navigating
+  // anywhere -- the button alone reads as a dead click, so pair the jump with a brief highlight
+  // on the target so cause and effect are unambiguous.
+  const scrollToManage = () => {
+    const el = document.getElementById("game-manage");
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.style.transition = "box-shadow 0.3s ease";
+    el.style.boxShadow = "0 0 0 3px var(--mui-palette-primary-main, #059669)";
+    window.setTimeout(() => {
+      el.style.boxShadow = "";
+    }, 1400);
   };
 
   async function confirmWaitlist(accept: boolean) {
@@ -267,9 +282,8 @@ export default function GameLiveSection({
                   variant="outlined"
                   color="primary"
                   size="small"
-                  onClick={() => {
-                    document.getElementById("game-manage")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
+                  endIcon={<KeyboardArrowDownIcon />}
+                  onClick={scrollToManage}
                 >
                   נהל משחק
                 </Button>
@@ -289,9 +303,8 @@ export default function GameLiveSection({
               variant={!isWaitlistOfferPending && !isWaitlisted ? "outlined" : "contained"}
               color="primary"
               size="small"
-              onClick={() => {
-                document.getElementById("game-manage")?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
+              endIcon={<KeyboardArrowDownIcon />}
+              onClick={scrollToManage}
             >
               נהל משחק
             </Button>

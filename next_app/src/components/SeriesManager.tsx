@@ -32,6 +32,7 @@ import { ACCEPTED_IMAGE_TYPES } from "@joinup/shared/upload";
 import DeleteSeriesDialog from "./DeleteSeriesDialog";
 import Avatar from "./Avatar";
 import { useSeriesLogic } from "@/hooks/useSeriesLogic";
+import { HebrewTimeField } from "@/components/HebrewDateTimeField";
 
 interface SeriesManagerProps {
   gameId: string;
@@ -109,14 +110,14 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
               השינויים יחולו על כל המשחקים העתידיים בקבוצה זו.
             </Alert>
 
-            <TextField
-              label="שעה קבועה"
-              type="time"
-              fullWidth
-              margin="normal"
-              value={state.editData.time}
-              onChange={(e) => actions.setEditData({ ...state.editData, time: e.target.value })}
-            />
+            <Box mt={2} mb={1}>
+              <HebrewTimeField
+                label="שעה קבועה"
+                fullWidth
+                value={state.editData.time}
+                onChange={(e) => actions.setEditData({ ...state.editData, time: e.target.value })}
+              />
+            </Box>
 
             <FormControlLabel
               control={
@@ -162,14 +163,14 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
   return (
     <>
       <Button
-        variant="text"
-        color="secondary"
+        variant="outlined"
+        size="small"
         startIcon={<UpdateIcon />}
         onClick={() => actions.setOpen(true)}
         fullWidth
-        sx={{ mt: 1, justifyContent: "flex-start" }}
+        sx={{ mt: 1, borderRadius: 2, justifyContent: "flex-start" }}
       >
-        הפוך לקבוצה שבועית
+        צור סדרת משחקים שבועית
       </Button>
 
       <Dialog open={state.open} onClose={actions.handleCloseCreateDialog} fullWidth maxWidth="sm">

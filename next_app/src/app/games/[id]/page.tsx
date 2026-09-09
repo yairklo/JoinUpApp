@@ -14,7 +14,6 @@ import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
 import Link from "next/link";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
@@ -174,19 +173,8 @@ export default async function GameDetails(props: {
                   ניהול משחק
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  כלים למארגן: עריכת פרטים, תפקידים, קבוצות, הגרלה, רשימת המתנה ובחירת שחקנים.
+                  עריכת פרטי המשחק, וניהול סדרת משחקים שבועית אם יש כזו. תפקידים, קבוצות, הגרלה ורשימת המתנה מנוהלים למעלה, ליד רשימת השחקנים.
                 </Typography>
-                <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} mb={2}>
-                  <Button
-                    component={Link}
-                    href={`/games/${game.id}/team-management`}
-                    variant="contained"
-                    size="small"
-                    sx={{ textTransform: "none", fontWeight: 700 }}
-                  >
-                    קבוצות ובחירה חיה
-                  </Button>
-                </Stack>
                 <GameDetailsEditor
                     gameId={game.id}
                     initialTime={game.time}
