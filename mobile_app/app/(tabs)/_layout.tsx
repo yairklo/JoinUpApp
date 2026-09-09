@@ -97,8 +97,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('tabs.games'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="soccer-ball-o" color={color} />,
+          title: t('tabs.home', 'בית'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
           headerTitle: 'JoinUp',
           headerRight: HeaderRight,
         }}
@@ -106,9 +106,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: t('tabs.search'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="map-marker" color={color} />,
-          headerTitle: t('tabs.search'),
+          title: t('tabs.games', 'משחקים'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="soccer-ball-o" color={color} />,
+          headerTitle: t('tabs.games', 'משחקים'),
           headerRight: HeaderRight,
         }}
       />

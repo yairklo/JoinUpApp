@@ -88,7 +88,7 @@ export default function HomeScreen() {
     <View className="flex-1 bg-brand-mist/40 dark:bg-cyber-bg">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingVertical: 10, paddingBottom: 130 + (insets.bottom > 0 ? insets.bottom : 8) }}
+        contentContainerStyle={{ paddingVertical: 10, paddingBottom: 80 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />
         }
@@ -208,10 +208,10 @@ export default function HomeScreen() {
         style={{
           position: 'absolute',
           ...(I18nManager.isRTL ? { left: 20 } : { right: 20 }),
-          bottom: 64 + (insets.bottom > 0 ? insets.bottom : 8) + 16,
-          height: 50,
-          paddingHorizontal: 18,
-          borderRadius: 25,
+          bottom: 16,
+          height: 44,
+          paddingHorizontal: 16,
+          borderRadius: 22,
           backgroundColor: BRAND,
           flexDirection: 'row',
           alignItems: 'center',
@@ -227,7 +227,7 @@ export default function HomeScreen() {
           }),
         }}
       >
-        <Ionicons name="add" size={24} color="#fff" />
+        <Ionicons name="add" size={22} color="#fff" />
         <Text className="text-white font-black text-sm ml-1.5">
           {t('newGame.createGame', 'צור משחק')}
         </Text>

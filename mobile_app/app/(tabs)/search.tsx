@@ -358,7 +358,7 @@ export default function SearchScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        onPress={() => router.push('/fields')}
+                        onPress={() => router.push('/(tabs)/fields')}
                         className="mr-2 px-4 py-2 rounded-full border bg-white border-gray-300"
                         accessibilityRole="button"
                     >
