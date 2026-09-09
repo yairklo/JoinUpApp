@@ -1,41 +1,66 @@
 import React, { useEffect, useState } from 'react';
-import { TouchableOpacity, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useAuth } from '@clerk/clerk-expo';
 import { usersApi } from '@/services/api';
-import type { Field } from '@/services/api/fields';
 
-let globalFavoritesPromise: Promise<Field[]> | null = null;
-let globalFavoritesUserId: string | null = null;
+// Module-level favorite-ids cache + a subscriber list, shared by every mounted
+// FavoriteButton for the signed-in user. A toggle updates this cache and
+// notifies every subscriber synchronously, so e.g. starring a field on the
+// detail screen is immediately reflected in an already-mounted list row too.
+let favoriteIds: Set<string> | null = null;
+let favoriteIdsUserId: string | null = null;
+let loadPromise: Promise<Set<string>> | null = null;
+const listeners = new Set<() => void>();
 
-function getFavorites(userId: string): Promise<Field[]> {
-    if (globalFavoritesPromise && globalFavoritesUserId === userId) {
-        return globalFavoritesPromise;
-    }
-    globalFavoritesUserId = userId;
-    globalFavoritesPromise = usersApi.getFavorites(userId).catch(() => {
-        globalFavoritesPromise = null;
-        return [];
-    });
-    return globalFavoritesPromise;
+function notify() {
+    listeners.forEach((l) => l());
 }
 
-function invalidateFavorites() {
-    globalFavoritesPromise = null;
+function loadFavoriteIds(userId: string, token: string): Promise<Set<string>> {
+    if (favoriteIds && favoriteIdsUserId === userId) {
+        return Promise.resolve(favoriteIds);
+    }
+    if (loadPromise && favoriteIdsUserId === userId) {
+        return loadPromise;
+    }
+    favoriteIdsUserId = userId;
+    loadPromise = usersApi.getFavorites(userId, token)
+        .then((fields) => {
+            favoriteIds = new Set(fields.map((f) => f.id));
+            notify();
+            return favoriteIds;
+        })
+        .catch(() => {
+            loadPromise = null;
+            return new Set<string>();
+        });
+    return loadPromise;
+}
+
+function setFavorite(fieldId: string, isFav: boolean) {
+    if (!favoriteIds) favoriteIds = new Set();
+    if (isFav) favoriteIds.add(fieldId); else favoriteIds.delete(fieldId);
+    notify();
 }
 
 export default function FavoriteButton({ fieldId, size = 20 }: { fieldId: string; size?: number }) {
     const { userId, getToken } = useAuth();
-    const [isFav, setIsFav] = useState(false);
+    const [isFav, setIsFav] = useState(() => favoriteIds?.has(fieldId) ?? false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (!userId) return;
         let cancelled = false;
-        getFavorites(userId).then((arr) => {
-            if (!cancelled) setIsFav(arr.some((f) => f.id === fieldId));
-        });
-        return () => { cancelled = true; };
+        const sync = () => { if (!cancelled) setIsFav(favoriteIds?.has(fieldId) ?? false); };
+        listeners.add(sync);
+        (async () => {
+            const token = await getToken();
+            if (!token || cancelled) return;
+            await loadFavoriteIds(userId, token);
+            sync();
+        })();
+        return () => { cancelled = true; listeners.delete(sync); };
     }, [userId, fieldId]);
 
     if (!userId) return null;
@@ -43,19 +68,19 @@ export default function FavoriteButton({ fieldId, size = 20 }: { fieldId: string
     const toggle = async () => {
         if (loading) return;
         setLoading(true);
+        const next = !isFav;
         try {
             const token = await getToken();
             if (!token) return;
-            if (!isFav) {
+            if (next) {
                 await usersApi.addFavorite(userId, fieldId, token);
-                setIsFav(true);
             } else {
                 await usersApi.removeFavorite(userId, fieldId, token);
-                setIsFav(false);
             }
-            invalidateFavorites();
+            setFavorite(fieldId, next);
         } catch (e) {
             console.error('Failed to toggle favorite', e);
+            Alert.alert('שגיאה', 'לא ניתן היה לעדכן את המועדפים, נסה שוב');
         } finally {
             setLoading(false);
         }

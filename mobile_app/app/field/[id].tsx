@@ -164,14 +164,14 @@ export default function FieldProfileScreen() {
             >
                 {/* Field Header & Info */}
                 <View className="bg-white mb-4 shadow-sm">
-                    {field.image ? (
-                        <View style={{ position: 'relative' }}>
+                    <View style={{ position: 'relative' }}>
+                        {field.image ? (
                             <Image source={{ uri: field.image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
-                            <View style={{ position: 'absolute', top: 12, right: 12 }}>
-                                <FavoriteButton fieldId={fieldId} />
-                            </View>
+                        ) : null}
+                        <View style={{ position: 'absolute', top: 12, right: 12 }}>
+                            <FavoriteButton fieldId={fieldId} />
                         </View>
-                    ) : null}
+                    </View>
                     <View className="p-4">
                         <Text className="text-2xl font-bold text-gray-800">{field.name}</Text>
                         {address ? (

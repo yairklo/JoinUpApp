@@ -186,8 +186,8 @@ export const usersApi = {
         });
     },
 
-    getFavorites: (userId: string) => {
-        return apiClient<Field[]>(`/api/users/${userId}/favorites`, { cache: 'no-store' });
+    getFavorites: (userId: string, token: string) => {
+        return apiClient<Field[]>(`/api/users/${userId}/favorites`, { token, cache: 'no-store' });
     },
 
     addFavorite: (userId: string, fieldId: string, token: string) => {

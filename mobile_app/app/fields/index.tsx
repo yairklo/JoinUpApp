@@ -7,16 +7,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { fieldsApi, Field } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import FavoriteButton from '@/components/FavoriteButton';
-import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
+import FilterPill from '@/components/FilterPill';
+import { SPORT_KEYS, SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 
 const PAGE_SIZE = 24;
 
-type SportFilter = 'ALL' | 'SOCCER' | 'BASKETBALL' | 'TENNIS';
+type SportFilter = string; // 'ALL' or one of SPORT_KEYS
 const FILTERS: { label: string; value: SportFilter }[] = [
     { label: 'הכל', value: 'ALL' },
-    { label: SPORT_MAPPING.SOCCER, value: 'SOCCER' },
-    { label: SPORT_MAPPING.BASKETBALL, value: 'BASKETBALL' },
-    { label: SPORT_MAPPING.TENNIS, value: 'TENNIS' },
+    ...SPORT_KEYS.map((key) => ({ label: SPORT_MAPPING[key], value: key })),
 ];
 
 export default function FieldsDirectoryScreen() {
@@ -127,18 +126,15 @@ export default function FieldsDirectoryScreen() {
             <View className="px-4 pb-3 border-b border-gray-100">
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {FILTERS.map((f) => {
-                        const selected = sportFilter === f.value;
                         const emoji = f.value !== 'ALL' ? SPORT_EMOJI[f.value] : undefined;
                         return (
-                            <TouchableOpacity
+                            <FilterPill
                                 key={f.value}
+                                label={emoji ? `${emoji} ${f.label}` : f.label}
+                                selected={sportFilter === f.value}
                                 onPress={() => setSportFilter(f.value)}
-                                className={`mr-2 px-4 py-1.5 rounded-full border ${selected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
-                            >
-                                <Text className={selected ? 'text-white font-bold text-sm' : 'text-gray-600 text-sm'}>
-                                    {emoji ? `${emoji} ${f.label}` : f.label}
-                                </Text>
-                            </TouchableOpacity>
+                                size="sm"
+                            />
                         );
                     })}
                 </ScrollView>
