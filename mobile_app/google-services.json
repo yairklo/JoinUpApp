@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "387017071876",
+    "project_id": "joinup-ea816",
+    "storage_bucket": "joinup-ea816.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:387017071876:android:93f43eb1a56154c9a94451",
+        "android_client_info": {
+          "package_name": "com.yairklo.joinupapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSkGsi2WtND71FfLA3h5o0IMje_veOPxw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
