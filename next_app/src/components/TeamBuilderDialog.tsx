@@ -186,7 +186,7 @@ export default function TeamBuilderDialog({
         {/* --- Top Bar --- */}
         <AppBar sx={{ position: "relative", bgcolor: "white", color: "text.primary" }} elevation={1}>
           <Toolbar>
-            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
+            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="סגור">
               <CloseIcon />
             </IconButton>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div" fontWeight="bold">

@@ -246,7 +246,7 @@ export default function GameParticipantsList({
 
               {showMenu && (
                 <IconButton
-                  aria-label="options"
+                  aria-label="אפשרויות"
                   onClick={(e) => openMenu(e, p)}
                   size="small"
                 >

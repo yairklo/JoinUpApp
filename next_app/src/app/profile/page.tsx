@@ -429,7 +429,7 @@ export default function ProfilePage() {
                           ערוך פרופיל
                         </Button>
                         <IconButton
-                          aria-label="privacy settings"
+                          aria-label="הגדרות פרטיות"
                           onClick={() => router.push("/profile/settings")}
                         >
                           <SettingsIcon />
@@ -814,7 +814,7 @@ export default function ProfilePage() {
                       {friends.length === 0 && <Typography variant="body2" color="text.secondary">עדיין אין חברים.</Typography>}
                       {friends.slice(0, 5).map((f) => (
                         <ListItem key={f.id} secondaryAction={
-                          <IconButton edge="end" aria-label="remove" size="small" onClick={() => removeFriend(f.id)}>
+                          <IconButton edge="end" aria-label="הסר" size="small" onClick={() => removeFriend(f.id)}>
                             <PersonRemoveIcon fontSize="small" color="action" />
                           </IconButton>
                         }>

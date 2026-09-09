@@ -105,7 +105,7 @@ export default function GamesDateNav({
           onChange={(e, newVal) => handleDateChange(newVal)}
           variant="scrollable"
           scrollButtons="auto"
-          aria-label="games date filters"
+          aria-label="סינון לפי תאריך משחקים"
           // Hide the default underline indicator
           TabIndicatorProps={{ style: { display: "none" } }}
           sx={{

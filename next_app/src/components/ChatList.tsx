@@ -155,7 +155,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
     const listContent = (
         <Box sx={{ width: '100%', bgcolor: 'background.paper', display: 'flex', flexDirection: 'column', height: '100%' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth" aria-label="chat tabs">
+                <Tabs value={tabValue} onChange={handleTabChange} variant="fullWidth" aria-label="לשוניות צ'אט">
                     <Tab icon={<PersonIcon />} iconPosition="start" label="שחקנים" />
                     <Tab icon={<SportsSoccerIcon />} iconPosition="start" label="משחקים" />
                 </Tabs>
