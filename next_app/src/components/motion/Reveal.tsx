@@ -19,13 +19,18 @@ export function Reveal({
 }) {
   const reduced = useReducedMotion();
 
-  if (reduced) return <div className={className}>{children}</div>;
-
+  // Always render the same `motion.div` element (never branch to a plain
+  // `<div>`) so a client-only prefers-reduced-motion resolution never swaps
+  // the underlying element type after hydration -- that swap would force
+  // React to unmount+remount this subtree (and everything inside it),
+  // replaying its own entrance animation on top of whatever content had
+  // already settled in. `initial={false}` on the reduced-motion branch
+  // still fully disables the animation, it just keeps the same node.
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={reduced ? false : { opacity: 0, y }}
+      whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.4, delay, ease: EASE }}
     >
@@ -56,14 +61,15 @@ export function StaggerList({
 }) {
   const reduced = useReducedMotion();
 
-  if (reduced) return <div className={className}>{children}</div>;
-
+  // Same rationale as Reveal above: keep a stable `motion.div` element
+  // across the reduced-motion branch instead of swapping to a plain `<div>`,
+  // so this never remounts (and re-triggers) its children after hydration.
   return (
     <motion.div
       className={className}
-      variants={staggerContainer}
-      initial="hidden"
-      whileInView="show"
+      variants={reduced ? undefined : staggerContainer}
+      initial={reduced ? false : "hidden"}
+      whileInView={reduced ? undefined : "show"}
       viewport={{ once: true, margin: "-40px" }}
     >
       {children}
@@ -73,9 +79,8 @@ export function StaggerList({
 
 export function StaggerItem({ children, className }: { children: ReactNode; className?: string }) {
   const reduced = useReducedMotion();
-  if (reduced) return <div className={className}>{children}</div>;
   return (
-    <motion.div className={className} variants={staggerItem}>
+    <motion.div className={className} variants={reduced ? undefined : staggerItem}>
       {children}
     </motion.div>
   );
