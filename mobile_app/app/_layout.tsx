@@ -1,7 +1,7 @@
 import { Slot, SplashScreen, Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import { useColorScheme, LogBox, View, Text, AppState, AppStateStatus, Platform } from "react-native";
+import { LogBox, View, Text, AppState, AppStateStatus, Platform } from "react-native";
 import * as Sentry from "@sentry/react-native";
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
@@ -25,7 +25,7 @@ import { GameUpdateProvider } from "@/context/GameUpdateContext";
 import { I18nextProvider } from 'react-i18next';
 import i18n, { initI18n } from "@/i18n";
 import { SocketManager } from "@/services/socketManager";
-import { initColorMode } from "@/theme/colorMode";
+import { ColorModeProvider, useColorMode } from "@/theme/ColorModeContext";
 import "../global.css"; // NativeWind
 
 // Fix #9: Defined once outside component — not recreated on every render
@@ -79,13 +79,16 @@ if ((Platform.OS === "ios" || Platform.OS === "android") && publishableKey?.star
 }
 
 function RootLayout() {
-  const [i18nLoaded, setI18nLoaded] = useState(false);
-  const colorScheme = useColorScheme();
+  return (
+    <ColorModeProvider>
+      <RootLayoutInner />
+    </ColorModeProvider>
+  );
+}
 
-  useEffect(() => {
-    // Default to light for new users; restore saved manual preference when present
-    initColorMode().catch((e) => console.error('Color mode init error:', e));
-  }, []);
+function RootLayoutInner() {
+  const [i18nLoaded, setI18nLoaded] = useState(false);
+  const { colorMode } = useColorMode();
 
   useEffect(() => {
     const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
@@ -112,7 +115,7 @@ function RootLayout() {
       <ClerkProvider tokenCache={tokenStorage} publishableKey={publishableKey} proxyUrl={clerkProxyUrl}>
         <ClerkLoaded>
           <AuthGuard>
-            <ThemeProvider value={colorScheme === 'dark' ? CyberDarkTheme : DefaultTheme}>
+            <ThemeProvider value={colorMode === 'dark' ? CyberDarkTheme : DefaultTheme}>
               <ChatProvider>
                 <NotificationProvider>
                   <NotificationCountersProvider>
