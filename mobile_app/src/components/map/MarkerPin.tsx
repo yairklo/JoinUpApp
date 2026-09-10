@@ -59,7 +59,11 @@ export default function MarkerPin({
         <View
             style={{
                 backgroundColor: visual.colorHex,
-                transform: selected ? [{ scale: 1.15 }] : undefined,
+                // Always a well-formed array (never undefined/null) — RN's Fabric style
+                // diffing crashed with "Cannot read property 'forEach' of null" in
+                // processTransform when this toggled between an array and undefined
+                // across a re-render (surfaced once `selected` actually started flipping).
+                transform: [{ scale: selected ? 1.15 : 1 }],
                 width: 27,
                 height: 27,
                 borderRadius: 13.5,

@@ -94,7 +94,6 @@ function AppBaseMapInner<T>(
     const mapRef = useRef<any>(null);
     const [mapSportFilter, setMapSportFilter] = useState<MapSportFilter>(null);
     const [currentRegion, setCurrentRegion] = useState<MapRegion>(initialRegion);
-    const [debouncedRegionForClustering, setDebouncedRegionForClustering] = useState<MapRegion>(initialRegion);
     const boundsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const onBoundsChangeRef = useRef(onBoundsChange);
     onBoundsChangeRef.current = onBoundsChange;
@@ -106,13 +105,11 @@ function AppBaseMapInner<T>(
             longitudeDelta: delta,
         };
         setCurrentRegion(targetRegion);
-        setDebouncedRegionForClustering(targetRegion);
         mapRef.current?.animateToRegion(targetRegion, 500);
     }, []);
 
     const animateToRegion = useCallback((region: MapRegion, duration = 500) => {
         setCurrentRegion(region);
-        setDebouncedRegionForClustering(region);
         mapRef.current?.animateToRegion(region, duration);
     }, []);
 
@@ -121,11 +118,15 @@ function AppBaseMapInner<T>(
         animateToCoordinate,
     }), [animateToCoordinate, animateToRegion]);
 
+    // currentRegion drives sportClusteredNodes directly (not a separately-debounced copy):
+    // debouncing it caused visible markers to vanish mid-pan whenever the viewport moved
+    // past the last-computed cluster bbox before the debounce fired. The clustering
+    // recompute itself is cheap (a spatial query on an already-built index); only the
+    // network fetch below still needs a real debounce, so it stays on its own timer.
     const handleRegionChangeComplete = useCallback((region: MapRegion) => {
         setCurrentRegion(region);
         if (boundsTimeoutRef.current) clearTimeout(boundsTimeoutRef.current);
         boundsTimeoutRef.current = setTimeout(() => {
-            setDebouncedRegionForClustering(region);
             onBoundsChangeRef.current?.(regionToBounds(region), region);
         }, boundsDebounceMs);
     }, [boundsDebounceMs]);
@@ -141,7 +142,7 @@ function AppBaseMapInner<T>(
 
     // Stable per-item coordinate objects, rebuilt only when the underlying marker data
     // changes (not on every viewport update) — reused by both node-building paths below
-    // so an unrelated recompute (e.g. debouncedRegionForClustering ticking) doesn't hand
+    // so an unrelated recompute (e.g. currentRegion ticking on every pan) doesn't hand
     // React.memo'd marker components a fresh `coordinate` reference every time.
     const markerCoordinates = useMemo(() => {
         const map = new Map<string, MapCoordinate>();
@@ -240,7 +241,7 @@ function AppBaseMapInner<T>(
         }
 
         const expZoom = index.getClusterExpansionZoom(clusterId);
-        const currentDelta = debouncedRegionForClustering.latitudeDelta;
+        const currentDelta = currentRegion.latitudeDelta;
         const targetDelta = Math.min(
             currentDelta * 0.5,
             360 / Math.pow(2, expZoom)
@@ -254,20 +255,20 @@ function AppBaseMapInner<T>(
             },
             400
         );
-    }, [sportClusterIndexes, onClusterPress, debouncedRegionForClustering.latitudeDelta, animateToRegion]);
+    }, [sportClusterIndexes, onClusterPress, currentRegion.latitudeDelta, animateToRegion]);
 
     const sportClusteredNodes = useMemo(() => {
         if (!clusterBySport || !sportClusterIndexes) return null;
 
         const { indexes, itemsMap } = sportClusterIndexes;
-        const deltaLng = Math.max(0.0001, Math.abs(debouncedRegionForClustering.longitudeDelta));
-        const deltaLat = Math.max(0.0001, Math.abs(debouncedRegionForClustering.latitudeDelta));
+        const deltaLng = Math.max(0.0001, Math.abs(currentRegion.longitudeDelta));
+        const deltaLat = Math.max(0.0001, Math.abs(currentRegion.latitudeDelta));
 
         const bBox: [number, number, number, number] = [
-            Math.max(-180, debouncedRegionForClustering.longitude - deltaLng * 1.5),
-            Math.max(-85, debouncedRegionForClustering.latitude - deltaLat * 1.5),
-            Math.min(180, debouncedRegionForClustering.longitude + deltaLng * 1.5),
-            Math.min(85, debouncedRegionForClustering.latitude + deltaLat * 1.5),
+            Math.max(-180, currentRegion.longitude - deltaLng * 1.5),
+            Math.max(-85, currentRegion.latitude - deltaLat * 1.5),
+            Math.min(180, currentRegion.longitude + deltaLng * 1.5),
+            Math.min(85, currentRegion.latitude + deltaLat * 1.5),
         ];
         const zoom = Math.min(
             18,
@@ -316,7 +317,7 @@ function AppBaseMapInner<T>(
         clusterBySport,
         sportClusterIndexes,
         markerCoordinates,
-        debouncedRegionForClustering,
+        currentRegion,
         selectedMarkerId,
         renderMarker,
         onMarkerPress,
