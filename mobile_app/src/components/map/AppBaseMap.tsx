@@ -1,6 +1,7 @@
 import React, {
     forwardRef,
     useCallback,
+    useEffect,
     useImperativeHandle,
     useMemo,
     useRef,
@@ -97,6 +98,29 @@ function AppBaseMapInner<T>(
     const boundsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const onBoundsChangeRef = useRef(onBoundsChange);
     onBoundsChangeRef.current = onBoundsChange;
+    const pendingRegionRef = useRef<MapRegion | null>(null);
+    const regionRafRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (regionRafRef.current != null) cancelAnimationFrame(regionRafRef.current);
+        };
+    }, []);
+
+    // Coalesces a burst of onRegionChangeComplete events (a few consecutive fast pans/
+    // zooms fire several before the JS thread catches up) into at most one currentRegion
+    // commit per animation frame, always using the freshest region. Without this, every
+    // queued event forced its own full sportClusteredNodes recompute + marker
+    // reconciliation, and those piling up was enough to visibly freeze the map for a few
+    // seconds -- worse the denser the markers in view.
+    const scheduleRegionUpdate = useCallback((region: MapRegion) => {
+        pendingRegionRef.current = region;
+        if (regionRafRef.current != null) return;
+        regionRafRef.current = requestAnimationFrame(() => {
+            regionRafRef.current = null;
+            if (pendingRegionRef.current) setCurrentRegion(pendingRegionRef.current);
+        });
+    }, []);
 
     const animateToCoordinate = useCallback((coordinate: MapCoordinate, delta = 0.05) => {
         const targetRegion = {
@@ -124,12 +148,12 @@ function AppBaseMapInner<T>(
     // recompute itself is cheap (a spatial query on an already-built index); only the
     // network fetch below still needs a real debounce, so it stays on its own timer.
     const handleRegionChangeComplete = useCallback((region: MapRegion) => {
-        setCurrentRegion(region);
+        scheduleRegionUpdate(region);
         if (boundsTimeoutRef.current) clearTimeout(boundsTimeoutRef.current);
         boundsTimeoutRef.current = setTimeout(() => {
             onBoundsChangeRef.current?.(regionToBounds(region), region);
         }, boundsDebounceMs);
-    }, [boundsDebounceMs]);
+    }, [boundsDebounceMs, scheduleRegionUpdate]);
 
     const visibleMarkers = useMemo(() => {
         if (!showSportFilter || !mapSportFilter) return markers;
