@@ -183,7 +183,11 @@ function AppBaseMapInner<T>(
                 item,
                 selected: selectedMarkerId === item.id,
                 onPress: () => onMarkerPress?.(item.payload, item),
-                animateToCoordinate: () => animateToCoordinate(coordinate),
+                // The stable top-level function directly -- it already takes a coordinate
+                // argument, so wrapping it in a fresh per-item thunk on every recompute
+                // (as this used to) was both wasted allocation and silently ignored
+                // whatever coordinate a caller passed in favor of this item's own.
+                animateToCoordinate,
             });
             if (!node) return null;
             // react-native-map-clustering only recognizes a child as clusterable when
@@ -327,7 +331,7 @@ function AppBaseMapInner<T>(
                         item,
                         selected: selectedMarkerId === item.id,
                         onPress: () => onMarkerPress?.(item.payload, item),
-                        animateToCoordinate: () => animateToCoordinate(coordinate),
+                        animateToCoordinate,
                     });
                     if (node) {
                         nodes.push(React.cloneElement(node as React.ReactElement<any>, { key: item.id, coordinate }));

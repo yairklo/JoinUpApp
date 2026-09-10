@@ -32,7 +32,7 @@ const GameMapMarker = React.memo(function GameMapMarker({
     return (
         <Marker
             coordinate={{ latitude: lat, longitude: lng }}
-            anchor={{ x: 0.5, y: 1.0 }}
+            anchor={{ x: 0.5, y: 0.5 }}
             hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
             tracksViewChanges={tracksViewChanges}
             onPress={(e) => {

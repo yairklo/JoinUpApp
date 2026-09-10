@@ -33,12 +33,18 @@ function mergeCapped(prev: Field[], incoming: Field[], cap?: { centerLat: number
     for (const f of incoming) prevMap.set(f.id, f);
     let merged = Array.from(prevMap.values());
 
-    if (cap && merged.length > MAX_CACHED_MAP_FIELDS) {
-        merged = merged
-            .map((f) => ({ field: f, distance: Math.hypot(f.lat! - cap.centerLat, f.lng! - cap.centerLng) }))
-            .sort((a, b) => a.distance - b.distance)
-            .slice(0, MAX_CACHED_MAP_FIELDS)
-            .map((x) => x.field);
+    if (merged.length > MAX_CACHED_MAP_FIELDS) {
+        merged = cap
+            // Bounds-driven fetch: drop whatever is farthest from this fetch's own center.
+            ? merged
+                .map((f) => ({ field: f, distance: Math.hypot(f.lat! - cap.centerLat, f.lng! - cap.centerLng) }))
+                .sort((a, b) => a.distance - b.distance)
+                .slice(0, MAX_CACHED_MAP_FIELDS)
+                .map((x) => x.field)
+            // mergeFields has no viewport center to measure distance from -- fall back to
+            // dropping the oldest entries (Map preserves insertion order) so the cap is
+            // still enforced regardless of which path added fields.
+            : merged.slice(merged.length - MAX_CACHED_MAP_FIELDS);
     }
     return merged;
 }
@@ -56,10 +62,9 @@ interface UseMapFieldsOptions {
  * accumulating them across pans/zooms (so already-viewed courts don't vanish) while
  * capping the cache and skipping the state update entirely when a fetch didn't actually
  * change anything -- keeps AppBaseMap's per-sport Supercluster rebuild cheap regardless
- * of how much of the map has been explored. Shared by the fields directory and the games
- * map's "empty fields" overlay so a fix here (or a future one) applies to both instead of
- * needing to be repeated -- this is what search.tsx's own separate, uncapped, un-deduped
- * fetch against the heavier /api/fields/search endpoint was missing.
+ * of how much of the map has been explored. Kept as its own hook (rather than inlined in
+ * the fields directory screen) so any future map-driven screen can reuse the same fetch/
+ * cache behavior instead of re-deriving it.
  */
 export function useMapFields({ query, sport, city, enabled = true }: UseMapFieldsOptions = {}) {
     const [fields, setFields] = useState<Field[]>([]);

@@ -38,7 +38,7 @@ const SportClusterMarker = memo(function SportClusterMarker({
                 onPress(clusterId, sport, latitude, longitude);
             }}
         >
-            <MarkerPin visual={visual} isCluster={true} />
+            <MarkerPin visual={visual} isCluster={true} badgeCount={count} />
         </Marker>
     );
 });

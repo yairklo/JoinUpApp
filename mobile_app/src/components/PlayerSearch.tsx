@@ -1,10 +1,11 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 /**
  * Inline player search + add-friend list, embedded directly in the friends page
@@ -18,35 +19,37 @@ export default function PlayerSearch() {
     const { t } = useTranslation();
 
     const [query, setQuery] = useState('');
+    const debouncedQuery = useDebouncedValue(query, 300);
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-    const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const performSearch = useCallback(async (searchQuery: string) => {
-        if (!searchQuery.trim()) {
+    useEffect(() => {
+        if (!debouncedQuery.trim()) {
             setResults([]);
             return;
         }
-        try {
-            setLoading(true);
-            const token = await getToken();
-            if (!token) return;
-            const data = await usersApi.search(searchQuery, token);
-            setResults(data);
-        } catch (error) {
-            console.error('Search players failed:', error);
-            Alert.alert(t('error', 'שגיאה'), t('searchFailed', 'החיפוש נכשל, נסה שוב.'));
-        } finally {
-            setLoading(false);
-        }
-    }, [getToken, t]);
-
-    const handleInputChange = (text: string) => {
-        setQuery(text);
-        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-        debounceTimeoutRef.current = setTimeout(() => performSearch(text), 300);
-    };
+        let cancelled = false;
+        (async () => {
+            try {
+                setLoading(true);
+                const token = await getToken();
+                if (!token || cancelled) return;
+                const data = await usersApi.search(debouncedQuery, token);
+                if (!cancelled) setResults(data);
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Search players failed:', error);
+                    Alert.alert(t('error', 'שגיאה'), t('searchFailed', 'החיפוש נכשל, נסה שוב.'));
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [debouncedQuery, getToken, t]);
 
     const handleAddFriend = async (targetUserId: string) => {
         try {
@@ -76,7 +79,7 @@ export default function PlayerSearch() {
                 <TextInput
                     placeholder={t('profile.searchPlayersPlaceholder', 'חפש שחקנים לפי שם או אימייל...')}
                     value={query}
-                    onChangeText={handleInputChange}
+                    onChangeText={setQuery}
                     className="flex-1 text-base text-gray-800 text-right"
                     autoCapitalize="none"
                     autoCorrect={false}

@@ -59,7 +59,7 @@ const FieldMapMarker = React.memo(function FieldMapMarker({
                 onPress(group);
             }}
         >
-            <MarkerPin visual={visual} selected={selected} isCluster={group.length > 1} />
+            <MarkerPin visual={visual} selected={selected} isCluster={group.length > 1} badgeCount={group.length > 1 ? group.length : undefined} />
             {showCallout && group.length === 1 && (
                 <Callout tooltip onPress={onCalloutPress}>
                     <View className="bg-white p-3 rounded-xl min-w-[140px] shadow-md border border-gray-100">

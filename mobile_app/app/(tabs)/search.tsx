@@ -110,7 +110,10 @@ export default function SearchScreen() {
             const token = await getToken();
             const params = new URLSearchParams();
             if (query) params.append('q', query);
-            if (selectedCity) params.append('city', selectedCity);
+            // The city chip is only shown in list view (the map is already viewport-scoped),
+            // so don't let a city chosen earlier keep silently filtering map results with no
+            // way to see or clear it.
+            if (selectedCity && !isMapView) params.append('city', selectedCity);
             if (networkGames) params.append('networkGames', 'true');
             if (isMapView && mapBounds) {
                 params.append('minLat', mapBounds.minLat.toString());
@@ -161,9 +164,10 @@ export default function SearchScreen() {
                 finalGames = finalGames.filter(g => g.date === targetDateStr);
             }
             
-            // Explicit local filter for city, to ensure the map and list never show items from other cities
-            // even if the backend search is fuzzy
-            if (selectedCity) {
+            // Explicit local filter for city, to ensure the list never shows items from other
+            // cities even if the backend search is fuzzy -- only in list view, matching the
+            // city chip's own visibility (see the `!isMapView` guard above).
+            if (selectedCity && !isMapView) {
                 finalGames = finalGames.filter(g => {
                     const loc = g.field?.location || g.fieldLocation || '';
                     const city = g.field?.city || g.city || '';
