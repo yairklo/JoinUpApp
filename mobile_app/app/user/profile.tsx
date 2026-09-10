@@ -589,6 +589,22 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
+                {/* Bug Report / Feedback */}
+                <TouchableOpacity
+                    onPress={() => router.push('/settings/feedback' as any)}
+                    className="bg-white p-4 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100 flex-row items-center justify-between"
+                >
+                    <View className="flex-row items-center">
+                        <View className="w-9 h-9 rounded-full bg-brand-pale items-center justify-center mr-3">
+                            <FontAwesome name="commenting-o" size={16} color="#059669" />
+                        </View>
+                        <Text className="text-base font-bold text-gray-800">
+                            {t('settings.feedback', 'דיווח על באג / יצירת קשר')}
+                        </Text>
+                    </View>
+                    <FontAwesome name="chevron-left" size={14} color="#9ca3af" />
+                </TouchableOpacity>
+
                 {/* Sign Out */}
                 <TouchableOpacity
                     onPress={handleSignOut}

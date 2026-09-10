@@ -133,6 +133,14 @@ export default function PrivacySettingsScreen() {
                             <Text className="text-white font-bold text-base">{t('privacy.save')}</Text>
                         )}
                     </TouchableOpacity>
+
+                    <TouchableOpacity
+                        onPress={() => router.push('/settings/feedback' as any)}
+                        className="bg-white rounded-2xl border border-gray-100 px-4 py-3 flex-row items-center justify-between mt-6"
+                    >
+                        <Text className="text-base text-gray-800">{t('settings.feedback', 'דיווח על באג / יצירת קשר')}</Text>
+                        <FontAwesome name="chevron-left" size={14} color="#9ca3af" />
+                    </TouchableOpacity>
                 </ScrollView>
             )}
         </SafeAreaView>

@@ -115,13 +115,6 @@ export default function SettingsScreen() {
                 <View className="bg-white mx-4 rounded-xl mb-6 shadow-sm overflow-hidden">
                     <TouchableOpacity
                         className="p-4 border-b border-gray-100 flex-row items-center justify-between"
-                        onPress={() => router.push('/settings/feedback' as any)}
-                    >
-                        <Text className="text-base text-gray-800">{t('settings.feedback', 'Report a Bug / Contact Us')}</Text>
-                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        className="p-4 border-b border-gray-100 flex-row items-center justify-between"
                         onPress={() => router.push('/legal/privacy' as any)}
                     >
                         <Text className="text-base text-gray-800">{t('settings.privacyPolicy', 'Privacy Policy')}</Text>
