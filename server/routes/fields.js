@@ -226,6 +226,9 @@ router.get('/cities/top', async (req, res) => {
 // Slim query for map markers — no relational counts
 router.get('/map', async (req, res) => {
   try {
+    if (!hasBoundingBox(req.query)) {
+      return res.status(400).json({ error: 'Bounding box (minLat, maxLat, minLng, maxLng) is required' });
+    }
     const where = applyBrowseFilters(buildFieldSearchWhere(req.query), req.query);
     // Only return fields that have coordinates
     if (!where.lat) where.lat = { not: null };

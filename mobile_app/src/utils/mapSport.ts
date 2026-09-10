@@ -66,13 +66,8 @@ function normalizeSupportedSports(supportedSports?: string[]): string[] {
 }
 
 /** Sport tags derived solely from venue DB metadata — never from form state. */
-export function getFieldSportTags(field: { supportedSports?: string[]; name?: string }): string[] {
-    const tags = normalizeSupportedSports(field.supportedSports);
-    if (tags.length === 0 && field.name) {
-        const fromName = normalizeSportKey(field.name);
-        if (fromName) return [fromName];
-    }
-    return tags;
+export function getFieldSportTags(field: { supportedSports?: string[] }): string[] {
+    return normalizeSupportedSports(field.supportedSports);
 }
 
 export function fieldMatchesSportFilter(
@@ -105,26 +100,15 @@ export function getSportMarkerVisual(sport?: string): MarkerVisual {
     };
 }
 
-export function getFieldMarkerVisual(
-    field: { supportedSports?: string[]; name?: string },
-    preferredSport?: string | null
-): MarkerVisual {
+/**
+ * Icon is derived exclusively from the venue's supportedSports DB field.
+ * Form/screen sport context is intentionally ignored.
+ */
+export function getFieldMarkerVisual(field: { supportedSports?: string[] }): MarkerVisual {
     const supported = normalizeSupportedSports(field.supportedSports);
 
-    if (preferredSport && preferredSport !== 'ALL') {
-        const key = normalizeSportKey(preferredSport);
-        if (key && (supported.length === 0 || supported.includes(key))) {
-            return getSportMarkerVisual(key);
-        }
-    }
-
-    if (supported.length > 0) {
+    if (supported.length === 1) {
         return getSportMarkerVisual(supported[0]);
-    }
-
-    if (field.name) {
-        const fromName = normalizeSportKey(field.name);
-        if (fromName) return getSportMarkerVisual(fromName);
     }
 
     return NEUTRAL_MARKER_VISUAL;

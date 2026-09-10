@@ -14,6 +14,7 @@ import FieldMapMarker from '@/components/map/FieldMapMarker';
 import { MapBounds, MapMarkerItem, MapCoordinate, regionToBounds, DEFAULT_MAP_REGION } from '@/components/map/types';
 import { getFieldSportTags, getSportColorHex, getSportIconName } from '@/utils/mapSport';
 import { SPORT_KEYS, SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
+import { isAbortError } from '@/utils/apiErrors';
 
 const PAGE_SIZE = 24;
 
@@ -260,12 +261,11 @@ export default function FieldsDirectoryScreen() {
                 key={ctx.item.id}
                 field={field}
                 selected={ctx.selected}
-                preferredSport={sportFilter}
                 showCallout={false}
                 onPress={handleFieldPress}
             />
         );
-    }, [sportFilter, handleFieldPress]);
+    }, [handleFieldPress]);
 
     // Render field row for list view
     const renderField = ({ item: field }: { item: Field }) => (
@@ -417,6 +417,7 @@ export default function FieldsDirectoryScreen() {
                         ref={mapRef}
                         markers={mapMarkers}
                         renderMarker={renderMapMarker}
+                        selectedMarkerId={selectedMapField?.id ?? null}
                         onBoundsChange={handleMapBoundsChange}
                         onMapPress={() => {
                             setSelectedMapField(null);

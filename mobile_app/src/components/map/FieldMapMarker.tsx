@@ -20,7 +20,6 @@ interface FieldMapMarkerProps {
     selected?: boolean;
     onPress: (field: MapField) => void;
     showCallout?: boolean;
-    preferredSport?: string | null;
     onCalloutPress?: () => void;
 }
 
@@ -29,12 +28,11 @@ const FieldMapMarker = React.memo(function FieldMapMarker({
     selected = false,
     onPress,
     showCallout = false,
-    preferredSport,
     onCalloutPress,
 }: FieldMapMarkerProps) {
     const lat = field.lat;
     const lng = field.lng;
-    const visual = getFieldMarkerVisual(field, preferredSport);
+    const visual = getFieldMarkerVisual(field);
     const tracksViewChanges = useTracksViewChangesFreeze([field.id, selected, visual.iconName, visual.colorHex]);
 
     if (lat == null || lng == null) return null;

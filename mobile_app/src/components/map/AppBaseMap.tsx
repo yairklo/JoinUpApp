@@ -7,6 +7,7 @@ import React, {
     useState,
 } from 'react';
 import { View, ActivityIndicator, ScrollView, TouchableOpacity, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import ClusteredMapView from 'react-native-map-clustering';
 // @ts-ignore
 import SuperclusterClass from 'supercluster';
@@ -22,8 +23,6 @@ import {
 } from './types';
 
 const Supercluster = (SuperclusterClass as any)?.default || SuperclusterClass;
-
-import i18n from '@/i18n';
 
 export type MapSportFilter = 'SOCCER' | 'BASKETBALL' | 'TENNIS' | null;
 
@@ -91,6 +90,7 @@ function AppBaseMapInner<T>(
     }: AppBaseMapProps<T>,
     ref: React.Ref<AppBaseMapHandle>
 ) {
+    const { t } = useTranslation();
     const mapRef = useRef<any>(null);
     const [mapSportFilter, setMapSportFilter] = useState<MapSportFilter>(null);
     const [currentRegion, setCurrentRegion] = useState<MapRegion>(initialRegion);
@@ -139,9 +139,21 @@ function AppBaseMapInner<T>(
         });
     }, [markers, mapSportFilter, showSportFilter]);
 
+    // Stable per-item coordinate objects, rebuilt only when the underlying marker data
+    // changes (not on every viewport update) — reused by both node-building paths below
+    // so an unrelated recompute (e.g. debouncedRegionForClustering ticking) doesn't hand
+    // React.memo'd marker components a fresh `coordinate` reference every time.
+    const markerCoordinates = useMemo(() => {
+        const map = new Map<string, MapCoordinate>();
+        for (const item of visibleMarkers) {
+            map.set(item.id, { latitude: item.latitude, longitude: item.longitude });
+        }
+        return map;
+    }, [visibleMarkers]);
+
     const markerNodes = useMemo(() => {
         return visibleMarkers.map((item) => {
-            const coordinate = { latitude: item.latitude, longitude: item.longitude };
+            const coordinate = markerCoordinates.get(item.id)!;
             const node = renderMarker({
                 item,
                 selected: selectedMarkerId === item.id,
@@ -154,7 +166,7 @@ function AppBaseMapInner<T>(
             // components wrap their own <Marker> internally, so it never sees it there.
             return React.cloneElement(node as React.ReactElement<any>, { key: item.id, coordinate });
         });
-    }, [visibleMarkers, selectedMarkerId, renderMarker, onMarkerPress, animateToCoordinate]);
+    }, [visibleMarkers, markerCoordinates, selectedMarkerId, renderMarker, onMarkerPress, animateToCoordinate]);
 
     // Build and cache SuperCluster instances per sport whenever visibleMarkers changes
     const sportClusterIndexes = useMemo(() => {
@@ -281,7 +293,7 @@ function AppBaseMapInner<T>(
                 } else {
                     const item = itemsMap.get(feature.properties.itemId);
                     if (!item) continue;
-                    const coordinate = { latitude: item.latitude, longitude: item.longitude };
+                    const coordinate = markerCoordinates.get(item.id)!;
                     const node = renderMarker({
                         item,
                         selected: selectedMarkerId === item.id,
@@ -299,6 +311,7 @@ function AppBaseMapInner<T>(
     }, [
         clusterBySport,
         sportClusterIndexes,
+        markerCoordinates,
         debouncedRegionForClustering,
         selectedMarkerId,
         renderMarker,
@@ -306,6 +319,24 @@ function AppBaseMapInner<T>(
         animateToCoordinate,
         handleClusterPress,
     ]);
+
+    // react-native-map-clustering rebuilds its internal supercluster state (and, with
+    // clusteringEnabled=false, resets markers/spider state to empty) in a useEffect keyed
+    // on its own `children` prop reference. JSX `{a}{b}` children are a fresh array on
+    // every render of this component regardless of whether `a`/`b` themselves changed, so
+    // an unrelated re-render (e.g. the `loading` prop flipping while fetching more courts)
+    // was making the library tear down and rebuild its cluster state every time — freezing
+    // pan/zoom while `mapLoading` toggled. Memoizing the actual children keeps that prop
+    // referentially stable when nothing marker-related changed.
+    const mapChildren = useMemo(
+        () => (
+            <>
+                {clusterBySport ? sportClusteredNodes : markerNodes}
+                {overlayChildren}
+            </>
+        ),
+        [clusterBySport, sportClusteredNodes, markerNodes, overlayChildren]
+    );
 
     const containerClass =
         className ||
@@ -317,7 +348,10 @@ function AppBaseMapInner<T>(
         <>
             <View className={containerClass}>
                 {loading && (
-                    <View className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-white p-2 rounded-full shadow-lg">
+                    <View
+                        pointerEvents="none"
+                        className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-white p-2 rounded-full shadow-lg"
+                    >
                         <ActivityIndicator size="small" color="#059669" />
                     </View>
                 )}
@@ -329,10 +363,10 @@ function AppBaseMapInner<T>(
                             contentContainerStyle={{ paddingHorizontal: 2 }}
                         >
                             {([
-                                { id: null, label: i18n.t('sports.all', 'הכל') },
-                                { id: 'SOCCER', label: i18n.t('sports.soccer', SPORT_MAPPING.SOCCER) },
-                                { id: 'BASKETBALL', label: i18n.t('sports.basketball', SPORT_MAPPING.BASKETBALL) },
-                                { id: 'TENNIS', label: i18n.t('sports.tennis', SPORT_MAPPING.TENNIS) },
+                                { id: null, label: t('sports.all', 'הכל') },
+                                { id: 'SOCCER', label: t('sports.soccer', SPORT_MAPPING.SOCCER) },
+                                { id: 'BASKETBALL', label: t('sports.basketball', SPORT_MAPPING.BASKETBALL) },
+                                { id: 'TENNIS', label: t('sports.tennis', SPORT_MAPPING.TENNIS) },
                             ] as Array<{ id: MapSportFilter; label: string }>).map((chip) => {
                                 const isActive = mapSportFilter === chip.id;
                                 return (
@@ -376,8 +410,7 @@ function AppBaseMapInner<T>(
                             : undefined
                     }
                 >
-                    {clusterBySport ? sportClusteredNodes : markerNodes}
-                    {overlayChildren}
+                    {mapChildren}
                 </ClusteredMapView>
             </View>
             {bottomSheet}
