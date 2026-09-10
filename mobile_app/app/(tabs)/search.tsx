@@ -18,6 +18,7 @@ import MapListToggle from '@/components/map/MapListToggle';
 import { MapBounds, MapMarkerItem } from '@/components/map/types';
 import { getSportColorHex, getSportIconName, getFieldSportTags } from '@/utils/mapSport';
 import { SPORT_MAPPING } from '@/utils/sports';
+import { useMapFields } from '@/hooks/useMapFields';
 
 type SearchMapPayload =
     | { kind: 'games'; games: Game[] }
@@ -52,8 +53,16 @@ export default function SearchScreen() {
     const [isMapView, setIsMapView] = useState(params.hideMap !== 'true');
     const [networkGames, setNetworkGames] = useState(false);
     const [showEmptyFields, setShowEmptyFields] = useState(false);
-    const [emptyFields, setEmptyFields] = useState<any[]>([]);
     const [selectedEmptyField, setSelectedEmptyField] = useState<any | null>(null);
+
+    // Same cheap, capped, deduped map-fields fetch the fields directory uses (instead of a
+    // separate heavier /api/fields/search call) -- "empty" is then just "no game in the
+    // current (already filtered) results list", computed client-side below.
+    const { fields: mapFieldCandidates, fetchForBounds: fetchMapFieldCandidates } = useMapFields({
+        sport: selectedSport ?? undefined,
+        city: selectedCity ?? undefined,
+        enabled: showEmptyFields,
+    });
     
     const SPORTS = useMemo(() => {
         return Object.keys(SPORT_MAPPING).map(key => ({
@@ -179,23 +188,6 @@ export default function SearchScreen() {
             }
 
             setGames(finalGames);
-
-            // Fetch empty fields in bounding box if filter is enabled
-            if (showEmptyFields && isMapView && mapBounds) {
-                const fieldParams = new URLSearchParams();
-                fieldParams.append('minLat', mapBounds.minLat.toString());
-                fieldParams.append('maxLat', mapBounds.maxLat.toString());
-                fieldParams.append('minLng', mapBounds.minLng.toString());
-                fieldParams.append('maxLng', mapBounds.maxLng.toString());
-                if (targetDateStr) {
-                    fieldParams.append('date', targetDateStr);
-                }
-                const allFields = await fieldsApi.search(fieldParams);
-                const empty = allFields.filter(f => f.upcomingGamesCount === 0);
-                setEmptyFields(empty);
-            } else {
-                setEmptyFields([]);
-            }
         } catch (error) {
             console.error("Search failed", error);
         } finally {
@@ -254,6 +246,15 @@ export default function SearchScreen() {
             </View>
         </TouchableOpacity>
     ), [i18n.language, t, router]);
+
+    // "Empty" = a candidate court (from the cheap, already-filtered-by-sport/city map fetch)
+    // that has none of the currently-shown games -- i.e. no game matching whatever the user
+    // is actually searching for right now, not just "zero games ever" server-side.
+    const emptyFields = useMemo(() => {
+        if (!showEmptyFields) return [];
+        const fieldIdsWithGames = new Set(games.map((g) => g.field?.id || g.fieldId).filter(Boolean));
+        return mapFieldCandidates.filter((f) => !fieldIdsWithGames.has(f.id));
+    }, [showEmptyFields, mapFieldCandidates, games]);
 
     const groupedMapGames = useMemo(() => {
         return Object.values(games.reduce((acc, game) => {
@@ -322,7 +323,14 @@ export default function SearchScreen() {
 
     const handleMapBoundsChange = useCallback((bounds: MapBounds) => {
         setMapBounds(bounds);
-    }, []);
+        fetchMapFieldCandidates(bounds);
+    }, [fetchMapFieldCandidates]);
+
+    // Fetch immediately when the "empty fields" toggle turns on (not just on the next pan) --
+    // fetchMapFieldCandidates itself no-ops while the toggle is off (enabled: showEmptyFields).
+    useEffect(() => {
+        if (showEmptyFields && mapBounds) fetchMapFieldCandidates(mapBounds);
+    }, [showEmptyFields, mapBounds, fetchMapFieldCandidates]);
 
     return (
         <View className="flex-1 bg-gray-50">

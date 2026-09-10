@@ -15,33 +15,15 @@ import MapListToggle from '@/components/map/MapListToggle';
 import { MapBounds, MapMarkerItem, MapCoordinate, regionToBounds, DEFAULT_MAP_REGION } from '@/components/map/types';
 import { getFieldSportTags } from '@/utils/mapSport';
 import { SPORT_KEYS, SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
-import { isAbortError } from '@/utils/apiErrors';
+import { useMapFields } from '@/hooks/useMapFields';
 
 const PAGE_SIZE = 24;
-// Caps how many courts the map keeps accumulating as the user explores, so the
-// per-sport Supercluster rebuild (server/routes/fields.js's /map results feed it)
-// stays cheap regardless of how much of the map has been panned over this session.
-const MAX_CACHED_MAP_FIELDS = 400;
 
 type SportFilter = string; // 'ALL' or one of SPORT_KEYS
 
 /** Groups courts that sit at the exact same coordinates (a multi-court venue) under one key. */
 function coordKey(lat: number, lng: number): string {
     return `${lat},${lng}`;
-}
-
-/** Expands a bounding box by a multiplier so surrounding courts are preloaded */
-function expandBounds(bounds: MapBounds, factor = 2.0): MapBounds {
-    const latSpan = Math.max(bounds.maxLat - bounds.minLat, 0.04);
-    const lngSpan = Math.max(bounds.maxLng - bounds.minLng, 0.04);
-    const latPad = (latSpan * (factor - 1)) / 2;
-    const lngPad = (lngSpan * (factor - 1)) / 2;
-    return {
-        minLat: Math.max(-90, Number((bounds.minLat - latPad).toFixed(6))),
-        maxLat: Math.min(90, Number((bounds.maxLat + latPad).toFixed(6))),
-        minLng: Math.max(-180, Number((bounds.minLng - lngPad).toFixed(6))),
-        maxLng: Math.min(180, Number((bounds.maxLng + lngPad).toFixed(6))),
-    };
 }
 
 export default function FieldsDirectoryScreen() {
@@ -58,9 +40,7 @@ export default function FieldsDirectoryScreen() {
     const [loadingMore, setLoadingMore] = useState(false);
 
     // Map view state (accumulates courts as user pans or searches)
-    const [mapFields, setMapFields] = useState<Field[]>([]);
     const [mapBounds, setMapBounds] = useState<MapBounds>(() => regionToBounds(DEFAULT_MAP_REGION));
-    const [mapLoading, setMapLoading] = useState(false);
     const [selectedMapField, setSelectedMapField] = useState<Field | null>(null);
     const [selectedClusterFields, setSelectedClusterFields] = useState<Field[] | null>(null);
     const [clusterFieldIndex, setClusterFieldIndex] = useState(0);
@@ -93,52 +73,13 @@ export default function FieldsDirectoryScreen() {
         return () => clearTimeout(timer);
     }, [query]);
 
-    // Fetch courts for a given bounding box (always sends minLat, maxLat, minLng, maxLng)
-    const fetchMapFields = useCallback(async (bounds: MapBounds) => {
-        const expanded = expandBounds(bounds, 2.0);
-        setMapLoading(true);
-        try {
-            const results = await fieldsApi.searchMap(expanded, {
-                q: debouncedQuery,
-                sport: sportFilter,
-            });
-            const valid = results.filter((f) => f.lat != null && f.lng != null);
-            const centerLat = (bounds.minLat + bounds.maxLat) / 2;
-            const centerLng = (bounds.minLng + bounds.maxLng) / 2;
-
-            // Merge newly discovered fields into the map cache so courts in already viewed
-            // areas don't vanish -- but bail out of the state update entirely when this
-            // fetch didn't actually change anything (e.g. panning back over an already-
-            // loaded area), so it doesn't force a full re-cluster for no reason. Also caps
-            // the cache so that cost stays bounded no matter how much of the map has been
-            // explored -- courts farthest from this fetch's center are dropped first.
-            setMapFields((prev) => {
-                const prevMap = new Map(prev.map((f) => [f.id, f] as const));
-                const changed = valid.some((f) => {
-                    const existing = prevMap.get(f.id);
-                    return !existing || existing.lat !== f.lat || existing.lng !== f.lng;
-                });
-                if (!changed && prev.length <= MAX_CACHED_MAP_FIELDS) return prev;
-
-                for (const f of valid) prevMap.set(f.id, f);
-                let merged = Array.from(prevMap.values());
-
-                if (merged.length > MAX_CACHED_MAP_FIELDS) {
-                    merged = merged
-                        .map((f) => ({ field: f, distance: Math.hypot(f.lat! - centerLat, f.lng! - centerLng) }))
-                        .sort((a, b) => a.distance - b.distance)
-                        .slice(0, MAX_CACHED_MAP_FIELDS)
-                        .map((x) => x.field);
-                }
-                return merged;
-            });
-        } catch (error: any) {
-            if (isAbortError(error)) return;
-            console.error('Failed to load map fields', error);
-        } finally {
-            setMapLoading(false);
-        }
-    }, [debouncedQuery, sportFilter]);
+    // Fetches courts for the map's viewport, accumulating/capping/deduping across pans and
+    // zooms -- shared with search.tsx's "empty fields" overlay via useMapFields so a fix to
+    // this fetching/caching logic only needs to happen once.
+    const { fields: mapFields, loading: mapLoading, fetchForBounds: fetchMapFields, mergeFields: mergeMapFields } = useMapFields({
+        query: debouncedQuery,
+        sport: sportFilter,
+    });
 
     // Initial fetch on mount with default bounds
     useEffect(() => {
@@ -196,12 +137,7 @@ export default function FieldsDirectoryScreen() {
             if (debouncedQuery && page.items.length > 0) {
                 const withCoords = page.items.filter((f) => f.lat != null && f.lng != null);
                 if (withCoords.length > 0) {
-                    setMapFields((prev) => {
-                        const map = new Map<string, Field>();
-                        for (const f of prev) map.set(f.id, f);
-                        for (const f of withCoords) map.set(f.id, f);
-                        return Array.from(map.values());
-                    });
+                    mergeMapFields(withCoords);
                     if (!append) {
                         mapRef.current?.animateToRegion({
                             latitude: withCoords[0].lat!,
@@ -219,7 +155,7 @@ export default function FieldsDirectoryScreen() {
                 if (append) setLoadingMore(false); else setLoading(false);
             }
         }
-    }, [debouncedQuery, sportFilter]);
+    }, [debouncedQuery, sportFilter, mergeMapFields]);
 
     // Re-fetch list on filter change
     useEffect(() => {
