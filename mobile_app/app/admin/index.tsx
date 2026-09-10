@@ -12,9 +12,10 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 export default function AdminHubScreen() {
     const router = useRouter();
 
-    const items: { title: string; subtitle: string; icon: keyof typeof FontAwesome.glyphMap; href: '/admin/fields' | '/admin/moderation' }[] = [
+    const items: { title: string; subtitle: string; icon: keyof typeof FontAwesome.glyphMap; href: '/admin/fields' | '/admin/moderation' | '/admin/feedback' }[] = [
         { title: 'ניהול מגרשים', subtitle: 'הוספה, עריכה ומחיקה של מגרשים', icon: 'map-marker', href: '/admin/fields' },
         { title: 'ניהול תוכן ודיווחים', subtitle: 'תגובות ודיווחי ליקויים שדווחו, חסימת משתמשים', icon: 'shield', href: '/admin/moderation' },
+        { title: 'פניות ודיווחי באגים', subtitle: 'הודעות משתמשים ודיווחי באגים', icon: 'comment', href: '/admin/feedback' },
     ];
 
     return (

@@ -34,6 +34,7 @@ model User {
   fieldIssueReports         FieldIssueReport[]
   fieldIssueReportReactions FieldIssueReportReaction[]
   fieldIssueReportFlags     FieldIssueReportFlag[]
+  supportMessages           SupportMessage[]
   requestsRecv              FriendRequest[]            @relation("Recv")
   requestsSent              FriendRequest[]            @relation("Sent")
   friendshipsA              Friendship[]               @relation("A")
@@ -171,6 +172,16 @@ enum FieldIssueStatus {
   RESOLVED
 }
 
+enum SupportMessageType {
+  BUG
+  FEEDBACK
+}
+
+enum SupportMessageStatus {
+  OPEN
+  RESOLVED
+}
+
 /// Player-reported physical defect at a field (pothole, broken lighting, etc.).
 /// `parentId` supports one level of replies to a report; a reply has no `category`
 /// (that's a top-level-report-only concept) and never changes `status`.
@@ -246,6 +257,27 @@ model FieldReport {
 
   @@index([fieldId, dayOfWeek, hour])
   @@index([fieldId, userId, createdAt])
+}
+
+/// A user-submitted bug report or general message to the app team, surfaced
+/// to admins under /admin (web) and /admin (mobile). Not tied to a specific
+/// Field or Game -- this is app-wide feedback, unlike FieldIssueReport.
+model SupportMessage {
+  id         String               @id @default(cuid())
+  userId     String
+  type       SupportMessageType
+  message    String
+  /// Optional free-text context the client can attach (e.g. current screen/route,
+  /// app version) to help debugging. Never required.
+  context    String?
+  status     SupportMessageStatus @default(OPEN)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  resolvedAt DateTime?
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Game {

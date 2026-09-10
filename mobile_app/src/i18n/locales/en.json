@@ -594,7 +594,19 @@
     "notificationsPermissionMessage": "To receive notifications, please allow permissions in device settings.",
     "notificationsPermissionRequired": "Notification Permission Required",
     "openSettings": "Open Settings",
-    "updatePushFailed": "Failed to update notification settings, please try again."
+    "updatePushFailed": "Failed to update notification settings, please try again.",
+    "feedback": "Report a Bug / Contact Us"
+  },
+  "feedback": {
+    "title": "Report a Bug / Contact Us",
+    "description": "Found a bug? Have an idea or comment? We'd love to hear it.",
+    "typeBug": "Report a bug",
+    "typeFeedback": "General feedback",
+    "messageLabel": "What would you like to tell us?",
+    "submit": "Submit",
+    "success": "Thanks! Your message was sent.",
+    "failure": "Sending failed, please try again.",
+    "signInRequired": "You need to sign in to send a message."
   },
   "upload": {
     "permissionRequired": "Permission Required",

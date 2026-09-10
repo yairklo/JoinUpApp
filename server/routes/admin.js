@@ -267,4 +267,39 @@ router.post('/field-issue-flags/:id/dismiss', authenticateToken, requireAdmin, a
   }
 });
 
+// GET /api/admin/support-messages - list bug reports / messages, newest first
+router.get('/support-messages', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const rows = await prisma.supportMessage.findMany({
+      // OPEN before RESOLVED (alphabetical asc puts 'OPEN' < 'RESOLVED'), newest first within
+      // each -- otherwise `take: 100` lets resolved rows push old open ones out of the window.
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      take: 100,
+      include: { user: { select: { id: true, name: true, imageUrl: true } } },
+    });
+    res.json(rows);
+  } catch (error) {
+    console.error('List support messages error:', error);
+    res.status(500).json({ error: 'Failed to list support messages' });
+  }
+});
+
+// POST /api/admin/support-messages/:id/resolve - mark a support message resolved
+router.post('/support-messages/:id/resolve', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const updated = await prisma.supportMessage.update({
+      where: { id: req.params.id },
+      data: { status: 'RESOLVED', resolvedAt: new Date() },
+      include: { user: { select: { id: true, name: true, imageUrl: true } } },
+    });
+    res.json(updated);
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Support message not found' });
+    }
+    console.error('Resolve support message error:', error);
+    res.status(500).json({ error: 'Failed to resolve support message' });
+  }
+});
+
 module.exports = router;

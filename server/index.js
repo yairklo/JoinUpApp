@@ -29,6 +29,7 @@ const messagesRoutes = require('./routes/messages');
 const notificationsRoutes = require('./routes/notifications');
 const searchRoutes = require('./routes/search');
 const adminRoutes = require('./routes/admin');
+const supportRoutes = require('./routes/support');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
 const { NotificationService } = require('./services/notificationService');
@@ -219,6 +220,7 @@ app.use('/api/search', searchRoutes);
 console.log('✅ [ROUTES] Notification routes mounted at /api/notifications');
 app.use('/api/chats', require('./routes/chats'));
 app.use('/api/admin', adminRoutes);
+app.use('/api/support', supportRoutes);
 
 // Health check
 let redisReady = false;
