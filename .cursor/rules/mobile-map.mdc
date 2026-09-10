@@ -1,0 +1,60 @@
+---
+description: Mobile map layer (react-native-maps + clustering) — perf pitfalls that already regressed once
+globs: mobile_app/src/components/map/**
+alwaysApply: false
+---
+
+# Mobile map layer (joinUp)
+
+Two real perf regressions shipped in `feature/mobile-courts-map-and-filters` when a new marker
+type (`SportClusterMarker`) and a new clustering mode (`AppBaseMap`'s `clusterBySport`) were added
+without following the patterns already established by the sibling files in this directory. Both
+are cheap to avoid if you check for them before adding or editing a marker/clustering path here —
+do not rebuild either mechanism from scratch, extend what's already in `AppBaseMap.tsx`.
+
+## 1. Every `<Marker>` must freeze `tracksViewChanges` after mount
+
+`tracksViewChanges={true}` forces `react-native-maps` to re-snapshot that marker's native view on
+every re-render, for as long as it stays `true`. Left on permanently (which is what a bare
+`const [tracksViewChanges] = useState(true)` does — no setter, nothing ever flips it) it is the
+single biggest cause of map stutter once more than a handful of markers are on screen.
+
+`GameMapMarker.tsx` and `EmptyFieldMapMarker.tsx` already do this correctly: `true` on mount/prop
+change, flipped to `false` after ~500ms once the icon has finished rendering to a bitmap. This
+was regressed in `FieldMapMarker.tsx` (the `onLayout={() => setTracksViewChanges(false)}` handler
+and the setter were dropped, leaving `tracksViewChanges` stuck `true` forever) and was never added
+at all to the new `SportClusterMarker.tsx`.
+
+- Never add a marker component with `const [tracksViewChanges] = useState(true)` and no way to
+  ever set it back to `false`.
+- Before adding a new marker type or touching an existing one's `tracksViewChanges` state, extract
+  (or reuse, if it already exists by the time you read this) a shared freeze hook rather than
+  copy-pasting the effect a fifth time — one shared implementation can't silently drift out of
+  sync across files the way four independent copies already have.
+
+## 2. Don't fork a second clustering/computation path keyed on `currentRegion`
+
+`AppBaseMap.tsx` already has one clustering pipeline: `visibleMarkers` → `markerNodes`, memoized
+on the marker data itself (not on the viewport), so it only recomputes when the actual fields/games
+list changes — not on every pan frame. When per-sport clustering was added (`clusterBySport`), it
+was built as a **second, parallel** pipeline (`sportClusterIndexes` → `sportClusteredNodes`)
+instead of extending the first one, and the second one's final step is memoized on `currentRegion`,
+which updates on every `onRegionChangeComplete` with no debounce. That means:
+
+- `sportClusteredNodes` re-derives the visible cluster list on every pan/zoom frame instead of only
+  when data changes or the (already-debounced, see `boundsDebounceMs`) viewport settles.
+- Worse: each recompute builds fresh inline closures (`onPress: () => ...`) for every marker and
+  passes them down as props to `FieldMapMarker`/`SportClusterMarker`. Both are wrapped in
+  `React.memo`, but a new function reference on every recompute fails memo's shallow prop
+  comparison every time — so every marker on screen re-renders on every pan frame regardless of
+  whether its own position/selection actually changed. `React.memo` being present does not mean
+  it is doing anything; check what's actually varying in the props being passed to it.
+
+If you need to change clustering behavior (new grouping key, new radius logic, anything), extend
+the *existing* `sportClusterIndexes`/`sportClusteredNodes` pair (or fold sport-awareness into the
+original `visibleMarkers`/`markerNodes` pipeline instead of keeping two) rather than adding a third
+parallel path — and keep any viewport-driven recompute keyed off the same debounced value that
+`onBoundsChange` already uses, not a second un-debounced `currentRegion`. Keep marker press
+handlers as stable references passed down and invoked with the item as an argument, rather than
+freshly-closed-over per-item callbacks created inside the memoized computation — otherwise
+`React.memo` on the marker components is decorative.

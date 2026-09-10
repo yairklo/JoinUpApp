@@ -7,6 +7,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
+import PlayerSearch from '@/components/PlayerSearch';
 
 export default function FriendsScreen() {
     const { t } = useTranslation();
@@ -114,23 +115,8 @@ export default function FriendsScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#059669" />
                 }
             >
-                {/* Search Players Call-to-Action */}
-                <View className="bg-white p-5 rounded-2xl mx-4 shadow-sm border border-gray-100 mb-4 items-center">
-                    <View className="w-12 h-12 bg-brand-mist rounded-full items-center justify-center mb-3">
-                        <FontAwesome name="user-plus" size={20} color="#059669" />
-                    </View>
-                    <Text className="text-lg font-black text-gray-900 mb-1 text-center">{t('friends.findNewFriends', 'מצא חברים חדשים')}</Text>
-                    <Text className="text-gray-500 text-sm text-center mb-4 leading-5">
-                        {t('friends.findNewFriendsDesc', 'חפש שחקנים אחרים באזורך כדי לתאם איתם משחקים ולהתחיל לשחק יחד!')}
-                    </Text>
-                    <TouchableOpacity
-                        onPress={() => router.push('/user/search-players')}
-                        className="bg-brand px-6 py-3 rounded-xl flex-row items-center justify-center w-full shadow-sm"
-                    >
-                        <FontAwesome name="search" size={14} color="white" style={{ marginRight: 8 }} />
-                        <Text className="text-white font-bold text-base">{t('friends.searchPlayers', 'חפש שחקנים')}</Text>
-                    </TouchableOpacity>
-                </View>
+                {/* Player Search -- inline, was a button linking out to its own screen */}
+                <PlayerSearch />
 
                 {/* Incoming Requests */}
                 {incomingRequests.length > 0 && (

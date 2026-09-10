@@ -17,6 +17,10 @@ The lessons that used to accumulate here have been promoted into glob-scoped rul
   client, background-job idempotency, admin-flag source, payment constraint. Applies to any
   `server/` file, without being paid on every `next_app`/`mobile_app`-only task.
 - `shared-types.mdc` (`shared/**` + `next_app`/`mobile_app` type files) — shared-types source of truth.
+- `mobile-map.mdc` (`mobile_app/src/components/map/**`) — react-native-maps perf pitfalls that
+  already regressed once: `tracksViewChanges` must always freeze after mount, and viewport-driven
+  clustering must extend the existing memoized pipeline instead of forking a second one keyed on
+  raw `currentRegion`.
 - `prisma-db.mdc` — Neon connection topology, migrations, enum sync, stale-client regen.
 - `testing-jest.mdc` — Jest open-handle/scheduler gating, supertest pattern, `prisma generate`
   before test, Neon dev-DB connection discipline.

@@ -95,11 +95,11 @@ export default function TabLayout() {
         lazy: true,
       }}>
       <Tabs.Screen
-        name="index"
+        name="fields"
         options={{
-          title: t('tabs.home', 'בית'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
-          headerTitle: 'JoinUp',
+          title: t('tabs.fields'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="th-list" color={color} />,
+          headerTitle: t('tabs.fields'),
           headerRight: HeaderRight,
         }}
       />
@@ -113,11 +113,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="fields"
+        name="index"
         options={{
-          title: t('tabs.fields'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="th-list" color={color} />,
-          headerTitle: t('tabs.fields'),
+          title: t('tabs.home', 'בית'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          headerTitle: 'JoinUp',
           headerRight: HeaderRight,
         }}
       />
@@ -141,6 +141,16 @@ export default function TabLayout() {
           tabBarBadgeStyle: { backgroundColor: '#ef4444' },
           headerTitle: t('tabs.friends'),
           headerRight: HeaderRight,
+        }}
+      />
+      <Tabs.Screen
+        name="game"
+        options={{
+          // Not a tab button (href: null) -- still one of this Tabs navigator's own
+          // screens, so pushing into game/[id] etc. keeps the bottom tab bar visible
+          // instead of covering it the way a root-stack screen would.
+          href: null,
+          headerShown: false,
         }}
       />
     </Tabs>

@@ -89,7 +89,15 @@ export default function GameCard({ game, isJoined, children }: GameCardProps) {
             <View className={`p-4 ${isJoined ? 'bg-brand-mist/40' : ''}`}>
                 <Text
                     className="text-lg font-black text-gray-900 dark:text-cyber-text mb-1"
-                    style={{ textAlign: I18nManager.isRTL ? 'right' : 'left', writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr' }}
+                    style={{
+                        textAlign: I18nManager.isRTL ? 'right' : 'left',
+                        writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
+                        // Fixed to exactly 2 lines' worth of height so a short title doesn't
+                        // leave this card shorter than a neighboring one with a long title
+                        // that wraps -- keeps cards in the same row/grid the same height.
+                        lineHeight: 22,
+                        minHeight: 44,
+                    }}
                     numberOfLines={2}
                 >
                     {game.title || game.fieldName || t("search.game", "משחק")}

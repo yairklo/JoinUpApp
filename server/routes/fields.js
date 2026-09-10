@@ -223,21 +223,55 @@ router.get('/cities/top', async (req, res) => {
   }
 });
 
-// Slim bbox query for map markers — no relational counts
+// Slim query for map markers — no relational counts
 router.get('/map', async (req, res) => {
   try {
     if (!hasBoundingBox(req.query)) {
       return res.status(400).json({ error: 'Bounding box (minLat, maxLat, minLng, maxLng) is required' });
     }
+    const where = applyBrowseFilters(buildFieldSearchWhere(req.query), req.query);
+    // Only return fields that have coordinates
+    if (!where.lat) where.lat = { not: null };
+    if (!where.lng) where.lng = { not: null };
+    // Include available or unset fields -- combine with (not overwrite) any OR clause
+    // applyBrowseFilters already set for a text search (`q`), otherwise that search
+    // silently stops filtering anything the moment this default availability clause runs.
+    if (where.available === true) {
+      delete where.available;
+      const availabilityOr = { OR: [{ available: true }, { available: null }] };
+      if (where.OR) {
+        where.AND = [...(where.AND || []), { OR: where.OR }, availabilityOr];
+        delete where.OR;
+      } else {
+        where.OR = availabilityOr.OR;
+      }
+    }
     const fields = await prisma.field.findMany({
-      where: buildFieldSearchWhere(req.query),
+      where,
       orderBy: { name: 'asc' },
       select: MAP_FIELD_SELECT,
     });
     res.json(fields.map(mapFieldForMapClient));
   } catch (error) {
     console.error('Map fields error:', error);
-    return res.status(503).json({ error: 'Failed to load map fields' });
+    try {
+      // Bounding box is required to reach this handler at all (checked above), so still
+      // honor it here -- otherwise a transient DB error would serve every field in the
+      // fallback file to a viewport-scoped map request.
+      const { minLat, maxLat, minLng, maxLng } = req.query;
+      const raw = await dataManager.readData('fields.json');
+      const filtered = raw.filter((f) => {
+        if (f.lat == null || f.lng == null || f.available === false) return false;
+        if (minLat && f.lat < parseFloat(minLat)) return false;
+        if (maxLat && f.lat > parseFloat(maxLat)) return false;
+        if (minLng && f.lng < parseFloat(minLng)) return false;
+        if (maxLng && f.lng > parseFloat(maxLng)) return false;
+        return true;
+      });
+      return res.json(filtered.map(mapFieldForMapClient));
+    } catch (fallbackErr) {
+      return res.status(503).json({ error: 'Failed to load map fields' });
+    }
   }
 });
 

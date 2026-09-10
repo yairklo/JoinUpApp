@@ -1,5 +1,5 @@
 import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList } from 'react-native';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useRouter, Stack } from 'expo-router';
 import { usersApi, UserProfile } from '../../src/services/api/users';
@@ -82,12 +82,6 @@ export default function ProfileScreen() {
 
     const [myGames, setMyGames] = useState<Game[]>([]);
     const [gamesTab, setGamesTab] = useState(0); // 0 = Upcoming, 1 = Past
-    
-    // Search state
-    const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [searchFocused, setSearchFocused] = useState(false);
-    const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -165,26 +159,6 @@ export default function ProfileScreen() {
             gender: profile?.gender === 'MALE' || profile?.gender === 'FEMALE' ? profile.gender : '',
             sportsData: (profile?.sports || []).map(s => ({ sportId: s.id, position: s.position || '' })),
         });
-    };
-
-    const handleSearchInput = (text: string) => {
-        setSearchQuery(text);
-        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-        
-        if (!text.trim()) {
-            setSearchResults([]);
-            return;
-        }
-
-        debounceTimeoutRef.current = setTimeout(async () => {
-            try {
-                const token = await getToken();
-                if (token) {
-                    const res = await usersApi.search(text, token);
-                    setSearchResults(res);
-                }
-            } catch(e) {}
-        }, 300);
     };
 
     const addSport = (sportId: string) => {
@@ -280,49 +254,6 @@ export default function ProfileScreen() {
             </View>
 
             <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }} keyboardShouldPersistTaps="handled">
-                {/* Search Players Bar */}
-                <View className="mx-4 mb-4 z-10" style={{ zIndex: 10 }}>
-                    <Text className="text-lg font-black text-gray-900 mb-2">{t('profile.searchPlayers', 'חיפוש שחקנים')}</Text>
-                    <View className="bg-white rounded-2xl px-4 py-3 flex-row items-center border border-gray-200 shadow-sm">
-                        <FontAwesome name="search" size={16} color="#9ca3af" style={{ marginRight: 8 }} />
-                        <TextInput
-                            placeholder={t('profile.searchPlayersPlaceholder', 'חפש שחקנים לפי שם או אימייל...')}
-                            value={searchQuery}
-                            onChangeText={handleSearchInput}
-                            onFocus={() => setSearchFocused(true)}
-                            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-                            className="flex-1 text-base text-gray-800 text-right"
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            onSubmitEditing={() => router.push(`/user/search-players?q=${encodeURIComponent(searchQuery)}`)}
-                        />
-                    </View>
-
-                    {searchFocused && searchQuery.trim() !== '' && (
-                        <View className="bg-white rounded-xl shadow-sm border border-gray-200 mt-2 p-2">
-                            {searchResults.slice(0, 5).map(u => (
-                                <TouchableOpacity 
-                                    key={u.id}
-                                    onPress={() => router.push(`/user/${u.id}`)}
-                                    className="flex-row items-center p-2 border-b border-gray-50"
-                                >
-                                    <Image source={{ uri: u.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || '')}` }} className="w-8 h-8 rounded-full bg-gray-200" />
-                                    <View className="ml-3 flex-1 items-start">
-                                        <Text className="font-bold text-gray-800">{u.name}</Text>
-                                        <Text className="text-xs text-gray-500">{u.city || ''}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                            <TouchableOpacity 
-                                onPress={() => router.push(`/user/search-players?q=${encodeURIComponent(searchQuery)}`)}
-                                className="p-3 items-center"
-                            >
-                                <Text className="text-brand font-bold text-sm">{t('profile.seeAllResults', 'ראה את כל התוצאות')}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </View>
-
                 {/* Header details */}
                 <View className="items-center py-6 bg-white rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
                     <Image
