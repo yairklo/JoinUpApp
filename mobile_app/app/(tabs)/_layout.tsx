@@ -2,13 +2,13 @@ import React, { useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, Link } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TouchableOpacity, Text, View, useColorScheme, Image } from 'react-native';
+import { TouchableOpacity, Text, View, Image } from 'react-native';
 import i18n, { changeLanguage } from '@/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
 import { useNotificationCounters } from '@/context/NotificationCountersContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { toggleColorMode } from '@/theme/colorMode';
+import { useColorMode } from '@/theme/ColorModeContext';
 
 const BRAND = '#059669';
 
@@ -21,18 +21,16 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const { t } = useTranslation();
-  const colorScheme = useColorScheme();
+  const { colorMode, toggleColorMode } = useColorMode();
   const { user } = useUser();
   const { friendRequests, unreadMessages } = useNotificationCounters();
   const insets = useSafeAreaInsets();
-  const isDark = colorScheme === 'dark';
+  const isDark = colorMode === 'dark';
 
   const HeaderRight = useCallback(() => (
     <View className="flex-row items-center gap-2 pr-4 pl-4">
       <TouchableOpacity
-        onPress={() => {
-          toggleColorMode(colorScheme).catch((e) => console.error('Color mode toggle error:', e));
-        }}
+        onPress={toggleColorMode}
         className="w-8 h-8 rounded-xl bg-brand-mist dark:bg-cyber-card items-center justify-center border border-brand-pale dark:border-cyber-border"
       >
         <Ionicons name={isDark ? 'sunny' : 'moon'} size={16} color={isDark ? '#facc15' : '#047857'} />
@@ -60,7 +58,7 @@ export default function TabLayout() {
         </TouchableOpacity>
       </Link>
     </View>
-  ), [colorScheme, user, isDark]);
+  ), [toggleColorMode, user, isDark]);
 
   return (
     <Tabs
