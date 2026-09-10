@@ -81,7 +81,12 @@ export default function SupportFeedbackDialog() {
           border: 0,
           p: 0,
           cursor: "pointer",
-          font: "inherit",
+          // A native <button> doesn't inherit font-family by default, unlike the
+          // sibling <a>/<Link> footer items -- but the `font` shorthand would reset
+          // fontWeight/fontSize/lineHeight back to inherited too (and, written after
+          // fontWeight above, silently clobber it), losing the 600 weight and the
+          // body2 variant's size. fontFamily alone fixes the real problem without that.
+          fontFamily: "inherit",
           "&:hover": { color: "primary.main", textDecoration: "underline" },
         }}
       >
