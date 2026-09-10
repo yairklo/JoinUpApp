@@ -12,17 +12,13 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Location from 'expo-location';
 import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/components/map/AppBaseMap';
 import GameMapMarker from '@/components/map/GameMapMarker';
-import EmptyFieldMapMarker from '@/components/map/EmptyFieldMapMarker';
-import FieldPreviewCard from '@/components/map/FieldPreviewCard';
 import MapListToggle from '@/components/map/MapListToggle';
+import FilterPill from '@/components/FilterPill';
 import { MapBounds, MapMarkerItem } from '@/components/map/types';
-import { getSportColorHex, getSportIconName, getFieldSportTags } from '@/utils/mapSport';
-import { SPORT_MAPPING } from '@/utils/sports';
-import { useMapFields } from '@/hooks/useMapFields';
+import { getSportColorHex, getSportIconName } from '@/utils/mapSport';
+import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 
-type SearchMapPayload =
-    | { kind: 'games'; games: Game[] }
-    | { kind: 'emptyField'; field: any };
+type SearchMapPayload = { games: Game[] };
 
 export default function SearchScreen() {
     const { t, i18n } = useTranslation();
@@ -49,21 +45,9 @@ export default function SearchScreen() {
     const [showDatePicker, setShowDatePicker] = useState(false);
 
     const [selectedSport, setSelectedSport] = useState<string | null>((params.sport as string) || null);
-    const [sportModalVisible, setSportModalVisible] = useState(false);
     const [isMapView, setIsMapView] = useState(params.hideMap !== 'true');
     const [networkGames, setNetworkGames] = useState(false);
-    const [showEmptyFields, setShowEmptyFields] = useState(false);
-    const [selectedEmptyField, setSelectedEmptyField] = useState<any | null>(null);
 
-    // Same cheap, capped, deduped map-fields fetch the fields directory uses (instead of a
-    // separate heavier /api/fields/search call) -- "empty" is then just "no game in the
-    // current (already filtered) results list", computed client-side below.
-    const { fields: mapFieldCandidates, fetchForBounds: fetchMapFieldCandidates } = useMapFields({
-        sport: selectedSport ?? undefined,
-        city: selectedCity ?? undefined,
-        enabled: showEmptyFields,
-    });
-    
     const SPORTS = useMemo(() => {
         return Object.keys(SPORT_MAPPING).map(key => ({
             id: key,
@@ -109,7 +93,7 @@ export default function SearchScreen() {
         return () => {
             if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         }
-    }, [selectedCity, selectedDate, selectedSport, mapBounds, query, networkGames, showEmptyFields, isMapView]);
+    }, [selectedCity, selectedDate, selectedSport, mapBounds, query, networkGames, isMapView]);
 
     const loadCities = async () => {
         try {
@@ -247,15 +231,6 @@ export default function SearchScreen() {
         </TouchableOpacity>
     ), [i18n.language, t, router]);
 
-    // "Empty" = a candidate court (from the cheap, already-filtered-by-sport/city map fetch)
-    // that has none of the currently-shown games -- i.e. no game matching whatever the user
-    // is actually searching for right now, not just "zero games ever" server-side.
-    const emptyFields = useMemo(() => {
-        if (!showEmptyFields) return [];
-        const fieldIdsWithGames = new Set(games.map((g) => g.field?.id || g.fieldId).filter(Boolean));
-        return mapFieldCandidates.filter((f) => !fieldIdsWithGames.has(f.id));
-    }, [showEmptyFields, mapFieldCandidates, games]);
-
     const groupedMapGames = useMemo(() => {
         return Object.values(games.reduce((acc, game) => {
             const lat = game.customLat || game.fieldLat || game.field?.lat;
@@ -268,8 +243,8 @@ export default function SearchScreen() {
         }, {} as Record<string, Game[]>));
     }, [games]);
 
-    const searchMapMarkers = useMemo(() => {
-        const items: MapMarkerItem<SearchMapPayload>[] = groupedMapGames.map((group) => {
+    const searchMapMarkers = useMemo<MapMarkerItem<SearchMapPayload>[]>(() => {
+        return groupedMapGames.map((group) => {
             const firstGame = group[0];
             const lat = firstGame.customLat || firstGame.fieldLat || firstGame.field?.lat!;
             const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng!;
@@ -277,45 +252,19 @@ export default function SearchScreen() {
                 id: `game-${firstGame.id}`,
                 latitude: lat,
                 longitude: lng,
-                payload: { kind: 'games', games: group },
+                payload: { games: group },
                 sportTags: [...new Set(group.map((g) => (g.sport || '').toUpperCase()).filter(Boolean))],
             };
         });
-
-        if (showEmptyFields) {
-            emptyFields.forEach((field) => {
-                if (field.lat == null || field.lng == null) return;
-                items.push({
-                    id: `empty-${field.id}`,
-                    latitude: field.lat,
-                    longitude: field.lng,
-                    payload: { kind: 'emptyField', field },
-                    sportTags: getFieldSportTags(field),
-                });
-            });
-        }
-
-        return items;
-    }, [groupedMapGames, emptyFields, showEmptyFields]);
+    }, [groupedMapGames]);
 
     const renderSearchMapMarker = useCallback((ctx: MapMarkerRenderContext<SearchMapPayload>) => {
         const { item, animateToCoordinate } = ctx;
-        if (item.payload.kind === 'games') {
-            return (
-                <GameMapMarker
-                    key={item.id}
-                    group={item.payload.games}
-                    onPress={setSelectedFieldGames}
-                    onAnimateTo={(lat, lng) => animateToCoordinate({ latitude: lat, longitude: lng })}
-                />
-            );
-        }
-
         return (
-            <EmptyFieldMapMarker
+            <GameMapMarker
                 key={item.id}
-                field={item.payload.field}
-                onPress={setSelectedEmptyField}
+                group={item.payload.games}
+                onPress={setSelectedFieldGames}
                 onAnimateTo={(lat, lng) => animateToCoordinate({ latitude: lat, longitude: lng })}
             />
         );
@@ -323,14 +272,7 @@ export default function SearchScreen() {
 
     const handleMapBoundsChange = useCallback((bounds: MapBounds) => {
         setMapBounds(bounds);
-        fetchMapFieldCandidates(bounds);
-    }, [fetchMapFieldCandidates]);
-
-    // Fetch immediately when the "empty fields" toggle turns on (not just on the next pan) --
-    // fetchMapFieldCandidates itself no-ops while the toggle is off (enabled: showEmptyFields).
-    useEffect(() => {
-        if (showEmptyFields && mapBounds) fetchMapFieldCandidates(mapBounds);
-    }, [showEmptyFields, mapBounds, fetchMapFieldCandidates]);
+    }, []);
 
     return (
         <View className="flex-1 bg-gray-50">
@@ -371,36 +313,6 @@ export default function SearchScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        onPress={() => setShowEmptyFields(!showEmptyFields)}
-                        className={`mr-2 px-4 py-2 rounded-full border ${showEmptyFields ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
-                    >
-                        <View className="flex-row items-center">
-                            <FontAwesome name="map-marker" size={12} color={showEmptyFields ? "white" : "#4b5563"} style={{ marginRight: 6 }} />
-                            <Text className={`font-medium ${showEmptyFields ? 'text-white' : 'text-gray-600'}`}>
-                                {t("search.emptyFields", "מגרשים פנויים")}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={() => setCityModalVisible(true)}
-                        className={`mr-2 px-4 py-2 rounded-full border ${selectedCity ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
-                    >
-                        <Text className={`font-medium ${selectedCity ? 'text-white' : 'text-gray-600'}`}>
-                            {selectedCity ? translateCity(selectedCity) : t("search.allCities", "כל הערים")} ▾
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={() => setSportModalVisible(true)}
-                        className={`mr-2 px-4 py-2 rounded-full border ${selectedSport ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
-                    >
-                        <Text className={`font-medium ${selectedSport ? 'text-white' : 'text-gray-600'}`}>
-                            {selectedSport ? SPORTS.find(s => s.id === selectedSport)?.label || selectedSport : t("search.sport", "ספורט")} ▾
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
                         onPress={() => {
                             if (selectedDate) {
                                 setSelectedDate(null);
@@ -415,8 +327,20 @@ export default function SearchScreen() {
                         </Text>
                         {selectedDate && <FontAwesome name="times" size={12} color="white" style={{ marginLeft: 6 }} />}
                     </TouchableOpacity>
+
+                    {/* City filter only makes sense in list view -- the map is already viewport-scoped */}
+                    {!isMapView && (
+                        <TouchableOpacity
+                            onPress={() => setCityModalVisible(true)}
+                            className={`mr-2 px-4 py-2 rounded-full border ${selectedCity ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                        >
+                            <Text className={`font-medium ${selectedCity ? 'text-white' : 'text-gray-600'}`}>
+                                {selectedCity ? translateCity(selectedCity) : t("search.allCities", "כל הערים")} ▾
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </ScrollView>
-                
+
                 {showDatePicker && (
                     <DateTimePicker
                         value={selectedDate || new Date()}
@@ -430,6 +354,30 @@ export default function SearchScreen() {
                         }}
                     />
                 )}
+
+                {/* Sport Filter Pills -- same inline chips as the fields directory, not a picker modal */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    className="-mx-4 mt-2 flex-row"
+                    contentContainerStyle={{ paddingHorizontal: 16, alignItems: 'center' }}
+                >
+                    <FilterPill
+                        label={t('sports.all', 'הכל')}
+                        selected={!selectedSport}
+                        onPress={() => setSelectedSport(null)}
+                        size="sm"
+                    />
+                    {SPORTS.map((sport) => (
+                        <FilterPill
+                            key={sport.id}
+                            label={SPORT_EMOJI[sport.id] ? `${SPORT_EMOJI[sport.id]} ${sport.label}` : sport.label}
+                            selected={selectedSport === sport.id}
+                            onPress={() => setSelectedSport(sport.id)}
+                            size="sm"
+                        />
+                    ))}
+                </ScrollView>
             </View>
 
             {/* Results */}
@@ -551,23 +499,6 @@ export default function SearchScreen() {
                             </View>
                         </View>
                     </Modal>
-
-                    {/* Selected Empty Field Preview Card -- same floating card as the fields map */}
-                    {selectedEmptyField && (
-                        <FieldPreviewCard
-                            field={selectedEmptyField}
-                            onPress={() => router.push(`/field/${selectedEmptyField.id}`)}
-                            onClose={() => setSelectedEmptyField(null)}
-                            primaryAction={{
-                                label: t('search.openGameAtField', 'פתח משחק במגרש זה'),
-                                onPress: () => {
-                                    const fieldId = selectedEmptyField.id;
-                                    setSelectedEmptyField(null);
-                                    router.push({ pathname: '/game/new', params: { fieldId } });
-                                },
-                            }}
-                        />
-                    )}
                 </View>
             ) : (
                 <FlatList
@@ -618,54 +549,6 @@ export default function SearchScreen() {
                                     </Text>
                                 </TouchableOpacity>
                             )}
-                        />
-                    </View>
-                </View>
-            </Modal>
-            {/* Sport Selection Modal */}
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={sportModalVisible}
-                onRequestClose={() => setSportModalVisible(false)}
-            >
-                <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white rounded-t-3xl p-6 h-[40%]">
-                        <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-xl font-bold">{t('search.selectSport', 'בחר ספורט')}</Text>
-                            <TouchableOpacity onPress={() => setSportModalVisible(false)}>
-                                <Text className="text-brand font-bold">{t('search.close', 'סגור')}</Text>
-                            </TouchableOpacity>
-                        </View>
-                        <FlatList
-                            data={SPORTS}
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    className="py-4 border-b border-gray-100"
-                                    onPress={() => {
-                                        setSelectedSport(item.id);
-                                        setSportModalVisible(false);
-                                    }}
-                                >
-                                    <Text className={`text-lg ${selectedSport === item.id ? 'text-brand font-bold' : 'text-gray-800'}`}>
-                                        {item.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                            ListHeaderComponent={
-                                <TouchableOpacity
-                                    className="py-4 border-b border-gray-100"
-                                    onPress={() => {
-                                        setSelectedSport(null);
-                                        setSportModalVisible(false);
-                                    }}
-                                >
-                                    <Text className={`text-lg ${!selectedSport ? 'text-brand font-bold' : 'text-gray-800'}`}>
-                                        {t("search.allSports", "כל סוגי הספורט")}
-                                    </Text>
-                                </TouchableOpacity>
-                            }
                         />
                     </View>
                 </View>
