@@ -143,6 +143,16 @@ export default function TabLayout() {
           headerRight: HeaderRight,
         }}
       />
+      <Tabs.Screen
+        name="game"
+        options={{
+          // Not a tab button (href: null) -- still one of this Tabs navigator's own
+          // screens, so pushing into game/[id] etc. keeps the bottom tab bar visible
+          // instead of covering it the way a root-stack screen would.
+          href: null,
+          headerShown: false,
+        }}
+      />
     </Tabs>
   );
 }
