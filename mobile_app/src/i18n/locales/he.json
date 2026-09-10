@@ -591,7 +591,18 @@
     "notificationsPermissionRequired": "הרשאת התראות נדרשת",
     "notificationsPermissionMessage": "כדי לקבל התראות יש לאשר זאת בהגדרות המכשיר.",
     "openSettings": "פתח הגדרות",
-    "updatePushFailed": "עדכון הגדרת ההתראות נכשל, נסה שוב."
+    "updatePushFailed": "עדכון הגדרת ההתראות נכשל, נסה שוב.",
+    "feedback": "דיווח על באג / יצירת קשר"
+  },
+  "feedback": {
+    "title": "דיווח על באג / יצירת קשר",
+    "description": "מצאתם תקלה? יש לכם רעיון או הערה? נשמח לשמוע.",
+    "typeBug": "דיווח על באג",
+    "typeFeedback": "משוב כללי",
+    "messageLabel": "מה תרצו לספר לנו?",
+    "submit": "שליחה",
+    "success": "תודה! ההודעה נשלחה בהצלחה.",
+    "failure": "השליחה נכשלה, נסו שוב."
   },
   "upload": {
     "permissionRequired": "נדרשת הרשאה",

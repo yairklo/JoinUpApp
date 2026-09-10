@@ -11,6 +11,7 @@ import Tooltip from "@mui/material/Tooltip";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import { ColorModeContext } from "@/components/theme/themeRegistry";
+import SupportFeedbackDialog from "@/components/SupportFeedbackDialog";
 
 const LINKS = [
   { href: "/legal/terms", label: "תנאי שימוש" },
@@ -75,6 +76,7 @@ export default function Footer() {
             >
               תמיכה
             </Typography>
+            <SupportFeedbackDialog />
           </Stack>
 
           <Stack direction="row" spacing={1.5} alignItems="center">

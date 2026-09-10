@@ -19,6 +19,7 @@ import Tab from "@mui/material/Tab";
 const ADMIN_TABS = [
   { href: "/admin/fields", label: "ניהול מגרשים" },
   { href: "/admin/moderation", label: "הודעות שסומנו" },
+  { href: "/admin/feedback", label: "פניות ודיווחי באגים" },
 ] as const;
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
