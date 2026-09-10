@@ -30,7 +30,6 @@ export type MapSportFilter = 'SOCCER' | 'BASKETBALL' | 'TENNIS' | null;
 export interface MapMarkerRenderContext<T> {
     item: MapMarkerItem<T>;
     selected: boolean;
-    onPress: () => void;
     animateToCoordinate: (coordinate: MapCoordinate) => void;
 }
 
@@ -43,7 +42,6 @@ export interface AppBaseMapProps<T> {
     markers: MapMarkerItem<T>[];
     renderMarker: (context: MapMarkerRenderContext<T>) => React.ReactElement | null;
     selectedMarkerId?: string | null;
-    onMarkerPress?: (payload: T, item: MapMarkerItem<T>) => void;
     onMapPress?: (coordinate: MapCoordinate) => void;
     onBoundsChange?: (bounds: MapBounds, region: MapRegion) => void;
     boundsDebounceMs?: number;
@@ -72,7 +70,6 @@ function AppBaseMapInner<T>(
         markers,
         renderMarker,
         selectedMarkerId = null,
-        onMarkerPress,
         onMapPress,
         onBoundsChange,
         boundsDebounceMs = 300,
@@ -182,7 +179,6 @@ function AppBaseMapInner<T>(
             const node = renderMarker({
                 item,
                 selected: selectedMarkerId === item.id,
-                onPress: () => onMarkerPress?.(item.payload, item),
                 // The stable top-level function directly -- it already takes a coordinate
                 // argument, so wrapping it in a fresh per-item thunk on every recompute
                 // (as this used to) was both wasted allocation and silently ignored
@@ -195,7 +191,7 @@ function AppBaseMapInner<T>(
             // components wrap their own <Marker> internally, so it never sees it there.
             return React.cloneElement(node as React.ReactElement<any>, { key: item.id, coordinate });
         });
-    }, [visibleMarkers, markerCoordinates, selectedMarkerId, renderMarker, onMarkerPress, animateToCoordinate]);
+    }, [visibleMarkers, markerCoordinates, selectedMarkerId, renderMarker, animateToCoordinate]);
 
     // Build and cache SuperCluster instances per sport whenever visibleMarkers changes
     const sportClusterIndexes = useMemo(() => {
@@ -330,7 +326,6 @@ function AppBaseMapInner<T>(
                     const node = renderMarker({
                         item,
                         selected: selectedMarkerId === item.id,
-                        onPress: () => onMarkerPress?.(item.payload, item),
                         animateToCoordinate,
                     });
                     if (node) {
@@ -348,7 +343,6 @@ function AppBaseMapInner<T>(
         currentRegion,
         selectedMarkerId,
         renderMarker,
-        onMarkerPress,
         animateToCoordinate,
         handleClusterPress,
     ]);

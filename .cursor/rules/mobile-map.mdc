@@ -38,23 +38,40 @@ at all to the new `SportClusterMarker.tsx`.
 on the marker data itself (not on the viewport), so it only recomputes when the actual fields/games
 list changes — not on every pan frame. When per-sport clustering was added (`clusterBySport`), it
 was built as a **second, parallel** pipeline (`sportClusterIndexes` → `sportClusteredNodes`)
-instead of extending the first one, and the second one's final step is memoized on `currentRegion`,
-which updates on every `onRegionChangeComplete` with no debounce. That means:
+instead of extending the first one. If you need to change clustering behavior (new grouping key,
+new radius logic, anything), extend that *existing* pair rather than adding a third parallel path.
 
-- `sportClusteredNodes` re-derives the visible cluster list on every pan/zoom frame instead of only
-  when data changes or the (already-debounced, see `boundsDebounceMs`) viewport settles.
-- Worse: each recompute builds fresh inline closures (`onPress: () => ...`) for every marker and
-  passes them down as props to `FieldMapMarker`/`SportClusterMarker`. Both are wrapped in
-  `React.memo`, but a new function reference on every recompute fails memo's shallow prop
-  comparison every time — so every marker on screen re-renders on every pan frame regardless of
-  whether its own position/selection actually changed. `React.memo` being present does not mean
-  it is doing anything; check what's actually varying in the props being passed to it.
+**This section originally prescribed keying `sportClusteredNodes` off the same debounced value
+`onBoundsChange` uses. That was tried and reverted — don't reapply it without reading why:**
+debouncing the cluster-bbox computation (not just the network fetch) meant the visible cluster
+list lagged behind the actual viewport for the length of the debounce window. On a fast pan, the
+on-screen markers would visibly vanish — the query ran against a stale bbox that no longer
+overlapped where the map had already scrolled to — until the debounce caught up. Confirmed with
+on-device screen recordings (Replicant + `adb screenrecord`, frame-diffed) before and after.
 
-If you need to change clustering behavior (new grouping key, new radius logic, anything), extend
-the *existing* `sportClusterIndexes`/`sportClusteredNodes` pair (or fold sport-awareness into the
-original `visibleMarkers`/`markerNodes` pipeline instead of keeping two) rather than adding a third
-parallel path — and keep any viewport-driven recompute keyed off the same debounced value that
-`onBoundsChange` already uses, not a second un-debounced `currentRegion`. Keep marker press
-handlers as stable references passed down and invoked with the item as an argument, rather than
-freshly-closed-over per-item callbacks created inside the memoized computation — otherwise
-`React.memo` on the marker components is decorative.
+**What's actually in place now, and why it's a real fix, not just a smaller version of the bug:**
+`sportClusteredNodes` still depends on `currentRegion`, but `currentRegion` itself is committed
+through `scheduleRegionUpdate` (see `AppBaseMapInner`), which coalesces a burst of
+`onRegionChangeComplete` events into at most one `setCurrentRegion` per animation frame via
+`requestAnimationFrame`, always using the freshest region. That means: the cluster bbox is never
+stale by more than one frame (so markers don't vanish), and a burst of several
+`onRegionChangeComplete` events firing faster than the JS thread can process them collapses into
+one recompute instead of one-per-event (which is what caused the multi-second freezes this section
+used to describe — confirmed gone via the same recording method, before/after). Recomputing once
+per animation frame *during active panning* is normal, necessary map behavior, not the bug —
+don't "fix" this further by reaching for a timer-based debounce here; that's the exact regression
+above.
+
+The "fresh per-item `onPress` closures defeat `React.memo`" problem this section used to describe
+was resolved by deleting the code that caused it: `AppBaseMap` had an `onMarkerPress` prop and a
+matching `MapMarkerRenderContext.onPress` field, both unused by every actual `renderMarker`
+implementation (`fields.tsx`, `search.tsx` — each wires its own stable handler, e.g.
+`handleFieldPress`, directly as the marker's real `onPress` prop instead). Since nothing ever read
+`ctx.onPress`, the fresh closure built for it every recompute could never actually reach a
+`React.memo`'d component's props — it was dead weight, not a live memo-defeat. Removed rather than
+"fixed", per the rule stated once already and worth repeating here: if something is confirmed
+unused, delete it instead of leaving it half-wired for the next person to puzzle over. If a future
+screen needs a marker-press callback threaded through `AppBaseMap` again, wire it the way
+`animateToCoordinate` is done — the stable top-level function passed directly (it already takes
+the coordinate/item as a call-time argument) — not a per-item thunk rebuilt inside the memoized
+computation.
