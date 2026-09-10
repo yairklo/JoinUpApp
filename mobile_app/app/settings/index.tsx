@@ -2,11 +2,13 @@ import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, Image, Linking
 import React, { useEffect, useState } from 'react';
 import { useRouter, Stack } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useTranslation } from 'react-i18next';
 import * as NotificationsPermissions from 'expo-notifications';
 import { notificationsApi } from '@/services/api/notifications';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function SettingsScreen() {
+    const { t } = useTranslation();
     const { signOut, getToken } = useAuth();
     const { user } = useUser();
     const router = useRouter();
@@ -47,11 +49,11 @@ export default function SettingsScreen() {
                 }
                 if (status !== 'granted') {
                     Alert.alert(
-                        'הרשאת התראות נדרשת',
-                        'כדי לקבל התראות יש לאשר זאת בהגדרות המכשיר.',
+                        t('settings.notificationsPermissionRequired', 'הרשאת התראות נדרשת'),
+                        t('settings.notificationsPermissionMessage', 'כדי לקבל התראות יש לאשר זאת בהגדרות המכשיר.'),
                         [
-                            { text: 'ביטול', style: 'cancel' },
-                            { text: 'פתח הגדרות', onPress: () => Linking.openSettings() },
+                            { text: t('common.cancel', 'ביטול'), style: 'cancel' },
+                            { text: t('settings.openSettings', 'פתח הגדרות'), onPress: () => Linking.openSettings() },
                         ]
                     );
                     return;
@@ -63,7 +65,7 @@ export default function SettingsScreen() {
             setPushEnabled(next);
         } catch (error) {
             console.error('[SETTINGS] Failed to update push setting:', error);
-            Alert.alert('שגיאה', 'עדכון הגדרת ההתראות נכשל, נסה שוב.');
+            Alert.alert(t('common.error', 'שגיאה'), t('settings.updatePushFailed', 'עדכון הגדרת ההתראות נכשל, נסה שוב.'));
         } finally {
             setPushBusy(false);
         }
@@ -80,7 +82,7 @@ export default function SettingsScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: 'Settings', headerShown: true }} />
+            <Stack.Screen options={{ title: t('settings.title', 'Settings'), headerShown: true }} />
             <ScrollView className="flex-1 bg-gray-50">
                 {/* Profile Section */}
                 <View className="mt-6 mb-6 items-center">
@@ -99,7 +101,7 @@ export default function SettingsScreen() {
                             <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
                                 <FontAwesome name="bell" size={14} color="#059669" />
                             </View>
-                            <Text className="text-base text-gray-800 font-medium">Push Notifications</Text>
+                            <Text className="text-base text-gray-800 font-medium">{t('settings.pushNotifications', 'Push Notifications')}</Text>
                         </View>
                         <Switch
                             value={pushEnabled}
@@ -115,18 +117,18 @@ export default function SettingsScreen() {
                         className="p-4 border-b border-gray-100 flex-row items-center justify-between"
                         onPress={() => router.push('/legal/privacy' as any)}
                     >
-                        <Text className="text-base text-gray-800">Privacy Policy</Text>
+                        <Text className="text-base text-gray-800">{t('settings.privacyPolicy', 'Privacy Policy')}</Text>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" />
                     </TouchableOpacity>
                     <TouchableOpacity
                         className="p-4 border-b border-gray-100 flex-row items-center justify-between"
                         onPress={() => router.push('/legal/terms' as any)}
                     >
-                        <Text className="text-base text-gray-800">Terms of Service</Text>
+                        <Text className="text-base text-gray-800">{t('settings.termsOfService', 'Terms of Service')}</Text>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" />
                     </TouchableOpacity>
                     <View className="p-4 flex-row items-center justify-between bg-gray-50">
-                        <Text className="text-sm text-gray-500">Version</Text>
+                        <Text className="text-sm text-gray-500">{t('settings.version', 'Version')}</Text>
                         <Text className="text-sm text-gray-500 font-bold">1.0.0 (Beta)</Text>
                     </View>
                 </View>
@@ -135,7 +137,7 @@ export default function SettingsScreen() {
                     onPress={handleSignOut}
                     className="mx-4 bg-red-50 p-4 rounded-xl items-center border border-red-100 mb-10"
                 >
-                    <Text className="text-red-600 font-bold text-lg">Sign Out</Text>
+                    <Text className="text-red-600 font-bold text-lg">{t('settings.signOut', 'Sign Out')}</Text>
                 </TouchableOpacity>
             </ScrollView>
         </>

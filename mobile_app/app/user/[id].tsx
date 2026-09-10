@@ -146,7 +146,7 @@ export default function UserProfileScreen() {
     if (loading) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <LoadingMotif id="crowd-wave" label="טוען שחקן…" />
+                <LoadingMotif id="crowd-wave" label={t('profile.loadingUser', 'טוען שחקן…')} />
             </SafeAreaView>
         );
     }
@@ -299,8 +299,8 @@ export default function UserProfileScreen() {
                             <View className="w-8 items-center"><FontAwesome name="user" size={16} color="#9ca3af" /></View>
                             <Text className="text-gray-700">
                                 {profile.gender === 'MALE'
-                                    ? t('profile.genderMale', 'גבר')
-                                    : t('profile.genderFemale', 'אישה')}
+                                    ? t('profile.male', 'גבר')
+                                    : t('profile.female', 'אישה')}
                             </Text>
                         </View>
                     ) : null}
@@ -340,7 +340,7 @@ export default function UserProfileScreen() {
                                             source={{ uri: f.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(f.name || 'U')}&size=100` }}
                                             className="w-14 h-14 rounded-full mb-1 bg-gray-200"
                                         />
-                                        <Text className="text-gray-700 text-xs text-center" numberOfLines={1}>{f.name || 'משתמש'}</Text>
+                                        <Text className="text-gray-700 text-xs text-center" numberOfLines={1}>{f.name || t('game.user', 'משתמש')}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
@@ -359,7 +359,7 @@ export default function UserProfileScreen() {
                                 {profile.sportStats.map((s) => (
                                     <View key={s.sport} className="bg-brand-mist px-3 py-1.5 rounded-full mr-2 mb-2 border border-brand-pale">
                                         <Text className="text-brand-dark text-sm font-semibold">
-                                            {(SPORT_EMOJI[s.sport] || '🏅')} {SPORT_MAPPING[s.sport] || s.sport} · {s.count}
+                                            {(SPORT_EMOJI[s.sport] || '🏅')} {t(`sports.${s.sport.toLowerCase()}`, SPORT_MAPPING[s.sport] || s.sport)} · {s.count}
                                         </Text>
                                     </View>
                                 ))}
@@ -370,7 +370,7 @@ export default function UserProfileScreen() {
                             <Text className="text-gray-400">{t('privacy.noMatches', 'No past matches')}</Text>
                         ) : (
                             matches.map((m) => {
-                                const sportLabel = m.sport ? SPORT_MAPPING[m.sport] || m.sport : '';
+                                const sportLabel = m.sport ? t(`sports.${m.sport.toLowerCase()}`, SPORT_MAPPING[m.sport] || m.sport) : '';
                                 const emoji = m.sport ? SPORT_EMOJI[m.sport] || '🏅' : '🏅';
                                 const meta = [`${emoji} ${sportLabel}`, m.date, m.time].filter(Boolean).join(' · ');
                                 return (
@@ -381,7 +381,7 @@ export default function UserProfileScreen() {
                                     >
                                         <FontAwesome name="soccer-ball-o" size={18} color="#059669" style={{ marginRight: 12 }} />
                                         <View className="flex-1">
-                                            <Text className="text-gray-800 font-medium">{m.title || sportLabel || 'משחק'}</Text>
+                                            <Text className="text-gray-800 font-medium">{m.title || sportLabel || t('search.game', 'משחק')}</Text>
                                             <Text className="text-gray-500 text-xs mt-0.5">{meta}</Text>
                                         </View>
                                     </TouchableOpacity>

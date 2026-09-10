@@ -138,7 +138,7 @@ export default function NotificationsScreen() {
             <View className="flex-1 bg-white">
                 {loading && notifications.length === 0 ? (
                     <View className="flex-1 justify-center items-center">
-                        <LoadingMotif id="message-stack" label="טוען התראות…" />
+                        <LoadingMotif id="message-stack" label={t('notifications.loadingNotifications', 'טוען התראות…')} />
                     </View>
                 ) : (
                     <FlatList

@@ -14,11 +14,26 @@ import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 
-const POSITION_OPTIONS: Record<string, string[]> = {
-    SOCCER: ['שוער', 'בלם', 'מגן', 'קשר', 'חלוץ'],
-    BASKETBALL: ['פוינט גארד', 'שוטינג גארד', 'סמול פורוורד', 'פאואר פורוורד', 'סנטר'],
-    TENNIS: ['שחקן בסיס', 'שחקן רשת'],
-};
+const getPositionOptions = (t: any): Record<string, string[]> => ({
+    SOCCER: [
+        t('positions.goalkeeper', 'שוער'),
+        t('positions.defender', 'בלם'),
+        t('positions.fullback', 'מגן'),
+        t('positions.midfielder', 'קשר'),
+        t('positions.striker', 'חלוץ'),
+    ],
+    BASKETBALL: [
+        t('positions.pointGuard', 'פוינט גארד'),
+        t('positions.shootingGuard', 'שוטינג גארד'),
+        t('positions.smallForward', 'סמול פורוורד'),
+        t('positions.powerForward', 'פאואר פורוורד'),
+        t('positions.center', 'סנטר'),
+    ],
+    TENNIS: [
+        t('positions.baseliner', 'שחקן בסיס'),
+        t('positions.netPlayer', 'שחקן רשת'),
+    ],
+});
 
 function calculateAge(birthDate?: string | null) {
     if (!birthDate) return null;
@@ -30,13 +45,15 @@ type SportEntry = { sportId: string; position: string };
 
 type GenderValue = 'MALE' | 'FEMALE' | '';
 
-const GENDER_LABELS: Record<'MALE' | 'FEMALE', string> = {
-    MALE: 'גבר',
-    FEMALE: 'אישה',
-};
+const getGenderLabels = (t: any): Record<'MALE' | 'FEMALE', string> => ({
+    MALE: t('profile.male', 'גבר'),
+    FEMALE: t('profile.female', 'אישה'),
+});
 
 export default function ProfileScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const positionOptions = React.useMemo(() => getPositionOptions(t), [t]);
+    const genderLabels = React.useMemo(() => getGenderLabels(t), [t]);
     const { user } = useUser();
     const { signOut, getToken } = useAuth();
     const router = useRouter();
@@ -226,7 +243,7 @@ export default function ProfileScreen() {
     if (loading) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <LoadingMotif id="brand-pulse" label="טוען פרופיל…" />
+                <LoadingMotif id="brand-pulse" label={t('profile.loadingProfile', 'טוען פרופיל…')} />
             </SafeAreaView>
         );
     }
@@ -249,7 +266,7 @@ export default function ProfileScreen() {
                     <TouchableOpacity
                         onPress={() => router.push('/admin')}
                         className="w-10 h-10 items-center justify-center"
-                        accessibilityLabel="ניהול"
+                        accessibilityLabel={t('profile.admin', 'ניהול')}
                     >
                         <FontAwesome name="shield" size={19} color="#374151" />
                     </TouchableOpacity>
@@ -269,7 +286,7 @@ export default function ProfileScreen() {
                     <View className="bg-white rounded-2xl px-4 py-3 flex-row items-center border border-gray-200 shadow-sm">
                         <FontAwesome name="search" size={16} color="#9ca3af" style={{ marginRight: 8 }} />
                         <TextInput
-                            placeholder="חפש שחקנים לפי שם או אימייל..."
+                            placeholder={t('profile.searchPlayersPlaceholder', 'חפש שחקנים לפי שם או אימייל...')}
                             value={searchQuery}
                             onChangeText={handleSearchInput}
                             onFocus={() => setSearchFocused(true)}
@@ -300,7 +317,7 @@ export default function ProfileScreen() {
                                 onPress={() => router.push(`/user/search-players?q=${encodeURIComponent(searchQuery)}`)}
                                 className="p-3 items-center"
                             >
-                                <Text className="text-brand font-bold text-sm">ראה את כל התוצאות</Text>
+                                <Text className="text-brand font-bold text-sm">{t('profile.seeAllResults', 'ראה את כל התוצאות')}</Text>
                             </TouchableOpacity>
                         </View>
                     )}
@@ -341,7 +358,7 @@ export default function ProfileScreen() {
                             >
                                 <FontAwesome name="chevron-left" size={12} color="#9ca3af" style={{ marginLeft: 8 }} />
                                 <Text className={form.city ? "text-gray-800 text-right text-sm flex-1" : "text-gray-400 text-right text-sm flex-1"}>
-                                    {form.city || 'בחרו עיר מהרשימה'}
+                                    {form.city || t('profile.selectCityFromList', 'בחרו עיר מהרשימה')}
                                 </Text>
                             </TouchableOpacity>
                         ) : (
@@ -357,7 +374,7 @@ export default function ProfileScreen() {
                                 value={form.phone}
                                 onChangeText={(val) => setForm(prev => ({ ...prev, phone: val }))}
                                 className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-right text-sm"
-                                placeholder="למשל: 0501234567"
+                                placeholder={t('profile.phonePlaceholder', 'למשל: 0501234567')}
                                 keyboardType="phone-pad"
                                 placeholderTextColor="#9ca3af"
                             />
@@ -372,8 +389,8 @@ export default function ProfileScreen() {
                         {isEditing ? (
                             <View className="flex-row justify-end gap-2">
                                 {([
-                                    { value: 'MALE' as const, label: GENDER_LABELS.MALE },
-                                    { value: 'FEMALE' as const, label: GENDER_LABELS.FEMALE },
+                                    { value: 'MALE' as const, label: genderLabels.MALE },
+                                    { value: 'FEMALE' as const, label: genderLabels.FEMALE },
                                 ]).map((opt) => {
                                     const selected = form.gender === opt.value;
                                     return (
@@ -394,7 +411,7 @@ export default function ProfileScreen() {
                             </View>
                         ) : (
                             <Text className="text-gray-800 font-bold text-base text-right">
-                                {profile?.gender ? GENDER_LABELS[profile.gender] : t('profile.unknownGender', 'לא צוין')}
+                                {profile?.gender && (profile.gender === 'MALE' || profile.gender === 'FEMALE') ? genderLabels[profile.gender] : t('profile.unknownGender', 'לא צוין')}
                             </Text>
                         )}
                     </View>
@@ -421,14 +438,14 @@ export default function ProfileScreen() {
                                 onPress={handleCancelEdit}
                                 className="flex-1 py-3 rounded-xl border border-gray-200 items-center bg-gray-50"
                             >
-                                <Text className="text-red-600 font-bold">ביטול</Text>
+                                <Text className="text-red-600 font-bold">{t('profile.cancel', 'ביטול')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={handleSave}
                                 disabled={saving}
                                 className={`flex-1 py-3 rounded-xl items-center ${saving ? 'bg-brand-soft' : 'bg-brand'}`}
                             >
-                                {saving ? <ActivityIndicator color="white" /> : <Text className="text-white font-bold">שמור</Text>}
+                                {saving ? <ActivityIndicator color="white" /> : <Text className="text-white font-bold">{t('profile.save', 'שמור')}</Text>}
                             </TouchableOpacity>
                         </View>
                     )}
@@ -437,7 +454,7 @@ export default function ProfileScreen() {
                 {/* Sports & Positions */}
                 <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
                     <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 pb-2">
-                        <Text className="text-lg font-black text-gray-900">ספורט ועמדות</Text>
+                        <Text className="text-lg font-black text-gray-900">{t('profile.sportsAndPositions', 'ספורט ועמדות')}</Text>
                         {isEditing && (
                             <TouchableOpacity
                                 onPress={() => setSportModalVisible(true)}
@@ -445,7 +462,7 @@ export default function ProfileScreen() {
                                 disabled={unaddedSports.length === 0}
                             >
                                 <FontAwesome name="plus" size={12} color="white" style={{ marginRight: 5 }} />
-                                <Text className="text-white font-bold text-sm">הוסף</Text>
+                                <Text className="text-white font-bold text-sm">{t('profile.add', 'הוסף')}</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -454,14 +471,14 @@ export default function ProfileScreen() {
                         <View className="items-center py-4">
                             <FontAwesome name="futbol-o" size={32} color="#d1d5db" />
                             <Text className="text-gray-400 mt-2 text-center text-sm">
-                                {isEditing ? 'לחץ "הוסף" כדי להוסיף ענף ספורט' : 'לא הוגדרו ענפי ספורט'}
+                                {isEditing ? t('profile.pressAddSport', 'לחץ "הוסף" כדי להוסיף ענף ספורט') : t('profile.noSportsDefined', 'לא הוגדרו ענפי ספורט')}
                             </Text>
                         </View>
                     ) : isEditing ? (
                         <View>
                             {form.sportsData.map((s) => {
-                                const sportName = SPORT_MAPPING[s.sportId] || s.sportId;
-                                const positions = POSITION_OPTIONS[s.sportId] || [];
+                                const sportName = t(`sports.${s.sportId.toLowerCase()}`, SPORT_MAPPING[s.sportId] || s.sportId);
+                                const positions = positionOptions[s.sportId] || [];
                                 return (
                                     <View key={s.sportId} className="mb-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
                                         <View className="flex-row justify-between items-center mb-2">
@@ -497,7 +514,7 @@ export default function ProfileScreen() {
                                         {/* Preset positions */}
                                         {positions.length > 0 && (
                                             <View className="mb-2">
-                                                <Text className="text-xs text-gray-500 mb-2">בחר עמדות (ניתן לבחור מספר):</Text>
+                                                <Text className="text-xs text-gray-500 mb-2">{t('profile.selectPositionsHint', 'בחר עמדות (ניתן לבחור מספר):')}</Text>
                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                     <View className="flex-row">
                                                         {positions.map(pos => {
@@ -519,12 +536,12 @@ export default function ProfileScreen() {
 
                                         {/* Free text custom position */}
                                         <View className="mt-1">
-                                            <Text className="text-xs text-gray-500 mb-1">הוסף עמדה חופשית:</Text>
+                                            <Text className="text-xs text-gray-500 mb-1">{t('profile.addCustomPosition', 'הוסף עמדה חופשית:')}</Text>
                                             <View className="flex-row">
                                                 <TextInput
                                                     value={customTexts[s.sportId] || ''}
                                                     onChangeText={(v) => setCustomTexts(prev => ({ ...prev, [s.sportId]: v }))}
-                                                    placeholder="למשל: קשר פוגעני, חלוץ שני..."
+                                                    placeholder={t('profile.customPositionPlaceholder', 'למשל: קשר פוגעני, חלוץ שני...')}
                                                     className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 mr-2 text-right"
                                                     placeholderTextColor="#9ca3af"
                                                     onSubmitEditing={() => {
@@ -552,7 +569,8 @@ export default function ProfileScreen() {
                     ) : (
                         <View>
                             {profile?.sports?.map(s => {
-                                const hebrewName = SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name;
+                                const sportKey = (s.name || s.id || '').toLowerCase();
+                                const sportDisplayName = t(`sports.${sportKey}`, SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name);
                                 const positions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
                                 return (
                                     <View key={s.id} className="mb-3 last:mb-0">
@@ -560,7 +578,7 @@ export default function ProfileScreen() {
                                             <View className="w-7 h-7 bg-brand-pale rounded-full items-center justify-center mr-2">
                                                 <FontAwesome name="futbol-o" size={12} color="#059669" />
                                             </View>
-                                            <Text className="font-bold text-gray-800">{hebrewName}</Text>
+                                            <Text className="font-bold text-gray-800">{sportDisplayName}</Text>
                                         </View>
                                         {positions.length > 0 ? (
                                             <View className="flex-row flex-wrap mr-9">
@@ -571,7 +589,7 @@ export default function ProfileScreen() {
                                                 ))}
                                             </View>
                                         ) : (
-                                            <Text className="text-gray-400 text-xs mr-9">כללי</Text>
+                                            <Text className="text-gray-400 text-xs mr-9">{t('profile.general', 'כללי')}</Text>
                                         )}
                                     </View>
                                 );
@@ -587,13 +605,13 @@ export default function ProfileScreen() {
                             onPress={() => setGamesTab(0)}
                             className={`flex-1 pb-3 items-center border-b-2 ${gamesTab === 0 ? 'border-brand' : 'border-transparent'}`}
                         >
-                            <Text className={`font-bold ${gamesTab === 0 ? 'text-brand' : 'text-gray-400'}`}>משחקים קרובים</Text>
+                            <Text className={`font-bold ${gamesTab === 0 ? 'text-brand' : 'text-gray-400'}`}>{t('profile.upcomingGames', 'משחקים קרובים')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                             onPress={() => setGamesTab(1)}
                             className={`flex-1 pb-3 items-center border-b-2 ${gamesTab === 1 ? 'border-brand' : 'border-transparent'}`}
                         >
-                            <Text className={`font-bold ${gamesTab === 1 ? 'text-brand' : 'text-gray-400'}`}>היסטוריית משחקים</Text>
+                            <Text className={`font-bold ${gamesTab === 1 ? 'text-brand' : 'text-gray-400'}`}>{t('profile.pastGames', 'היסטוריית משחקים')}</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -612,12 +630,12 @@ export default function ProfileScreen() {
                                             className="mb-3 p-3 border border-gray-100 rounded-xl bg-gray-50"
                                         >
                                             <Text className="font-bold text-gray-800">{g.title || g.fieldName}</Text>
-                                            <Text className="text-gray-500 text-sm mt-1">{new Date(g.date).toLocaleDateString('he-IL')} • {g.time}</Text>
+                                            <Text className="text-gray-500 text-sm mt-1">{new Date(g.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} • {g.time}</Text>
                                             {g.fieldLocation && <Text className="text-gray-400 text-xs mt-1">{g.fieldLocation}</Text>}
                                         </TouchableOpacity>
                                     ))
                                 ) : (
-                                    <Text className="text-gray-400 text-center py-2">אין משחקים קרובים.</Text>
+                                    <Text className="text-gray-400 text-center py-2">{t('profile.noUpcomingGames', 'אין משחקים קרובים.')}</Text>
                                 );
                             } else {
                                 return pastGames.length > 0 ? (
@@ -628,12 +646,12 @@ export default function ProfileScreen() {
                                             className="mb-3 p-3 border border-gray-100 rounded-xl bg-gray-50"
                                         >
                                             <Text className="font-bold text-gray-800">{g.title || g.fieldName}</Text>
-                                            <Text className="text-gray-500 text-sm mt-1">{new Date(g.date).toLocaleDateString('he-IL')} • {g.time}</Text>
+                                            <Text className="text-gray-500 text-sm mt-1">{new Date(g.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} • {g.time}</Text>
                                             {g.fieldLocation && <Text className="text-gray-400 text-xs mt-1">{g.fieldLocation}</Text>}
                                         </TouchableOpacity>
                                     ))
                                 ) : (
-                                    <Text className="text-gray-400 text-center py-2">אין היסטוריית משחקים.</Text>
+                                    <Text className="text-gray-400 text-center py-2">{t('profile.noPastGames', 'אין היסטוריית משחקים.')}</Text>
                                 );
                             }
                         })()}
@@ -659,7 +677,7 @@ export default function ProfileScreen() {
                 <View className="flex-1 justify-end bg-black/50">
                     <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '60%' }}>
                         <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-xl font-bold text-gray-800">בחר ענף ספורט</Text>
+                            <Text className="text-xl font-bold text-gray-800">{t('profile.selectSportModalTitle', 'בחר ענף ספורט')}</Text>
                             <TouchableOpacity onPress={() => setSportModalVisible(false)}>
                                 <FontAwesome name="times" size={22} color="#6b7280" />
                             </TouchableOpacity>
@@ -676,14 +694,14 @@ export default function ProfileScreen() {
                                         <FontAwesome name="futbol-o" size={18} color="#059669" />
                                     </View>
                                     <Text className="text-gray-800 font-semibold text-base">
-                                        {SPORT_MAPPING[item.id] || SPORT_MAPPING[item.name] || item.name}
+                                        {t(`sports.${item.id.toLowerCase()}`, SPORT_MAPPING[item.id] || SPORT_MAPPING[item.name] || item.name)}
                                     </Text>
                                     <FontAwesome name="chevron-left" size={12} color="#d1d5db" style={{ marginRight: 'auto' }} />
                                 </TouchableOpacity>
                             )}
                             ListEmptyComponent={
                                 <View className="items-center py-8">
-                                    <Text className="text-gray-400">כבר הוספת את כל ענפי הספורט הזמינים</Text>
+                                    <Text className="text-gray-400">{t('profile.allSportsAdded', 'כבר הוספת את כל ענפי הספורט הזמינים')}</Text>
                                 </View>
                             }
                         />
@@ -701,7 +719,7 @@ export default function ProfileScreen() {
                 <View className="flex-1 justify-end bg-black/50">
                     <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '60%' }}>
                         <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-xl font-bold text-gray-800">בחרו עיר</Text>
+                            <Text className="text-xl font-bold text-gray-800">{t('profile.selectCityModalTitle', 'בחרו עיר')}</Text>
                             <TouchableOpacity onPress={() => setCityModalVisible(false)}>
                                 <FontAwesome name="times" size={22} color="#6b7280" />
                             </TouchableOpacity>

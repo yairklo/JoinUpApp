@@ -1,4 +1,5 @@
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
+import { isAbortError } from '@/utils/apiErrors';
 
 // API base URL — set via EXPO_PUBLIC_API_URL in .env / eas.json
 // Optional override for Socket.IO: EXPO_PUBLIC_SOCKET_URL (defaults to API URL)
@@ -76,7 +77,11 @@ export async function apiClient<T>(endpoint: string, { token, data, signal, sile
         const result = await response.json();
         return mapGameTimezones(result) as T;
     } catch (error: any) {
-        if (!silent) {
+        // Callers routinely abort in-flight requests on unmount/param-change (see
+        // useGamesByDate.ts, SeriesSection.tsx) and already treat that as a normal,
+        // non-error outcome via isAbortError() — logging it here as a scary
+        // "API Call Failed" was pure noise, not a real failure.
+        if (!silent && !isAbortError(error)) {
             console.error(`API Call Failed [${url}]:`, error);
         }
         throw error;

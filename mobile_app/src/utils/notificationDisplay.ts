@@ -57,8 +57,12 @@ export function resolveNotificationCopy(raw: RawNotification): { title: string; 
   const bodyEn = typeof data.bodyEn === 'string' ? data.bodyEn.trim() : '';
 
   const isChat = isChatNotification(raw);
-  const fallbackTitle = isChat ? 'הודעה חדשה' : 'התראה';
-  const fallbackBody = isChat ? 'הודעה חדשה בצ\'אט' : '';
+  const fallbackTitle = isChat
+    ? (isEn ? 'New message' : 'הודעה חדשה')
+    : (isEn ? 'Notification' : 'התראה');
+  const fallbackBody = isChat
+    ? (isEn ? 'New chat message' : "הודעה חדשה בצ'אט")
+    : '';
 
   if (isEn && titleEn) {
     return {

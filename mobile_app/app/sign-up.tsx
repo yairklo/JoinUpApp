@@ -1,12 +1,14 @@
 import * as React from 'react'
-import { Text, TextInput, TouchableOpacity, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native'
+import { Text, TextInput, TouchableOpacity, View, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native'
 import { useSignUp } from '@clerk/clerk-expo'
 import { useRouter, Link } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useTranslation } from 'react-i18next'
 import { OAuth } from "@/components/OAuth";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function SignUpScreen() {
+    const { t } = useTranslation()
     const { isLoaded, signUp, setActive } = useSignUp()
     const router = useRouter()
 
@@ -20,7 +22,7 @@ export default function SignUpScreen() {
     const onSignUpPress = async () => {
         if (!isLoaded) return
         if (!agreedToTerms) {
-            alert('יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך')
+            Alert.alert(t('common.error', 'שגיאה'), t('auth.agreeToTermsRequired', 'יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך'))
             return
         }
         setLoading(true)
@@ -36,7 +38,7 @@ export default function SignUpScreen() {
             setPendingVerification(true)
         } catch (err: any) {
             console.error(JSON.stringify(err, null, 2))
-            alert(err.errors?.[0]?.message || "Sign up failed")
+            Alert.alert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.signUpFailed', 'Sign up failed'))
         } finally {
             setLoading(false)
         }
@@ -59,7 +61,7 @@ export default function SignUpScreen() {
             }
         } catch (err: any) {
             console.error(JSON.stringify(err, null, 2))
-            alert(err.errors?.[0]?.message || "Verification failed")
+            Alert.alert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.verificationFailed', 'Verification failed'))
         } finally {
             setLoading(false)
         }
@@ -114,10 +116,10 @@ export default function SignUpScreen() {
                                         {agreedToTerms && <FontAwesome name="check" size={12} color="white" />}
                                     </View>
                                     <Text className="text-gray-600 flex-1 text-sm">
-                                        אני מאשר/ת שקראתי ומסכים/ה ל
-                                        <Link href={"/legal/terms" as any}><Text className="text-brand font-bold">תנאי השימוש</Text></Link>
-                                        {' '}ול
-                                        <Link href={"/legal/privacy" as any}><Text className="text-brand font-bold">מדיניות הפרטיות</Text></Link>
+                                        {t('auth.agreeToTermsPrefix', 'אני מאשר/ת שקראתי ומסכים/ה ל')}
+                                        <Link href={"/legal/terms" as any}><Text className="text-brand font-bold">{t('auth.termsOfService', 'תנאי השימוש')}</Text></Link>
+                                        {t('auth.and', ' ול')}
+                                        <Link href={"/legal/privacy" as any}><Text className="text-brand font-bold">{t('auth.privacyPolicy', 'מדיניות הפרטיות')}</Text></Link>
                                     </Text>
                                 </TouchableOpacity>
 
@@ -133,7 +135,7 @@ export default function SignUpScreen() {
 
                                 <OAuth
                                     disabled={!agreedToTerms}
-                                    disabledMessage="יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך"
+                                    disabledMessage={t('auth.agreeToTermsRequired', 'יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך')}
                                 />
 
                                 <View className="flex-row justify-center mt-8 pb-10">

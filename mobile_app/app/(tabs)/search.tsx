@@ -476,7 +476,7 @@ export default function SearchScreen() {
                                         <MaterialCommunityIcons name="close" size={24} color="#6b7280" />
                                     </TouchableOpacity>
                                     <Text className="text-xl font-bold text-gray-800 text-right">
-                                        {selectedFieldGames?.[0]?.field?.name || selectedFieldGames?.[0]?.fieldName || 'משחקים במגרש'}
+                                        {selectedFieldGames?.[0]?.field?.name || selectedFieldGames?.[0]?.fieldName || t('search.gamesAtField', 'משחקים במגרש')}
                                     </Text>
                                 </View>
                                 {(selectedFieldGames?.[0]?.field?.id || selectedFieldGames?.[0]?.fieldId) && (
@@ -508,7 +508,7 @@ export default function SearchScreen() {
                                                 <MaterialCommunityIcons name="chevron-left" size={24} color="#059669" />
                                             </View>
                                             <View className="flex-1 items-end mr-3">
-                                                <Text className="text-base font-bold text-gray-800 text-right">{game.title || 'משחק'}</Text>
+                                                <Text className="text-base font-bold text-gray-800 text-right">{game.title || t('search.game', 'משחק')}</Text>
                                                 <Text className="text-sm text-gray-500 text-right mt-1">
                                                     {new Date(game.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} {t('search.atTime', 'בשעה')} {game.time}
                                                 </Text>
@@ -540,11 +540,11 @@ export default function SearchScreen() {
                                         <MaterialCommunityIcons name="close" size={24} color="#6b7280" />
                                     </TouchableOpacity>
                                     <Text className="text-xl font-bold text-gray-800 text-right">
-                                        {selectedEmptyField?.name || 'מגרש פנוי'}
+                                        {selectedEmptyField?.name || t('search.emptyField', 'מגרש פנוי')}
                                     </Text>
                                 </View>
                                 <Text className="text-gray-500 text-sm text-right mb-6">
-                                    {selectedEmptyField?.location || 'אין מידע על מיקום'}
+                                    {selectedEmptyField?.location || t('search.noLocationInfo', 'אין מידע על מיקום')}
                                 </Text>
                                 <TouchableOpacity
                                     className="bg-brand py-3 rounded-xl items-center justify-center shadow-lg"
@@ -557,7 +557,7 @@ export default function SearchScreen() {
                                         });
                                     }}
                                 >
-                                    <Text className="text-white font-bold text-base">פתח משחק במגרש זה</Text>
+                                    <Text className="text-white font-bold text-base">{t('search.openGameAtField', 'פתח משחק במגרש זה')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     className="flex-row items-center justify-center bg-brand-mist border border-brand-pale py-3 rounded-xl mt-3"

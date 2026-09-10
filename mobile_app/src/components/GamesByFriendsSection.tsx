@@ -33,7 +33,7 @@ export default function GamesByFriendsSection({ sportFilter }: { sportFilter?: s
             <View className="px-5 mb-3 flex-row items-center">
                 <View className="w-1 h-5 rounded-full bg-brand mr-2" />
                 <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">
-                    משחקים של חברים
+                    {t('home.friendsGames', 'משחקים של חברים')}
                 </Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>

@@ -269,13 +269,13 @@ export default function NewGameScreen() {
                 <View className="p-4 bg-white border-t border-gray-200 pb-10">
                     <Text className="font-bold text-lg text-center text-gray-900 mb-1">{mapSelectedField.name}</Text>
                     <Text className="text-gray-500 text-center text-sm mb-4">
-                        {mapSelectedField.location || mapSelectedField.city || 'מגרש רשום'}
+                        {mapSelectedField.location || mapSelectedField.city || t('newGame.registeredField', 'מגרש רשום')}
                     </Text>
                     <TouchableOpacity
                         className="bg-brand p-4 rounded-xl items-center"
                         onPress={confirmMapFieldSelection}
                     >
-                        <Text className="text-white font-bold">אשר מגרש</Text>
+                        <Text className="text-white font-bold">{t('newGame.confirmField', 'אשר מגרש')}</Text>
                     </TouchableOpacity>
                 </View>
             );
@@ -284,12 +284,12 @@ export default function NewGameScreen() {
         if (customPoint) {
             return (
                 <View className="p-4 bg-white border-t border-gray-200 pb-10">
-                    <Text className="text-gray-600 text-center text-sm mb-3">מיקום מותאם אישית נבחר</Text>
+                    <Text className="text-gray-600 text-center text-sm mb-3">{t('newGame.customLocationSelected', 'מיקום מותאם אישית נבחר')}</Text>
                     <TouchableOpacity
                         className="bg-brand p-4 rounded-xl items-center"
                         onPress={confirmCustomMapPoint}
                     >
-                        <Text className="text-white font-bold">אשר מיקום</Text>
+                        <Text className="text-white font-bold">{t('newGame.confirmLocation', 'אשר מיקום')}</Text>
                     </TouchableOpacity>
                 </View>
             );
@@ -454,8 +454,8 @@ export default function NewGameScreen() {
                 fieldId: selectedField?.id || "",
                 ...(customPoint && !selectedField ? {
                     newField: {
-                        name: customFieldName || 'מיקום מותאם אישית',
-                        location: 'מיקום נבחר מהמפה',
+                        name: customFieldName || t('newGame.customPoint', 'מיקום מותאם אישית'),
+                        location: t('newGame.locationSelectedFromMap', 'מיקום נבחר מהמפה'),
                         type: 'open'
                     }
                 } : {}),
@@ -510,7 +510,7 @@ export default function NewGameScreen() {
     if (loading) {
         return (
             <View className="flex-1 justify-center items-center">
-                <LoadingMotif id="pin-drop" label="טוען יצירת משחק…" />
+                <LoadingMotif id="pin-drop" label={t('newGame.loadingCreatingGame', 'טוען יצירת משחק…')} />
             </View>
         );
     }

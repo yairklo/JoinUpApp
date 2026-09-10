@@ -163,7 +163,7 @@ export default function HomeScreen() {
 
         {loading && games.length === 0 ? (
           <View className="py-10 items-center justify-center">
-            <LoadingMotif id="kickoff-ripple" label="טוען משחקים…" />
+            <LoadingMotif id="kickoff-ripple" label={t('home.loadingGames', 'טוען משחקים…')} />
           </View>
         ) : cappedGames.length > 0 ? (
           <View className="mt-2">

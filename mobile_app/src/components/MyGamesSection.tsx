@@ -66,7 +66,7 @@ export default function MyGamesSection() {
             setGames(active);
         } catch (err) {
             if (isAbortError(err) || controller.signal.aborted) return;
-            const message = getFriendlyFetchError(err, 'שגיאה בטעינת המשחקים שלי');
+            const message = getFriendlyFetchError(err, t('errors.loadMyGamesFailed', 'שגיאה בטעינת המשחקים שלי'));
             if (message) setError(message);
         } finally {
             if (!controller.signal.aborted) setLoading(false);

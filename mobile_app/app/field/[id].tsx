@@ -105,7 +105,7 @@ export default function FieldProfileScreen() {
             <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-gray-50">
                 <FieldProfileHeader title={t('field.profile')} onBack={() => router.back()} />
                 <View className="flex-1 justify-center items-center">
-                    <LoadingMotif id="pin-drop" label="טוען מגרש…" />
+                    <LoadingMotif id="pin-drop" label={t('field.loadingField', 'טוען מגרש…')} />
                 </View>
             </SafeAreaView>
         );
@@ -135,7 +135,7 @@ export default function FieldProfileScreen() {
                 className="bg-white border border-gray-200 rounded-xl p-3 mr-3 w-44"
             >
                 <Text className="font-bold text-gray-800" numberOfLines={1}>
-                    {item.title || SPORT_MAPPING[item.sport] || item.sport}
+                    {item.title || (item.sport ? t(`sports.${item.sport.toLowerCase()}`, SPORT_MAPPING[item.sport] || item.sport) : '')}
                 </Text>
                 <Text className="text-gray-500 text-xs mt-1">
                     {item.date ? item.date.split('-').reverse().join('/') : ''} · {item.time || ''}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useAuth } from '@clerk/clerk-expo';
+import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/services/api';
 
 // Module-level favorite-ids cache + a subscriber list, shared by every mounted
@@ -45,6 +46,7 @@ function setFavorite(fieldId: string, isFav: boolean) {
 }
 
 export default function FavoriteButton({ fieldId, size = 20 }: { fieldId: string; size?: number }) {
+    const { t } = useTranslation();
     const { userId, getToken } = useAuth();
     const [isFav, setIsFav] = useState(() => favoriteIds?.has(fieldId) ?? false);
     const [loading, setLoading] = useState(false);
@@ -80,7 +82,7 @@ export default function FavoriteButton({ fieldId, size = 20 }: { fieldId: string
             setFavorite(fieldId, next);
         } catch (e) {
             console.error('Failed to toggle favorite', e);
-            Alert.alert('שגיאה', 'לא ניתן היה לעדכן את המועדפים, נסה שוב');
+            Alert.alert(t('common.error', 'שגיאה'), t('favorites.updateFailed', 'לא ניתן היה לעדכן את המועדפים, נסה שוב'));
         } finally {
             setLoading(false);
         }
@@ -91,7 +93,7 @@ export default function FavoriteButton({ fieldId, size = 20 }: { fieldId: string
             onPress={toggle}
             disabled={loading}
             accessibilityRole="button"
-            accessibilityLabel={isFav ? 'הסר ממועדפים' : 'הוסף למועדפים'}
+            accessibilityLabel={isFav ? t('favorites.remove', 'הסר ממועדפים') : t('favorites.add', 'הוסף למועדפים')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{
                 backgroundColor: 'rgba(255,255,255,0.9)',

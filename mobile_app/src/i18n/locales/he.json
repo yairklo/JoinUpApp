@@ -7,7 +7,19 @@
     "back": "חזרה",
     "save": "שמירה",
     "error": "שגיאה",
-    "success": "הצלחה"
+    "success": "הצלחה",
+    "remove": "הסר",
+    "delete": "מחק",
+    "close": "סגור",
+    "days": {
+      "sunday": "ראשון",
+      "monday": "שני",
+      "tuesday": "שלישי",
+      "wednesday": "רביעי",
+      "thursday": "חמישי",
+      "friday": "שישי",
+      "saturday": "שבת"
+    }
   },
   "tabs": {
     "home": "בית",
@@ -34,7 +46,11 @@
     "atTime": "בשעה",
     "fieldsDirectory": "מגרשים",
     "networkGames": "רשת המכרים",
-    "emptyFields": "מגרשים פנויים"
+    "emptyFields": "מגרשים פנויים",
+    "gamesAtField": "משחקים במגרש",
+    "emptyField": "מגרש פנוי",
+    "noLocationInfo": "אין מידע על מיקום",
+    "openGameAtField": "פתח משחק במגרש זה"
   },
   "home": {
     "welcomeBack": "ברוך שובך",
@@ -50,7 +66,9 @@
     "showAll": "הצג הכל ({{count}})",
     "createGame": "צור משחק",
     "gamesInCity": "משחקים ב{{city}}",
-    "teamMembers": "{{count}} חברי קבוצה"
+    "teamMembers": "{{count}} חברי קבוצה",
+    "loadingGames": "טוען משחקים…",
+    "friendsGames": "משחקים של חברים"
   },
   "omnibar": {
     "placeholder": "חפש אנשים, מגרשים או משחקים...",
@@ -97,7 +115,8 @@
     "noActiveChats": "אין צ'אטים פעילים עם שחקנים",
     "noGamesRegistered": "לא נרשמת לאף משחק",
     "noMessages": "אין הודעות עדיין",
-    "you": "אתה: "
+    "you": "אתה: ",
+    "loadingChats": "טוען צ'אטים…"
   },
   "profile": {
     "unknownCity": "עיר לא ידועה",
@@ -112,7 +131,46 @@
     "updateFailed": "נכשל בעדכון הפרופיל.",
     "signOut": "התנתק",
     "sports": "תחומי עניין בספורט",
-    "noSports": "לא נבחרו ענפי ספורט מועדפים"
+    "noSports": "לא נבחרו ענפי ספורט מועדפים",
+    "searchPlayers": "חיפוש שחקנים",
+    "searchPlayersPlaceholder": "חפש שחקנים לפי שם או אימייל...",
+    "seeAllResults": "ראה את כל התוצאות",
+    "gender": "מין",
+    "male": "גבר",
+    "female": "אישה",
+    "unknownGender": "לא צוין",
+    "unknownPhone": "לא צוין",
+    "unknownEmail": "לא צוין",
+    "unknownAge": "לא ידוע",
+    "phonePlaceholder": "למשל: 0501234567",
+    "selectCityFromList": "בחרו עיר מהרשימה",
+    "selectCityModalTitle": "בחרו עיר",
+    "sportsAndPositions": "ספורט ועמדות",
+    "add": "הוסף",
+    "cancel": "ביטול",
+    "save": "שמור",
+    "pressAddSport": "לחץ \"הוסף\" כדי להוסיף ענף ספורט",
+    "noSportsDefined": "לא הוגדרו ענפי ספורט",
+    "selectPositionsHint": "בחר עמדות (ניתן לבחור מספר):",
+    "addCustomPosition": "הוסף עמדה חופשית:",
+    "customPositionPlaceholder": "למשל: קשר פוגעני, חלוץ שני...",
+    "general": "כללי",
+    "upcomingGames": "משחקים קרובים",
+    "pastGames": "היסטוריית משחקים",
+    "noUpcomingGames": "אין משחקים קרובים.",
+    "noPastGames": "אין היסטוריית משחקים.",
+    "selectSportModalTitle": "בחר ענף ספורט",
+    "allSportsAdded": "כבר הוספת את כל ענפי הספורט הזמינים",
+    "admin": "ניהול",
+    "loadingProfile": "טוען פרופיל…",
+    "loadingUser": "טוען שחקן…",
+    "loadingPlayers": "טוען שחקנים…",
+    "searchPlayersHeader": "חיפוש שחקנים",
+    "friends": "חברים",
+    "pendingSent": "נשלחה בקשה",
+    "pendingReceived": "התקבלה בקשה",
+    "addFriend": "הוסף חבר",
+    "noPlayersFound": "לא נמצאו שחקנים תואמים"
   },
   "game": {
     "details": "פרטי משחק",
@@ -168,7 +226,39 @@
     "timeMustBeInFuture": "שעת המשחק חייבת להיות בעתיד",
     "validationError": "שגיאת ולידציה",
     "success": "הצלחה",
-    "error": "שגיאה"
+    "error": "שגיאה",
+    "joinSuccess": "הצטרפת למשחק!",
+    "joinWaitlistSuccess": "נרשמת לרשימת ההמתנה",
+    "waitlistOfferJoined": "הצטרפת למשחק בהצלחה!",
+    "waitlistOfferDeclined": "ויתרת על המקום בהצלחה",
+    "waitlistOfferSpotAvailable": "התפנה מקום במשחק! המקום שמור לך.",
+    "confirmJoin": "אישור הצטרפות",
+    "declineSpot": "ויתור",
+    "waitlisted": "ברשימת המתנה",
+    "mustBeLoggedIn": "עליך להיות מחובר כדי להצטרף",
+    "mustBeLoggedInToConfirm": "עליך להיות מחובר כדי לאשר או לוותר",
+    "loadFailed": "לא הצלחנו לטעון את פרטי המשחק",
+    "joinFailed": "ההצטרפות למשחק נכשלה",
+    "actionFailed": "הפעולה נכשלה",
+    "leaveFailed": "עזיבת המשחק נכשלה",
+    "waitlistProcessFailed": "לא הצלחנו לעבד את אישור רשימת ההמתנה",
+    "awaitingOrganizerApproval": "ממתין לאישור המארגן",
+    "noActiveWaitlistOffer": "אין הצעת מקום פעילה מרשימת ההמתנה. אם שלחת בקשת הצטרפות, המארגן צריך לאשר אותה.",
+    "notFound": "המשחק לא נמצא",
+    "spotOpenedUpTitle": "התפנה מקום במשחק!",
+    "waitlistOfferApprovalHint": "אם קיבלת הצעה מרשימת המתנה — אשר או וותר כאן. אם רק ביקשת להצטרף, המארגן צריך לאשר.",
+    "waitlistOfferSpotReserved": "המקום שמור לך. עליך לאשר את ההצטרפות כדי לתפוס אותו.",
+    "waitlistSubNotice": "הרשמת כמחליף. אם יתפנה מקום, תקבל הודעה ותוכל לאשר כאן.",
+    "shareMessage": "הצטרפו אלי למשחק ב-{{fieldName}} בתאריך {{date}} בשעה {{time}}!\nhttps://joinup.app/game/{{id}}",
+    "shareTitle": "הצטרף למשחק שלי",
+    "calendarDefaultTitle": "משחק JoinUp",
+    "unassignedBench": "לא שובצו",
+    "user": "משתמש",
+    "player": "שחקן",
+    "activeWaitlistOffer": "הוצע מקום אוטומטית (ממתין לאישור השחקן)",
+    "bypassToNext": "עקוף לבא בתור",
+    "waitlistQueuePosition": "ממתין #{{position}}",
+    "waitlistTitle": "רשימת המתנה"
   },
   "newGame": {
     "sport": "ספורט",
@@ -219,7 +309,12 @@
     "removeSelection": "הסר בחירה",
     "createFailed": "יצירת המשחק נכשלה",
     "loadFieldsFailed": "טעינת המגרשים נכשלה",
-    "mustSelectFieldOrPoint": "אנא בחר מגרש או סמן מיקום במפה"
+    "mustSelectFieldOrPoint": "אנא בחר מגרש או סמן מיקום במפה",
+    "registeredField": "מגרש רשום",
+    "confirmField": "אשר מגרש",
+    "customLocationSelected": "מיקום מותאם אישית נבחר",
+    "confirmLocation": "אשר מיקום",
+    "loadingCreatingGame": "טוען יצירת משחק…"
   },
   "chat": {
     "message": "הודעה...",
@@ -237,7 +332,8 @@
     "deleteConfirm": "האם אתה בטוח?",
     "loadingChat": "טוען שיחה…",
     "isTyping": "מקליד/ה...",
-    "areTyping": "מקלידים..."
+    "areTyping": "מקלידים...",
+    "blockedOffensive": "ההודעה מכילה תוכן פוגעני ולכן לא נשלחה"
   },
   "notifications": {
     "title": "התראות",
@@ -253,13 +349,15 @@
     "addedToGameBody": "{{details}}",
     "fallbackTitle": "התראה",
     "fallbackBody": "אין פרטים נוספים",
-    "sendMessage": "שלח הודעה"
+    "sendMessage": "שלח הודעה",
+    "loadingNotifications": "טוען התראות…"
   },
   "field": {
     "directory": "מגרשים",
     "searchPlaceholder": "חפש מגרש או עיר",
     "emptyDirectory": "לא נמצאו מגרשים",
     "loadingFields": "טוען מגרשים…",
+    "loadingField": "טוען מגרש…",
     "profile": "פרופיל מגרש",
     "notFound": "המגרש לא נמצא",
     "openField": "מגרש פתוח",
@@ -331,7 +429,17 @@
   },
   "series": {
     "badge": "קבוצה שבועית",
-    "viewGroup": "לעמוד הקבוצה"
+    "viewGroup": "לעמוד הקבוצה",
+    "createGroup": "צור קבוצה",
+    "weekly": "שבועי",
+    "customDates": "תאריכים מותאמים אישית",
+    "weeklyBullet1": "יוצר משחק בכל שבוע בשעה",
+    "weeklyBullet2": "מייצר מיד את 4 המשחקים הבאים.",
+    "weeklyBullet3": "שחקנים יכולים להירשם להצטרפות אוטומטית.",
+    "customDatesHint": "בחר תאריכים ספציפיים לקבוצה זו.",
+    "customDatesWebHint": "בחירת תאריכים מותאמים אישית מותאמת יותר לשימוש באתר. באפליקציה מומלץ להשתמש באפשרות השבועית.",
+    "dayPrefix": "יום {{day}}",
+    "loadingSeries": "טוען קבוצה…"
   },
   "editGame": {
     "title": "עריכת משחק",
@@ -364,7 +472,28 @@
     "futureRegistration": "הרשמה עתידית",
     "lotteryEnabled": "מערכת הגרלה",
     "organizerInLottery": "כלול מארגן בהגרלה",
-    "makePublicLater": "פתח לציבור בהמשך"
+    "makePublicLater": "פתח לציבור בהמשך",
+    "friendsAdded": "החברים נוספו למשחק בהצלחה!",
+    "addFriendsFailed": "הוספת חברים נכשלה. אנא נסה שנית.",
+    "playerRemoved": "השחקן הוסר מהמשחק בהצלחה!",
+    "removePlayerFailed": "הסרת שחקן נכשלה.",
+    "managerAssigned": "מונה למנהל משחק בהצלחה!",
+    "assignManagerFailed": "מינוי למנהל נכשל.",
+    "managerRemoved": "הוסרו הרשאות ניהול בהצלחה!",
+    "removeManagerFailed": "הסרת מנהל נכשלה.",
+    "captainAssigned": "מונה לקפטן קבוצה בהצלחה!",
+    "captainRemoved": "הוסר מקפטן קבוצה בהצלחה!",
+    "updateCaptainFailed": "עדכון קפטן נכשל.",
+    "choosePlayerAction": "בחר פעולה עבור שחקן זה:",
+    "assignManagerRole": "מנה למנהל משחק",
+    "removeManagerRole": "הסר הרשאות ניהול משחק",
+    "assignCaptainRole": "מנה לקפטן קבוצה (בוחר)",
+    "removeCaptainRole": "הסר מקפטן קבוצה (בוחר)",
+    "removeFromGame": "הסר מהמשחק",
+    "confirmRemovePlayerTitle": "אישור הסרה",
+    "confirmRemovePlayerMessage": "האם אתה בטוח שברצונך להסיר את {{name}} מהמשחק?",
+    "mustSelectField": "אנא בחר מגרש או הוסף מגרש חדש",
+    "mustFillFieldNameAndLocation": "יש למלא שם מגרש וכתובת"
   },
   "teams": {
     "live": "ניהול קבוצות חי",
@@ -409,7 +538,17 @@
     "managersChat": "צ'אט קבוצתי למנהלים",
     "managersChatName": "מנהלים",
     "messageManagers": "כתוב למנהלים…",
-    "send": "שלח"
+    "send": "שלח",
+    "selectDate": "בחר תאריך",
+    "selectTime": "בחר שעה",
+    "pickOrder": "סדר בחירה",
+    "orderCircular": "מעגלי",
+    "orderSnake": "נחש",
+    "captainsTitle": "קפטנים (בוחרים שחקנים)",
+    "remove": "הסר",
+    "noCaptainsSelected": "לא נבחרו קפטנים",
+    "selectPlayerForCaptain": "בחר שחקן לתפקיד קפטן:",
+    "loadingTeamsSelection": "טוען בחירת קבוצות…"
   },
   "joined": "הצטרפת",
   "full": "מלא",
@@ -436,5 +575,62 @@
     "cycling": "אופניים",
     "swimming": "שחייה",
     "padel": "פאדל"
+  },
+  "favorites": {
+    "updateFailed": "לא ניתן היה לעדכן את המועדפים, נסה שוב",
+    "remove": "הסר ממועדפים",
+    "add": "הוסף למועדפים"
+  },
+  "settings": {
+    "title": "הגדרות",
+    "pushNotifications": "התראות פוש",
+    "privacyPolicy": "מדיניות פרטיות",
+    "termsOfService": "תנאי שימוש",
+    "version": "גרסה",
+    "signOut": "התנתק",
+    "notificationsPermissionRequired": "הרשאת התראות נדרשת",
+    "notificationsPermissionMessage": "כדי לקבל התראות יש לאשר זאת בהגדרות המכשיר.",
+    "openSettings": "פתח הגדרות",
+    "updatePushFailed": "עדכון הגדרת ההתראות נכשל, נסה שוב."
+  },
+  "upload": {
+    "permissionRequired": "נדרשת הרשאה",
+    "permissionMessage": "כדי לצרף תמונה יש לאשר גישה לגלריית התמונות בהגדרות המכשיר",
+    "unsupportedType": "סוג קובץ לא נתמך",
+    "unsupportedTypeMessage": "ניתן להעלות תמונות מסוג JPEG, PNG, WEBP או GIF בלבד",
+    "fileTooLarge": "הקובץ גדול מדי",
+    "fileTooLargeMessage": "גודל התמונה חייב להיות עד 5MB"
+  },
+  "errors": {
+    "gatewayError": "השרת לא זמין כרגע. נסה שוב בעוד רגע.",
+    "fetchFailed": "שגיאה בטעינת הנתונים",
+    "loadMyGamesFailed": "שגיאה בטעינת המשחקים שלי",
+    "loadSeriesFailed": "שגיאה בטעינת קבוצות",
+    "loadGamesByCityFailed": "שגיאה בטעינת משחקים לפי עיר",
+    "loadGamesFailed": "שגיאה בטעינת משחקים",
+    "loadFriendsGamesFailed": "שגיאה בטעינת משחקי חברים"
+  },
+  "auth": {
+    "agreeToTermsRequired": "יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך",
+    "agreeToTermsPrefix": "אני מאשר/ת שקראתי ומסכים/ה ל",
+    "termsOfService": "תנאי השימוש",
+    "and": "ול",
+    "privacyPolicy": "מדיניות הפרטיות",
+    "signUpFailed": "ההרשמה נכשלה",
+    "verificationFailed": "אימות הקוד נכשל"
+  },
+  "positions": {
+    "goalkeeper": "שוער",
+    "defender": "בלם",
+    "fullback": "מגן",
+    "midfielder": "קשר",
+    "striker": "חלוץ",
+    "pointGuard": "פוינט גארד",
+    "shootingGuard": "שוטינג גארד",
+    "smallForward": "סמול פורוורד",
+    "powerForward": "פאואר פורוורד",
+    "center": "סנטר",
+    "baseliner": "שחקן בסיס",
+    "netPlayer": "שחקן רשת"
   }
 }

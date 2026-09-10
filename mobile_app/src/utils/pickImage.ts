@@ -2,6 +2,7 @@ import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { MAX_IMAGE_FILE_SIZE, ACCEPTED_IMAGE_TYPES } from '@joinup/shared/upload';
 import type { PickedImage } from '@/services/api/fields';
+import i18n from '@/i18n';
 
 /**
  * Shared by FieldPhotoGallery and FieldImageUpload (admin, mobile-only): asks for
@@ -11,7 +12,10 @@ import type { PickedImage } from '@/services/api/fields';
 export async function pickOneImage(): Promise<PickedImage | null> {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-        Alert.alert('נדרשת הרשאה', 'כדי לצרף תמונה יש לאשר גישה לגלריית התמונות בהגדרות המכשיר');
+        Alert.alert(
+            i18n.t('upload.permissionRequired', 'נדרשת הרשאה'),
+            i18n.t('upload.permissionMessage', 'כדי לצרף תמונה יש לאשר גישה לגלריית התמונות בהגדרות המכשיר')
+        );
         return null;
     }
 
@@ -25,11 +29,17 @@ export async function pickOneImage(): Promise<PickedImage | null> {
     const asset = result.assets[0];
     const mimeType = asset.mimeType || 'image/jpeg';
     if (!ACCEPTED_IMAGE_TYPES.includes(mimeType)) {
-        Alert.alert('סוג קובץ לא נתמך', 'ניתן להעלות תמונות מסוג JPEG, PNG, WEBP או GIF בלבד');
+        Alert.alert(
+            i18n.t('upload.unsupportedType', 'סוג קובץ לא נתמך'),
+            i18n.t('upload.unsupportedTypeMessage', 'ניתן להעלות תמונות מסוג JPEG, PNG, WEBP או GIF בלבד')
+        );
         return null;
     }
     if (typeof asset.fileSize === 'number' && asset.fileSize > MAX_IMAGE_FILE_SIZE) {
-        Alert.alert('הקובץ גדול מדי', 'גודל התמונה חייב להיות עד 5MB');
+        Alert.alert(
+            i18n.t('upload.fileTooLarge', 'הקובץ גדול מדי'),
+            i18n.t('upload.fileTooLargeMessage', 'גודל התמונה חייב להיות עד 5MB')
+        );
         return null;
     }
 

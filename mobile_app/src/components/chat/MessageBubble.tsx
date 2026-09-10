@@ -1,5 +1,6 @@
 import React, { memo } from "react";
 import { View, Text, Image, TouchableOpacity } from "react-native";
+import { useTranslation } from "react-i18next";
 import { ChatMessage } from "@/types/chat";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -22,10 +23,11 @@ function MessageBubble({
     onLongPress,
     onPressUser,
 }: MessageBubbleProps) {
+    const { t } = useTranslation();
     const reactionsList = Object.entries(message.reactions || {});
     const hasReactions = reactionsList.length > 0;
     const senderId = message.userId || message.senderId || message.sender?.id;
-    const senderName = displayName || message.senderName || message.sender?.name || "User";
+    const senderName = displayName || message.senderName || message.sender?.name || t('game.user', 'User');
     const avatarUri =
         displayAvatar ||
         message.sender?.image ||
@@ -117,8 +119,8 @@ function MessageBubble({
                 )}
             </TouchableOpacity>
             {isMe && message.status === 'blocked' && (
-                <Text className="text-red-500 text-xs mt-1 px-2 text-right">
-                    ההודעה מכילה תוכן פוגעני ולכן לא נשלחה
+                <Text className="text-red-500 text-xs mt-1 px-2">
+                    {t('chat.blockedOffensive', 'ההודעה מכילה תוכן פוגעני ולכן לא נשלחה')}
                 </Text>
             )}
             </View>

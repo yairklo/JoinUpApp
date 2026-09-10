@@ -82,9 +82,11 @@ export function useNotifications() {
         const { data: expoPushToken } = await Notifications.getExpoPushTokenAsync(
           projectId ? { projectId } : undefined
         );
+        console.log('[NOTIFICATIONS] Got Expo push token:', expoPushToken);
         const clerkToken = await getTokenRef.current();
         if (clerkToken) {
           await notificationsApi.registerDevice(expoPushToken, Platform.OS, clerkToken);
+          console.log('[NOTIFICATIONS] Registered device token with backend successfully');
         }
       } catch (error) {
         if (!pushRegistrationErrorLogged) {
