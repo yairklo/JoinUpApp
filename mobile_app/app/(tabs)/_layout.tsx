@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Tabs, Link, useRouter } from 'expo-router';
+import { Tabs, Link } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TouchableOpacity, Text, View, useColorScheme, Image, Platform } from 'react-native';
+import { TouchableOpacity, Text, View, useColorScheme, Image } from 'react-native';
 import i18n, { changeLanguage } from '@/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
@@ -24,7 +24,6 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user } = useUser();
   const { friendRequests, unreadMessages } = useNotificationCounters();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const isDark = colorScheme === 'dark';
 
@@ -98,8 +97,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('tabs.games'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="soccer-ball-o" color={color} />,
+          title: t('tabs.home', 'בית'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
           headerTitle: 'JoinUp',
           headerRight: HeaderRight,
         }}
@@ -107,58 +106,21 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: t('tabs.search'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="map-marker" color={color} />,
+          title: t('tabs.games', 'משחקים'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="soccer-ball-o" color={color} />,
+          headerTitle: t('tabs.games', 'משחקים'),
+          headerRight: HeaderRight,
         }}
       />
-
-      {/* Center create FAB */}
       <Tabs.Screen
-        name="create"
+        name="fields"
         options={{
-          title: '',
-          tabBarLabel: () => null,
-          tabBarIcon: () => (
-            <View
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                marginTop: -22,
-                backgroundColor: BRAND,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 4,
-                borderColor: isDark ? '#0b1220' : '#f6f8fa',
-                ...Platform.select({
-                  ios: {
-                    shadowColor: '#059669',
-                    shadowOpacity: 0.45,
-                    shadowRadius: 10,
-                    shadowOffset: { width: 0, height: 6 },
-                  },
-                  android: { elevation: 8 },
-                }),
-              }}
-            >
-              <Ionicons name="add" size={30} color="#fff" />
-            </View>
-          ),
-          tabBarButton: (props) => (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="צור משחק"
-              activeOpacity={0.85}
-              onPress={() => router.push('/game/new')}
-              style={props.style}
-              className="items-center justify-center"
-            >
-              {props.children}
-            </TouchableOpacity>
-          ),
+          title: t('tabs.fields'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="th-list" color={color} />,
+          headerTitle: t('tabs.fields'),
+          headerRight: HeaderRight,
         }}
       />
-
       <Tabs.Screen
         name="chats"
         options={{
@@ -166,6 +128,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="comments" color={color} />,
           tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
           tabBarBadgeStyle: { backgroundColor: '#ef4444' },
+          headerTitle: t('tabs.chats'),
+          headerRight: HeaderRight,
         }}
       />
       <Tabs.Screen
@@ -175,6 +139,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
           tabBarBadge: friendRequests > 0 ? friendRequests : undefined,
           tabBarBadgeStyle: { backgroundColor: '#ef4444' },
+          headerTitle: t('tabs.friends'),
+          headerRight: HeaderRight,
         }}
       />
     </Tabs>

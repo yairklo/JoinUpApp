@@ -63,30 +63,30 @@ export default function ChatScreen() {
         const isMe = message.userId === user?.id || message.senderId === user?.id;
 
         Alert.alert(
-            "אפשרויות הודעה",
+            t('chat.options', "אפשרויות הודעה"),
             undefined,
             [
-                { text: "השב", onPress: () => setReplyToMessage(message) },
+                { text: t('chat.reply', "השב"), onPress: () => setReplyToMessage(message) },
                 ...(isMe ? [
                     {
-                        text: "ערוך", onPress: () => {
+                        text: t('chat.edit', "ערוך"), onPress: () => {
                             setEditingMessage(message);
                             setInputValue(message.text || message.content || '');
                         }
                     },
                     {
-                        text: "מחק", style: 'destructive' as const, onPress: () => {
-                            Alert.alert("מחק הודעה", "האם אתה בטוח?", [
-                                { text: "ביטול", style: 'cancel' },
-                                { text: "מחק", style: 'destructive', onPress: () => handleDelete(message.id) }
+                        text: t('chat.delete', "מחק"), style: 'destructive' as const, onPress: () => {
+                            Alert.alert(t('chat.deleteMessage', "מחק הודעה"), t('chat.deleteConfirm', "האם אתה בטוח?"), [
+                                { text: t('common.cancel', "ביטול"), style: 'cancel' },
+                                { text: t('chat.delete', "מחק"), style: 'destructive', onPress: () => handleDelete(message.id) }
                             ]);
                         }
                     }
                 ] : []),
-                { text: "ביטול", style: 'cancel' }
+                { text: t('common.cancel', "ביטול"), style: 'cancel' }
             ]
         );
-    }, [user?.id, setReplyToMessage, setEditingMessage, setInputValue, handleDelete]);
+    }, [user?.id, setReplyToMessage, setEditingMessage, setInputValue, handleDelete, t]);
 
     // Newest-first for inverted FlatList — copy+reverse once, never mutate `messages`
     const listData = useMemo(() => {
@@ -125,7 +125,7 @@ export default function ChatScreen() {
     if (isLoading && messages.length === 0) {
         return (
             <View className="flex-1 justify-center items-center bg-white">
-                <LoadingMotif id="message-stack" label="טוען שיחה…" />
+                <LoadingMotif id="message-stack" label={t('chat.loadingChat', 'טוען שיחה…')} />
             </View>
         );
     }
@@ -158,7 +158,7 @@ export default function ChatScreen() {
                         {isOtherUserOnline && (
                             <View className="flex-row items-center mt-1">
                                 <View className="w-2 h-2 rounded-full bg-green-500 ml-1.5" />
-                                <Text className="text-xs text-gray-500 font-bold uppercase">מחובר כעת</Text>
+                                <Text className="text-xs text-gray-500 font-bold uppercase">{t('chat.onlineNow', 'מחובר כעת')}</Text>
                             </View>
                         )}
                     </View>
@@ -176,7 +176,20 @@ export default function ChatScreen() {
                     inverted
                     keyExtractor={keyExtractor}
                     renderItem={renderMessage}
-                    contentContainerStyle={{ paddingVertical: 20 }}
+                    contentContainerStyle={{ paddingVertical: 20, flexGrow: 1 }}
+                    ListEmptyComponent={
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', transform: [{ scaleY: -1 }], padding: 24 }}>
+                            <View className="w-16 h-16 rounded-full bg-brand-mist items-center justify-center mb-4">
+                                <Ionicons name="chatbubbles-outline" size={32} color="#059669" />
+                            </View>
+                            <Text className="text-gray-900 font-bold text-lg text-center mb-1">
+                                {t('chat.startConversation', 'התחילו שיחה')}
+                            </Text>
+                            <Text className="text-gray-500 text-sm text-center">
+                                {t('chat.emptyMessages', 'אין הודעות עדיין. תגידו שלום לקבוצה!')}
+                            </Text>
+                        </View>
+                    }
                     initialNumToRender={20}
                     maxToRenderPerBatch={20}
                     windowSize={11}
@@ -194,7 +207,7 @@ export default function ChatScreen() {
                 {typingUsers.size > 0 && (
                     <View className="px-5 py-1">
                         <Text className="text-[10px] italic text-gray-400 font-medium">
-                            {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} מקליד/ים...
+                            {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? t('chat.isTyping', 'מקליד/ה...') : t('chat.areTyping', 'מקלידים...')}
                         </Text>
                     </View>
                 )}
@@ -207,7 +220,7 @@ export default function ChatScreen() {
                 {editingMessage && (
                     <View className="flex-row items-center bg-brand-mist p-3 border-t border-brand-pale">
                         <Ionicons name="pencil" size={16} color="#059669" />
-                        <Text className="flex-1 mr-2 text-brand text-left text-xs font-bold">עורך הודעה</Text>
+                        <Text className="flex-1 mr-2 text-brand text-left text-xs font-bold">{t('chat.editingMessage', 'עורך הודעה')}</Text>
                         <TouchableOpacity onPress={() => { setEditingMessage(null); setInputValue(""); }}>
                             <Ionicons name="close-circle" size={20} color="#059669" />
                         </TouchableOpacity>
@@ -223,7 +236,7 @@ export default function ChatScreen() {
                                 if (text.length > 0) handleTyping();
                                 else handleStopTyping();
                             }}
-                            placeholder="תכתוב משהו נחמד..."
+                            placeholder={t('chat.typeMessage', 'תכתוב משהו נחמד...')}
                             placeholderTextColor="#9ca3af"
                             className="flex-1 text-gray-900 text-base max-h-32 text-left"
                             multiline

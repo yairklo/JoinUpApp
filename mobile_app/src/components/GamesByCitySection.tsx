@@ -33,7 +33,7 @@ export default function GamesByCitySection({ sportFilter }: { sportFilter?: stri
             <View className="px-5 mb-3 flex-row items-center">
                 <View className="w-1 h-5 rounded-full bg-brand mr-2" />
                 <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">
-                    משחקים ב{displayedCity}
+                    {t('home.gamesInCity', { city: displayedCity, defaultValue: `משחקים ב${displayedCity}` })}
                 </Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>

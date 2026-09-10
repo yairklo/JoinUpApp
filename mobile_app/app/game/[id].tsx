@@ -6,7 +6,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { gamesApi } from '@/services/api';
 import { Game } from '@/types/game';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSeriesLogic } from '@/hooks/useSeriesLogic';
 import { useTranslation } from 'react-i18next';
 import PendingRequestsList from '@/components/PendingRequestsList';
@@ -17,7 +17,8 @@ import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOf
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 
 export default function GameDetailsScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const insets = useSafeAreaInsets();
     const params = useLocalSearchParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const { getToken, isLoaded: isAuthLoaded, isSignedIn } = useAuth();
@@ -59,7 +60,7 @@ export default function GameDetailsScreen() {
             setLoading(false);
         } catch (err) {
             console.error("Failed to load game", err);
-            Alert.alert("שגיאה", "לא הצלחנו לטעון את פרטי המשחק");
+            Alert.alert(t('common.error', 'שגיאה'), t('game.loadFailed', 'לא הצלחנו לטעון את פרטי המשחק'));
             setLoading(false);
         }
     }, [id, isAuthLoaded, isSignedIn, getTokenRef]);
@@ -87,22 +88,22 @@ export default function GameDetailsScreen() {
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert("שגיאה", "עליך להיות מחובר כדי להצטרף");
+                Alert.alert(t('common.error', 'שגיאה'), t('game.mustBeLoggedIn', 'עליך להיות מחובר כדי להצטרף'));
                 return;
             }
             const result = await gamesApi.join(game.id, token);
             if (result.pending) {
                 Alert.alert(t('game.requestSent'), t('game.requestPending'));
             } else if (result.viewerParticipationStatus === 'WAITLISTED') {
-                Alert.alert("הצלחה", "נרשמת לרשימת ההמתנה");
+                Alert.alert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
                 notifyGameUpdate(game.id, "waitlist", user?.id || "");
             } else {
-                Alert.alert("הצלחה", "הצטרפת למשחק!");
+                Alert.alert(t('common.success', 'הצלחה'), t('game.joinSuccess', 'הצטרפת למשחק!'));
                 notifyGameUpdate(game.id, "join", user?.id || "");
             }
             setGame(result);
         } catch (err: any) {
-            Alert.alert("שגיאה", err?.message || err?.response?.data?.error || "ההצטרפות למשחק נכשלה");
+            Alert.alert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || t('game.joinFailed', 'ההצטרפות למשחק נכשלה'));
         } finally {
             setActionLoading(false);
         }
@@ -110,28 +111,39 @@ export default function GameDetailsScreen() {
 
     const handleעזוב = async () => {
         if (!game) return;
-        Alert.alert("עזיבת משחק", "האם אתה בטוח שברצונך לעזוב?", [
-            { text: "ביטול", style: "cancel" },
-            {
-                text: t('game.leave'),
-                style: "destructive",
-                onPress: async () => {
-                    setActionLoading(true);
-                    try {
-                        const token = await getToken();
-                        if (!token) return;
-                        await gamesApi.leave(game.id, token);
-                        notifyGameUpdate(game.id, "leave", user?.id || "");
-                        Alert.alert("הצלחה", "עזבת את המשחק.");
-                        fetchGame();
-                    } catch (err: any) {
-                        Alert.alert("שגיאה", err?.message || err?.response?.data?.error || "היציאה מהמשחק נכשלה");
-                    } finally {
-                        setActionLoading(false);
+        Alert.alert(
+            t('game.confirmLeaveTitle', 'עזיבת משחק'),
+            t('game.confirmLeaveMessage', 'האם אתה בטוח שברצונך לעזוב את המשחק?'),
+            [
+                { text: t('common.cancel', 'ביטול'), style: "cancel" },
+                {
+                    text: t('game.leave', 'עזוב'),
+                    style: "destructive",
+                    onPress: async () => {
+                        setActionLoading(true);
+                        try {
+                            const token = await getToken();
+                            if (!token) return;
+                            const res = await gamesApi.leave(game.id, token);
+                            notifyGameUpdate(game.id, "leave", user?.id || "");
+                            Alert.alert(
+                                t('common.success', 'הצלחה'),
+                                t('game.leftGameSuccess', 'עזבת את המשחק בהצלחה.')
+                            );
+                            if ((res as any)?.deleted) {
+                                router.replace('/(tabs)');
+                            } else {
+                                await fetchGame();
+                            }
+                        } catch (err: any) {
+                            Alert.alert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || t('game.actionFailed', 'הפעולה נכשלה'));
+                        } finally {
+                            setActionLoading(false);
+                        }
                     }
                 }
-            }
-        ]);
+            ]
+        );
     };
 
     const handleWaitlistConfirm = async (accept: boolean) => {
@@ -140,7 +152,7 @@ export default function GameDetailsScreen() {
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert("שגיאה", "עליך להיות מחובר כדי לאשר או לוותר");
+                Alert.alert(t('common.error', 'שגיאה'), t('game.mustBeLoggedInToConfirm', 'עליך להיות מחובר כדי לאשר או לוותר'));
                 return;
             }
             const result = await gamesApi.waitlistConfirm(game.id, accept, token);
@@ -150,17 +162,22 @@ export default function GameDetailsScreen() {
             } else {
                 notifyGameUpdate(game.id, "leave", user?.id || "");
             }
-            Alert.alert("הצלחה", accept ? "הצטרפת למשחק בהצלחה!" : "ויתרת על המקום בהצלחה");
+            Alert.alert(
+                t('common.success', 'הצלחה'),
+                accept
+                    ? t('game.waitlistOfferJoined', 'הצטרפת למשחק בהצלחה!')
+                    : t('game.waitlistOfferDeclined', 'ויתרת על המקום בהצלחה')
+            );
             await fetchGame();
         } catch (err: any) {
             const msg = err?.message || err?.response?.data?.error || "";
             if (String(msg).includes('No pending waitlist offer') || String(msg).includes('waitlist')) {
                 Alert.alert(
-                    "ממתין לאישור המארגן",
-                    "אין הצעת מקום פעילה מרשימת ההמתנה. אם שלחת בקשת הצטרפות, המארגן צריך לאשר אותה."
+                    t('game.awaitingOrganizerApproval', 'ממתין לאישור המארגן'),
+                    t('game.noActiveWaitlistOffer', 'אין הצעת מקום פעילה מרשימת ההמתנה. אם שלחת בקשת הצטרפות, המארגן צריך לאשר אותה.')
                 );
             } else {
-                Alert.alert("שגיאה", msg || "לא הצלחנו לעבד את אישור רשימת ההמתנה");
+                Alert.alert(t('common.error', 'שגיאה'), msg || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
             }
         } finally {
             setActionLoading(false);
@@ -174,7 +191,7 @@ export default function GameDetailsScreen() {
     if (!game) {
         return (
             <View className="flex-1 justify-center items-center bg-white">
-                <Text className="text-gray-500">המשחק לא נמצא</Text>
+                <Text className="text-gray-500">{t('game.notFound', 'המשחק לא נמצא')}</Text>
             </View>
         );
     }
@@ -206,12 +223,12 @@ export default function GameDetailsScreen() {
                 {isWaitlistOfferPending && (
                     <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-amber-50 border border-amber-300">
                         <Text className="text-amber-900 font-bold text-lg text-center mb-1">
-                            התפנה מקום במשחק!
+                            {t('game.spotOpenedUpTitle', 'התפנה מקום במשחק!')}
                         </Text>
                         <Text className="text-amber-800 text-sm text-center mb-4">
                             {approvalOnlyHint
-                                ? "אם קיבלת הצעה מרשימת המתנה — אשר או וותר כאן. אם רק ביקשת להצטרף, המארגן צריך לאשר."
-                                : "המקום שמור לך. עליך לאשר את ההצטרפות כדי לתפוס אותו."}
+                                ? t('game.waitlistOfferApprovalHint', "אם קיבלת הצעה מרשימת המתנה — אשר או וותר כאן. אם רק ביקשת להצטרף, המארגן צריך לאשר.")
+                                : t('game.waitlistOfferSpotReserved', "המקום שמור לך. עליך לאשר את ההצטרפות כדי לתפוס אותו.")}
                         </Text>
                         <View className="flex-row gap-3">
                             <TouchableOpacity
@@ -222,7 +239,7 @@ export default function GameDetailsScreen() {
                                 {actionLoading ? (
                                     <ActivityIndicator color="white" />
                                 ) : (
-                                    <Text className="text-white font-bold text-base">אישור הצטרפות</Text>
+                                    <Text className="text-white font-bold text-base">{t('game.confirmJoin', 'אישור הצטרפות')}</Text>
                                 )}
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -230,7 +247,7 @@ export default function GameDetailsScreen() {
                                 disabled={actionLoading}
                                 className={`flex-1 p-4 rounded-xl items-center border border-red-300 bg-white`}
                             >
-                                <Text className="text-red-600 font-bold text-base">ויתור</Text>
+                                <Text className="text-red-600 font-bold text-base">{t('game.declineSpot', 'ויתור')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -238,9 +255,9 @@ export default function GameDetailsScreen() {
 
                 {isWaitlisted && !isWaitlistOfferPending && (
                     <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
-                        <Text className="text-brand-ink font-bold text-base text-center mb-1">ברשימת המתנה</Text>
+                        <Text className="text-brand-ink font-bold text-base text-center mb-1">{t('game.waitlisted', 'ברשימת המתנה')}</Text>
                         <Text className="text-brand-dark text-sm text-center">
-                            הרשמת כמחליף. אם יתפנה מקום, תקבל הודעה ותוכל לאשר כאן.
+                            {t('game.waitlistSubNotice', 'הרשמת כמחליף. אם יתפנה מקום, תקבל הודעה ותוכל לאשר כאן.')}
                         </Text>
                     </View>
                 )}
@@ -260,7 +277,7 @@ export default function GameDetailsScreen() {
                     <View className="flex-row items-center mb-2">
                         <FontAwesome name="calendar" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base text-right">
-                            {new Date(game.date).toLocaleDateString('he-IL')} בשעה {game.time}
+                            {new Date(game.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} {t('search.atTime', 'בשעה')} {game.time}
                         </Text>
                     </View>
                     <View className="flex-row items-center mb-2">
@@ -283,8 +300,14 @@ export default function GameDetailsScreen() {
                         className="items-center"
                         onPress={() => {
                             Share.share({
-                                message: `הצטרפו אלי למשחק ב-${game.field?.name || game.fieldName} בתאריך ${game.date.split('-').reverse().join('/')} בשעה ${game.time}!\nhttps://joinup.app/game/${game.id}`,
-                                title: 'הצטרף למשחק שלי'
+                                message: t('game.shareMessage', {
+                                    defaultValue: `הצטרפו אלי למשחק ב-${game.field?.name || game.fieldName || ''} בתאריך ${game.date.split('-').reverse().join('/')} בשעה ${game.time}!\nhttps://joinup.app/game/${game.id}`,
+                                    fieldName: game.field?.name || game.fieldName || '',
+                                    date: game.date.split('-').reverse().join('/'),
+                                    time: game.time,
+                                    id: game.id,
+                                }),
+                                title: t('game.shareTitle', 'הצטרף למשחק שלי')
                             });
                         }}
                     >
@@ -316,8 +339,9 @@ export default function GameDetailsScreen() {
                             
                             const formatGoogleDate = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, '');
                             
-                            const title = encodeURIComponent(game.title || game.fieldName || 'משחק JoinUp');
-                            const details = encodeURIComponent(`משחק JoinUp\n\nקישור: https://joinup.app/game/${game.id}`);
+                            const defaultTitle = t('game.calendarDefaultTitle', 'משחק JoinUp');
+                            const title = encodeURIComponent(game.title || game.fieldName || defaultTitle);
+                            const details = encodeURIComponent(`${defaultTitle}\n\nhttps://joinup.app/game/${game.id}`);
                             const location = encodeURIComponent(game.field?.location || game.fieldLocation || '');
                             
                             const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${details}&location=${location}`;
@@ -333,7 +357,7 @@ export default function GameDetailsScreen() {
 
                 {/* Map Section */}
                 <View className="bg-white p-4 mb-4 shadow-sm border-b border-gray-100">
-                    <Text className="text-lg font-bold text-gray-800 mb-3">{t('game.location', 'מיקום המגרש')}</Text>
+                    <Text className="text-lg font-bold text-gray-800 mb-3">{t('game.fieldLocation', 'מיקום המגרש')}</Text>
                     <View className="h-48 rounded-xl overflow-hidden bg-gray-100">
                         <MapView 
                             style={{ flex: 1 }}
@@ -406,7 +430,7 @@ export default function GameDetailsScreen() {
 
                                         {bench.length > 0 && (
                                             <View className="border border-gray-100 rounded-xl p-3 bg-white">
-                                                <Text className="font-bold text-gray-500 mb-2">לא שובצו ({bench.length})</Text>
+                                                <Text className="font-bold text-gray-500 mb-2">{t('game.unassignedBench', 'לא שובצו')} ({bench.length})</Text>
                                                 <View className="flex-row flex-wrap">
                                                     {bench.map(p => (
                                                         <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
@@ -431,10 +455,10 @@ export default function GameDetailsScreen() {
                                         className="text-xs text-center text-gray-600"
                                         numberOfLines={1}
                                     >
-                                        {p.name || "משתמש"}
+                                        {p.name || t('game.user', 'משתמש')}
                                     </Text>
                                     {p.id === game.organizerId && (
-                                        <Text className="text-[10px] text-brand font-bold">מארגן</Text>
+                                        <Text className="text-[10px] text-brand font-bold">{t('game.organizer', 'מארגן')}</Text>
                                     )}
                                 </TouchableOpacity>
                             ))}
@@ -454,7 +478,7 @@ export default function GameDetailsScreen() {
                 )}
 
                 {/* Actions Section — waitlist offer CTAs live in the top banner only */}
-                <View className="p-6">
+                <View className="p-6" style={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}>
                     {isWaitlistOfferPending ? null : isParticipant ? (
                         <View>
                             <TouchableOpacity
@@ -467,7 +491,7 @@ export default function GameDetailsScreen() {
                                 })}
                                 className="bg-brand-pale p-4 rounded-xl items-center mb-3 border border-brand-pale"
                             >
-                                <Text className="text-brand-dark font-bold text-lg">פתח צ'אט</Text>
+                                <Text className="text-brand-dark font-bold text-lg">{t('game.openChat', 'פתח צ\'אט')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -475,20 +499,20 @@ export default function GameDetailsScreen() {
                                 disabled={actionLoading}
                                 className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
                             >
-                                <Text className="text-red-600 font-bold text-lg">עזוב משחק</Text>
+                                <Text className="text-red-600 font-bold text-lg">{t('game.leaveGame', 'עזוב משחק')}</Text>
                             </TouchableOpacity>
                         </View>
                     ) : isWaitlisted ? (
                         <View>
                             <View className="p-4 rounded-xl items-center bg-gray-100 border border-gray-200 mb-3">
-                                <Text className="text-gray-700 font-bold text-base text-center">הרשמת כמחליף (ברשימת המתנה)</Text>
+                                <Text className="text-gray-700 font-bold text-base text-center">{t('game.waitlistStatus', 'הרשמת כמחליף (ברשימת המתנה)')}</Text>
                             </View>
                             <TouchableOpacity
                                 onPress={handleעזוב}
                                 disabled={actionLoading}
                                 className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
                             >
-                                <Text className="text-red-600 font-bold text-lg">בטל הרשמה כמחליף</Text>
+                                <Text className="text-red-600 font-bold text-lg">{t('game.cancelWaitlist', 'בטל הרשמה כמחליף')}</Text>
                             </TouchableOpacity>
                         </View>
                     ) : isPendingApproval ? (
@@ -510,10 +534,10 @@ export default function GameDetailsScreen() {
                             ) : (
                                 <Text className="text-white font-bold text-lg">
                                     {isFull
-                                        ? "הצטרף לרשימת המתנה"
+                                        ? t('game.joinWaitlist', 'הצטרף לרשימת המתנה')
                                         : game.joinPolicy === 'REQUIRES_APPROVAL'
-                                            ? "בקש להצטרף"
-                                            : "הצטרף למשחק"}
+                                            ? t('game.requestToJoin', 'בקש להצטרף')
+                                            : t('game.joinGame', 'הצטרף למשחק')}
                                 </Text>
                             )}
                         </TouchableOpacity>
@@ -525,7 +549,7 @@ export default function GameDetailsScreen() {
                                 onPress={() => router.push(`/game/edit/${game.id}`)}
                                 className="mt-4 p-4 rounded-xl items-center border border-gray-300"
                             >
-                                <Text className="text-gray-600 font-bold">ערוך משחק</Text>
+                                <Text className="text-gray-600 font-bold">{t('game.editGame', 'ערוך משחק')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -534,7 +558,7 @@ export default function GameDetailsScreen() {
                             >
                                 <View className="flex-row items-center">
                                     <FontAwesome name="users" size={16} color="#4f46e5" style={{ marginLeft: 8 }} />
-                                    <Text className="text-brand-dark font-bold">נהל קבוצות</Text>
+                                    <Text className="text-brand-dark font-bold">{t('game.manageTeams', 'נהל קבוצות')}</Text>
                                 </View>
                             </TouchableOpacity>
 
@@ -546,7 +570,7 @@ export default function GameDetailsScreen() {
                                 >
                                     <View className="flex-row items-center">
                                         <FontAwesome name="calendar-check-o" size={16} color="#059669" style={{ marginLeft: 8 }} />
-                                        <Text className="text-brand-dark font-bold">נהל קבוצה</Text>
+                                        <Text className="text-brand-dark font-bold">{t('game.manageSeries', 'לעמוד הקבוצה')}</Text>
                                     </View>
                                 </TouchableOpacity>
                             ) : (
@@ -556,7 +580,7 @@ export default function GameDetailsScreen() {
                                 >
                                     <View className="flex-row items-center">
                                         <FontAwesome name="repeat" size={16} color="#9333ea" style={{ marginLeft: 8 }} />
-                                        <Text className="text-purple-700 font-bold">הפוך לקבוצה</Text>
+                                        <Text className="text-purple-700 font-bold">{t('game.convertToGroup', 'הפוך לקבוצה')}</Text>
                                     </View>
                                 </TouchableOpacity>
                             )}
@@ -581,9 +605,9 @@ export default function GameDetailsScreen() {
                 <View className="flex-1 justify-end bg-black/50">
                     <View className="bg-white rounded-t-3xl p-6 h-[70%]">
                         <View className="flex-row justify-between items-center mb-6">
-                            <Text className="text-xl font-bold text-gray-800">צור קבוצה</Text>
+                            <Text className="text-xl font-bold text-gray-800">{t('series.createGroup', 'צור קבוצה')}</Text>
                             <TouchableOpacity onPress={() => series.actions.setOpen(false)}>
-                                <Text className="text-brand font-bold">ביטול</Text>
+                                <Text className="text-brand font-bold">{t('common.cancel', 'ביטול')}</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -592,29 +616,29 @@ export default function GameDetailsScreen() {
                                 onPress={() => series.actions.setTabValue(0)}
                                 className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 0 ? 'bg-white shadow-sm' : ''}`}
                             >
-                                <Text className={`font-bold ${series.state.tabValue === 0 ? 'text-brand' : 'text-gray-500'}`}>שבועי</Text>
+                                <Text className={`font-bold ${series.state.tabValue === 0 ? 'text-brand' : 'text-gray-500'}`}>{t('series.weekly', 'שבועי')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => series.actions.setTabValue(1)}
                                 className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 1 ? 'bg-white shadow-sm' : ''}`}
                             >
-                                <Text className={`font-bold ${series.state.tabValue === 1 ? 'text-brand' : 'text-gray-500'}`}>תאריכים מותאמים אישית</Text>
+                                <Text className={`font-bold ${series.state.tabValue === 1 ? 'text-brand' : 'text-gray-500'}`}>{t('series.customDates', 'תאריכים מותאמים אישית')}</Text>
                             </TouchableOpacity>
                         </View>
 
                         {series.state.tabValue === 0 ? (
                             <View>
-                                <Text className="text-gray-600 mb-4 leading-6 text-right">
-                                    • יוצר משחק בכל שבוע בשעה <Text className="font-bold">{game.time}</Text>.{'\n'}
-                                    • מייצר מיד את 4 המשחקים הבאים.{'\n'}
-                                    • שחקנים יכולים להירשם להצטרפות אוטומטית.
+                                <Text className="text-gray-600 mb-4 leading-6">
+                                    • {t('series.weeklyBullet1', 'יוצר משחק בכל שבוע בשעה')} <Text className="font-bold">{game.time}</Text>.{'\n'}
+                                    • {t('series.weeklyBullet2', 'מייצר מיד את 4 המשחקים הבאים.')}{'\n'}
+                                    • {t('series.weeklyBullet3', 'שחקנים יכולים להירשם להצטרפות אוטומטית.')}
                                 </Text>
                             </View>
                         ) : (
                             <View>
-                                <Text className="text-gray-600 mb-4 text-right">בחר תאריכים ספציפיים לקבוצה זו.</Text>
-                                <Text className="text-orange-500 italic text-right">
-                                    בחירת תאריכים מותאמים אישית מותאמת יותר לשימוש באתר. באפליקציה מומלץ להשתמש באפשרות השבועית.
+                                <Text className="text-gray-600 mb-4">{t('series.customDatesHint', 'בחר תאריכים ספציפיים לקבוצה זו.')}</Text>
+                                <Text className="text-orange-500 italic">
+                                    {t('series.customDatesWebHint', 'בחירת תאריכים מותאמים אישית מותאמת יותר לשימוש באתר. באפליקציה מומלץ להשתמש באפשרות השבועית.')}
                                 </Text>
                             </View>
                         )}
@@ -629,7 +653,7 @@ export default function GameDetailsScreen() {
                             {series.state.loading ? (
                                 <ActivityIndicator color="white" />
                             ) : (
-                                <Text className="text-white font-bold text-lg">צור קבוצה</Text>
+                                <Text className="text-white font-bold text-lg">{t('series.createGroup', 'צור קבוצה')}</Text>
                             )}
                         </TouchableOpacity>
                     </View>

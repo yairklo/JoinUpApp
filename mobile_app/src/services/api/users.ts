@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { FieldFlagReason } from './fields';
+import type { Field, FieldFlagReason } from './fields';
 
 export type PrivacyLevel = 'EVERYONE' | 'FRIENDS_ONLY';
 
@@ -184,6 +184,18 @@ export const usersApi = {
             method: 'DELETE',
             token
         });
+    },
+
+    getFavorites: (userId: string, token: string) => {
+        return apiClient<Field[]>(`/api/users/${userId}/favorites`, { token, cache: 'no-store' });
+    },
+
+    addFavorite: (userId: string, fieldId: string, token: string) => {
+        return apiClient(`/api/users/${userId}/favorites/${fieldId}`, { method: 'POST', token });
+    },
+
+    removeFavorite: (userId: string, fieldId: string, token: string) => {
+        return apiClient(`/api/users/${userId}/favorites/${fieldId}`, { method: 'DELETE', token });
     },
 
     search: (query: string, token: string) => {

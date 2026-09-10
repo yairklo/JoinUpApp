@@ -183,7 +183,7 @@ export default function SearchPlayersScreen() {
 
             {loading && (
                 <View className="flex-1 justify-center items-center">
-                    <LoadingMotif id="crowd-wave" label="טוען שחקנים…" />
+                    <LoadingMotif id="crowd-wave" label={t('profile.loadingPlayers', 'טוען שחקנים…')} />
                 </View>
             )}
 

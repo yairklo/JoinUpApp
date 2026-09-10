@@ -227,8 +227,9 @@ router.get('/', async (req, res) => {
 });
 
 // Favorites API
-router.get('/:id/favorites', async (req, res) => {
+router.get('/:id/favorites', authenticateToken, async (req, res) => {
   try {
+    if (req.params.id !== req.user.id) return res.status(403).json({ error: 'Access denied' });
     const rows = await prisma.favoriteField.findMany({ where: { userId: req.params.id }, include: { field: true } });
     res.json(rows.map(r => r.field));
   } catch (e) {

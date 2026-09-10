@@ -138,7 +138,7 @@ export default function ChatsScreen() {
     if (loadingChats && !refreshing) {
         return (
             <View className="flex-1 justify-center items-center">
-                <LoadingMotif id="message-stack" label="טוען צ'אטים…" />
+                <LoadingMotif id="message-stack" label={t('chats.loadingChats', "טוען צ'אטים…")} />
             </View>
         );
     }

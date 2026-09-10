@@ -93,8 +93,8 @@ export default function PendingRequestsList({
             {/* Active Offer Section */}
             {activeOffer && (
                 <View className="mb-6 p-4 bg-brand-mist rounded-lg border border-brand-pale">
-                    <Text className="text-xs font-bold text-brand-dark mb-3 text-right">
-                        הוצע מקום אוטומטית (ממתין לאישור השחקן)
+                    <Text className="text-xs font-bold text-brand-dark mb-3">
+                        {t('game.activeWaitlistOffer', 'הוצע מקום אוטומטית (ממתין לאישור השחקן)')}
                     </Text>
                     <View className="flex-row items-center justify-between">
                         <View className="flex-row items-center flex-1">
@@ -103,7 +103,7 @@ export default function PendingRequestsList({
                                 className="w-10 h-10 rounded-full bg-gray-200 mr-3"
                             />
                             <Text className="text-gray-800 font-bold flex-shrink" numberOfLines={1}>
-                                {activeOffer.name || 'משתמש'}
+                                {activeOffer.name || t('game.user', 'משתמש')}
                             </Text>
                         </View>
                         <TouchableOpacity
@@ -111,7 +111,7 @@ export default function PendingRequestsList({
                             disabled={actingOnUserId === activeOffer.userId}
                             className="bg-red-600 px-3 py-2 rounded-lg"
                         >
-                            <Text className="text-white font-bold text-xs">עקוף לבא בתור</Text>
+                            <Text className="text-white font-bold text-xs">{t('game.bypassToNext', 'עקוף לבא בתור')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -120,7 +120,7 @@ export default function PendingRequestsList({
             {/* Standard Join Requests */}
             {requests.length > 0 && (
                 <View className="mb-6">
-                    <Text className="text-lg font-bold text-gray-800 mb-4 text-right">
+                    <Text className="text-lg font-bold text-gray-800 mb-4">
                         {t('game.joinRequests')} ({requests.length})
                     </Text>
                     {requests.map(req => (
@@ -130,7 +130,7 @@ export default function PendingRequestsList({
                                     source={{ uri: req.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
                                     className="w-10 h-10 rounded-full bg-gray-200 mr-3"
                                 />
-                                <Text className="text-gray-800 font-bold flex-shrink" numberOfLines={1}>{req.name || 'User'}</Text>
+                                <Text className="text-gray-800 font-bold flex-shrink" numberOfLines={1}>{req.name || t('game.user', 'משתמש')}</Text>
                             </View>
                             <View className="flex-row">
                                 <TouchableOpacity
@@ -156,8 +156,8 @@ export default function PendingRequestsList({
             {/* Waitlist Section */}
             {waitlist.length > 0 && (
                 <View className="mb-6">
-                    <Text className="text-lg font-bold text-gray-800 mb-4 text-right">
-                        רשימת המתנה ({waitlist.length})
+                    <Text className="text-lg font-bold text-gray-800 mb-4">
+                        {t('game.waitlistTitle', 'רשימת המתנה')} ({waitlist.length})
                     </Text>
                     {waitlist.map(req => (
                         <View key={req.userId} className="flex-row items-center justify-between mb-3 last:mb-0">
@@ -166,11 +166,11 @@ export default function PendingRequestsList({
                                     source={{ uri: req.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
                                     className="w-10 h-10 rounded-full bg-gray-200 mr-3"
                                 />
-                                <Text className="text-gray-800 font-bold flex-shrink" numberOfLines={1}>{req.name || 'User'}</Text>
+                                <Text className="text-gray-800 font-bold flex-shrink" numberOfLines={1}>{req.name || t('game.user', 'משתמש')}</Text>
                             </View>
                             <View className="bg-gray-100 px-3 py-1.5 rounded-lg">
                                 <Text className="text-gray-600 font-bold text-xs">
-                                    ממתין #{req.queuePosition}
+                                    {t('game.waitlistQueuePosition', { position: req.queuePosition, defaultValue: `ממתין #${req.queuePosition}` })}
                                 </Text>
                             </View>
                         </View>
@@ -197,7 +197,7 @@ export default function PendingRequestsList({
                                             source={{ uri: req.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
                                             className="w-10 h-10 rounded-full bg-gray-200 mr-3 opacity-60"
                                         />
-                                        <Text className="text-gray-500 font-bold flex-shrink" numberOfLines={1}>{req.name || 'User'}</Text>
+                                        <Text className="text-gray-500 font-bold flex-shrink" numberOfLines={1}>{req.name || t('game.user', 'משתמש')}</Text>
                                     </View>
                                     <TouchableOpacity
                                         onPress={() => decide(req.userId, true)}

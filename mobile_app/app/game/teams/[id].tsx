@@ -328,7 +328,7 @@ export default function LiveTeamManagementScreen() {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <Stack.Screen options={{ title: t('teams.live'), headerShown: true }} />
-        <LoadingMotif id="passing-lane" label="טוען בחירת קבוצות…" />
+        <LoadingMotif id="passing-lane" label={t('teams.loadingTeamsSelection', 'טוען בחירת קבוצות…')} />
       </SafeAreaView>
     );
   }
@@ -368,13 +368,13 @@ export default function LiveTeamManagementScreen() {
                 onPress={() => setActivePicker('drawDate')}
                 style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
               >
-                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleDateString() : 'בחר תאריך'}</Text>
+                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleDateString() : t('teams.selectDate', 'בחר תאריך')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setActivePicker('drawTime')}
                 style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
               >
-                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'בחר שעה'}</Text>
+                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : t('teams.selectTime', 'בחר שעה')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -384,28 +384,28 @@ export default function LiveTeamManagementScreen() {
                 onPress={() => setActivePicker('pickDate')}
                 style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
               >
-                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleDateString() : 'בחר תאריך'}</Text>
+                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleDateString() : t('teams.selectDate', 'בחר תאריך')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setActivePicker('pickTime')}
                 style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
               >
-                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'בחר שעה'}</Text>
+                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : t('teams.selectTime', 'בחר שעה')}</Text>
               </TouchableOpacity>
             </View>
-            <Text style={{ fontSize: 12, fontWeight: '600' }}>סדר בחירה</Text>
+            <Text style={{ fontSize: 12, fontWeight: '600' }}>{t('teams.pickOrder', 'סדר בחירה')}</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity
                 onPress={() => setPickOrderTypeLocal('CIRCULAR')}
                 style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: pickOrderTypeLocal === 'CIRCULAR' ? '#2563eb' : '#d1d5db', backgroundColor: pickOrderTypeLocal === 'CIRCULAR' ? '#eff6ff' : 'transparent', alignItems: 'center' }}
               >
-                <Text style={{ color: pickOrderTypeLocal === 'CIRCULAR' ? '#2563eb' : '#374151', fontWeight: '600' }}>מעגלי</Text>
+                <Text style={{ color: pickOrderTypeLocal === 'CIRCULAR' ? '#2563eb' : '#374151', fontWeight: '600' }}>{t('teams.orderCircular', 'מעגלי')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setPickOrderTypeLocal('SNAKE')}
                 style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: pickOrderTypeLocal === 'SNAKE' ? '#2563eb' : '#d1d5db', backgroundColor: pickOrderTypeLocal === 'SNAKE' ? '#eff6ff' : 'transparent', alignItems: 'center' }}
               >
-                <Text style={{ color: pickOrderTypeLocal === 'SNAKE' ? '#2563eb' : '#374151', fontWeight: '600' }}>נחש</Text>
+                <Text style={{ color: pickOrderTypeLocal === 'SNAKE' ? '#2563eb' : '#374151', fontWeight: '600' }}>{t('teams.orderSnake', 'נחש')}</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
@@ -430,24 +430,24 @@ export default function LiveTeamManagementScreen() {
         )}
 
         <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12 }}>
-          <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>קפטנים (בוחרים שחקנים)</Text>
+          <Text style={{ fontWeight: '700', fontSize: 16, marginBottom: 8 }}>{t('teams.captainsTitle', 'קפטנים (בוחרים שחקנים)')}</Text>
           {(state.managers.filter(m => m.id !== state.organizerId)).map(m => (
             <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
               <Text style={{ fontWeight: '500' }}>{m.name || m.id}</Text>
               {isOrganizer && (
                 <TouchableOpacity onPress={() => removeCaptain(m.id)} disabled={busy} style={{ padding: 4 }}>
-                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>הסר</Text>
+                  <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>{t('teams.remove', 'הסר')}</Text>
                 </TouchableOpacity>
               )}
             </View>
           ))}
           {(state.managers.length <= 1) && (
-            <Text style={{ color: '#6b7280', fontSize: 12 }}>לא נבחרו קפטנים</Text>
+            <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.noCaptainsSelected', 'לא נבחרו קפטנים')}</Text>
           )}
 
           {isOrganizer && (
             <View style={{ marginTop: 12 }}>
-              <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 4 }}>בחר שחקן לתפקיד קפטן:</Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 4 }}>{t('teams.selectPlayerForCaptain', 'בחר שחקן לתפקיד קפטן:')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
                 {[...state.bench, ...state.teams.flatMap(t => t.players)].map(p => (
                   <TouchableOpacity

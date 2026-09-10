@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { View, ScrollView } from "react-native";
+import FilterPill from "./FilterPill";
 
 interface GamesDateNavProps {
     selectedDate: string;
@@ -44,21 +45,12 @@ export default function GamesDateNav({ selectedDate, onSelectDate }: GamesDateNa
                     const label = getDayLabel(d, index === 0, index === 1);
 
                     return (
-                        <TouchableOpacity
+                        <FilterPill
                             key={dateStr}
+                            label={label}
+                            selected={isSelected}
                             onPress={() => onSelectDate(dateStr)}
-                            className={`mr-3 px-5 py-2.5 rounded-full border ${isSelected
-                                ? 'bg-brand border-brand'
-                                : 'bg-white border-gray-100'
-                                }`}
-                        >
-                            <Text
-                                className={`font-bold text-sm ${isSelected ? 'text-white' : 'text-gray-500'
-                                    }`}
-                            >
-                                {label}
-                            </Text>
-                        </TouchableOpacity>
+                        />
                     );
                 })}
             </ScrollView>

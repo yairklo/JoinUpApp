@@ -29,7 +29,7 @@ export default function JoinGameButton({
 }) {
     const { getToken } = useAuth();
     const { user } = useUser();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { notifyGameUpdate } = useGameUpdate();
     const [loading, setLoading] = useState(false);
     const offerFromProps = hasWaitlistOffer({
@@ -84,7 +84,7 @@ export default function JoinGameButton({
                 // Waitlist join — keep roster count stable; only bump waitlist locally.
                 setWaitlisted(true);
                 notifyGameUpdate(gameId, "waitlist", user?.id || "");
-                Alert.alert("Success", "נרשמת לרשימת ההמתנה");
+                Alert.alert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
                 if (onJoined) onJoined();
                 return;
             }
@@ -93,7 +93,7 @@ export default function JoinGameButton({
             if (onJoined) onJoined();
         } catch (e: any) {
             console.error("Join Failed:", e);
-            alert(e.message || "ההצטרפות נכשלה");
+            Alert.alert(t('common.error', 'שגיאה'), e?.message || t('game.joinFailed', 'ההצטרפות למשחק נכשלה'));
         } finally {
             setLoading(false);
         }
@@ -112,11 +112,16 @@ export default function JoinGameButton({
             } else {
                 setWaitlisted(false);
             }
-            Alert.alert("הצלחה", accept ? "הצטרפת למשחק בהצלחה!" : "ויתרת על המקום בהצלחה");
+            Alert.alert(
+                t('common.success', 'הצלחה'),
+                accept
+                    ? t('game.waitlistOfferJoined', 'הצטרפת למשחק בהצלחה!')
+                    : t('game.waitlistOfferDeclined', 'ויתרת על המקום בהצלחה')
+            );
             if (onJoined) onJoined();
         } catch (e: any) {
             console.error("Waitlist confirm failed:", e);
-            Alert.alert("שגיאה", e.message || "לא הצלחנו לעבד את הצעת ההמתנה");
+            Alert.alert(t('common.error', 'שגיאה'), e?.message || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
         } finally {
             setLoading(false);
         }
@@ -126,7 +131,7 @@ export default function JoinGameButton({
         return (
             <View className="gap-2">
                 <Text className="text-amber-800 font-bold text-xs text-center mb-1">
-                    התפנה מקום במשחק! המקום שמור לך.
+                    {t('game.waitlistOfferSpotAvailable', 'התפנה מקום במשחק! המקום שמור לך.')}
                 </Text>
                 <View className="flex-row gap-2">
                     <TouchableOpacity
@@ -137,7 +142,7 @@ export default function JoinGameButton({
                         {loading ? (
                             <ActivityIndicator size="small" color="white" />
                         ) : (
-                            <Text numberOfLines={1} className="text-white font-bold text-sm">אישור הצטרפות</Text>
+                            <Text numberOfLines={1} className="text-white font-bold text-sm">{t('game.confirmJoin', 'אישור הצטרפות')}</Text>
                         )}
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -145,7 +150,7 @@ export default function JoinGameButton({
                         disabled={loading}
                         className={`flex-1 flex-row items-center justify-center p-3 rounded-xl ${loading ? 'bg-red-400' : 'bg-red-600'}`}
                     >
-                        <Text numberOfLines={1} className="text-white font-bold text-sm">ויתור</Text>
+                        <Text numberOfLines={1} className="text-white font-bold text-sm">{t('game.declineSpot', 'ויתור')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -160,7 +165,7 @@ export default function JoinGameButton({
             >
                 <Ionicons name="time-outline" size={16} color="#6b7280" />
                 <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-600 font-bold flex-shrink">
-                    ברשימת המתנה
+                    {t('game.waitlisted', 'ברשימת המתנה')}
                 </Text>
             </TouchableOpacity>
         );
@@ -191,7 +196,7 @@ export default function JoinGameButton({
     }
 
     if (isRegistrationClosed && openDate) {
-        const timeStr = openDate.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });
+        const timeStr = openDate.toLocaleTimeString(i18n.language === 'en' ? 'en-US' : 'he-IL', { hour: '2-digit', minute: '2-digit' });
         return (
             <TouchableOpacity
                 disabled
@@ -204,7 +209,7 @@ export default function JoinGameButton({
     }
 
     const label = isFull
-        ? "הצטרף לרשימת המתנה"
+        ? t('game.joinWaitlist', 'הצטרף לרשימת המתנה')
         : joinPolicy === "REQUIRES_APPROVAL"
             ? t("game.requestToJoin")
             : t("game.join");

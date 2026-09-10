@@ -28,7 +28,8 @@ const SPORT_IMAGES: Record<string, string> = {
     DEFAULT: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=800',
 };
 
-const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const HEBREW_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 export default function SeriesSection() {
     const { isSignedIn } = useAuth();
@@ -54,7 +55,7 @@ export default function SeriesSection() {
                 if (!controller.signal.aborted) setSeries(data);
             } catch (err) {
                 if (isAbortError(err) || controller.signal.aborted) return;
-                const message = getFriendlyFetchError(err, 'שגיאה בטעינת קבוצות');
+                const message = getFriendlyFetchError(err, t('errors.loadSeriesFailed', 'שגיאה בטעינת קבוצות'));
                 if (message) setError(message);
             } finally {
                 if (!controller.signal.aborted) setLoading(false);
@@ -74,7 +75,9 @@ export default function SeriesSection() {
     if (subscribedSeries.length === 0 && unsubscribedSeries.length === 0) return null;
 
     const renderSeriesCard = (s: Series) => {
-        const dayName = typeof s.dayOfWeek === 'number' ? DAYS[s.dayOfWeek] : null;
+        const dayName = typeof s.dayOfWeek === 'number' && s.dayOfWeek >= 0 && s.dayOfWeek < 7
+            ? t(`common.days.${DAY_KEYS[s.dayOfWeek]}`, HEBREW_DAYS[s.dayOfWeek])
+            : null;
         return (
             <TouchableOpacity
                 key={s.id}
@@ -105,7 +108,7 @@ export default function SeriesSection() {
                             <View className="bg-black/55 self-start px-2 py-1 rounded-full flex-row items-center max-w-full">
                                 <Ionicons name="calendar-outline" size={10} color="#fff" />
                                 <Text className="text-white text-[10px] font-bold ml-1" numberOfLines={1}>
-                                    {dayName ? `יום ${dayName}` : ''}
+                                    {dayName ? t('series.dayPrefix', { day: dayName, defaultValue: `יום ${dayName}` }) : ''}
                                     {s.time ? ` • ${s.time}` : ''}
                                 </Text>
                             </View>
@@ -126,7 +129,7 @@ export default function SeriesSection() {
                     <View className="flex-row items-center mb-3">
                         <Ionicons name="people-outline" size={12} color="#64748b" />
                         <Text className="text-gray-600 dark:text-cyber-muted text-xs font-bold ml-1">
-                            {s.subscriberCount} חברי קבוצה
+                            {t('home.teamMembers', { count: s.subscriberCount, defaultValue: `${s.subscriberCount} חברי קבוצה` })}
                         </Text>
                     </View>
 

@@ -15,6 +15,7 @@ import GameMapMarker from '@/components/map/GameMapMarker';
 import EmptyFieldMapMarker from '@/components/map/EmptyFieldMapMarker';
 import { MapBounds, MapMarkerItem } from '@/components/map/types';
 import { getSportColorHex, getSportIconName, getFieldSportTags } from '@/utils/mapSport';
+import { SPORT_MAPPING } from '@/utils/sports';
 
 type SearchMapPayload =
     | { kind: 'games'; games: Game[] }
@@ -52,13 +53,12 @@ export default function SearchScreen() {
     const [emptyFields, setEmptyFields] = useState<any[]>([]);
     const [selectedEmptyField, setSelectedEmptyField] = useState<any | null>(null);
     
-    // Import SPORT_MAPPING to ensure alignment with our global sports list
-    const { SPORT_MAPPING } = require('@/utils/sports');
-    
-    const SPORTS = Object.keys(SPORT_MAPPING).map(key => ({
-        id: key,
-        label: SPORT_MAPPING[key]
-    }));
+    const SPORTS = useMemo(() => {
+        return Object.keys(SPORT_MAPPING).map(key => ({
+            id: key,
+            label: t('sports.' + key.toLowerCase(), SPORT_MAPPING[key])
+        }));
+    }, [t]);
 
     useEffect(() => {
         loadCities();
@@ -339,7 +339,12 @@ export default function SearchScreen() {
                 </View>
 
                 {/* Filter Chips */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    className="-mx-4 flex-row"
+                    contentContainerStyle={{ paddingHorizontal: 16 }}
+                >
                     <TouchableOpacity
                         onPress={() => setIsMapView(!isMapView)}
                         className={`mr-2 px-4 py-2 rounded-full border ${isMapView ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
@@ -353,7 +358,7 @@ export default function SearchScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        onPress={() => router.push('/fields')}
+                        onPress={() => router.push('/(tabs)/fields')}
                         className="mr-2 px-4 py-2 rounded-full border bg-white border-gray-300"
                         accessibilityRole="button"
                     >
@@ -471,7 +476,7 @@ export default function SearchScreen() {
                                         <MaterialCommunityIcons name="close" size={24} color="#6b7280" />
                                     </TouchableOpacity>
                                     <Text className="text-xl font-bold text-gray-800 text-right">
-                                        {selectedFieldGames?.[0]?.field?.name || selectedFieldGames?.[0]?.fieldName || 'משחקים במגרש'}
+                                        {selectedFieldGames?.[0]?.field?.name || selectedFieldGames?.[0]?.fieldName || t('search.gamesAtField', 'משחקים במגרש')}
                                     </Text>
                                 </View>
                                 {(selectedFieldGames?.[0]?.field?.id || selectedFieldGames?.[0]?.fieldId) && (
@@ -503,7 +508,7 @@ export default function SearchScreen() {
                                                 <MaterialCommunityIcons name="chevron-left" size={24} color="#059669" />
                                             </View>
                                             <View className="flex-1 items-end mr-3">
-                                                <Text className="text-base font-bold text-gray-800 text-right">{game.title || 'משחק'}</Text>
+                                                <Text className="text-base font-bold text-gray-800 text-right">{game.title || t('search.game', 'משחק')}</Text>
                                                 <Text className="text-sm text-gray-500 text-right mt-1">
                                                     {new Date(game.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} {t('search.atTime', 'בשעה')} {game.time}
                                                 </Text>
@@ -535,11 +540,11 @@ export default function SearchScreen() {
                                         <MaterialCommunityIcons name="close" size={24} color="#6b7280" />
                                     </TouchableOpacity>
                                     <Text className="text-xl font-bold text-gray-800 text-right">
-                                        {selectedEmptyField?.name || 'מגרש פנוי'}
+                                        {selectedEmptyField?.name || t('search.emptyField', 'מגרש פנוי')}
                                     </Text>
                                 </View>
                                 <Text className="text-gray-500 text-sm text-right mb-6">
-                                    {selectedEmptyField?.location || 'אין מידע על מיקום'}
+                                    {selectedEmptyField?.location || t('search.noLocationInfo', 'אין מידע על מיקום')}
                                 </Text>
                                 <TouchableOpacity
                                     className="bg-brand py-3 rounded-xl items-center justify-center shadow-lg"
@@ -552,7 +557,7 @@ export default function SearchScreen() {
                                         });
                                     }}
                                 >
-                                    <Text className="text-white font-bold text-base">פתח משחק במגרש זה</Text>
+                                    <Text className="text-white font-bold text-base">{t('search.openGameAtField', 'פתח משחק במגרש זה')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     className="flex-row items-center justify-center bg-brand-mist border border-brand-pale py-3 rounded-xl mt-3"

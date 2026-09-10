@@ -41,7 +41,7 @@ export default function LeaveGameButton({
             if (onLeft) onLeft();
         } catch (e: any) {
             console.error("Leave Failed:", e);
-            alert(e.message || "Failed to leave game");
+            Alert.alert(t('common.error'), e.message || t('game.leaveFailed'));
         } finally {
             setLoading(false);
         }

@@ -308,11 +308,11 @@ export default function EditGameScreen() {
             }
             setInvitedParticipantIds([]);
             setSearchFriendQuery('');
-            Alert.alert(t('common.success', 'הצלחה'), 'החברים נוספו למשחק בהצלחה!');
+            Alert.alert(t('common.success', 'הצלחה'), t('editGame.friendsAdded', 'החברים נוספו למשחק בהצלחה!'));
             await fetchGame();
         } catch (error) {
             console.error("Failed to add friends to game", error);
-            Alert.alert(t('common.error', 'שגיאה'), 'הוספת חברים נכשלה. אנא נסה שנית.');
+            Alert.alert(t('common.error', 'שגיאה'), t('editGame.addFriendsFailed', 'הוספת חברים נכשלה. אנא נסה שנית.'));
         } finally {
             setAddingFriends(false);
         }
@@ -323,11 +323,11 @@ export default function EditGameScreen() {
             const token = await getToken();
             if (!token) return;
             await gamesApi.removeParticipant(id, userId, token);
-            Alert.alert(t('common.success', 'הצלחה'), 'השחקן הוסר מהמשחק בהצלחה!');
+            Alert.alert(t('common.success', 'הצלחה'), t('editGame.playerRemoved', 'השחקן הוסר מהמשחק בהצלחה!'));
             await fetchGame();
         } catch (error) {
             console.error("Failed to remove participant", error);
-            Alert.alert(t('common.error', 'שגיאה'), 'הסרת שחקן נכשלה.');
+            Alert.alert(t('common.error', 'שגיאה'), t('editGame.removePlayerFailed', 'הסרת שחקן נכשלה.'));
         }
     };
 
@@ -336,11 +336,11 @@ export default function EditGameScreen() {
             const token = await getToken();
             if (!token) return;
             await gamesApi.assignRole(id, { userId, role: 'MANAGER' }, token);
-            Alert.alert(t('common.success', 'הצלחה'), 'מונה למנהל משחק בהצלחה!');
+            Alert.alert(t('common.success', 'הצלחה'), t('editGame.managerAssigned', 'מונה למנהל משחק בהצלחה!'));
             await fetchGame();
         } catch (error) {
             console.error("Failed to assign manager role", error);
-            Alert.alert(t('common.error', 'שגיאה'), 'מינוי למנהל נכשל.');
+            Alert.alert(t('common.error', 'שגיאה'), t('editGame.assignManagerFailed', 'מינוי למנהל נכשל.'));
         }
     };
 
@@ -350,11 +350,11 @@ export default function EditGameScreen() {
             if (!token) return;
             // The backend removeRole removes all roles. For now, since MANAGER is the only GameRole we use, this is fine.
             await gamesApi.removeRole(id, userId, token);
-            Alert.alert(t('common.success', 'הצלחה'), 'הוסרו הרשאות ניהול בהצלחה!');
+            Alert.alert(t('common.success', 'הצלחה'), t('editGame.managerRemoved', 'הוסרו הרשאות ניהול בהצלחה!'));
             await fetchGame();
         } catch (error) {
             console.error("Failed to remove manager role", error);
-            Alert.alert(t('common.error', 'שגיאה'), 'הסרת מנהל נכשלה.');
+            Alert.alert(t('common.error', 'שגיאה'), t('editGame.removeManagerFailed', 'הסרת מנהל נכשלה.'));
         }
     };
 
@@ -363,11 +363,16 @@ export default function EditGameScreen() {
             const token = await getToken();
             if (!token) return;
             await gamesApi.setCaptain(id, userId, isCaptain, token);
-            Alert.alert(t('common.success', 'הצלחה'), isCaptain ? 'מונה לקפטן קבוצה בהצלחה!' : 'הוסר מקפטן קבוצה בהצלחה!');
+            Alert.alert(
+                t('common.success', 'הצלחה'),
+                isCaptain
+                    ? t('editGame.captainAssigned', 'מונה לקפטן קבוצה בהצלחה!')
+                    : t('editGame.captainRemoved', 'הוסר מקפטן קבוצה בהצלחה!')
+            );
             await fetchGame();
         } catch (error) {
             console.error("Failed to set captain", error);
-            Alert.alert(t('common.error', 'שגיאה'), 'עדכון קפטן נכשל.');
+            Alert.alert(t('common.error', 'שגיאה'), t('editGame.updateCaptainFailed', 'עדכון קפטן נכשל.'));
         }
     };
 
@@ -376,33 +381,37 @@ export default function EditGameScreen() {
         const isTargetCaptain = p.isCaptain;
 
         Alert.alert(
-            p.name || 'שחקן',
-            'בחר פעולה עבור שחקן זה:',
+            p.name || t('game.player', 'שחקן'),
+            t('editGame.choosePlayerAction', 'בחר פעולה עבור שחקן זה:'),
             [
                 {
-                    text: isTargetMgr ? 'הסר הרשאות ניהול משחק' : 'מנה למנהל משחק',
+                    text: isTargetMgr
+                        ? t('editGame.removeManagerRole', 'הסר הרשאות ניהול משחק')
+                        : t('editGame.assignManagerRole', 'מנה למנהל משחק'),
                     onPress: () => isTargetMgr ? handleRemoveManager(p.id) : handleAssignManager(p.id)
                 },
                 {
-                    text: isTargetCaptain ? 'הסר מקפטן קבוצה (בוחר)' : 'מנה לקפטן קבוצה (בוחר)',
+                    text: isTargetCaptain
+                        ? t('editGame.removeCaptainRole', 'הסר מקפטן קבוצה (בוחר)')
+                        : t('editGame.assignCaptainRole', 'מנה לקפטן קבוצה (בוחר)'),
                     onPress: () => handleToggleCaptain(p.id, !isTargetCaptain)
                 },
                 {
-                    text: 'הסר מהמשחק',
+                    text: t('editGame.removeFromGame', 'הסר מהמשחק'),
                     style: 'destructive',
                     onPress: () => {
                         Alert.alert(
-                            'אישור הסרה',
-                            `האם אתה בטוח שברצונך להסיר את ${p.name || 'שחקן'} מהמשחק?`,
+                            t('editGame.confirmRemovePlayerTitle', 'אישור הסרה'),
+                            t('editGame.confirmRemovePlayerMessage', { name: p.name || t('game.player', 'שחקן'), defaultValue: `האם אתה בטוח שברצונך להסיר את ${p.name || 'שחקן'} מהמשחק?` }),
                             [
-                                { text: 'ביטול', style: 'cancel' },
-                                { text: 'הסר', style: 'destructive', onPress: () => handleRemovePlayer(p.id) }
+                                { text: t('common.cancel', 'ביטול'), style: 'cancel' },
+                                { text: t('editGame.removeFromGame', 'הסר'), style: 'destructive', onPress: () => handleRemovePlayer(p.id) }
                             ]
                         );
                     }
                 },
                 {
-                    text: 'ביטול',
+                    text: t('common.cancel', 'ביטול'),
                     style: 'cancel'
                 }
             ]
@@ -411,11 +420,11 @@ export default function EditGameScreen() {
 
     const handleSubmit = async () => {
         if (!newFieldMode && !selectedField?.id) {
-            Alert.alert(t('editGame.error', 'Error'), 'אנא בחר מגרש או הוסף מגרש חדש');
+            Alert.alert(t('editGame.error', 'Error'), t('editGame.mustSelectField', 'אנא בחר מגרש או הוסף מגרש חדש'));
             return;
         }
         if (newFieldMode && (!newFieldName.trim() || !newFieldLocation.trim())) {
-            Alert.alert(t('editGame.error', 'Error'), 'יש למלא שם מגרש וכתובת');
+            Alert.alert(t('editGame.error', 'Error'), t('editGame.mustFillFieldNameAndLocation', 'יש למלא שם מגרש וכתובת'));
             return;
         }
 

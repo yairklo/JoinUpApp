@@ -162,7 +162,7 @@ export default function SeriesScreen() {
                     <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Series Details')}</Text>
                 </View>
                 <View className="flex-1 justify-center items-center">
-                    <LoadingMotif id="passing-lane" label="טוען קבוצה…" />
+                    <LoadingMotif id="passing-lane" label={t('series.loadingSeries', 'טוען קבוצה…')} />
                 </View>
             </SafeAreaView>
         );

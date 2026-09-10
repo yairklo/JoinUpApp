@@ -5,17 +5,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
+import { SPORT_MAPPING } from '@/utils/sports';
+
 const SPORT_IMAGES: Record<string, string> = {
     SOCCER: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=800",
     BASKETBALL: "https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&q=80&w=800",
     TENNIS: "https://images.unsplash.com/photo-1622279457486-62dcc4a4bd13?auto=format&fit=crop&q=80&w=800",
     DEFAULT: "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=800"
-};
-
-const SPORT_LABELS: Record<string, string> = {
-    SOCCER: "כדורגל",
-    BASKETBALL: "כדורסל",
-    TENNIS: "טניס",
 };
 
 interface GameCardProps {
@@ -29,7 +25,7 @@ export default function GameCard({ game, isJoined, children }: GameCardProps) {
     const { t } = useTranslation();
     const sportKey = (game.sport || "DEFAULT").toUpperCase();
     const sportImg = SPORT_IMAGES[sportKey] || SPORT_IMAGES.DEFAULT;
-    const sportLabel = SPORT_LABELS[sportKey] || game.sport || t("sport");
+    const sportLabel = t('sports.' + sportKey.toLowerCase(), SPORT_MAPPING[sportKey] || game.sport || t("sports.sport", "ספורט"));
     const occupancyPercentage = Math.min((game.currentPlayers / game.maxPlayers) * 100, 100);
     const isFull = game.currentPlayers >= game.maxPlayers;
     const spotsLeft = Math.max(0, game.maxPlayers - game.currentPlayers);
@@ -69,7 +65,7 @@ export default function GameCard({ game, isJoined, children }: GameCardProps) {
                         {isJoined && (
                             <View className="bg-brand px-2.5 py-1 rounded-full flex-row items-center">
                                 <Ionicons name="checkmark-circle" size={12} color="#fff" />
-                                <Text className="text-white text-xs font-bold ml-1">{t("joined")}</Text>
+                                <Text className="text-white text-xs font-bold ml-1">{t("game.joined", "הצטרפת")}</Text>
                             </View>
                         )}
                     </View>
@@ -96,7 +92,7 @@ export default function GameCard({ game, isJoined, children }: GameCardProps) {
                     style={{ textAlign: I18nManager.isRTL ? 'right' : 'left', writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr' }}
                     numberOfLines={2}
                 >
-                    {game.title || game.fieldName || t("game")}
+                    {game.title || game.fieldName || t("search.game", "משחק")}
                 </Text>
 
                 <View className="flex-row items-center mb-3">
@@ -119,7 +115,7 @@ export default function GameCard({ game, isJoined, children }: GameCardProps) {
                         <Text className={`text-xs font-bold ${
                             isFull ? 'text-red-500' : almostFull ? 'text-amber-500' : 'text-gray-500'
                         }`}>
-                            {isFull ? t("full") : `נשארו ${spotsLeft}`}
+                            {isFull ? t("game.full", "מלא") : t("game.spotsLeft", { count: spotsLeft, defaultValue: `נשארו ${spotsLeft}` })}
                         </Text>
                     </View>
                     <View className="h-1.5 bg-gray-100 dark:bg-cyber-border rounded-full overflow-hidden">

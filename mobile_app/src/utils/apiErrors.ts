@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 export function isAbortError(error: unknown): boolean {
     if (!error || typeof error !== 'object') return false;
     const name = (error as { name?: string }).name;
@@ -9,8 +11,8 @@ export function isGatewayError(error: unknown): boolean {
     return status === 502 || status === 503 || status === 504;
 }
 
-export function getFriendlyFetchError(error: unknown, fallback = 'שגיאה בטעינת הנתונים'): string {
+export function getFriendlyFetchError(error: unknown, fallback?: string): string {
     if (isAbortError(error)) return '';
-    if (isGatewayError(error)) return 'השרת לא זמין כרגע. נסה שוב בעוד רגע.';
-    return fallback;
+    if (isGatewayError(error)) return i18n.t('errors.gatewayError', 'השרת לא זמין כרגע. נסה שוב בעוד רגע.');
+    return fallback ?? i18n.t('errors.fetchFailed', 'שגיאה בטעינת הנתונים');
 }
