@@ -17,6 +17,10 @@ import { SPORT_KEYS, SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 import { isAbortError } from '@/utils/apiErrors';
 
 const PAGE_SIZE = 24;
+// Caps how many courts the map keeps accumulating as the user explores, so the
+// per-sport Supercluster rebuild (server/routes/fields.js's /map results feed it)
+// stays cheap regardless of how much of the map has been panned over this session.
+const MAX_CACHED_MAP_FIELDS = 400;
 
 type SportFilter = string; // 'ALL' or one of SPORT_KEYS
 
@@ -98,13 +102,34 @@ export default function FieldsDirectoryScreen() {
                 sport: sportFilter,
             });
             const valid = results.filter((f) => f.lat != null && f.lng != null);
+            const centerLat = (bounds.minLat + bounds.maxLat) / 2;
+            const centerLng = (bounds.minLng + bounds.maxLng) / 2;
 
-            // Merge newly discovered fields into the map cache so courts in already viewed areas don't vanish
+            // Merge newly discovered fields into the map cache so courts in already viewed
+            // areas don't vanish -- but bail out of the state update entirely when this
+            // fetch didn't actually change anything (e.g. panning back over an already-
+            // loaded area), so it doesn't force a full re-cluster for no reason. Also caps
+            // the cache so that cost stays bounded no matter how much of the map has been
+            // explored -- courts farthest from this fetch's center are dropped first.
             setMapFields((prev) => {
-                const map = new Map<string, Field>();
-                for (const f of prev) map.set(f.id, f);
-                for (const f of valid) map.set(f.id, f);
-                return Array.from(map.values());
+                const prevMap = new Map(prev.map((f) => [f.id, f] as const));
+                const changed = valid.some((f) => {
+                    const existing = prevMap.get(f.id);
+                    return !existing || existing.lat !== f.lat || existing.lng !== f.lng;
+                });
+                if (!changed && prev.length <= MAX_CACHED_MAP_FIELDS) return prev;
+
+                for (const f of valid) prevMap.set(f.id, f);
+                let merged = Array.from(prevMap.values());
+
+                if (merged.length > MAX_CACHED_MAP_FIELDS) {
+                    merged = merged
+                        .map((f) => ({ field: f, distance: Math.hypot(f.lat! - centerLat, f.lng! - centerLng) }))
+                        .sort((a, b) => a.distance - b.distance)
+                        .slice(0, MAX_CACHED_MAP_FIELDS)
+                        .map((x) => x.field);
+                }
+                return merged;
             });
         } catch (error: any) {
             if (isAbortError(error)) return;
