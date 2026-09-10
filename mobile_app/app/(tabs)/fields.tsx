@@ -20,6 +20,11 @@ const PAGE_SIZE = 24;
 
 type SportFilter = string; // 'ALL' or one of SPORT_KEYS
 
+/** Groups courts that sit at the exact same coordinates (a multi-court venue) under one key. */
+function coordKey(lat: number, lng: number): string {
+    return `${lat},${lng}`;
+}
+
 /** Expands a bounding box by a multiplier so surrounding courts are preloaded */
 function expandBounds(bounds: MapBounds, factor = 2.0): MapBounds {
     const latSpan = Math.max(bounds.maxLat - bounds.minLat, 0.04);
@@ -200,66 +205,78 @@ export default function FieldsDirectoryScreen() {
         fetchPage(fields.length, true);
     };
 
-    // Filter map markers in real-time on the client (0ms latency response)
-    const mapMarkers = useMemo<MapMarkerItem<Field>[]>(() => {
-        return mapFields
-            .filter((field) => {
-                if (field.lat == null || field.lng == null) return false;
-                if (sportFilter !== 'ALL') {
-                    const tags = getFieldSportTags(field);
-                    if (!tags.includes(sportFilter)) return false;
-                }
-                if (debouncedQuery) {
-                    const q = debouncedQuery.toLowerCase();
-                    const matchName = field.name?.toLowerCase().includes(q);
-                    const matchCity = field.city?.toLowerCase().includes(q);
-                    const matchLoc = field.location?.toLowerCase().includes(q);
-                    if (!matchName && !matchCity && !matchLoc) return false;
-                }
-                return true;
-            })
-            .map((field) => ({
-                id: field.id,
-                latitude: field.lat!,
-                longitude: field.lng!,
-                payload: field,
-                sportTags: getFieldSportTags(field),
-            }));
+    // Filter map markers in real-time on the client (0ms latency response). Courts at the
+    // exact same coordinates (a multi-court venue) are grouped under one marker — same
+    // technique search.tsx already uses to group games by location — so e.g. a soccer
+    // pitch and a basketball court sharing one spot don't render as two overlapping pins.
+    const mapMarkers = useMemo<MapMarkerItem<Field[]>[]>(() => {
+        const filtered = mapFields.filter((field) => {
+            if (field.lat == null || field.lng == null) return false;
+            if (sportFilter !== 'ALL') {
+                const tags = getFieldSportTags(field);
+                if (!tags.includes(sportFilter)) return false;
+            }
+            if (debouncedQuery) {
+                const q = debouncedQuery.toLowerCase();
+                const matchName = field.name?.toLowerCase().includes(q);
+                const matchCity = field.city?.toLowerCase().includes(q);
+                const matchLoc = field.location?.toLowerCase().includes(q);
+                if (!matchName && !matchCity && !matchLoc) return false;
+            }
+            return true;
+        });
+
+        const groups = new Map<string, Field[]>();
+        for (const field of filtered) {
+            const key = coordKey(field.lat!, field.lng!);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(field);
+        }
+
+        return Array.from(groups.entries()).map(([key, group]) => ({
+            id: key,
+            latitude: group[0].lat!,
+            longitude: group[0].lng!,
+            payload: group,
+            sportTags: Array.from(new Set(group.flatMap((f) => getFieldSportTags(f)))),
+        }));
     }, [mapFields, sportFilter, debouncedQuery]);
 
-    const handleFieldPress = useCallback((field: Field) => {
-        setSelectedClusterFields(null);
-        setSelectedMapField(field);
-        if (field.lat != null && field.lng != null) {
-            mapRef.current?.animateToCoordinate({
-                latitude: field.lat,
-                longitude: field.lng,
-            }, 0.015);
-        }
+    // Shared by a direct tap and a cluster tap: shows the switcher card when there's more
+    // than one court at the spot, otherwise just the single court's preview.
+    const openFieldGroup = useCallback((group: Field[], coordinate?: MapCoordinate) => {
+        if (group.length === 0) return;
+        setSelectedClusterFields(group.length > 1 ? group : null);
+        setClusterFieldIndex(0);
+        setSelectedMapField(group[0]);
+        const target = coordinate ?? (group[0].lat != null && group[0].lng != null
+            ? { latitude: group[0].lat, longitude: group[0].lng }
+            : null);
+        if (target) mapRef.current?.animateToCoordinate(target, 0.015);
     }, []);
+
+    const handleFieldPress = useCallback((group: Field[]) => {
+        openFieldGroup(group);
+    }, [openFieldGroup]);
 
     const handleClusterPress = useCallback((clusterInfo: {
         clusterId: number;
         sport: string;
         count: number;
-        items: MapMarkerItem<Field>[];
+        items: MapMarkerItem<Field[]>[];
         coordinate: MapCoordinate;
     }) => {
-        const clusterFields = clusterInfo.items.map((it) => it.payload).filter(Boolean);
-        if (clusterFields.length === 0) return;
-        setSelectedClusterFields(clusterFields);
-        setClusterFieldIndex(0);
-        setSelectedMapField(clusterFields[0]);
-        mapRef.current?.animateToCoordinate(clusterInfo.coordinate, 0.015);
-    }, []);
+        const clusterFields = clusterInfo.items.flatMap((it) => it.payload).filter(Boolean);
+        openFieldGroup(clusterFields, clusterInfo.coordinate);
+    }, [openFieldGroup]);
 
     // Render individual map marker with sport icon
-    const renderMapMarker = useCallback((ctx: MapMarkerRenderContext<Field>) => {
-        const field = ctx.item.payload;
+    const renderMapMarker = useCallback((ctx: MapMarkerRenderContext<Field[]>) => {
+        const group = ctx.item.payload;
         return (
             <FieldMapMarker
                 key={ctx.item.id}
-                field={field}
+                group={group}
                 selected={ctx.selected}
                 showCallout={false}
                 onPress={handleFieldPress}
@@ -417,7 +434,11 @@ export default function FieldsDirectoryScreen() {
                         ref={mapRef}
                         markers={mapMarkers}
                         renderMarker={renderMapMarker}
-                        selectedMarkerId={selectedMapField?.id ?? null}
+                        selectedMarkerId={
+                            selectedMapField && selectedMapField.lat != null && selectedMapField.lng != null
+                                ? coordKey(selectedMapField.lat, selectedMapField.lng)
+                                : null
+                        }
                         onBoundsChange={handleMapBoundsChange}
                         onMapPress={() => {
                             setSelectedMapField(null);

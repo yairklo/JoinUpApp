@@ -235,7 +235,7 @@ export default function NewGameScreen() {
         return (
             <FieldMapMarker
                 key={ctx.item.id}
-                field={field}
+                group={[field]}
                 selected={selected}
                 showCallout={selected}
                 onPress={() => handleSelectMapField(field)}

@@ -177,7 +177,11 @@ function AppBaseMapInner<T>(
 
         for (const item of visibleMarkers) {
             itemsMap.set(item.id, item);
-            const sport = (item.sportTags && item.sportTags[0]) || 'SOCCER';
+            // A marker spanning zero or more than one sport (e.g. a venue with courts of
+            // different types grouped under one pin) gets its own neutral bucket instead
+            // of being force-fit into one sport's colored cluster.
+            const tags = item.sportTags || [];
+            const sport = tags.length === 1 ? tags[0] : 'MIXED';
             if (!bySport.has(sport)) bySport.set(sport, []);
             bySport.get(sport)!.push({
                 type: 'Feature' as const,
