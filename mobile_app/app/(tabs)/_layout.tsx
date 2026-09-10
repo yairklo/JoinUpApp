@@ -95,11 +95,11 @@ export default function TabLayout() {
         lazy: true,
       }}>
       <Tabs.Screen
-        name="index"
+        name="fields"
         options={{
-          title: t('tabs.home', 'בית'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
-          headerTitle: 'JoinUp',
+          title: t('tabs.fields'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="th-list" color={color} />,
+          headerTitle: t('tabs.fields'),
           headerRight: HeaderRight,
         }}
       />
@@ -113,11 +113,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="fields"
+        name="index"
         options={{
-          title: t('tabs.fields'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="th-list" color={color} />,
-          headerTitle: t('tabs.fields'),
+          title: t('tabs.home', 'בית'),
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          headerTitle: 'JoinUp',
           headerRight: HeaderRight,
         }}
       />
