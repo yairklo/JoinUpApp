@@ -1,31 +1,76 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import type { MarkerVisual } from '@/utils/mapSport';
 
 interface MarkerPinProps {
     visual: MarkerVisual;
     selected?: boolean;
     badgeCount?: number;
+    isCluster?: boolean;
 }
 
-export default function MarkerPin({ visual, selected = false, badgeCount }: MarkerPinProps) {
+export default function MarkerPin({
+    visual,
+    selected = false,
+    badgeCount,
+    isCluster = false,
+}: MarkerPinProps) {
+    if (isCluster) {
+        return (
+            <View
+                style={{
+                    backgroundColor: visual.colorHex,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    borderWidth: 2.5,
+                    borderColor: '#ffffff',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    elevation: 5,
+                    position: 'relative',
+                }}
+            >
+                <MaterialCommunityIcons name={visual.iconName as any} size={18} color="white" />
+                <View
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        backgroundColor: '#0f172a',
+                        width: 13,
+                        height: 13,
+                        borderRadius: 6.5,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: '#ffffff',
+                    }}
+                >
+                    <FontAwesome name="plus" size={7} color="white" />
+                </View>
+            </View>
+        );
+    }
+
     return (
         <View
             style={{
                 backgroundColor: visual.colorHex,
                 transform: selected ? [{ scale: 1.15 }] : undefined,
+                width: 27,
+                height: 27,
+                borderRadius: 13.5,
+                borderWidth: 2,
+                borderColor: selected ? '#34d399' : '#ffffff',
+                alignItems: 'center',
+                justifyContent: 'center',
+                elevation: 3,
             }}
-            className={`w-10 h-10 rounded-full items-center justify-center border-2 shadow-lg ${
-                selected ? 'border-brand-light' : 'border-white'
-            }`}
         >
-            <MaterialCommunityIcons name={visual.iconName as any} size={20} color="white" />
-            {badgeCount != null && badgeCount > 1 && (
-                <View className="absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[16px] h-4 px-1 items-center justify-center">
-                    <Text className="text-white text-[10px] font-bold">{badgeCount}</Text>
-                </View>
-            )}
+            <MaterialCommunityIcons name={visual.iconName as any} size={13} color="white" />
         </View>
     );
 }

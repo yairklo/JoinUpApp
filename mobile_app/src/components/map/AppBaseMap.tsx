@@ -8,6 +8,9 @@ import React, {
 } from 'react';
 import { View, ActivityIndicator, ScrollView, TouchableOpacity, Text } from 'react-native';
 import ClusteredMapView from 'react-native-map-clustering';
+// @ts-ignore
+import SuperclusterClass from 'supercluster';
+import SportClusterMarker from './SportClusterMarker';
 import { SPORT_MAPPING } from '@/utils/sports';
 import {
     DEFAULT_MAP_REGION,
@@ -18,14 +21,11 @@ import {
     regionToBounds,
 } from './types';
 
-export type MapSportFilter = 'SOCCER' | 'BASKETBALL' | 'TENNIS' | null;
+const Supercluster = (SuperclusterClass as any)?.default || SuperclusterClass;
 
-const MAP_SPORT_FILTER_CHIPS: { id: MapSportFilter; label: string }[] = [
-    { id: null, label: 'הכל' },
-    { id: 'SOCCER', label: SPORT_MAPPING.SOCCER },
-    { id: 'BASKETBALL', label: SPORT_MAPPING.BASKETBALL },
-    { id: 'TENNIS', label: SPORT_MAPPING.TENNIS },
-];
+import i18n from '@/i18n';
+
+export type MapSportFilter = 'SOCCER' | 'BASKETBALL' | 'TENNIS' | null;
 
 export interface MapMarkerRenderContext<T> {
     item: MapMarkerItem<T>;
@@ -55,6 +55,16 @@ export interface AppBaseMapProps<T> {
     clusterColor?: string;
     className?: string;
     showSportFilter?: boolean;
+    clusterRadius?: number;
+    clusteringEnabled?: boolean;
+    clusterBySport?: boolean;
+    onClusterPress?: (clusterInfo: {
+        clusterId: number;
+        sport: string;
+        count: number;
+        items: MapMarkerItem<T>[];
+        coordinate: MapCoordinate;
+    }) => void;
 }
 
 function AppBaseMapInner<T>(
@@ -74,27 +84,35 @@ function AppBaseMapInner<T>(
         clusterColor = '#059669',
         className,
         showSportFilter = false,
+        clusterRadius = 24,
+        clusteringEnabled = true,
+        clusterBySport = false,
+        onClusterPress,
     }: AppBaseMapProps<T>,
     ref: React.Ref<AppBaseMapHandle>
 ) {
     const mapRef = useRef<any>(null);
     const [mapSportFilter, setMapSportFilter] = useState<MapSportFilter>(null);
+    const [currentRegion, setCurrentRegion] = useState<MapRegion>(initialRegion);
+    const [debouncedRegionForClustering, setDebouncedRegionForClustering] = useState<MapRegion>(initialRegion);
     const boundsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const onBoundsChangeRef = useRef(onBoundsChange);
     onBoundsChangeRef.current = onBoundsChange;
 
     const animateToCoordinate = useCallback((coordinate: MapCoordinate, delta = 0.05) => {
-        mapRef.current?.animateToRegion(
-            {
-                ...coordinate,
-                latitudeDelta: delta,
-                longitudeDelta: delta,
-            },
-            500
-        );
+        const targetRegion = {
+            ...coordinate,
+            latitudeDelta: delta,
+            longitudeDelta: delta,
+        };
+        setCurrentRegion(targetRegion);
+        setDebouncedRegionForClustering(targetRegion);
+        mapRef.current?.animateToRegion(targetRegion, 500);
     }, []);
 
     const animateToRegion = useCallback((region: MapRegion, duration = 500) => {
+        setCurrentRegion(region);
+        setDebouncedRegionForClustering(region);
         mapRef.current?.animateToRegion(region, duration);
     }, []);
 
@@ -104,9 +122,10 @@ function AppBaseMapInner<T>(
     }), [animateToCoordinate, animateToRegion]);
 
     const handleRegionChangeComplete = useCallback((region: MapRegion) => {
-        if (!onBoundsChangeRef.current) return;
+        setCurrentRegion(region);
         if (boundsTimeoutRef.current) clearTimeout(boundsTimeoutRef.current);
         boundsTimeoutRef.current = setTimeout(() => {
+            setDebouncedRegionForClustering(region);
             onBoundsChangeRef.current?.(regionToBounds(region), region);
         }, boundsDebounceMs);
     }, [boundsDebounceMs]);
@@ -137,6 +156,157 @@ function AppBaseMapInner<T>(
         });
     }, [visibleMarkers, selectedMarkerId, renderMarker, onMarkerPress, animateToCoordinate]);
 
+    // Build and cache SuperCluster instances per sport whenever visibleMarkers changes
+    const sportClusterIndexes = useMemo(() => {
+        if (!clusterBySport) return null;
+
+        const bySport = new Map<string, Array<any>>();
+        const itemsMap = new Map<string, MapMarkerItem<T>>();
+
+        for (const item of visibleMarkers) {
+            itemsMap.set(item.id, item);
+            const sport = (item.sportTags && item.sportTags[0]) || 'SOCCER';
+            if (!bySport.has(sport)) bySport.set(sport, []);
+            bySport.get(sport)!.push({
+                type: 'Feature' as const,
+                geometry: {
+                    type: 'Point' as const,
+                    coordinates: [item.longitude, item.latitude],
+                },
+                properties: {
+                    itemId: item.id,
+                    sport,
+                },
+            });
+        }
+
+        const indexes = new Map<string, any>();
+        for (const [sport, features] of bySport.entries()) {
+            const sc = new (Supercluster as any)({
+                radius: clusterRadius || 32,
+                maxZoom: 18,
+                minPoints: 2,
+            });
+            sc.load(features);
+            indexes.set(sport, sc);
+        }
+
+        return { indexes, itemsMap };
+    }, [clusterBySport, visibleMarkers, clusterRadius]);
+
+    const handleClusterPress = useCallback((
+        clusterId?: number,
+        sport?: string,
+        latitude?: number,
+        longitude?: number
+    ) => {
+        if (clusterId == null || !sport || latitude == null || longitude == null) return;
+        if (!sportClusterIndexes) return;
+
+        const { indexes, itemsMap } = sportClusterIndexes;
+        const index = indexes.get(sport);
+        if (!index) return;
+
+        const clusterLeaves = index.getLeaves(clusterId, 10, 0);
+        const clusterItems: MapMarkerItem<T>[] = clusterLeaves
+            .map((leaf: any) => itemsMap.get(leaf.properties.itemId))
+            .filter(Boolean);
+
+        if (clusterItems.length <= 4 && onClusterPress) {
+            onClusterPress({
+                clusterId,
+                sport,
+                count: clusterItems.length,
+                items: clusterItems,
+                coordinate: { latitude, longitude },
+            });
+            return;
+        }
+
+        const expZoom = index.getClusterExpansionZoom(clusterId);
+        const currentDelta = debouncedRegionForClustering.latitudeDelta;
+        const targetDelta = Math.min(
+            currentDelta * 0.5,
+            360 / Math.pow(2, expZoom)
+        );
+        animateToRegion(
+            {
+                latitude,
+                longitude,
+                latitudeDelta: targetDelta,
+                longitudeDelta: targetDelta,
+            },
+            400
+        );
+    }, [sportClusterIndexes, onClusterPress, debouncedRegionForClustering.latitudeDelta, animateToRegion]);
+
+    const sportClusteredNodes = useMemo(() => {
+        if (!clusterBySport || !sportClusterIndexes) return null;
+
+        const { indexes, itemsMap } = sportClusterIndexes;
+        const deltaLng = Math.max(0.0001, Math.abs(debouncedRegionForClustering.longitudeDelta));
+        const deltaLat = Math.max(0.0001, Math.abs(debouncedRegionForClustering.latitudeDelta));
+
+        const bBox: [number, number, number, number] = [
+            Math.max(-180, debouncedRegionForClustering.longitude - deltaLng * 1.5),
+            Math.max(-85, debouncedRegionForClustering.latitude - deltaLat * 1.5),
+            Math.min(180, debouncedRegionForClustering.longitude + deltaLng * 1.5),
+            Math.min(85, debouncedRegionForClustering.latitude + deltaLat * 1.5),
+        ];
+        const zoom = Math.min(
+            18,
+            Math.max(1, Math.round(Math.log(360 / deltaLng) / Math.LN2))
+        );
+
+        const nodes: React.ReactElement[] = [];
+
+        for (const [sport, index] of indexes.entries()) {
+            const clusters = index.getClusters(bBox, zoom);
+            for (const feature of clusters) {
+                const [lng, lat] = feature.geometry.coordinates;
+                if (feature.properties.cluster) {
+                    const clusterId = `sport-cluster-${sport}-${feature.properties.cluster_id}`;
+                    nodes.push(
+                        <SportClusterMarker
+                            key={clusterId}
+                            id={clusterId}
+                            clusterId={feature.properties.cluster_id}
+                            sport={sport}
+                            count={feature.properties.point_count}
+                            latitude={lat}
+                            longitude={lng}
+                            onPress={handleClusterPress}
+                        />
+                    );
+                } else {
+                    const item = itemsMap.get(feature.properties.itemId);
+                    if (!item) continue;
+                    const coordinate = { latitude: item.latitude, longitude: item.longitude };
+                    const node = renderMarker({
+                        item,
+                        selected: selectedMarkerId === item.id,
+                        onPress: () => onMarkerPress?.(item.payload, item),
+                        animateToCoordinate: () => animateToCoordinate(coordinate),
+                    });
+                    if (node) {
+                        nodes.push(React.cloneElement(node as React.ReactElement<any>, { key: item.id, coordinate }));
+                    }
+                }
+            }
+        }
+
+        return nodes;
+    }, [
+        clusterBySport,
+        sportClusterIndexes,
+        debouncedRegionForClustering,
+        selectedMarkerId,
+        renderMarker,
+        onMarkerPress,
+        animateToCoordinate,
+        handleClusterPress,
+    ]);
+
     const containerClass =
         className ||
         (variant === 'embedded'
@@ -158,7 +328,12 @@ function AppBaseMapInner<T>(
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={{ paddingHorizontal: 2 }}
                         >
-                            {MAP_SPORT_FILTER_CHIPS.map((chip) => {
+                            {([
+                                { id: null, label: i18n.t('sports.all', 'הכל') },
+                                { id: 'SOCCER', label: i18n.t('sports.soccer', SPORT_MAPPING.SOCCER) },
+                                { id: 'BASKETBALL', label: i18n.t('sports.basketball', SPORT_MAPPING.BASKETBALL) },
+                                { id: 'TENNIS', label: i18n.t('sports.tennis', SPORT_MAPPING.TENNIS) },
+                            ] as Array<{ id: MapSportFilter; label: string }>).map((chip) => {
                                 const isActive = mapSportFilter === chip.id;
                                 return (
                                     <TouchableOpacity
@@ -189,7 +364,8 @@ function AppBaseMapInner<T>(
                     showsUserLocation
                     showsMyLocationButton
                     clusterColor={clusterColor}
-                    radius={48}
+                    radius={clusterRadius}
+                    clusteringEnabled={clusterBySport ? false : clusteringEnabled}
                     minZoom={1}
                     maxZoom={20}
                     initialRegion={initialRegion}
@@ -200,7 +376,7 @@ function AppBaseMapInner<T>(
                             : undefined
                     }
                 >
-                    {markerNodes}
+                    {clusterBySport ? sportClusteredNodes : markerNodes}
                     {overlayChildren}
                 </ClusteredMapView>
             </View>

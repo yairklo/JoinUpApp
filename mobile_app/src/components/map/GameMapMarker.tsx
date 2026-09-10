@@ -3,6 +3,7 @@ import { Marker } from 'react-native-maps';
 import { Game } from '@/types/game';
 import { getSportMarkerVisual } from '@/utils/mapSport';
 import MarkerPin from './MarkerPin';
+import { useTracksViewChangesFreeze } from './useTracksViewChangesFreeze';
 
 interface GameMapMarkerProps {
     group: Game[];
@@ -15,17 +16,18 @@ const GameMapMarker = React.memo(function GameMapMarker({
     onPress,
     onAnimateTo,
 }: GameMapMarkerProps) {
-    const [tracksViewChanges, setTracksViewChanges] = React.useState(true);
     const firstGame = group[0];
     const lat = firstGame.customLat || firstGame.fieldLat || firstGame.field?.lat;
     const lng = firstGame.customLng || firstGame.fieldLng || firstGame.field?.lng;
-    if (lat == null || lng == null) return null;
-
     const uniqueSports = [...new Set(group.map((g) => g.sport))];
     const isMixed = uniqueSports.length > 1;
     const visual = isMixed
         ? { iconName: 'map-marker-multiple', colorHex: '#64748b', variant: 'neutral' as const }
         : getSportMarkerVisual(firstGame.sport);
+
+    const tracksViewChanges = useTracksViewChangesFreeze([firstGame.id, group.length, visual.iconName, visual.colorHex]);
+
+    if (lat == null || lng == null) return null;
 
     return (
         <Marker
@@ -33,7 +35,6 @@ const GameMapMarker = React.memo(function GameMapMarker({
             anchor={{ x: 0.5, y: 1.0 }}
             hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
             tracksViewChanges={tracksViewChanges}
-            onLayout={() => setTracksViewChanges(false)}
             onPress={(e) => {
                 e.stopPropagation();
                 onAnimateTo(lat, lng);

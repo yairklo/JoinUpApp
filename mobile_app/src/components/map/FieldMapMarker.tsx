@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import { Marker, Callout } from 'react-native-maps';
 import { getFieldMarkerVisual } from '@/utils/mapSport';
 import MarkerPin from './MarkerPin';
+import { useTracksViewChangesFreeze } from './useTracksViewChangesFreeze';
 
 export interface MapField {
     id: string;
@@ -17,8 +18,10 @@ export interface MapField {
 interface FieldMapMarkerProps {
     field: MapField;
     selected?: boolean;
-    onPress: () => void;
+    onPress: (field: MapField) => void;
     showCallout?: boolean;
+    preferredSport?: string | null;
+    onCalloutPress?: () => void;
 }
 
 const FieldMapMarker = React.memo(function FieldMapMarker({
@@ -26,30 +29,31 @@ const FieldMapMarker = React.memo(function FieldMapMarker({
     selected = false,
     onPress,
     showCallout = false,
+    preferredSport,
+    onCalloutPress,
 }: FieldMapMarkerProps) {
-    const [tracksViewChanges, setTracksViewChanges] = React.useState(true);
     const lat = field.lat;
     const lng = field.lng;
-    if (lat == null || lng == null) return null;
+    const visual = getFieldMarkerVisual(field, preferredSport);
+    const tracksViewChanges = useTracksViewChangesFreeze([field.id, selected, visual.iconName, visual.colorHex]);
 
-    const visual = getFieldMarkerVisual(field);
+    if (lat == null || lng == null) return null;
 
     return (
         <Marker
             coordinate={{ latitude: lat, longitude: lng }}
-            anchor={{ x: 0.5, y: 1.0 }}
+            anchor={{ x: 0.5, y: 0.5 }}
             hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
             tracksViewChanges={tracksViewChanges}
-            onLayout={() => setTracksViewChanges(false)}
             onPress={(e) => {
                 e.stopPropagation();
-                onPress();
+                onPress(field);
             }}
         >
             <MarkerPin visual={visual} selected={selected} />
             {showCallout && (
-                <Callout tooltip>
-                    <View className="bg-white p-3 rounded-xl min-w-[140px]">
+                <Callout tooltip onPress={onCalloutPress}>
+                    <View className="bg-white p-3 rounded-xl min-w-[140px] shadow-md border border-gray-100">
                         <Text className="font-bold text-gray-900 text-center">{field.name}</Text>
                         {(field.city || field.location) && (
                             <Text className="text-gray-500 text-xs text-center mt-1">

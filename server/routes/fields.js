@@ -223,21 +223,33 @@ router.get('/cities/top', async (req, res) => {
   }
 });
 
-// Slim bbox query for map markers — no relational counts
+// Slim query for map markers — no relational counts
 router.get('/map', async (req, res) => {
   try {
-    if (!hasBoundingBox(req.query)) {
-      return res.status(400).json({ error: 'Bounding box (minLat, maxLat, minLng, maxLng) is required' });
+    const where = applyBrowseFilters(buildFieldSearchWhere(req.query), req.query);
+    // Only return fields that have coordinates
+    if (!where.lat) where.lat = { not: null };
+    if (!where.lng) where.lng = { not: null };
+    // Include available or unset fields
+    if (where.available === true) {
+      delete where.available;
+      where.OR = [{ available: true }, { available: null }];
     }
     const fields = await prisma.field.findMany({
-      where: buildFieldSearchWhere(req.query),
+      where,
       orderBy: { name: 'asc' },
       select: MAP_FIELD_SELECT,
     });
     res.json(fields.map(mapFieldForMapClient));
   } catch (error) {
     console.error('Map fields error:', error);
-    return res.status(503).json({ error: 'Failed to load map fields' });
+    try {
+      const raw = await dataManager.readData('fields.json');
+      const filtered = raw.filter((f) => f.lat != null && f.lng != null && f.available !== false);
+      return res.json(filtered.map(mapFieldForMapClient));
+    } catch (fallbackErr) {
+      return res.status(503).json({ error: 'Failed to load map fields' });
+    }
   }
 });
 

@@ -3,6 +3,7 @@ import { Marker } from 'react-native-maps';
 import { EMPTY_FIELD_MARKER_VISUAL } from '@/utils/mapSport';
 import MarkerPin from './MarkerPin';
 import type { MapField } from './FieldMapMarker';
+import { useTracksViewChangesFreeze } from './useTracksViewChangesFreeze';
 
 interface EmptyFieldMapMarkerProps {
     field: MapField;
@@ -15,9 +16,10 @@ const EmptyFieldMapMarker = React.memo(function EmptyFieldMapMarker({
     onPress,
     onAnimateTo,
 }: EmptyFieldMapMarkerProps) {
-    const [tracksViewChanges, setTracksViewChanges] = React.useState(true);
     const lat = field.lat;
     const lng = field.lng;
+    const tracksViewChanges = useTracksViewChangesFreeze([field.id]);
+
     if (lat == null || lng == null) return null;
 
     return (
@@ -26,7 +28,6 @@ const EmptyFieldMapMarker = React.memo(function EmptyFieldMapMarker({
             anchor={{ x: 0.5, y: 1.0 }}
             hitSlop={{ top: 20, right: 20, bottom: 20, left: 20 }}
             tracksViewChanges={tracksViewChanges}
-            onLayout={() => setTracksViewChanges(false)}
             onPress={(e) => {
                 e.stopPropagation();
                 onAnimateTo(lat, lng);

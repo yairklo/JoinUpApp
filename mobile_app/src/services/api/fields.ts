@@ -155,16 +155,25 @@ export const fieldsApi = {
         return apiClient<any[]>('/api/fields/search?' + params.toString());
     },
 
-    /** Slim bbox-only query for map markers (no _count aggregations). */
-    searchMap: (bounds: MapBounds, signal?: AbortSignal) => {
+    /** Slim query for map markers (no _count aggregations). Always sends bounding box. */
+    searchMap: (
+        bounds: MapBounds,
+        optionsOrSignal?: { q?: string; sport?: string; city?: string; signal?: AbortSignal } | AbortSignal
+    ) => {
+        const options = optionsOrSignal instanceof AbortSignal
+            ? { signal: optionsOrSignal }
+            : (optionsOrSignal || {});
         const params = new URLSearchParams();
         params.append('minLat', bounds.minLat.toString());
         params.append('maxLat', bounds.maxLat.toString());
         params.append('minLng', bounds.minLng.toString());
         params.append('maxLng', bounds.maxLng.toString());
+        if (options.q) params.append('q', options.q);
+        if (options.sport && options.sport !== 'ALL') params.append('sport', options.sport);
+        if (options.city) params.append('city', options.city);
         return apiClient<Field[]>('/api/fields/map?' + params.toString(), {
             cache: 'no-store',
-            signal,
+            signal: options.signal,
         });
     },
 
