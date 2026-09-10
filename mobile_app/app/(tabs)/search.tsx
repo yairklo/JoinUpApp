@@ -1,4 +1,4 @@
-import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, Image } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -13,6 +13,8 @@ import * as Location from 'expo-location';
 import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/components/map/AppBaseMap';
 import GameMapMarker from '@/components/map/GameMapMarker';
 import EmptyFieldMapMarker from '@/components/map/EmptyFieldMapMarker';
+import FieldPreviewCard from '@/components/map/FieldPreviewCard';
+import MapListToggle from '@/components/map/MapListToggle';
 import { MapBounds, MapMarkerItem } from '@/components/map/types';
 import { getSportColorHex, getSportIconName, getFieldSportTags } from '@/utils/mapSport';
 import { SPORT_MAPPING } from '@/utils/sports';
@@ -323,9 +325,12 @@ export default function SearchScreen() {
     }, []);
 
     return (
-        <View className="flex-1 bg-gray-50 pt-4">
+        <View className="flex-1 bg-gray-50">
+            {/* Mode Switch: Large Segmented Control ABOVE the Search Bar */}
+            <MapListToggle isMapView={isMapView} onChange={setIsMapView} />
+
             {/* Search Header */}
-            <View className="px-4 mb-4">
+            <View className="px-4 pt-3 mb-4">
                 <View className="flex-row items-center bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-3">
                     <FontAwesome name="search" size={16} color="#9ca3af" style={{ marginRight: 10 }} />
                     <TextInput
@@ -345,18 +350,6 @@ export default function SearchScreen() {
                     className="-mx-4 flex-row"
                     contentContainerStyle={{ paddingHorizontal: 16 }}
                 >
-                    <TouchableOpacity
-                        onPress={() => setIsMapView(!isMapView)}
-                        className={`mr-2 px-4 py-2 rounded-full border ${isMapView ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
-                    >
-                        <View className="flex-row items-center">
-                            <FontAwesome name={isMapView ? "list" : "map"} size={12} color={isMapView ? "white" : "#4b5563"} style={{ marginRight: 6 }} />
-                            <Text className={`font-medium ${isMapView ? 'text-white' : 'text-gray-600'}`}>
-                                {isMapView ? t("search.list", "רשימה") : t("search.map", "מפה")}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-
                     <TouchableOpacity
                         onPress={() => router.push('/(tabs)/fields')}
                         className="mr-2 px-4 py-2 rounded-full border bg-white border-gray-300"
@@ -470,14 +463,52 @@ export default function SearchScreen() {
                         onRequestClose={() => setSelectedFieldGames(null)}
                     >
                         <View className="flex-1 justify-end bg-black/50">
-                            <View className="bg-white rounded-t-3xl p-6 max-h-[80%]">
-                                <View className="flex-row justify-between items-center mb-4">
-                                    <TouchableOpacity onPress={() => setSelectedFieldGames(null)} className="p-2">
-                                        <MaterialCommunityIcons name="close" size={24} color="#6b7280" />
+                            <View className="bg-white rounded-t-3xl p-5 max-h-[80%]">
+                                {/* Field header -- same visual language as the fields map's preview card */}
+                                <View className="flex-row items-center mb-4">
+                                    {selectedFieldGames?.[0]?.field?.image ? (
+                                        <Image
+                                            source={{ uri: selectedFieldGames[0].field.image }}
+                                            style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: '#f3f4f6' }}
+                                        />
+                                    ) : (
+                                        <View
+                                            style={{
+                                                width: 52,
+                                                height: 52,
+                                                borderRadius: 14,
+                                                backgroundColor: getSportColorHex(selectedFieldGames?.[0]?.sport) + '18',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name={getSportIconName(selectedFieldGames?.[0]?.sport) as any}
+                                                size={26}
+                                                color={getSportColorHex(selectedFieldGames?.[0]?.sport)}
+                                            />
+                                        </View>
+                                    )}
+                                    <View className="flex-1 mx-3">
+                                        <Text className="text-base font-bold text-gray-900 text-right" numberOfLines={1}>
+                                            {selectedFieldGames?.[0]?.field?.name || selectedFieldGames?.[0]?.fieldName || t('search.gamesAtField', 'משחקים במגרש')}
+                                        </Text>
+                                        <View className="flex-row items-center justify-end mt-1">
+                                            <Text className="text-xs text-gray-500" numberOfLines={1}>
+                                                {selectedFieldGames?.[0]?.field?.location || selectedFieldGames?.[0]?.fieldLocation || selectedFieldGames?.[0]?.field?.city || ''}
+                                            </Text>
+                                            <FontAwesome name="map-marker" size={11} color="#9ca3af" style={{ marginLeft: 4 }} />
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={() => setSelectedFieldGames(null)}
+                                        style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center' }}
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Close"
+                                        hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                                    >
+                                        <FontAwesome name="times" size={13} color="#6b7280" />
                                     </TouchableOpacity>
-                                    <Text className="text-xl font-bold text-gray-800 text-right">
-                                        {selectedFieldGames?.[0]?.field?.name || selectedFieldGames?.[0]?.fieldName || t('search.gamesAtField', 'משחקים במגרש')}
-                                    </Text>
                                 </View>
                                 {(selectedFieldGames?.[0]?.field?.id || selectedFieldGames?.[0]?.fieldId) && (
                                     <TouchableOpacity
@@ -526,53 +557,22 @@ export default function SearchScreen() {
                         </View>
                     </Modal>
 
-                    {/* Empty Field Modal for Creating a Game */}
-                    <Modal
-                        visible={!!selectedEmptyField}
-                        transparent={true}
-                        animationType="slide"
-                        onRequestClose={() => setSelectedEmptyField(null)}
-                    >
-                        <View className="flex-1 justify-end bg-black/50">
-                            <View className="bg-white rounded-t-3xl p-6">
-                                <View className="flex-row justify-between items-center mb-4">
-                                    <TouchableOpacity onPress={() => setSelectedEmptyField(null)} className="p-2">
-                                        <MaterialCommunityIcons name="close" size={24} color="#6b7280" />
-                                    </TouchableOpacity>
-                                    <Text className="text-xl font-bold text-gray-800 text-right">
-                                        {selectedEmptyField?.name || t('search.emptyField', 'מגרש פנוי')}
-                                    </Text>
-                                </View>
-                                <Text className="text-gray-500 text-sm text-right mb-6">
-                                    {selectedEmptyField?.location || t('search.noLocationInfo', 'אין מידע על מיקום')}
-                                </Text>
-                                <TouchableOpacity
-                                    className="bg-brand py-3 rounded-xl items-center justify-center shadow-lg"
-                                    onPress={() => {
-                                        const fieldId = selectedEmptyField?.id;
-                                        setSelectedEmptyField(null);
-                                        router.push({
-                                            pathname: '/game/new',
-                                            params: { fieldId }
-                                        });
-                                    }}
-                                >
-                                    <Text className="text-white font-bold text-base">{t('search.openGameAtField', 'פתח משחק במגרש זה')}</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    className="flex-row items-center justify-center bg-brand-mist border border-brand-pale py-3 rounded-xl mt-3"
-                                    onPress={() => {
-                                        const fieldId = selectedEmptyField?.id;
-                                        setSelectedEmptyField(null);
-                                        router.push(`/field/${fieldId}`);
-                                    }}
-                                >
-                                    <MaterialCommunityIcons name="chart-bar" size={16} color="#059669" style={{ marginRight: 6 }} />
-                                    <Text className="text-brand-dark font-bold text-base">{t('field.viewProfile', 'לפרופיל המגרש')}</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </Modal>
+                    {/* Selected Empty Field Preview Card -- same floating card as the fields map */}
+                    {selectedEmptyField && (
+                        <FieldPreviewCard
+                            field={selectedEmptyField}
+                            onPress={() => router.push(`/field/${selectedEmptyField.id}`)}
+                            onClose={() => setSelectedEmptyField(null)}
+                            primaryAction={{
+                                label: t('search.openGameAtField', 'פתח משחק במגרש זה'),
+                                onPress: () => {
+                                    const fieldId = selectedEmptyField.id;
+                                    setSelectedEmptyField(null);
+                                    router.push({ pathname: '/game/new', params: { fieldId } });
+                                },
+                            }}
+                        />
+                    )}
                 </View>
             ) : (
                 <FlatList

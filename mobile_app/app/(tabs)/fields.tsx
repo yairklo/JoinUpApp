@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Location from 'expo-location';
 import { fieldsApi, Field } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
@@ -11,8 +10,10 @@ import FavoriteButton from '@/components/FavoriteButton';
 import FilterPill from '@/components/FilterPill';
 import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/components/map/AppBaseMap';
 import FieldMapMarker from '@/components/map/FieldMapMarker';
+import FieldPreviewCard from '@/components/map/FieldPreviewCard';
+import MapListToggle from '@/components/map/MapListToggle';
 import { MapBounds, MapMarkerItem, MapCoordinate, regionToBounds, DEFAULT_MAP_REGION } from '@/components/map/types';
-import { getFieldSportTags, getSportColorHex, getSportIconName } from '@/utils/mapSport';
+import { getFieldSportTags } from '@/utils/mapSport';
 import { SPORT_KEYS, SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 import { isAbortError } from '@/utils/apiErrors';
 
@@ -347,69 +348,7 @@ export default function FieldsDirectoryScreen() {
     return (
         <View className="flex-1 bg-white">
             {/* Mode Switch: Large Segmented Control ABOVE the Search Bar */}
-            <View className="px-4 pt-3 pb-2 bg-white">
-                <View className="flex-row bg-gray-100 p-1 rounded-2xl border border-gray-200">
-                    <TouchableOpacity
-                        onPress={() => setIsMapView(true)}
-                        style={{
-                            flex: 1,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            paddingVertical: 10,
-                            borderRadius: 12,
-                            backgroundColor: isMapView ? '#059669' : 'transparent',
-                        }}
-                        accessibilityRole="button"
-                    >
-                        <FontAwesome
-                            name="map"
-                            size={16}
-                            color={isMapView ? '#ffffff' : '#64748b'}
-                            style={{ marginRight: 8 }}
-                        />
-                        <Text
-                            style={{
-                                fontSize: 16,
-                                fontWeight: '800',
-                                color: isMapView ? '#ffffff' : '#4b5563',
-                            }}
-                        >
-                            {t('search.map', 'מפה')}
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={() => setIsMapView(false)}
-                        style={{
-                            flex: 1,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            paddingVertical: 10,
-                            borderRadius: 12,
-                            backgroundColor: !isMapView ? '#059669' : 'transparent',
-                        }}
-                        accessibilityRole="button"
-                    >
-                        <FontAwesome
-                            name="list"
-                            size={16}
-                            color={!isMapView ? '#ffffff' : '#64748b'}
-                            style={{ marginRight: 8 }}
-                        />
-                        <Text
-                            style={{
-                                fontSize: 16,
-                                fontWeight: '800',
-                                color: !isMapView ? '#ffffff' : '#4b5563',
-                            }}
-                        >
-                            {t('search.list', 'רשימה')}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
+            <MapListToggle isMapView={isMapView} onChange={setIsMapView} />
 
             {/* Search Input with Debounce */}
             <View className="px-4 py-2 border-b border-gray-100 bg-white">
@@ -484,217 +423,20 @@ export default function FieldsDirectoryScreen() {
 
                     {/* Selected Field Bottom Preview Card */}
                     {selectedMapField && (
-                        <View
-                            style={{
-                                position: 'absolute',
-                                bottom: 16,
-                                left: 16,
-                                right: 16,
-                                zIndex: 99,
-                                elevation: 20,
+                        <FieldPreviewCard
+                            field={selectedMapField}
+                            onPress={() => router.push(`/field/${selectedMapField.id}`)}
+                            onClose={() => {
+                                setSelectedMapField(null);
+                                setSelectedClusterFields(null);
                             }}
-                            pointerEvents="box-none"
-                        >
-                            <TouchableOpacity
-                                activeOpacity={0.95}
-                                onPress={() => router.push(`/field/${selectedMapField.id}`)}
-                                style={{
-                                    width: '100%',
-                                    backgroundColor: '#ffffff',
-                                    borderRadius: 20,
-                                    padding: 14,
-                                    shadowColor: '#000',
-                                    shadowOffset: { width: 0, height: 6 },
-                                    shadowOpacity: 0.15,
-                                    shadowRadius: 12,
-                                    elevation: 12,
-                                    borderWidth: 1,
-                                    borderColor: '#e5e7eb',
-                                }}
-                            >
-                                {/* Cluster Court Switcher if multiple courts at this pin */}
-                                {selectedClusterFields && selectedClusterFields.length > 1 && (
-                                    <View
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            marginBottom: 10,
-                                            paddingBottom: 8,
-                                            borderBottomWidth: 1,
-                                            borderBottomColor: '#f3f4f6',
-                                        }}
-                                    >
-                                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#059669' }}>
-                                            {t('field.clusterCourtsCount', { current: clusterFieldIndex + 1, total: selectedClusterFields.length })}
-                                        </Text>
-                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                                            {selectedClusterFields.map((f, idx) => (
-                                                <TouchableOpacity
-                                                    key={f.id}
-                                                    onPress={(e) => {
-                                                        e.stopPropagation();
-                                                        setClusterFieldIndex(idx);
-                                                        setSelectedMapField(f);
-                                                    }}
-                                                    style={{
-                                                        paddingHorizontal: 10,
-                                                        paddingVertical: 3,
-                                                        borderRadius: 8,
-                                                        backgroundColor: clusterFieldIndex === idx ? '#059669' : '#f3f4f6',
-                                                    }}
-                                                >
-                                                    <Text
-                                                        style={{
-                                                            fontSize: 11,
-                                                            fontWeight: 'bold',
-                                                            color: clusterFieldIndex === idx ? '#ffffff' : '#6b7280',
-                                                        }}
-                                                    >
-                                                        {idx + 1}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </ScrollView>
-                                    </View>
-                                )}
-
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    {/* Thumbnail or sport icon */}
-                                    <View style={{ position: 'relative' }}>
-                                        {selectedMapField.image ? (
-                                            <Image
-                                                source={{ uri: selectedMapField.image }}
-                                                style={{ width: 60, height: 60, borderRadius: 14, backgroundColor: '#f3f4f6' }}
-                                            />
-                                        ) : (
-                                            <View
-                                                style={{
-                                                    width: 60,
-                                                    height: 60,
-                                                    borderRadius: 14,
-                                                    backgroundColor: getSportColorHex(selectedMapField.supportedSports?.[0]) + '18',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                }}
-                                            >
-                                                <MaterialCommunityIcons
-                                                    name={getSportIconName(selectedMapField.supportedSports?.[0]) as any}
-                                                    size={28}
-                                                    color={getSportColorHex(selectedMapField.supportedSports?.[0])}
-                                                />
-                                            </View>
-                                        )}
-                                        <View style={{ position: 'absolute', top: -5, right: -5 }}>
-                                            <FavoriteButton fieldId={selectedMapField.id} size={13} />
-                                        </View>
-                                    </View>
-
-                                    {/* Info Column */}
-                                    <View style={{ flex: 1, marginHorizontal: 10 }}>
-                                        <Text
-                                            style={{ fontSize: 16, fontWeight: 'bold', color: '#111827', textAlign: 'left' }}
-                                            numberOfLines={1}
-                                        >
-                                            {selectedMapField.name}
-                                        </Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                                            <FontAwesome name="map-marker" size={12} color="#9ca3af" style={{ marginRight: 4 }} />
-                                            <Text
-                                                style={{ fontSize: 13, color: '#6b7280', flex: 1, textAlign: 'left' }}
-                                                numberOfLines={1}
-                                            >
-                                                {selectedMapField.location || selectedMapField.city || t('field.israel', 'ישראל')}
-                                            </Text>
-                                        </View>
-
-                                        {/* Badges */}
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 5, flexWrap: 'wrap' }}>
-                                            {selectedMapField.supportedSports?.[0] && (
-                                                <View style={{ backgroundColor: '#ecfdf5', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#a7f3d0' }}>
-                                                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#047857' }}>
-                                                        {t('sports.' + selectedMapField.supportedSports[0].toLowerCase(), SPORT_MAPPING[selectedMapField.supportedSports[0]] || selectedMapField.supportedSports[0])}
-                                                    </Text>
-                                                </View>
-                                            )}
-                                            <View style={{ backgroundColor: '#f3f4f6', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
-                                                <Text style={{ fontSize: 11, fontWeight: '600', color: '#4b5563' }}>
-                                                    {selectedMapField.type === 'closed' ? t('field.closedField', 'מגרש מקורה') : t('field.openField', 'מגרש פתוח')}
-                                                </Text>
-                                            </View>
-                                            {typeof selectedMapField.price === 'number' && selectedMapField.price > 0 ? (
-                                                <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
-                                                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#059669' }}>
-                                                        {t('field.pricePerHour', { price: selectedMapField.price })}
-                                                    </Text>
-                                                </View>
-                                            ) : (
-                                                <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
-                                                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#059669' }}>
-                                                        {t('field.freePrice', 'חינם')}
-                                                    </Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                    </View>
-
-                                    {/* Close Button */}
-                                    <TouchableOpacity
-                                        onPress={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedMapField(null);
-                                            setSelectedClusterFields(null);
-                                        }}
-                                        style={{
-                                            width: 30,
-                                            height: 30,
-                                            borderRadius: 15,
-                                            backgroundColor: '#f3f4f6',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            alignSelf: 'flex-start',
-                                        }}
-                                        accessibilityRole="button"
-                                        accessibilityLabel="Close preview"
-                                        hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-                                    >
-                                        <FontAwesome name="times" size={13} color="#6b7280" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Bottom Action Row */}
-                                <View
-                                    style={{
-                                        marginTop: 10,
-                                        paddingTop: 8,
-                                        borderTopWidth: 1,
-                                        borderTopColor: '#f3f4f6',
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                    }}
-                                >
-                                    <Text style={{ fontSize: 12, color: '#9ca3af', fontWeight: '500' }}>
-                                        {t('field.tapToViewDetails', 'לפרטים מלאים והזמנה')}
-                                    </Text>
-                                    <View
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            backgroundColor: '#059669',
-                                            paddingHorizontal: 12,
-                                            paddingVertical: 6,
-                                            borderRadius: 10,
-                                        }}
-                                    >
-                                        <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: 'bold', marginRight: 5 }}>
-                                            {t('field.viewProfile', 'לפרופיל המגרש')}
-                                        </Text>
-                                        <FontAwesome name="arrow-left" size={10} color="#ffffff" />
-                                    </View>
-                                </View>
-                            </TouchableOpacity>
-                        </View>
+                            clusterFields={selectedClusterFields ?? undefined}
+                            clusterIndex={clusterFieldIndex}
+                            onSelectClusterField={(idx) => {
+                                setClusterFieldIndex(idx);
+                                if (selectedClusterFields) setSelectedMapField(selectedClusterFields[idx]);
+                            }}
+                        />
                     )}
                 </View>
             ) : loading ? (
