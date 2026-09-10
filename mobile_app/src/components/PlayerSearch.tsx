@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@clerk/clerk-expo';
 import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 
 /**
  * Inline player search + add-friend list, embedded directly in the friends page
@@ -15,7 +15,13 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
  */
 export default function PlayerSearch() {
     const router = useRouter();
-    const { getToken } = useAuth();
+    // Clerk's useAuth() returns a new `getToken` function identity on every render
+    // (@clerk/clerk-expo wraps it for JWT caching, uncached). Putting it straight into
+    // an effect dependency array that also calls setState is a render loop: state
+    // update -> re-render -> new getToken -> effect reruns -> state update -> ...
+    // (see mobile_app/src/hooks/useAuthTokenRef.ts, already used by useNotificationCounters
+    // for the same reason). Use the stable ref instead of destructuring getToken directly.
+    const getTokenRef = useAuthTokenRef();
     const { t } = useTranslation();
 
     const [query, setQuery] = useState('');
@@ -26,14 +32,14 @@ export default function PlayerSearch() {
 
     useEffect(() => {
         if (!debouncedQuery.trim()) {
-            setResults([]);
+            setResults((prev) => (prev.length ? [] : prev));
             return;
         }
         let cancelled = false;
         (async () => {
             try {
                 setLoading(true);
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 if (!token || cancelled) return;
                 const data = await usersApi.search(debouncedQuery, token);
                 if (!cancelled) setResults(data);
@@ -49,12 +55,12 @@ export default function PlayerSearch() {
         return () => {
             cancelled = true;
         };
-    }, [debouncedQuery, getToken, t]);
+    }, [debouncedQuery, getTokenRef, t]);
 
     const handleAddFriend = async (targetUserId: string) => {
         try {
             setActionLoadingId(targetUserId);
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             await usersApi.sendFriendRequest(targetUserId, token);
             setResults((prev) => prev.map((item) => (
