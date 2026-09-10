@@ -124,11 +124,12 @@ export default function SupportFeedbackDialog() {
             </Stack>
           </SignedIn>
         </DialogContent>
-        <SignedIn>
-          <DialogActions>
-            <Button onClick={handleClose} disabled={submitting}>
-              ביטול
-            </Button>
+        <DialogActions>
+          <Button onClick={handleClose} disabled={submitting}>
+            <SignedOut>סגירה</SignedOut>
+            <SignedIn>ביטול</SignedIn>
+          </Button>
+          <SignedIn>
             <Button
               onClick={handleSubmit}
               variant="contained"
@@ -137,8 +138,8 @@ export default function SupportFeedbackDialog() {
             >
               שליחה
             </Button>
-          </DialogActions>
-        </SignedIn>
+          </SignedIn>
+        </DialogActions>
       </Dialog>
     </>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
@@ -29,7 +29,10 @@ export default function FeedbackScreen() {
         setSubmitting(true);
         try {
             const token = await getToken();
-            if (!token) return;
+            if (!token) {
+                Alert.alert(t('error', 'Error'), t('feedback.signInRequired'));
+                return;
+            }
             await supportApi.submit({ type, message: trimmed, context: 'mobile:/settings/feedback' }, token);
             Alert.alert('', t('feedback.success'));
             router.back();
@@ -50,7 +53,11 @@ export default function FeedbackScreen() {
                 <Text className="flex-1 text-center font-bold text-lg mr-10">{t('feedback.title')}</Text>
             </View>
 
-            <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                className="flex-1"
+            >
+            <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
                 <Text className="text-gray-500 mb-6">{t('feedback.description')}</Text>
 
                 <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-6">
@@ -96,6 +103,7 @@ export default function FeedbackScreen() {
                     )}
                 </TouchableOpacity>
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }

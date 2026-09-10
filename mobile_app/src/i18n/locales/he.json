@@ -602,7 +602,8 @@
     "messageLabel": "מה תרצו לספר לנו?",
     "submit": "שליחה",
     "success": "תודה! ההודעה נשלחה בהצלחה.",
-    "failure": "השליחה נכשלה, נסו שוב."
+    "failure": "השליחה נכשלה, נסו שוב.",
+    "signInRequired": "יש להתחבר כדי לשלוח הודעה."
   },
   "upload": {
     "permissionRequired": "נדרשת הרשאה",

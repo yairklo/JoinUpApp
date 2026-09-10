@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,7 +25,10 @@ export default function AdminFeedbackScreen() {
     const [loading, setLoading] = useState(true);
     const [busyId, setBusyId] = useState<string | null>(null);
 
+    const [loadError, setLoadError] = useState(false);
+
     const load = useCallback(async () => {
+        setLoadError(false);
         try {
             const token = await getToken();
             if (!token) {
@@ -36,6 +39,7 @@ export default function AdminFeedbackScreen() {
             setRows(Array.isArray(list) ? list : []);
         } catch (e) {
             console.error('Failed to load support messages', e);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -49,9 +53,10 @@ export default function AdminFeedbackScreen() {
             const token = await getToken();
             if (!token) return;
             const updated = await supportApi.adminResolve(row.id, token);
-            setRows((prev) => prev.map((r) => (r.id === row.id ? updated : r)));
+            setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, ...updated } : r)));
         } catch (e) {
             console.error('Failed to resolve support message', e);
+            Alert.alert('', 'הפעולה נכשלה, נסה שוב.');
         } finally {
             setBusyId(null);
         }
@@ -74,7 +79,9 @@ export default function AdminFeedbackScreen() {
                 </View>
             ) : (
                 <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, gap: 12 }}>
-                    {openRows.length === 0 ? (
+                    {loadError ? (
+                        <Text className="text-red-500 text-sm">טעינת הפניות נכשלה, נסה לרענן.</Text>
+                    ) : openRows.length === 0 ? (
                         <Text className="text-gray-500 text-sm">אין פניות פתוחות.</Text>
                     ) : (
                         openRows.map((row) => (
@@ -84,10 +91,12 @@ export default function AdminFeedbackScreen() {
                                         <Text className="text-orange-800 text-xs font-bold">{TYPE_LABELS[row.type] || row.type}</Text>
                                     </View>
                                     <Text className="text-gray-800 text-xs font-bold">{row.user.name || row.user.id}</Text>
+                                    <Text className="text-gray-400 text-xs">{new Date(row.createdAt).toLocaleString('he-IL')}</Text>
                                 </View>
                                 <Text className="text-gray-700 text-sm">{row.message}</Text>
                                 {row.context && <Text className="text-gray-400 text-xs">{row.context}</Text>}
-                                <TouchableOpacity onPress={() => resolve(row)} disabled={busyId === row.id}>
+                                <TouchableOpacity onPress={() => resolve(row)} disabled={busyId === row.id} className="flex-row items-center" style={{ gap: 6 }}>
+                                    {busyId === row.id && <ActivityIndicator size="small" color="#059669" />}
                                     <Text className="text-brand text-xs font-bold">סמן כטופל</Text>
                                 </TouchableOpacity>
                             </View>

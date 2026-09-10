@@ -602,7 +602,8 @@
     "messageLabel": "What would you like to tell us?",
     "submit": "Submit",
     "success": "Thanks! Your message was sent.",
-    "failure": "Sending failed, please try again."
+    "failure": "Sending failed, please try again.",
+    "signInRequired": "You need to sign in to send a message."
   },
   "upload": {
     "permissionRequired": "Permission Required",

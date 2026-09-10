@@ -1,0 +1,110 @@
+[
+  {
+    "id": 1,
+    "title": "Server: add SupportMessage model + enums to Prisma schema and migrate",
+    "area": "server",
+    "files": [
+      "server/prisma/schema.prisma"
+    ],
+    "description": "Add a new model for user-submitted bug reports / general messages to the app team, following the exact style of `FieldIssueReport` (server/prisma/schema.prisma:177-199).\n\n1. Add two new enums, placed near the other small status enums (e.g. right after `FieldIssueStatus` at schema.prisma:169-172):\n```prisma\nenum SupportMessageType {\n  BUG\n  FEEDBACK\n}\n\nenum SupportMessageStatus {\n  OPEN\n  RESOLVED\n}\n```\n\n2. Add the model itself, placed near the other report-style models (e.g. right after `FieldReport` at schema.prisma:235-249, before `model Game`):\n```prisma\n/// A user-submitted bug report or general message to the app team, surfaced\n/// to admins under /admin (web) and /admin (mobile). Not tied to a specific\n/// Field or Game -- this is app-wide feedback, unlike FieldIssueReport.\nmodel SupportMessage {\n  id        String               @id @default(cuid())\n  userId    String\n  type      SupportMessageType\n  message   String\n  /// Optional free-text context the client can attach (e.g. current screen/route,\n  /// app version) to help debugging. Never required.\n  context   String?\n  status    SupportMessageStatus @default(OPEN)\n  createdAt DateTime             @default(now())\n  updatedAt DateTime             @updatedAt\n  resolvedAt DateTime?\n  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  @@index([status, createdAt])\n  @@index([userId, createdAt])\n}\n```\n\n3. Add the back-relation on `model User` (schema.prisma:11-54) -- add a line `supportMessages SupportMessage[]` grouped with the other one-to-many report/flag relations (near `fieldIssueReportFlags` at line 36). Exact alignment doesn't matter, `npx prisma format` will fix column spacing.\n\n4. From `server/`, run `npx prisma migrate dev --name add_support_messages` (requires `DIRECT_DATABASE_URL` per `.cursor/rules/prisma-db.mdc` -- this generates the migration SQL file under `server/prisma/migrations/` automatically, do not hand-write it) and then `npx prisma generate` so the local `@prisma/client` has the new model before task 2/3 write code against `prisma.supportMessage`.\n\nDo not touch any other model or enum in this file.",
+    "status": "done"
+  },
+  {
+    "id": 2,
+    "title": "Server: POST /api/support endpoint for submitting a bug report or message",
+    "area": "server",
+    "files": [
+      "server/routes/support.js",
+      "server/index.js"
+    ],
+    "description": "Depends on task 1 (`prisma.supportMessage` must exist). Create a new route file, mirroring the validation/auth style of the `POST /:id/issues` handler in `server/routes/fields.js:762-813` (trim + max-length check, `authenticateToken`, no anonymous submissions -- consistent with every other user-generated-content POST route in this codebase).\n\nCreate `server/routes/support.js`:\n```js\nconst express = require('express');\nconst { prisma } = require('../lib/prisma');\nconst { authenticateToken } = require('../utils/auth');\n\nconst router = express.Router();\nconst MAX_MESSAGE_LENGTH = 2000;\nconst VALID_TYPES = ['BUG', 'FEEDBACK'];\n\n// POST /api/support - submit a bug report or general message\nrouter.post('/', authenticateToken, async (req, res) => {\n  try {\n    const type = String(req.body?.type || '').toUpperCase();\n    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';\n    const context = typeof req.body?.context === 'string' ? req.body.context.trim().slice(0, 300) : null;\n\n    if (!VALID_TYPES.includes(type)) {\n      return res.status(400).json({ error: `type must be one of ${VALID_TYPES.join(', ')}` });\n    }\n    if (!message) {\n      return res.status(400).json({ error: 'message is required' });\n    }\n    if (message.length > MAX_MESSAGE_LENGTH) {\n      return res.status(400).json({ error: `message must be up to ${MAX_MESSAGE_LENGTH} characters` });\n    }\n\n    const supportMessage = await prisma.supportMessage.create({\n      data: { userId: req.user.id, type, message, context: context || null, status: 'OPEN' },\n    });\n    res.status(201).json(supportMessage);\n  } catch (error) {\n    console.error('Create support message error:', error);\n    res.status(500).json({ error: 'Failed to submit message' });\n  }\n});\n\nmodule.exports = router;\n```\n\nRegister it in `server/index.js`: add `const supportRoutes = require('./routes/support');` alongside the other route requires (index.js:24-31), and `app.use('/api/support', supportRoutes);` alongside the other `app.use('/api/...')` mounts (index.js:212-221) -- mirror the plain-variable style used for `fieldsRoutes`/`adminRoutes` rather than the inline `require('./routes/chats')` style used for chats.",
+    "status": "done"
+  },
+  {
+    "id": 3,
+    "title": "Server: admin list + resolve endpoints for support messages",
+    "area": "server",
+    "files": [
+      "server/routes/admin.js"
+    ],
+    "description": "Depends on task 1. Add two endpoints to `server/routes/admin.js`, mirroring the exact shape of the `GET /field-issues` handler (admin.js:146-171) and a `dismiss`-style POST handler (e.g. `POST /field-comment-flags/:id/dismiss`, admin.js:211-221). Place both after the existing `field-issue-flags` dismiss handler (admin.js:260-...), before the final `module.exports`.\n\n```js\n// GET /api/admin/support-messages - list bug reports / messages, newest first\nrouter.get('/support-messages', authenticateToken, requireAdmin, async (req, res) => {\n  try {\n    const rows = await prisma.supportMessage.findMany({\n      orderBy: { createdAt: 'desc' },\n      take: 100,\n      include: { user: { select: { id: true, name: true, imageUrl: true } } },\n    });\n    res.json(rows);\n  } catch (error) {\n    console.error('List support messages error:', error);\n    res.status(500).json({ error: 'Failed to list support messages' });\n  }\n});\n\n// POST /api/admin/support-messages/:id/resolve - mark a support message resolved\nrouter.post('/support-messages/:id/resolve', authenticateToken, requireAdmin, async (req, res) => {\n  try {\n    const updated = await prisma.supportMessage.update({\n      where: { id: req.params.id },\n      data: { status: 'RESOLVED', resolvedAt: new Date() },\n    });\n    res.json(updated);\n  } catch (error) {\n    console.error('Resolve support message error:', error);\n    res.status(500).json({ error: 'Failed to resolve support message' });\n  }\n});\n```\n\nNo other changes to this file.",
+    "status": "done"
+  },
+  {
+    "id": 4,
+    "title": "Web: API client wrapper for support messages",
+    "area": "web",
+    "files": [
+      "next_app/src/services/api/support.ts"
+    ],
+    "description": "Depends on task 2/3 (endpoint shapes). Create a new file mirroring `next_app/src/services/api/fields.ts:1,109-151`'s `apiClient` usage style (own file per domain, same as `fields.ts` being separate from `users.ts`).\n\n```ts\nimport { apiClient } from './client';\n\nexport type SupportMessageType = 'BUG' | 'FEEDBACK';\nexport type SupportMessageStatus = 'OPEN' | 'RESOLVED';\n\nexport interface SupportMessage {\n  id: string;\n  userId: string;\n  type: SupportMessageType;\n  message: string;\n  context?: string | null;\n  status: SupportMessageStatus;\n  createdAt: string;\n  resolvedAt?: string | null;\n  user: { id: string; name?: string | null; imageUrl?: string | null };\n}\n\nexport const supportApi = {\n  submit: (data: { type: SupportMessageType; message: string; context?: string }, token: string) => {\n    return apiClient<{ id: string }>('/api/support', { method: 'POST', data, token });\n  },\n\n  adminList: (token: string) => {\n    return apiClient<SupportMessage[]>('/api/admin/support-messages', { token, cache: 'no-store' });\n  },\n\n  adminResolve: (id: string, token: string) => {\n    return apiClient<SupportMessage>(`/api/admin/support-messages/${id}/resolve`, { method: 'POST', token });\n  },\n};\n```\nCheck `./client.ts`'s `apiClient` signature first (same one `fields.ts` imports) to confirm the `{ method, data, token, cache }` option names match exactly -- use whatever it actually exports, don't guess if it differs from `fields.ts`'s usage shown above.",
+    "status": "done"
+  },
+  {
+    "id": 5,
+    "title": "Web: feedback/bug-report dialog reachable from the footer",
+    "area": "web",
+    "files": [
+      "next_app/src/components/SupportFeedbackDialog.tsx",
+      "next_app/src/components/Footer.tsx"
+    ],
+    "description": "Depends on task 4. Add the entry point the user asked for on web -- \"probably the footer\".\n\n1. Create `next_app/src/components/SupportFeedbackDialog.tsx`: a self-contained trigger button + MUI `Dialog` (follow the Dialog/TextField/Select structure already used in `next_app/src/components/FieldIssueReportSection.tsx` around lines 294,389,429-442, but simpler -- no photo upload). Needs `useAuth`/`useUser` from `@clerk/nextjs` (same as `admin/moderation/page.tsx`) to get a token; if signed out, render a `SignInButton` inside the dialog instead of the form (mirror `next_app/src/app/admin/layout.tsx:36-45`'s signed-out card copy/pattern). Fields: a `Select` for type (\"דיווח על באג\" = BUG, \"משוב כללי\" = FEEDBACK), a multiline `TextField` for the message (required, mirror `MAX_TEXT_LENGTH`-style client-side cap at 2000 chars to match task 2's server cap), a Submit button calling `supportApi.submit({ type, message, context: window.location.pathname }, token)`, loading/error state, and a success `Alert`/snackbar that closes the dialog after a short delay (mirror `showSuccess` pattern at `FieldIssueReportSection.tsx:80`). Export a default component `SupportFeedbackDialog` that renders its own trigger `Typography`/`Button` styled like the existing `LINKS.map(...)` entries in `Footer.tsx` (component=\"button\", same `variant=\"body2\"`/color/hover styling as the other footer links) plus the `Dialog`, so `Footer.tsx` only needs to render `<SupportFeedbackDialog />` with no extra state of its own.\n\n2. In `next_app/src/components/Footer.tsx`, add `<SupportFeedbackDialog />` into the first `Stack` (the one containing `LINKS.map(...)` and the `תמיכה` mailto link, lines 51-72) -- place it right after the `תמיכה` mailto `Typography` (around line 72), as a new item in that same row. Keep the existing `תמיכה` mailto link as-is (it stays as the no-login-required fallback for signed-out visitors); this dialog is the additional structured, trackable path. Add the import `import SupportFeedbackDialog from \"@/components/SupportFeedbackDialog\";` at the top.",
+    "status": "done"
+  },
+  {
+    "id": 6,
+    "title": "Web: admin page to view and resolve support messages",
+    "area": "web",
+    "files": [
+      "next_app/src/app/admin/feedback/page.tsx",
+      "next_app/src/app/admin/feedback/loading.tsx",
+      "next_app/src/app/admin/layout.tsx"
+    ],
+    "description": "Depends on task 4. Add the admin-facing display the user asked for, following the exact pattern of the existing `moderation` admin route.\n\n1. Create `next_app/src/app/admin/feedback/loading.tsx`, copying `next_app/src/app/admin/moderation/loading.tsx` verbatim except the label text (e.g. `label=\"טוען פניות…\"`).\n\n2. Create `next_app/src/app/admin/feedback/page.tsx`: a client component following `next_app/src/app/admin/moderation/page.tsx`'s structure (load-on-mount via `useAuth().getToken()`, `useState`/`useCallback`, `Card`/`CardContent`/`Chip`/`Stack` layout -- no `useIsAdmin` call needed, `admin/layout.tsx` already gates every child route). Use `supportApi.adminList(token)` to load into state, render each `SupportMessage` as a `Card` showing a `Chip` for `type` (\"באג\" for BUG / \"משוב\" for FEEDBACK) and one for `status`, the submitter's `user.name || user.id`, the `message` text (`whiteSpace: \"pre-wrap\"`, mirror moderation page.tsx:263), `context` if present as a caption, and (for `OPEN` rows only) a \"סמן כטופל\" button calling `supportApi.adminResolve(id, token)` then removing/updating that row in state -- mirror `handleDismiss` at `moderation/page.tsx:93-104` for the acting-state/error-handling shape. Show an `Alert severity=\"success\"` empty state when there are no OPEN rows left (mirror `moderation/page.tsx:253-255`).\n\n3. In `next_app/src/app/admin/layout.tsx`, add `{ href: \"/admin/feedback\", label: \"פניות ודיווחי באגים\" }` to the `ADMIN_TABS` array (layout.tsx:19-22), after the existing `moderation` entry.",
+    "status": "done"
+  },
+  {
+    "id": 7,
+    "title": "Mobile: API client wrapper for support messages",
+    "area": "mobile",
+    "files": [
+      "mobile_app/src/services/api/support.ts",
+      "mobile_app/src/services/api/index.ts"
+    ],
+    "description": "Depends on task 2/3. Create `mobile_app/src/services/api/support.ts`, mirroring `mobile_app/src/services/api/client.ts`'s `apiClient<T>(endpoint, { token, data, ... })` signature (already confirmed: `data` implies POST, see `client.ts:35-48`) and the same type/interface shapes as web's task 4 file, for consistency:\n```ts\nimport { apiClient } from './client';\n\nexport type SupportMessageType = 'BUG' | 'FEEDBACK';\nexport type SupportMessageStatus = 'OPEN' | 'RESOLVED';\n\nexport interface SupportMessage {\n    id: string;\n    userId: string;\n    type: SupportMessageType;\n    message: string;\n    context?: string | null;\n    status: SupportMessageStatus;\n    createdAt: string;\n    resolvedAt?: string | null;\n    user: { id: string; name?: string | null; imageUrl?: string | null };\n}\n\nexport const supportApi = {\n    submit: (data: { type: SupportMessageType; message: string; context?: string }, token: string) => {\n        return apiClient<{ id: string }>('/api/support', { data, token });\n    },\n\n    adminList: (token: string) => {\n        return apiClient<SupportMessage[]>('/api/admin/support-messages', { token });\n    },\n\n    adminResolve: (id: string, token: string) => {\n        return apiClient<SupportMessage>(`/api/admin/support-messages/${id}/resolve`, { data: {}, token });\n    },\n};\n```\nNote `client.ts` infers POST from a truthy `data` (no explicit `method` option) -- `adminResolve` passes `data: {}` so it POSTs with an empty body, matching how other no-payload POSTs in this client work (check an existing example like `usersApi.unbanUser` in `mobile_app/src/services/api/users.ts` for the exact idiom used and match it, since the shown snippet is inferred from `client.ts` alone).\n\nAdd `export * from './support';` to `mobile_app/src/services/api/index.ts`, alongside the other `export * from './...'` lines.",
+    "status": "done"
+  },
+  {
+    "id": 8,
+    "title": "Mobile: i18n keys for the feedback/bug-report screen",
+    "area": "mobile",
+    "files": [
+      "mobile_app/src/i18n/locales/he.json",
+      "mobile_app/src/i18n/locales/en.json"
+    ],
+    "description": "Add a new top-level `feedback` block to both locale files (same nesting style as the existing `privacy` block used by `mobile_app/app/profile/settings.tsx`, e.g. `privacy.settings`, `privacy.save`, `privacy.saved`). Also add one new key to the existing `settings` block for the entry-point row link text.\n\nIn `mobile_app/src/i18n/locales/he.json`, add to the existing `settings` object: `\"feedback\": \"דיווח על באג / יצירת קשר\"`. Add a new top-level object:\n```json\n\"feedback\": {\n  \"title\": \"דיווח על באג / יצירת קשר\",\n  \"description\": \"מצאתם תקלה? יש לכם רעיון או הערה? נשמח לשמוע.\",\n  \"typeBug\": \"דיווח על באג\",\n  \"typeFeedback\": \"משוב כללי\",\n  \"messageLabel\": \"מה תרצו לספר לנו?\",\n  \"submit\": \"שליחה\",\n  \"success\": \"תודה! ההודעה נשלחה בהצלחה.\",\n  \"failure\": \"השליחה נכשלה, נסו שוב.\"\n}\n```\nIn `mobile_app/src/i18n/locales/en.json`, add matching English: `\"feedback\": \"Report a Bug / Contact Us\"` under `settings`, and:\n```json\n\"feedback\": {\n  \"title\": \"Report a Bug / Contact Us\",\n  \"description\": \"Found a bug? Have an idea or comment? We'd love to hear it.\",\n  \"typeBug\": \"Report a bug\",\n  \"typeFeedback\": \"General feedback\",\n  \"messageLabel\": \"What would you like to tell us?\",\n  \"submit\": \"Submit\",\n  \"success\": \"Thanks! Your message was sent.\",\n  \"failure\": \"Sending failed, please try again.\"\n}\n```\nFollow each file's existing indentation/comma style exactly; do not touch any other key.",
+    "status": "done"
+  },
+  {
+    "id": 9,
+    "title": "Mobile: feedback/bug-report screen + entry point in Settings",
+    "area": "mobile",
+    "files": [
+      "mobile_app/app/settings/feedback.tsx",
+      "mobile_app/app/settings/index.tsx"
+    ],
+    "description": "Depends on task 7 (API) and task 8 (i18n keys). This is the \"where in mobile\" entry point -- inside Settings, next to Privacy Policy / Terms of Service, matching the existing \"App Info, Support\" section.\n\n1. Create `mobile_app/app/settings/feedback.tsx`, mirroring `mobile_app/app/profile/settings.tsx`'s screen shell (header row with back-chevron + centered title at lines 86-92, `SafeAreaView`, `useAuth`/`useUser` from `@clerk/clerk-expo`, `useTranslation`). Body: two selectable type pills (BUG / FEEDBACK, mirror the selectable-row style at `settings.tsx:105-121` or the filter-pill style at `mobile_app/app/fields/index.tsx`'s sport filter chips), a multiline `TextInput` (`multiline`, `numberOfLines={6}`, bg-white rounded border, matching this codebase's form-input styling) bound to a `message` state, and a submit `TouchableOpacity` styled like `settings.tsx:125-135`'s save button, calling `supportApi.submit({ type, message, context: 'mobile:/settings/feedback' }, token)` from the task-7 API module (import via `@/services/api`), then `Alert.alert('', t('feedback.success'))` and `router.back()` on success, or `Alert.alert(t('error', 'Error'), t('feedback.failure'))` on failure -- mirror `settings.tsx:63-83`'s try/catch/finally + `saving` state shape exactly. Disable submit while `message` is empty or a request is in flight.\n\n2. In `mobile_app/app/settings/index.tsx`, add a new row to the \"App Info, Support\" card (settings/index.tsx:115-134), before the existing Privacy Policy row (line 116): a `TouchableOpacity` with `className=\"p-4 border-b border-gray-100 flex-row items-center justify-between\"`, `onPress={() => router.push('/settings/feedback' as any)}`, containing `<Text className=\"text-base text-gray-800\">{t('settings.feedback', 'Report a Bug / Contact Us')}</Text>` and the same trailing `<FontAwesome name=\"angle-right\" ...>` chevron used by the two rows below it.",
+    "status": "done"
+  },
+  {
+    "id": 10,
+    "title": "Mobile: admin screen to view and resolve support messages",
+    "area": "mobile",
+    "files": [
+      "mobile_app/app/admin/feedback.tsx",
+      "mobile_app/app/admin/index.tsx"
+    ],
+    "description": "Depends on task 7. Mobile counterpart of task 6's web admin page, mirroring `mobile_app/app/admin/moderation.tsx`'s structure exactly (it's already gated by `mobile_app/app/admin/_layout.tsx`, no extra `useIsAdmin` call needed in the screen itself; imports come from the barrel `@/services/api` per moderation.tsx:7-12).\n\n1. Create `mobile_app/app/admin/feedback.tsx`: same header-with-back-button shell as `moderation.tsx`, load `supportApi.adminList(token)` on mount into state (mirror `moderation.tsx:38-58`'s `load` callback shape), render each row as a card showing type (\"באג\"/\"משוב\"), status, submitter name/id, the message text, and (for OPEN rows) a \"סמן כטופל\" button calling `supportApi.adminResolve(id, token)` then removing it from local state or flipping its status in place -- mirror `moderation.tsx`'s dismiss-handler pattern (busyId/loading state, try/catch with `Alert.alert` on failure) for whichever handler follows the snippet at line 60 onward. Empty state: plain centered `Text` (e.g. \"אין פניות פתוחות\") when there are no OPEN rows, matching this screen's existing empty-state convention.\n\n2. In `mobile_app/app/admin/index.tsx`, add a third entry to the `items` array (index.tsx:15-18): `{ title: 'פניות ודיווחי באגים', subtitle: 'הודעות משתמשים ודיווחי באגים', icon: 'comment', href: '/admin/feedback' }` (also widen that array's `href` union type to include `'/admin/feedback'`).",
+    "status": "done"
+  }
+]

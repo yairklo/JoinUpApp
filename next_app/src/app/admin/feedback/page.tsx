@@ -32,18 +32,24 @@ export default function AdminFeedbackPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setError(null);
     const token = await getToken();
     if (!token) {
       setLoading(false);
       return;
     }
-    const list = await supportApi.adminList(token);
-    setRows(Array.isArray(list) ? list : []);
-    setLoading(false);
+    try {
+      const list = await supportApi.adminList(token);
+      setRows(Array.isArray(list) ? list : []);
+    } catch {
+      setError("טעינת הפניות נכשלה, נסה לרענן.");
+    } finally {
+      setLoading(false);
+    }
   }, [getToken]);
 
   useEffect(() => {
-    load().catch(() => setLoading(false));
+    load();
   }, [load]);
 
   const handleResolve = useCallback(async (id: string) => {
@@ -53,7 +59,7 @@ export default function AdminFeedbackPage() {
       const token = await getToken();
       if (!token) return;
       const updated = await supportApi.adminResolve(id, token);
-      setRows((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...updated } : r)));
     } catch {
       setError("הפעולה נכשלה, נסה שוב.");
     } finally {
@@ -76,7 +82,7 @@ export default function AdminFeedbackPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {openRows.length === 0 ? (
-        <Alert severity="success">אין פניות פתוחות.</Alert>
+        !error && <Alert severity="success">אין פניות פתוחות.</Alert>
       ) : (
         openRows.map((row) => (
           <Card key={row.id}>
@@ -85,6 +91,7 @@ export default function AdminFeedbackPage() {
                 <Chip size="small" color={row.type === "BUG" ? "warning" : "default"} label={TYPE_LABELS[row.type] || row.type} />
                 <Chip size="small" label={STATUS_LABELS[row.status] || row.status} />
                 <Typography variant="caption" fontWeight={700}>{row.user.name || row.user.id}</Typography>
+                <Typography variant="caption" color="text.secondary">{new Date(row.createdAt).toLocaleString("he-IL")}</Typography>
               </Stack>
               <Typography sx={{ whiteSpace: "pre-wrap" }}>{row.message}</Typography>
               {row.context && (
@@ -116,6 +123,7 @@ export default function AdminFeedbackPage() {
                   <Chip size="small" color={row.type === "BUG" ? "warning" : "default"} label={TYPE_LABELS[row.type] || row.type} />
                   <Chip size="small" color="success" label={STATUS_LABELS[row.status] || row.status} />
                   <Typography variant="caption" fontWeight={700}>{row.user.name || row.user.id}</Typography>
+                  <Typography variant="caption" color="text.secondary">{new Date(row.createdAt).toLocaleString("he-IL")}</Typography>
                 </Stack>
                 <Typography sx={{ whiteSpace: "pre-wrap" }}>{row.message}</Typography>
               </CardContent>
