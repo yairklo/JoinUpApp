@@ -710,11 +710,16 @@ io.on('connection', async (socket) => {
       tempId: tempId, // Echo back correlation ID
 
       // Full Sender Object
-      sender: savedMsg?.user || (senderUser ? {
-        id: senderUser.id,
-        name: senderUser.name,
-        image: senderUser.imageUrl
-      } : undefined),
+      // NOTE: savedMsg.user/replyTo.user are raw Prisma records with `imageUrl` —
+      // always map to `image` here, since every client path (chat list, message
+      // bubbles) reads `sender.image`, not `sender.imageUrl`.
+      sender: savedMsg?.user
+        ? { id: savedMsg.user.id, name: savedMsg.user.name, image: savedMsg.user.imageUrl }
+        : (senderUser ? {
+          id: senderUser.id,
+          name: senderUser.name,
+          image: senderUser.imageUrl
+        } : undefined),
 
       // Full Reply Object (Deeply Hydrated)
       replyTo: savedMsg?.replyTo ? {
@@ -724,6 +729,8 @@ io.on('connection', async (socket) => {
         // CRITICAL FIX: Explicit name mapping
         senderName: savedMsg.replyTo.user?.name || "User",
         sender: savedMsg.replyTo.user
+          ? { id: savedMsg.replyTo.user.id, name: savedMsg.replyTo.user.name, image: savedMsg.replyTo.user.imageUrl }
+          : undefined
       } : (replyTo || undefined)
     };
 
