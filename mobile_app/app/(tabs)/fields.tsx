@@ -102,7 +102,7 @@ export default function FieldsDirectoryScreen() {
                 return Array.from(map.values());
             });
         } catch (error: any) {
-            if (error?.name === 'AbortError') return;
+            if (isAbortError(error)) return;
             console.error('Failed to load map fields', error);
         } finally {
             setMapLoading(false);
