@@ -233,19 +233,10 @@ router.get('/map', async (req, res) => {
     // Only return fields that have coordinates
     if (!where.lat) where.lat = { not: null };
     if (!where.lng) where.lng = { not: null };
-    // Include available or unset fields -- combine with (not overwrite) any OR clause
-    // applyBrowseFilters already set for a text search (`q`), otherwise that search
-    // silently stops filtering anything the moment this default availability clause runs.
-    if (where.available === true) {
-      delete where.available;
-      const availabilityOr = { OR: [{ available: true }, { available: null }] };
-      if (where.OR) {
-        where.AND = [...(where.AND || []), { OR: where.OR }, availabilityOr];
-        delete where.OR;
-      } else {
-        where.OR = availabilityOr.OR;
-      }
-    }
+    // `available` is a non-nullable column (schema: `Boolean @default(true)`, no
+    // rows are ever actually null) -- `where.available = true` from
+    // buildFieldSearchWhere already ANDs correctly alongside any `q`-driven
+    // `where.OR` text search, no extra combining needed.
     const fields = await prisma.field.findMany({
       where,
       orderBy: { name: 'asc' },

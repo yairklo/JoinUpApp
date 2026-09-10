@@ -32,6 +32,7 @@ const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
+const { mapUserToSender } = require('./utils/chatMappers');
 const { NotificationService } = require('./services/notificationService');
 const { broadcastCounters } = require('./services/counterService');
 
@@ -710,11 +711,7 @@ io.on('connection', async (socket) => {
       tempId: tempId, // Echo back correlation ID
 
       // Full Sender Object
-      sender: savedMsg?.user || (senderUser ? {
-        id: senderUser.id,
-        name: senderUser.name,
-        image: senderUser.imageUrl
-      } : undefined),
+      sender: mapUserToSender(savedMsg?.user) || mapUserToSender(senderUser),
 
       // Full Reply Object (Deeply Hydrated)
       replyTo: savedMsg?.replyTo ? {
@@ -723,7 +720,7 @@ io.on('connection', async (socket) => {
         senderId: savedMsg.replyTo.userId,
         // CRITICAL FIX: Explicit name mapping
         senderName: savedMsg.replyTo.user?.name || "User",
-        sender: savedMsg.replyTo.user
+        sender: mapUserToSender(savedMsg.replyTo.user)
       } : (replyTo || undefined)
     };
 
