@@ -2,6 +2,7 @@ const express = require('express');
 const { authenticateToken } = require('../utils/auth');
 const { checkChatPermission } = require('../utils/chatAuth');
 const { prisma } = require('../lib/prisma');
+const { mapUserToSender } = require('../utils/chatMappers');
 const router = express.Router();
 
 // GET /api/messages?roomId=abc&limit=100
@@ -54,15 +55,13 @@ router.get('/', authenticateToken, async (req, res) => {
         userId: m.userId || null,
         ts: m.createdAt,
         senderName: m.user?.name || undefined,
-        sender: m.user
-          ? { id: m.user.id, name: m.user.name, image: m.user.imageUrl }
-          : undefined,
+        sender: mapUserToSender(m.user),
         replyTo: m.replyTo ? {
           id: m.replyTo.id,
           text: m.replyTo.text,
           userId: m.replyTo.userId,
           senderName: m.replyTo.user?.name || "User",
-          sender: m.replyTo.user // Include the object too for consistency
+          sender: mapUserToSender(m.replyTo.user)
         } : undefined,
         reactions: reactions,
         status: m.status,

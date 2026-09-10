@@ -32,6 +32,7 @@ const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 const { verifyToken } = require('@clerk/backend');
 const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
+const { mapUserToSender } = require('./utils/chatMappers');
 const { NotificationService } = require('./services/notificationService');
 const { broadcastCounters } = require('./services/counterService');
 
@@ -710,16 +711,7 @@ io.on('connection', async (socket) => {
       tempId: tempId, // Echo back correlation ID
 
       // Full Sender Object
-      // NOTE: savedMsg.user/replyTo.user are raw Prisma records with `imageUrl` —
-      // always map to `image` here, since every client path (chat list, message
-      // bubbles) reads `sender.image`, not `sender.imageUrl`.
-      sender: savedMsg?.user
-        ? { id: savedMsg.user.id, name: savedMsg.user.name, image: savedMsg.user.imageUrl }
-        : (senderUser ? {
-          id: senderUser.id,
-          name: senderUser.name,
-          image: senderUser.imageUrl
-        } : undefined),
+      sender: mapUserToSender(savedMsg?.user) || mapUserToSender(senderUser),
 
       // Full Reply Object (Deeply Hydrated)
       replyTo: savedMsg?.replyTo ? {
@@ -728,9 +720,7 @@ io.on('connection', async (socket) => {
         senderId: savedMsg.replyTo.userId,
         // CRITICAL FIX: Explicit name mapping
         senderName: savedMsg.replyTo.user?.name || "User",
-        sender: savedMsg.replyTo.user
-          ? { id: savedMsg.replyTo.user.id, name: savedMsg.replyTo.user.name, image: savedMsg.replyTo.user.imageUrl }
-          : undefined
+        sender: mapUserToSender(savedMsg.replyTo.user)
       } : (replyTo || undefined)
     };
 
