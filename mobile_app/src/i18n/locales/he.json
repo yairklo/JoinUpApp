@@ -487,7 +487,8 @@
     "friendsOnly": "משחקים לחברים בלבד",
     "requiresApproval": "דורש אישור הצטרפות",
     "lotteryEnabled": "הגרלת מקומות",
-    "organizerInLottery": "לכלול את המארגן בהגרלה"
+    "organizerInLottery": "לכלול את המארגן בהגרלה",
+    "players": "שחקנים"
   },
   "editGame": {
     "title": "עריכת משחק",

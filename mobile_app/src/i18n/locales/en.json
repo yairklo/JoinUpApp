@@ -487,7 +487,8 @@
     "friendsOnly": "Friends-only games",
     "requiresApproval": "Requires approval to join",
     "lotteryEnabled": "Spot lottery",
-    "organizerInLottery": "Include organizer in lottery"
+    "organizerInLottery": "Include organizer in lottery",
+    "players": "Players"
   },
   "editGame": {
     "title": "Edit Game",

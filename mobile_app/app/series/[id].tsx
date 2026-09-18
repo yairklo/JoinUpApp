@@ -1,6 +1,6 @@
 import { View, Text, Switch, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Image, Share } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { seriesApi, usersApi } from '@/services/api';
@@ -15,7 +15,8 @@ export default function SeriesScreen() {
     const { getToken } = useAuth();
     const { user } = useUser();
     const router = useRouter();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const dateLocale = i18n.language === 'he' ? 'he-IL' : 'en-US';
 
     const [series, setSeries] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -23,6 +24,21 @@ export default function SeriesScreen() {
     // Settings State
     const [updating, setUpdating] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const scrollViewRef = useRef<ScrollView>(null);
+    const settingsSectionY = useRef(0);
+
+    const toggleSettings = () => {
+        const next = !showSettings;
+        setShowSettings(next);
+        if (next) {
+            // Settings section is collapsed by default and lives further down the page --
+            // scrolling it into view after it expands is what makes the header's gear
+            // button (and this same toggle inside the page body) actually useful.
+            setTimeout(() => {
+                scrollViewRef.current?.scrollTo({ y: settingsSectionY.current, animated: true });
+            }, 100);
+        }
+    };
     const [time, setTime] = useState('');
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -242,13 +258,13 @@ export default function SeriesScreen() {
                     {series.title || series.fieldName}
                 </Text>
                 {canManage && (
-                    <TouchableOpacity onPress={() => setShowSettings(!showSettings)} className="p-2 ml-2" accessibilityLabel={t('series.manageSettings', 'Manage Series Settings')}>
+                    <TouchableOpacity onPress={toggleSettings} className="p-2 ml-2" accessibilityLabel={t('series.manageSettings', 'Manage Series Settings')}>
                         <FontAwesome name="cog" size={20} color="#4b5563" />
                     </TouchableOpacity>
                 )}
             </View>
 
-            <ScrollView className="flex-1 bg-gray-50">
+            <ScrollView ref={scrollViewRef} className="flex-1 bg-gray-50">
 
                 {/* Hero Header Card */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
@@ -433,12 +449,12 @@ export default function SeriesScreen() {
                                     >
                                         <View className="bg-brand-mist rounded-xl w-12 h-12 items-center justify-center mr-4 border border-brand-pale">
                                             <Text className="text-brand-dark font-bold text-lg leading-tight">{gDate.getDate()}</Text>
-                                            <Text className="text-brand text-[10px] font-bold uppercase">{gDate.toLocaleDateString('en-US', { month: 'short' })}</Text>
+                                            <Text className="text-brand text-[10px] font-bold uppercase">{gDate.toLocaleDateString(dateLocale, { month: 'short' })}</Text>
                                         </View>
                                         <View className="flex-1">
-                                            <Text className="font-bold text-gray-800 text-base">{gDate.toLocaleDateString('he-IL', { weekday: 'long' })}</Text>
+                                            <Text className="font-bold text-gray-800 text-base">{gDate.toLocaleDateString(dateLocale, { weekday: 'long' })}</Text>
                                             <Text className="text-gray-500 text-xs mt-0.5">
-                                                {game.currentPlayers} / {game.maxPlayers} {t('players', 'Players')} · {game.time}
+                                                {game.currentPlayers} / {game.maxPlayers} {t('series.players', 'Players')} · {game.time}
                                             </Text>
                                         </View>
                                         <FontAwesome name="chevron-left" size={12} color="#d1d5db" />
@@ -456,9 +472,9 @@ export default function SeriesScreen() {
 
                 {/* Organizer / manager Settings */}
                 {canManage && (
-                    <View className="p-6 mb-6">
+                    <View className="p-6 mb-6" onLayout={(e) => { settingsSectionY.current = e.nativeEvent.layout.y; }}>
                         <TouchableOpacity
-                            onPress={() => setShowSettings(!showSettings)}
+                            onPress={toggleSettings}
                             className="flex-row items-center justify-between bg-gray-100 p-4 rounded-xl mb-2"
                         >
                             <View className="flex-row items-center">
