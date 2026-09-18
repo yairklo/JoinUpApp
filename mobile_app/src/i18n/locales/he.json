@@ -449,7 +449,7 @@
     "updateSuccess": "הקבוצה עודכנה בהצלחה",
     "updateError": "עדכון הקבוצה נכשל",
     "deleteTitle": "מחיקת קבוצה",
-    "deleteConfirm": "בטוח/ה? פעולה זו תמחק את כל המשחקים העתידיים.",
+    "deleteConfirm": "בטוח? פעולה זו תמחק את כל המשחקים העתידיים.",
     "deleteSuccess": "הקבוצה נמחקה",
     "deleteError": "מחיקת הקבוצה נכשלה",
     "inviteText": "הצטרפו לקבוצת joinUp שלי: {{url}}",
@@ -461,7 +461,7 @@
     "manageSettings": "ניהול הגדרות קבוצה",
     "organizedBy": "מאת",
     "organizer": "מארגן",
-    "subscribed": "רשום/ה ✓",
+    "subscribed": "רשום ✓",
     "subscribe": "הרשמה לקבוצה",
     "regulars": "קבועים",
     "upcoming": "קרובים",
@@ -488,7 +488,12 @@
     "requiresApproval": "דורש אישור הצטרפות",
     "lotteryEnabled": "הגרלת מקומות",
     "organizerInLottery": "לכלול את המארגן בהגרלה",
-    "players": "שחקנים"
+    "players": "שחקנים",
+    "leaveGroup": "עזיבת קבוצה",
+    "leaveTitle": "עזיבת קבוצה",
+    "leaveConfirm": "בטוח שברצונך לעזוב את הקבוצה?",
+    "leave": "עזיבה",
+    "leaveError": "עזיבת הקבוצה נכשלה"
   },
   "editGame": {
     "title": "עריכת משחק",

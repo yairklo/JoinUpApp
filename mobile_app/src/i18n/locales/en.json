@@ -488,7 +488,12 @@
     "requiresApproval": "Requires approval to join",
     "lotteryEnabled": "Spot lottery",
     "organizerInLottery": "Include organizer in lottery",
-    "players": "Players"
+    "players": "Players",
+    "leaveGroup": "Leave Group",
+    "leaveTitle": "Leave Group",
+    "leaveConfirm": "Are you sure you want to leave this group?",
+    "leave": "Leave",
+    "leaveError": "Failed to leave group"
   },
   "editGame": {
     "title": "Edit Game",

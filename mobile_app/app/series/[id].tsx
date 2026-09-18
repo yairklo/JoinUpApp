@@ -185,6 +185,28 @@ export default function SeriesScreen() {
         }
     };
 
+    const handleLeaveGroup = async () => {
+        Alert.alert(
+            t('series.leaveTitle', 'Leave Group'),
+            t('series.leaveConfirm', 'Are you sure you want to leave this group?'),
+            [
+                { text: t('cancel', 'Cancel'), style: "cancel" },
+                {
+                    text: t('series.leave', 'Leave'), style: "destructive", onPress: async () => {
+                        try {
+                            const token = await getToken();
+                            if (!token) return;
+                            await seriesApi.toggleSubscribe(id, true, token);
+                            router.replace('/(tabs)');
+                        } catch (e) {
+                            Alert.alert(t('error'), t('series.leaveError', 'Failed to leave group'));
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const toggleSubscribe = async () => {
         const prev = isSubscribed;
         setIsSubscribed(!prev);
@@ -235,13 +257,13 @@ export default function SeriesScreen() {
     const isManager = series.subscribers?.some((s: { userId: string; role?: string }) => s.userId === user?.id && s.role === 'MANAGER');
     const canManage = isOrganizer || isManager;
     const days = [
-        t('days.sunday', 'Sunday'),
-        t('days.monday', 'Monday'),
-        t('days.tuesday', 'Tuesday'),
-        t('days.wednesday', 'Wednesday'),
-        t('days.thursday', 'Thursday'),
-        t('days.friday', 'Friday'),
-        t('days.saturday', 'Saturday')
+        t('common.days.sunday', 'Sunday'),
+        t('common.days.monday', 'Monday'),
+        t('common.days.tuesday', 'Tuesday'),
+        t('common.days.wednesday', 'Wednesday'),
+        t('common.days.thursday', 'Thursday'),
+        t('common.days.friday', 'Friday'),
+        t('common.days.saturday', 'Saturday')
     ];
     const dayName = series.dayOfWeek !== null && series.dayOfWeek !== undefined
         ? days[series.dayOfWeek]
@@ -639,6 +661,17 @@ export default function SeriesScreen() {
                                 )}
                             </View>
                         )}
+                    </View>
+                )}
+
+                {isSubscribed && !isOrganizer && (
+                    <View className="px-6 mb-6">
+                        <TouchableOpacity
+                            onPress={handleLeaveGroup}
+                            className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
+                        >
+                            <Text className="text-red-600 font-bold text-base">{t('series.leaveGroup', 'Leave Group')}</Text>
+                        </TouchableOpacity>
                     </View>
                 )}
 
