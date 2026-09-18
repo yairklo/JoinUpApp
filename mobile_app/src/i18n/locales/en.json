@@ -27,7 +27,10 @@
       "thursday": "Thursday",
       "friday": "Friday",
       "saturday": "Saturday"
-    }
+    },
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "loadingAuth": "Loading..."
   },
   "search": {
     "placeholder": "Search games, fields...",
@@ -348,7 +351,8 @@
     "loadingChat": "Loading chat…",
     "isTyping": "is typing...",
     "areTyping": "are typing...",
-    "blockedOffensive": "Message contains offensive content and was not sent"
+    "blockedOffensive": "Message contains offensive content and was not sent",
+    "edited": "Edited"
   },
   "notifications": {
     "title": "Notifications",
@@ -701,7 +705,25 @@
     "and": " and ",
     "privacyPolicy": "Privacy Policy",
     "signUpFailed": "Sign up failed",
-    "verificationFailed": "Verification failed"
+    "verificationFailed": "Verification failed",
+    "tagline": "Connect, Play, and Enjoy the Game",
+    "email": "Email",
+    "password": "Password",
+    "signingIn": "Signing in...",
+    "signIn": "Sign In",
+    "noAccount": "Don't have an account? ",
+    "signUp": "Sign Up",
+    "loginFailed": "Login failed",
+    "createAccount": "Create Account",
+    "joinCommunity": "Join the JoinUp community!",
+    "creatingAccount": "Creating account...",
+    "haveAccount": "Already have an account? ",
+    "verifyEmail": "Verify Email",
+    "weSentCode": "We sent a code to",
+    "checking": "Checking...",
+    "changeEmail": "Change Email",
+    "or": "OR",
+    "continueWithGoogle": "Continue with Google"
   },
   "positions": {
     "goalkeeper": "Goalkeeper",
@@ -716,5 +738,10 @@
     "center": "Center",
     "baseliner": "Baseliner",
     "netPlayer": "Net Player"
+  },
+  "notFound": {
+    "title": "Oops!",
+    "screenMissing": "This screen doesn't exist.",
+    "goHome": "Go to home screen!"
   }
 }

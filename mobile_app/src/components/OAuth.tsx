@@ -3,10 +3,12 @@ import * as WebBrowser from "expo-web-browser";
 import { useSSO } from "@clerk/clerk-expo";
 import { TouchableOpacity, Text, View } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export function OAuth({ disabled, disabledMessage }: { disabled?: boolean; disabledMessage?: string }) {
+    const { t } = useTranslation();
     const { startSSOFlow } = useSSO();
 
     const onPress = useCallback(async () => {
@@ -29,7 +31,7 @@ export function OAuth({ disabled, disabledMessage }: { disabled?: boolean; disab
         <View className="w-full mt-6">
             <View className="flex-row items-center mb-6">
                 <View className="flex-1 h-[1px] bg-gray-200" />
-                <Text className="mx-4 text-gray-400 font-medium">OR</Text>
+                <Text className="mx-4 text-gray-400 font-medium">{t('auth.or', 'OR')}</Text>
                 <View className="flex-1 h-[1px] bg-gray-200" />
             </View>
 
@@ -38,7 +40,7 @@ export function OAuth({ disabled, disabledMessage }: { disabled?: boolean; disab
                 className={`w-full flex-row items-center justify-center bg-white border border-gray-200 p-4 rounded-2xl shadow-sm active:bg-gray-50 ${disabled ? 'opacity-40' : ''}`}
             >
                 <FontAwesome name="google" size={20} color="#DB4437" />
-                <Text className="ml-3 text-gray-700 font-bold text-lg">Continue with Google</Text>
+                <Text className="ml-3 text-gray-700 font-bold text-lg">{t('auth.continueWithGoogle', 'Continue with Google')}</Text>
             </TouchableOpacity>
         </View>
     );

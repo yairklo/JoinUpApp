@@ -19,7 +19,10 @@
       "thursday": "חמישי",
       "friday": "שישי",
       "saturday": "שבת"
-    }
+    },
+    "today": "היום",
+    "tomorrow": "מחר",
+    "loadingAuth": "טוען..."
   },
   "tabs": {
     "home": "בית",
@@ -348,7 +351,8 @@
     "loadingChat": "טוען שיחה…",
     "isTyping": "מקליד/ה...",
     "areTyping": "מקלידים...",
-    "blockedOffensive": "ההודעה מכילה תוכן פוגעני ולכן לא נשלחה"
+    "blockedOffensive": "ההודעה מכילה תוכן פוגעני ולכן לא נשלחה",
+    "edited": "נערך"
   },
   "notifications": {
     "title": "התראות",
@@ -701,7 +705,25 @@
     "and": "ול",
     "privacyPolicy": "מדיניות הפרטיות",
     "signUpFailed": "ההרשמה נכשלה",
-    "verificationFailed": "אימות הקוד נכשל"
+    "verificationFailed": "אימות הקוד נכשל",
+    "tagline": "התחברו, שחקו, תיהנו מהמשחק",
+    "email": "אימייל",
+    "password": "סיסמה",
+    "signingIn": "מתחבר...",
+    "signIn": "התחברות",
+    "noAccount": "אין לך חשבון? ",
+    "signUp": "הרשמה",
+    "loginFailed": "ההתחברות נכשלה",
+    "createAccount": "יצירת חשבון",
+    "joinCommunity": "הצטרפו לקהילת JoinUp!",
+    "creatingAccount": "יוצר חשבון...",
+    "haveAccount": "כבר יש לך חשבון? ",
+    "verifyEmail": "אימות אימייל",
+    "weSentCode": "שלחנו קוד לכתובת",
+    "checking": "בודק...",
+    "changeEmail": "שנה אימייל",
+    "or": "או",
+    "continueWithGoogle": "המשך עם Google"
   },
   "positions": {
     "goalkeeper": "שוער",
@@ -716,5 +738,10 @@
     "center": "סנטר",
     "baseliner": "שחקן בסיס",
     "netPlayer": "שחקן רשת"
+  },
+  "notFound": {
+    "title": "אופס!",
+    "screenMissing": "המסך הזה לא קיים.",
+    "goHome": "חזרה למסך הבית!"
   }
 }

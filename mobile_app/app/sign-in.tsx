@@ -1,11 +1,13 @@
 import { useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
-import { Text, TextInput, View, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { Text, TextInput, View, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from "react-native";
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { OAuth } from "@/components/OAuth";
 
 export default function Page() {
+    const { t } = useTranslation();
     const { signIn, setActive, isLoaded } = useSignIn();
     const router = useRouter();
 
@@ -31,7 +33,7 @@ export default function Page() {
             }
         } catch (err: any) {
             console.error(JSON.stringify(err, null, 2));
-            alert("Login failed: " + (err.errors?.[0]?.message || "Something went wrong"));
+            Alert.alert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.loginFailed', 'Login failed'));
         } finally {
             setLoading(false);
         }
@@ -51,13 +53,13 @@ export default function Page() {
                             </View>
                             <Text className="text-4xl font-black text-gray-900 mb-2">JoinUp</Text>
                             <Text className="text-gray-500 font-medium text-lg text-center">
-                                Connect, Play, and Enjoy the Game
+                                {t('auth.tagline', 'Connect, Play, and Enjoy the Game')}
                             </Text>
                         </View>
 
                         <View className="space-y-5">
                             <View>
-                                <Text className="text-gray-800 font-semibold mb-2 ml-1">Email</Text>
+                                <Text className="text-gray-800 font-semibold mb-2 ml-1">{t('auth.email', 'Email')}</Text>
                                 <TextInput
                                     autoCapitalize="none"
                                     value={emailAddress}
@@ -68,7 +70,7 @@ export default function Page() {
                             </View>
 
                             <View>
-                                <Text className="text-gray-800 font-semibold mb-2 ml-1">Password</Text>
+                                <Text className="text-gray-800 font-semibold mb-2 ml-1">{t('auth.password', 'Password')}</Text>
                                 <TextInput
                                     value={password}
                                     placeholder="••••••••"
@@ -84,16 +86,16 @@ export default function Page() {
                                 className={`w-full p-5 rounded-2xl items-center mt-4 bg-brand shadow-lg shadow-brand-pale ${loading ? 'opacity-70' : ''}`}
                             >
                                 <Text className="text-white font-bold text-lg">
-                                    {loading ? "Signing in..." : "Sign In"}
+                                    {loading ? t('auth.signingIn', 'Signing in...') : t('auth.signIn', 'Sign In')}
                                 </Text>
                             </TouchableOpacity>
 
                             <OAuth />
 
                             <View className="flex-row justify-center mt-8 pb-10">
-                                <Text className="text-gray-500 font-medium">Don't have an account? </Text>
+                                <Text className="text-gray-500 font-medium">{t('auth.noAccount', "Don't have an account? ")}</Text>
                                 <Link href="/sign-up">
-                                    <Text className="text-brand font-bold">Sign Up</Text>
+                                    <Text className="text-brand font-bold">{t('auth.signUp', 'Sign Up')}</Text>
                                 </Link>
                             </View>
                         </View>
