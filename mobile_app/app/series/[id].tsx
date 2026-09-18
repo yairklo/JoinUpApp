@@ -8,6 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
+import { SPORT_MAPPING } from '@/utils/sports';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +27,15 @@ export default function SeriesScreen() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [updateFuture, setUpdateFuture] = useState(true);
+    const [maxPlayers, setMaxPlayers] = useState('10');
+    const [price, setPrice] = useState('');
+    const [sport, setSport] = useState('SOCCER');
+    const [isFriendsOnly, setIsFriendsOnly] = useState(false);
+    const [requiresApproval, setRequiresApproval] = useState(false);
+    const [lotteryEnabled, setLotteryEnabled] = useState(false);
+    const [organizerInLottery, setOrganizerInLottery] = useState(false);
+    const [teamSize, setTeamSize] = useState('');
+    const [welcomeMessage, setWelcomeMessage] = useState('');
     const [memberQuery, setMemberQuery] = useState('');
     const [addingMember, setAddingMember] = useState(false);
 
@@ -44,6 +54,15 @@ export default function SeriesScreen() {
             setTime(data.time || "20:00");
             setTitle(data.title || data.fieldName || "");
             setDescription(data.description || "");
+            setMaxPlayers(data.maxPlayers ? String(data.maxPlayers) : '10');
+            setPrice(data.price ? String(data.price) : '');
+            setSport(data.sport || 'SOCCER');
+            setIsFriendsOnly(!!data.isFriendsOnly);
+            setRequiresApproval(data.joinPolicy === 'REQUIRES_APPROVAL');
+            setLotteryEnabled(!!data.lotteryEnabled);
+            setOrganizerInLottery(!!data.organizerInLottery);
+            setTeamSize(data.teamSize ? String(data.teamSize) : '');
+            setWelcomeMessage(data.welcomeMessage || '');
 
             const isSub = data.subscribers?.some((s: any) => s.userId === user?.id);
             setIsSubscribed(isSub || false);
@@ -60,7 +79,19 @@ export default function SeriesScreen() {
         try {
             const token = await getToken();
             if (!token) return;
-            await seriesApi.update(id, { time, title, description, updateFutureGames: updateFuture }, token);
+            await seriesApi.update(id, {
+                time, title, description, updateFutureGames: updateFuture,
+                maxPlayers: maxPlayers ? parseInt(maxPlayers) : undefined,
+                price: price ? parseInt(price) : null,
+                sport,
+                isOpenToJoin: !isFriendsOnly,
+                isFriendsOnly,
+                joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT',
+                lotteryEnabled,
+                organizerInLottery,
+                teamSize: teamSize ? parseInt(teamSize) : null,
+                welcomeMessage: welcomeMessage || null,
+            }, token);
             Alert.alert(t('success'), t('series.updateSuccess', 'Series updated successfully'));
             fetchSeries();
         } catch (error) {
@@ -461,6 +492,106 @@ export default function SeriesScreen() {
                                     placeholder="HH:MM"
                                     className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base"
                                 />
+
+                                <Text className="text-gray-700 font-bold mb-2">{t('series.sport', 'Sport')}</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+                                    {Object.keys(SPORT_MAPPING).map(s => {
+                                        const isSelected = sport === s;
+                                        return (
+                                            <TouchableOpacity
+                                                key={s}
+                                                onPress={() => setSport(s)}
+                                                className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                                            >
+                                                <Text className={`${isSelected ? 'text-white' : 'text-gray-700'} font-medium`}>
+                                                    {SPORT_MAPPING[s]}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+
+                                <View className="flex-row gap-3 mb-4">
+                                    <View className="flex-1">
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.maxPlayers', 'Max Players')}</Text>
+                                        <TextInput
+                                            value={maxPlayers}
+                                            onChangeText={setMaxPlayers}
+                                            keyboardType="number-pad"
+                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                        />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.teamSize', 'Team Size')}</Text>
+                                        <TextInput
+                                            value={teamSize}
+                                            onChangeText={setTeamSize}
+                                            keyboardType="number-pad"
+                                            placeholder={t('editGame.none', 'None')}
+                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                        />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.price', 'Price')}</Text>
+                                        <TextInput
+                                            value={price}
+                                            onChangeText={setPrice}
+                                            keyboardType="number-pad"
+                                            placeholder="0"
+                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                        />
+                                    </View>
+                                </View>
+
+                                <Text className="text-gray-700 font-bold mb-2">{t('series.welcomeMessage', 'Automatic welcome message')}</Text>
+                                <TextInput
+                                    value={welcomeMessage}
+                                    onChangeText={setWelcomeMessage}
+                                    multiline
+                                    className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base min-h-[60px]"
+                                />
+
+                                <View className="flex-row justify-between items-center mb-4">
+                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.friendsOnly', 'Friends-only games')}</Text>
+                                    <Switch
+                                        value={isFriendsOnly}
+                                        onValueChange={setIsFriendsOnly}
+                                        trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                                        thumbColor={isFriendsOnly ? '#059669' : '#f3f4f6'}
+                                    />
+                                </View>
+
+                                <View className="flex-row justify-between items-center mb-4">
+                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.requiresApproval', 'Requires approval to join')}</Text>
+                                    <Switch
+                                        value={requiresApproval}
+                                        onValueChange={setRequiresApproval}
+                                        trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                                        thumbColor={requiresApproval ? '#059669' : '#f3f4f6'}
+                                    />
+                                </View>
+
+                                <View className="flex-row justify-between items-center mb-4">
+                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.lotteryEnabled', 'Spot lottery')}</Text>
+                                    <Switch
+                                        value={lotteryEnabled}
+                                        onValueChange={setLotteryEnabled}
+                                        trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                                        thumbColor={lotteryEnabled ? '#059669' : '#f3f4f6'}
+                                    />
+                                </View>
+
+                                {lotteryEnabled && (
+                                    <View className="flex-row justify-between items-center mb-6">
+                                        <Text className="text-gray-700 font-bold w-3/4">{t('series.organizerInLottery', 'Include organizer in lottery')}</Text>
+                                        <Switch
+                                            value={organizerInLottery}
+                                            onValueChange={setOrganizerInLottery}
+                                            trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                                            thumbColor={organizerInLottery ? '#059669' : '#f3f4f6'}
+                                        />
+                                    </View>
+                                )}
 
                                 <View className="flex-row justify-between items-center mb-6">
                                     <Text className="text-gray-700 font-bold w-3/4">{t('series.updateFuture', 'Update all future games?')}</Text>

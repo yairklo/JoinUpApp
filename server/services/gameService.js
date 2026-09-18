@@ -607,6 +607,28 @@ async function createGame(payload, creatorUser, io) {
   const price = (typeof rawPrice === 'undefined' || rawPrice === null || rawPrice === '')
     ? (series ? series.price : rawPrice)
     : rawPrice;
+  const effectiveSport = (!sport && series) ? series.sport : (sport || 'SOCCER');
+  const effectiveIsOpenToJoin = typeof isOpenToJoin === 'undefined'
+    ? (series ? series.isOpenToJoin : true)
+    : (isOpenToJoin !== false);
+  const effectiveIsFriendsOnly = typeof isFriendsOnly === 'undefined'
+    ? (series ? series.isFriendsOnly : false)
+    : !!isFriendsOnly;
+  const effectiveLotteryEnabled = typeof lotteryEnabled === 'undefined'
+    ? (series ? series.lotteryEnabled : false)
+    : !!lotteryEnabled;
+  const effectiveOrganizerInLottery = typeof organizerInLottery === 'undefined'
+    ? (series ? series.organizerInLottery : false)
+    : !!organizerInLottery;
+  const effectiveJoinPolicy = typeof joinPolicy === 'undefined'
+    ? (series ? series.joinPolicy : 'INSTANT')
+    : (joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT');
+  const effectiveTeamSize = (typeof teamSize === 'undefined' || teamSize === null || teamSize === '')
+    ? (series ? series.teamSize : null)
+    : parseInt(teamSize);
+  const effectiveWelcomeMessage = rawWelcomeMessage && String(rawWelcomeMessage).trim()
+    ? welcomeMessage
+    : (series ? sanitizeFreeText(series.welcomeMessage, DESCRIPTION_MAX_LENGTH) : welcomeMessage);
 
   const invitedUserIds = Array.isArray(invitedParticipantIds)
     ? invitedParticipantIds.filter(id => typeof id === 'string' && id !== creatorUser.id)
@@ -701,6 +723,12 @@ async function createGame(payload, creatorUser, io) {
         sport: sport || 'SOCCER',
         autoOpenRegistrationHours
       },
+    });
+
+    await prisma.seriesParticipant.upsert({
+      where: { seriesId_userId: { seriesId: series.id, userId: creatorUser.id } },
+      update: { role: 'MANAGER' },
+      create: { seriesId: series.id, userId: creatorUser.id, role: 'MANAGER' },
     });
 
     const subs = await prisma.seriesParticipant.findMany({
@@ -865,25 +893,25 @@ async function createGame(payload, creatorUser, io) {
         start,
         duration: duration || 1,
         maxPlayers: Number(maxPlayers),
-        teamSize: teamSize ? parseInt(teamSize) : null,
+        teamSize: effectiveTeamSize,
         price: price ? parseInt(price) : null,
-        isOpenToJoin: isOpenToJoin !== false,
-        isFriendsOnly: !!isFriendsOnly,
-        joinPolicy: joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT',
-        lotteryEnabled: !!lotteryEnabled,
-        ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
-        organizerInLottery: !!organizerInLottery,
+        isOpenToJoin: effectiveIsOpenToJoin,
+        isFriendsOnly: effectiveIsFriendsOnly,
+        joinPolicy: effectiveJoinPolicy,
+        lotteryEnabled: effectiveLotteryEnabled,
+        ...(effectiveLotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
+        organizerInLottery: effectiveOrganizerInLottery,
         ...(pickDrawAt ? { pickDrawAt: new Date(String(pickDrawAt)), pickSessionStatus: 'DRAW_SCHEDULED' } : {}),
         ...(pickingStartsAt ? { pickingStartsAt: new Date(String(pickingStartsAt)) } : {}),
         description: description || '',
-        welcomeMessage: welcomeMessage || null,
+        welcomeMessage: effectiveWelcomeMessage || null,
         organizerId: creatorUser.id,
         // Organizer: confirmed by default, or waitlisted if included in lottery
         participants: {
           create: [
             {
               userId: creatorUser.id,
-              status: organizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
+              status: effectiveOrganizerInLottery ? 'WAITLISTED' : 'CONFIRMED'
             },
             ...invitedUserIds.map(uid => ({
               userId: uid,
@@ -894,7 +922,7 @@ async function createGame(payload, creatorUser, io) {
         roles: {
           create: { userId: creatorUser.id, role: 'ORGANIZER' }
         },
-        sport: sport || 'SOCCER',
+        sport: effectiveSport,
         registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
         friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null
       },
@@ -1147,6 +1175,12 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
         ? (start.getTime() - new Date(existing.registrationOpensAt).getTime()) / 3600000
         : null
     },
+  });
+
+  await prisma.seriesParticipant.upsert({
+    where: { seriesId_userId: { seriesId: series.id, userId: creatorUserId } },
+    update: { role: 'MANAGER' },
+    create: { seriesId: series.id, userId: creatorUserId, role: 'MANAGER' },
   });
 
   if (copyParticipants) {

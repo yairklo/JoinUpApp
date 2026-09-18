@@ -320,6 +320,14 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       description,
       imageUrl,
       duration,
+      sport,
+      isOpenToJoin,
+      isFriendsOnly,
+      joinPolicy,
+      lotteryEnabled,
+      organizerInLottery,
+      teamSize,
+      welcomeMessage,
       updateFutureGames = true,
     } = req.body || {};
 
@@ -349,6 +357,16 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     if (typeof description !== 'undefined') data.description = description === null ? null : String(description);
     if (typeof imageUrl !== 'undefined') data.imageUrl = imageUrl === null ? null : String(imageUrl);
     if (typeof duration !== 'undefined' && !Number.isNaN(Number(duration))) data.duration = Number(duration);
+    if (typeof sport === 'string') data.sport = sport;
+    if (typeof isOpenToJoin !== 'undefined') data.isOpenToJoin = !!isOpenToJoin;
+    if (typeof isFriendsOnly !== 'undefined') data.isFriendsOnly = !!isFriendsOnly;
+    if (typeof joinPolicy !== 'undefined') data.joinPolicy = joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT';
+    if (typeof lotteryEnabled !== 'undefined') data.lotteryEnabled = !!lotteryEnabled;
+    if (typeof organizerInLottery !== 'undefined') data.organizerInLottery = !!organizerInLottery;
+    if (typeof teamSize !== 'undefined') {
+      data.teamSize = teamSize === null ? null : (Number.isNaN(Number(teamSize)) ? undefined : Number(teamSize));
+    }
+    if (typeof welcomeMessage !== 'undefined') data.welcomeMessage = welcomeMessage === null ? null : String(welcomeMessage);
     // dayOfWeek intentionally blocked when updating existing weekly series (see above)
 
     const updatedSeries = await prisma.gameSeries.update({
@@ -406,6 +424,14 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
           gd.registrationOpensAt = new Date(baseStart.getTime() - hours * 3600000);
         }
       }
+      if (typeof sport === 'string') gd.sport = sport;
+      if (typeof isOpenToJoin !== 'undefined') gd.isOpenToJoin = !!isOpenToJoin;
+      if (typeof isFriendsOnly !== 'undefined') gd.isFriendsOnly = !!isFriendsOnly;
+      if (typeof joinPolicy !== 'undefined') gd.joinPolicy = joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT';
+      if (typeof lotteryEnabled !== 'undefined') gd.lotteryEnabled = !!lotteryEnabled;
+      if (typeof organizerInLottery !== 'undefined') gd.organizerInLottery = !!organizerInLottery;
+      if (typeof teamSize !== 'undefined' && typeof data.teamSize !== 'undefined') gd.teamSize = data.teamSize;
+      if (typeof welcomeMessage !== 'undefined') gd.welcomeMessage = welcomeMessage === null ? null : String(welcomeMessage);
       if (Object.keys(gd).length) {
         updates.push(prisma.game.update({ where: { id: g.id }, data: gd }));
       }

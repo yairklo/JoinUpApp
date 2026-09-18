@@ -19,6 +19,16 @@ export interface SeriesSettingsEditorHookProps {
     initialDayOfWeek?: number | null;
     initialTime?: string | null;
     initialDuration?: number | null;
+    initialMaxPlayers?: number | null;
+    initialPrice?: number | null;
+    initialSport?: string | null;
+    initialIsOpenToJoin?: boolean | null;
+    initialIsFriendsOnly?: boolean | null;
+    initialJoinPolicy?: "INSTANT" | "REQUIRES_APPROVAL" | null;
+    initialLotteryEnabled?: boolean | null;
+    initialOrganizerInLottery?: boolean | null;
+    initialTeamSize?: number | null;
+    initialWelcomeMessage?: string | null;
 }
 
 export function useSeriesSettingsEditor({
@@ -34,6 +44,16 @@ export function useSeriesSettingsEditor({
     initialDayOfWeek,
     initialTime,
     initialDuration,
+    initialMaxPlayers,
+    initialPrice,
+    initialSport,
+    initialIsOpenToJoin,
+    initialIsFriendsOnly,
+    initialJoinPolicy,
+    initialLotteryEnabled,
+    initialOrganizerInLottery,
+    initialTeamSize,
+    initialWelcomeMessage,
 }: SeriesSettingsEditorHookProps) {
     const { getToken } = useAuth();
     const router = useRouter();
@@ -49,6 +69,15 @@ export function useSeriesSettingsEditor({
     const [time, setTime] = useState(initialTime || "");
     const [duration, setDuration] = useState<number>(initialDuration || 1);
     const [updateFutureGames, setUpdateFutureGames] = useState(true);
+    const [maxPlayers, setMaxPlayers] = useState<number>(initialMaxPlayers || 10);
+    const [price, setPrice] = useState<number | null>(initialPrice ?? null);
+    const [sport, setSport] = useState<string>(initialSport || "SOCCER");
+    const [isFriendsOnly, setIsFriendsOnly] = useState<boolean>(!!initialIsFriendsOnly);
+    const [requiresApproval, setRequiresApproval] = useState<boolean>(initialJoinPolicy === "REQUIRES_APPROVAL");
+    const [lotteryEnabled, setLotteryEnabled] = useState<boolean>(!!initialLotteryEnabled);
+    const [organizerInLottery, setOrganizerInLottery] = useState<boolean>(!!initialOrganizerInLottery);
+    const [teamSize, setTeamSize] = useState<number | null>(initialTeamSize ?? null);
+    const [welcomeMessage, setWelcomeMessage] = useState<string>(initialWelcomeMessage || "");
 
     // Field / venue state (same mechanism as game editing)
     const [fields, setFields] = useState<FieldOption[]>([]);
@@ -99,6 +128,15 @@ export function useSeriesSettingsEditor({
         setTime(initialTime || "");
         setDuration(initialDuration || 1);
         setUpdateFutureGames(true);
+        setMaxPlayers(initialMaxPlayers || 10);
+        setPrice(initialPrice ?? null);
+        setSport(initialSport || "SOCCER");
+        setIsFriendsOnly(!!initialIsFriendsOnly);
+        setRequiresApproval(initialJoinPolicy === "REQUIRES_APPROVAL");
+        setLotteryEnabled(!!initialLotteryEnabled);
+        setOrganizerInLottery(!!initialOrganizerInLottery);
+        setTeamSize(initialTeamSize ?? null);
+        setWelcomeMessage(initialWelcomeMessage || "");
         setNewFieldMode(false);
         setNewField({ name: "", location: "" });
         setSelectedField(
@@ -127,6 +165,16 @@ export function useSeriesSettingsEditor({
                 time,
                 duration,
                 updateFutureGames,
+                maxPlayers,
+                price,
+                sport,
+                isOpenToJoin: !isFriendsOnly,
+                isFriendsOnly,
+                joinPolicy: requiresApproval ? "REQUIRES_APPROVAL" : "INSTANT",
+                lotteryEnabled,
+                organizerInLottery,
+                teamSize,
+                welcomeMessage,
                 ...(newFieldMode
                     ? {
                         fieldId: "",
@@ -194,11 +242,13 @@ export function useSeriesSettingsEditor({
         state: {
             open, loading, deleteDialogOpen,
             title, description, imageUrl, hours, time, duration, updateFutureGames,
+            maxPlayers, price, sport, isFriendsOnly, requiresApproval, lotteryEnabled, organizerInLottery, teamSize, welcomeMessage,
             fields, selectedField, newFieldMode, newField,
             seriesType, initialDayOfWeek,
         },
         actions: {
             setTitle, setDescription, setImageUrl, setHours, setTime, setDuration, setUpdateFutureGames,
+            setMaxPlayers, setPrice, setSport, setIsFriendsOnly, setRequiresApproval, setLotteryEnabled, setOrganizerInLottery, setTeamSize, setWelcomeMessage,
             setSelectedField, setNewFieldMode, setNewField, setDeleteDialogOpen,
             handleOpen, handleClose, handleSave, handleDeleteSuccess,
             uploadImage, removeImage, handleImageUploaded, handleImageRemoved,

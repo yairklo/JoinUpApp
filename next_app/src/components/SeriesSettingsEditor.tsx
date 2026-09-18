@@ -20,18 +20,21 @@ import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Collapse from "@mui/material/Collapse";
 import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 
 // Icons
 import SettingsIcon from "@mui/icons-material/Settings";
 import SaveIcon from "@mui/icons-material/Save";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import MenuItem from "@mui/material/MenuItem";
 
 // Components
 import ImageUploadField from "./ImageUploadField";
 import DeleteSeriesDialog from "./DeleteSeriesDialog";
 import { useSeriesSettingsEditor, SeriesSettingsEditorHookProps } from "@/hooks/useSeriesSettingsEditor";
 import type { FieldOption } from "@/hooks/useGameCreator";
+import { SPORTS } from "@/components/GameDetailsEditor";
 
 const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
@@ -244,6 +247,120 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                                 InputLabelProps={{ shrink: true }}
                                 placeholder="לדוגמה: 48 (יומיים לפני)"
                             />
+                        </Grid>
+
+                        <Grid size={{ xs: 12 }} mt={1}>
+                            <Paper variant="outlined" sx={{ p: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+                                    ברירות מחדל למשחקים חדשים בקבוצה
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid size={{ xs: 6 }}>
+                                        <TextField
+                                            label="כמות שחקנים מקסימלית"
+                                            type="number"
+                                            fullWidth
+                                            size="small"
+                                            value={state.maxPlayers}
+                                            onChange={(e) => actions.setMaxPlayers(parseInt(e.target.value) || 0)}
+                                            InputProps={{ inputProps: { min: 2 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <TextField
+                                            label='גודל קבוצה (למשל 5 ל "5X5")'
+                                            type="number"
+                                            fullWidth
+                                            size="small"
+                                            value={state.teamSize || ""}
+                                            onChange={(e) => actions.setTeamSize(e.target.value ? parseInt(e.target.value) : null)}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <TextField
+                                            label="מחיר (₪)"
+                                            type="number"
+                                            fullWidth
+                                            size="small"
+                                            value={state.price || ""}
+                                            onChange={(e) => actions.setPrice(e.target.value ? parseInt(e.target.value) : null)}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <TextField
+                                            select
+                                            label="סוג ספורט"
+                                            fullWidth
+                                            size="small"
+                                            value={state.sport}
+                                            onChange={(e) => actions.setSport(e.target.value)}
+                                        >
+                                            {SPORTS.map((option) => (
+                                                <MenuItem key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </MenuItem>
+                                            ))}
+                                        </TextField>
+                                    </Grid>
+                                    <Grid size={{ xs: 12 }}>
+                                        <TextField
+                                            label="הודעת פתיחה אוטומטית (נשלח בפרטי למצטרפים)"
+                                            fullWidth
+                                            multiline
+                                            rows={2}
+                                            size="small"
+                                            value={state.welcomeMessage}
+                                            onChange={(e) => actions.setWelcomeMessage(e.target.value)}
+                                            InputProps={{ inputProps: { maxLength: 2000 } }}
+                                        />
+                                    </Grid>
+                                </Grid>
+
+                                <Stack mt={2}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={state.isFriendsOnly}
+                                                onChange={(e) => actions.setIsFriendsOnly(e.target.checked)}
+                                            />
+                                        }
+                                        label="משחקים לחברים בלבד"
+                                        sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                                    />
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={state.requiresApproval}
+                                                onChange={(e) => actions.setRequiresApproval(e.target.checked)}
+                                            />
+                                        }
+                                        label="דורש אישור הצטרפות"
+                                        sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                                    />
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={state.lotteryEnabled}
+                                                onChange={(e) => actions.setLotteryEnabled(e.target.checked)}
+                                            />
+                                        }
+                                        label="הגרלת מקומות"
+                                        sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                                    />
+                                    <Collapse in={state.lotteryEnabled}>
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    checked={state.organizerInLottery}
+                                                    onChange={(e) => actions.setOrganizerInLottery(e.target.checked)}
+                                                />
+                                            }
+                                            label="לכלול את המארגן בהגרלה"
+                                            sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                                        />
+                                    </Collapse>
+                                </Stack>
+                            </Paper>
                         </Grid>
 
                         <Grid size={{ xs: 12 }}>

@@ -10,6 +10,16 @@ export interface UpdateSeriesDTO {
     title?: string;
     description?: string;
     updateFutureGames?: boolean;
+    maxPlayers?: number;
+    price?: number | null;
+    sport?: string;
+    isOpenToJoin?: boolean;
+    isFriendsOnly?: boolean;
+    joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
+    lotteryEnabled?: boolean;
+    organizerInLottery?: boolean;
+    teamSize?: number | null;
+    welcomeMessage?: string | null;
 }
 
 export const seriesApi = {
