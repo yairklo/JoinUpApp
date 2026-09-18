@@ -31,6 +31,7 @@
   },
   "search": {
     "placeholder": "חפש משחקים, מגרשים...",
+    "upcomingWeek": "השבוע הקרוב",
     "allCities": "כל הערים",
     "noGamesFound": "לא נמצאו משחקים",
     "selectCity": "בחר עיר",
@@ -170,7 +171,21 @@
     "pendingSent": "נשלחה בקשה",
     "pendingReceived": "התקבלה בקשה",
     "addFriend": "הוסף חבר",
-    "noPlayersFound": "לא נמצאו שחקנים תואמים"
+    "noPlayersFound": "לא נמצאו שחקנים תואמים",
+    "failedToLoadProfile": "טעינת פרופיל המשתמש נכשלה.",
+    "failedToSendRequest": "שליחת בקשת החברות נכשלה.",
+    "failedToRemove": "הסרת החבר נכשלה.",
+    "failedToAccept": "אישור הבקשה נכשל.",
+    "failedToDecline": "דחיית הבקשה נכשלה.",
+    "failedToStartChat": "פתיחת הצ'אט נכשלה.",
+    "searchFailed": "החיפוש נכשל, נסה שוב.",
+    "removeFriend": "הסר חבר",
+    "acceptRequest": "אשר בקשה",
+    "sendMessage": "שלח הודעה",
+    "about": "אודות",
+    "yearsOld": "שנים",
+    "favoriteSports": "ענפי ספורט מועדפים",
+    "userNotFound": "המשתמש לא נמצא."
   },
   "game": {
     "details": "פרטי משחק",
@@ -428,7 +443,8 @@
     "flagFalseInfo": "מידע שקרי",
     "flagSpam": "ספאם",
     "flagOther": "אחר",
-    "attachPhoto": "צרף תמונה"
+    "attachPhoto": "צרף תמונה",
+    "createGameHere": "צור משחק חדש במגרש הזה"
   },
   "series": {
     "badge": "קבוצה שבועית",
@@ -493,7 +509,9 @@
     "leaveTitle": "עזיבת קבוצה",
     "leaveConfirm": "בטוח שברצונך לעזוב את הקבוצה?",
     "leave": "עזיבה",
-    "leaveError": "עזיבת הקבוצה נכשלה"
+    "leaveError": "עזיבת הקבוצה נכשלה",
+    "saving": "שומר...",
+    "saveChanges": "שמירת שינויים"
   },
   "editGame": {
     "title": "עריכת משחק",

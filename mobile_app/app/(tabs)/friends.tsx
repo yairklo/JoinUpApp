@@ -57,7 +57,7 @@ export default function FriendsScreen() {
                 loadSocialData();
             }
         } catch (err) {
-            Alert.alert(t('error', 'שגיאה'), t('profile.failedToAccept', 'Failed to accept request'));
+            Alert.alert(t('common.error', 'שגיאה'), t('profile.failedToAccept', 'Failed to accept request'));
         }
     };
 
@@ -69,7 +69,7 @@ export default function FriendsScreen() {
                 loadSocialData();
             }
         } catch (err) {
-            Alert.alert(t('error', 'שגיאה'), t('profile.failedToDecline', 'Failed to decline request'));
+            Alert.alert(t('common.error', 'שגיאה'), t('profile.failedToDecline', 'Failed to decline request'));
         }
     };
 

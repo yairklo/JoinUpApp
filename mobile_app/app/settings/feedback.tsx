@@ -30,7 +30,7 @@ export default function FeedbackScreen() {
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert(t('error', 'Error'), t('feedback.signInRequired'));
+                Alert.alert(t('common.error', 'Error'), t('feedback.signInRequired'));
                 return;
             }
             await supportApi.submit({ type, message: trimmed, context: 'mobile:/settings/feedback' }, token);
@@ -38,7 +38,7 @@ export default function FeedbackScreen() {
             router.back();
         } catch (e) {
             console.error('Failed to submit feedback', e);
-            Alert.alert(t('error', 'Error'), t('feedback.failure'));
+            Alert.alert(t('common.error', 'Error'), t('feedback.failure'));
         } finally {
             setSubmitting(false);
         }

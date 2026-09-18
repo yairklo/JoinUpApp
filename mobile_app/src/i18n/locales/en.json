@@ -31,6 +31,7 @@
   },
   "search": {
     "placeholder": "Search games, fields...",
+    "upcomingWeek": "Upcoming Week",
     "allCities": "All Cities",
     "noGamesFound": "No games found",
     "selectCity": "Select City",
@@ -170,7 +171,21 @@
     "pendingSent": "Request sent",
     "pendingReceived": "Request received",
     "addFriend": "Add Friend",
-    "noPlayersFound": "No matching players found"
+    "noPlayersFound": "No matching players found",
+    "failedToLoadProfile": "Failed to load user profile.",
+    "failedToSendRequest": "Failed to send friend request.",
+    "failedToRemove": "Failed to remove friend.",
+    "failedToAccept": "Failed to accept request.",
+    "failedToDecline": "Failed to decline request.",
+    "failedToStartChat": "Failed to start chat.",
+    "searchFailed": "Search failed, please try again.",
+    "removeFriend": "Remove Friend",
+    "acceptRequest": "Accept Request",
+    "sendMessage": "Send Message",
+    "about": "About",
+    "yearsOld": "years old",
+    "favoriteSports": "Favorite Sports",
+    "userNotFound": "User not found."
   },
   "game": {
     "details": "Game Details",
@@ -428,7 +443,8 @@
     "flagFalseInfo": "False information",
     "flagSpam": "Spam",
     "flagOther": "Other",
-    "attachPhoto": "Attach photo"
+    "attachPhoto": "Attach photo",
+    "createGameHere": "Create a new game at this field"
   },
   "series": {
     "badge": "Weekly group",
@@ -493,7 +509,9 @@
     "leaveTitle": "Leave Group",
     "leaveConfirm": "Are you sure you want to leave this group?",
     "leave": "Leave",
-    "leaveError": "Failed to leave group"
+    "leaveError": "Failed to leave group",
+    "saving": "Saving...",
+    "saveChanges": "Save Changes"
   },
   "editGame": {
     "title": "Edit Game",

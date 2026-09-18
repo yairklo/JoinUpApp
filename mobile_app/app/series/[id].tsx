@@ -84,7 +84,7 @@ export default function SeriesScreen() {
             setIsSubscribed(isSub || false);
         } catch (error) {
             console.error("Failed to load series", error);
-            Alert.alert(t('error'), t('series.loadError', 'Failed to load series details'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.loadError', 'Failed to load series details'));
         } finally {
             setLoading(false);
         }
@@ -108,11 +108,11 @@ export default function SeriesScreen() {
                 teamSize: teamSize ? parseInt(teamSize) : null,
                 welcomeMessage: welcomeMessage || null,
             }, token);
-            Alert.alert(t('success'), t('series.updateSuccess', 'Series updated successfully'));
+            Alert.alert(t('common.success', 'הצלחה'), t('series.updateSuccess', 'Series updated successfully'));
             fetchSeries();
         } catch (error) {
             console.error(error);
-            Alert.alert(t('error'), t('series.updateError', 'Failed to update series'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.updateError', 'Failed to update series'));
         } finally {
             setUpdating(false);
         }
@@ -123,17 +123,17 @@ export default function SeriesScreen() {
             t('series.deleteTitle', 'Delete Series'),
             t('series.deleteConfirm', 'Are you sure? This will delete all future games.'),
             [
-                { text: t('cancel', 'Cancel'), style: "cancel" },
+                { text: t('common.cancel', 'Cancel'), style: "cancel" },
                 {
-                    text: t('delete', 'Delete'), style: "destructive", onPress: async () => {
+                    text: t('common.delete', 'Delete'), style: "destructive", onPress: async () => {
                         try {
                             const token = await getToken();
                             if (!token) return;
                             await seriesApi.delete(id, token);
-                            Alert.alert(t('success'), t('series.deleteSuccess', 'Series deleted'));
+                            Alert.alert(t('common.success', 'הצלחה'), t('series.deleteSuccess', 'Series deleted'));
                             router.replace('/(tabs)');
                         } catch (e) {
-                            Alert.alert(t('error'), t('series.deleteError', 'Failed to delete series'));
+                            Alert.alert(t('common.error', 'שגיאה'), t('series.deleteError', 'Failed to delete series'));
                         }
                     }
                 }
@@ -147,7 +147,7 @@ export default function SeriesScreen() {
         try {
             await Share.share({ message, url: inviteUrl });
         } catch (e) {
-            Alert.alert(t('error'), t('series.shareError', 'Failed to share invite'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.shareError', 'Failed to share invite'));
         }
     };
 
@@ -161,14 +161,14 @@ export default function SeriesScreen() {
             const results = await usersApi.search(q, token);
             const hit = (results || []).find((u: { id: string }) => u.id !== user?.id);
             if (!hit) {
-                Alert.alert(t('error'), t('series.userNotFound', 'No matching user found'));
+                Alert.alert(t('common.error', 'שגיאה'), t('series.userNotFound', 'No matching user found'));
                 return;
             }
             await seriesApi.addMembers(id, [hit.id], token);
             setMemberQuery('');
             fetchSeries();
         } catch (e) {
-            Alert.alert(t('error'), t('series.addMemberError', 'Failed to add member'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.addMemberError', 'Failed to add member'));
         } finally {
             setAddingMember(false);
         }
@@ -181,7 +181,7 @@ export default function SeriesScreen() {
             await seriesApi.setMemberRole(id, userId, makeManager ? 'MANAGER' : 'MEMBER', token);
             fetchSeries();
         } catch (e) {
-            Alert.alert(t('error'), t('series.roleError', 'Failed to update role'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.roleError', 'Failed to update role'));
         }
     };
 
@@ -190,7 +190,7 @@ export default function SeriesScreen() {
             t('series.leaveTitle', 'Leave Group'),
             t('series.leaveConfirm', 'Are you sure you want to leave this group?'),
             [
-                { text: t('cancel', 'Cancel'), style: "cancel" },
+                { text: t('common.cancel', 'Cancel'), style: "cancel" },
                 {
                     text: t('series.leave', 'Leave'), style: "destructive", onPress: async () => {
                         try {
@@ -199,7 +199,7 @@ export default function SeriesScreen() {
                             await seriesApi.toggleSubscribe(id, true, token);
                             router.replace('/(tabs)');
                         } catch (e) {
-                            Alert.alert(t('error'), t('series.leaveError', 'Failed to leave group'));
+                            Alert.alert(t('common.error', 'שגיאה'), t('series.leaveError', 'Failed to leave group'));
                         }
                     }
                 }
@@ -217,7 +217,7 @@ export default function SeriesScreen() {
             fetchSeries();
         } catch (e) {
             setIsSubscribed(prev);
-            Alert.alert(t('error'), t('series.subscribeError', 'Failed to update subscription'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.subscribeError', 'Failed to update subscription'));
         }
     };
 
@@ -411,7 +411,7 @@ export default function SeriesScreen() {
                                         </View>
                                     )}
                                     <Text className="text-xs text-gray-700 text-center font-medium" numberOfLines={1}>
-                                        {sub.user?.name || t('user')}
+                                        {sub.user?.name || t('game.user', 'משתמש')}
                                     </Text>
                                     {sub.role === 'MANAGER' && (
                                         <Text className="text-[10px] text-brand font-bold">{t('series.manager', 'Manager')}</Text>
@@ -647,7 +647,7 @@ export default function SeriesScreen() {
                                     className={`p-4 rounded-xl items-center mb-3 ${updating ? 'bg-gray-400' : 'bg-brand'}`}
                                 >
                                     <Text className="text-white font-bold text-base">
-                                        {updating ? t('saving', 'Saving...') : t('saveChanges', 'Save Changes')}
+                                        {updating ? t('series.saving', 'שומר...') : t('series.saveChanges', 'שמירת שינויים')}
                                     </Text>
                                 </TouchableOpacity>
 
