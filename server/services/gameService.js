@@ -713,14 +713,23 @@ async function createGame(payload, creatorUser, io) {
         fieldId: useFieldId || null,
         fieldName: field.name,
         fieldLocation: field.location,
-        price: field.price ?? 0,
+        price: price ? parseInt(price) : (field.price ?? 0),
         maxPlayers: Number(maxPlayers),
         dayOfWeek: weekly ? (Number.isInteger(recurrence?.dayOfWeek) ? Number(recurrence.dayOfWeek) : start.getDay()) : null,
         time: String(recurrence?.time || time),
         duration: Number(isNaN(Number(duration)) ? 1 : Number(duration)),
         isActive: true,
         type: weekly ? 'WEEKLY' : 'CUSTOM',
-        sport: sport || 'SOCCER',
+        sport: effectiveSport,
+        // Persist the game-level settings as the group's defaults so games created later
+        // through the group (and the group settings screen) start from the same values.
+        isOpenToJoin: effectiveIsOpenToJoin,
+        isFriendsOnly: effectiveIsFriendsOnly,
+        joinPolicy: effectiveJoinPolicy,
+        lotteryEnabled: effectiveLotteryEnabled,
+        organizerInLottery: effectiveOrganizerInLottery,
+        teamSize: Number.isFinite(effectiveTeamSize) ? effectiveTeamSize : null,
+        welcomeMessage: effectiveWelcomeMessage || null,
         autoOpenRegistrationHours
       },
     });
@@ -1171,16 +1180,25 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
       duration: Number(existing.duration),
       isActive: true,
       sport: existing.sport,
+      isOpenToJoin: existing.isOpenToJoin,
+      isFriendsOnly: existing.isFriendsOnly,
+      joinPolicy: existing.joinPolicy,
+      lotteryEnabled: existing.lotteryEnabled,
+      organizerInLottery: existing.organizerInLottery,
+      teamSize: existing.teamSize,
+      welcomeMessage: existing.welcomeMessage,
       autoOpenRegistrationHours: existing.registrationOpensAt
         ? (start.getTime() - new Date(existing.registrationOpensAt).getTime()) / 3600000
         : null
     },
   });
 
+  // The series organizer (the game's organizer) is the group's first member. This is not
+  // necessarily the caller: an admin converting someone else's game must not become a MANAGER.
   await prisma.seriesParticipant.upsert({
-    where: { seriesId_userId: { seriesId: series.id, userId: creatorUserId } },
+    where: { seriesId_userId: { seriesId: series.id, userId: existing.organizerId } },
     update: { role: 'MANAGER' },
-    create: { seriesId: series.id, userId: creatorUserId, role: 'MANAGER' },
+    create: { seriesId: series.id, userId: existing.organizerId, role: 'MANAGER' },
   });
 
   if (copyParticipants) {
@@ -1235,6 +1253,8 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
         customLocation: existing.customLocation,
         isOpenToJoin: existing.isOpenToJoin,
         isFriendsOnly: existing.isFriendsOnly,
+        joinPolicy: existing.joinPolicy,
+        welcomeMessage: existing.welcomeMessage,
         lotteryEnabled: existing.lotteryEnabled,
         ...(existing.lotteryEnabled && existing.lotteryAt ? { lotteryAt: new Date(existing.lotteryAt) } : {}),
         organizerInLottery: existing.organizerInLottery,

@@ -169,7 +169,6 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     initialMaxPlayers={series.maxPlayers}
                                     initialPrice={series.price}
                                     initialSport={series.sport}
-                                    initialIsOpenToJoin={series.isOpenToJoin}
                                     initialIsFriendsOnly={series.isFriendsOnly}
                                     initialJoinPolicy={series.joinPolicy}
                                     initialLotteryEnabled={series.lotteryEnabled}

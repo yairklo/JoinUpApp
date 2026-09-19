@@ -514,6 +514,7 @@
     "leaveConfirm": "Are you sure you want to leave this group?",
     "leave": "Leave",
     "leaveError": "Failed to leave group",
+    "maxPlayersInvalid": "Max players must be at least 2",
     "saving": "Saving...",
     "saveChanges": "Save Changes"
   },

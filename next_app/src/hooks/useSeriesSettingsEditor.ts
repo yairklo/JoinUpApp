@@ -22,7 +22,6 @@ export interface SeriesSettingsEditorHookProps {
     initialMaxPlayers?: number | null;
     initialPrice?: number | null;
     initialSport?: string | null;
-    initialIsOpenToJoin?: boolean | null;
     initialIsFriendsOnly?: boolean | null;
     initialJoinPolicy?: "INSTANT" | "REQUIRES_APPROVAL" | null;
     initialLotteryEnabled?: boolean | null;
@@ -30,6 +29,8 @@ export interface SeriesSettingsEditorHookProps {
     initialTeamSize?: number | null;
     initialWelcomeMessage?: string | null;
 }
+
+const MIN_MAX_PLAYERS = 2;
 
 export function useSeriesSettingsEditor({
     seriesId,
@@ -47,7 +48,6 @@ export function useSeriesSettingsEditor({
     initialMaxPlayers,
     initialPrice,
     initialSport,
-    initialIsOpenToJoin,
     initialIsFriendsOnly,
     initialJoinPolicy,
     initialLotteryEnabled,
@@ -69,7 +69,8 @@ export function useSeriesSettingsEditor({
     const [time, setTime] = useState(initialTime || "");
     const [duration, setDuration] = useState<number>(initialDuration || 1);
     const [updateFutureGames, setUpdateFutureGames] = useState(true);
-    const [maxPlayers, setMaxPlayers] = useState<number>(initialMaxPlayers || 10);
+    // null while the field is cleared mid-edit; handleSave refuses to submit it (server requires >= 2).
+    const [maxPlayers, setMaxPlayers] = useState<number | null>(initialMaxPlayers || 10);
     const [price, setPrice] = useState<number | null>(initialPrice ?? null);
     const [sport, setSport] = useState<string>(initialSport || "SOCCER");
     const [isFriendsOnly, setIsFriendsOnly] = useState<boolean>(!!initialIsFriendsOnly);
@@ -154,9 +155,35 @@ export function useSeriesSettingsEditor({
     const handleClose = () => setOpen(false);
 
     const handleSave = async () => {
+        if (maxPlayers === null || !Number.isInteger(maxPlayers) || maxPlayers < MIN_MAX_PLAYERS) {
+            alert(`כמות שחקנים מקסימלית חייבת להיות לפחות ${MIN_MAX_PLAYERS}`);
+            return;
+        }
         setLoading(true);
         try {
             const token = await getToken();
+
+            // Only send group defaults the user actually changed: with "update future games" on, the
+            // server writes every sent field onto all upcoming games, so resending untouched values
+            // would overwrite per-game customizations.
+            const changedGroupDefaults = () => {
+                const changed: Record<string, unknown> = {};
+                if (maxPlayers !== (initialMaxPlayers || 10)) changed.maxPlayers = maxPlayers;
+                if ((price ?? 0) !== (initialPrice ?? 0)) changed.price = price ?? 0;
+                if (sport !== (initialSport || "SOCCER")) changed.sport = sport;
+                if (isFriendsOnly !== !!initialIsFriendsOnly) {
+                    changed.isFriendsOnly = isFriendsOnly;
+                    changed.isOpenToJoin = !isFriendsOnly;
+                }
+                if (requiresApproval !== (initialJoinPolicy === "REQUIRES_APPROVAL")) {
+                    changed.joinPolicy = requiresApproval ? "REQUIRES_APPROVAL" : "INSTANT";
+                }
+                if (lotteryEnabled !== !!initialLotteryEnabled) changed.lotteryEnabled = lotteryEnabled;
+                if (organizerInLottery !== !!initialOrganizerInLottery) changed.organizerInLottery = organizerInLottery;
+                if (teamSize !== (initialTeamSize ?? null)) changed.teamSize = teamSize;
+                if (welcomeMessage !== (initialWelcomeMessage || "")) changed.welcomeMessage = welcomeMessage;
+                return changed;
+            };
 
             const payload: Record<string, unknown> = {
                 title: title || "",
@@ -165,16 +192,7 @@ export function useSeriesSettingsEditor({
                 time,
                 duration,
                 updateFutureGames,
-                maxPlayers,
-                price,
-                sport,
-                isOpenToJoin: !isFriendsOnly,
-                isFriendsOnly,
-                joinPolicy: requiresApproval ? "REQUIRES_APPROVAL" : "INSTANT",
-                lotteryEnabled,
-                organizerInLottery,
-                teamSize,
-                welcomeMessage,
+                ...changedGroupDefaults(),
                 ...(newFieldMode
                     ? {
                         fieldId: "",

@@ -334,6 +334,18 @@ export default function NewGameScreen() {
             if (typeof series.duration === 'number') {
                 setDuration(String(series.duration));
             }
+
+            // Group-level defaults for new games. The create payload always sends these explicitly,
+            // so they must be prefilled here or the group's settings would be silently overridden.
+            if (typeof series.maxPlayers === 'number') setMaxPlayers(String(series.maxPlayers));
+            if (typeof series.price === 'number') setPrice(String(series.price));
+            if (series.sport) setSport(series.sport);
+            if (typeof series.teamSize === 'number') setTeamSize(String(series.teamSize));
+            if (series.welcomeMessage) setWelcomeMessage(series.welcomeMessage);
+            if (typeof series.isFriendsOnly === 'boolean') setIsPrivate(series.isFriendsOnly);
+            if (series.joinPolicy) setRequiresApproval(series.joinPolicy === 'REQUIRES_APPROVAL');
+            if (typeof series.lotteryEnabled === 'boolean') setLotteryEnabled(series.lotteryEnabled);
+            if (typeof series.organizerInLottery === 'boolean') setOrganizerInLottery(series.organizerInLottery);
         } catch (error) {
             console.error('Failed to load series defaults', error);
         }

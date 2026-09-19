@@ -4,6 +4,11 @@ const { prisma } = require('../lib/prisma');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 const { parseJerusalemTimeToUTC, formatJerusalemDate } = require('../utils/timezone');
 const gameScheduler = require('../services/gameScheduler');
+const { sanitizeFreeText } = require('../utils/sanitize');
+const { SPORT_KEYS } = require('../utils/sports');
+
+const WELCOME_MESSAGE_MAX_LENGTH = 2000;
+const MIN_MAX_PLAYERS = 2;
 
 const router = express.Router();
 const seriesImageUpload = createImageUpload('series');
@@ -236,6 +241,15 @@ router.get('/:seriesId', async (req, res) => {
       dayOfWeek: series.dayOfWeek ?? null,
       type: series.type,
       sport: series.sport,
+      maxPlayers: series.maxPlayers,
+      price: series.price,
+      isOpenToJoin: series.isOpenToJoin,
+      isFriendsOnly: series.isFriendsOnly,
+      joinPolicy: series.joinPolicy,
+      lotteryEnabled: series.lotteryEnabled,
+      organizerInLottery: series.organizerInLottery,
+      teamSize: series.teamSize ?? null,
+      welcomeMessage: series.welcomeMessage ?? null,
       autoOpenRegistrationHours: series.autoOpenRegistrationHours,
       description: series.description || null,
       imageUrl: series.imageUrl || null,
@@ -343,6 +357,16 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Changing dayOfWeek for existing WEEKLY series is not supported yet' });
     }
 
+    if (typeof maxPlayers !== 'undefined' && !(Number.isInteger(Number(maxPlayers)) && Number(maxPlayers) >= MIN_MAX_PLAYERS)) {
+      return res.status(400).json({ error: `maxPlayers must be an integer of at least ${MIN_MAX_PLAYERS}` });
+    }
+    if (typeof sport !== 'undefined' && !SPORT_KEYS.includes(sport)) {
+      return res.status(400).json({ error: 'Invalid sport' });
+    }
+    if (typeof teamSize !== 'undefined' && teamSize !== null && !(Number.isInteger(Number(teamSize)) && Number(teamSize) >= 1)) {
+      return res.status(400).json({ error: 'teamSize must be a positive integer or null' });
+    }
+
     const data = {};
     if (typeof title === 'string') data.title = title;
     if (typeof time === 'string') data.time = String(time);
@@ -350,23 +374,25 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     if (typeof fieldName === 'string') data.fieldName = fieldName;
     if (typeof fieldLocation === 'string') data.fieldLocation = fieldLocation;
     if (typeof price !== 'undefined' && !Number.isNaN(Number(price))) data.price = Number(price);
-    if (typeof maxPlayers !== 'undefined' && !Number.isNaN(Number(maxPlayers))) data.maxPlayers = Number(maxPlayers);
+    if (typeof maxPlayers !== 'undefined') data.maxPlayers = Number(maxPlayers);
     if (typeof autoOpenRegistrationHours !== 'undefined') {
       data.autoOpenRegistrationHours = autoOpenRegistrationHours === null ? null : Number(autoOpenRegistrationHours);
     }
     if (typeof description !== 'undefined') data.description = description === null ? null : String(description);
     if (typeof imageUrl !== 'undefined') data.imageUrl = imageUrl === null ? null : String(imageUrl);
     if (typeof duration !== 'undefined' && !Number.isNaN(Number(duration))) data.duration = Number(duration);
-    if (typeof sport === 'string') data.sport = sport;
+    if (typeof sport !== 'undefined') data.sport = sport;
     if (typeof isOpenToJoin !== 'undefined') data.isOpenToJoin = !!isOpenToJoin;
     if (typeof isFriendsOnly !== 'undefined') data.isFriendsOnly = !!isFriendsOnly;
     if (typeof joinPolicy !== 'undefined') data.joinPolicy = joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT';
     if (typeof lotteryEnabled !== 'undefined') data.lotteryEnabled = !!lotteryEnabled;
     if (typeof organizerInLottery !== 'undefined') data.organizerInLottery = !!organizerInLottery;
-    if (typeof teamSize !== 'undefined') {
-      data.teamSize = teamSize === null ? null : (Number.isNaN(Number(teamSize)) ? undefined : Number(teamSize));
+    if (typeof teamSize !== 'undefined') data.teamSize = teamSize === null ? null : Number(teamSize);
+    if (typeof welcomeMessage !== 'undefined') {
+      // Same treatment createGame applies: strip HTML + cap length; blank means "no welcome message".
+      const cleaned = welcomeMessage === null ? null : sanitizeFreeText(String(welcomeMessage), WELCOME_MESSAGE_MAX_LENGTH);
+      data.welcomeMessage = cleaned && cleaned.trim() ? cleaned : null;
     }
-    if (typeof welcomeMessage !== 'undefined') data.welcomeMessage = welcomeMessage === null ? null : String(welcomeMessage);
     // dayOfWeek intentionally blocked when updating existing weekly series (see above)
 
     const updatedSeries = await prisma.gameSeries.update({
@@ -388,7 +414,9 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     for (const g of futureGames) {
       const gd = {};
       if (typeof title === 'string') gd.title = title;
-      if (typeof maxPlayers !== 'undefined' && !Number.isNaN(Number(maxPlayers))) gd.maxPlayers = Number(maxPlayers);
+      if (typeof maxPlayers !== 'undefined') gd.maxPlayers = Number(maxPlayers);
+      // Game.price is nullable and createGame stores a free game as null, so mirror that here.
+      if (typeof data.price !== 'undefined') gd.price = data.price ? Math.round(data.price) : null;
       if (typeof duration !== 'undefined' && !Number.isNaN(Number(duration))) gd.duration = Number(duration);
       if (typeof fieldId !== 'undefined') {
         const newFieldId = fieldId || g.fieldId;
@@ -424,14 +452,14 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
           gd.registrationOpensAt = new Date(baseStart.getTime() - hours * 3600000);
         }
       }
-      if (typeof sport === 'string') gd.sport = sport;
+      if (typeof sport !== 'undefined') gd.sport = sport;
       if (typeof isOpenToJoin !== 'undefined') gd.isOpenToJoin = !!isOpenToJoin;
       if (typeof isFriendsOnly !== 'undefined') gd.isFriendsOnly = !!isFriendsOnly;
       if (typeof joinPolicy !== 'undefined') gd.joinPolicy = joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT';
       if (typeof lotteryEnabled !== 'undefined') gd.lotteryEnabled = !!lotteryEnabled;
       if (typeof organizerInLottery !== 'undefined') gd.organizerInLottery = !!organizerInLottery;
-      if (typeof teamSize !== 'undefined' && typeof data.teamSize !== 'undefined') gd.teamSize = data.teamSize;
-      if (typeof welcomeMessage !== 'undefined') gd.welcomeMessage = welcomeMessage === null ? null : String(welcomeMessage);
+      if (typeof teamSize !== 'undefined') gd.teamSize = data.teamSize;
+      if (typeof welcomeMessage !== 'undefined') gd.welcomeMessage = data.welcomeMessage;
       if (Object.keys(gd).length) {
         updates.push(prisma.game.update({ where: { id: g.id }, data: gd }));
       }

@@ -261,8 +261,9 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                                             type="number"
                                             fullWidth
                                             size="small"
-                                            value={state.maxPlayers}
-                                            onChange={(e) => actions.setMaxPlayers(parseInt(e.target.value) || 0)}
+                                            value={state.maxPlayers ?? ""}
+                                            onChange={(e) => actions.setMaxPlayers(e.target.value === "" ? null : parseInt(e.target.value))}
+                                            error={state.maxPlayers === null || state.maxPlayers < 2}
                                             InputProps={{ inputProps: { min: 2 } }}
                                         />
                                     </Grid>

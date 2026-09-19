@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { seriesApi, usersApi } from '@/services/api';
+import type { UpdateSeriesDTO } from '@/services/api/series';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -95,18 +96,35 @@ export default function SeriesScreen() {
         try {
             const token = await getToken();
             if (!token) return;
+            // Only send group defaults the user actually changed: with "update future games" on, the
+            // server writes every sent field onto all upcoming games, so resending untouched values
+            // would overwrite per-game customizations.
+            const nextMaxPlayers = maxPlayers ? parseInt(maxPlayers) : NaN;
+            if (!Number.isInteger(nextMaxPlayers) || nextMaxPlayers < 2) {
+                Alert.alert(t('common.error', 'שגיאה'), t('series.maxPlayersInvalid', 'Max players must be at least 2'));
+                return;
+            }
+            const nextPrice = price ? parseInt(price) : 0;
+            const nextTeamSize = teamSize ? parseInt(teamSize) : null;
+            const changes: Partial<UpdateSeriesDTO> = {};
+            if (nextMaxPlayers !== (series.maxPlayers || 10)) changes.maxPlayers = nextMaxPlayers;
+            if (nextPrice !== (series.price || 0)) changes.price = nextPrice;
+            if (sport !== (series.sport || 'SOCCER')) changes.sport = sport;
+            if (isFriendsOnly !== !!series.isFriendsOnly) {
+                changes.isFriendsOnly = isFriendsOnly;
+                changes.isOpenToJoin = !isFriendsOnly;
+            }
+            if (requiresApproval !== (series.joinPolicy === 'REQUIRES_APPROVAL')) {
+                changes.joinPolicy = requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT';
+            }
+            if (lotteryEnabled !== !!series.lotteryEnabled) changes.lotteryEnabled = lotteryEnabled;
+            if (organizerInLottery !== !!series.organizerInLottery) changes.organizerInLottery = organizerInLottery;
+            if (nextTeamSize !== (series.teamSize ?? null)) changes.teamSize = nextTeamSize;
+            if (welcomeMessage !== (series.welcomeMessage || '')) changes.welcomeMessage = welcomeMessage || null;
+
             await seriesApi.update(id, {
                 time, title, description, updateFutureGames: updateFuture,
-                maxPlayers: maxPlayers ? parseInt(maxPlayers) : undefined,
-                price: price ? parseInt(price) : null,
-                sport,
-                isOpenToJoin: !isFriendsOnly,
-                isFriendsOnly,
-                joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT',
-                lotteryEnabled,
-                organizerInLottery,
-                teamSize: teamSize ? parseInt(teamSize) : null,
-                welcomeMessage: welcomeMessage || null,
+                ...changes,
             }, token);
             Alert.alert(t('common.success', 'הצלחה'), t('series.updateSuccess', 'Series updated successfully'));
             fetchSeries();
