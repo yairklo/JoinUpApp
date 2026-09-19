@@ -77,9 +77,9 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
         } catch (e: unknown) {
             const err = e as Error & { status?: number };
             if (err.status === 409) {
-                Alert.alert(t('error', 'Error'), t('ratings.alreadyRated'));
+                Alert.alert(t('common.error', 'Error'), t('ratings.alreadyRated'));
             } else {
-                Alert.alert(t('error', 'Error'), t('ratings.submitFailed'));
+                Alert.alert(t('common.error', 'Error'), t('ratings.submitFailed'));
             }
         } finally {
             setSubmittingId(null);

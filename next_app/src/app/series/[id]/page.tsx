@@ -45,6 +45,16 @@ type SeriesDetails = {
     dayOfWeek: number | null;
     type: 'WEEKLY' | 'CUSTOM';
     autoOpenRegistrationHours: number | null;
+    maxPlayers: number;
+    price: number;
+    sport: string;
+    isOpenToJoin: boolean;
+    isFriendsOnly: boolean;
+    joinPolicy: 'INSTANT' | 'REQUIRES_APPROVAL';
+    lotteryEnabled: boolean;
+    organizerInLottery: boolean;
+    teamSize: number | null;
+    welcomeMessage: string | null;
     organizer: { id: string; name: string | null; avatar: string | null };
     subscribers: {
         userId: string;
@@ -156,6 +166,15 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     initialDayOfWeek={series.dayOfWeek}
                                     initialTime={series.time}
                                     initialDuration={series.duration}
+                                    initialMaxPlayers={series.maxPlayers}
+                                    initialPrice={series.price}
+                                    initialSport={series.sport}
+                                    initialIsFriendsOnly={series.isFriendsOnly}
+                                    initialJoinPolicy={series.joinPolicy}
+                                    initialLotteryEnabled={series.lotteryEnabled}
+                                    initialOrganizerInLottery={series.organizerInLottery}
+                                    initialTeamSize={series.teamSize}
+                                    initialWelcomeMessage={series.welcomeMessage}
                                     canManage={true}
                                 />
                             )}

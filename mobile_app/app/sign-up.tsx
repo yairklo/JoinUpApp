@@ -38,7 +38,7 @@ export default function SignUpScreen() {
             setPendingVerification(true)
         } catch (err: any) {
             console.error(JSON.stringify(err, null, 2))
-            Alert.alert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.signUpFailed', 'Sign up failed'))
+            Alert.alert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.signUpFailed', 'ההרשמה נכשלה'))
         } finally {
             setLoading(false)
         }
@@ -80,13 +80,13 @@ export default function SignUpScreen() {
                                 <View className="w-16 h-16 bg-brand rounded-2xl items-center justify-center shadow-lg shadow-brand-pale mb-6">
                                     <Text className="text-white text-3xl font-black">J</Text>
                                 </View>
-                                <Text className="text-4xl font-black text-gray-900 mb-2">Create Account</Text>
-                                <Text className="text-gray-500 font-medium text-lg">Join the JoinUp community!</Text>
+                                <Text className="text-4xl font-black text-gray-900 mb-2">{t('auth.createAccount', 'Create Account')}</Text>
+                                <Text className="text-gray-500 font-medium text-lg">{t('auth.joinCommunity', 'Join the JoinUp community!')}</Text>
                             </View>
 
                             <View className="space-y-5">
                                 <View>
-                                    <Text className="text-gray-800 font-semibold mb-2 ml-1">Email</Text>
+                                    <Text className="text-gray-800 font-semibold mb-2 ml-1">{t('auth.email', 'Email')}</Text>
                                     <TextInput
                                         autoCapitalize="none"
                                         value={emailAddress}
@@ -97,7 +97,7 @@ export default function SignUpScreen() {
                                 </View>
 
                                 <View>
-                                    <Text className="text-gray-800 font-semibold mb-2 ml-1">Password</Text>
+                                    <Text className="text-gray-800 font-semibold mb-2 ml-1">{t('auth.password', 'Password')}</Text>
                                     <TextInput
                                         value={password}
                                         placeholder="••••••••"
@@ -129,7 +129,7 @@ export default function SignUpScreen() {
                                     className={`w-full p-5 rounded-2xl items-center mt-4 bg-brand shadow-lg shadow-brand-pale ${(loading || !agreedToTerms) ? 'opacity-40' : ''}`}
                                 >
                                     <Text className="text-white font-bold text-lg">
-                                        {loading ? "Creating account..." : "Sign Up"}
+                                        {loading ? t('auth.creatingAccount', 'Creating account...') : t('auth.signUp', 'Sign Up')}
                                     </Text>
                                 </TouchableOpacity>
 
@@ -139,9 +139,9 @@ export default function SignUpScreen() {
                                 />
 
                                 <View className="flex-row justify-center mt-8 pb-10">
-                                    <Text className="text-gray-500 font-medium">Already have an account? </Text>
+                                    <Text className="text-gray-500 font-medium">{t('auth.haveAccount', 'Already have an account? ')}</Text>
                                     <Link href="/sign-in">
-                                        <Text className="text-brand font-bold">Sign In</Text>
+                                        <Text className="text-brand font-bold">{t('auth.signIn', 'Sign In')}</Text>
                                     </Link>
                                 </View>
                             </View>
@@ -152,9 +152,9 @@ export default function SignUpScreen() {
                                 <View className="w-16 h-16 bg-brand-pale rounded-2xl items-center justify-center mb-6">
                                     <Text className="text-brand text-3xl font-black">✉️</Text>
                                 </View>
-                                <Text className="text-3xl font-black text-gray-900 mb-2">Verify Email</Text>
+                                <Text className="text-3xl font-black text-gray-900 mb-2">{t('auth.verifyEmail', 'Verify Email')}</Text>
                                 <Text className="text-center text-gray-500 font-medium text-lg">
-                                    We sent a code to{"\n"}
+                                    {t('auth.weSentCode', 'We sent a code to')}{"\n"}
                                     <Text className="text-gray-900 font-bold">{emailAddress}</Text>
                                 </Text>
                             </View>
@@ -175,7 +175,7 @@ export default function SignUpScreen() {
                                     className={`w-full p-5 rounded-2xl items-center bg-brand shadow-lg shadow-brand-pale ${loading ? 'opacity-70' : ''}`}
                                 >
                                     <Text className="text-white font-bold text-lg">
-                                        {loading ? "Checking..." : "Verify Email"}
+                                        {loading ? t('auth.checking', 'Checking...') : t('auth.verifyEmail', 'Verify Email')}
                                     </Text>
                                 </TouchableOpacity>
 
@@ -183,7 +183,7 @@ export default function SignUpScreen() {
                                     onPress={() => setPendingVerification(false)}
                                     className="items-center mt-4"
                                 >
-                                    <Text className="text-brand font-bold">Change Email</Text>
+                                    <Text className="text-brand font-bold">{t('auth.changeEmail', 'Change Email')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>

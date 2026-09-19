@@ -570,6 +570,13 @@ model GameSeries {
   title                     String?
   description               String?
   imageUrl                  String?
+  isOpenToJoin              Boolean             @default(true)
+  isFriendsOnly             Boolean             @default(false)
+  joinPolicy                JoinPolicy          @default(INSTANT)
+  lotteryEnabled            Boolean             @default(false)
+  organizerInLottery        Boolean             @default(false)
+  teamSize                  Int?
+  welcomeMessage            String?
   organizer                 User                @relation("OrganizerSeries", fields: [organizerId], references: [id])
   games                     Game[]
   subscribers               SeriesParticipant[]

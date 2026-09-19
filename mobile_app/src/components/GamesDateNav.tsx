@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { View, ScrollView } from "react-native";
+import { useTranslation } from "react-i18next";
 import FilterPill from "./FilterPill";
 
 interface GamesDateNavProps {
@@ -14,19 +15,22 @@ function ymd(d: Date): string {
     return `${y}-${m}-${day}`;
 }
 
-function getDayLabel(d: Date, isToday: boolean, isTomorrow: boolean) {
-    if (isToday) return "היום";
-    if (isTomorrow) return "מחר";
-    return d.toLocaleDateString("he-IL", { weekday: "short", day: "numeric" });
-}
-
 export default function GamesDateNav({ selectedDate, onSelectDate }: GamesDateNavProps) {
+    const { t, i18n } = useTranslation();
+    const dateLocale = i18n.language === "he" ? "he-IL" : "en-US";
+
+    const getDayLabel = (d: Date, isToday: boolean, isTomorrow: boolean) => {
+        if (isToday) return t("common.today", "Today");
+        if (isTomorrow) return t("common.tomorrow", "Tomorrow");
+        return d.toLocaleDateString(dateLocale, { weekday: "short", day: "numeric" });
+    };
+
     const datesList = useMemo(() => {
         const arr = [];
-        const t = new Date();
+        const now = new Date();
         for (let i = 0; i < 14; i++) {
-            const d = new Date(t);
-            d.setDate(t.getDate() + i);
+            const d = new Date(now);
+            d.setDate(now.getDate() + i);
             arr.push(d);
         }
         return arr;
