@@ -464,6 +464,9 @@ export default function NewGameScreen() {
             // Construct payload matching backend expectation
             const payload = {
                 fieldId: selectedField?.id || "",
+                // Reached via ?seriesId=: attach the game to that group (the server only allows the
+                // organizer, a MANAGER or an admin, and 403s otherwise).
+                ...(prefilledSeriesId ? { seriesId: prefilledSeriesId } : {}),
                 ...(customPoint && !selectedField ? {
                     newField: {
                         name: customFieldName || t('newGame.customPoint', 'מיקום מותאם אישית'),

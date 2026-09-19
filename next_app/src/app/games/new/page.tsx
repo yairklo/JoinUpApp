@@ -360,6 +360,9 @@ function NewGamePageInner() {
         body: JSON.stringify({
           fieldId: fieldIdToUse,
           ...form,
+          // Reached via ?seriesId=: attach the game to that group (the server only allows the
+          // organizer, a MANAGER or an admin, and 403s otherwise).
+          ...(urlSeriesId ? { seriesId: urlSeriesId } : {}),
           start: startDate.toISOString(),
           // New Field Logic
           ...(newFieldMode && !fieldIdToUse
