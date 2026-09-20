@@ -488,11 +488,11 @@ export default function SeriesScreen() {
                                         className={`flex-row items-center p-4 bg-white ${index !== series.upcomingGames.length - 1 ? 'border-b border-gray-100' : ''}`}
                                     >
                                         <View className="bg-brand-mist rounded-xl w-12 h-12 items-center justify-center mr-4 border border-brand-pale">
-                                            <Text className="text-brand-dark font-bold text-lg leading-tight">{gDate.getDate()}</Text>
-                                            <Text className="text-brand text-[10px] font-bold uppercase">{gDate.toLocaleDateString(dateLocale, { month: 'short' })}</Text>
+                                            <Text className="text-brand-dark font-bold text-lg leading-tight">{gDate.toLocaleDateString(dateLocale, { day: 'numeric', timeZone: 'Asia/Jerusalem' })}</Text>
+                                            <Text className="text-brand text-[10px] font-bold uppercase">{gDate.toLocaleDateString(dateLocale, { month: 'short', timeZone: 'Asia/Jerusalem' })}</Text>
                                         </View>
                                         <View className="flex-1">
-                                            <Text className="font-bold text-gray-800 text-base">{gDate.toLocaleDateString(dateLocale, { weekday: 'long' })}</Text>
+                                            <Text className="font-bold text-gray-800 text-base">{gDate.toLocaleDateString(dateLocale, { weekday: 'long', timeZone: 'Asia/Jerusalem' })}</Text>
                                             <Text className="text-gray-500 text-xs mt-0.5">
                                                 {game.currentPlayers} / {game.maxPlayers} {t('series.players', 'Players')} · {game.time || series.time}
                                             </Text>

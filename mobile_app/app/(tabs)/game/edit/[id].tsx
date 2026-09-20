@@ -8,6 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Game } from '@/types/game';
 import { useTranslation } from 'react-i18next';
+import { parseJerusalemTimeToUTC } from '@/utils/timezone';
 import { SPORT_MAPPING } from '@/utils/sports';
 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -445,14 +446,14 @@ export default function EditGameScreen() {
             const timeString = `${hours}:${minutes}`;
 
             // Create combined local datetime and cast to strict UTC ISO string
-            const start = new Date(`${dateStr}T${timeString}:00`).toISOString();
+            const start = parseJerusalemTimeToUTC(dateStr, timeString).toISOString();
 
             let registrationOpensAt = null;
             if (futureRegistration) {
                 const frGameDate = new Date(futureRegDate);
                 const frDate = `${frGameDate.getFullYear()}-${(frGameDate.getMonth() + 1).toString().padStart(2, '0')}-${frGameDate.getDate().toString().padStart(2, '0')}`;
                 const frTime = `${futureRegTime.getHours().toString().padStart(2, '0')}:${futureRegTime.getMinutes().toString().padStart(2, '0')}`;
-                registrationOpensAt = new Date(`${frDate}T${frTime}:00`).toISOString();
+                registrationOpensAt = parseJerusalemTimeToUTC(frDate, frTime).toISOString();
             }
 
             let friendsOnlyUntil = null;
@@ -460,7 +461,7 @@ export default function EditGameScreen() {
                 const pdGameDate = new Date(publicDate);
                 const pdDate = `${pdGameDate.getFullYear()}-${(pdGameDate.getMonth() + 1).toString().padStart(2, '0')}-${pdGameDate.getDate().toString().padStart(2, '0')}`;
                 const pdTime = `${publicTime.getHours().toString().padStart(2, '0')}:${publicTime.getMinutes().toString().padStart(2, '0')}`;
-                friendsOnlyUntil = new Date(`${pdDate}T${pdTime}:00`).toISOString();
+                friendsOnlyUntil = parseJerusalemTimeToUTC(pdDate, pdTime).toISOString();
             }
 
             let lotteryAt = null;
@@ -468,7 +469,7 @@ export default function EditGameScreen() {
                 const ldGameDate = new Date(lotteryDate);
                 const ldDate = `${ldGameDate.getFullYear()}-${(ldGameDate.getMonth() + 1).toString().padStart(2, '0')}-${ldGameDate.getDate().toString().padStart(2, '0')}`;
                 const ldTime = `${lotteryTime.getHours().toString().padStart(2, '0')}:${lotteryTime.getMinutes().toString().padStart(2, '0')}`;
-                lotteryAt = new Date(`${ldDate}T${ldTime}:00`).toISOString();
+                lotteryAt = parseJerusalemTimeToUTC(ldDate, ldTime).toISOString();
             }
 
             // Construct payload matching UpdateGameDTO

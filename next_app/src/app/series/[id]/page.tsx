@@ -30,6 +30,10 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
+// This page is a Server Component (runs in UTC on the host); day/month/weekday must be derived in
+// Jerusalem time explicitly, or a game just after local midnight renders on the previous day.
+const JERUSALEM_TZ = "Asia/Jerusalem";
+
 type SeriesDetails = {
     id: string;
     title?: string | null;
@@ -64,6 +68,8 @@ type SeriesDetails = {
     upcomingGames: {
         id: string;
         date: string;
+        /** Jerusalem wall-clock HH:mm, computed by the API. */
+        time?: string;
         currentPlayers: number;
         maxPlayers: number;
     }[];
@@ -261,16 +267,16 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                                     }}
                                                 >
                                                     <Typography variant="caption" fontWeight="bold" sx={{ lineHeight: 1 }}>
-                                                        {new Date(game.date).toLocaleDateString('he-IL', { month: 'short' })}
+                                                        {new Date(game.date).toLocaleDateString('he-IL', { month: 'short', timeZone: JERUSALEM_TZ })}
                                                     </Typography>
                                                     <Typography variant="h6" fontWeight="bold" sx={{ lineHeight: 1 }}>
-                                                        {new Date(game.date).getDate()}
+                                                        {new Date(game.date).toLocaleDateString('he-IL', { day: 'numeric', timeZone: JERUSALEM_TZ })}
                                                     </Typography>
                                                 </Box>
                                             </ListItemAvatar>
                                             <ListItemText
-                                                primary={new Date(game.date).toLocaleDateString('he-IL', { weekday: 'long' })}
-                                                secondary={`${game.currentPlayers} / ${game.maxPlayers} שחקנים · השתתף במשחק`}
+                                                primary={new Date(game.date).toLocaleDateString('he-IL', { weekday: 'long', timeZone: JERUSALEM_TZ })}
+                                                secondary={`${game.currentPlayers} / ${game.maxPlayers} שחקנים · ${game.time || series.time}`}
                                                 primaryTypographyProps={{ fontWeight: 'bold' }}
                                             />
                                             <ArrowForwardIcon color="action" fontSize="small" />

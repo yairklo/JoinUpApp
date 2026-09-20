@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { parseJerusalemTimeToUTC } from '@/utils/timezone';
 import { useUser } from '@clerk/clerk-expo';
 import { gamesApi } from '@/services/api';
 import { Game } from '@/types/game';
@@ -13,7 +14,7 @@ function filterFutureGames(data: Game[]): Game[] {
     const now = new Date();
     const filtered = (data || []).filter((g) => {
         try {
-            const start = new Date(`${g.date}T${g.time}:00`);
+            const start = parseJerusalemTimeToUTC(g.date, g.time);
             const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
             return end >= now;
         } catch {

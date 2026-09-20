@@ -1,4 +1,5 @@
 import React, { useCallback, useRef } from 'react';
+import { parseJerusalemTimeToUTC } from '@/utils/timezone';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useFocusEffect } from 'expo-router';
@@ -58,7 +59,7 @@ export default function MyGamesSection() {
 
             const active = (data || []).filter((g) => {
                 try {
-                    return new Date(`${g.date}T${g.time}`) >= new Date();
+                    return parseJerusalemTimeToUTC(g.date, g.time) >= new Date();
                 } catch {
                     return true;
                 }
