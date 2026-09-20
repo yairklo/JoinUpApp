@@ -143,7 +143,7 @@ export default function SeriesHeaderCard({
                         <Chip
                             size="small"
                             icon={<GroupsIcon sx={{ fontSize: "14px !important", color: "#fff !important" }} />}
-                            label="קבוצה שבועית"
+                            label="סדרה שבועית"
                             sx={{
                                 ...chipOverlaySx,
                                 maxWidth: isSubscribed ? "58%" : "100%",
@@ -232,7 +232,7 @@ export default function SeriesHeaderCard({
                 <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: "auto", color: "text.secondary" }}>
                     <GroupIcon sx={{ fontSize: 15 }} />
                     <Typography variant="caption" fontWeight={700}>
-                        {subscriberCount} חברי קבוצה
+                        {subscriberCount} מנויים
                     </Typography>
                 </Stack>
 

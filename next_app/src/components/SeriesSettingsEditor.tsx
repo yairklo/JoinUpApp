@@ -61,7 +61,7 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                 color="inherit"
                 onClick={actions.handleOpen}
                 size="small"
-                aria-label="הגדרות קבוצה"
+                aria-label="הגדרות סדרה"
             >
                 <SettingsIcon />
             </IconButton>
@@ -69,17 +69,17 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
             <Dialog open={state.open} onClose={actions.handleClose} maxWidth="sm" fullWidth>
                 <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, direction: "rtl" }}>
                     <SettingsIcon color="primary" />
-                    הגדרות קבוצה
+                    הגדרות סדרה
                 </DialogTitle>
                 <DialogContent dir="rtl">
                     <Alert severity="info" sx={{ mb: 3 }}>
-                        עדכון הגדרות אלו יחול על כל המשחקים העתידיים בקבוצה זו.
+                        עדכון הגדרות אלו יחול על כל המשחקים העתידיים בסדרה זו.
                     </Alert>
 
                     <Grid container spacing={2}>
                         <Grid size={{ xs: 12 }}>
                             <TextField
-                                label="שם הקבוצה (אופציונלי)"
+                                label="שם הסדרה (אופציונלי)"
                                 fullWidth
                                 value={state.title}
                                 onChange={(e) => actions.setTitle(e.target.value)}
@@ -89,21 +89,21 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
 
                         <Grid size={{ xs: 12 }}>
                             <TextField
-                                label="תיאור הקבוצה (אופציונלי)"
+                                label="תיאור הסדרה (אופציונלי)"
                                 fullWidth
                                 multiline
                                 rows={2}
                                 value={state.description}
                                 onChange={(e) => actions.setDescription(e.target.value)}
-                                placeholder="ספרו קצת על הקבוצה..."
+                                placeholder="ספרו קצת על הסדרה..."
                             />
                         </Grid>
 
                         <Grid size={{ xs: 12 }}>
                             <ImageUploadField
                                 imageUrl={state.imageUrl}
-                                name={state.title || "קבוצה"}
-                                label="העלה תמונת קבוצה"
+                                name={state.title || "סדרה"}
+                                label="העלה תמונת סדרה"
                                 onUpload={actions.uploadImage}
                                 onUploaded={actions.handleImageUploaded}
                                 onRemove={actions.removeImage}
@@ -227,7 +227,7 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                                                     size="small"
                                                     disabled
                                                     value={state.initialDayOfWeek !== null && state.initialDayOfWeek !== undefined ? DAYS[state.initialDayOfWeek] : ""}
-                                                    helperText="לא ניתן לשנות יום בקבוצה שבועית קיימת"
+                                                    helperText="לא ניתן לשנות יום בסדרה שבועית קיימת"
                                                 />
                                             </Grid>
                                         )}
@@ -252,7 +252,7 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                         <Grid size={{ xs: 12 }} mt={1}>
                             <Paper variant="outlined" sx={{ p: 2 }}>
                                 <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-                                    ברירות מחדל למשחקים חדשים בקבוצה
+                                    ברירות מחדל למשחקים חדשים בסדרה
                                 </Typography>
                                 <Grid container spacing={2}>
                                     <Grid size={{ xs: 6 }}>
@@ -389,7 +389,7 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                             onClick={() => setDeleteDialogOpen(true)}
                             fullWidth
                         >
-                            מחק קבוצה ומשחקים עתידיים
+                            מחק סדרה ומשחקים עתידיים
                         </Button>
                     </Box>
 
@@ -411,7 +411,7 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                 open={deleteDialogOpen}
                 onClose={() => setDeleteDialogOpen(false)}
                 seriesId={hookProps.seriesId}
-                seriesName={state.title || hookProps.initialTitle || "קבוצה"}
+                seriesName={state.title || hookProps.initialTitle || "סדרה"}
                 onSuccess={handleDeleteSuccess}
             />
         </>

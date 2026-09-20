@@ -53,7 +53,7 @@ export default function SeriesMembersPanel({
 
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const inviteUrl = `${origin}/series/${seriesId}`;
-    const shareText = `הצטרפו לקבוצה ${seriesTitle} ב-joinUp: ${inviteUrl}`;
+    const shareText = `הצטרפו לסדרה ${seriesTitle} ב-joinUp: ${inviteUrl}`;
 
     const memberIds = useMemo(() => new Set(subscribers.map((s) => s.userId)), [subscribers]);
 
@@ -181,7 +181,7 @@ export default function SeriesMembersPanel({
 
             {isOrganizer && (
                 <Typography variant="caption" color="text.secondary" display="block" mt={1.5}>
-                    כוכב = מנהל קבוצה. רק המארגן יכול למנות מנהלים.
+                    כוכב = מנהל סדרה. רק המארגן יכול למנות מנהלים.
                 </Typography>
             )}
 

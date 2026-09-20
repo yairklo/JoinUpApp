@@ -119,7 +119,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
     // series are already rendered instead of blanking the rail.
     if (loading && filteredSeries.length === 0) {
         return (
-            <GamesHorizontalList title="קבוצות פעילות">
+            <GamesHorizontalList title="סדרות פעילות">
                 <GameCardSkeletonRow />
             </GamesHorizontalList>
         );
@@ -127,7 +127,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
 
     if (error && filteredSeries.length === 0) {
         return (
-            <GamesHorizontalList title="קבוצות פעילות">
+            <GamesHorizontalList title="סדרות פעילות">
                 <Box p={2} width="100%">
                     <InlineErrorRow message={error} onRetry={refetch} />
                 </Box>
@@ -140,14 +140,14 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
 
     if (mySeries.length === 0 && joinableSeries.length === 0) {
         return (
-            <GamesHorizontalList title="קבוצות פעילות">
+            <GamesHorizontalList title="סדרות פעילות">
                 <Box p={2} width="100%">
                     <Typography variant="body2" color="text.secondary">
                         {isSignedIn
                             ? (sportFilter !== "ALL"
-                                ? `לא נמצאו קבוצות ${sportLabel(sportFilter)}`
-                                : "אין עדיין קבוצות פעילות")
-                            : "התחבר כדי לשחק עם חברים בקבוצה קבועה"}
+                                ? `לא נמצאו סדרות ${sportLabel(sportFilter)}`
+                                : "אין עדיין סדרות פעילות")
+                            : "התחבר כדי לשחק עם חברים בסדרה קבועה"}
                     </Typography>
                     {!isSignedIn && (
                         <SignInButton mode="modal">
@@ -178,7 +178,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
             {mySeries.length > 0 && (
                 <>
                     <GamesHorizontalList
-                        title="הקבוצות שלי"
+                        title="הסדרות שלי"
                         onSeeAll={() => setIsMySeriesSeeAllOpen(true)}
                         isRefreshing={loading}
                     >
@@ -188,7 +188,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     <FullPageList
                         open={isMySeriesSeeAllOpen}
                         onClose={() => setIsMySeriesSeeAllOpen(false)}
-                        title="הקבוצות שלי"
+                        title="הסדרות שלי"
                         items={mySeries}
                         renderItem={(s) => renderCard(s)}
                     />
@@ -198,7 +198,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
             {joinableSeries.length > 0 && (
                 <>
                     <GamesHorizontalList
-                        title="הצטרפו לקבוצה"
+                        title="הצטרפו לסדרה"
                         onSeeAll={() => setIsJoinSeriesSeeAllOpen(true)}
                         isRefreshing={loading}
                     >
@@ -208,7 +208,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
                     <FullPageList
                         open={isJoinSeriesSeeAllOpen}
                         onClose={() => setIsJoinSeriesSeeAllOpen(false)}
-                        title="הצטרפו לקבוצה"
+                        title="הצטרפו לסדרה"
                         items={joinableSeries}
                         renderItem={(s) => renderCard(s)}
                     />

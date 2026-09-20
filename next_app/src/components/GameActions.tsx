@@ -7,12 +7,20 @@ import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
-import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import TextField from "@mui/material/TextField";
 
 // Icons
 import NavigationOutlinedIcon from "@mui/icons-material/NavigationOutlined";
 import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+
+type CopyState = "idle" | "copied" | "failed";
 
 export default function GameActions({
   gameId,
@@ -26,17 +34,6 @@ export default function GameActions({
   lng?: number | null;
 }) {
   const isLoc = typeof lat === "number" && typeof lng === "number";
-  const origin =
-    typeof window !== "undefined" && window.location ? window.location.origin : "";
-  const gameUrl = origin ? `${origin}/games/${gameId}` : `/games/${gameId}`;
-
-  const shareText = `${fieldName ? `${fieldName} – ` : ""}הצטרפו למשחק: ${gameUrl}`;
-  const canUseNativeShare = () =>
-    typeof navigator !== "undefined" &&
-    typeof navigator.share === "function" &&
-    // Desktop browsers either open no visible dialog (automation) or an OS sheet users don't
-    // expect -- copy the link there and confirm with a toast, like series sharing does.
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   // Compute a native-friendly navigation URL (iOS -> Apple Maps; others -> Google Maps)
   const isIOS =
@@ -54,35 +51,46 @@ export default function GameActions({
       ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
       : undefined;
 
-  const [copied, setCopied] = useState(false);
-  const [shareError, setShareError] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState(`/games/${gameId}`);
+  const [copyState, setCopyState] = useState<CopyState>("idle");
+
+  const shareText = (url: string) => `${fieldName ? `${fieldName} – ` : ""}הצטרפו למשחק: ${url}`;
+
+  const copyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyState("copied");
+    } catch {
+      // Clipboard blocked (permissions, unfocused document, insecure context): the link stays
+      // visible and selectable in the dialog, so the user can still copy it by hand.
+      setCopyState("failed");
+    }
+  };
 
   const share = async () => {
-    // Read the origin at click time: it is empty during SSR, which would copy a relative path.
+    // Read the origin at click time: it is empty during SSR, which would share a relative path.
     const url = `${window.location.origin}/games/${gameId}`;
-    if (canUseNativeShare()) {
+    // Touch devices have a native share sheet users expect; elsewhere it opens no visible UI
+    // (or an OS sheet nobody expects), so show our own dialog with a copyable link.
+    if (
+      typeof navigator.share === "function" &&
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    ) {
       try {
-        await navigator.share({ title: fieldName || "JoinUp", text: shareText, url: gameUrl });
+        await navigator.share({ title: fieldName || "JoinUp", text: shareText(url), url });
         return;
       } catch (err: unknown) {
         const name = err && typeof err === "object" && "name" in err ? String((err as { name?: unknown }).name) : "";
         if (name === "AbortError" || name === "NotAllowedError") return;
-        // fall through to the clipboard/WhatsApp fallback below
+        // fall through to the dialog
       }
     }
-    let copiedOk = false;
-    try {
-      await navigator.clipboard.writeText(url);
-      copiedOk = true;
-      setCopied(true);
-    } catch {
-      // fall through
-    }
-    if (!copiedOk) {
-      // Clipboard unavailable (insecure context / denied): hand the link to WhatsApp and say so.
-      setShareError(true);
-      window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
-    }
+    setShareUrl(url);
+    setCopyState("idle");
+    setShareOpen(true);
+    // The click is a user gesture, so copying right away is allowed; the dialog reports the result.
+    void copyLink(url);
   };
 
   return (
@@ -117,26 +125,45 @@ export default function GameActions({
           שיתוף
         </Button>
       </Stack>
-      <Snackbar
-        open={shareError}
-        autoHideDuration={3500}
-        onClose={() => setShareError(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert onClose={() => setShareError(false)} severity="info" variant="filled" sx={{ width: "100%" }}>
-          לא הצלחנו להעתיק את הקישור, פתחנו שיתוף בוואטסאפ
-        </Alert>
-      </Snackbar>
-      <Snackbar
-        open={copied}
-        autoHideDuration={2500}
-        onClose={() => setCopied(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert onClose={() => setCopied(false)} severity="success" variant="filled" sx={{ width: "100%" }}>
-          הקישור הועתק ללוח
-        </Alert>
-      </Snackbar>
+
+      <Dialog open={shareOpen} onClose={() => setShareOpen(false)} fullWidth maxWidth="xs" dir="rtl">
+        <DialogTitle>שיתוף המשחק</DialogTitle>
+        <DialogContent>
+          <TextField
+            value={shareUrl}
+            fullWidth
+            size="small"
+            label="קישור למשחק"
+            slotProps={{
+              input: { readOnly: true },
+              htmlInput: { dir: "ltr", onFocus: (e: React.FocusEvent<HTMLInputElement>) => e.currentTarget.select() },
+            }}
+            sx={{ mt: 1 }}
+          />
+          <Box role="status" aria-live="polite" sx={{ mt: 2, minHeight: 48 }}>
+            {copyState === "copied" && <Alert severity="success">הקישור הועתק ללוח</Alert>}
+            {copyState === "failed" && (
+              <Alert severity="info">לא הצלחנו להעתיק אוטומטית. סמנו את הקישור למעלה והעתיקו אותו, או שתפו בוואטסאפ.</Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ flexWrap: "wrap", gap: 1, justifyContent: "flex-start", px: 3, pb: 2 }}>
+          <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyLink(shareUrl)}>
+            {copyState === "copied" ? "הועתק" : "העתק קישור"}
+          </Button>
+          <Button
+            component="a"
+            variant="outlined"
+            startIcon={<WhatsAppIcon />}
+            href={`https://wa.me/?text=${encodeURIComponent(shareText(shareUrl))}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            שיתוף בוואטסאפ
+          </Button>
+          <Button onClick={() => setShareOpen(false)}>סגור</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -58,8 +58,8 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
           <Box display="flex" alignItems="center" gap={1}>
             <EventRepeatIcon color="primary" />
             <Box>
-              <Typography variant="subtitle2" fontWeight="bold">משחק חוזר (קבוצה)</Typography>
-              <Typography variant="caption" color="text.secondary">חלק מקבוצה קבועה</Typography>
+              <Typography variant="subtitle2" fontWeight="bold">משחק חוזר (סדרה)</Typography>
+              <Typography variant="caption" color="text.secondary">חלק מסדרה שבועית</Typography>
             </Box>
           </Box>
 
@@ -72,7 +72,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
                 disabled={state.subLoading}
               />
             }
-            label={<Typography variant="caption">חברות בקבוצה</Typography>}
+            label={<Typography variant="caption">מנוי לסדרה</Typography>}
           />
         </Stack>
 
@@ -86,7 +86,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
             fullWidth={!canManage}
             sx={{ justifyContent: canManage ? "flex-start" : "center" }}
           >
-            לעמוד הקבוצה
+            לעמוד הסדרה
           </Button>
         </Box>
 
@@ -99,15 +99,15 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
             sx={{ mt: 1 }}
             onClick={() => actions.setOpen(true)}
           >
-            הגדרות קבוצה
+            הגדרות סדרה
           </Button>
         )}
 
         <Dialog open={state.open} onClose={() => actions.setOpen(false)} fullWidth maxWidth="xs">
-          <DialogTitle>הגדרות קבוצה</DialogTitle>
+          <DialogTitle>הגדרות סדרה</DialogTitle>
           <DialogContent>
             <Alert severity="info" sx={{ mb: 2 }}>
-              השינויים יחולו על כל המשחקים העתידיים בקבוצה זו.
+              השינויים יחולו על כל המשחקים העתידיים בסדרה זו.
             </Alert>
 
             <Box mt={2} mb={1}>
@@ -135,7 +135,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
                 startIcon={<DeleteForeverIcon />}
                 onClick={() => actions.setDeleteDialogOpen(true)}
               >
-                מחק קבוצה ומשחקים עתידיים
+                מחק סדרה ומשחקים עתידיים
               </Button>
             </Box>
           </DialogContent>
@@ -151,7 +151,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
           open={state.deleteDialogOpen}
           onClose={() => actions.setDeleteDialogOpen(false)}
           seriesId={seriesId}
-          seriesName="קבוצה"
+          seriesName="סדרה"
           onSuccess={actions.handleDeleteSeriesSuccess}
         />
       </Box>
