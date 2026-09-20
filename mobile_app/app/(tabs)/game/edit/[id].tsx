@@ -8,6 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Game } from '@/types/game';
 import { useTranslation } from 'react-i18next';
+import { jerusalemInstantToPickerDate, pickerToJerusalemUTC } from '@/utils/timezone';
 import { SPORT_MAPPING } from '@/utils/sports';
 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -238,19 +239,19 @@ export default function EditGameScreen() {
             // Advanced Options
             setFutureRegistration(!!data.registrationOpensAt);
             if (data.registrationOpensAt) {
-                setFutureRegDate(new Date(data.registrationOpensAt));
-                setFutureRegTime(new Date(data.registrationOpensAt));
+                setFutureRegDate(jerusalemInstantToPickerDate(data.registrationOpensAt));
+                setFutureRegTime(jerusalemInstantToPickerDate(data.registrationOpensAt));
             }
             setLotteryEnabled(data.lotteryEnabled || false);
             if (data.lotteryAt) {
-                setLotteryDate(new Date(data.lotteryAt));
-                setLotteryTime(new Date(data.lotteryAt));
+                setLotteryDate(jerusalemInstantToPickerDate(data.lotteryAt));
+                setLotteryTime(jerusalemInstantToPickerDate(data.lotteryAt));
             }
             setOrganizerInLottery(data.organizerInLottery || false);
             setMakePublicLater(!!data.friendsOnlyUntil);
             if (data.friendsOnlyUntil) {
-                setPublicDate(new Date(data.friendsOnlyUntil));
-                setPublicTime(new Date(data.friendsOnlyUntil));
+                setPublicDate(jerusalemInstantToPickerDate(data.friendsOnlyUntil));
+                setPublicTime(jerusalemInstantToPickerDate(data.friendsOnlyUntil));
             }
 
             // Prefill current venue
@@ -433,42 +434,22 @@ export default function EditGameScreen() {
             const token = await getToken();
             if (!token) return;
 
-            // Combine Date and Time safely using local timezone components
-            const year = date.getFullYear();
-            const month = (date.getMonth() + 1).toString().padStart(2, '0');
-            const day = date.getDate().toString().padStart(2, '0');
-            const dateStr = `${year}-${month}-${day}`;
-
-            // Format time string HH:mm
-            const hours = time.getHours().toString().padStart(2, '0');
-            const minutes = time.getMinutes().toString().padStart(2, '0');
-            const timeString = `${hours}:${minutes}`;
-
-            // Create combined local datetime and cast to strict UTC ISO string
-            const start = new Date(`${dateStr}T${timeString}:00`).toISOString();
+            // Picker fields hold Jerusalem wall-clock in their local getters; convert to a real UTC instant
+            const start = pickerToJerusalemUTC(date, time).toISOString();
 
             let registrationOpensAt = null;
             if (futureRegistration) {
-                const frGameDate = new Date(futureRegDate);
-                const frDate = `${frGameDate.getFullYear()}-${(frGameDate.getMonth() + 1).toString().padStart(2, '0')}-${frGameDate.getDate().toString().padStart(2, '0')}`;
-                const frTime = `${futureRegTime.getHours().toString().padStart(2, '0')}:${futureRegTime.getMinutes().toString().padStart(2, '0')}`;
-                registrationOpensAt = new Date(`${frDate}T${frTime}:00`).toISOString();
+                registrationOpensAt = pickerToJerusalemUTC(futureRegDate, futureRegTime).toISOString();
             }
 
             let friendsOnlyUntil = null;
             if (isPrivate && makePublicLater) {
-                const pdGameDate = new Date(publicDate);
-                const pdDate = `${pdGameDate.getFullYear()}-${(pdGameDate.getMonth() + 1).toString().padStart(2, '0')}-${pdGameDate.getDate().toString().padStart(2, '0')}`;
-                const pdTime = `${publicTime.getHours().toString().padStart(2, '0')}:${publicTime.getMinutes().toString().padStart(2, '0')}`;
-                friendsOnlyUntil = new Date(`${pdDate}T${pdTime}:00`).toISOString();
+                friendsOnlyUntil = pickerToJerusalemUTC(publicDate, publicTime).toISOString();
             }
 
             let lotteryAt = null;
             if (lotteryEnabled) {
-                const ldGameDate = new Date(lotteryDate);
-                const ldDate = `${ldGameDate.getFullYear()}-${(ldGameDate.getMonth() + 1).toString().padStart(2, '0')}-${ldGameDate.getDate().toString().padStart(2, '0')}`;
-                const ldTime = `${lotteryTime.getHours().toString().padStart(2, '0')}:${lotteryTime.getMinutes().toString().padStart(2, '0')}`;
-                lotteryAt = new Date(`${ldDate}T${ldTime}:00`).toISOString();
+                lotteryAt = pickerToJerusalemUTC(lotteryDate, lotteryTime).toISOString();
             }
 
             // Construct payload matching UpdateGameDTO

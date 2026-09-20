@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-expo';
 import { gamesApi, API_BASE } from '@/services/api';
 import { Game } from '@/types/game';
+import { gameStartMs } from '@/utils/timezone';
 import { useSyncedGames } from './useSyncedGames';
 import { useAuthTokenRef } from './useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
@@ -103,11 +104,7 @@ export function useGamesByCity(initialCity?: string) {
 
                 if (controller.signal.aborted) return;
 
-                data.sort(
-                    (a, b) =>
-                        new Date(`${a.date}T${a.time}:00`).getTime() -
-                        new Date(`${b.date}T${b.time}:00`).getTime()
-                );
+                data.sort((a, b) => gameStartMs(a) - gameStartMs(b));
 
                 setGames(data);
             } catch (err) {

@@ -15,6 +15,7 @@ import GameDetailsSkeleton from '@/components/GameDetailsSkeleton';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import { tryParseJerusalemTimeToUTC } from '@/utils/timezone';
 
 export default function GameDetailsScreen() {
     const { t, i18n } = useTranslation();
@@ -333,8 +334,7 @@ export default function GameDetailsScreen() {
                     <TouchableOpacity 
                         className="items-center"
                         onPress={() => {
-                            const startStr = `${game.date}T${game.time || '00:00'}:00`;
-                            const startDate = new Date(startStr);
+                            const startDate = tryParseJerusalemTimeToUTC(game.date, game.time || '00:00') ?? new Date();
                             const endDate = new Date(startDate.getTime() + (game.duration || 1) * 3600000);
                             
                             const formatGoogleDate = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, '');

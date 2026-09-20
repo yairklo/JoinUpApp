@@ -34,6 +34,34 @@ function parseJerusalemTimeToUTC(dateStr, timeStr) {
   return new Date(utcDate.getTime() - offsetMs);
 }
 
+// Non-throwing variant of parseJerusalemTimeToUTC: Intl.formatToParts throws a RangeError on an
+// Invalid Date (missing/blank/'HH:mm:ss' time), which would crash a render or list filter.
+function tryParseJerusalemTimeToUTC(dateStr, timeStr) {
+  try {
+    const d = parseJerusalemTimeToUTC(dateStr, timeStr);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
+// Mobile date/time pickers only expose device-local getters. These two helpers translate between
+// a real instant and a picker Date whose *local* fields read as Jerusalem wall-clock, so a device
+// outside Israel shows and saves the same Jerusalem time (no shift per save).
+function jerusalemInstantToPickerDate(instant) {
+  const d = new Date(instant);
+  const [y, m, day] = formatJerusalemDate(d).split('-').map(Number);
+  const [h, min] = formatJerusalemTime(d).split(':').map(Number);
+  return new Date(y, m - 1, day, h, min, 0, 0);
+}
+
+function pickerToJerusalemUTC(datePart, timePart = datePart) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const dateStr = `${datePart.getFullYear()}-${pad(datePart.getMonth() + 1)}-${pad(datePart.getDate())}`;
+  const timeStr = `${pad(timePart.getHours())}:${pad(timePart.getMinutes())}`;
+  return parseJerusalemTimeToUTC(dateStr, timeStr);
+}
+
 function getJerusalemDayHour(date = new Date()) {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: TZ,
@@ -106,6 +134,9 @@ function formatJerusalemTime(dateInput) {
 
 module.exports = {
   parseJerusalemTimeToUTC,
+  tryParseJerusalemTimeToUTC,
+  jerusalemInstantToPickerDate,
+  pickerToJerusalemUTC,
   formatJerusalemDate,
   formatJerusalemTime,
   getJerusalemDayHour,

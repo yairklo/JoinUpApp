@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-expo';
 import { gamesApi, API_BASE } from '@/services/api';
 import { Game } from '@/types/game';
+import { gameStartMs } from '@/utils/timezone';
 import { useSyncedGames } from './useSyncedGames';
 import { useAuthTokenRef } from './useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
@@ -53,11 +54,7 @@ export function useGamesByFriends() {
                     setFriendIds(new Set(friendsData.map((f) => f.id)));
                 }
 
-                gamesData.sort(
-                    (a, b) =>
-                        new Date(`${a.date}T${a.time}:00`).getTime() -
-                        new Date(`${b.date}T${b.time}:00`).getTime()
-                );
+                gamesData.sort((a, b) => gameStartMs(a) - gameStartMs(b));
 
                 setGames(gamesData);
             } catch (err) {

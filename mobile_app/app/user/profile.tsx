@@ -1,4 +1,5 @@
 import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList } from 'react-native';
+import { gameStartMs } from '@/utils/timezone';
 import React, { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useRouter, Stack } from 'expo-router';
@@ -549,8 +550,8 @@ export default function ProfileScreen() {
                     <View>
                         {(() => {
                             const now = new Date();
-                            const upcomingGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) >= now);
-                            const pastGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) < now);
+                            const upcomingGames = myGames.filter(g => gameStartMs(g) >= now.getTime());
+                            const pastGames = myGames.filter(g => gameStartMs(g) < now.getTime());
 
                             if (gamesTab === 0) {
                                 return upcomingGames.length > 0 ? (

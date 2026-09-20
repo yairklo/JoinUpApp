@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { gameStartMs, tryParseJerusalemTimeToUTC } from '@/utils/timezone';
 import { useUser } from '@clerk/clerk-expo';
 import { gamesApi } from '@/services/api';
 import { Game } from '@/types/game';
@@ -12,20 +13,13 @@ const DATE_DEBOUNCE_MS = 300;
 function filterFutureGames(data: Game[]): Game[] {
     const now = new Date();
     const filtered = (data || []).filter((g) => {
-        try {
-            const start = new Date(`${g.date}T${g.time}:00`);
-            const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
-            return end >= now;
-        } catch {
-            return false;
-        }
+        const start = tryParseJerusalemTimeToUTC(g.date, g.time);
+        if (!start) return false;
+        const end = new Date(start.getTime() + (g.duration ?? 1) * 3600000);
+        return end >= now;
     });
 
-    filtered.sort(
-        (a, b) =>
-            new Date(`${a.date}T${a.time}:00`).getTime() -
-            new Date(`${b.date}T${b.time}:00`).getTime()
-    );
+    filtered.sort((a, b) => gameStartMs(a) - gameStartMs(b));
 
     return filtered;
 }
