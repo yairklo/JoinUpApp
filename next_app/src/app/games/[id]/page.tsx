@@ -1,7 +1,8 @@
 import GameLiveSection from "@/components/GameLiveSection";
 import { auth } from "@clerk/nextjs/server";
-import { SignInButton } from "@clerk/nextjs";
 import GameActions from "@/components/GameActions";
+import GuestJoinBar from "@/components/GuestJoinBar";
+import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
@@ -123,6 +124,7 @@ export default async function GameDetails(props: {
       >
         {/* Header Section */}
         <Box mb={4}>
+          <SectionErrorBoundary label="פרטי המשחק">
           <GameLiveSection
             initialGame={{
               id: game.id,
@@ -158,14 +160,17 @@ export default async function GameDetails(props: {
             viewerId={userId}
             canManageSeries={canManageSeries}
           />
+          </SectionErrorBoundary>
 
           <Box mt={2}>
-            <GameActions
-              gameId={game.id}
-              fieldName={game.fieldName}
-              lat={game.fieldLat ?? null}
-              lng={game.fieldLng ?? null}
-            />
+            <SectionErrorBoundary label="ניווט והצגת המגרש">
+              <GameActions
+                gameId={game.id}
+                fieldName={game.fieldName}
+                lat={game.fieldLat ?? null}
+                lng={game.fieldLng ?? null}
+              />
+            </SectionErrorBoundary>
 
             {canManageSeries && (
               <Paper id="game-manage" variant="outlined" sx={{ mt: 2, p: { xs: 2, sm: 2.5 } }}>
@@ -213,30 +218,7 @@ export default async function GameDetails(props: {
           </Box>
         </Box>
 
-        {!userId && (
-          <Box
-            sx={{
-              position: "fixed",
-              bottom: { xs: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))", md: 0 },
-              insetInline: 0,
-              zIndex: (t) => t.zIndex.appBar - 1,
-              py: 1.5,
-              px: 2,
-              bgcolor: "background.paper",
-              borderTop: 1,
-              borderColor: "divider",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 2,
-            }}
-          >
-            <Typography variant="body2" fontWeight={600}>התחבר כדי להצטרף למשחק</Typography>
-            <SignInButton mode="modal">
-              <Button variant="contained" size="small">התחבר</Button>
-            </SignInButton>
-          </Box>
-        )}
+        {!userId && <GuestJoinBar />}
 
       </Container>
     </main>
