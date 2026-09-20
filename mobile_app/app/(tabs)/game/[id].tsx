@@ -209,6 +209,33 @@ export default function GameDetailsScreen() {
     const isRejected = game.viewerParticipationStatus === 'REJECTED';
     const isWaitlisted = game.viewerParticipationStatus === 'WAITLISTED' && !isWaitlistOfferPending;
     const approvalOnlyHint = isOrganizerApprovalPending(game);
+    const isCancelled = game.status === 'CANCELLED';
+
+    const handleCancelGame = () => {
+        Alert.alert(
+            t('game.cancelGameTitle', 'לבטל את המשחק?'),
+            t('game.cancelGameConfirm', 'המשחק יסומן כמבוטל, לא ניתן יהיה להצטרף אליו, וכל המשתתפים יקבלו הודעה.')
+                + (game.seriesId ? t('game.cancelGameConfirmSeries', ' שאר המשחקים בסדרה לא יושפעו.') : ''),
+            [
+                { text: t('game.cancelGameBack', 'חזרה'), style: 'cancel' },
+                {
+                    text: t('game.cancelGameYes', 'כן, בטל משחק'),
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const token = await getTokenRef.current();
+                            if (!token) return;
+                            const updated = await gamesApi.cancel(game.id, token);
+                            setGame(updated);
+                        } catch (e) {
+                            console.error('Cancel game failed', e);
+                            Alert.alert(t('common.error', 'שגיאה'), t('game.cancelGameFailed', 'ביטול המשחק נכשל'));
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
@@ -479,7 +506,11 @@ export default function GameDetailsScreen() {
 
                 {/* Actions Section — waitlist offer CTAs live in the top banner only */}
                 <View className="p-6" style={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}>
-                    {isWaitlistOfferPending ? null : isParticipant ? (
+                    {isCancelled ? (
+                        <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200">
+                            <Text className="text-amber-800 font-bold text-base text-center">{t('game.cancelledBanner', 'המשחק בוטל על ידי המארגן, ולא ניתן להצטרף אליו.')}</Text>
+                        </View>
+                    ) : isWaitlistOfferPending ? null : isParticipant ? (
                         <View>
                             <TouchableOpacity
                                 onPress={() => router.push({
@@ -551,6 +582,16 @@ export default function GameDetailsScreen() {
                             >
                                 <Text className="text-gray-600 font-bold">{t('game.editGame', 'ערוך משחק')}</Text>
                             </TouchableOpacity>
+
+                            {!isCancelled && game.status !== 'COMPLETED' && (
+                                <TouchableOpacity
+                                    onPress={handleCancelGame}
+                                    accessibilityRole="button"
+                                    className="mt-4 p-4 rounded-xl items-center border border-red-200 bg-red-50"
+                                >
+                                    <Text className="text-red-600 font-bold">{t('game.cancelGame', 'בטל משחק')}</Text>
+                                </TouchableOpacity>
+                            )}
 
                             <TouchableOpacity
                                 onPress={() => router.push(`/game/teams/${game.id}`)}

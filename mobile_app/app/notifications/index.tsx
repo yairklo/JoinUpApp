@@ -50,10 +50,18 @@ export default function NotificationsScreen() {
             target = `/chat/${chatId}`;
         } else if (gameId) {
             target = `/game/${gameId}`;
+        } else if (notification.type === 'FRIEND_REQUEST') {
+            target = '/friends';
+        } else if (notification.type === 'FRIEND_ACCEPTED' && notification.data?.userId) {
+            target = `/user/${notification.data.userId}`;
         } else if (link) {
-            target = link.startsWith('/game/') || link.startsWith('/chat/')
-                ? link
-                : link.replace(/^\/games\//, '/game/');
+            // Older notifications stored /profile/:id, which has no route in the app (it is /user/:id).
+            const legacyProfile = link.match(/^\/profile\/([^/?#]+)$/);
+            target = legacyProfile && legacyProfile[1] !== 'settings'
+                ? `/user/${legacyProfile[1]}`
+                : link.startsWith('/game/') || link.startsWith('/chat/')
+                    ? link
+                    : link.replace(/^\/games\//, '/game/');
         }
 
         if (target) {

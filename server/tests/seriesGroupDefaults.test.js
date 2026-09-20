@@ -245,6 +245,26 @@ describe('Group (series) default settings', () => {
         expect(after.maxPlayers).toEqual(12);
       });
 
+      test('a description change reaches the future games (sanitized), and only when updateFutureGames is on', async () => {
+        const futureDescriptions = async () =>
+          (await prisma.game.findMany({ where: { seriesId, start: { gte: new Date() } } })).map((g) => g.description);
+
+        let res = await patch({ description: '<b>תיאור חדש</b>', updateFutureGames: false });
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.series.description).toEqual('תיאור חדש');
+        expect((await futureDescriptions()).every((d) => d === 'תיאור חדש')).toBe(false);
+
+        res = await patch({ description: '<b>תיאור חדש</b>' });
+        expect(res.statusCode).toEqual(200);
+        const after = await futureDescriptions();
+        expect(after.length).toBeGreaterThan(0);
+        for (const d of after) expect(d).toEqual('תיאור חדש');
+
+        res = await patch({ description: null });
+        expect(res.statusCode).toEqual(200);
+        for (const d of await futureDescriptions()) expect(d).toEqual('');
+      });
+
       test('a price of 0 is stored as null on games, like createGame does', async () => {
         const res = await patch({ price: 0 });
         expect(res.statusCode).toEqual(200);

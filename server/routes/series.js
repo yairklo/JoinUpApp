@@ -8,6 +8,7 @@ const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
 
 const WELCOME_MESSAGE_MAX_LENGTH = 2000;
+const DESCRIPTION_MAX_LENGTH = 2000;
 const MIN_MAX_PLAYERS = 2;
 
 const router = express.Router();
@@ -376,7 +377,10 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     if (typeof autoOpenRegistrationHours !== 'undefined') {
       data.autoOpenRegistrationHours = autoOpenRegistrationHours === null ? null : Number(autoOpenRegistrationHours);
     }
-    if (typeof description !== 'undefined') data.description = description === null ? null : String(description);
+    if (typeof description !== 'undefined') {
+      // Same treatment createGame gives a game description: strip HTML, cap length.
+      data.description = description === null ? null : sanitizeFreeText(String(description), DESCRIPTION_MAX_LENGTH);
+    }
     if (typeof imageUrl !== 'undefined') data.imageUrl = imageUrl === null ? null : String(imageUrl);
     if (typeof duration !== 'undefined' && !Number.isNaN(Number(duration))) data.duration = Number(duration);
     if (typeof sport !== 'undefined') data.sport = sport;
@@ -412,6 +416,8 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     for (const g of futureGames) {
       const gd = {};
       if (typeof title === 'string') gd.title = title;
+      // Games store an empty description as '' (createGame does the same), never null.
+      if (typeof description !== 'undefined') gd.description = data.description ?? '';
       if (typeof maxPlayers !== 'undefined') gd.maxPlayers = Number(maxPlayers);
       // Game.price is nullable and createGame stores a free game as null, so mirror that here.
       if (typeof data.price !== 'undefined') gd.price = data.price ? Math.round(data.price) : null;

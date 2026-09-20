@@ -69,6 +69,13 @@ export const gamesApi = {
         });
     },
 
+    cancel: (gameId: string, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/cancel`, {
+            method: 'POST',
+            token
+        });
+    },
+
     delete: (gameId: string, token: string) => {
         return apiClient(`/api/games/${gameId}`, {
             method: 'DELETE',
