@@ -203,6 +203,18 @@ export const usersApi = {
         return apiClient<any[]>(`/api/users/${userId}/requests/outgoing`, { token });
     },
 
+    getIncomingRequests: (userId: string, token: string) => {
+        return apiClient<Array<{ id: string; requester: { id: string } }>>(`/api/users/${userId}/requests/incoming`, { token });
+    },
+
+    acceptFriendRequest: (requestId: string, token: string) => {
+        return apiClient<{ ok: true }>(`/api/users/requests/${requestId}/accept`, { method: 'POST', token });
+    },
+
+    declineFriendRequest: (requestId: string, token: string) => {
+        return apiClient<{ ok: true }>(`/api/users/requests/${requestId}/decline`, { method: 'POST', token });
+    },
+
     sendFriendRequest: (receiverId: string, token: string) => {
         return apiClient('/api/users/requests', {
             method: 'POST',

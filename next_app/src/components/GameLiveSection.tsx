@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
@@ -57,6 +57,7 @@ export type LiveGame = {
   teams?: Team[];
   waitlistParticipants?: Participant[];
   pickSessionStatus?: string | null;
+  status?: "OPEN" | "COMPLETED" | "CANCELLED";
 };
 
 // Owns the "live" slice of a game's state (header counts, join/leave button, pending requests)
@@ -97,6 +98,44 @@ export default function GameLiveSection({
   const { getToken } = useAuth();
   const [waitlistActionLoading, setWaitlistActionLoading] = useState(false);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
+
+  // The server-rendered `initialGame` can be stale: coming back from another page of the game
+  // (e.g. team management) via back/forward restores the cached render from when this page was
+  // first opened, and any `game:updated` broadcast that fired while this component was unmounted
+  // was missed. So re-read the full game (participants, counts, viewer status) whenever the section
+  // mounts, the tab becomes visible again, the page is restored from the back/forward cache, or
+  // the socket reconnects -- instead of trusting the partial in-memory state until a leave/rejoin.
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+  const refreshFromServer = useCallback(async () => {
+    try {
+      const token = await getTokenRef.current().catch(() => "");
+      const fresh = await gamesApi.getById(initialGame.id, token || undefined);
+      if (fresh && fresh.id === initialGame.id) {
+        setGame((prev) => ({ ...prev, ...normalizeIncomingGame(fresh as unknown as LiveGame) }));
+      }
+    } catch {
+      // Keep whatever we already show; the next trigger will retry.
+    }
+  }, [initialGame.id]);
+
+  useEffect(() => {
+    void refreshFromServer();
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) void refreshFromServer();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refreshFromServer();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisible);
+    socket?.on("connect", refreshFromServer);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisible);
+      socket?.off("connect", refreshFromServer);
+    };
+  }, [refreshFromServer, socket]);
 
   useEffect(() => {
     if (!socket) return;
@@ -247,6 +286,13 @@ export default function GameLiveSection({
         </Alert>
       )}
 
+      {game.status === "CANCELLED" && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <AlertTitle>המשחק בוטל</AlertTitle>
+          המארגן ביטל את המשחק, ולכן לא ניתן להצטרף אליו.
+        </Alert>
+      )}
+
       <GameHeaderCard
         time={game.time}
         // `game.date` can be in either DD/MM/YYYY (the initial SSR fetch, see games/[id]/page.tsx)
@@ -271,7 +317,7 @@ export default function GameLiveSection({
         price={game.price}
         fullWidth
       >
-        {joined ? (
+        {game.status === "CANCELLED" ? null : joined ? (
           <Box display="flex" flexDirection="column" alignItems="flex-end" gap={0.5}>
             <Typography variant="body2" fontWeight={800} color="success.main">
               אתה בפנים

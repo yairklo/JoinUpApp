@@ -80,6 +80,10 @@ export const gamesApi = {
         return apiClient<Game>(`/api/games/${gameId}`, { token });
     },
 
+    cancel: (gameId: string, token: string) => {
+        return apiClient<Game>(`/api/games/${gameId}/cancel`, { method: 'POST', token });
+    },
+
     create: (data: any, token: string) => {
         return apiClient<{ fieldId: string; id: string }>('/api/games', {
             method: 'POST',

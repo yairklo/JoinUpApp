@@ -31,6 +31,12 @@ export default function GameActions({
   const gameUrl = origin ? `${origin}/games/${gameId}` : `/games/${gameId}`;
 
   const shareText = `${fieldName ? `${fieldName} – ` : ""}הצטרפו למשחק: ${gameUrl}`;
+  const canUseNativeShare = () =>
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function" &&
+    // Desktop browsers either open no visible dialog (automation) or an OS sheet users don't
+    // expect -- copy the link there and confirm with a toast, like series sharing does.
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   // Compute a native-friendly navigation URL (iOS -> Apple Maps; others -> Google Maps)
   const isIOS =
@@ -49,9 +55,12 @@ export default function GameActions({
       : undefined;
 
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState(false);
 
   const share = async () => {
-    if (navigator.share) {
+    // Read the origin at click time: it is empty during SSR, which would copy a relative path.
+    const url = `${window.location.origin}/games/${gameId}`;
+    if (canUseNativeShare()) {
       try {
         await navigator.share({ title: fieldName || "JoinUp", text: shareText, url: gameUrl });
         return;
@@ -63,13 +72,15 @@ export default function GameActions({
     }
     let copiedOk = false;
     try {
-      await navigator.clipboard.writeText(shareText);
+      await navigator.clipboard.writeText(url);
       copiedOk = true;
       setCopied(true);
     } catch {
       // fall through
     }
     if (!copiedOk) {
+      // Clipboard unavailable (insecure context / denied): hand the link to WhatsApp and say so.
+      setShareError(true);
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
     }
   };
@@ -106,6 +117,16 @@ export default function GameActions({
           שיתוף
         </Button>
       </Stack>
+      <Snackbar
+        open={shareError}
+        autoHideDuration={3500}
+        onClose={() => setShareError(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setShareError(false)} severity="info" variant="filled" sx={{ width: "100%" }}>
+          לא הצלחנו להעתיק את הקישור, פתחנו שיתוף בוואטסאפ
+        </Alert>
+      </Snackbar>
       <Snackbar
         open={copied}
         autoHideDuration={2500}
