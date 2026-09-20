@@ -25,6 +25,9 @@ const notificationService = new NotificationService(prisma);
 const { SPORT_KEYS } = require('../utils/sports');
 const { sanitizeFreeText } = require('../utils/sanitize');
 
+// After a decline the same requester must wait before asking the same person again, so a declined
+// request cannot be re-sent (and re-notified) over and over. The person who declined can always ask.
+const DECLINED_RESEND_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const DISPLAY_NAME_MIN_LENGTH = 2;
 const DISPLAY_NAME_MAX_LENGTH = 60;
 // Path segments that live next to /:id in this router; they must never be read as a user id
@@ -368,8 +371,6 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
   }
 });
 
-// Authenticated viewer — includes isAdmin. Must be registered before /:id
-// so "me" is never treated as a Clerk user id (which would upsert a stub User).
 // The caller's own friends. Declared before /:id so "friends" is never read as a user id.
 router.get('/friends', authenticateToken, async (req, res) => {
   try {
@@ -383,6 +384,8 @@ router.get('/friends', authenticateToken, async (req, res) => {
   }
 });
 
+// Authenticated viewer — includes isAdmin. Must be registered before /:id
+// so "me" is never treated as a Clerk user id (which would upsert a stub User).
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
@@ -692,7 +695,11 @@ router.post('/requests', authenticateToken, async (req, res) => {
     // existing request either way
     const existingReq = await prisma.friendRequest.findFirst({ where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] } });
     if (existingReq && existingReq.status === 'DECLINED') {
-      // A declined request must not block the pair forever ("Add Friend" would silently fail).
+      const sameDirection = existingReq.requesterId === requesterId;
+      if (sameDirection && Date.now() - new Date(existingReq.createdAt).getTime() < DECLINED_RESEND_COOLDOWN_MS) {
+        return res.status(400).json({ error: 'Your previous request was declined; you can send a new one later', code: 'REQUEST_DECLINED_RECENTLY' });
+      }
+      // Otherwise a declined request must not block the pair forever.
       await prisma.friendRequest.delete({ where: { id: existingReq.id } });
     } else if (existingReq) {
       return res.status(400).json({ error: 'Request already exists' });

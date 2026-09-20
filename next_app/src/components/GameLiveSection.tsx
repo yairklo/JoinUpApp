@@ -107,15 +107,26 @@ export default function GameLiveSection({
   // the socket reconnects -- instead of trusting the partial in-memory state until a leave/rejoin.
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
+  const refreshInFlight = useRef(false);
+  const lastPushAt = useRef(0);
+  const hiddenAt = useRef(0);
   const refreshFromServer = useCallback(async () => {
+    // Triggers overlap (mount + socket connect + visibility): one request at a time is enough.
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    const startedAt = Date.now();
     try {
       const token = await getTokenRef.current().catch(() => "");
       const fresh = await gamesApi.getById(initialGame.id, token || undefined);
+      // A socket push that arrived while this request was in flight is newer than the response.
+      if (lastPushAt.current > startedAt) return;
       if (fresh && fresh.id === initialGame.id) {
         setGame((prev) => ({ ...prev, ...normalizeIncomingGame(fresh as unknown as LiveGame) }));
       }
     } catch {
       // Keep whatever we already show; the next trigger will retry.
+    } finally {
+      refreshInFlight.current = false;
     }
   }, [initialGame.id]);
 
@@ -124,15 +135,20 @@ export default function GameLiveSection({
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) void refreshFromServer();
     };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void refreshFromServer();
+    // Only refresh after the tab was really away: a quick tab flick is covered by the live socket.
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt.current = Date.now();
+      } else if (hiddenAt.current && Date.now() - hiddenAt.current > 15_000) {
+        void refreshFromServer();
+      }
     };
     window.addEventListener("pageshow", onPageShow);
-    document.addEventListener("visibilitychange", onVisible);
+    document.addEventListener("visibilitychange", onVisibility);
     socket?.on("connect", refreshFromServer);
     return () => {
       window.removeEventListener("pageshow", onPageShow);
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", onVisibility);
       socket?.off("connect", refreshFromServer);
     };
   }, [refreshFromServer, socket]);
@@ -141,6 +157,7 @@ export default function GameLiveSection({
     if (!socket) return;
     const handler = (updated: LiveGame) => {
       if (updated?.id === initialGame.id) {
+        lastPushAt.current = Date.now();
         setGame((prev) => ({ ...prev, ...normalizeIncomingGame(updated) }));
       }
     };

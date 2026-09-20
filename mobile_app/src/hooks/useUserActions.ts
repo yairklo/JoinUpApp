@@ -3,7 +3,8 @@ import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useRouter } from './useRouter.adapter';
 import { usersApi, chatsApi } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
-import { useWindowDimensions } from 'react-native';
+import { Alert, useWindowDimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export type FriendStatus = 'FRIEND' | 'REQUEST_SENT' | 'REQUEST_RECEIVED' | 'NONE' | 'SELF' | 'LOADING';
 
@@ -18,6 +19,7 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
     const { getToken } = useAuth();
     const router = useRouter();
     const { openChat } = useChat();
+    const { t } = useTranslation();
     const { width } = useWindowDimensions();
     const isMobile = width < 640;
 
@@ -85,6 +87,14 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
             await checkStatus();
         } catch (e) {
             console.error(e);
+            // The server refuses a repeat request for a few days after a decline.
+            Alert.alert(
+                t('common.error', 'שגיאה'),
+                e instanceof Error && /declined/i.test(e.message)
+                    ? t('profile.requestDeclinedRecently', 'הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים.')
+                    : t('profile.failedToSendRequest', 'שליחת בקשת החברות נכשלה.')
+            );
+            await checkStatus();
         } finally {
             setLoading(false);
         }

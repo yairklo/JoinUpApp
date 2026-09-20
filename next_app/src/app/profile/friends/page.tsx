@@ -26,7 +26,7 @@ type Friend = { id: string; name: string | null; imageUrl?: string | null };
 type IncomingRequest = { id: string; requester: Friend; createdAt: string };
 
 export default function FriendsAllPage() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
   const userId = user?.id;
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -35,8 +35,8 @@ export default function FriendsAllPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!userId) return;
+  const load = useCallback(async (): Promise<boolean> => {
+    if (!userId) return false;
     const token = await getToken().catch(() => null);
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
     // no-store: the lists must reflect an accept/decline that just happened, not a cached response.
@@ -49,13 +49,20 @@ export default function FriendsAllPage() {
       setFriends([...arr].sort((a, b) => (a.name || "").localeCompare(b.name || "")));
     }
     if (incomingRes.ok) setIncoming(await incomingRes.json());
+    return true;
   }, [userId, getToken]);
 
   useEffect(() => {
+    // Wait for Clerk: before it resolves there is no user id yet, and "no friends" must not flash.
+    if (!isLoaded) return;
+    if (!userId) {
+      setLoaded(true);
+      return;
+    }
     load()
       .catch(() => setError("טעינת החברים נכשלה. נסו לרענן את העמוד."))
       .finally(() => setLoaded(true));
-  }, [load]);
+  }, [load, isLoaded, userId]);
 
   const respond = async (requestId: string, action: "accept" | "decline") => {
     setBusyId(requestId);

@@ -189,7 +189,7 @@ router.get('/:seriesId', async (req, res) => {
 
     const { includeAll } = req.query;
     const gameQueryArgs = {
-      where: { seriesId, start: { gte: new Date() } },
+      where: { seriesId, start: { gte: new Date() }, status: { not: 'CANCELLED' } },
       orderBy: { start: 'asc' },
       include: { participants: true }
     };
@@ -408,8 +408,10 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
 
     // Update future games (>= now) linked to this series
     const now = new Date();
+    // Only OPEN games: a cancelled game must stay closed (this update can set isOpenToJoin) and a
+    // completed one is history.
     const futureGames = await prisma.game.findMany({
-      where: { seriesId, start: { gte: now } }
+      where: { seriesId, start: { gte: now }, status: 'OPEN' }
     });
 
     const updates = [];

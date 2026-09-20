@@ -145,6 +145,40 @@ describe('cancelling a single game and list filters', () => {
     expect(rejoin.statusCode).toEqual(400);
   });
 
+  test('a cancelled game is frozen: the last player leaving does not delete it, and no roster action works', async () => {
+    // playerId joined and is the only non-organizer; make them the only participant to hit the
+    // "last player leaves -> delete game and chat" path of /leave.
+    await prisma.participation.deleteMany({ where: { gameId: soccerGame.id, userId: { not: playerId } } });
+
+    const leave = await request(app).post(`/api/games/${soccerGame.id}/leave`).set('Authorization', playerAuth);
+    expect(leave.statusCode).toEqual(400);
+    expect(await prisma.game.findUnique({ where: { id: soccerGame.id } })).toBeTruthy();
+    expect(await prisma.chatRoom.findUnique({ where: { id: soccerGame.id } })).toBeTruthy();
+    expect(await prisma.participation.findFirst({ where: { gameId: soccerGame.id, userId: playerId } })).toBeTruthy();
+
+    const addParticipant = await request(app)
+      .post(`/api/games/${soccerGame.id}/participants`)
+      .set('Authorization', orgAuth)
+      .send({ userId: strId });
+    expect(addParticipant.statusCode).toEqual(400);
+  });
+
+  test('two concurrent cancels notify participants only once', async () => {
+    const game = await createGame('SOCCER', 'gcf concurrent');
+    await request(app).post(`/api/games/${game.id}/join`).set('Authorization', playerAuth);
+    const before = await prisma.notification.count({ where: { userId: playerId, type: 'GAME_CANCELLED' } });
+
+    const [a, b] = await Promise.all([
+      request(app).post(`/api/games/${game.id}/cancel`).set('Authorization', orgAuth),
+      request(app).post(`/api/games/${game.id}/cancel`).set('Authorization', orgAuth),
+    ]);
+    expect([a.statusCode, b.statusCode]).toEqual([200, 200]);
+
+    await new Promise((r) => setTimeout(r, 1500)); // notifications are fire-and-forget
+    const after = await prisma.notification.count({ where: { userId: playerId, type: 'GAME_CANCELLED' } });
+    expect(after - before).toEqual(1);
+  });
+
   test('cancelling twice is idempotent and does not notify again', async () => {
     const before = await prisma.notification.count({ where: { userId: playerId, type: 'GAME_CANCELLED' } });
     const again = await request(app).post(`/api/games/${soccerGame.id}/cancel`).set('Authorization', orgAuth);

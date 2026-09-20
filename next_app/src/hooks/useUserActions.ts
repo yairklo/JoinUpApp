@@ -81,7 +81,12 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
             setStatus('REQUESTED');
         } catch (e) {
             console.error(e);
-            setError("שליחת בקשת החברות נכשלה");
+            // The server refuses a repeat request for a few days after a decline.
+            setError(
+                e instanceof Error && /declined/i.test(e.message)
+                    ? "הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים"
+                    : "שליחת בקשת החברות נכשלה"
+            );
             // The server may know something we don't (e.g. a request already exists): resync.
             checkStatus();
         } finally {

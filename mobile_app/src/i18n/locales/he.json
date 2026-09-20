@@ -177,6 +177,7 @@
     "noPlayersFound": "לא נמצאו שחקנים תואמים",
     "failedToLoadProfile": "טעינת פרופיל המשתמש נכשלה.",
     "failedToSendRequest": "שליחת בקשת החברות נכשלה.",
+    "requestDeclinedRecently": "הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים.",
     "failedToRemove": "הסרת החבר נכשלה.",
     "failedToAccept": "אישור הבקשה נכשל.",
     "nameRequired": "יש להזין שם (לפחות 2 תווים)",

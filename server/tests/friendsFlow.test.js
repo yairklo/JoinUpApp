@@ -102,16 +102,29 @@ describe('friend request edge cases', () => {
     await prisma.friendRequest.deleteMany({ where: { OR: [{ requesterId: { in: [alice, bob] } }, { receiverId: { in: [alice, bob] } }] } });
   });
 
-  test('a declined request does not block the pair from sending a new one', async () => {
+  test('a declined request cannot be re-sent right away by the same person (no spamming the decliner)', async () => {
     const first = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     expect(first.statusCode).toEqual(201);
     const decline = await request(app).post(`/api/users/requests/${first.body.id}/decline`).set('Authorization', bobAuth);
     expect(decline.statusCode).toEqual(200);
 
-    // same direction
+    const notificationsBefore = await prisma.notification.count({ where: { userId: bob, type: 'FRIEND_REQUEST' } });
+    const again = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
+    expect(again.statusCode).toEqual(400);
+    expect(again.body.code).toEqual('REQUEST_DECLINED_RECENTLY');
+    expect(await prisma.notification.count({ where: { userId: bob, type: 'FRIEND_REQUEST' } })).toEqual(notificationsBefore);
+  });
+
+  test('after the cooldown the same person may ask again; a still-pending request is rejected', async () => {
+    const first = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
+    await request(app).post(`/api/users/requests/${first.body.id}/decline`).set('Authorization', bobAuth);
+    await prisma.friendRequest.update({
+      where: { id: first.body.id },
+      data: { createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) },
+    });
+
     const again = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     expect(again.statusCode).toEqual(201);
-    // a still-pending request is still rejected
     const dup = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     expect(dup.statusCode).toEqual(400);
   });

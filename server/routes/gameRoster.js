@@ -20,6 +20,20 @@ const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 
 const router = express.Router();
 
+// A cancelled game is frozen: no joins, leaves, approvals or roster edits. In particular /leave
+// would otherwise promote the waitlist, or delete the game and its chat when the last player leaves.
+async function rejectIfCancelled(req, res, next) {
+  try {
+    const game = await prisma.game.findUnique({ where: { id: req.params.id }, select: { status: true } });
+    if (game && game.status === 'CANCELLED') {
+      return res.status(400).json({ error: 'Game was cancelled' });
+    }
+    return next();
+  } catch (e) {
+    return next(e);
+  }
+}
+
 router.post('/:id/join', authenticateToken, async (req, res) => {
   try {
     const game = await prisma.game.findUnique({
@@ -233,7 +247,7 @@ router.get('/:id/join-requests', authenticateToken, async (req, res) => {
 });
 
 // Approve a pending join request (organizer/manager only)
-router.post('/:id/join-requests/:userId/approve', authenticateToken, async (req, res) => {
+router.post('/:id/join-requests/:userId/approve', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
     const gameId = req.params.id;
     const targetUserId = req.params.userId;
@@ -280,7 +294,7 @@ router.post('/:id/join-requests/:userId/approve', authenticateToken, async (req,
 });
 
 // Reject a pending join request (organizer/manager only)
-router.post('/:id/join-requests/:userId/reject', authenticateToken, async (req, res) => {
+router.post('/:id/join-requests/:userId/reject', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
     const gameId = req.params.id;
     const targetUserId = req.params.userId;
@@ -311,7 +325,7 @@ router.post('/:id/join-requests/:userId/reject', authenticateToken, async (req, 
 });
 
 // Bypass/skip a waitlist user with an active offer (organizer/manager only)
-router.post('/:id/waitlist-bypass/:userId', authenticateToken, async (req, res) => {
+router.post('/:id/waitlist-bypass/:userId', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
     const gameId = req.params.id;
     const targetUserId = req.params.userId;
@@ -371,7 +385,7 @@ router.post('/:id/waitlist-bypass/:userId', authenticateToken, async (req, res) 
 });
 
 // Leave game
-router.post('/:id/leave', authenticateToken, async (req, res) => {
+router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
     const game = await prisma.game.findUnique({ where: { id: req.params.id } });
     if (!game) {
@@ -445,7 +459,7 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/:id/waitlist-confirm', authenticateToken, async (req, res) => {
+router.post('/:id/waitlist-confirm', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
     const { accept } = req.body;
     const game = await prisma.game.findUnique({
@@ -501,7 +515,7 @@ router.post('/:id/waitlist-confirm', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/:id/participants', authenticateToken, async (req, res) => {
+router.post('/:id/participants', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
     const gameId = req.params.id;
     const { userId } = req.body;
@@ -584,7 +598,7 @@ router.post('/:id/participants', authenticateToken, async (req, res) => {
 });
 
 // Remove participant from game (organizer/manager only)
-router.delete('/:id/participants/:userId', authenticateToken, async (req, res) => {
+router.delete('/:id/participants/:userId', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
     const gameId = req.params.id;
     const targetUserId = req.params.userId;
@@ -671,7 +685,7 @@ router.delete('/:id/participants/:userId', authenticateToken, async (req, res) =
 });
 
 // Toggle participant's captain role
-router.patch('/:id/participants/:userId/captain', authenticateToken, async (req, res) => {
+router.patch('/:id/participants/:userId/captain', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
     const gameId = req.params.id;
     const targetUserId = req.params.userId;

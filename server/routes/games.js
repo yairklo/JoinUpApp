@@ -111,7 +111,7 @@ const LIST_FILTER_KEYS = ['sport', 'city', 'q', 'fieldId', 'date', 'isOpenToJoin
 router.get('/', attachOptionalUser, async (req, res) => {
   try {
     const hasFilter = LIST_FILTER_KEYS.some((k) => typeof req.query[k] !== 'undefined' && req.query[k] !== '');
-    res.json(hasFilter ? await searchGames(req.query, req.user?.id) : await getAllGames(req.user?.id));
+    res.json(hasFilter ? await searchGames(req.query, req.user?.id, { dedupe: false }) : await getAllGames(req.user?.id));
   } catch (error) {
     handleRouteError(res, error, 'Failed to get games');
   }

@@ -177,6 +177,7 @@
     "noPlayersFound": "No matching players found",
     "failedToLoadProfile": "Failed to load user profile.",
     "failedToSendRequest": "Failed to send friend request.",
+    "requestDeclinedRecently": "Your previous request was declined. You can send a new one in a few days.",
     "failedToRemove": "Failed to remove friend.",
     "failedToAccept": "Failed to accept request.",
     "nameRequired": "Enter a name (at least 2 characters)",
