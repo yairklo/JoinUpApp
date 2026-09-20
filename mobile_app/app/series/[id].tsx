@@ -494,7 +494,7 @@ export default function SeriesScreen() {
                                         <View className="flex-1">
                                             <Text className="font-bold text-gray-800 text-base">{gDate.toLocaleDateString(dateLocale, { weekday: 'long' })}</Text>
                                             <Text className="text-gray-500 text-xs mt-0.5">
-                                                {game.currentPlayers} / {game.maxPlayers} {t('series.players', 'Players')} · {game.time}
+                                                {game.currentPlayers} / {game.maxPlayers} {t('series.players', 'Players')} · {game.time || series.time}
                                             </Text>
                                         </View>
                                         <FontAwesome name="chevron-left" size={12} color="#d1d5db" />
@@ -665,7 +665,7 @@ export default function SeriesScreen() {
                                     className={`p-4 rounded-xl items-center mb-3 ${updating ? 'bg-gray-400' : 'bg-brand'}`}
                                 >
                                     <Text className="text-white font-bold text-base">
-                                        {updating ? t('series.saving', 'שומר...') : t('series.saveChanges', 'שמירת שינויים')}
+                                        {updating ? t('series.saving', 'Saving...') : t('series.saveChanges', 'Save Changes')}
                                     </Text>
                                 </TouchableOpacity>
 

@@ -2,7 +2,7 @@ const express = require('express');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { prisma } = require('../lib/prisma');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
-const { parseJerusalemTimeToUTC, formatJerusalemDate } = require('../utils/timezone');
+const { parseJerusalemTimeToUTC, formatJerusalemDate, formatJerusalemTime } = require('../utils/timezone');
 const gameScheduler = require('../services/gameScheduler');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
@@ -222,6 +222,8 @@ router.get('/:seriesId', async (req, res) => {
       return {
         id: g.id,
         date: new Date(g.start).toISOString(),
+        // Jerusalem wall-clock HH:mm, so clients don't have to re-derive it in the device timezone.
+        time: formatJerusalemTime(g.start),
         currentPlayers: confirmed,
         maxPlayers: g.maxPlayers
       };

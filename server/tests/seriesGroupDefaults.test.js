@@ -28,6 +28,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { prisma } = require('../services/gameService');
+const { formatJerusalemTime } = require('../utils/timezone');
 const { app } = require('../index');
 
 describe('Group (series) default settings', () => {
@@ -148,6 +149,16 @@ describe('Group (series) default settings', () => {
         teamSize: 5,
         welcomeMessage: 'ברוכים הבאים',
       });
+    });
+
+    test('GET /api/series/:id returns each upcoming game with its Jerusalem start time', async () => {
+      const res = await request(app).get(`/api/series/${seriesId}`);
+      expect(res.statusCode).toEqual(200);
+      expect(res.body.upcomingGames.length).toBeGreaterThan(0);
+      for (const g of res.body.upcomingGames) {
+        expect(g.time).toEqual(formatJerusalemTime(g.date));
+        expect(g.time).toMatch(/^[0-9]{2}:[0-9]{2}$/);
+      }
     });
 
     test('a game created for the group inherits the defaults it does not override', async () => {
