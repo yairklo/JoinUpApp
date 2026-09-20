@@ -2,7 +2,7 @@ const express = require('express');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { prisma } = require('../lib/prisma');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
-const { parseJerusalemTimeToUTC, formatJerusalemDate } = require('../utils/timezone');
+const { parseJerusalemTimeToUTC, formatJerusalemDate, formatJerusalemTime } = require('../utils/timezone');
 const gameScheduler = require('../services/gameScheduler');
 
 const router = express.Router();
@@ -21,13 +21,9 @@ async function canManageSeries(series, user) {
 function mapGameForClient(game) {
   if (!game) return game;
   const start = new Date(game.start);
-  const yyyy = start.getFullYear();
-  const mm = String(start.getMonth() + 1).padStart(2, '0');
-  const dd = String(start.getDate()).padStart(2, '0');
-  const hh = String(start.getHours()).padStart(2, '0');
-  const mi = String(start.getMinutes()).padStart(2, '0');
-  const date = `${yyyy}-${mm}-${dd}`;
-  const time = `${hh}:${mi}`;
+  // Jerusalem wall-clock, not the server's timezone (see formatJerusalemDate/Time).
+  const date = formatJerusalemDate(start);
+  const time = formatJerusalemTime(start);
   const allParts = Array.isArray(game?.participants) ? game.participants : [];
   const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
   const waitlisted = allParts.filter(p => p.status === 'WAITLISTED');

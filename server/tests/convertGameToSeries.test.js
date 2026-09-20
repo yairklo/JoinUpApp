@@ -24,6 +24,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { prisma } = require('../services/gameService');
+const { formatJerusalemTime, getJerusalemDayHour } = require('../utils/timezone');
 const { app } = require('../index');
 
 describe('convertGameToSeries pairs a ChatRoom with every auto-generated occurrence', () => {
@@ -99,6 +100,13 @@ describe('convertGameToSeries pairs a ChatRoom with every auto-generated occurre
 
     seriesId = res.body.seriesId;
     createdGameIds = res.body.created.map((g) => g.id);
+
+    // The series time/weekday are Jerusalem wall-clock values, whatever timezone the server
+    // process runs in (run with TZ=UTC to reproduce the "18:00 game -> 15:00 series" bug).
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    const gameRow = await prisma.game.findUnique({ where: { id: originalGame.id } });
+    expect(series.time).toEqual(formatJerusalemTime(gameRow.start));
+    expect(series.dayOfWeek).toEqual(getJerusalemDayHour(gameRow.start).dayOfWeek);
 
     for (const gameId of createdGameIds) {
       const chatRoom = await prisma.chatRoom.findUnique({ where: { id: gameId } });
