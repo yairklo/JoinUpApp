@@ -129,6 +129,29 @@ describe('friend request edge cases', () => {
     expect(dup.statusCode).toEqual(400);
   });
 
+  test('the cooldown counts from the decline, not from when the request was first sent', async () => {
+    const first = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
+    // a request that sat unanswered for 10 days...
+    await prisma.friendRequest.update({ where: { id: first.body.id }, data: { createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) } });
+    // ...and is declined now must still block an immediate re-send
+    await request(app).post(`/api/users/requests/${first.body.id}/decline`).set('Authorization', bobAuth);
+    const again = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
+    expect(again.statusCode).toEqual(400);
+    expect(again.body.code).toEqual('REQUEST_DECLINED_RECENTLY');
+  });
+
+  test('two concurrent re-sends after the cooldown do not produce a 500', async () => {
+    const first = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
+    await request(app).post(`/api/users/requests/${first.body.id}/decline`).set('Authorization', bobAuth);
+    await prisma.friendRequest.update({ where: { id: first.body.id }, data: { createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) } });
+    const results = await Promise.all([
+      request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob }),
+      request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob }),
+    ]);
+    for (const r of results) expect([201, 400]).toContain(r.statusCode);
+    expect(results.some((r) => r.statusCode === 201)).toBe(true);
+  });
+
   test('the other side can request after being declined', async () => {
     const first = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     await request(app).post(`/api/users/requests/${first.body.id}/decline`).set('Authorization', bobAuth);

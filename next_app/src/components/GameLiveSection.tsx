@@ -168,6 +168,8 @@ export default function GameLiveSection({
   }, [socket, initialGame.id]);
 
   const mergeAndSet = (updated?: any) => {
+    // A join/leave/waitlist result is newer than any refresh that started before it.
+    if (updated) lastPushAt.current = Date.now();
     if (updated) setGame((prev) => ({ ...prev, ...normalizeIncomingGame(updated) }));
   };
 

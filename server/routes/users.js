@@ -700,7 +700,8 @@ router.post('/requests', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'Your previous request was declined; you can send a new one later', code: 'REQUEST_DECLINED_RECENTLY' });
       }
       // Otherwise a declined request must not block the pair forever.
-      await prisma.friendRequest.delete({ where: { id: existingReq.id } });
+      // deleteMany: two concurrent re-sends must not make the second one fail with P2025 (a 500)
+      await prisma.friendRequest.deleteMany({ where: { id: existingReq.id } });
     } else if (existingReq) {
       return res.status(400).json({ error: 'Request already exists' });
     }
@@ -817,7 +818,9 @@ router.post('/requests/:id/decline', authenticateToken, async (req, res) => {
   try {
     const reqRow = await prisma.friendRequest.findUnique({ where: { id: req.params.id } });
     if (!reqRow || reqRow.receiverId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
-    await prisma.friendRequest.update({ where: { id: reqRow.id }, data: { status: 'DECLINED' } });
+    // createdAt doubles as "when this request last changed state": the resend cooldown (see
+    // DECLINED_RESEND_COOLDOWN_MS) is measured from the decline, not from when it was first sent.
+    await prisma.friendRequest.update({ where: { id: reqRow.id }, data: { status: 'DECLINED', createdAt: new Date() } });
 
     // The decliner's pending-request badge count just dropped by one.
     broadcastCounters(req.app.get('io'), prisma, req.user.id).catch(() => {});
