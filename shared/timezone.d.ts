@@ -1,4 +1,7 @@
 export function parseJerusalemTimeToUTC(dateStr: string, timeStr: string): Date;
+export function tryParseJerusalemTimeToUTC(dateStr: string, timeStr: string): Date | null;
+export function jerusalemInstantToPickerDate(instant: Date | string | number): Date;
+export function pickerToJerusalemUTC(datePart: Date, timePart?: Date): Date;
 export function formatJerusalemDate(dateInput?: Date | string | number): string;
 export function formatJerusalemTime(dateInput: Date | string | number): string;
 export function getJerusalemDayHour(date?: Date): { dayOfWeek: number; hour: number };

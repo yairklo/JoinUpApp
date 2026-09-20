@@ -8,7 +8,7 @@ import type { Field } from '@/services/api/fields';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
-import { parseJerusalemTimeToUTC } from '@/utils/timezone';
+import { formatJerusalemDate, formatJerusalemTime, pickerToJerusalemUTC } from '@/utils/timezone';
 import { SPORT_MAPPING } from '@/utils/sports';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppBaseMap, { AppBaseMapHandle, MapMarkerRenderContext } from '@/components/map/AppBaseMap';
@@ -409,19 +409,8 @@ export default function NewGameScreen() {
         }
 
         // Combine Date and Time safely using local timezone components
-        const gameDate = new Date(date);
-        const year = gameDate.getFullYear();
-        const month = (gameDate.getMonth() + 1).toString().padStart(2, '0');
-        const day = gameDate.getDate().toString().padStart(2, '0');
-        const dateStr = `${year}-${month}-${day}`;
-
-        // Format time string HH:mm
-        const hours = time.getHours().toString().padStart(2, '0');
-        const minutes = time.getMinutes().toString().padStart(2, '0');
-        const timeString = `${hours}:${minutes}`;
-
         // Client-side validation: must be in the future
-        const startDateTime = parseJerusalemTimeToUTC(dateStr, timeString);
+        const startDateTime = pickerToJerusalemUTC(new Date(date), time);
         if (startDateTime.getTime() <= Date.now()) {
             Alert.alert(
                 t('game.validationError', 'שגיאת ולידציה'),
@@ -440,26 +429,17 @@ export default function NewGameScreen() {
 
             let registrationOpensAt = undefined;
             if (futureRegistration) {
-                const frGameDate = new Date(futureRegDate);
-                const frDate = `${frGameDate.getFullYear()}-${(frGameDate.getMonth() + 1).toString().padStart(2, '0')}-${frGameDate.getDate().toString().padStart(2, '0')}`;
-                const frTime = `${futureRegTime.getHours().toString().padStart(2, '0')}:${futureRegTime.getMinutes().toString().padStart(2, '0')}`;
-                registrationOpensAt = parseJerusalemTimeToUTC(frDate, frTime).toISOString();
+                registrationOpensAt = pickerToJerusalemUTC(futureRegDate, futureRegTime).toISOString();
             }
 
             let friendsOnlyUntil = undefined;
             if (isPrivate && makePublicLater) {
-                const pdGameDate = new Date(publicDate);
-                const pdDate = `${pdGameDate.getFullYear()}-${(pdGameDate.getMonth() + 1).toString().padStart(2, '0')}-${pdGameDate.getDate().toString().padStart(2, '0')}`;
-                const pdTime = `${publicTime.getHours().toString().padStart(2, '0')}:${publicTime.getMinutes().toString().padStart(2, '0')}`;
-                friendsOnlyUntil = parseJerusalemTimeToUTC(pdDate, pdTime).toISOString();
+                friendsOnlyUntil = pickerToJerusalemUTC(publicDate, publicTime).toISOString();
             }
 
             let lotteryAt = undefined;
             if (lotteryEnabled) {
-                const ldGameDate = new Date(lotteryDate);
-                const ldDate = `${ldGameDate.getFullYear()}-${(ldGameDate.getMonth() + 1).toString().padStart(2, '0')}-${ldGameDate.getDate().toString().padStart(2, '0')}`;
-                const ldTime = `${lotteryTime.getHours().toString().padStart(2, '0')}:${lotteryTime.getMinutes().toString().padStart(2, '0')}`;
-                lotteryAt = parseJerusalemTimeToUTC(ldDate, ldTime).toISOString();
+                lotteryAt = pickerToJerusalemUTC(lotteryDate, lotteryTime).toISOString();
             }
 
             // Construct payload matching backend expectation
@@ -476,8 +456,8 @@ export default function NewGameScreen() {
                     }
                 } : {}),
                 ...(customPoint ? { customLat: customPoint.latitude, customLng: customPoint.longitude } : {}),
-                date: dateStr,
-                time: timeString,
+                date: formatJerusalemDate(startDateTime),
+                time: formatJerusalemTime(startDateTime),
                 start,
                 maxPlayers: parseInt(maxPlayers) || 14,
                 price: parseInt(price) || 0,

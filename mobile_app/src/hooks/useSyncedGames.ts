@@ -7,13 +7,10 @@ import {
     useGameUpdatedListener,
 } from "@/context/GameUpdateContext";
 import { Game } from "@/types/game";
+import { gameStartMs } from "@/utils/timezone";
 
 function sortByStart(games: Game[]) {
-    return [...games].sort((a, b) => {
-        const timeA = (a.date && a.time) ? new Date(`${a.date}T${a.time}`).getTime() : 0;
-        const timeB = (b.date && b.time) ? new Date(`${b.date}T${b.time}`).getTime() : 0;
-        return timeA - timeB;
-    });
+    return [...games].sort((a, b) => gameStartMs(a) - gameStartMs(b));
 }
 
 export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (game: Game) => boolean) {

@@ -3,6 +3,9 @@ const {
   formatJerusalemTime,
   getJerusalemDayHour,
   parseJerusalemTimeToUTC,
+  tryParseJerusalemTimeToUTC,
+  jerusalemInstantToPickerDate,
+  pickerToJerusalemUTC,
   buildActiveGameStartFilter,
   getActiveGameStartCutoff,
   ACTIVE_GAME_GRACE_MS,
@@ -97,5 +100,42 @@ describe('buildActiveGameStartFilter', () => {
     const { gte } = buildActiveGameStartFilter(new Date());
     const cutoff = getActiveGameStartCutoff();
     expect(Math.abs(gte.getTime() - cutoff.getTime())).toBeLessThan(2000);
+  });
+});
+
+describe('tryParseJerusalemTimeToUTC', () => {
+  test('matches parseJerusalemTimeToUTC for valid input', () => {
+    expect(tryParseJerusalemTimeToUTC('2026-08-31', '21:30').toISOString()).toEqual('2026-08-31T18:30:00.000Z');
+  });
+
+  test.each([[undefined], [null], [''], ['10:00:00'], ['garbage']])(
+    'returns null instead of throwing for time %p',
+    (time) => {
+      expect(tryParseJerusalemTimeToUTC('2026-08-31', time)).toBeNull();
+    }
+  );
+
+  test('returns null for a missing date', () => {
+    expect(tryParseJerusalemTimeToUTC(undefined, '21:30')).toBeNull();
+  });
+});
+
+describe('picker <-> Jerusalem round trip (device-local getters)', () => {
+  test('jerusalemInstantToPickerDate exposes Jerusalem wall-clock via local getters', () => {
+    // 2026-08-31T21:30:00Z is 2026-09-01 00:30 in Jerusalem (UTC+3)
+    const p = jerusalemInstantToPickerDate('2026-08-31T21:30:00Z');
+    expect([p.getFullYear(), p.getMonth() + 1, p.getDate(), p.getHours(), p.getMinutes()]).toEqual([2026, 9, 1, 0, 30]);
+  });
+
+  test('prefill then save returns the original instant (no per-save drift), in any device timezone', () => {
+    const iso = '2026-08-31T17:00:00.000Z';
+    const p = jerusalemInstantToPickerDate(iso);
+    expect(pickerToJerusalemUTC(p, p).toISOString()).toEqual(iso);
+  });
+
+  test('pickerToJerusalemUTC combines separate date and time pickers', () => {
+    const date = new Date(2026, 7, 31, 3, 0); // 2026-08-31, time part ignored
+    const time = new Date(2026, 0, 1, 21, 30); // 21:30, date part ignored
+    expect(pickerToJerusalemUTC(date, time).toISOString()).toEqual('2026-08-31T18:30:00.000Z');
   });
 });
