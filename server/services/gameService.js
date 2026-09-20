@@ -4,6 +4,8 @@ const {
   getActiveGameStartCutoff,
   buildActiveGameStartFilter,
   parseJerusalemTimeToUTC,
+  formatJerusalemTime,
+  getJerusalemDayHour,
 } = require('../utils/timezone');
 const {
   isGameRatingEligible,
@@ -715,8 +717,8 @@ async function createGame(payload, creatorUser, io) {
         fieldLocation: field.location,
         price: price ? parseInt(price) : (field.price ?? 0),
         maxPlayers: Number(maxPlayers),
-        dayOfWeek: weekly ? (Number.isInteger(recurrence?.dayOfWeek) ? Number(recurrence.dayOfWeek) : start.getDay()) : null,
-        time: String(recurrence?.time || time),
+        dayOfWeek: weekly ? (Number.isInteger(recurrence?.dayOfWeek) ? Number(recurrence.dayOfWeek) : getJerusalemDayHour(start).dayOfWeek) : null,
+        time: String(recurrence?.time || time || formatJerusalemTime(start)),
         duration: Number(isNaN(Number(duration)) ? 1 : Number(duration)),
         isActive: true,
         type: weekly ? 'WEEKLY' : 'CUSTOM',
@@ -1162,9 +1164,10 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
   }
 
   const start = new Date(existing.start);
-  const hh = String(start.getHours()).padStart(2, '0');
-  const mi = String(start.getMinutes()).padStart(2, '0');
-  const time = `${hh}:${mi}`;
+  // Series time / weekday are Jerusalem wall-clock values (like every other stored series time).
+  // getHours()/getDay() use the *server's* timezone (UTC on the host), which made an 18:00 Israel
+  // game produce a series stored as 15:00.
+  const time = formatJerusalemTime(start);
 
   const series = await prisma.gameSeries.create({
     data: {
@@ -1175,7 +1178,7 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
       fieldLocation: existing.field?.location || '',
       price: existing.price ?? existing.field?.price ?? 0,
       maxPlayers: existing.maxPlayers,
-      dayOfWeek: start.getDay(),
+      dayOfWeek: getJerusalemDayHour(start).dayOfWeek,
       time,
       duration: Number(existing.duration),
       isActive: true,

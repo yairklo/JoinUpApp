@@ -63,7 +63,10 @@ export default function GamesPageContent({
                             display="flex"
                             gap={1}
                             sx={{
-                                overflowX: "auto",
+                                // Wrap on phones so no chip is clipped at the edge; only scroll on
+                                // wider screens where a single row is guaranteed to fit.
+                                flexWrap: { xs: "wrap", md: "nowrap" },
+                                overflowX: { xs: "visible", md: "auto" },
                                 scrollbarWidth: "none",
                                 "&::-webkit-scrollbar": { display: "none" },
                                 WebkitOverflowScrolling: "touch",

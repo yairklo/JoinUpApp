@@ -15,6 +15,7 @@ import MyLocationIcon from "@mui/icons-material/MyLocation";
 import { fieldsApi } from "@/services/api/fields";
 import { normalizeCity } from "@joinup/shared/cityAliases";
 import { asLatLngTuple, sanitizeCityList } from "@/utils/geo";
+import { isGeolocationPermissionGranted } from "@/utils/geolocation";
 
 const ALL_CITIES_LABEL = "כל הערים";
 
@@ -161,19 +162,10 @@ const CityPicker = forwardRef<CityPickerHandle, CityPickerProps>(function CityPi
     // granted (desktop users who allowed it before). Mobile Safari often rejects
     // permissions.query({name:'geolocation'}) — treat that as "don't auto-prompt".
     const maybeAutoDetect = async () => {
-      try {
-        const query = navigator.permissions?.query;
-        if (typeof query !== "function") {
-          skipAuto();
-          return;
-        }
-        const status = await query.call(navigator.permissions, { name: "geolocation" as PermissionName });
-        if (cancelled) return;
-        if (status.state === "granted") detectLocation();
-        else skipAuto();
-      } catch {
-        skipAuto();
-      }
+      const granted = await isGeolocationPermissionGranted();
+      if (cancelled) return;
+      if (granted) detectLocation();
+      else skipAuto();
     };
 
     void maybeAutoDetect();

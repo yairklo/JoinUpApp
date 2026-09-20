@@ -404,15 +404,22 @@ export default function ProfilePage() {
                 <CardContent>
 
                   {/* Header Area */}
-                  <Box display="flex" alignItems="center" gap={3} mb={3}>
+                  <Box display="flex" alignItems="center" flexWrap={{ xs: "wrap", md: "nowrap" }} gap={{ xs: 2, md: 3 }} mb={3}>
                     <Avatar
                       src={editing ? form.imageUrl : profile.imageUrl}
                       alt={profile.name || ""}
                       name={profile.name || ""}
                       size="lg"
                     />
-                    <Box flexGrow={1}>
-                      <Typography variant="h4" component="h1" fontWeight="bold">
+                    <Box flexGrow={1} minWidth={0}>
+                      <Typography
+                        variant="h4"
+                        component="h1"
+                        fontWeight="bold"
+                        // A name that is really an email (no display name set) has no break
+                        // opportunities and used to run off the edge on phones.
+                        sx={{ fontSize: { xs: "1.5rem", sm: "2.125rem" }, overflowWrap: "anywhere" }}
+                      >
                         {profile.name || "משתמש ללא שם"}
                       </Typography>
                       <Typography variant="body1" color="text.secondary">
@@ -453,7 +460,7 @@ export default function ProfilePage() {
                     <Grid container spacing={2}>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <Typography variant="caption" color="text.secondary">אימייל</Typography>
-                        <Typography variant="body1">{profile.email || '-'}</Typography>
+                        <Typography variant="body1" sx={{ overflowWrap: "anywhere" }}>{profile.email || '-'}</Typography>
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <Typography variant="caption" color="text.secondary">טלפון</Typography>
