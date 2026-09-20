@@ -121,7 +121,12 @@ describe('cancelling a single game and list filters', () => {
     expect(cancel.body.status).toEqual('CANCELLED');
     expect(cancel.body.isOpenToJoin).toEqual(false);
 
-    const notif = await prisma.notification.findFirst({ where: { userId: playerId, type: 'GAME_CANCELLED' } });
+    // sendNotification is fire-and-forget in cancelGame, so wait for the row instead of racing it
+    let notif = null;
+    for (let i = 0; i < 30 && !notif; i++) {
+      notif = await prisma.notification.findFirst({ where: { userId: playerId, type: 'GAME_CANCELLED' } });
+      if (!notif) await new Promise((r) => setTimeout(r, 200));
+    }
     expect(notif).toBeTruthy();
     expect(notif.data.gameId).toEqual(soccerGame.id);
     // the organizer who cancelled is not notified about their own action
