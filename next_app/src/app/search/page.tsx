@@ -19,7 +19,7 @@ import MapErrorBoundary from "@/components/MapErrorBoundary";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLoadErrorMessage } from "@/utils/apiError";
 import { asLatLngTuple } from "@/utils/geo";
-import { formatHebrewDate, HEBREW_DATE_INPUT_PROPS } from "@/utils/hebrewDate";
+import HebrewDateInput from "@/components/HebrewDateInput";
 
 // MUI
 import Box from "@mui/material/Box";
@@ -447,16 +447,7 @@ function SearchPageInner() {
               variant={!selectedDate ? "filled" : "outlined"}
               sx={{ fontWeight: 600, height: 40, px: 1 }}
             />
-            <TextField
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-              fullWidth
-              slotProps={{ htmlInput: HEBREW_DATE_INPUT_PROPS }}
-              helperText={selectedDate ? formatHebrewDate(selectedDate) : " "}
-            />
+            <HebrewDateInput value={selectedDate} onChange={setSelectedDate} />
           </Stack>
         </Stack>
 
@@ -566,13 +557,14 @@ function SearchPageInner() {
         sx={{
           display: { xs: "inline-flex", md: "none" },
           position: "fixed",
+          // Pinned to the inline-end corner (left in RTL) instead of centered: the cards' join /
+          // sign-in CTA sits at the inline-start, and a centered pill covered it.
           bottom: "calc(80px + env(safe-area-inset-bottom))",
-          left: "50%",
-          transform: "translateX(-50%)",
+          insetInlineEnd: 16,
           zIndex: 1100,
-          px: 2.75,
-          py: 1.1,
-          minWidth: 128,
+          px: 2,
+          py: 1,
+          minWidth: 0,
           bgcolor: "text.primary",
           color: "background.paper",
           boxShadow: "0 10px 28px rgba(2,6,23,0.35)",

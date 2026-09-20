@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin, InfoWindow, useMap } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
+import { isGeolocationPermissionGranted } from "@/utils/geolocation";
 
 type FieldPoint = {
   id: string;
@@ -57,28 +58,40 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
     };
   }, []);
 
-  // Get user geolocation (fallback Tel Aviv)
+  // Get user geolocation (fallback Tel Aviv). Never prompts on mount: the position is only read
+  // when the permission was already granted; otherwise the map centers on the fallback.
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setUserLocation({ lat: 32.0853, lng: 34.7818 });
-      return;
-    }
-    try {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos?.coords?.latitude;
-          const lng = pos?.coords?.longitude;
-          if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
-            setUserLocation({ lat, lng });
-          } else {
-            setUserLocation({ lat: 32.0853, lng: 34.7818 });
-          }
-        },
-        () => setUserLocation({ lat: 32.0853, lng: 34.7818 })
-      );
-    } catch {
-      setUserLocation({ lat: 32.0853, lng: 34.7818 });
-    }
+    let cancelled = false;
+    const setFallback = () => {
+      if (!cancelled) setUserLocation({ lat: 32.0853, lng: 34.7818 });
+    };
+    void isGeolocationPermissionGranted().then((granted) => {
+      if (cancelled) return;
+      if (!granted) {
+        setFallback();
+        return;
+      }
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (cancelled) return;
+            const lat = pos?.coords?.latitude;
+            const lng = pos?.coords?.longitude;
+            if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
+              setUserLocation({ lat, lng });
+            } else {
+              setFallback();
+            }
+          },
+          setFallback
+        );
+      } catch {
+        setFallback();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const fieldMarkers: FieldWithCoords[] = useMemo(() => {
