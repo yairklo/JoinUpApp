@@ -76,7 +76,7 @@ export default function PrivacySettingsScreen() {
             Alert.alert('', t('privacy.saved'));
         } catch (e) {
             console.error('Failed to save privacy settings', e);
-            Alert.alert(t('error', 'Error'), t('privacy.saveFailed'));
+            Alert.alert(t('common.error', 'Error'), t('privacy.saveFailed'));
         } finally {
             setSaving(false);
         }

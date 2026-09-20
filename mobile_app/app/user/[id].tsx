@@ -74,7 +74,7 @@ export default function UserProfileScreen() {
             }
         } catch (error) {
             console.error('Error loading user profile:', error);
-            Alert.alert(t('error', 'Error'), t('failedToLoadProfile', 'Failed to load user profile.'));
+            Alert.alert(t('common.error', 'Error'), t('profile.failedToLoadProfile', 'Failed to load user profile.'));
         } finally {
             setLoading(false);
         }
@@ -88,7 +88,7 @@ export default function UserProfileScreen() {
             await usersApi.sendFriendRequest(id, token);
             setRelationship('pending_outgoing');
         } catch (error) {
-            Alert.alert(t('error', 'Error'), t('failedToSendRequest', 'Failed to send friend request.'));
+            Alert.alert(t('common.error', 'Error'), t('profile.failedToSendRequest', 'Failed to send friend request.'));
         } finally {
             setActionLoading(false);
         }
@@ -102,7 +102,7 @@ export default function UserProfileScreen() {
             await usersApi.removeFriend(currentUser!.id, id, token);
             setRelationship('none');
         } catch (error) {
-            Alert.alert(t('error', 'Error'), t('failedToRemove', 'Failed to remove friend.'));
+            Alert.alert(t('common.error', 'Error'), t('profile.failedToRemove', 'Failed to remove friend.'));
         } finally {
             setActionLoading(false);
         }
@@ -122,7 +122,7 @@ export default function UserProfileScreen() {
                 setRelationship('friends');
             }
         } catch (error) {
-            Alert.alert(t('error', 'Error'), t('failedToAccept', 'Failed to accept request.'));
+            Alert.alert(t('common.error', 'Error'), t('profile.failedToAccept', 'Failed to accept request.'));
         } finally {
             setActionLoading(false);
         }
@@ -154,9 +154,9 @@ export default function UserProfileScreen() {
     if (!profile) {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
-                <Text className="text-gray-500">User not found.</Text>
+                <Text className="text-gray-500">{t('profile.userNotFound', 'User not found.')}</Text>
                 <TouchableOpacity onPress={() => router.back()} className="mt-4 p-2 bg-gray-200 rounded-lg">
-                    <Text>Go Back</Text>
+                    <Text>{t('common.back', 'Go Back')}</Text>
                 </TouchableOpacity>
             </SafeAreaView>
         );
@@ -212,7 +212,7 @@ export default function UserProfileScreen() {
                                 className="bg-red-50 px-6 py-3 rounded-xl border border-red-200 flex-row items-center"
                             >
                                 <FontAwesome name="user-times" size={16} color="#ef4444" style={{ marginRight: 8 }} />
-                                <Text className="text-red-500 font-bold">{actionLoading ? '...' : t('removeFriend', 'Remove Friend')}</Text>
+                                <Text className="text-red-500 font-bold">{actionLoading ? '...' : t('profile.removeFriend', 'Remove Friend')}</Text>
                             </TouchableOpacity>
                         )}
 
@@ -223,7 +223,7 @@ export default function UserProfileScreen() {
                                 className="bg-brand px-6 py-3 rounded-xl flex-row items-center"
                             >
                                 <FontAwesome name="user-plus" size={16} color="#ffffff" style={{ marginRight: 8 }} />
-                                <Text className="text-white font-bold">{actionLoading ? '...' : t('addFriend', 'Add Friend')}</Text>
+                                <Text className="text-white font-bold">{actionLoading ? '...' : t('profile.addFriend', 'Add Friend')}</Text>
                             </TouchableOpacity>
                         )}
 
@@ -233,7 +233,7 @@ export default function UserProfileScreen() {
                                 className="bg-gray-100 px-6 py-3 rounded-xl border border-gray-300 flex-row items-center"
                             >
                                 <FontAwesome name="clock-o" size={16} color="#6b7280" style={{ marginRight: 8 }} />
-                                <Text className="text-gray-500 font-bold">{t('requestSent', 'Request Sent')}</Text>
+                                <Text className="text-gray-500 font-bold">{t('profile.pendingSent', 'Request Sent')}</Text>
                             </TouchableOpacity>
                         )}
 
@@ -244,7 +244,7 @@ export default function UserProfileScreen() {
                                 className="bg-green-600 px-6 py-3 rounded-xl flex-row items-center"
                             >
                                 <FontAwesome name="check" size={16} color="#ffffff" style={{ marginRight: 8 }} />
-                                <Text className="text-white font-bold">{actionLoading ? '...' : t('acceptRequest', 'Accept Request')}</Text>
+                                <Text className="text-white font-bold">{actionLoading ? '...' : t('profile.acceptRequest', 'Accept Request')}</Text>
                             </TouchableOpacity>
                         )}
 
@@ -264,9 +264,9 @@ export default function UserProfileScreen() {
                                     } catch (err: any) {
                                         console.error('Error starting chat', err);
                                         if (err?.status === 403) {
-                                            Alert.alert(t('error', 'Error'), t('privacy.messagesBlocked', 'This user only accepts messages from friends'));
+                                            Alert.alert(t('common.error', 'Error'), t('privacy.messagesBlocked', 'This user only accepts messages from friends'));
                                         } else {
-                                            Alert.alert(t('error', 'Error'), t('failedToStartChat', 'Failed to start chat.'));
+                                            Alert.alert(t('common.error', 'Error'), t('profile.failedToStartChat', 'Failed to start chat.'));
                                         }
                                     } finally {
                                         setActionLoading(false);
@@ -276,7 +276,7 @@ export default function UserProfileScreen() {
                                 className="bg-white px-6 py-3 rounded-xl border border-brand-pale flex-row items-center shadow-sm"
                             >
                                 <FontAwesome name="paper-plane" size={16} color="#059669" style={{ marginRight: 8 }} />
-                                <Text className="text-brand font-bold">{t('sendMessage', 'Send Message')}</Text>
+                                <Text className="text-brand font-bold">{t('profile.sendMessage', 'Send Message')}</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -285,12 +285,12 @@ export default function UserProfileScreen() {
 
                 {/* Additional Info */}
                 <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                    <Text className="font-bold text-gray-900 text-lg mb-4">{t('about', 'About')}</Text>
+                    <Text className="font-bold text-gray-900 text-lg mb-4">{t('profile.about', 'About')}</Text>
                     
                     {profile.age ? (
                         <View className="flex-row items-center mb-3">
                             <View className="w-8 items-center"><FontAwesome name="birthday-cake" size={16} color="#9ca3af" /></View>
-                            <Text className="text-gray-700">{profile.age} {t('yearsOld', 'years old')}</Text>
+                            <Text className="text-gray-700">{profile.age} {t('profile.yearsOld', 'years old')}</Text>
                         </View>
                     ) : null}
 
@@ -307,7 +307,7 @@ export default function UserProfileScreen() {
 
                     {profile.sports && profile.sports.length > 0 && (
                         <View className="mt-4">
-                            <Text className="font-bold text-gray-800 mb-2">{t('favoriteSports', 'Favorite Sports')}</Text>
+                            <Text className="font-bold text-gray-800 mb-2">{t('profile.favoriteSports', 'Favorite Sports')}</Text>
                             <View className="flex-row flex-wrap">
                                 {profile.sports.map((sport, index) => (
                                     <View key={index} className="bg-brand-mist px-3 py-1 rounded-full mr-2 mb-2 border border-brand-pale">

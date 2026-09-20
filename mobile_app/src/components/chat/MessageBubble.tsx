@@ -88,7 +88,7 @@ function MessageBubble({
 
                 <View className="flex-row items-center justify-end mt-1">
                     {message.isEdited && !message.isDeleted && (
-                        <Text className={`text-[9px] mr-1 ${isMe ? 'text-brand-pale' : 'text-gray-400'}`}>Edited</Text>
+                        <Text className={`text-[9px] mr-1 ${isMe ? 'text-brand-pale' : 'text-gray-400'}`}>{t('chat.edited', 'Edited')}</Text>
                     )}
                     <Text className={`text-[9px] font-medium ${isMe ? 'text-brand-pale' : 'text-gray-400'}`}>
                         {new Date(message.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -46,7 +46,7 @@ export default function PlayerSearch() {
             } catch (error) {
                 if (!cancelled) {
                     console.error('Search players failed:', error);
-                    Alert.alert(t('error', 'שגיאה'), t('searchFailed', 'החיפוש נכשל, נסה שוב.'));
+                    Alert.alert(t('common.error', 'שגיאה'), t('profile.searchFailed', 'החיפוש נכשל, נסה שוב.'));
                 }
             } finally {
                 if (!cancelled) setLoading(false);
@@ -68,7 +68,7 @@ export default function PlayerSearch() {
             )));
         } catch (error) {
             console.error('Failed to send friend request:', error);
-            Alert.alert(t('error', 'שגיאה'), t('failedToSendRequest', 'שליחת הבקשה נכשלה.'));
+            Alert.alert(t('common.error', 'שגיאה'), t('profile.failedToSendRequest', 'שליחת הבקשה נכשלה.'));
         } finally {
             setActionLoadingId(null);
         }

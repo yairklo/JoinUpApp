@@ -22,7 +22,7 @@ import { ChatProvider } from "@/context/ChatContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { NotificationCountersProvider } from "@/context/NotificationCountersContext";
 import { GameUpdateProvider } from "@/context/GameUpdateContext";
-import { I18nextProvider } from 'react-i18next';
+import { I18nextProvider, useTranslation } from 'react-i18next';
 import i18n, { initI18n } from "@/i18n";
 import { SocketManager } from "@/services/socketManager";
 import { ColorModeProvider, useColorMode } from "@/theme/ColorModeContext";
@@ -134,6 +134,7 @@ function RootLayoutInner() {
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const router = useRouter();
   const segments = useSegments();
@@ -194,7 +195,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getToken identity churn must not remount mid-handshake
   }, [isLoaded, isSignedIn]);
 
-  if (!isLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Loading Clerk...</Text></View>;
+  if (!isLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>{t('common.loadingAuth', 'Loading Clerk...')}</Text></View>;
 
   return <>{children}</>;
 }

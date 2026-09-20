@@ -1,20 +1,23 @@
 import { View, Text, Switch, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Image, Share } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { seriesApi, usersApi } from '@/services/api';
+import type { UpdateSeriesDTO } from '@/services/api/series';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
+import { SPORT_MAPPING } from '@/utils/sports';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getToken } = useAuth();
     const { user } = useUser();
     const router = useRouter();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const dateLocale = i18n.language === 'he' ? 'he-IL' : 'en-US';
 
     const [series, setSeries] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -22,10 +25,34 @@ export default function SeriesScreen() {
     // Settings State
     const [updating, setUpdating] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const scrollViewRef = useRef<ScrollView>(null);
+    const settingsSectionY = useRef(0);
+
+    const toggleSettings = () => {
+        const next = !showSettings;
+        setShowSettings(next);
+        if (next) {
+            // Settings section is collapsed by default and lives further down the page --
+            // scrolling it into view after it expands is what makes the header's gear
+            // button (and this same toggle inside the page body) actually useful.
+            setTimeout(() => {
+                scrollViewRef.current?.scrollTo({ y: settingsSectionY.current, animated: true });
+            }, 100);
+        }
+    };
     const [time, setTime] = useState('');
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [updateFuture, setUpdateFuture] = useState(true);
+    const [maxPlayers, setMaxPlayers] = useState('10');
+    const [price, setPrice] = useState('');
+    const [sport, setSport] = useState('SOCCER');
+    const [isFriendsOnly, setIsFriendsOnly] = useState(false);
+    const [requiresApproval, setRequiresApproval] = useState(false);
+    const [lotteryEnabled, setLotteryEnabled] = useState(false);
+    const [organizerInLottery, setOrganizerInLottery] = useState(false);
+    const [teamSize, setTeamSize] = useState('');
+    const [welcomeMessage, setWelcomeMessage] = useState('');
     const [memberQuery, setMemberQuery] = useState('');
     const [addingMember, setAddingMember] = useState(false);
 
@@ -44,12 +71,21 @@ export default function SeriesScreen() {
             setTime(data.time || "20:00");
             setTitle(data.title || data.fieldName || "");
             setDescription(data.description || "");
+            setMaxPlayers(data.maxPlayers ? String(data.maxPlayers) : '10');
+            setPrice(data.price ? String(data.price) : '');
+            setSport(data.sport || 'SOCCER');
+            setIsFriendsOnly(!!data.isFriendsOnly);
+            setRequiresApproval(data.joinPolicy === 'REQUIRES_APPROVAL');
+            setLotteryEnabled(!!data.lotteryEnabled);
+            setOrganizerInLottery(!!data.organizerInLottery);
+            setTeamSize(data.teamSize ? String(data.teamSize) : '');
+            setWelcomeMessage(data.welcomeMessage || '');
 
             const isSub = data.subscribers?.some((s: any) => s.userId === user?.id);
             setIsSubscribed(isSub || false);
         } catch (error) {
             console.error("Failed to load series", error);
-            Alert.alert(t('error'), t('series.loadError', 'Failed to load series details'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.loadError', 'Failed to load series details'));
         } finally {
             setLoading(false);
         }
@@ -60,12 +96,41 @@ export default function SeriesScreen() {
         try {
             const token = await getToken();
             if (!token) return;
-            await seriesApi.update(id, { time, title, description, updateFutureGames: updateFuture }, token);
-            Alert.alert(t('success'), t('series.updateSuccess', 'Series updated successfully'));
+            // Only send group defaults the user actually changed: with "update future games" on, the
+            // server writes every sent field onto all upcoming games, so resending untouched values
+            // would overwrite per-game customizations.
+            const nextMaxPlayers = maxPlayers ? parseInt(maxPlayers) : NaN;
+            if (!Number.isInteger(nextMaxPlayers) || nextMaxPlayers < 2) {
+                Alert.alert(t('common.error', 'שגיאה'), t('series.maxPlayersInvalid', 'Max players must be at least 2'));
+                return;
+            }
+            const nextPrice = price ? parseInt(price) : 0;
+            const nextTeamSize = teamSize ? parseInt(teamSize) : null;
+            const changes: Partial<UpdateSeriesDTO> = {};
+            if (nextMaxPlayers !== (series.maxPlayers || 10)) changes.maxPlayers = nextMaxPlayers;
+            if (nextPrice !== (series.price || 0)) changes.price = nextPrice;
+            if (sport !== (series.sport || 'SOCCER')) changes.sport = sport;
+            if (isFriendsOnly !== !!series.isFriendsOnly) {
+                changes.isFriendsOnly = isFriendsOnly;
+                changes.isOpenToJoin = !isFriendsOnly;
+            }
+            if (requiresApproval !== (series.joinPolicy === 'REQUIRES_APPROVAL')) {
+                changes.joinPolicy = requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT';
+            }
+            if (lotteryEnabled !== !!series.lotteryEnabled) changes.lotteryEnabled = lotteryEnabled;
+            if (organizerInLottery !== !!series.organizerInLottery) changes.organizerInLottery = organizerInLottery;
+            if (nextTeamSize !== (series.teamSize ?? null)) changes.teamSize = nextTeamSize;
+            if (welcomeMessage !== (series.welcomeMessage || '')) changes.welcomeMessage = welcomeMessage || null;
+
+            await seriesApi.update(id, {
+                time, title, description, updateFutureGames: updateFuture,
+                ...changes,
+            }, token);
+            Alert.alert(t('common.success', 'הצלחה'), t('series.updateSuccess', 'Series updated successfully'));
             fetchSeries();
         } catch (error) {
             console.error(error);
-            Alert.alert(t('error'), t('series.updateError', 'Failed to update series'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.updateError', 'Failed to update series'));
         } finally {
             setUpdating(false);
         }
@@ -76,17 +141,17 @@ export default function SeriesScreen() {
             t('series.deleteTitle', 'Delete Series'),
             t('series.deleteConfirm', 'Are you sure? This will delete all future games.'),
             [
-                { text: t('cancel', 'Cancel'), style: "cancel" },
+                { text: t('common.cancel', 'Cancel'), style: "cancel" },
                 {
-                    text: t('delete', 'Delete'), style: "destructive", onPress: async () => {
+                    text: t('common.delete', 'Delete'), style: "destructive", onPress: async () => {
                         try {
                             const token = await getToken();
                             if (!token) return;
                             await seriesApi.delete(id, token);
-                            Alert.alert(t('success'), t('series.deleteSuccess', 'Series deleted'));
+                            Alert.alert(t('common.success', 'הצלחה'), t('series.deleteSuccess', 'Series deleted'));
                             router.replace('/(tabs)');
                         } catch (e) {
-                            Alert.alert(t('error'), t('series.deleteError', 'Failed to delete series'));
+                            Alert.alert(t('common.error', 'שגיאה'), t('series.deleteError', 'Failed to delete series'));
                         }
                     }
                 }
@@ -100,7 +165,7 @@ export default function SeriesScreen() {
         try {
             await Share.share({ message, url: inviteUrl });
         } catch (e) {
-            Alert.alert(t('error'), t('series.shareError', 'Failed to share invite'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.shareError', 'Failed to share invite'));
         }
     };
 
@@ -114,14 +179,14 @@ export default function SeriesScreen() {
             const results = await usersApi.search(q, token);
             const hit = (results || []).find((u: { id: string }) => u.id !== user?.id);
             if (!hit) {
-                Alert.alert(t('error'), t('series.userNotFound', 'No matching user found'));
+                Alert.alert(t('common.error', 'שגיאה'), t('series.userNotFound', 'No matching user found'));
                 return;
             }
             await seriesApi.addMembers(id, [hit.id], token);
             setMemberQuery('');
             fetchSeries();
         } catch (e) {
-            Alert.alert(t('error'), t('series.addMemberError', 'Failed to add member'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.addMemberError', 'Failed to add member'));
         } finally {
             setAddingMember(false);
         }
@@ -134,8 +199,30 @@ export default function SeriesScreen() {
             await seriesApi.setMemberRole(id, userId, makeManager ? 'MANAGER' : 'MEMBER', token);
             fetchSeries();
         } catch (e) {
-            Alert.alert(t('error'), t('series.roleError', 'Failed to update role'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.roleError', 'Failed to update role'));
         }
+    };
+
+    const handleLeaveGroup = async () => {
+        Alert.alert(
+            t('series.leaveTitle', 'Leave Group'),
+            t('series.leaveConfirm', 'Are you sure you want to leave this group?'),
+            [
+                { text: t('common.cancel', 'Cancel'), style: "cancel" },
+                {
+                    text: t('series.leave', 'Leave'), style: "destructive", onPress: async () => {
+                        try {
+                            const token = await getToken();
+                            if (!token) return;
+                            await seriesApi.toggleSubscribe(id, true, token);
+                            router.replace('/(tabs)');
+                        } catch (e) {
+                            Alert.alert(t('common.error', 'שגיאה'), t('series.leaveError', 'Failed to leave group'));
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const toggleSubscribe = async () => {
@@ -148,7 +235,7 @@ export default function SeriesScreen() {
             fetchSeries();
         } catch (e) {
             setIsSubscribed(prev);
-            Alert.alert(t('error'), t('series.subscribeError', 'Failed to update subscription'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.subscribeError', 'Failed to update subscription'));
         }
     };
 
@@ -188,13 +275,13 @@ export default function SeriesScreen() {
     const isManager = series.subscribers?.some((s: { userId: string; role?: string }) => s.userId === user?.id && s.role === 'MANAGER');
     const canManage = isOrganizer || isManager;
     const days = [
-        t('days.sunday', 'Sunday'),
-        t('days.monday', 'Monday'),
-        t('days.tuesday', 'Tuesday'),
-        t('days.wednesday', 'Wednesday'),
-        t('days.thursday', 'Thursday'),
-        t('days.friday', 'Friday'),
-        t('days.saturday', 'Saturday')
+        t('common.days.sunday', 'Sunday'),
+        t('common.days.monday', 'Monday'),
+        t('common.days.tuesday', 'Tuesday'),
+        t('common.days.wednesday', 'Wednesday'),
+        t('common.days.thursday', 'Thursday'),
+        t('common.days.friday', 'Friday'),
+        t('common.days.saturday', 'Saturday')
     ];
     const dayName = series.dayOfWeek !== null && series.dayOfWeek !== undefined
         ? days[series.dayOfWeek]
@@ -211,13 +298,13 @@ export default function SeriesScreen() {
                     {series.title || series.fieldName}
                 </Text>
                 {canManage && (
-                    <TouchableOpacity onPress={() => setShowSettings(!showSettings)} className="p-2 ml-2" accessibilityLabel={t('series.manageSettings', 'Manage Series Settings')}>
+                    <TouchableOpacity onPress={toggleSettings} className="p-2 ml-2" accessibilityLabel={t('series.manageSettings', 'Manage Series Settings')}>
                         <FontAwesome name="cog" size={20} color="#4b5563" />
                     </TouchableOpacity>
                 )}
             </View>
 
-            <ScrollView className="flex-1 bg-gray-50">
+            <ScrollView ref={scrollViewRef} className="flex-1 bg-gray-50">
 
                 {/* Hero Header Card */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
@@ -342,7 +429,7 @@ export default function SeriesScreen() {
                                         </View>
                                     )}
                                     <Text className="text-xs text-gray-700 text-center font-medium" numberOfLines={1}>
-                                        {sub.user?.name || t('user')}
+                                        {sub.user?.name || t('game.user', 'משתמש')}
                                     </Text>
                                     {sub.role === 'MANAGER' && (
                                         <Text className="text-[10px] text-brand font-bold">{t('series.manager', 'Manager')}</Text>
@@ -402,12 +489,12 @@ export default function SeriesScreen() {
                                     >
                                         <View className="bg-brand-mist rounded-xl w-12 h-12 items-center justify-center mr-4 border border-brand-pale">
                                             <Text className="text-brand-dark font-bold text-lg leading-tight">{gDate.getDate()}</Text>
-                                            <Text className="text-brand text-[10px] font-bold uppercase">{gDate.toLocaleDateString('en-US', { month: 'short' })}</Text>
+                                            <Text className="text-brand text-[10px] font-bold uppercase">{gDate.toLocaleDateString(dateLocale, { month: 'short' })}</Text>
                                         </View>
                                         <View className="flex-1">
-                                            <Text className="font-bold text-gray-800 text-base">{gDate.toLocaleDateString('he-IL', { weekday: 'long' })}</Text>
+                                            <Text className="font-bold text-gray-800 text-base">{gDate.toLocaleDateString(dateLocale, { weekday: 'long' })}</Text>
                                             <Text className="text-gray-500 text-xs mt-0.5">
-                                                {game.currentPlayers} / {game.maxPlayers} {t('players', 'Players')} · {game.time}
+                                                {game.currentPlayers} / {game.maxPlayers} {t('series.players', 'Players')} · {game.time || series.time}
                                             </Text>
                                         </View>
                                         <FontAwesome name="chevron-left" size={12} color="#d1d5db" />
@@ -425,9 +512,9 @@ export default function SeriesScreen() {
 
                 {/* Organizer / manager Settings */}
                 {canManage && (
-                    <View className="p-6 mb-6">
+                    <View className="p-6 mb-6" onLayout={(e) => { settingsSectionY.current = e.nativeEvent.layout.y; }}>
                         <TouchableOpacity
-                            onPress={() => setShowSettings(!showSettings)}
+                            onPress={toggleSettings}
                             className="flex-row items-center justify-between bg-gray-100 p-4 rounded-xl mb-2"
                         >
                             <View className="flex-row items-center">
@@ -462,6 +549,106 @@ export default function SeriesScreen() {
                                     className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base"
                                 />
 
+                                <Text className="text-gray-700 font-bold mb-2">{t('series.sport', 'Sport')}</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+                                    {Object.keys(SPORT_MAPPING).map(s => {
+                                        const isSelected = sport === s;
+                                        return (
+                                            <TouchableOpacity
+                                                key={s}
+                                                onPress={() => setSport(s)}
+                                                className={`px-4 py-2 rounded-full mr-2 border ${isSelected ? 'bg-brand border-brand' : 'bg-white border-gray-300'}`}
+                                            >
+                                                <Text className={`${isSelected ? 'text-white' : 'text-gray-700'} font-medium`}>
+                                                    {SPORT_MAPPING[s]}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+
+                                <View className="flex-row gap-3 mb-4">
+                                    <View className="flex-1">
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.maxPlayers', 'Max Players')}</Text>
+                                        <TextInput
+                                            value={maxPlayers}
+                                            onChangeText={setMaxPlayers}
+                                            keyboardType="number-pad"
+                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                        />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.teamSize', 'Team Size')}</Text>
+                                        <TextInput
+                                            value={teamSize}
+                                            onChangeText={setTeamSize}
+                                            keyboardType="number-pad"
+                                            placeholder={t('editGame.none', 'None')}
+                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                        />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.price', 'Price')}</Text>
+                                        <TextInput
+                                            value={price}
+                                            onChangeText={setPrice}
+                                            keyboardType="number-pad"
+                                            placeholder="0"
+                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                        />
+                                    </View>
+                                </View>
+
+                                <Text className="text-gray-700 font-bold mb-2">{t('series.welcomeMessage', 'Automatic welcome message')}</Text>
+                                <TextInput
+                                    value={welcomeMessage}
+                                    onChangeText={setWelcomeMessage}
+                                    multiline
+                                    className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base min-h-[60px]"
+                                />
+
+                                <View className="flex-row justify-between items-center mb-4">
+                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.friendsOnly', 'Friends-only games')}</Text>
+                                    <Switch
+                                        value={isFriendsOnly}
+                                        onValueChange={setIsFriendsOnly}
+                                        trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                                        thumbColor={isFriendsOnly ? '#059669' : '#f3f4f6'}
+                                    />
+                                </View>
+
+                                <View className="flex-row justify-between items-center mb-4">
+                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.requiresApproval', 'Requires approval to join')}</Text>
+                                    <Switch
+                                        value={requiresApproval}
+                                        onValueChange={setRequiresApproval}
+                                        trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                                        thumbColor={requiresApproval ? '#059669' : '#f3f4f6'}
+                                    />
+                                </View>
+
+                                <View className="flex-row justify-between items-center mb-4">
+                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.lotteryEnabled', 'Spot lottery')}</Text>
+                                    <Switch
+                                        value={lotteryEnabled}
+                                        onValueChange={setLotteryEnabled}
+                                        trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                                        thumbColor={lotteryEnabled ? '#059669' : '#f3f4f6'}
+                                    />
+                                </View>
+
+                                {lotteryEnabled && (
+                                    <View className="flex-row justify-between items-center mb-6">
+                                        <Text className="text-gray-700 font-bold w-3/4">{t('series.organizerInLottery', 'Include organizer in lottery')}</Text>
+                                        <Switch
+                                            value={organizerInLottery}
+                                            onValueChange={setOrganizerInLottery}
+                                            trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                                            thumbColor={organizerInLottery ? '#059669' : '#f3f4f6'}
+                                        />
+                                    </View>
+                                )}
+
                                 <View className="flex-row justify-between items-center mb-6">
                                     <Text className="text-gray-700 font-bold w-3/4">{t('series.updateFuture', 'Update all future games?')}</Text>
                                     <Switch
@@ -478,7 +665,7 @@ export default function SeriesScreen() {
                                     className={`p-4 rounded-xl items-center mb-3 ${updating ? 'bg-gray-400' : 'bg-brand'}`}
                                 >
                                     <Text className="text-white font-bold text-base">
-                                        {updating ? t('saving', 'Saving...') : t('saveChanges', 'Save Changes')}
+                                        {updating ? t('series.saving', 'Saving...') : t('series.saveChanges', 'Save Changes')}
                                     </Text>
                                 </TouchableOpacity>
 
@@ -492,6 +679,17 @@ export default function SeriesScreen() {
                                 )}
                             </View>
                         )}
+                    </View>
+                )}
+
+                {isSubscribed && !isOrganizer && (
+                    <View className="px-6 mb-6">
+                        <TouchableOpacity
+                            onPress={handleLeaveGroup}
+                            className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
+                        >
+                            <Text className="text-red-600 font-bold text-base">{t('series.leaveGroup', 'Leave Group')}</Text>
+                        </TouchableOpacity>
                     </View>
                 )}
 

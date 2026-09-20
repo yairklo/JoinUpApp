@@ -233,6 +233,17 @@ function NewGamePageInner() {
           ...prev,
           time: series.time || prev.time,
           duration: typeof series.duration === "number" ? series.duration : prev.duration,
+          // Group-level defaults for new games. The create payload always sends these explicitly,
+          // so they must be prefilled here or the group's settings would be silently overridden.
+          maxPlayers: typeof series.maxPlayers === "number" ? series.maxPlayers : prev.maxPlayers,
+          price: typeof series.price === "number" && series.price > 0 ? series.price : prev.price,
+          sport: (series.sport as SportType) || prev.sport,
+          teamSize: typeof series.teamSize === "number" ? series.teamSize : prev.teamSize,
+          welcomeMessage: series.welcomeMessage || prev.welcomeMessage,
+          isFriendsOnly: typeof series.isFriendsOnly === "boolean" ? series.isFriendsOnly : prev.isFriendsOnly,
+          joinPolicy: series.joinPolicy === "REQUIRES_APPROVAL" ? "REQUIRES_APPROVAL" : prev.joinPolicy,
+          lotteryEnabled: typeof series.lotteryEnabled === "boolean" ? series.lotteryEnabled : prev.lotteryEnabled,
+          organizerInLottery: typeof series.organizerInLottery === "boolean" ? series.organizerInLottery : prev.organizerInLottery,
         }));
       } catch { }
     }
@@ -349,6 +360,9 @@ function NewGamePageInner() {
         body: JSON.stringify({
           fieldId: fieldIdToUse,
           ...form,
+          // Reached via ?seriesId=: attach the game to that group (the server only allows the
+          // organizer, a MANAGER or an admin, and 403s otherwise).
+          ...(urlSeriesId ? { seriesId: urlSeriesId } : {}),
           start: startDate.toISOString(),
           // New Field Logic
           ...(newFieldMode && !fieldIdToUse

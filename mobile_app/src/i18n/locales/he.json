@@ -19,7 +19,10 @@
       "thursday": "חמישי",
       "friday": "שישי",
       "saturday": "שבת"
-    }
+    },
+    "today": "היום",
+    "tomorrow": "מחר",
+    "loadingAuth": "טוען..."
   },
   "tabs": {
     "home": "בית",
@@ -31,6 +34,7 @@
   },
   "search": {
     "placeholder": "חפש משחקים, מגרשים...",
+    "upcomingWeek": "השבוע הקרוב",
     "allCities": "כל הערים",
     "noGamesFound": "לא נמצאו משחקים",
     "selectCity": "בחר עיר",
@@ -170,7 +174,21 @@
     "pendingSent": "נשלחה בקשה",
     "pendingReceived": "התקבלה בקשה",
     "addFriend": "הוסף חבר",
-    "noPlayersFound": "לא נמצאו שחקנים תואמים"
+    "noPlayersFound": "לא נמצאו שחקנים תואמים",
+    "failedToLoadProfile": "טעינת פרופיל המשתמש נכשלה.",
+    "failedToSendRequest": "שליחת בקשת החברות נכשלה.",
+    "failedToRemove": "הסרת החבר נכשלה.",
+    "failedToAccept": "אישור הבקשה נכשל.",
+    "failedToDecline": "דחיית הבקשה נכשלה.",
+    "failedToStartChat": "פתיחת הצ'אט נכשלה.",
+    "searchFailed": "החיפוש נכשל, נסה שוב.",
+    "removeFriend": "הסר חבר",
+    "acceptRequest": "אשר בקשה",
+    "sendMessage": "שלח הודעה",
+    "about": "אודות",
+    "yearsOld": "שנים",
+    "favoriteSports": "ענפי ספורט מועדפים",
+    "userNotFound": "המשתמש לא נמצא."
   },
   "game": {
     "details": "פרטי משחק",
@@ -333,7 +351,8 @@
     "loadingChat": "טוען שיחה…",
     "isTyping": "מקליד/ה...",
     "areTyping": "מקלידים...",
-    "blockedOffensive": "ההודעה מכילה תוכן פוגעני ולכן לא נשלחה"
+    "blockedOffensive": "ההודעה מכילה תוכן פוגעני ולכן לא נשלחה",
+    "edited": "נערך"
   },
   "notifications": {
     "title": "התראות",
@@ -428,7 +447,8 @@
     "flagFalseInfo": "מידע שקרי",
     "flagSpam": "ספאם",
     "flagOther": "אחר",
-    "attachPhoto": "צרף תמונה"
+    "attachPhoto": "צרף תמונה",
+    "createGameHere": "צור משחק חדש במגרש הזה"
   },
   "series": {
     "badge": "קבוצה שבועית",
@@ -442,7 +462,61 @@
     "customDatesHint": "בחר תאריכים ספציפיים לקבוצה זו.",
     "customDatesWebHint": "בחירת תאריכים מותאמים אישית מותאמת יותר לשימוש באתר. באפליקציה מומלץ להשתמש באפשרות השבועית.",
     "dayPrefix": "יום {{day}}",
-    "loadingSeries": "טוען קבוצה…"
+    "loadingSeries": "טוען קבוצה…",
+    "details": "פרטי קבוצה",
+    "notFound": "הקבוצה לא נמצאה",
+    "loadError": "טעינת פרטי הקבוצה נכשלה",
+    "updateSuccess": "הקבוצה עודכנה בהצלחה",
+    "updateError": "עדכון הקבוצה נכשל",
+    "deleteTitle": "מחיקת קבוצה",
+    "deleteConfirm": "בטוח? פעולה זו תמחק את כל המשחקים העתידיים.",
+    "deleteSuccess": "הקבוצה נמחקה",
+    "deleteError": "מחיקת הקבוצה נכשלה",
+    "inviteText": "הצטרפו לקבוצת joinUp שלי: {{url}}",
+    "shareError": "שיתוף ההזמנה נכשל",
+    "userNotFound": "לא נמצא משתמש מתאים",
+    "addMemberError": "הוספת החבר נכשלה",
+    "roleError": "עדכון התפקיד נכשל",
+    "subscribeError": "עדכון המנוי נכשל",
+    "manageSettings": "ניהול הגדרות קבוצה",
+    "organizedBy": "מאת",
+    "organizer": "מארגן",
+    "subscribed": "רשום ✓",
+    "subscribe": "הרשמה לקבוצה",
+    "regulars": "קבועים",
+    "upcoming": "קרובים",
+    "schedule": "לוח זמנים",
+    "manager": "מנהל",
+    "noRegulars": "עדיין אין חברים קבועים. תהיו הראשונים!",
+    "inviteMembers": "הזמנה והוספת חברים",
+    "shareInvite": "שיתוף קישור הזמנה",
+    "searchUsers": "חיפוש משתמשים להוספה",
+    "add": "הוספה",
+    "upcomingGames": "משחקים קרובים",
+    "noGames": "אין משחקים קרובים מתוכננים.",
+    "title": "שם הקבוצה",
+    "description": "תיאור",
+    "defaultTime": "שעה ברירת מחדל",
+    "updateFuture": "לעדכן את כל המשחקים העתידיים?",
+    "delete": "מחיקת קבוצה",
+    "sport": "ענף ספורט",
+    "maxPlayers": "מספר שחקנים מקסימלי",
+    "teamSize": "גודל קבוצה",
+    "price": "מחיר",
+    "welcomeMessage": "הודעת פתיחה אוטומטית",
+    "friendsOnly": "משחקים לחברים בלבד",
+    "requiresApproval": "דורש אישור הצטרפות",
+    "lotteryEnabled": "הגרלת מקומות",
+    "organizerInLottery": "לכלול את המארגן בהגרלה",
+    "players": "שחקנים",
+    "leaveGroup": "עזיבת קבוצה",
+    "leaveTitle": "עזיבת קבוצה",
+    "leaveConfirm": "בטוח שברצונך לעזוב את הקבוצה?",
+    "leave": "עזיבה",
+    "leaveError": "עזיבת הקבוצה נכשלה",
+    "maxPlayersInvalid": "כמות שחקנים מקסימלית חייבת להיות לפחות 2",
+    "saving": "שומר...",
+    "saveChanges": "שמירת שינויים"
   },
   "editGame": {
     "title": "עריכת משחק",
@@ -632,7 +706,25 @@
     "and": "ול",
     "privacyPolicy": "מדיניות הפרטיות",
     "signUpFailed": "ההרשמה נכשלה",
-    "verificationFailed": "אימות הקוד נכשל"
+    "verificationFailed": "אימות הקוד נכשל",
+    "tagline": "התחברו, שחקו, תיהנו מהמשחק",
+    "email": "אימייל",
+    "password": "סיסמה",
+    "signingIn": "מתחבר...",
+    "signIn": "התחברות",
+    "noAccount": "אין לך חשבון? ",
+    "signUp": "הרשמה",
+    "loginFailed": "ההתחברות נכשלה",
+    "createAccount": "יצירת חשבון",
+    "joinCommunity": "הצטרפו לקהילת JoinUp!",
+    "creatingAccount": "יוצר חשבון...",
+    "haveAccount": "כבר יש לך חשבון? ",
+    "verifyEmail": "אימות אימייל",
+    "weSentCode": "שלחנו קוד לכתובת",
+    "checking": "בודק...",
+    "changeEmail": "שנה אימייל",
+    "or": "או",
+    "continueWithGoogle": "המשך עם Google"
   },
   "positions": {
     "goalkeeper": "שוער",
@@ -647,5 +739,10 @@
     "center": "סנטר",
     "baseliner": "שחקן בסיס",
     "netPlayer": "שחקן רשת"
+  },
+  "notFound": {
+    "title": "אופס!",
+    "screenMissing": "המסך הזה לא קיים.",
+    "goHome": "חזרה למסך הבית!"
   }
 }

@@ -334,6 +334,18 @@ export default function NewGameScreen() {
             if (typeof series.duration === 'number') {
                 setDuration(String(series.duration));
             }
+
+            // Group-level defaults for new games. The create payload always sends these explicitly,
+            // so they must be prefilled here or the group's settings would be silently overridden.
+            if (typeof series.maxPlayers === 'number') setMaxPlayers(String(series.maxPlayers));
+            if (typeof series.price === 'number') setPrice(String(series.price));
+            if (series.sport) setSport(series.sport);
+            if (typeof series.teamSize === 'number') setTeamSize(String(series.teamSize));
+            if (series.welcomeMessage) setWelcomeMessage(series.welcomeMessage);
+            if (typeof series.isFriendsOnly === 'boolean') setIsPrivate(series.isFriendsOnly);
+            if (series.joinPolicy) setRequiresApproval(series.joinPolicy === 'REQUIRES_APPROVAL');
+            if (typeof series.lotteryEnabled === 'boolean') setLotteryEnabled(series.lotteryEnabled);
+            if (typeof series.organizerInLottery === 'boolean') setOrganizerInLottery(series.organizerInLottery);
         } catch (error) {
             console.error('Failed to load series defaults', error);
         }
@@ -452,6 +464,9 @@ export default function NewGameScreen() {
             // Construct payload matching backend expectation
             const payload = {
                 fieldId: selectedField?.id || "",
+                // Reached via ?seriesId=: attach the game to that group (the server only allows the
+                // organizer, a MANAGER or an admin, and 403s otherwise).
+                ...(prefilledSeriesId ? { seriesId: prefilledSeriesId } : {}),
                 ...(customPoint && !selectedField ? {
                     newField: {
                         name: customFieldName || t('newGame.customPoint', 'מיקום מותאם אישית'),
