@@ -9,6 +9,7 @@ const {
   patchGame,
   updateGame,
   deleteGame,
+  cancelGame,
   getPublicGames,
   getMyGames,
   getMyHistory,
@@ -102,9 +103,15 @@ router.patch('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Query parameters that narrow the list. Without any of them this is the plain "all active games"
+// feed; with one, the request is served by the same search that backs /api/games/search so the
+// filter is honoured instead of silently ignored.
+const LIST_FILTER_KEYS = ['sport', 'city', 'q', 'fieldId', 'date', 'isOpenToJoin', 'networkGames'];
+
 router.get('/', attachOptionalUser, async (req, res) => {
   try {
-    res.json(await getAllGames(req.user?.id));
+    const hasFilter = LIST_FILTER_KEYS.some((k) => typeof req.query[k] !== 'undefined' && req.query[k] !== '');
+    res.json(hasFilter ? await searchGames(req.query, req.user?.id) : await getAllGames(req.user?.id));
   } catch (error) {
     handleRouteError(res, error, 'Failed to get games');
   }
@@ -172,6 +179,14 @@ router.put('/:id', authenticateToken, async (req, res) => {
     res.json(await updateGame(req.params.id, req.body, req.user.id, req.io));
   } catch (error) {
     handleRouteError(res, error, 'Failed to update game');
+  }
+});
+
+router.post('/:id/cancel', authenticateToken, async (req, res) => {
+  try {
+    res.json(await cancelGame(req.params.id, req.user.id, !!req.user?.isAdmin, req.io));
+  } catch (error) {
+    handleRouteError(res, error, 'Failed to cancel game');
   }
 });
 

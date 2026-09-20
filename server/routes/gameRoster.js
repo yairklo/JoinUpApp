@@ -29,6 +29,9 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
     }
+    if (game.status === 'CANCELLED') {
+      return res.status(400).json({ error: 'Game was cancelled' });
+    }
     if (!game.isOpenToJoin) {
       return res.status(400).json({ error: 'Game is not open for joining' });
     }
