@@ -245,12 +245,95 @@ describe('Group (series) default settings', () => {
         expect(after.maxPlayers).toEqual(12);
       });
 
+      test('a description change reaches the future games (sanitized), and only when updateFutureGames is on', async () => {
+        const futureDescriptions = async () =>
+          (await prisma.game.findMany({ where: { seriesId, start: { gte: new Date() } } })).map((g) => g.description);
+
+        let res = await patch({ description: '<b>תיאור חדש</b>', updateFutureGames: false });
+        expect(res.statusCode).toEqual(200);
+        expect(res.body.series.description).toEqual('תיאור חדש');
+        expect((await futureDescriptions()).every((d) => d === 'תיאור חדש')).toBe(false);
+
+        res = await patch({ description: '<b>תיאור חדש</b>' });
+        expect(res.statusCode).toEqual(200);
+        const after = await futureDescriptions();
+        expect(after.length).toBeGreaterThan(0);
+        for (const d of after) expect(d).toEqual('תיאור חדש');
+
+        res = await patch({ description: null });
+        expect(res.statusCode).toEqual(200);
+        for (const d of await futureDescriptions()) expect(d).toEqual('');
+      });
+
       test('a price of 0 is stored as null on games, like createGame does', async () => {
         const res = await patch({ price: 0 });
         expect(res.statusCode).toEqual(200);
         const games = await prisma.game.findMany({ where: { seriesId, start: { gte: new Date() } } });
         for (const g of games) expect(g.price).toBeNull();
       });
+    });
+  });
+
+  describe('a cancelled game inside a series', () => {
+    let seriesId;
+    let cancelledId;
+
+    beforeAll(async () => {
+      const res = await request(app)
+        .post('/api/games')
+        .set('Authorization', orgAuth)
+        .send({
+          title: 'משחק בדיקה - cancelled in series',
+          maxPlayers: 6,
+          fieldId: field.id,
+          start: startIn(3),
+          duration: 1,
+          sport: 'SOCCER',
+          isOpenToJoin: true,
+          joinPolicy: 'INSTANT',
+          recurrence: { type: 'WEEKLY' },
+        });
+      expect(res.statusCode).toEqual(201);
+      seriesId = res.body.seriesId;
+      seriesIds.push(seriesId);
+      const next = await prisma.game.findFirst({ where: { seriesId }, orderBy: { start: 'asc' } });
+      cancelledId = next.id;
+      const cancel = await request(app).post(`/api/games/${cancelledId}/cancel`).set('Authorization', orgAuth);
+      expect(cancel.statusCode).toEqual(200);
+    });
+
+    test('is not listed among the series upcoming games', async () => {
+      const res = await request(app).get(`/api/series/${seriesId}`);
+      expect(res.statusCode).toEqual(200);
+      expect(res.body.upcomingGames.length).toBeGreaterThan(0);
+      expect(res.body.upcomingGames.map((g) => g.id)).not.toContain(cancelledId);
+    });
+
+    test('stays cancelled and closed when the series is updated for future games', async () => {
+      const res = await request(app)
+        .patch(`/api/series/${seriesId}`)
+        .set('Authorization', orgAuth)
+        .send({ isFriendsOnly: false, isOpenToJoin: true, maxPlayers: 8, description: 'עדכון סדרה' });
+      expect(res.statusCode).toEqual(200);
+
+      const cancelled = await prisma.game.findUnique({ where: { id: cancelledId } });
+      expect(cancelled.status).toEqual('CANCELLED');
+      expect(cancelled.isOpenToJoin).toEqual(false);
+      expect(cancelled.maxPlayers).toEqual(6);
+      expect(cancelled.description).not.toEqual('עדכון סדרה');
+
+      const others = await prisma.game.findMany({ where: { seriesId, id: { not: cancelledId } } });
+      expect(others.length).toBeGreaterThan(0);
+      for (const g of others) expect(g.maxPlayers).toEqual(8);
+    });
+
+    test('cannot be re-opened by editing the single game', async () => {
+      const put = await request(app).put(`/api/games/${cancelledId}`).set('Authorization', orgAuth).send({ isOpenToJoin: true });
+      expect(put.statusCode).toEqual(400);
+      const patchRes = await request(app).patch(`/api/games/${cancelledId}`).set('Authorization', orgAuth).send({ maxPlayers: 10 });
+      expect(patchRes.statusCode).toEqual(400);
+      const row = await prisma.game.findUnique({ where: { id: cancelledId } });
+      expect(row.isOpenToJoin).toEqual(false);
     });
   });
 

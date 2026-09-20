@@ -174,7 +174,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
       </Button>
 
       <Dialog open={state.open} onClose={actions.handleCloseCreateDialog} fullWidth maxWidth="sm">
-        <DialogTitle>יצירת קבוצה</DialogTitle>
+        <DialogTitle>יצירת סדרת משחקים שבועית</DialogTitle>
         <DialogContent>
           <Tabs value={state.tabValue} onChange={(e, v) => actions.setTabValue(v)} sx={{ mb: 2 }}>
             <Tab label="אוטומטי שבועי" />
@@ -188,14 +188,14 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
               </Alert>
               <Typography variant="body2">
                 • המערכת תיצור את 4 המשחקים הבאים מיד.<br />
-                • שחקנים נוכחיים ירשמו אוטומטית אם הם חברים בקבוצה.<br />
+                • מנויי הסדרה יקבלו התראה על כל משחק חדש.<br />
                 • ניתן לבטל או לערוך בכל עת.
               </Typography>
             </Box>
           ) : (
             <Box>
               <Alert severity="info" sx={{ mb: 2 }}>
-                בחר תאריכים ספציפיים ליצירת קבוצה מרוכזת.
+                בחר תאריכים ספציפיים ליצירת סדרת משחקים.
               </Alert>
 
               <Stack direction="row" spacing={1} alignItems="center" mb={2}>
@@ -225,9 +225,9 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
           )}
 
           <Box mt={3}>
-            <Typography variant="subtitle2" gutterBottom>תמונת קבוצה (אופציונלי)</Typography>
+            <Typography variant="subtitle2" gutterBottom>תמונת הסדרה (אופציונלי)</Typography>
             <Box display="flex" alignItems="center" gap={2}>
-              <Avatar src={state.pendingImagePreview} name="קבוצה" alt="קבוצה" size="lg" />
+              <Avatar src={state.pendingImagePreview} name="סדרה" alt="תמונת הסדרה" size="lg" />
               <Box display="flex" gap={1}>
                 <Button size="small" variant="outlined" component="label" startIcon={<CloudUploadIcon />}>
                   {state.pendingImagePreview ? "החלף תמונה" : "בחר תמונה"}
@@ -266,7 +266,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
             onClick={actions.handleMakeRecurring}
             disabled={state.loading || (state.tabValue === 1 && state.customDates.length === 0)}
           >
-            {state.loading ? <CircularProgress size={24} /> : "צור קבוצה"}
+            {state.loading ? <CircularProgress size={24} /> : "צור סדרה"}
           </Button>
         </DialogActions>
       </Dialog>

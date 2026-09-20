@@ -20,6 +20,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import { Notification } from '@/services/api/notifications';
 import { chatsApi } from '@/services/api/chats';
+import { resolveNotificationRoute } from '@/utils/notificationRoute';
 
 export default function NotificationPanel() {
     const router = useRouter();
@@ -47,11 +48,9 @@ export default function NotificationPanel() {
     const handleNotificationClick = (notif: Notification) => {
         markAsRead(notif.id);
         setAnchorEl(null);
-        // Build the route from gameId when present — the raw `link` string is shared across
-        // platforms and is generated mobile-style (`/game/[id]`), which 404s on Next.js since the
-        // real route is `/games/[id]` (plural). Fall back to the raw link for non-game notifications.
-        const gameId = notif.data?.gameId;
-        const target = gameId ? `/games/${gameId}` : notif.data?.link;
+        // The raw `link` string is shared across platforms and is mobile-style (`/game/[id]`,
+        // `/friends`), which 404s on Next.js -- resolve the web route from the type/ids instead.
+        const target = resolveNotificationRoute(notif);
         if (target) {
             router.push(target);
         }

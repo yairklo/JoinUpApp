@@ -5,7 +5,7 @@ import { usersApi, chatsApi } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
 import { useMediaQuery, useTheme } from '@mui/material';
 
-export type FriendStatus = 'FRIEND' | 'REQUESTED' | 'NONE' | 'SELF' | 'LOADING';
+export type FriendStatus = 'FRIEND' | 'REQUESTED' | 'INCOMING' | 'NONE' | 'SELF' | 'LOADING';
 
 export function useUserActions(targetUserId: string, targetUserName?: string, targetUserImage?: string | null) {
     const { user, isLoaded } = useUser();
@@ -18,6 +18,8 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
     const [status, setStatus] = useState<FriendStatus>('LOADING');
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const [incomingRequestId, setIncomingRequestId] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const checkStatus = useCallback(async () => {
         if (!isLoaded || !user) {
@@ -33,13 +35,23 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
             const token = await getToken();
             if (!token) return;
 
-            const [friends, outgoing] = await Promise.all([
+            const [friends, outgoing, incoming] = await Promise.all([
                 usersApi.getFriends(user.id, token),
-                usersApi.getOutgoingRequests(user.id, token)
+                usersApi.getOutgoingRequests(user.id, token),
+                usersApi.getIncomingRequests(user.id, token)
             ]);
 
             if (friends.some((f: any) => f.id === targetUserId)) {
                 setStatus('FRIEND');
+                return;
+            }
+
+            // They already asked us: offer accept/decline instead of "Add Friend" (which the
+            // server rejects because a request between the pair already exists).
+            const theirRequest = incoming.find((r) => r.requester.id === targetUserId);
+            if (theirRequest) {
+                setIncomingRequestId(theirRequest.id);
+                setStatus('INCOMING');
                 return;
             }
 
@@ -64,17 +76,26 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
         try {
             const token = await getToken();
             if (!token) return;
+            setError(null);
             await usersApi.sendFriendRequest(targetUserId, token);
             setStatus('REQUESTED');
         } catch (e) {
             console.error(e);
+            // The server refuses a repeat request for a few days after a decline.
+            setError(
+                e instanceof Error && /declined/i.test(e.message)
+                    ? "הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים"
+                    : "שליחת בקשת החברות נכשלה"
+            );
+            // The server may know something we don't (e.g. a request already exists): resync.
+            checkStatus();
         } finally {
             setLoading(false);
         }
     };
 
     const removeFriend = async () => {
-        if (!user || !confirm("Are you sure you want to remove this friend?")) return;
+        if (!user || !confirm("להסיר את המשתמש מרשימת החברים?")) return;
         setLoading(true);
         try {
             const token = await getToken();
@@ -83,6 +104,26 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
             setStatus('NONE');
         } catch (e) {
             console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const respondToRequest = async (action: 'accept' | 'decline') => {
+        if (!incomingRequestId) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            if (action === 'accept') await usersApi.acceptFriendRequest(incomingRequestId, token);
+            else await usersApi.declineFriendRequest(incomingRequestId, token);
+            setIncomingRequestId(null);
+            // Re-read from the server rather than assuming: the profile must show what was persisted.
+            await checkStatus();
+        } catch (e) {
+            console.error(e);
+            setError(action === 'accept' ? "אישור הבקשה נכשל" : "דחיית הבקשה נכשלה");
         } finally {
             setLoading(false);
         }
@@ -117,8 +158,11 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
         status,
         loading,
         actionLoading,
+        error,
         addFriend,
         removeFriend,
+        acceptRequest: () => respondToRequest('accept'),
+        declineRequest: () => respondToRequest('decline'),
         handleMessage,
         isLoaded
     };

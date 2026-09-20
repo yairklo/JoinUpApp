@@ -137,12 +137,16 @@ export default function FriendsScreen() {
                                 <View className="flex-row items-center ml-2">
                                     <TouchableOpacity
                                         onPress={() => handleAcceptRequest(req.id)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('friends.acceptRequest', 'אשר בקשת חברות')}
                                         className="bg-green-100 p-2 rounded-full mr-2"
                                     >
                                         <FontAwesome name="check" size={16} color="#16a34a" />
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         onPress={() => handleDeclineRequest(req.id)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('friends.declineRequest', 'דחה בקשת חברות')}
                                         className="bg-red-100 p-2 rounded-full"
                                     >
                                         <FontAwesome name="times" size={16} color="#dc2626" />

@@ -5,6 +5,7 @@ const {
   buildActiveGameStartFilter,
   parseJerusalemTimeToUTC,
   formatJerusalemTime,
+  formatJerusalemDate,
   getJerusalemDayHour,
 } = require('../utils/timezone');
 const {
@@ -300,7 +301,7 @@ function mapGameForSearchClient(game, viewerId) {
  */
 async function fetchMappedListGames(where, viewerId, { orderBy = { start: 'asc' }, take, dedupe = true } = {}) {
   const games = await prisma.game.findMany({
-    where,
+    where: { AND: [where, { status: { not: 'CANCELLED' } }] },
     select: SEARCH_GAME_SELECT,
     orderBy,
     ...(take ? { take } : {}),
@@ -1025,7 +1026,7 @@ async function createGame(payload, creatorUser, io) {
  * filtering, and the extended (2nd-degree) social-network Recursive CTE lookup. Returns
  * client-ready mapped results (via `mapGameForSearchClient`), deduplicated by series.
  */
-async function searchGames(queryParams, viewerId) {
+async function searchGames(queryParams, viewerId, { dedupe = true } = {}) {
   const { fieldId, date, isOpenToJoin, q, city, minLat, maxLat, minLng, maxLng, sport, networkGames } = queryParams || {};
   const where = {};
   if (fieldId) where.fieldId = String(fieldId);
@@ -1124,7 +1125,8 @@ async function searchGames(queryParams, viewerId) {
 
   const visibility = buildVisibilityWhere(viewerId);
   // Combine base visibility rules with query rules
-  const finalWhere = where.AND ? { AND: [visibility, ...where.AND] } : { AND: [visibility, where] };
+  const notCancelled = { status: { not: 'CANCELLED' } };
+  const finalWhere = where.AND ? { AND: [visibility, notCancelled, ...where.AND] } : { AND: [visibility, notCancelled, where] };
 
   const games = await prisma.game.findMany({
     where: finalWhere,
@@ -1132,7 +1134,7 @@ async function searchGames(queryParams, viewerId) {
     orderBy: { start: 'asc' }
   });
 
-  const deduped = deduplicateSeriesGames(games);
+  const deduped = dedupe ? deduplicateSeriesGames(games) : games;
   return deduped.map((g) => mapGameForSearchClient(g, viewerId));
 }
 
@@ -1399,6 +1401,8 @@ async function patchGame(gameId, body, userId, io) {
   if (!isOrganizer && level < ROLE_LEVEL.MANAGER) {
     throw httpError('Not allowed', 403);
   }
+  // Editing could re-open joining (isOpenToJoin, registration times) on a cancelled game.
+  if (game.status === 'CANCELLED') throw httpError('Game was cancelled', 400);
 
   const updates = {};
   if (start) {
@@ -1512,6 +1516,7 @@ async function updateGame(gameId, body, userId, io) {
   if (game.organizerId !== userId) {
     throw httpError('Only organizer can update game', 403);
   }
+  if (game.status === 'CANCELLED') throw httpError('Game was cancelled', 400);
 
   const {
     description: rawDescription, welcomeMessage: rawWelcomeMessage, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt,
@@ -1593,6 +1598,56 @@ async function updateGame(gameId, body, userId, io) {
   });
   gameScheduler.resyncGame(updated);
   broadcastGameUpdate(io, gameId, updated).catch(err =>
+    console.error('[SOCKET] Failed to broadcast game update', gameId, err)
+  );
+  return mapGameForClient(updated, userId);
+}
+
+/**
+ * Soft-cancel a single game: keeps it (and its chat/roster) but flips status to CANCELLED, closes
+ * joining, drops it from public listings and tells everyone on the roster. Deleting a game
+ * (deleteGame) silently erases it for the people who had signed up.
+ */
+async function cancelGame(gameId, userId, isAdmin, io) {
+  const game = await prisma.game.findUnique({ where: { id: gameId }, include: { participants: true } });
+  if (!game) throw httpError('Game not found', 404);
+  if (game.organizerId !== userId && !isAdmin) {
+    throw httpError('Only organizer or admin can cancel game', 403);
+  }
+  if (game.status === 'COMPLETED') throw httpError('Game already completed', 400);
+
+  const include = { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true };
+
+  // Compare-and-set on status so two concurrent cancels cannot both "win" (and both notify): only
+  // the request that actually flips OPEN -> CANCELLED goes on to notify.
+  const flipped = await prisma.game.updateMany({
+    where: { id: gameId, status: 'OPEN' },
+    data: { status: 'CANCELLED', isOpenToJoin: false },
+  });
+  const updated = await prisma.game.findUnique({ where: { id: gameId }, include });
+  if (flipped.count === 0) {
+    if (updated.status === 'COMPLETED') throw httpError('Game already completed', 400);
+    return mapGameForClient(updated, userId); // already cancelled: idempotent, no second notification
+  }
+  gameScheduler.resyncGame(updated);
+
+  const when = `${formatJerusalemDate(updated.start).split('-').reverse().join('/')} ${formatJerusalemTime(updated.start)}`;
+  const notified = new Set();
+  for (const p of game.participants || []) {
+    if (p.userId === userId || notified.has(p.userId)) continue;
+    if (!['CONFIRMED', 'WAITLISTED', 'PENDING', 'NOT_SELECTED'].includes(p.status)) continue;
+    notified.add(p.userId);
+    notificationService.sendNotification(
+      p.userId,
+      'GAME_CANCELLED',
+      'המשחק בוטל',
+      `${updated.title || 'המשחק'} (${when}) בוטל על ידי המארגן`,
+      { gameId, link: `/game/${gameId}` },
+      io
+    ).catch((err) => console.error('[NOTIFICATION] Failed to send game cancelled notification:', err));
+  }
+
+  broadcastGameUpdate(io, gameId, updated).catch((err) =>
     console.error('[SOCKET] Failed to broadcast game update', gameId, err)
   );
   return mapGameForClient(updated, userId);
@@ -1892,6 +1947,7 @@ module.exports = {
   patchGame,
   updateGame,
   deleteGame,
+  cancelGame,
   getPublicGames,
   getMyGames,
   getMyHistory,

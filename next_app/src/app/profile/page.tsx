@@ -253,8 +253,15 @@ export default function ProfilePage() {
   // below that actually blocks Save.
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const nameError = form.name.length > 50;
-  const nameHelperText = nameError ? "השם לא יכול להכיל יותר מ-50 תווים" : "";
+  const trimmedNameLength = form.name.trim().length;
+  const nameTooLong = form.name.length > 50;
+  const nameTooShort = trimmedNameLength < 2;
+  const nameError = nameTooLong || nameTooShort;
+  const nameHelperText = nameTooLong
+    ? "השם לא יכול להכיל יותר מ-50 תווים"
+    : nameTooShort
+      ? "יש להזין שם (לפחות 2 תווים)"
+      : "";
 
   const birthDateError = (() => {
     if (!form.birthDate) return "";
@@ -311,12 +318,22 @@ export default function ProfilePage() {
       const token = await getToken({ template: undefined }).catch(() => "");
       if (!token) return;
       const res = await fetch(`${API_BASE}/api/users/requests/${reqId}/accept`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok && userId) {
-        fetch(`${API_BASE}/api/users/${userId}/friends`).then(r => r.json()).then(setFriends).catch(() => { });
-        const inc = await fetch(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        setSaveError("אישור הבקשה נכשל, נסה שוב");
+        return;
+      }
+      if (userId) {
+        // Re-read both lists (uncached) so the UI shows what was actually persisted.
+        const [friendsRes, inc] = await Promise.all([
+          fetch(`${API_BASE}/api/users/${userId}/friends`, { cache: 'no-store' }),
+          fetch(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
+        ]);
+        if (friendsRes.ok) setFriends(await friendsRes.json());
         if (inc.ok) setIncoming(await inc.json());
       }
-    } catch { }
+    } catch {
+      setSaveError("אישור הבקשה נכשל, נסה שוב");
+    }
   }
 
   async function declineRequest(reqId: string) {
@@ -504,6 +521,7 @@ export default function ProfilePage() {
                         <TextField
                           fullWidth
                           label="שם"
+                          required
                           value={form.name}
                           onChange={(e) => setForm({ ...form, name: e.target.value })}
                           size="small"
@@ -851,8 +869,8 @@ export default function ProfilePage() {
                             </ListItemAvatar>
                             <ListItemText primary={r.requester.name} />
                             <Box>
-                              <IconButton size="small" color="success" onClick={() => acceptRequest(r.id)}><CheckCircleIcon /></IconButton>
-                              <IconButton size="small" color="error" onClick={() => declineRequest(r.id)}><CancelOutlinedIcon /></IconButton>
+                              <IconButton size="small" color="success" aria-label={`אשר בקשת חברות מ${r.requester.name || "המשתמש"}`} onClick={() => acceptRequest(r.id)}><CheckCircleIcon /></IconButton>
+                              <IconButton size="small" color="error" aria-label={`דחה בקשת חברות מ${r.requester.name || "המשתמש"}`} onClick={() => declineRequest(r.id)}><CancelOutlinedIcon /></IconButton>
                             </Box>
                           </ListItem>
                         ))}

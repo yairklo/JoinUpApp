@@ -23,6 +23,16 @@ const notificationService = new NotificationService(prisma);
 
 // Shared constants
 const { SPORT_KEYS } = require('../utils/sports');
+const { sanitizeFreeText } = require('../utils/sanitize');
+
+// After a decline the same requester must wait before asking the same person again, so a declined
+// request cannot be re-sent (and re-notified) over and over. The person who declined can always ask.
+const DECLINED_RESEND_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const DISPLAY_NAME_MIN_LENGTH = 2;
+const DISPLAY_NAME_MAX_LENGTH = 60;
+// Path segments that live next to /:id in this router; they must never be read as a user id
+// (GET /:id creates a placeholder user row for unknown ids).
+const RESERVED_USER_IDS = new Set(['friends', 'me', 'search', 'sports', 'notifications', 'requests', 'profile']);
 
 // Helper to ensure sports exist
 async function ensureSportsSeeded() {
@@ -361,6 +371,19 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
   }
 });
 
+// The caller's own friends. Declared before /:id so "friends" is never read as a user id.
+router.get('/friends', authenticateToken, async (req, res) => {
+  try {
+    const friendIds = await getFriendIds(req.user.id);
+    if (friendIds.length === 0) return res.json([]);
+    const friends = await prisma.user.findMany({ where: { id: { in: friendIds } } });
+    res.json(friends.map((u) => ({ ...mapUserPublic(u), mutualCount: 0 })));
+  } catch (e) {
+    console.error('List own friends error:', e);
+    res.status(500).json({ error: 'Failed to list friends' });
+  }
+});
+
 // Authenticated viewer — includes isAdmin. Must be registered before /:id
 // so "me" is never treated as a Clerk user id (which would upsert a stub User).
 router.get('/me', authenticateToken, async (req, res) => {
@@ -387,6 +410,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 router.get('/:id', attachOptionalUser, async (req, res) => {
   try {
     const targetId = req.params.id;
+    if (RESERVED_USER_IDS.has(targetId)) return res.status(404).json({ error: 'User not found' });
     let user = await prisma.user.findUnique({
       where: { id: targetId },
       include: {
@@ -532,8 +556,16 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid gender. Must be MALE or FEMALE.' });
     }
 
+    let cleanName;
+    if (typeof name !== 'undefined') {
+      cleanName = typeof name === 'string' ? sanitizeFreeText(name, DISPLAY_NAME_MAX_LENGTH).trim() : '';
+      if (cleanName.length < DISPLAY_NAME_MIN_LENGTH) {
+        return res.status(400).json({ error: `יש להזין שם (לפחות ${DISPLAY_NAME_MIN_LENGTH} תווים)` });
+      }
+    }
+
     const data = {
-      ...(typeof name !== 'undefined' ? { name } : {}),
+      ...(typeof cleanName !== 'undefined' ? { name: cleanName } : {}),
       ...(typeof email !== 'undefined' ? { email: email || null } : {}),
       ...(typeof phone !== 'undefined' ? { phone } : {}),
       ...(typeof imageUrl !== 'undefined' ? { imageUrl } : {}),
@@ -662,7 +694,17 @@ router.post('/requests', authenticateToken, async (req, res) => {
     if (existingFriend) return res.status(400).json({ error: 'Already friends' });
     // existing request either way
     const existingReq = await prisma.friendRequest.findFirst({ where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] } });
-    if (existingReq) return res.status(400).json({ error: 'Request already exists' });
+    if (existingReq && existingReq.status === 'DECLINED') {
+      const sameDirection = existingReq.requesterId === requesterId;
+      if (sameDirection && Date.now() - new Date(existingReq.createdAt).getTime() < DECLINED_RESEND_COOLDOWN_MS) {
+        return res.status(400).json({ error: 'Your previous request was declined; you can send a new one later', code: 'REQUEST_DECLINED_RECENTLY' });
+      }
+      // Otherwise a declined request must not block the pair forever.
+      // deleteMany: two concurrent re-sends must not make the second one fail with P2025 (a 500)
+      await prisma.friendRequest.deleteMany({ where: { id: existingReq.id } });
+    } else if (existingReq) {
+      return res.status(400).json({ error: 'Request already exists' });
+    }
     try {
       const fr = await prisma.friendRequest.create({ data: { requesterId, receiverId } });
 
@@ -740,7 +782,7 @@ router.post('/requests/:id/accept', authenticateToken, async (req, res) => {
       {
         userId: req.user.id,
         userName: accepter?.name,
-        link: `/profile/${req.user.id}`
+        link: `/user/${req.user.id}`
       },
       req.app.get('io')
     ).catch(err => console.error('[NOTIFICATION] Failed to send friend accepted notification:', err));
@@ -776,7 +818,9 @@ router.post('/requests/:id/decline', authenticateToken, async (req, res) => {
   try {
     const reqRow = await prisma.friendRequest.findUnique({ where: { id: req.params.id } });
     if (!reqRow || reqRow.receiverId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
-    await prisma.friendRequest.update({ where: { id: reqRow.id }, data: { status: 'DECLINED' } });
+    // createdAt doubles as "when this request last changed state": the resend cooldown (see
+    // DECLINED_RESEND_COOLDOWN_MS) is measured from the decline, not from when it was first sent.
+    await prisma.friendRequest.update({ where: { id: reqRow.id }, data: { status: 'DECLINED', createdAt: new Date() } });
 
     // The decliner's pending-request badge count just dropped by one.
     broadcastCounters(req.app.get('io'), prisma, req.user.id).catch(() => {});

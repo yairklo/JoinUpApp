@@ -30,7 +30,16 @@ function mapAuthenticatedUser(userId, clerkUser) {
 // Require auth and map Clerk auth to our expected req.user shape with real name
 const baseRequireAuth = requireAuth();
 const authenticateToken = (req, res, next) => {
+  // Clerk's requireAuth answers an unauthenticated request with a 302 redirect to the sign-in URL
+  // ("/"), which an API client sees as an HTML page. Turn that redirect into a 401 JSON for the
+  // duration of the auth check only.
+  const originalRedirect = res.redirect;
+  res.redirect = () => {
+    res.redirect = originalRedirect;
+    return res.status(401).json({ error: 'Unauthorized' });
+  };
   baseRequireAuth(req, res, async (err) => {
+    res.redirect = originalRedirect;
     if (err) return next(err);
     const userId = req.auth?.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });

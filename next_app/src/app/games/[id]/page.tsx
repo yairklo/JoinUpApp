@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import GameActions from "@/components/GameActions";
 import GuestJoinBar from "@/components/GuestJoinBar";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
+import CancelGameButton from "@/components/CancelGameButton";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
@@ -59,6 +60,7 @@ type Game = {
   teamSize?: number | null;
   price?: number | null;
   chatRoomId?: string;
+  status?: "OPEN" | "COMPLETED" | "CANCELLED";
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -155,6 +157,7 @@ export default async function GameDetails(props: {
               teams: game.teams,
               waitlistParticipants: game.waitlistParticipants,
               pickSessionStatus: (game as { pickSessionStatus?: string }).pickSessionStatus,
+              status: game.status,
               fieldId: game.fieldId,
             }}
             viewerId={userId}
@@ -180,6 +183,11 @@ export default async function GameDetails(props: {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                   עריכת פרטי המשחק, וניהול סדרת משחקים שבועית אם יש כזו. תפקידים, קבוצות, הגרלה ורשימת המתנה מנוהלים למעלה, ליד רשימת השחקנים.
                 </Typography>
+                {isOrganizer && game.status !== "CANCELLED" && game.status !== "COMPLETED" && (
+                  <Box sx={{ mb: 2 }}>
+                    <CancelGameButton gameId={game.id} isSeriesGame={!!game.seriesId} />
+                  </Box>
+                )}
                 <GameDetailsEditor
                     gameId={game.id}
                     initialTime={game.time}
@@ -218,7 +226,7 @@ export default async function GameDetails(props: {
           </Box>
         </Box>
 
-        {!userId && <GuestJoinBar />}
+        {!userId && game.status !== "CANCELLED" && <GuestJoinBar />}
 
       </Container>
     </main>
