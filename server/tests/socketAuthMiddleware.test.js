@@ -12,6 +12,7 @@ jest.mock('../utils/auth', () => ({
   authenticateToken: (req, res, next) => next(),
   attachOptionalUser: (_req, _res, next) => next(),
   clerkClient: { users: { getUser: mockGetUser } },
+  getClerkUserCached: (...args) => mockGetUser(...args),
 }));
 
 const mockResolveIsBanned = jest.fn();

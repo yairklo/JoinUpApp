@@ -295,9 +295,9 @@ async function socketAuthMiddleware(socket, next) {
       return next(new Error('Unauthorized'));
     }
     try {
-      const { clerkClient } = require('./utils/auth');
+      const { getClerkUserCached } = require('./utils/auth');
       const { resolveIsBanned } = require('./utils/admin');
-      const clerkUser = await clerkClient.users.getUser(socket.userId);
+      const clerkUser = await getClerkUserCached(socket.userId);
       if (resolveIsBanned(clerkUser)) {
         return next(new Error('Account suspended'));
       }

@@ -1,6 +1,6 @@
 const express = require('express');
 const { prisma } = require('../lib/prisma');
-const { authenticateToken, clerkClient } = require('../utils/auth');
+const { authenticateToken, clerkClient, invalidateClerkUser } = require('../utils/auth');
 const { requireAdmin } = require('../utils/admin');
 const { deleteMessageFromChat } = require('../workers/reviewWorker');
 
@@ -70,6 +70,8 @@ router.post('/users/:id/ban', authenticateToken, requireAdmin, async (req, res) 
         bannedBy: req.user.id,
       },
     });
+    // Drop the cached Clerk user so the ban applies on the target's next request, not after the TTL.
+    invalidateClerkUser(targetId);
     res.json({ ok: true });
   } catch (error) {
     console.error('Ban user error:', error);
@@ -87,6 +89,7 @@ router.post('/users/:id/unban', authenticateToken, requireAdmin, async (req, res
         bannedBy: null,
       },
     });
+    invalidateClerkUser(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     console.error('Unban user error:', error);
