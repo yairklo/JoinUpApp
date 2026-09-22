@@ -18,6 +18,7 @@ import ShareIcon from "@mui/icons-material/Share";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import { seriesApi, usersApi } from "@/services/api";
+import { tryNativeShare } from "@/utils/share";
 
 type SearchUser = { id: string; name?: string | null; imageUrl?: string | null };
 
@@ -53,7 +54,7 @@ export default function SeriesMembersPanel({
 
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const inviteUrl = `${origin}/series/${seriesId}`;
-    const shareText = `הצטרפו לסדרה ${seriesTitle} ב-joinUp: ${inviteUrl}`;
+    const shareText = `הצטרפו לקבוצה ${seriesTitle} ב-joinUp: ${inviteUrl}`;
 
     const memberIds = useMemo(() => new Set(subscribers.map((s) => s.userId)), [subscribers]);
 
@@ -114,15 +115,9 @@ export default function SeriesMembersPanel({
     };
 
     const shareInvite = async () => {
-        if (navigator.share) {
-            try {
-                await navigator.share({ title: seriesTitle, text: shareText, url: inviteUrl });
-                return;
-            } catch (err: unknown) {
-                const name = err && typeof err === "object" && "name" in err ? String((err as { name?: unknown }).name) : "";
-                if (name === "AbortError" || name === "NotAllowedError") return;
-            }
-        }
+        // Only touch devices get a native share sheet; on desktop it either shows nothing or an
+        // unexpected OS dialog, so go straight to the WhatsApp fallback there (see utils/share).
+        if (await tryNativeShare({ title: seriesTitle, text: shareText, url: inviteUrl })) return;
         window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
     };
 
@@ -181,7 +176,7 @@ export default function SeriesMembersPanel({
 
             {isOrganizer && (
                 <Typography variant="caption" color="text.secondary" display="block" mt={1.5}>
-                    כוכב = מנהל סדרה. רק המארגן יכול למנות מנהלים.
+                    כוכב = מנהל קבוצה. רק המארגן יכול למנות מנהלים.
                 </Typography>
             )}
 

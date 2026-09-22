@@ -216,7 +216,7 @@ export default function GameDetailsScreen() {
         Alert.alert(
             t('game.cancelGameTitle', 'לבטל את המשחק?'),
             t('game.cancelGameConfirm', 'המשחק יסומן כמבוטל, לא ניתן יהיה להצטרף אליו, וכל המשתתפים יקבלו הודעה.')
-                + (game.seriesId ? t('game.cancelGameConfirmSeries', ' שאר המשחקים בסדרה לא יושפעו.') : ''),
+                + (game.seriesId ? t('game.cancelGameConfirmSeries', ' שאר המשחקים בקבוצה לא יושפעו.') : ''),
             [
                 { text: t('game.cancelGameBack', 'חזרה'), style: 'cancel' },
                 {

@@ -136,7 +136,7 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth dir="rtl">
             <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
                 <DeleteForeverIcon />
-                מחיקת סדרה: {seriesName}
+                מחיקת קבוצה: {seriesName}
             </DialogTitle>
             <DialogContent>
                 <Box mb={2}>
@@ -146,7 +146,7 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
                 </Box>
 
                 <Typography variant="body1" gutterBottom>
-                    נמצאו <b>{games.length} משחקים עתידיים</b> בסדרה זו. כיצד תרצה להמשיך?
+                    נמצאו <b>{games.length} משחקים עתידיים</b> בקבוצה זו. כיצד תרצה להמשיך?
                 </Typography>
 
                 <RadioGroup
@@ -159,7 +159,7 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
                         label={
                             <Box sx={{ mr: 1 }}>
                                 <Typography variant="body2" fontWeight="bold">מחק הכל</Typography>
-                                <Typography variant="caption" color="text.secondary">מחק את הסדרה ובטל את כל המשחקים העתידיים.</Typography>
+                                <Typography variant="caption" color="text.secondary">מחק את הקבוצה ובטל את כל המשחקים העתידיים.</Typography>
                             </Box>
                         }
                         sx={{ mb: 1, ml: 0 }}
@@ -170,7 +170,7 @@ export default function DeleteSeriesDialog({ open, onClose, seriesId, seriesName
                         label={
                             <Box sx={{ mr: 1 }}>
                                 <Typography variant="body2" fontWeight="bold">שמור משחקים</Typography>
-                                <Typography variant="caption" color="text.secondary">מחק את הסדרה אך השאר את המשחקים העתידיים כאירועים נפרדים.</Typography>
+                                <Typography variant="caption" color="text.secondary">מחק את הקבוצה אך השאר את המשחקים העתידיים כאירועים נפרדים.</Typography>
                             </Box>
                         }
                         sx={{ mb: 1, ml: 0 }}

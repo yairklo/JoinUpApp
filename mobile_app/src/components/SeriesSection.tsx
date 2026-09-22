@@ -129,7 +129,7 @@ export default function SeriesSection() {
                     <View className="flex-row items-center mb-3">
                         <Ionicons name="people-outline" size={12} color="#64748b" />
                         <Text className="text-gray-600 dark:text-cyber-muted text-xs font-bold ml-1">
-                            {t('home.teamMembers', { count: s.subscriberCount, defaultValue: `${s.subscriberCount} מנויים` })}
+                            {t('home.teamMembers', { count: s.subscriberCount, defaultValue: `${s.subscriberCount} חברי קבוצה` })}
                         </Text>
                     </View>
 

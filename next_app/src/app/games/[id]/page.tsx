@@ -181,7 +181,7 @@ export default async function GameDetails(props: {
                   ניהול משחק
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  עריכת פרטי המשחק, וניהול סדרת משחקים שבועית אם יש כזו. תפקידים, קבוצות, הגרלה ורשימת המתנה מנוהלים למעלה, ליד רשימת השחקנים.
+                  עריכת פרטי המשחק, וניהול קבוצה שבועית אם יש כזו. תפקידים, קבוצות, הגרלה ורשימת המתנה מנוהלים למעלה, ליד רשימת השחקנים.
                 </Typography>
                 {isOrganizer && game.status !== "CANCELLED" && game.status !== "COMPLETED" && (
                   <Box sx={{ mb: 2 }}>

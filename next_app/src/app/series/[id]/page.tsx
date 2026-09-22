@@ -93,7 +93,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
     if (!series) {
         return (
             <Container sx={{ py: 4 }}>
-                <Alert severity="error">הסדרה לא נמצאה</Alert>
+                <Alert severity="error">הקבוצה לא נמצאה</Alert>
             </Container>
         );
     }
@@ -205,7 +205,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                 <Grid size={{ xs: 12, md: 7 }}>
                     <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
                         <GroupsIcon color="primary" />
-                        מנויי הסדרה ({series.subscribers.length})
+                        חברי הקבוצה הקבועים ({series.subscribers.length})
                     </Typography>
                     <Card elevation={2}>
                         <CardContent>
@@ -229,7 +229,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                 </Grid>
                             ) : (
                                 <Typography variant="body2" color="text.secondary" align="center" py={3}>
-                                    אין מנויים בסדרה עדיין. אפשר להצטרף לסדרה, או להשתתף במשחק בודד מהרשימה.
+                                    אין חברים קבועים בקבוצה עדיין. אפשר להצטרף לקבוצה, או להשתתף במשחק בודד מהרשימה.
                                 </Typography>
                             )}
                             <SeriesMembersPanel
@@ -251,7 +251,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                         משחקים קרובים
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        השתתפות במשחק ספציפי אינה מצרפת אותך כמנוי לסדרה.
+                        השתתפות במשחק ספציפי אינה מצטרפת אותך לקבוצה הקבועה.
                     </Typography>
                     <Card elevation={2}>
                         <List disablePadding>
