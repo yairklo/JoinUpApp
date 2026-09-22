@@ -3,6 +3,7 @@ const request = require('supertest');
 jest.setTimeout(30000);
 
 const mockUpdateUserMetadata = jest.fn().mockResolvedValue({});
+const mockInvalidateClerkUser = jest.fn();
 
 jest.mock('../utils/auth', () => ({
   authenticateToken: (req, res, next) => {
@@ -19,6 +20,7 @@ jest.mock('../utils/auth', () => ({
     return next();
   },
   attachOptionalUser: (_req, _res, next) => next(),
+  invalidateClerkUser: (...args) => mockInvalidateClerkUser(...args),
   clerkClient: {
     users: {
       updateUserMetadata: (...args) => mockUpdateUserMetadata(...args),
@@ -76,6 +78,7 @@ describe('Admin moderation actions', () => {
 
   beforeEach(() => {
     mockUpdateUserMetadata.mockClear();
+    mockInvalidateClerkUser.mockClear();
   });
 
   test('GET /api/admin/flagged-messages requires admin', async () => {
@@ -119,6 +122,7 @@ describe('Admin moderation actions', () => {
       'user_member_1',
       expect.objectContaining({ privateMetadata: expect.objectContaining({ isBanned: true, banReason: 'test abuse' }) })
     );
+    expect(mockInvalidateClerkUser).toHaveBeenCalledWith('user_member_1');
   });
 
   test('POST .../unban clears isBanned via Clerk metadata', async () => {
@@ -130,6 +134,7 @@ describe('Admin moderation actions', () => {
       'user_member_1',
       expect.objectContaining({ privateMetadata: expect.objectContaining({ isBanned: false }) })
     );
+    expect(mockInvalidateClerkUser).toHaveBeenCalledWith('user_member_1');
   });
 
   test('POST .../remove-message redacts the underlying message and resolves the flag', async () => {

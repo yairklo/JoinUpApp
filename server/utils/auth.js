@@ -1,11 +1,38 @@
 const { requireAuth } = require('@clerk/express');
 const { createClerkClient } = require('@clerk/backend');
+const { LRUCache } = require('lru-cache');
 const { resolveIsAdmin, resolveIsBanned } = require('./admin');
 
 const clerkClient = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY,
   publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
 });
+
+// Short-lived per-process cache of Clerk users, so every HTTP request and socket handshake doesn't
+// round-trip to Clerk. Stores the in-flight Promise so concurrent lookups for one user share a
+// single call; rejected lookups are evicted, never cached. Ban/unban invalidate on this instance;
+// on any other instance the TTL bounds how long a stale ban/admin state can last.
+const CLERK_USER_TTL_MS = 30_000;
+const clerkUserCache = new LRUCache({ max: 5000, ttl: CLERK_USER_TTL_MS });
+
+function getClerkUserCached(userId) {
+  const cached = clerkUserCache.get(userId);
+  if (cached) return cached;
+  const pending = clerkClient.users.getUser(userId);
+  clerkUserCache.set(userId, pending);
+  pending.catch(() => {
+    if (clerkUserCache.get(userId) === pending) clerkUserCache.delete(userId);
+  });
+  return pending;
+}
+
+function invalidateClerkUser(userId) {
+  clerkUserCache.delete(userId);
+}
+
+function clearClerkUserCache() {
+  clerkUserCache.clear();
+}
 
 function displayName(user, userId) {
   return [user.firstName, user.lastName].filter(Boolean).join(' ')
@@ -45,7 +72,7 @@ const authenticateToken = (req, res, next) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-      const user = await clerkClient.users.getUser(userId);
+      const user = await getClerkUserCached(userId);
       req.user = mapAuthenticatedUser(userId, user);
     } catch (e) {
       console.error(`[auth] clerkClient.users.getUser(${userId}) failed, falling back to ADMIN_USER_IDS-only isAdmin check:`, e.message);
@@ -72,7 +99,7 @@ const attachOptionalUser = (req, res, next) => {
       return next();
     }
     try {
-      const user = await clerkClient.users.getUser(userId);
+      const user = await getClerkUserCached(userId);
       req.user = mapAuthenticatedUser(userId, user);
     } catch {
       req.user = mapAuthenticatedUser(userId, null);
@@ -98,5 +125,8 @@ module.exports = {
   comparePassword,
   generateToken,
   mapAuthenticatedUser,
+  getClerkUserCached,
+  invalidateClerkUser,
+  clearClerkUserCache,
   clerkClient // Exported for use in socket middleware
 };
