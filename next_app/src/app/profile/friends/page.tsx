@@ -181,7 +181,13 @@ export default function FriendsAllPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               חפשו שחקנים והוסיפו אותם כדי לשחק יחד.
             </Typography>
-            <Button component={Link} href="/profile/search-players" variant="contained" startIcon={<SearchIcon />}>
+            <Button
+              component={Link}
+              href="/profile/search-players"
+              variant="contained"
+              aria-label="חפש אנשים להוספה"
+              startIcon={<SearchIcon aria-hidden="true" />}
+            >
               חפש אנשים
             </Button>
           </Box>

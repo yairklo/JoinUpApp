@@ -85,7 +85,7 @@ export default function SeriesScreen() {
             setIsSubscribed(isSub || false);
         } catch (error) {
             console.error("Failed to load series", error);
-            Alert.alert(t('common.error', 'שגיאה'), t('series.loadError', 'Failed to load series details'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.loadError', 'Failed to load group details'));
         } finally {
             setLoading(false);
         }
@@ -126,11 +126,11 @@ export default function SeriesScreen() {
                 time, title, description, updateFutureGames: updateFuture,
                 ...changes,
             }, token);
-            Alert.alert(t('common.success', 'הצלחה'), t('series.updateSuccess', 'Series updated successfully'));
+            Alert.alert(t('common.success', 'הצלחה'), t('series.updateSuccess', 'Group updated successfully'));
             fetchSeries();
         } catch (error) {
             console.error(error);
-            Alert.alert(t('common.error', 'שגיאה'), t('series.updateError', 'Failed to update series'));
+            Alert.alert(t('common.error', 'שגיאה'), t('series.updateError', 'Failed to update group'));
         } finally {
             setUpdating(false);
         }
@@ -138,7 +138,7 @@ export default function SeriesScreen() {
 
     const handleDelete = async () => {
         Alert.alert(
-            t('series.deleteTitle', 'Delete Series'),
+            t('series.deleteTitle', 'Delete Group'),
             t('series.deleteConfirm', 'Are you sure? This will delete all future games.'),
             [
                 { text: t('common.cancel', 'Cancel'), style: "cancel" },
@@ -148,10 +148,10 @@ export default function SeriesScreen() {
                             const token = await getToken();
                             if (!token) return;
                             await seriesApi.delete(id, token);
-                            Alert.alert(t('common.success', 'הצלחה'), t('series.deleteSuccess', 'Series deleted'));
+                            Alert.alert(t('common.success', 'הצלחה'), t('series.deleteSuccess', 'Group deleted'));
                             router.replace('/(tabs)');
                         } catch (e) {
-                            Alert.alert(t('common.error', 'שגיאה'), t('series.deleteError', 'Failed to delete series'));
+                            Alert.alert(t('common.error', 'שגיאה'), t('series.deleteError', 'Failed to delete group'));
                         }
                     }
                 }
@@ -246,7 +246,7 @@ export default function SeriesScreen() {
                     <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
                         <FontAwesome name="arrow-left" size={20} color="#4b5563" />
                     </TouchableOpacity>
-                    <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Series Details')}</Text>
+                    <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Group Details')}</Text>
                 </View>
                 <View className="flex-1 justify-center items-center">
                     <LoadingMotif id="passing-lane" label={t('series.loadingSeries', 'טוען קבוצה…')} />
@@ -262,10 +262,10 @@ export default function SeriesScreen() {
                     <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
                         <FontAwesome name="arrow-left" size={20} color="#4b5563" />
                     </TouchableOpacity>
-                    <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Series Details')}</Text>
+                    <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Group Details')}</Text>
                 </View>
                 <View className="flex-1 justify-center items-center">
-                    <Text className="text-gray-500">{t('series.notFound', 'Series not found')}</Text>
+                    <Text className="text-gray-500">{t('series.notFound', 'Group not found')}</Text>
                 </View>
             </SafeAreaView>
         );
@@ -298,7 +298,7 @@ export default function SeriesScreen() {
                     {series.title || series.fieldName}
                 </Text>
                 {canManage && (
-                    <TouchableOpacity onPress={toggleSettings} className="p-2 ml-2" accessibilityLabel={t('series.manageSettings', 'Manage Series Settings')}>
+                    <TouchableOpacity onPress={toggleSettings} className="p-2 ml-2" accessibilityLabel={t('series.manageSettings', 'Manage Group Settings')}>
                         <FontAwesome name="cog" size={20} color="#4b5563" />
                     </TouchableOpacity>
                 )}
@@ -382,7 +382,7 @@ export default function SeriesScreen() {
                             style={{ marginRight: 8 }}
                         />
                         <Text className={`font-bold text-base ${isSubscribed ? 'text-brand-dark' : 'text-white'}`}>
-                            {isSubscribed ? t('series.subscribed', 'Subscribed ✓') : t('series.subscribe', 'Subscribe to Series')}
+                            {isSubscribed ? t('series.subscribed', 'Subscribed ✓') : t('series.subscribe', 'Subscribe to Group')}
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -519,7 +519,7 @@ export default function SeriesScreen() {
                         >
                             <View className="flex-row items-center">
                                 <FontAwesome name="cog" size={18} color="#4b5563" style={{ marginRight: 10 }} />
-                                <Text className="font-bold text-gray-700">{t('series.manageSettings', 'Manage Series Settings')}</Text>
+                                <Text className="font-bold text-gray-700">{t('series.manageSettings', 'Manage Group Settings')}</Text>
                             </View>
                             <FontAwesome name={showSettings ? "chevron-up" : "chevron-down"} size={14} color="#6b7280" />
                         </TouchableOpacity>
@@ -674,7 +674,7 @@ export default function SeriesScreen() {
                                     onPress={handleDelete}
                                     className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
                                 >
-                                    <Text className="text-red-600 font-bold text-base">{t('series.delete', 'Delete Series')}</Text>
+                                    <Text className="text-red-600 font-bold text-base">{t('series.delete', 'Delete Group')}</Text>
                                 </TouchableOpacity>
                                 )}
                             </View>

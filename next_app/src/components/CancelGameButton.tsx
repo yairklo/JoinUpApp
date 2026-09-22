@@ -56,7 +56,7 @@ export default function CancelGameButton({ gameId, isSeriesGame }: { gameId: str
         <DialogContent>
           <DialogContentText>
             המשחק יסומן כמבוטל, לא ניתן יהיה להצטרף אליו, וכל המשתתפים יקבלו הודעה.
-            {isSeriesGame ? " שאר המשחקים בסדרה לא יושפעו." : ""}
+            {isSeriesGame ? " שאר המשחקים בקבוצה לא יושפעו." : ""}
           </DialogContentText>
           {error && (
             <Alert severity="error" sx={{ mt: 2 }}>
