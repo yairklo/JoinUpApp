@@ -18,9 +18,11 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     const take = Math.min(Number(limit) || 100, 500);
-    const rawItems = await prisma.message.findMany({
+    // Fetch the newest `take` messages, then flip back to chronological order for clients.
+    // Ordering asc + take returned the OLDEST messages, hiding recent ones in busy rooms.
+    const newestFirst = await prisma.message.findMany({
       where: { chatRoomId: String(roomId) },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take,
       include: {
         user: { select: { id: true, name: true, imageUrl: true } },
@@ -32,6 +34,7 @@ router.get('/', authenticateToken, async (req, res) => {
         reactions: true
       }
     });
+    const rawItems = newestFirst.reverse();
 
     const items = rawItems.filter(m => m.status !== 'blocked' || m.userId === req.user.id);
 
