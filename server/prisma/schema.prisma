@@ -35,6 +35,7 @@ model User {
   fieldIssueReportReactions FieldIssueReportReaction[]
   fieldIssueReportFlags     FieldIssueReportFlag[]
   supportMessages           SupportMessage[]
+  fieldSuggestions          FieldSuggestion[]
   requestsRecv              FriendRequest[]            @relation("Recv")
   requestsSent              FriendRequest[]            @relation("Sent")
   friendshipsA              Friendship[]               @relation("A")
@@ -278,6 +279,40 @@ model SupportMessage {
 
   @@index([status, createdAt])
   @@index([userId, createdAt])
+}
+
+/// A user's request to add a venue to the public field list ("הצע מגרש חדש").
+/// Never creates a Field on its own -- the venue stays out of search until an admin
+/// approves it, which creates the real (available) Field and links it via createdFieldId.
+/// Distinct from the inline `newField` on game creation, which makes an unlisted,
+/// single-game location (ad-hoc meeting spot) and is intentionally not moderated.
+model FieldSuggestion {
+  id             String                @id @default(cuid())
+  userId         String
+  name           String
+  address        String
+  /// null = the suggester doesn't know
+  isPaid         Boolean?
+  contactInfo    String?
+  lat            Float?
+  lng            Float?
+  sport          String?
+  status         FieldSuggestionStatus @default(PENDING)
+  createdFieldId String?
+  adminNote      String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  resolvedAt     DateTime?
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+enum FieldSuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model Game {
