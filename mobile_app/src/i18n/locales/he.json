@@ -294,6 +294,9 @@
     "waitlistTitle": "רשימת המתנה"
   },
   "newGame": {
+    "searchAddress": "חפש כתובת…",
+    "searchAddressGo": "חפש",
+    "addressNotFound": "לא נמצאה כתובת",
     "suggestLink": "לא מצאת את המגרש?",
     "suggestAction": "הצע מגרש חדש",
     "suggestTitle": "הצע מגרש חדש",

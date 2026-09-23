@@ -294,6 +294,9 @@
     "waitlistTitle": "Waitlist"
   },
   "newGame": {
+    "searchAddress": "Search an address…",
+    "searchAddressGo": "Search",
+    "addressNotFound": "Address not found",
     "suggestLink": "Can't find the field?",
     "suggestAction": "Suggest a new field",
     "suggestTitle": "Suggest a new field",
