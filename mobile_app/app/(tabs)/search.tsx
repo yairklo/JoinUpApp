@@ -87,6 +87,12 @@ export default function SearchScreen() {
     const textQueryActive = query.trim() !== '';
     const searchBounds = isMapView && !textQueryActive ? mapBounds : null;
     const lastFitKeyRef = useRef<string | null>(null);
+    const currentFitKey = textQueryActive
+        ? [query.trim(), selectedSport ?? '', selectedDate?.toDateString() ?? '', networkGames ? '1' : ''].join('|')
+        : null;
+    // Fit key of the text search whose results are currently in `games` -- the map only frames
+    // pins once this matches, never the previous query's results while typing / in flight.
+    const [resultsFitKey, setResultsFitKey] = useState<string | null>(null);
 
     useEffect(() => {
         // Debounce search when bounds change
@@ -182,6 +188,7 @@ export default function SearchScreen() {
             }
 
             setGames(finalGames);
+            setResultsFitKey(currentFitKey);
         } catch (error) {
             console.error("Search failed", error);
         } finally {
@@ -291,8 +298,8 @@ export default function SearchScreen() {
             lastFitKeyRef.current = null;
             return;
         }
-        if (loading || searchMapMarkers.length === 0) return;
-        const fitKey = [query.trim(), selectedSport ?? '', selectedDate?.toDateString() ?? '', networkGames ? '1' : ''].join('|');
+        const fitKey = resultsFitKey;
+        if (loading || !fitKey || fitKey !== currentFitKey || searchMapMarkers.length === 0) return;
         if (lastFitKeyRef.current === fitKey) return;
         lastFitKeyRef.current = fitKey;
         const lats = searchMapMarkers.map((m) => Number(m.latitude));
@@ -307,14 +314,14 @@ export default function SearchScreen() {
             latitudeDelta: Math.max((maxLat - minLat) * 1.4, 0.02),
             longitudeDelta: Math.max((maxLng - minLng) * 1.4, 0.02),
         });
-    }, [isMapView, textQueryActive, loading, searchMapMarkers, query, selectedSport, selectedDate, networkGames]);
+    }, [isMapView, textQueryActive, loading, searchMapMarkers, resultsFitKey, currentFitKey]);
 
     const pinnedGamesCount = useMemo(
         () => groupedMapGames.reduce((sum, group) => sum + group.length, 0),
         [groupedMapGames]
     );
     let mapSearchNotice: string | null = null;
-    if (textQueryActive && !loading) {
+    if (textQueryActive && !loading && resultsFitKey === currentFitKey) {
         if (games.length === 0) mapSearchNotice = t('search.mapNoResults', 'לא נמצאו משחקים לחיפוש הזה');
         else if (pinnedGamesCount === 0) mapSearchNotice = t('search.mapNoLocations', 'לתוצאות החיפוש אין מיקום על המפה');
         else if (pinnedGamesCount < games.length) {

@@ -1086,7 +1086,12 @@ async function searchGames(queryParams, viewerId, { dedupe = true } = {}) {
     where.OR = [
       { title: { contains: String(q), mode: 'insensitive' } },
       { description: { contains: String(q), mode: 'insensitive' } },
-      { field: { name: { contains: String(q), mode: 'insensitive' } } }
+      { field: { name: { contains: String(q), mode: 'insensitive' } } },
+      // Address text: the free-form spot a game was pinned at, and the listed field's address.
+      { customLocation: { contains: String(q), mode: 'insensitive' } },
+      { field: { location: { contains: String(q), mode: 'insensitive' } } },
+      { field: { street: { contains: String(q), mode: 'insensitive' } } },
+      { field: { neighborhood: { contains: String(q), mode: 'insensitive' } } }
     ];
   }
 
