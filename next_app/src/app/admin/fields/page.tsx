@@ -7,6 +7,7 @@ import { usePaginatedFields } from "@/hooks/usePaginatedFields";
 import InfiniteScrollSentinel from "@/components/InfiniteScrollSentinel";
 import { SPORT_MAPPING } from "@/utils/sports";
 import FieldEditorDialog from "@/components/admin/FieldEditorDialog";
+import FieldSuggestionsPanel from "@/components/admin/FieldSuggestionsPanel";
 
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -130,6 +131,8 @@ export default function AdminFieldsPage() {
       {(error || loadError) && (
         <Alert severity="error" onClose={() => setError(null)}>{error || loadError}</Alert>
       )}
+
+      <FieldSuggestionsPanel onFieldCreated={() => { reload(); }} />
 
       <TextField
         placeholder="חיפוש לפי שם, עיר או כתובת…"

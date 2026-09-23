@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { fieldsApi, Field } from "@/services/api/fields";
 import { SPORT_MAPPING } from "@/utils/sports";
@@ -30,11 +30,19 @@ import Typography from "@mui/material/Typography";
 type SportKey = "SOCCER" | "BASKETBALL" | "TENNIS";
 const SPORT_KEYS: SportKey[] = ["SOCCER", "BASKETBALL", "TENNIS"];
 
+type FieldCreatePayload = Parameters<typeof fieldsApi.create>[0];
+
 interface FieldEditorDialogProps {
   open: boolean;
   field: Field | null; // null = create mode
   onClose: () => void;
   onSaved: () => void;
+  /** Create mode only: prefill the form (e.g. from a user's field suggestion). */
+  initialValues?: FieldEditorInitialValues;
+  /** Create mode only: replaces the plain fieldsApi.create call (e.g. approve a suggestion). */
+  createField?: (payload: FieldCreatePayload, token: string) => Promise<Field>;
+  /** Overrides the create-mode title. */
+  createTitle?: string;
 }
 
 interface FormState {
@@ -53,6 +61,8 @@ interface FormState {
   lat: number | null;
   lng: number | null;
 }
+
+export type FieldEditorInitialValues = Partial<FormState>;
 
 const EMPTY_FORM: FormState = {
   name: "",
@@ -90,7 +100,15 @@ function fieldToForm(field: Field): FormState {
   };
 }
 
-export default function FieldEditorDialog({ open, field, onClose, onSaved }: FieldEditorDialogProps) {
+export default function FieldEditorDialog({
+  open,
+  field,
+  onClose,
+  onSaved,
+  initialValues,
+  createField,
+  createTitle,
+}: FieldEditorDialogProps) {
   const { getToken } = useAuth();
   const isEdit = !!field;
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -104,9 +122,14 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
   // spellings/duplicates like "תל אביב" vs "ת"א").
   const [cities, setCities] = useState<string[]>([]);
 
+  // Read through a ref so a parent passing a fresh object literal each render doesn't keep
+  // resetting the form -- the prefill only applies when the dialog opens.
+  const initialValuesRef = useRef(initialValues);
+  initialValuesRef.current = initialValues;
+
   useEffect(() => {
     if (open) {
-      setForm(field ? fieldToForm(field) : EMPTY_FORM);
+      setForm(field ? fieldToForm(field) : { ...EMPTY_FORM, ...initialValuesRef.current });
       setSavedField(field);
       setError(null);
       fieldsApi.getCities().then(setCities).catch(() => {});
@@ -159,7 +182,7 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
         const updated = await fieldsApi.update(activeField.id, payload, token);
         setSavedField(updated);
       } else {
-        const created = await fieldsApi.create(payload, token);
+        const created = createField ? await createField(payload, token) : await fieldsApi.create(payload, token);
         setSavedField(created);
       }
       onSaved();
@@ -187,7 +210,7 @@ export default function FieldEditorDialog({ open, field, onClose, onSaved }: Fie
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen dir="rtl">
-      <DialogTitle>{isEdit ? `עריכת מגרש: ${field?.name}` : "מגרש חדש"}</DialogTitle>
+      <DialogTitle>{isEdit ? `עריכת מגרש: ${field?.name}` : createTitle || "מגרש חדש"}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} mt={1}>
           {error && <Alert severity="error">{error}</Alert>}
