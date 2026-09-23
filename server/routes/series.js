@@ -3,6 +3,12 @@ const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { prisma } = require('../lib/prisma');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
 const { parseJerusalemTimeToUTC, formatJerusalemDate, formatJerusalemTime } = require('../utils/timezone');
+const {
+  resolveSeriesRegistrationOpensAt,
+  seriesHasRegistrationRule,
+  isValidRegistrationOpenDay,
+  isValidRegistrationOpenTime,
+} = require('../utils/seriesRegistrationRule');
 const gameScheduler = require('../services/gameScheduler');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
@@ -250,6 +256,8 @@ router.get('/:seriesId', async (req, res) => {
       teamSize: series.teamSize ?? null,
       welcomeMessage: series.welcomeMessage ?? null,
       autoOpenRegistrationHours: series.autoOpenRegistrationHours,
+      registrationOpenDayOfWeek: series.registrationOpenDayOfWeek ?? null,
+      registrationOpenTime: series.registrationOpenTime ?? null,
       description: series.description || null,
       imageUrl: series.imageUrl || null,
       organizer: {
@@ -330,6 +338,8 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       maxPlayers,
       dayOfWeek,
       autoOpenRegistrationHours,
+      registrationOpenDayOfWeek,
+      registrationOpenTime,
       description,
       imageUrl,
       duration,
@@ -366,6 +376,32 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'teamSize must be a positive integer or null' });
     }
 
+    // Registration-open rule: either a fixed weekday + time (registrationOpenDayOfWeek/Time) or the
+    // legacy relative autoOpenRegistrationHours. Setting one mode clears the other so the group
+    // never has two competing rules.
+    const ruleProvided = typeof registrationOpenDayOfWeek !== 'undefined' || typeof registrationOpenTime !== 'undefined';
+    const hoursProvided = typeof autoOpenRegistrationHours !== 'undefined';
+    let ruleDay = null;
+    let ruleTime = null;
+    if (ruleProvided) {
+      const clearing = registrationOpenDayOfWeek === null && registrationOpenTime === null;
+      if (!clearing) {
+        ruleDay = Number(registrationOpenDayOfWeek);
+        ruleTime = registrationOpenTime;
+        if (!isValidRegistrationOpenDay(ruleDay) || !isValidRegistrationOpenTime(ruleTime)) {
+          return res.status(400).json({
+            error: 'registrationOpenDayOfWeek (0-6) and registrationOpenTime (HH:MM) must be set together, or both null',
+          });
+        }
+        if (hoursProvided && autoOpenRegistrationHours !== null) {
+          return res.status(400).json({ error: 'Set either a weekday+time registration rule or autoOpenRegistrationHours, not both' });
+        }
+      }
+    }
+    if (hoursProvided && autoOpenRegistrationHours !== null && !Number.isFinite(Number(autoOpenRegistrationHours))) {
+      return res.status(400).json({ error: 'autoOpenRegistrationHours must be a number or null' });
+    }
+
     const data = {};
     if (typeof title === 'string') data.title = title;
     if (typeof time === 'string') data.time = String(time);
@@ -374,8 +410,17 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     if (typeof fieldLocation === 'string') data.fieldLocation = fieldLocation;
     if (typeof price !== 'undefined' && !Number.isNaN(Number(price))) data.price = Number(price);
     if (typeof maxPlayers !== 'undefined') data.maxPlayers = Number(maxPlayers);
-    if (typeof autoOpenRegistrationHours !== 'undefined') {
+    if (hoursProvided) {
       data.autoOpenRegistrationHours = autoOpenRegistrationHours === null ? null : Number(autoOpenRegistrationHours);
+      if (data.autoOpenRegistrationHours !== null) {
+        data.registrationOpenDayOfWeek = null;
+        data.registrationOpenTime = null;
+      }
+    }
+    if (ruleProvided) {
+      data.registrationOpenDayOfWeek = ruleDay;
+      data.registrationOpenTime = ruleTime;
+      if (ruleDay !== null) data.autoOpenRegistrationHours = null;
     }
     if (typeof description !== 'undefined') {
       // Same treatment createGame gives a game description: strip HTML, cap length.
@@ -449,14 +494,12 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
         gd.start = parseJerusalemTimeToUTC(formatJerusalemDate(g.start), String(time));
       }
 
-      if (typeof autoOpenRegistrationHours !== 'undefined') {
-        const hours = data.autoOpenRegistrationHours; // already processed above
-        if (hours === null) {
-          gd.registrationOpensAt = null;
-        } else {
-          const baseStart = gd.start || g.start; // Use new start if changed, else existing
-          gd.registrationOpensAt = new Date(baseStart.getTime() - hours * 3600000);
-        }
+      // Recompute each future game's registration opening from the group's (updated) rule when
+      // the rule itself changed, or when the game time moved under an existing rule. This is the
+      // group-wide path only -- editing a single game (patchGame) never touches its siblings.
+      const timeMoved = !!gd.start && seriesHasRegistrationRule(updatedSeries);
+      if (ruleProvided || hoursProvided || timeMoved) {
+        gd.registrationOpensAt = resolveSeriesRegistrationOpensAt(updatedSeries, gd.start || g.start);
       }
       if (typeof sport !== 'undefined') gd.sport = sport;
       if (typeof isOpenToJoin !== 'undefined') gd.isOpenToJoin = !!isOpenToJoin;
