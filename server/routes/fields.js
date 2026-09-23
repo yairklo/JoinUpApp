@@ -1182,3 +1182,7 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 module.exports = router;
+// Reused by routes/fieldSuggestions.js so approving a suggestion validates/shapes the new Field
+// exactly like the admin create endpoint above.
+module.exports.validateOptionalFieldExtras = validateOptionalFieldExtras;
+module.exports.mapFieldForClient = mapFieldForClient;
