@@ -33,6 +33,9 @@
     "loadingAuth": "Loading..."
   },
   "search": {
+    "mapNoResults": "No games match this search",
+    "mapNoLocations": "None of the results have a map location",
+    "mapSomeWithoutLocation": "{{count}} of the results have no map location",
     "placeholder": "Search games, fields...",
     "upcomingWeek": "Upcoming Week",
     "allCities": "All Cities",

@@ -33,6 +33,9 @@
     "fields": "מגרשים"
   },
   "search": {
+    "mapNoResults": "לא נמצאו משחקים לחיפוש הזה",
+    "mapNoLocations": "לתוצאות החיפוש אין מיקום על המפה",
+    "mapSomeWithoutLocation": "{{count}} מהתוצאות ללא מיקום על המפה",
     "placeholder": "חפש משחקים, מגרשים...",
     "upcomingWeek": "השבוע הקרוב",
     "allCities": "כל הערים",
