@@ -966,6 +966,9 @@ function NewGamePageInner() {
                 markTouched();
                 setSelectedField(f);
                 setNewFieldMode(false);
+                // A listed field replaces any free-form point picked/searched earlier on the map,
+                // otherwise its stale customLat/customLng would still be sent with the fieldId.
+                setCustomPoint(null);
                 setShowMap(false);
               }}
               // Pick NEW location logic
