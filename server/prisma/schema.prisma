@@ -602,6 +602,13 @@ model GameSeries {
   type                      RecurrenceType      @default(WEEKLY)
   sport                     SportType           @default(SOCCER)
   autoOpenRegistrationHours Float?
+  /// Fixed weekly registration-open rule for the group's games, in Asia/Jerusalem: each game's
+  /// registration opens at the latest (registrationOpenDayOfWeek, registrationOpenTime) before it
+  /// starts. 0-6, Sunday=0. Takes precedence over autoOpenRegistrationHours; the series PATCH
+  /// keeps only one of the two modes set.
+  registrationOpenDayOfWeek Int?
+  /// "HH:MM" (Asia/Jerusalem), paired with registrationOpenDayOfWeek
+  registrationOpenTime      String?
   title                     String?
   description               String?
   imageUrl                  String?
