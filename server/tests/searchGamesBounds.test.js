@@ -53,4 +53,12 @@ describe('searchGames: text query + map bounds', () => {
     expect(where.start).toBeDefined();
     expect(where.OR.some((c) => c.title)).toBe(true);
   });
+
+  test('q also matches the address (free-form location and the field address/street)', async () => {
+    await searchGames({ q: 'שדרות' }, undefined, { dedupe: false });
+    const or = lastWhere().OR;
+    expect(or).toContainEqual({ customLocation: { contains: 'שדרות', mode: 'insensitive' } });
+    expect(or).toContainEqual({ field: { location: { contains: 'שדרות', mode: 'insensitive' } } });
+    expect(or).toContainEqual({ field: { street: { contains: 'שדרות', mode: 'insensitive' } } });
+  });
 });
