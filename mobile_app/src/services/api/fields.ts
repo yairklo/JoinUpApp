@@ -317,4 +317,19 @@ export const fieldsApi = {
     removePhoto: (fieldId: string, url: string, token: string) => {
         return apiClient<Field>(`/api/fields/${fieldId}/photos`, { method: 'DELETE', data: { url }, token });
     },
+
+    // "הצע מגרש חדש": only queues a request for the admins -- no field is created (and nothing
+    // appears in field search) until an admin approves it.
+    suggestField: (data: FieldSuggestionInput, token: string) => {
+        return apiClient<{ id: string; status: 'PENDING' }>('/api/field-suggestions', { method: 'POST', data, token });
+    },
 };
+
+export interface FieldSuggestionInput {
+    name: string;
+    address: string;
+    /** null = the suggester doesn't know */
+    isPaid: boolean | null;
+    contactInfo?: string;
+    sport?: string;
+}

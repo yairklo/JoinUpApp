@@ -17,6 +17,7 @@ import CustomPointMarker from '@/components/map/CustomPointMarker';
 import { DEFAULT_MAP_REGION, MapBounds, MapCoordinate, MapMarkerItem, MapRegion, regionToBounds } from '@/components/map/types';
 import { getFieldSportTags } from '@/utils/mapSport';
 import * as Location from 'expo-location';
+import SuggestFieldModal from '@/components/SuggestFieldModal';
 
 function filterFieldsWithCoords(fields: Field[]): Field[] {
     return fields.filter((f) => f.lat != null && f.lng != null);
@@ -107,6 +108,8 @@ export default function NewGameScreen() {
     const [showMapModal, setShowMapModal] = useState(false);
     const [customPoint, setCustomPoint] = useState<MapCoordinate | null>(null);
     const [customFieldName, setCustomFieldName] = useState('');
+    // "הצע מגרש חדש" -- request to the admins; the free-form map point above stays unchanged.
+    const [showSuggestField, setShowSuggestField] = useState(false);
     const [mapFields, setMapFields] = useState<Field[]>([]);
     const [mapLoading, setMapLoading] = useState(false);
     const [mapSelectedField, setMapSelectedField] = useState<Field | null>(null);
@@ -605,6 +608,11 @@ export default function NewGameScreen() {
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
+
+                    <TouchableOpacity onPress={() => setShowSuggestField(true)} className="flex-row items-center mt-3">
+                        <Text className="text-gray-500 text-xs">{t('newGame.suggestLink', 'לא מצאת את המגרש?')} </Text>
+                        <Text className="text-brand-dark font-bold text-xs">{t('newGame.suggestAction', 'הצע מגרש חדש')}</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Date & Time */}
@@ -895,6 +903,12 @@ export default function NewGameScreen() {
                     />
                 </View>
             </Modal>
+
+            <SuggestFieldModal
+                visible={showSuggestField}
+                onClose={() => setShowSuggestField(false)}
+                onSubmitted={() => Alert.alert(t('newGame.suggestSent', 'הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה'))}
+            />
         </>
     );
 }
