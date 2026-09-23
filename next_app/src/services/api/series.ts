@@ -15,6 +15,9 @@ export interface UpdateSeriesDTO {
     duration?: number;
     maxPlayers?: number;
     autoOpenRegistrationHours?: number | null;
+    /** Fixed weekly registration-open rule (Asia/Jerusalem); set together, or both null. */
+    registrationOpenDayOfWeek?: number | null;
+    registrationOpenTime?: string | null;
     updateFutureGames?: boolean;
 }
 

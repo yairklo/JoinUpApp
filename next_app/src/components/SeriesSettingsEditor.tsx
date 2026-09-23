@@ -22,6 +22,8 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Collapse from "@mui/material/Collapse";
 import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
+import Radio from "@mui/material/Radio";
+import RadioGroup from "@mui/material/RadioGroup";
 
 // Icons
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -38,6 +40,27 @@ import { SPORTS } from "@/components/GameDetailsEditor";
 
 const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
+const toMinutes = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+};
+
+// Plain-language preview of the weekday rule for a weekly group, e.g. "למשחק של יום שבת 20:00
+// ההרשמה תיפתח ביום ראשון 18:00 שלפניו (6 ימים ו-2 שעות לפני)". Mirrors the server's
+// computeRegistrationOpensAt: the latest (day, time) strictly before the game.
+function describeWeeklyRule(gameDay: number | null | undefined, gameTime: string, regDay: number, regTime: string): string {
+    if (gameDay === null || gameDay === undefined || !/^\d{2}:\d{2}$/.test(gameTime) || !/^\d{2}:\d{2}$/.test(regTime)) {
+        return `ההרשמה לכל משחק תיפתח ביום ${DAYS[regDay]} ב־${regTime} שלפניו`;
+    }
+    let daysBack = (gameDay - regDay + 7) % 7;
+    if (daysBack === 0 && toMinutes(regTime) >= toMinutes(gameTime)) daysBack = 7;
+    const totalMinutes = daysBack * 24 * 60 + toMinutes(gameTime) - toMinutes(regTime);
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const parts = [days ? `${days} ימים` : "", hours ? `${hours} שעות` : ""].filter(Boolean).join(" ו־");
+    return `למשחק של יום ${DAYS[gameDay]} ${gameTime} ההרשמה תיפתח ביום ${DAYS[regDay]} ${regTime} שלפניו${parts ? ` (${parts} לפני)` : ""}`;
+}
+
 const filter = createFilterOptions<FieldOption>();
 
 interface SeriesSettingsEditorProps extends SeriesSettingsEditorHookProps {
@@ -47,6 +70,7 @@ interface SeriesSettingsEditorProps extends SeriesSettingsEditorHookProps {
 export default function SeriesSettingsEditor({ canManage, ...hookProps }: SeriesSettingsEditorProps) {
     const { state, actions } = useSeriesSettingsEditor(hookProps);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [showAdvancedReg, setShowAdvancedReg] = useState(false);
 
     if (!canManage) return null;
 
@@ -237,16 +261,73 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                         </Grid>
 
                         <Grid size={{ xs: 12 }} mt={1}>
-                            <TextField
-                                label="שעות לפתיחת רישום לפני המשחק"
-                                type="number"
-                                fullWidth
-                                value={state.hours}
-                                onChange={(e) => actions.setHours(e.target.value)}
-                                helperText="השאר ריק כדי שההרשמה תיפתח מיד עם יצירת המשחק"
-                                InputLabelProps={{ shrink: true }}
-                                placeholder="לדוגמה: 48 (יומיים לפני)"
-                            />
+                            <Paper variant="outlined" sx={{ p: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+                                    פתיחת הרשמה למשחקים בקבוצה
+                                </Typography>
+                                <RadioGroup
+                                    value={state.regMode}
+                                    onChange={(e) => actions.setRegMode(e.target.value as typeof state.regMode)}
+                                >
+                                    <FormControlLabel value="weekly" control={<Radio size="small" />} label="ביום ובשעה קבועים בכל שבוע" />
+                                    <Collapse in={state.regMode === "weekly"}>
+                                        <Stack spacing={1.5} sx={{ pr: 4, pb: 1 }}>
+                                            <Stack direction="row" spacing={2}>
+                                                <TextField
+                                                    select
+                                                    label="יום"
+                                                    size="small"
+                                                    value={state.regDay}
+                                                    onChange={(e) => actions.setRegDay(Number(e.target.value))}
+                                                    sx={{ minWidth: 140 }}
+                                                >
+                                                    {DAYS.map((d, i) => (
+                                                        <MenuItem key={d} value={i}>{d}</MenuItem>
+                                                    ))}
+                                                </TextField>
+                                                <HebrewTimeField
+                                                    label="שעה"
+                                                    size="small"
+                                                    value={state.regTime}
+                                                    onChange={(e) => actions.setRegTime(e.target.value)}
+                                                />
+                                            </Stack>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {describeWeeklyRule(
+                                                    state.seriesType === "WEEKLY" ? state.initialDayOfWeek : null,
+                                                    state.time,
+                                                    state.regDay,
+                                                    state.regTime
+                                                )}
+                                            </Typography>
+                                        </Stack>
+                                    </Collapse>
+                                    <FormControlLabel value="none" control={<Radio size="small" />} label="ללא פתיחה מתוזמנת (ההרשמה פתוחה מיד)" />
+                                    <Collapse in={showAdvancedReg || state.regMode === "hours"}>
+                                        <FormControlLabel value="hours" control={<Radio size="small" />} label="מתקדם: מספר שעות קבוע לפני כל משחק" />
+                                        <Collapse in={state.regMode === "hours"}>
+                                            <TextField
+                                                label="שעות לפני המשחק"
+                                                type="number"
+                                                size="small"
+                                                value={state.hours}
+                                                onChange={(e) => actions.setHours(e.target.value)}
+                                                placeholder="לדוגמה: 48"
+                                                sx={{ mr: 4, mb: 1, maxWidth: 200 }}
+                                                InputProps={{ inputProps: { min: 1, step: 1 } }}
+                                            />
+                                        </Collapse>
+                                    </Collapse>
+                                </RadioGroup>
+                                {!showAdvancedReg && state.regMode !== "hours" && (
+                                    <Button size="small" onClick={() => setShowAdvancedReg(true)} sx={{ mt: 0.5 }}>
+                                        אפשרויות מתקדמות
+                                    </Button>
+                                )}
+                                <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                                    חל על כל המשחקים העתידיים בקבוצה. שינוי במשחק בודד לא משפיע על שאר הקבוצה.
+                                </Typography>
+                            </Paper>
                         </Grid>
 
                         <Grid size={{ xs: 12 }} mt={1}>
