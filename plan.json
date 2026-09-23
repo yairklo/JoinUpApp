@@ -1,26 +1,192 @@
 [
   {
     "id": 1,
-    "title": "Server: add a short-TTL cache for Clerk getUser and use it in HTTP + socket auth",
+    "title": "D/server: fix searchGames dropping start/sport/fieldId/network filters when q + map bounds are combined",
     "area": "server",
     "files": [
-      "server/utils/auth.js",
-      "server/index.js",
-      "server/routes/admin.js"
+      "server/services/gameService.js",
+      "server/tests/searchGamesBounds.test.js"
     ],
-    "description": "Today every authenticated HTTP request (`authenticateToken` / `attachOptionalUser`, server/utils/auth.js:39 and :66) and every Socket.IO handshake (`socketAuthMiddleware`, server/index.js ~line 300) calls `clerkClient.users.getUser(userId)` — a network round trip to Clerk per request, adding latency and counting against Clerk's backend API rate limits.\n\nIn server/utils/auth.js: add `getClerkUserCached(userId)` backed by `lru-cache` (already a dependency, used in middleware/rateLimit.js) with `ttl: 30_000` and a bounded `max` (e.g. 5000). Cache the in-flight Promise so concurrent requests for the same user share one Clerk call; on rejection, delete the entry so failures are never cached (callers keep their existing fallback-to-`mapAuthenticatedUser(userId, null)` behaviour unchanged). Add `invalidateClerkUser(userId)` and `clearClerkUserCache()` (for tests). Replace both `clerkClient.users.getUser(userId)` calls with `getClerkUserCached(userId)`. Export the three new functions alongside the existing exports.\n\nIn server/index.js `socketAuthMiddleware`: replace `clerkClient.users.getUser(socket.userId)` with `getClerkUserCached(socket.userId)` from './utils/auth'. The fail-closed JWT check (`verifyToken`) must stay exactly as-is — only the ban lookup is cached (server-invariants: never fail-open a socket JWT check).\n\nIn server/routes/admin.js: call `invalidateClerkUser(targetId)` right after the successful `updateUserMetadata` in the ban handler (~line 65) and `invalidateClerkUser(req.params.id)` after the unban handler (~line 82), so a ban takes effect immediately on this instance. On other instances (if ever scaled out) the 30s TTL bounds staleness — acceptable and worth noting in a comment. Do not change isAdmin resolution logic (server-invariants: isAdmin comes from Clerk metadata or ADMIN_USER_IDS).",
+    "description": "Branch: work on a new branch off main (e.g. feature/map-search-field-suggest-reg-rule), not the current fix/group-membership-* branch. In searchGames (gameService.js ~1026-1125), when both `q` and bounds are present the code builds `where.AND = [{OR: q}, boundsWhere]` and then `finalWhere = where.AND ? { AND: [visibility, ...where.AND] } : ...`, which silently DROPS every other key on `where` (start cutoff, date, sport, fieldId, isOpenToJoin, networkGames participants/id='none', city). Fix: always build `finalWhere = { AND: [visibility, where] }` where `where` keeps its scalar keys and holds `AND: [{OR: textOR}, {OR: boundsOR}]` (and the bounds-only case keeps `where.OR = boundsOR` as today). Add a jest test (mock prisma like searchGlobal.test.js does) asserting that with q+bounds+sport+date the prisma.game.findMany `where` still contains the start/sport constraints plus both OR groups. Run only this test file (PORT=3099 npx jest tests/searchGamesBounds.test.js --runInBand --forceExit).",
     "status": "done"
   },
   {
     "id": 2,
-    "title": "Server tests: cover the Clerk user cache and keep socket auth test mocks in sync",
+    "title": "D/web: map on /search shows the same results as the list for a text query (no viewport clipping, fit to pins, empty state)",
+    "area": "web",
+    "files": [
+      "next_app/src/app/search/page.tsx",
+      "next_app/src/components/SearchMapComponent.tsx"
+    ],
+    "description": "Root cause of prod repro (/search, q='אולם': list 6, map 0): on mobile web the map is only mounted after switching to map view (mapEnabled), it then reports its default viewport (Tel Aviv / user location) via BoundsListener → setMapBounds → performSearch re-queries with minLat..maxLng, so results outside that viewport disappear from BOTH map and list. Target: (a) in performSearch (page.tsx ~150-160) do NOT append bounds params while `debouncedQuery.trim()` is non-empty — a text search is global; bounds-driven search stays exactly as today when there is no query (acceptance: 'without search the map keeps working as usual'). Remove mapBounds from the dependency effect only for the text-query case (e.g. derive `effectiveBounds = debouncedQuery.trim() ? null : mapBounds` and depend on that) so panning during a text search doesn't re-fetch. (b) SearchMapComponent: add prop `fitToResultsKey?: string` (page passes debouncedQuery+sport+date when a query is active, else undefined); when it changes and there are groups with valid coords, call map.fitBounds on all game pins once (cap zoom ~15 for a single pin). Guard so the resulting bounds_changed doesn't trigger a re-search (page ignores bounds while query is active, per (a)). (c) Empty state overlay inside the map pane: if `games.length > 0` but zero have valid coords → 'לתוצאות החיפוש אין מיקום על המפה'; if `games.length === 0 && !loading` with an active query → 'לא נמצאו משחקים לחיפוש הזה'. Results without coords must not hide the others. List↔map toggle must keep the same `games` state (it already shares it — do not introduce a second fetch). Gate: cd next_app && npm run build.",
+    "status": "done"
+  },
+  {
+    "id": 3,
+    "title": "D/mobile: same fix in the mobile search tab map view",
+    "area": "mobile",
+    "files": [
+      "mobile_app/app/(tabs)/search.tsx",
+      "mobile_app/src/i18n/locales/he.json",
+      "mobile_app/src/i18n/locales/en.json"
+    ],
+    "description": "search.tsx ~116-122 appends minLat..maxLng whenever `isMapView && mapBounds`, so a text query in map view is clipped to the viewport (same bug as web). Target: skip bounds params when `query.trim()` is non-empty; after results arrive for a text query in map view, fit the map to the marker coordinates once via mapRef (AppBaseMapHandle.animateToRegion with a region computed from min/max lat/lng + padding, or animateToCoordinate for a single marker). Add an empty-state overlay on the map for 'results but none with coordinates' and 'no results' (i18n keys search.mapNoLocations / search.mapNoResults in he.json + en.json; follow the existing t('key','fallback') style). No-query behavior unchanged. Gate: mobile_app typecheck + lint per PROMPT.md.",
+    "status": "done"
+  },
+  {
+    "id": 4,
+    "title": "A/schema: add FieldSuggestion model (pending venue requests) + migration",
     "area": "server",
     "files": [
-      "server/tests/clerkUserCache.test.js",
-      "server/tests/socketAuthMiddleware.test.js",
-      "server/tests/adminActions.test.js"
+      "server/prisma/schema.prisma",
+      "server/prisma/migrations/20260923120000_add_field_suggestions/migration.sql"
     ],
-    "description": "server/tests/socketAuthMiddleware.test.js fully mocks '../utils/auth' with only `clerkClient.users.getUser`; after step 1 index.js calls `getClerkUserCached`, so add `getClerkUserCached: (...a) => mockGetUser(...a)` to that mock (keep existing assertions on mockGetUser working).\n\nNew server/tests/clerkUserCache.test.js (pure unit test, no DB): mock '@clerk/backend' `createClerkClient` to return a client whose `users.getUser` is a jest.fn, require '../utils/auth', `clearClerkUserCache()` in beforeEach. Cases: (a) two sequential calls for the same id -> getUser called once; (b) two concurrent calls -> called once; (c) a rejected call is not cached — next call retries; (d) `invalidateClerkUser(id)` forces a refetch; (e) different ids are cached separately. Use jest fake timers or advance Date to verify TTL expiry triggers a refetch.\n\nGate: `cd server && PORT=3099 npx jest tests/clerkUserCache.test.js tests/socketAuthMiddleware.test.js tests/adminActions.test.js tests/authUnauthenticated401.test.js --runInBand --detectOpenHandles --forceExit`.\n\nAdded during execution: server/tests/adminActions.test.js also fully mocks '../utils/auth', so admin.js's new `invalidateClerkUser` import was undefined there; added it to that mock and asserted ban/unban call it.",
+    "description": "No existing pending-venue mechanism exists (SupportMessage is BUG/FEEDBACK free text; inline 'newField' in createGame creates an unlisted Field immediately). Add: `enum FieldSuggestionStatus { PENDING APPROVED REJECTED }` and `model FieldSuggestion { id String @id @default(cuid()); userId String; name String; address String; isPaid Boolean?  /// null = user doesn't know; contactInfo String?; lat Float?; lng Float?; sport String?; status FieldSuggestionStatus @default(PENDING); createdFieldId String?; adminNote String?; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; resolvedAt DateTime?; user User @relation(fields:[userId], references:[id], onDelete: Cascade); @@index([status, createdAt]); @@index([userId, createdAt]) }` plus the back-relation `fieldSuggestions FieldSuggestion[]` on User. Hand-write migration.sql consistent with the previous migration folders' style; run `npx prisma generate` and `npx prisma migrate diff` / `migrate dev` per server/docs/agents/database_rules.md (directUrl, not pooler). Schema only — no route/UI changes in this step (Layer Isolation Rule).",
+    "status": "done"
+  },
+  {
+    "id": 5,
+    "title": "A/server: user submit endpoint + admin list/approve/reject for field suggestions",
+    "area": "server",
+    "files": [
+      "server/routes/fieldSuggestions.js",
+      "server/routes/admin.js",
+      "server/index.js"
+    ],
+    "description": "New router mounted at /api/field-suggestions in index.js (next to supportRoutes, line ~224). POST / : authenticateToken + a tight createRateLimiter (copy support.js pattern, e.g. 5/hour, prefix 'field-suggest'); validate name (required, sanitizeFreeText, FIELD_NAME_MAX_LENGTH), address (required, FIELD_LOCATION_MAX_LENGTH), isPaid (true|false|null), contactInfo (optional, <=200), optional finite lat/lng, optional sport in SPORT_KEYS; create row status PENDING; 201 with {id,status}. It MUST NOT create a Field — the suggested venue must never appear in /api/fields search until an admin acts. admin.js (authenticateToken, requireAdmin, same style as support-messages): GET /field-suggestions (PENDING first, newest first, take 100, include user id/name/imageUrl); POST /field-suggestions/:id/approve with optional overrides {name, location, lat, lng, type, price, city} → in a single prisma.$transaction create Field with available:true (reuse the field-creation defaults admin fields CRUD uses — check routes/fields.js admin create so city/geo columns are filled the same way) and update suggestion {status:APPROVED, createdFieldId, resolvedAt}; 409 if not PENDING; POST /field-suggestions/:id/reject {adminNote?} → REJECTED. P2025 → 404. Follow server-invariants.mdc (auth on every route, transaction for multi-write). Optionally notify the suggester on approve via the existing notificationService if there is a generic in-app notification helper — skip if it needs a new notification type.",
+    "status": "done"
+  },
+  {
+    "id": 6,
+    "title": "A/server: tests for field-suggestion submit + admin flows",
+    "area": "server",
+    "files": [
+      "server/tests/fieldSuggestions.test.js"
+    ],
+    "description": "Model on supportMessages.test.js / fieldsAdminCrud.test.js. Cover: 401 without auth; 400 on missing name/address; 201 creates PENDING row and does NOT call prisma.field.create; non-admin gets 403 on admin list/approve/reject; approve creates Field available:true and marks suggestion APPROVED with createdFieldId inside a transaction; approving a non-PENDING suggestion → 409; reject sets REJECTED. Run only this file with PORT=3099 npx jest tests/fieldSuggestions.test.js --runInBand --detectOpenHandles --forceExit.",
+    "status": "done"
+  },
+  {
+    "id": 7,
+    "title": "A/web: SuggestFieldDialog component + API client",
+    "area": "web",
+    "files": [
+      "next_app/src/components/SuggestFieldDialog.tsx",
+      "next_app/src/services/api/fieldSuggestions.ts"
+    ],
+    "description": "API client: `fieldSuggestionsApi.submit({name,address,isPaid,contactInfo?,lat?,lng?,sport?}, token)` → POST /api/field-suggestions; plus admin helpers `list(token)`, `approve(id, overrides, token)`, `reject(id, note, token)` (match the style of existing services/api/*.ts). Dialog (MUI, dir=rtl, Hebrew): title 'הצע מגרש חדש', short explainer 'המגרש יתווסף לרשימה אחרי בדיקה של הצוות', fields: שם המגרש (required, prefilled from the typed search text), כתובת (required), 'האם המגרש בתשלום?' ToggleButtonGroup כן / לא / לא יודע (maps to true/false/null), איש קשר (אופציונלי) placeholder 'שם / טלפון / קישור'. Submit disabled until required fields valid; on success close + show Snackbar 'הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה' (via an onSubmitted callback so the parent owns the toast); on error show inline Alert and keep the form. Props: open, onClose, initialName, onSubmitted.",
+    "status": "done"
+  },
+  {
+    "id": 8,
+    "title": "A/web: replace the 'הוסף \"X\"' option in create-game with 'הצע מגרש חדש' while KEEPING the custom-location option",
+    "area": "web",
+    "files": [
+      "next_app/src/app/games/new/page.tsx",
+      "next_app/src/components/NewGameInline.tsx"
+    ],
+    "description": "Today (games/new/page.tsx:543-555 and NewGameInline.tsx:99-110) the autocomplete appends one pseudo-option `הוסף \"X\"` which switches to newFieldMode and, on submit, the server creates an unlisted Field (available:false) just for that game — i.e. an ad-hoc meeting spot, not a listed venue. Product requirement from the user: this ad-hoc location ability MUST stay (meeting points, future running groups). Target: when inputValue is non-empty and not an exact match, append TWO clearly-labelled pseudo-options instead of one: (1) `📍 שחק ב\"X\" (מיקום חופשי למשחק הזה)` → existing newFieldMode flow unchanged (rename the panel heading 'פרטי מגרש חדש' → 'מיקום למשחק הזה' and add helper text 'המיקום ישמש רק למשחק הזה ולא יתווסף לרשימת המגרשים'); (2) `➕ הצע מגרש חדש לרשימה` → opens SuggestFieldDialog with initialName=X, does NOT change the game's field selection, and on success shows the confirmation Snackbar and leaves the user in the form to pick a field/location. Use distinct ids ('CUSTOM_LOCATION' / 'SUGGEST_FIELD') and branch on them in onChange (not on inputValue). Also add a persistent small text link under the search box 'לא מצאת את המגרש? הצע מגרש חדש' so the option is discoverable when there are results too. Update the placeholder 'הקלד לחיפוש או הוסף חדש...' → 'הקלד שם מגרש לחיפוש...'. Server createGame newField path stays as-is (it is the ad-hoc location path). Gate: next_app build.",
+    "status": "done"
+  },
+  {
+    "id": 9,
+    "title": "A/web admin: field-suggestion queue with approve (prefilled FieldEditorDialog) / reject",
+    "area": "web",
+    "files": [
+      "next_app/src/app/admin/fields/page.tsx",
+      "next_app/src/components/admin/FieldSuggestionsPanel.tsx"
+    ],
+    "description": "Admin-only (the /admin layout already gates on admin). Add a 'הצעות מגרשים' section/tab on the admin fields page rendering FieldSuggestionsPanel: list PENDING suggestions (name, address, paid yes/no/unknown, contact, suggester name, date) with actions 'אשר והוסף מגרש' and 'דחה'. Approve opens the existing FieldEditorDialog prefilled from the suggestion (name, location=address, lat/lng if present, price hint from isPaid) so the admin can geocode/fix details, then calls fieldSuggestionsApi.approve(id, overrides) — the server creates the real Field (do NOT also call the normal create-field endpoint, or you get two fields). After approve/reject refresh the list and the fields list. Show a count badge of pending suggestions in the section header. Regular users never see this UI. Gate: next_app build.",
+    "status": "done"
+  },
+  {
+    "id": 10,
+    "title": "A/mobile: 'הצע מגרש חדש' entry + form in mobile create-game",
+    "area": "mobile",
+    "files": [
+      "mobile_app/app/(tabs)/game/new.tsx",
+      "mobile_app/src/services/api/fields.ts",
+      "mobile_app/src/i18n/locales/he.json"
+    ],
+    "description": "Mobile create-game has no 'הוסף' option (location = field list by city or a custom map point → inline newField, which must stay unchanged). Add a text button 'לא מצאת את המגרש? הצע מגרש חדש' in the Field Selection card (~line 572) opening a Modal form with the same fields as web (name, address, paid כן/לא/לא יודע, contact optional) → `fieldsApi.suggestField(...)` POST /api/field-suggestions (add to fields.ts, same client pattern). On success close + Alert/toast 'הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה'. i18n keys under newGame.suggestField.* in he.json (en.json fallback via t(key, fallback) is acceptable here to respect the 3-file rule; add en keys in a follow-up only if the lint gate requires it). Gate: mobile typecheck + lint.",
+    "status": "done"
+  },
+  {
+    "id": 11,
+    "title": "B/web: address search bar on the create-game location-picker map",
+    "area": "web",
+    "files": [
+      "next_app/src/components/MapComponent.tsx",
+      "next_app/src/components/MapAddressSearch.tsx"
+    ],
+    "description": "MapComponent (used by the 'מפה' dialog in games/new/page.tsx:930-955 and by NewGameInline) has no address search. Add MapAddressSearch rendered as an overlay at the top of the map (inside APIProvider so it can useMap()): RTL TextField 'חפש כתובת…' with MUI Autocomplete. Suggestions: try Places (useMapsLibrary('places') → AutocompleteSuggestion.fetchAutocompleteSuggestions with language 'he', region 'il', includedRegionCodes ['il']); if the places library fails to load or the request errors (Places API may not be enabled on NEXT_PUBLIC Google key — unverified from code), fall back to google.maps.Geocoder().geocode({address, region:'il'}) on Enter/submit — the same Geocoder the admin FieldLocationPicker already uses successfully. Selecting a result: map.panTo + setZoom(16) and drop a temporary highlight marker; when pickMode && onPick, also call onPick({lat,lng}) so the point is preselected (user can still tap elsewhere or pick an existing field pin exactly as today). Add 'places' to APIProvider libraries. Debounce input 300ms; no request under 2 chars. Gate: next_app build.",
+    "status": "done"
+  },
+  {
+    "id": 12,
+    "title": "B/mobile: address search in the create-game map modal",
+    "area": "mobile",
+    "files": [
+      "mobile_app/app/(tabs)/game/new.tsx",
+      "mobile_app/src/i18n/locales/he.json",
+      "mobile_app/src/i18n/locales/en.json"
+    ],
+    "description": "In the map Modal (~line 890-930) add a TextInput row above AppBaseMap: placeholder t('newGame.searchAddress','חפש כתובת…'), textAlign right, returnKeyType search. On submit use expo-location `Location.geocodeAsync(query)` (already a dependency, ~19.0.8; no new API key) → take first result → mapRef.current.animateToCoordinate({latitude, longitude}, 0.01) and show a subtle marker; show inline 'לא נמצאה כתובת' when empty/error. Do NOT auto-select a field — selecting an existing field marker or tapping a custom point keeps working as today. Gate: mobile typecheck + lint.",
+    "status": "done"
+  },
+  {
+    "id": 13,
+    "title": "C/schema: store the group's registration-open rule as day-of-week + fixed time",
+    "area": "server",
+    "files": [
+      "server/prisma/schema.prisma",
+      "server/prisma/migrations/20260923130000_series_registration_open_rule/migration.sql"
+    ],
+    "description": "GameSeries today only has `autoOpenRegistrationHours Float?` (relative offset). Add `registrationOpenDayOfWeek Int?  /// 0=Sunday..6=Saturday, Asia/Jerusalem` and `registrationOpenTime String? /// 'HH:MM' Asia/Jerusalem`. Both-null = no absolute rule (legacy hours may still apply). Additive nullable columns only; no backfill. Schema only (Layer Isolation Rule). Why not just convert day+time to hours client-side: a constant offset drifts by an hour across DST weeks and silently shifts when the group's game time is edited — a stored rule avoids both.",
+    "status": "done"
+  },
+  {
+    "id": 14,
+    "title": "C/server: compute registrationOpensAt from the day+time rule on group save and in the weekly generator",
+    "area": "server",
+    "files": [
+      "server/utils/seriesRegistrationRule.js",
+      "server/routes/series.js",
+      "server/index.js"
+    ],
+    "description": "New util `computeRegistrationOpensAt(gameStartUtc, dayOfWeek, 'HH:MM')` → the latest Jerusalem-local occurrence of (dayOfWeek, HH:MM) that is strictly before gameStart (so game Sat 20:00 + rule Sun 18:00 → the preceding Sunday 18:00, 6d2h before; rule equal to the game slot → one week earlier). Reuse parseJerusalemTimeToUTC/formatJerusalemDate already used in series.js. Plus `resolveSeriesRegistrationOpensAt(series, start)`: rule if both fields set, else legacy autoOpenRegistrationHours offset, else null. series.js PATCH (~323-470): accept registrationOpenDayOfWeek (int 0-6 or null) + registrationOpenTime (/^\\d{2}:\\d{2}$/ or null) with 400 on invalid; setting a rule clears autoOpenRegistrationHours and vice versa (so exactly one mode is active); when either changes OR `time` changes, recompute gd.registrationOpensAt for future games (start >= now) with the resolver — this is the existing bulk-to-group path, per-game edit (patchGame) is untouched so single-game edits still don't propagate. GET /:seriesId (~255) returns both new fields. index.js runWeeklySeriesGeneration (~1123-1126): replace the hours-only calc with resolveSeriesRegistrationOpensAt(s, nextStart). Follow server-invariants.mdc (updates already run in prisma.$transaction; keep gameScheduler.resyncGame per game).",
+    "status": "done"
+  },
+  {
+    "id": 15,
+    "title": "C/server: tests for the rule util + series PATCH propagation",
+    "area": "server",
+    "files": [
+      "server/tests/seriesRegistrationRule.test.js"
+    ],
+    "description": "Pure-util cases: Sat 20:00 game + Sun 18:00 rule → previous Sunday 18:00 Jerusalem; rule same weekday later hour than game (e.g. Sat 21:00 for a Sat 20:00 game) → the Saturday a week earlier; a DST-transition week still yields 18:00 local. Route cases (mock prisma like seriesGroupDefaults.test.js): PATCH with {registrationOpenDayOfWeek:0, registrationOpenTime:'18:00'} sets both, nulls autoOpenRegistrationHours, and updates registrationOpensAt on every future game only; invalid time → 400; non-manager → 403; PATCH with legacy hours clears the rule. Run only this file.",
+    "status": "done"
+  },
+  {
+    "id": 16,
+    "title": "C/web: plumb the new rule fields through the series API type and page",
+    "area": "web",
+    "files": [
+      "next_app/src/services/api/series.ts",
+      "next_app/src/app/series/[id]/page.tsx"
+    ],
+    "description": "Add registrationOpenDayOfWeek?: number | null and registrationOpenTime?: string | null to the series update/read types (series.ts:17 area) and to the page's series type (page.tsx:47); pass them to SeriesSettingsEditor as initialRegOpenDay / initialRegOpenTime alongside the existing initialAutoOpenHours (page.tsx:159). Check shared-types.mdc for whether these types must also live in shared/.",
+    "status": "done"
+  },
+  {
+    "id": 17,
+    "title": "C/web: group settings UI — 'נפתחת הרשמה כל [יום] ב־[שעה]' as the primary control, relative hours tucked under 'מתקדם'",
+    "area": "web",
+    "files": [
+      "next_app/src/hooks/useSeriesSettingsEditor.ts",
+      "next_app/src/components/SeriesSettingsEditor.tsx"
+    ],
+    "description": "Replace the prominent 'שעות לפתיחת רישום לפני המשחק' TextField (SeriesSettingsEditor.tsx:241-245) with: a mode choice defaulting to 'יום ושעה קבועים' — Select for day (ראשון..שבת) + HebrewTimeField for time, plus a live preview line computed client-side ('למשחק של שבת 20:00 ההרשמה תיפתח ביום ראשון 18:00'); an option 'ללא פתיחה מתוזמנת'; and the legacy relative-hours field only under a collapsed 'מתקדם: X שעות לפני המשחק' (auto-expanded when the series currently has hours but no rule, so existing groups aren't silently changed). Hook (useSeriesSettingsEditor.ts ~68,128,191): new state regOpenDay/regOpenTime, reset on cancel, and in save send exactly one mode: rule → {registrationOpenDayOfWeek, registrationOpenTime, autoOpenRegistrationHours:null}; hours → {autoOpenRegistrationHours, registrationOpenDayOfWeek:null, registrationOpenTime:null}; none → all null. Copy note under the control: 'חל על כל המשחקים העתידיים בקבוצה. שינוי במשחק בודד לא משפיע על הקבוצה.' Group creation (games/new recurrence) already asks for an absolute first-open date/time rather than an offset, so no change there in this plan. Gate: next_app build; manual check on a WEEKLY group: set Sun 18:00, save, open a future instance and verify its registrationOpensAt; edit a single game's registration time and verify siblings unchanged.",
     "status": "done"
   }
 ]
