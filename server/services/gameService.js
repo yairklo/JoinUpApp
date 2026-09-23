@@ -1115,6 +1115,9 @@ async function searchGames(queryParams, viewerId, { dedupe = true } = {}) {
       ]
     };
 
+    // Both the text search and the bounds are OR groups, so they have to be AND-ed together
+    // *inside* `where` -- the other scalar filters on `where` (start cutoff/date, sport,
+    // fieldId, network participants, city) must stay alongside them, not be dropped.
     if (where.OR) {
       where.AND = [{ OR: where.OR }, boundsWhere];
       delete where.OR;
@@ -1126,7 +1129,7 @@ async function searchGames(queryParams, viewerId, { dedupe = true } = {}) {
   const visibility = buildVisibilityWhere(viewerId);
   // Combine base visibility rules with query rules
   const notCancelled = { status: { not: 'CANCELLED' } };
-  const finalWhere = where.AND ? { AND: [visibility, notCancelled, ...where.AND] } : { AND: [visibility, notCancelled, where] };
+  const finalWhere = { AND: [visibility, notCancelled, where] };
 
   const games = await prisma.game.findMany({
     where: finalWhere,
