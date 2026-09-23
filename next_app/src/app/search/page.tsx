@@ -71,6 +71,10 @@ function SearchPageInner() {
   const param = (key: string) => searchParams?.get(key) || "";
 
   const [games, setGames] = useState<Game[]>([]);
+  // Fit-to-results key of the text search whose results are currently in `games`. The map only
+  // frames pins once this matches, so it never frames the previous query's results while the
+  // new search is still debouncing/in flight.
+  const [resultsFitKey, setResultsFitKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,6 +143,9 @@ function SearchPageInner() {
   const searchBounds = textQueryActive ? null : mapBounds;
   // Empty fields are always "fields in view", so they keep following the real viewport.
   const emptyFieldsBounds = showEmptyFields ? mapBounds : null;
+  const currentFitKey = textQueryActive
+    ? [debouncedQuery.trim(), selectedSport ?? "", selectedDate, networkGames ? "1" : ""].join("|")
+    : null;
 
   const performSearch = useCallback(async () => {
     // Cancel any still-in-flight search before starting a new one — without this, panning
@@ -197,6 +204,7 @@ function SearchPageInner() {
       }
 
       setGames(finalGames);
+      setResultsFitKey(currentFitKey);
 
       // Fetch empty fields in bounding box if filter is enabled
       if (emptyFieldsBounds) {
@@ -224,7 +232,7 @@ function SearchPageInner() {
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [getToken, debouncedQuery, selectedSport, selectedDate, networkGames, searchBounds, emptyFieldsBounds]);
+  }, [getToken, debouncedQuery, selectedSport, selectedDate, networkGames, searchBounds, emptyFieldsBounds, currentFitKey]);
 
   useEffect(() => {
     performSearch();
@@ -550,11 +558,7 @@ function SearchPageInner() {
               loading={loading || locating}
               hoveredGameId={hoveredGameId}
               onHoverGame={setHoveredGameId}
-              fitToResultsKey={
-                textQueryActive
-                  ? [debouncedQuery.trim(), selectedSport ?? "", selectedDate, networkGames ? "1" : ""].join("|")
-                  : null
-              }
+              fitToResultsKey={textQueryActive ? resultsFitKey : null}
             />
           </MapErrorBoundary>
         ) : (
