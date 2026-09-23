@@ -43,10 +43,17 @@ import { usePaginatedFields } from "@/hooks/usePaginatedFields";
 import { formatHebrewDate } from "@/utils/hebrewDate";
 import { formatJerusalemDate, parseJerusalemTimeToUTC } from "@/utils/timezone";
 import { HebrewDateField, HebrewTimeField } from "@/components/HebrewDateTimeField";
+import SuggestFieldDialog from "@/components/SuggestFieldDialog";
+import Snackbar from "@mui/material/Snackbar";
+import Link from "@mui/material/Link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
 type FieldOption = { id: string; name: string; location?: string | null; inputValue?: string };
+
+// Pseudo-options appended to the field search when the typed text isn't an existing field.
+const CUSTOM_LOCATION_OPTION_ID = "CUSTOM_LOCATION";
+const SUGGEST_FIELD_OPTION_ID = "SUGGEST_FIELD";
 
 // Per-sport defaults applied when the user switches sport (see the sport Select's onChange).
 // Tennis isn't a team-format sport, so maxPlayers drops to a doubles-sized default and teamSize
@@ -118,6 +125,15 @@ function NewGamePageInner() {
     type: "open",
   });
   const [customPoint, setCustomPoint] = useState<{ lat: number; lng: number } | null>(null);
+  // "הצע מגרש חדש" -- a request to the admins to list a venue. Separate from newFieldMode,
+  // which is the free-form, this-game-only location and stays available as-is.
+  const [suggestFieldOpen, setSuggestFieldOpen] = useState(false);
+  const [suggestFieldName, setSuggestFieldName] = useState("");
+  const [suggestFieldSent, setSuggestFieldSent] = useState(false);
+  const openSuggestField = (name: string) => {
+    setSuggestFieldName(name);
+    setSuggestFieldOpen(true);
+  };
 
   // Form State
   const [form, setForm] = useState({
@@ -486,7 +502,10 @@ function NewGamePageInner() {
                     <Grid size={{ xs: 12, sm: 9 }}>
                       {newFieldMode ? (
                         <Box border={1} borderColor="divider" borderRadius={1} p={2} bgcolor="action.hover">
-                          <Typography variant="subtitle2" gutterBottom align="right">פרטי מגרש חדש</Typography>
+                          <Typography variant="subtitle2" align="right">מיקום למשחק הזה</Typography>
+                          <Typography variant="caption" color="text.secondary" display="block" align="right" mb={1}>
+                            המיקום ישמש רק למשחק הזה ולא יתווסף לרשימת המגרשים
+                          </Typography>
                           <Stack spacing={2}>
                             <TextField
                               label="שם המגרש"
@@ -533,7 +552,10 @@ function NewGamePageInner() {
                                 setNewFieldMode(true);
                                 setNewField(p => ({ ...p, name: newValue }));
                               });
-                            } else if (newValue && newValue.inputValue) {
+                            } else if (newValue?.id === SUGGEST_FIELD_OPTION_ID) {
+                              // Only opens the request form -- the game's location selection is untouched.
+                              openSuggestField(newValue.inputValue || "");
+                            } else if (newValue?.id === CUSTOM_LOCATION_OPTION_ID) {
                               setNewFieldMode(true);
                               setNewField(p => ({ ...p, name: newValue.inputValue || "" }));
                             } else {
@@ -542,14 +564,16 @@ function NewGamePageInner() {
                           }}
                           filterOptions={(options, params) => {
                             // The options passed in are already server-filtered by `q`
-                            // (see usePaginatedFields above), so just append the
-                            // "add new field" pseudo-option instead of re-filtering
-                            // them again against MUI's own text matcher.
-                            const { inputValue } = params;
-                            const isExisting = options.some((option) => inputValue === option.name);
+                            // (see usePaginatedFields above), so just append the two
+                            // pseudo-options instead of re-filtering them again against
+                            // MUI's own text matcher: a free-form location for this game
+                            // only, or a request to the admins to list a new venue.
+                            const trimmed = params.inputValue.trim();
+                            const isExisting = options.some((option) => trimmed === option.name);
                             const filtered = [...options];
-                            if (inputValue !== '' && !isExisting) {
-                              filtered.push({ inputValue, name: `הוסף "${inputValue}"`, id: "NEW" });
+                            if (trimmed !== '' && !isExisting) {
+                              filtered.push({ inputValue: trimmed, name: `📍 שחק ב"${trimmed}" (מיקום חופשי למשחק הזה)`, id: CUSTOM_LOCATION_OPTION_ID });
+                              filtered.push({ inputValue: trimmed, name: "➕ הצע מגרש חדש לרשימה", id: SUGGEST_FIELD_OPTION_ID });
                             }
                             return filtered;
                           }}
@@ -570,9 +594,15 @@ function NewGamePageInner() {
                               </li>
                             );
                           }}
-                          renderInput={(params) => <TextField {...params} label=" חפש מגרש" placeholder="הקלד לחיפוש או הוסף חדש..." dir="rtl" />}
+                          renderInput={(params) => <TextField {...params} label=" חפש מגרש" placeholder="הקלד שם מגרש לחיפוש..." dir="rtl" />}
                         />
                       )}
+                      <Typography variant="caption" color="text.secondary" display="block" align="right" mt={0.75}>
+                        לא מצאת את המגרש?{" "}
+                        <Link component="button" type="button" variant="caption" onClick={() => openSuggestField(fieldSearchInput.trim())}>
+                          הצע מגרש חדש
+                        </Link>
+                      </Typography>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 3 }}>
                       <Button
@@ -955,6 +985,23 @@ function NewGamePageInner() {
             <Button onClick={() => setShowMap(false)}>סיום</Button>
           </DialogActions>
         </Dialog >
+
+        <SuggestFieldDialog
+          open={suggestFieldOpen}
+          onClose={() => setSuggestFieldOpen(false)}
+          initialName={suggestFieldName}
+          onSubmitted={() => setSuggestFieldSent(true)}
+        />
+        <Snackbar
+          open={suggestFieldSent}
+          autoHideDuration={6000}
+          onClose={() => setSuggestFieldSent(false)}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert severity="success" variant="filled" onClose={() => setSuggestFieldSent(false)} sx={{ width: "100%" }}>
+            הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה
+          </Alert>
+        </Snackbar>
 
       </SignedIn >
     </Container >
