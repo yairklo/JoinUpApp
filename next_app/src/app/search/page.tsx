@@ -132,6 +132,14 @@ function SearchPageInner() {
     return () => clearTimeout(t);
   }, [query]);
 
+  // A text search is global: clipping it to the current viewport made results that exist in
+  // the list vanish from the map (and then from the list too) as soon as the map mounted and
+  // reported its default bounds. Only a query-less search is driven by the map viewport.
+  const textQueryActive = debouncedQuery.trim() !== "";
+  const searchBounds = textQueryActive ? null : mapBounds;
+  // Empty fields are always "fields in view", so they keep following the real viewport.
+  const emptyFieldsBounds = showEmptyFields ? mapBounds : null;
+
   const performSearch = useCallback(async () => {
     // Cancel any still-in-flight search before starting a new one — without this, panning
     // the map for a few seconds fires a request every ~800ms and lets them all race to
@@ -152,11 +160,11 @@ function SearchPageInner() {
       if (selectedDate) params.append("date", selectedDate);
       if (networkGames) params.append("networkGames", "true");
 
-      if (mapBounds) {
-        params.append("minLat", mapBounds.minLat.toString());
-        params.append("maxLat", mapBounds.maxLat.toString());
-        params.append("minLng", mapBounds.minLng.toString());
-        params.append("maxLng", mapBounds.maxLng.toString());
+      if (searchBounds) {
+        params.append("minLat", searchBounds.minLat.toString());
+        params.append("maxLat", searchBounds.maxLat.toString());
+        params.append("minLng", searchBounds.minLng.toString());
+        params.append("maxLng", searchBounds.maxLng.toString());
       }
 
       const results = await gamesApi.search(params, token || undefined, controller.signal);
@@ -191,12 +199,12 @@ function SearchPageInner() {
       setGames(finalGames);
 
       // Fetch empty fields in bounding box if filter is enabled
-      if (showEmptyFields && mapBounds) {
+      if (emptyFieldsBounds) {
         const fieldParams = new URLSearchParams();
-        fieldParams.append("minLat", mapBounds.minLat.toString());
-        fieldParams.append("maxLat", mapBounds.maxLat.toString());
-        fieldParams.append("minLng", mapBounds.minLng.toString());
-        fieldParams.append("maxLng", mapBounds.maxLng.toString());
+        fieldParams.append("minLat", emptyFieldsBounds.minLat.toString());
+        fieldParams.append("maxLat", emptyFieldsBounds.maxLat.toString());
+        fieldParams.append("minLng", emptyFieldsBounds.minLng.toString());
+        fieldParams.append("maxLng", emptyFieldsBounds.maxLng.toString());
         if (selectedDate) {
           fieldParams.append("date", selectedDate);
         }
@@ -216,7 +224,7 @@ function SearchPageInner() {
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [getToken, debouncedQuery, selectedSport, selectedDate, networkGames, mapBounds, showEmptyFields]);
+  }, [getToken, debouncedQuery, selectedSport, selectedDate, networkGames, searchBounds, emptyFieldsBounds]);
 
   useEffect(() => {
     performSearch();
@@ -542,6 +550,11 @@ function SearchPageInner() {
               loading={loading || locating}
               hoveredGameId={hoveredGameId}
               onHoverGame={setHoveredGameId}
+              fitToResultsKey={
+                textQueryActive
+                  ? [debouncedQuery.trim(), selectedSport ?? "", selectedDate, networkGames ? "1" : ""].join("|")
+                  : null
+              }
             />
           </MapErrorBoundary>
         ) : (

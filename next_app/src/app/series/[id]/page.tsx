@@ -49,6 +49,8 @@ type SeriesDetails = {
     dayOfWeek: number | null;
     type: 'WEEKLY' | 'CUSTOM';
     autoOpenRegistrationHours: number | null;
+    registrationOpenDayOfWeek?: number | null;
+    registrationOpenTime?: string | null;
     maxPlayers: number;
     price: number;
     sport: string;
@@ -163,6 +165,8 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     seriesId={series.id}
                                     seriesType={series.type}
                                     initialAutoOpenHours={series.autoOpenRegistrationHours}
+                                    initialRegOpenDay={series.registrationOpenDayOfWeek ?? null}
+                                    initialRegOpenTime={series.registrationOpenTime ?? null}
                                     initialTitle={series.title}
                                     initialDescription={series.description}
                                     initialImageUrl={series.imageUrl}

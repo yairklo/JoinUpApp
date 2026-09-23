@@ -222,6 +222,7 @@ console.log('✅ [ROUTES] Notification routes mounted at /api/notifications');
 app.use('/api/chats', require('./routes/chats'));
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/field-suggestions', require('./routes/fieldSuggestions'));
 
 // Health check
 let redisReady = false;
@@ -1053,6 +1054,8 @@ function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
   return candidateUtc;
 }
 
+const { resolveSeriesRegistrationOpensAt } = require('./utils/seriesRegistrationRule');
+
 let seriesGenRunning = false;
 async function runWeeklySeriesGeneration() {
   if (seriesGenRunning) return;
@@ -1120,10 +1123,7 @@ async function runWeeklySeriesGeneration() {
             }
           }
 
-          let regOpen = null;
-          if (typeof s.autoOpenRegistrationHours === 'number') {
-            regOpen = new Date(nextStart.getTime() - s.autoOpenRegistrationHours * 3600000);
-          }
+          const regOpen = resolveSeriesRegistrationOpensAt(s, nextStart);
 
           pendingCreates.push({
             participantIds: participantsCreate.map((p) => p.userId),

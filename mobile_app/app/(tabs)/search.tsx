@@ -82,6 +82,12 @@ export default function SearchScreen() {
         }
     };
 
+    // A text search is global -- clipping it to the viewport hid results that exist in the
+    // list view. Only a query-less map search follows the visible map area.
+    const textQueryActive = query.trim() !== '';
+    const searchBounds = isMapView && !textQueryActive ? mapBounds : null;
+    const lastFitKeyRef = useRef<string | null>(null);
+
     useEffect(() => {
         // Debounce search when bounds change
         if (searchTimeoutRef.current) {
@@ -93,7 +99,7 @@ export default function SearchScreen() {
         return () => {
             if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
         }
-    }, [selectedCity, selectedDate, selectedSport, mapBounds, query, networkGames, isMapView]);
+    }, [selectedCity, selectedDate, selectedSport, searchBounds, query, networkGames, isMapView]);
 
     const loadCities = async () => {
         try {
@@ -115,11 +121,11 @@ export default function SearchScreen() {
             // way to see or clear it.
             if (selectedCity && !isMapView) params.append('city', selectedCity);
             if (networkGames) params.append('networkGames', 'true');
-            if (isMapView && mapBounds) {
-                params.append('minLat', mapBounds.minLat.toString());
-                params.append('maxLat', mapBounds.maxLat.toString());
-                params.append('minLng', mapBounds.minLng.toString());
-                params.append('maxLng', mapBounds.maxLng.toString());
+            if (searchBounds) {
+                params.append('minLat', searchBounds.minLat.toString());
+                params.append('maxLat', searchBounds.maxLat.toString());
+                params.append('minLng', searchBounds.minLng.toString());
+                params.append('maxLng', searchBounds.maxLng.toString());
             }
             if (selectedSport) {
                 params.append('sport', selectedSport);
@@ -278,6 +284,44 @@ export default function SearchScreen() {
         setMapBounds(bounds);
     }, []);
 
+    // While a text search is active in map view, frame all result pins once per search
+    // (the results can be anywhere, not just in the current viewport).
+    useEffect(() => {
+        if (!isMapView || !textQueryActive) {
+            lastFitKeyRef.current = null;
+            return;
+        }
+        if (loading || searchMapMarkers.length === 0) return;
+        const fitKey = [query.trim(), selectedSport ?? '', selectedDate?.toDateString() ?? '', networkGames ? '1' : ''].join('|');
+        if (lastFitKeyRef.current === fitKey) return;
+        lastFitKeyRef.current = fitKey;
+        const lats = searchMapMarkers.map((m) => Number(m.latitude));
+        const lngs = searchMapMarkers.map((m) => Number(m.longitude));
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+        const minLng = Math.min(...lngs);
+        const maxLng = Math.max(...lngs);
+        mapRef.current?.animateToRegion({
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLng + maxLng) / 2,
+            latitudeDelta: Math.max((maxLat - minLat) * 1.4, 0.02),
+            longitudeDelta: Math.max((maxLng - minLng) * 1.4, 0.02),
+        });
+    }, [isMapView, textQueryActive, loading, searchMapMarkers, query, selectedSport, selectedDate, networkGames]);
+
+    const pinnedGamesCount = useMemo(
+        () => groupedMapGames.reduce((sum, group) => sum + group.length, 0),
+        [groupedMapGames]
+    );
+    let mapSearchNotice: string | null = null;
+    if (textQueryActive && !loading) {
+        if (games.length === 0) mapSearchNotice = t('search.mapNoResults', 'לא נמצאו משחקים לחיפוש הזה');
+        else if (pinnedGamesCount === 0) mapSearchNotice = t('search.mapNoLocations', 'לתוצאות החיפוש אין מיקום על המפה');
+        else if (pinnedGamesCount < games.length) {
+            mapSearchNotice = t('search.mapSomeWithoutLocation', '{{count}} מהתוצאות ללא מיקום על המפה', { count: games.length - pinnedGamesCount });
+        }
+    }
+
     return (
         <View className="flex-1 bg-gray-50">
             {/* Mode Switch: Large Segmented Control ABOVE the Search Bar */}
@@ -401,6 +445,16 @@ export default function SearchScreen() {
                             longitudeDelta: 0.1,
                         }}
                     />
+                    {mapSearchNotice && (
+                        <View
+                            pointerEvents="none"
+                            style={{ position: 'absolute', top: 12, left: 16, right: 16, alignItems: 'center' }}
+                        >
+                            <View className="bg-white px-4 py-2 rounded-xl shadow-sm">
+                                <Text className="text-gray-700 text-sm text-center">{mapSearchNotice}</Text>
+                            </View>
+                        </View>
+                    )}
 
                     {/* Games Modal for Map Markers */}
                     <Modal

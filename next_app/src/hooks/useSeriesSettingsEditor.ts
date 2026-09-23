@@ -13,6 +13,9 @@ export interface SeriesSettingsEditorHookProps {
     initialDescription?: string | null;
     initialImageUrl?: string | null;
     initialAutoOpenHours?: number | null;
+    /** Fixed weekly registration-open rule (Asia/Jerusalem), 0=Sunday..6=Saturday + "HH:MM". */
+    initialRegOpenDay?: number | null;
+    initialRegOpenTime?: string | null;
     initialFieldId?: string | null;
     initialFieldName?: string | null;
     initialFieldLocation?: string | null;
@@ -32,6 +35,26 @@ export interface SeriesSettingsEditorHookProps {
 
 const MIN_MAX_PLAYERS = 2;
 
+/**
+ * How a group's games open for registration: a fixed weekday + time (the default, e.g. "every
+ * Sunday at 18:00"), the legacy relative "N hours before the game", or no scheduled opening.
+ */
+export type RegistrationOpenMode = "weekly" | "hours" | "none";
+
+const DEFAULT_REG_OPEN_TIME = "18:00";
+
+function initialRegMode(day: number | null | undefined, time: string | null | undefined, hours: number | null | undefined): RegistrationOpenMode {
+    if (day !== null && day !== undefined && time) return "weekly";
+    if (hours) return "hours";
+    return "none";
+}
+
+// Default suggestion when switching a group to the weekday rule: the day after the game day
+// (e.g. Saturday game -> registration for the next one opens Sunday).
+function defaultRegOpenDay(gameDay: number | null | undefined): number {
+    return gameDay !== null && gameDay !== undefined ? (gameDay + 1) % 7 : 0;
+}
+
 export function useSeriesSettingsEditor({
     seriesId,
     seriesType,
@@ -39,6 +62,8 @@ export function useSeriesSettingsEditor({
     initialDescription,
     initialImageUrl,
     initialAutoOpenHours,
+    initialRegOpenDay,
+    initialRegOpenTime,
     initialFieldId,
     initialFieldName,
     initialFieldLocation,
@@ -66,6 +91,11 @@ export function useSeriesSettingsEditor({
     const [description, setDescription] = useState(initialDescription || "");
     const [imageUrl, setImageUrl] = useState(initialImageUrl || "");
     const [hours, setHours] = useState<string>(initialAutoOpenHours ? String(initialAutoOpenHours) : "");
+    const [regMode, setRegMode] = useState<RegistrationOpenMode>(() =>
+        initialRegMode(initialRegOpenDay, initialRegOpenTime, initialAutoOpenHours)
+    );
+    const [regDay, setRegDay] = useState<number>(initialRegOpenDay ?? defaultRegOpenDay(initialDayOfWeek));
+    const [regTime, setRegTime] = useState<string>(initialRegOpenTime || DEFAULT_REG_OPEN_TIME);
     const [time, setTime] = useState(initialTime || "");
     const [duration, setDuration] = useState<number>(initialDuration || 1);
     const [updateFutureGames, setUpdateFutureGames] = useState(true);
@@ -126,6 +156,9 @@ export function useSeriesSettingsEditor({
         setDescription(initialDescription || "");
         setImageUrl(initialImageUrl || "");
         setHours(initialAutoOpenHours ? String(initialAutoOpenHours) : "");
+        setRegMode(initialRegMode(initialRegOpenDay, initialRegOpenTime, initialAutoOpenHours));
+        setRegDay(initialRegOpenDay ?? defaultRegOpenDay(initialDayOfWeek));
+        setRegTime(initialRegOpenTime || DEFAULT_REG_OPEN_TIME);
         setTime(initialTime || "");
         setDuration(initialDuration || 1);
         setUpdateFutureGames(true);
@@ -159,6 +192,14 @@ export function useSeriesSettingsEditor({
             alert(`כמות שחקנים מקסימלית חייבת להיות לפחות ${MIN_MAX_PLAYERS}`);
             return;
         }
+        if (regMode === "weekly" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(regTime)) {
+            alert("יש לבחור שעה לפתיחת ההרשמה");
+            return;
+        }
+        if (regMode === "hours" && !(Number(hours) > 0)) {
+            alert("יש להזין מספר שעות חיובי לפתיחת ההרשמה");
+            return;
+        }
         setLoading(true);
         try {
             const token = await getToken();
@@ -185,10 +226,26 @@ export function useSeriesSettingsEditor({
                 return changed;
             };
 
+            // Registration opening: send exactly one mode, and only when it changed -- the server
+            // rewrites registrationOpensAt on every future game whenever these fields are sent.
+            const registrationRule = (): Record<string, unknown> => {
+                const initialMode = initialRegMode(initialRegOpenDay, initialRegOpenTime, initialAutoOpenHours);
+                if (regMode === "weekly") {
+                    if (initialMode === "weekly" && regDay === initialRegOpenDay && regTime === initialRegOpenTime) return {};
+                    return { registrationOpenDayOfWeek: regDay, registrationOpenTime: regTime, autoOpenRegistrationHours: null };
+                }
+                if (regMode === "hours") {
+                    if (initialMode === "hours" && Number(hours) === initialAutoOpenHours) return {};
+                    return { autoOpenRegistrationHours: Number(hours), registrationOpenDayOfWeek: null, registrationOpenTime: null };
+                }
+                if (initialMode === "none") return {};
+                return { autoOpenRegistrationHours: null, registrationOpenDayOfWeek: null, registrationOpenTime: null };
+            };
+
             const payload: Record<string, unknown> = {
                 title: title || "",
                 description: description || "",
-                autoOpenRegistrationHours: hours === "" ? null : Number(hours),
+                ...registrationRule(),
                 time,
                 duration,
                 updateFutureGames,
@@ -259,13 +316,13 @@ export function useSeriesSettingsEditor({
     return {
         state: {
             open, loading, deleteDialogOpen,
-            title, description, imageUrl, hours, time, duration, updateFutureGames,
+            title, description, imageUrl, hours, regMode, regDay, regTime, time, duration, updateFutureGames,
             maxPlayers, price, sport, isFriendsOnly, requiresApproval, lotteryEnabled, organizerInLottery, teamSize, welcomeMessage,
             fields, selectedField, newFieldMode, newField,
             seriesType, initialDayOfWeek,
         },
         actions: {
-            setTitle, setDescription, setImageUrl, setHours, setTime, setDuration, setUpdateFutureGames,
+            setTitle, setDescription, setImageUrl, setHours, setRegMode, setRegDay, setRegTime, setTime, setDuration, setUpdateFutureGames,
             setMaxPlayers, setPrice, setSport, setIsFriendsOnly, setRequiresApproval, setLotteryEnabled, setOrganizerInLottery, setTeamSize, setWelcomeMessage,
             setSelectedField, setNewFieldMode, setNewField, setDeleteDialogOpen,
             handleOpen, handleClose, handleSave, handleDeleteSuccess,

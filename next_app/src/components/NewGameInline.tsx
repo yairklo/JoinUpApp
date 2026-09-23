@@ -32,14 +32,30 @@ import AddIcon from "@mui/icons-material/Add";
 import { useGameCreator, FieldOption } from "@/hooks/useGameCreator";
 import { formatHebrewDate } from "@/utils/hebrewDate";
 import { HebrewDateField, HebrewTimeField } from "@/components/HebrewDateTimeField";
+import SuggestFieldDialog from "@/components/SuggestFieldDialog";
+import Snackbar from "@mui/material/Snackbar";
+import Link from "@mui/material/Link";
 
 const filter = createFilterOptions<FieldOption>();
+
+// Pseudo-options appended to the field search when the typed text isn't an existing field.
+const CUSTOM_LOCATION_OPTION_ID = "CUSTOM_LOCATION";
+const SUGGEST_FIELD_OPTION_ID = "SUGGEST_FIELD";
 
 export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string; onCreated?: (fieldId: string) => void }) {
   const { state, actions } = useGameCreator(fieldId, onCreated);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  // "הצע מגרש חדש" -- a request to the admins; separate from the free-form newFieldMode location.
+  const [suggestFieldOpen, setSuggestFieldOpen] = useState(false);
+  const [suggestFieldName, setSuggestFieldName] = useState("");
+  const [suggestFieldSent, setSuggestFieldSent] = useState(false);
+  const [fieldSearchInput, setFieldSearchInput] = useState("");
+  const openSuggestField = (name: string) => {
+    setSuggestFieldName(name);
+    setSuggestFieldOpen(true);
+  };
 
   const MapWithNoSSR = useMemo(
     () => dynamic(() => import("./MapComponent"), { ssr: false, loading: () => <Box sx={{ p: 4, display: "flex", justifyContent: "center" }}><LoadingMotif id="pin-drop" /></Box> }),
@@ -69,7 +85,10 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                   <Grid size={{ xs: 12, sm: 8 }}>
                     {state.newFieldMode ? (
                       <Box border={1} borderColor="divider" borderRadius={1} p={2} bgcolor="action.hover">
-                        <Typography variant="subtitle2" gutterBottom>צור מגרש חדש</Typography>
+                        <Typography variant="subtitle2">מיקום למשחק הזה</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                          המיקום ישמש רק למשחק הזה ולא יתווסף לרשימת המגרשים
+                        </Typography>
                         <Stack spacing={2}>
                           <TextField label="שם המגרש" size="small" fullWidth value={state.newField.name} onChange={e => actions.setNewField(p => ({ ...p, name: e.target.value }))} />
                           <TextField label="מיקום / כתובת" size="small" fullWidth value={state.newField.location} onChange={e => actions.setNewField(p => ({ ...p, location: e.target.value }))} />
@@ -89,7 +108,10 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                               actions.setNewFieldMode(true);
                               actions.setNewField(p => ({ ...p, name: newValue }));
                             });
-                          } else if (newValue && newValue.inputValue) {
+                          } else if (newValue?.id === SUGGEST_FIELD_OPTION_ID) {
+                            // Only opens the request form -- the game's location selection is untouched.
+                            openSuggestField(newValue.inputValue || "");
+                          } else if (newValue?.id === CUSTOM_LOCATION_OPTION_ID) {
                             actions.setNewFieldMode(true);
                             actions.setNewField(p => ({ ...p, name: newValue.inputValue || "" }));
                           } else {
@@ -98,17 +120,15 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                         }}
                         filterOptions={(options, params) => {
                           const filtered = filter(options, params);
-                          const { inputValue } = params;
-                          const isExisting = options.some((option) => inputValue === option.name);
-                          if (inputValue !== '' && !isExisting) {
-                            filtered.push({
-                              inputValue,
-                              name: `הוסף "${inputValue}"`,
-                              id: "NEW_FIELD_ID_TEMP"
-                            });
+                          const trimmed = params.inputValue.trim();
+                          const isExisting = options.some((option) => trimmed === option.name);
+                          if (trimmed !== '' && !isExisting) {
+                            filtered.push({ inputValue: trimmed, name: `📍 שחק ב"${trimmed}" (מיקום חופשי למשחק הזה)`, id: CUSTOM_LOCATION_OPTION_ID });
+                            filtered.push({ inputValue: trimmed, name: "➕ הצע מגרש חדש לרשימה", id: SUGGEST_FIELD_OPTION_ID });
                           }
                           return filtered;
                         }}
+                        onInputChange={(_event, value) => setFieldSearchInput(value)}
                         selectOnFocus
                         clearOnBlur
                         handleHomeEndKeys
@@ -126,9 +146,15 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                             </li>
                           );
                         }}
-                        renderInput={(params) => <TextField {...params} label="חפש מגרש" placeholder="הקלד לחיפוש או להוספת מגרש חדש..." size="small" />}
+                        renderInput={(params) => <TextField {...params} label="חפש מגרש" placeholder="הקלד שם מגרש לחיפוש..." size="small" />}
                       />
                     )}
+                    <Typography variant="caption" color="text.secondary" display="block" mt={0.75}>
+                      לא מצאת את המגרש?{" "}
+                      <Link component="button" type="button" variant="caption" onClick={() => openSuggestField(fieldSearchInput.trim())}>
+                        הצע מגרש חדש
+                      </Link>
+                    </Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 4 }}>
                     <Button
@@ -401,6 +427,23 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
             <Button onClick={() => setShowMap(false)}>סגור</Button>
           </DialogActions>
         </Dialog>
+
+        <SuggestFieldDialog
+          open={suggestFieldOpen}
+          onClose={() => setSuggestFieldOpen(false)}
+          initialName={suggestFieldName}
+          onSubmitted={() => setSuggestFieldSent(true)}
+        />
+        <Snackbar
+          open={suggestFieldSent}
+          autoHideDuration={6000}
+          onClose={() => setSuggestFieldSent(false)}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert severity="success" variant="filled" onClose={() => setSuggestFieldSent(false)} sx={{ width: "100%" }}>
+            הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה
+          </Alert>
+        </Snackbar>
 
       </SignedIn>
     </Box>

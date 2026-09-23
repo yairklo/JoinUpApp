@@ -43,6 +43,10 @@ interface SearchMapComponentProps {
   // the corresponding list card via onHoverGame.
   hoveredGameId?: string | null;
   onHoverGame?: (gameId: string | null) => void;
+  // Set while a text search is active (search/page.tsx): the results are then global rather
+  // than clipped to the viewport, so the map fits itself to the result pins once per new key
+  // and shows an explicit empty state instead of a silently empty map.
+  fitToResultsKey?: string | null;
 }
 
 const SPORT_COLORS: Record<string, string> = {
@@ -103,6 +107,7 @@ export default function SearchMapComponent({
   loading = false,
   hoveredGameId = null,
   onHoverGame,
+  fitToResultsKey = null,
 }: SearchMapComponentProps) {
   const [apiError, setApiError] = useState<unknown>(null);
   const safeUserLocation =
@@ -126,6 +131,17 @@ export default function SearchMapComponent({
     }
     return Array.from(map.values());
   }, [games]);
+
+  const pinnedGamesCount = useMemo(
+    () => groupedGames.reduce((sum, g) => sum + g.games.length, 0),
+    [groupedGames]
+  );
+  const unpinnedGamesCount = games.length - pinnedGamesCount;
+  let searchEmptyMessage: string | null = null;
+  if (fitToResultsKey && !loading) {
+    if (games.length === 0) searchEmptyMessage = "לא נמצאו משחקים לחיפוש הזה";
+    else if (pinnedGamesCount === 0) searchEmptyMessage = "לתוצאות החיפוש אין מיקום על המפה";
+  }
 
   if (!GOOGLE_MAPS_API_KEY) {
     return <div style={{ color: "#64748b", fontSize: 14, padding: 16 }}>מפה לא זמינה כרגע.</div>;
@@ -157,6 +173,29 @@ export default function SearchMapComponent({
           <LoadingMotif id="pin-drop" label="טוען מפה…" />
         </Box>
       )}
+      {(searchEmptyMessage || (fitToResultsKey && !loading && unpinnedGamesCount > 0)) && (
+        <Box
+          role="status"
+          sx={{
+            position: "absolute",
+            top: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 2,
+            px: 2,
+            py: 1,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            boxShadow: 2,
+            maxWidth: "calc(100% - 32px)",
+            pointerEvents: "none",
+          }}
+        >
+          <Typography variant="body2" dir="rtl" textAlign="center">
+            {searchEmptyMessage ?? `${unpinnedGamesCount} מהתוצאות ללא מיקום על המפה`}
+          </Typography>
+        </Box>
+      )}
       <APIProvider
         apiKey={GOOGLE_MAPS_API_KEY}
         language="he"
@@ -176,6 +215,7 @@ export default function SearchMapComponent({
           style={{ width: "100%", height: "100%" }}
         >
           <BoundsListener onBoundsChanged={onBoundsChanged} targetLocation={safeTarget} />
+          <FitToResults groups={groupedGames} fitKey={fitToResultsKey} loading={loading} />
 
           {safeUserLocation && (
             <UserLocationMarker lat={safeUserLocation[0]} lng={safeUserLocation[1]} />
@@ -248,6 +288,45 @@ function BoundsListener({
       console.warn("[SearchMap] panTo failed:", e);
     }
   }, [targetLocation, map]);
+
+  return null;
+}
+
+// While a text search is active, frames all result pins once per search key (the results are
+// no longer limited to the viewport, so they may be anywhere in the country). Waits for the
+// fetch to settle so it frames the new results, not the previous query's.
+function FitToResults({
+  groups,
+  fitKey,
+  loading,
+}: {
+  groups: GameGroup[];
+  fitKey: string | null;
+  loading: boolean;
+}) {
+  const map = useMap();
+  const lastFittedKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!fitKey) {
+      lastFittedKeyRef.current = null;
+      return;
+    }
+    if (!map || loading || groups.length === 0 || lastFittedKeyRef.current === fitKey) return;
+    lastFittedKeyRef.current = fitKey;
+    try {
+      if (groups.length === 1) {
+        map.panTo({ lat: groups[0].lat, lng: groups[0].lng });
+        map.setZoom(15);
+        return;
+      }
+      const bounds = new google.maps.LatLngBounds();
+      for (const g of groups) bounds.extend({ lat: g.lat, lng: g.lng });
+      map.fitBounds(bounds, 48);
+    } catch (e) {
+      console.warn("[SearchMap] fitBounds failed:", e);
+    }
+  }, [map, fitKey, loading, groups]);
 
   return null;
 }

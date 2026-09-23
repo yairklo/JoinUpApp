@@ -284,7 +284,7 @@ export const fieldsApi = {
 
 // Optional detail fields shared by create/update, all backed by columns that
 // already exist on the Prisma Field model (see server/routes/fields.js).
-interface FieldWriteData {
+export interface FieldWriteData {
     city?: string;
     price?: number;
     description?: string;

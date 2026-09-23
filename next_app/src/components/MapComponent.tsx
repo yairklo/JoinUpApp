@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin, InfoWindow, useMap } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import { isGeolocationPermissionGranted } from "@/utils/geolocation";
+import MapAddressSearch from "@/components/MapAddressSearch";
 
 type FieldPoint = {
   id: string;
@@ -113,8 +114,11 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
   if (!userLocation) return <div style={{ color: "#64748b", fontSize: 14 }}>טוען מפה…</div>;
 
   return (
-    <div style={{ width: "100%", height: 450 }}>
+    <div style={{ width: "100%", height: 450, position: "relative" }}>
       <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="he" region="IL" libraries={["marker"]}>
+        {/* In pick mode a chosen address also drops the pick marker there (the user can still
+            tap elsewhere or choose an existing field pin); otherwise it only moves the map. */}
+        <MapAddressSearch onLocate={pickMode && onPick ? (pt) => onPick(pt) : undefined} />
         <GoogleMap
           mapId="DEMO_MAP_ID"
           defaultCenter={userLocation}

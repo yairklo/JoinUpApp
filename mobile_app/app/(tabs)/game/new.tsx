@@ -17,6 +17,7 @@ import CustomPointMarker from '@/components/map/CustomPointMarker';
 import { DEFAULT_MAP_REGION, MapBounds, MapCoordinate, MapMarkerItem, MapRegion, regionToBounds } from '@/components/map/types';
 import { getFieldSportTags } from '@/utils/mapSport';
 import * as Location from 'expo-location';
+import SuggestFieldModal from '@/components/SuggestFieldModal';
 
 function filterFieldsWithCoords(fields: Field[]): Field[] {
     return fields.filter((f) => f.lat != null && f.lng != null);
@@ -107,6 +108,12 @@ export default function NewGameScreen() {
     const [showMapModal, setShowMapModal] = useState(false);
     const [customPoint, setCustomPoint] = useState<MapCoordinate | null>(null);
     const [customFieldName, setCustomFieldName] = useState('');
+    // "הצע מגרש חדש" -- request to the admins; the free-form map point above stays unchanged.
+    const [showSuggestField, setShowSuggestField] = useState(false);
+    // Address search inside the map modal (device geocoder via expo-location, no API key needed).
+    const [addressQuery, setAddressQuery] = useState('');
+    const [addressSearching, setAddressSearching] = useState(false);
+    const [addressNotFound, setAddressNotFound] = useState(false);
     const [mapFields, setMapFields] = useState<Field[]>([]);
     const [mapLoading, setMapLoading] = useState(false);
     const [mapSelectedField, setMapSelectedField] = useState<Field | null>(null);
@@ -248,6 +255,31 @@ export default function NewGameScreen() {
         setCustomPoint(coordinate);
         setMapSelectedField(null);
     }, []);
+
+    const searchAddressOnMap = useCallback(async () => {
+        const query = addressQuery.trim();
+        if (query.length < 2) return;
+        setAddressSearching(true);
+        setAddressNotFound(false);
+        try {
+            const results = await Location.geocodeAsync(query);
+            const first = results[0];
+            if (!first) {
+                setAddressNotFound(true);
+                return;
+            }
+            const coordinate = { latitude: first.latitude, longitude: first.longitude };
+            mapRef.current?.animateToCoordinate(coordinate, 0.01);
+            // Marks the spot like a map tap (opens the confirm sheet); tapping a listed field's
+            // marker instead still selects that field as before.
+            handleMapPress(coordinate);
+        } catch (error) {
+            console.warn('Address geocoding failed', error);
+            setAddressNotFound(true);
+        } finally {
+            setAddressSearching(false);
+        }
+    }, [addressQuery, handleMapPress]);
 
     const confirmMapFieldSelection = useCallback(() => {
         if (!mapSelectedField) return;
@@ -605,6 +637,11 @@ export default function NewGameScreen() {
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
+
+                    <TouchableOpacity onPress={() => setShowSuggestField(true)} className="flex-row items-center mt-3">
+                        <Text className="text-gray-500 text-xs">{t('newGame.suggestLink', 'לא מצאת את המגרש?')} </Text>
+                        <Text className="text-brand-dark font-bold text-xs">{t('newGame.suggestAction', 'הצע מגרש חדש')}</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Date & Time */}
@@ -877,6 +914,33 @@ export default function NewGameScreen() {
                         </TouchableOpacity>
                     </View>
 
+                    <View className="px-3 pt-3 pb-2">
+                        <View className="flex-row items-center bg-gray-100 rounded-xl px-3">
+                            <FontAwesome name="search" size={14} color="#6b7280" />
+                            <TextInput
+                                value={addressQuery}
+                                onChangeText={(v) => {
+                                    setAddressQuery(v);
+                                    setAddressNotFound(false);
+                                }}
+                                onSubmitEditing={searchAddressOnMap}
+                                returnKeyType="search"
+                                placeholder={t('newGame.searchAddress', 'חפש כתובת…')}
+                                className="flex-1 p-3 text-right"
+                            />
+                            {addressSearching ? (
+                                <ActivityIndicator size="small" />
+                            ) : addressQuery.trim().length >= 2 ? (
+                                <TouchableOpacity onPress={searchAddressOnMap} className="py-2 pl-2">
+                                    <Text className="text-brand-dark font-bold">{t('newGame.searchAddressGo', 'חפש')}</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                        </View>
+                        {addressNotFound && (
+                            <Text className="text-red-500 text-xs mt-1">{t('newGame.addressNotFound', 'לא נמצאה כתובת')}</Text>
+                        )}
+                    </View>
+
                     <AppBaseMap
                         ref={mapRef}
                         variant="fill"
@@ -895,6 +959,12 @@ export default function NewGameScreen() {
                     />
                 </View>
             </Modal>
+
+            <SuggestFieldModal
+                visible={showSuggestField}
+                onClose={() => setShowSuggestField(false)}
+                onSubmitted={() => Alert.alert(t('newGame.suggestSent', 'הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה'))}
+            />
         </>
     );
 }
