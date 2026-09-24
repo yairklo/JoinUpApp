@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { usersApi, FlaggedMessage, AdminFieldComment, AdminFieldIssue, AdminFieldCommentFlag, AdminFieldIssueFlag } from "@/services/api/users";
+import { usersApi, FlaggedMessage, FlaggedMessageUser, AdminFieldComment, AdminFieldIssue, AdminFieldCommentFlag, AdminFieldIssueFlag } from "@/services/api/users";
 import type { FieldFlagReason } from "@/services/api/fields";
 
 import Card from "@mui/material/Card";
@@ -15,6 +15,8 @@ import LoadingMotif from "@/components/motion/LoadingMotif";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
+import Avatar from "@mui/material/Avatar";
+import NextLink from "next/link";
 import { fieldsApi } from "@/services/api/fields";
 import { CATEGORY_LABELS as ISSUE_CATEGORY_LABELS } from "@/components/FieldIssueReportSection";
 
@@ -40,6 +42,40 @@ const STATUS_LABELS: Record<string, string> = {
   PENDING: "ממתין",
   DISMISSED: "התעלמו",
 };
+
+// The server also resolves other open reports on the same chat message; mirror that here.
+function dropHandled(rows: FlaggedMessage[], id: string): FlaggedMessage[] {
+  const messageId = rows.find((r) => r.id === id)?.messageId;
+  return rows.filter((r) => r.id !== id && !(messageId && r.messageId === messageId));
+}
+
+function UserLink({ label, user, fallbackId }: { label: string; user?: FlaggedMessageUser | null; fallbackId?: string | null }) {
+  const id = user?.id || fallbackId || null;
+  const name = user?.name || "משתמש לא ידוע";
+  return (
+    <Stack direction="row" spacing={0.75} alignItems="center">
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Avatar src={user?.imageUrl || undefined} alt={name} sx={{ width: 22, height: 22, fontSize: 12 }}>
+        {name.charAt(0)}
+      </Avatar>
+      {id ? (
+        <Typography
+          component={NextLink}
+          href={`/users/${id}`}
+          target="_blank"
+          variant="body2"
+          fontWeight={700}
+          color="primary"
+          sx={{ textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
+        >
+          {name}
+        </Typography>
+      ) : (
+        <Typography variant="body2" fontWeight={700}>{name}</Typography>
+      )}
+    </Stack>
+  );
+}
 
 export default function AdminModerationPage() {
   const { getToken } = useAuth();
@@ -104,7 +140,7 @@ export default function AdminModerationPage() {
     setError(null);
     try {
       await withToken((token) => usersApi.dismissFlaggedMessage(id, token));
-      setRows((prev) => prev.filter((r) => r.id !== id));
+      setRows((prev) => dropHandled(prev, id));
     } catch {
       setError("הפעולה נכשלה, נסה שוב.");
     } finally {
@@ -117,7 +153,7 @@ export default function AdminModerationPage() {
     setError(null);
     try {
       await withToken((token) => usersApi.removeFlaggedMessage(id, token));
-      setRows((prev) => prev.filter((r) => r.id !== id));
+      setRows((prev) => dropHandled(prev, id));
     } catch {
       setError("הפעולה נכשלה, נסה שוב.");
     } finally {
@@ -274,7 +310,12 @@ export default function AdminModerationPage() {
                     label={`דיווח משתמש: ${MESSAGE_REPORT_REASON_LABELS[row.aiTriggers.reason || ""] || row.aiTriggers.reason || "—"}`}
                   />
                 )}
-                <Typography variant="caption" color="text.secondary">{row.userId}</Typography>
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 0.5, sm: 3 }} mb={1}>
+                <UserLink label="נכתב על ידי:" user={row.sender} fallbackId={row.userId} />
+                {row.aiTriggers?.source === "user_report" && (
+                  <UserLink label="דווח על ידי:" user={row.reporter} fallbackId={row.aiTriggers.reporterId} />
+                )}
               </Stack>
               {row.aiTriggers?.source === "user_report" && row.aiTriggers.details && (
                 <Typography variant="body2" color="text.secondary" mb={1}>הערת המדווח: {row.aiTriggers.details}</Typography>

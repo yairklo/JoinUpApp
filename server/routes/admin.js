@@ -6,13 +6,54 @@ const { deleteMessageFromChat } = require('../workers/reviewWorker');
 
 const router = express.Router();
 
+// Several users can report the same chat message (one row each). Once a moderator acts on
+// one of them, the other open rows for that message are handled too, or they'd resurface.
+async function resolveSiblingFlags(row, resolution) {
+  if (!row.messageId) return;
+  await prisma.flaggedMessage.updateMany({
+    where: { messageId: row.messageId, status: { not: 'RESOLVED' }, id: { not: row.id } },
+    data: { status: 'RESOLVED', resolution },
+  });
+}
+
 router.get('/flagged-messages', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    // Only the open queue: resolved rows (dismissed / removed / auto-reviewed) must not
+    // reappear after a refresh.
     const rows = await prisma.flaggedMessage.findMany({
+      where: { status: { not: 'RESOLVED' } },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
-    res.json(rows);
+
+    // FlaggedMessage has no User relations (userId / aiTriggers.reporterId are plain ids),
+    // so resolve sender + reporter names in one batched lookup for the moderation UI.
+    const reporterIdOf = (row) =>
+      row.aiTriggers && typeof row.aiTriggers === 'object' && typeof row.aiTriggers.reporterId === 'string'
+        ? row.aiTriggers.reporterId
+        : null;
+    const ids = new Set();
+    for (const row of rows) {
+      if (row.userId) ids.add(row.userId);
+      const reporterId = reporterIdOf(row);
+      if (reporterId) ids.add(reporterId);
+    }
+    const users = ids.size
+      ? await prisma.user.findMany({
+          where: { id: { in: [...ids] } },
+          select: { id: true, name: true, imageUrl: true },
+        })
+      : [];
+    const byId = new Map(users.map((u) => [u.id, u]));
+
+    res.json(rows.map((row) => {
+      const reporterId = reporterIdOf(row);
+      return {
+        ...row,
+        sender: byId.get(row.userId) || null,
+        reporter: reporterId ? byId.get(reporterId) || null : null,
+      };
+    }));
   } catch (error) {
     console.error('List flagged messages error:', error);
     res.status(500).json({ error: 'Failed to list flagged messages' });
@@ -22,10 +63,12 @@ router.get('/flagged-messages', authenticateToken, requireAdmin, async (req, res
 // Mark a flagged message as reviewed with no further action taken.
 router.post('/flagged-messages/:id/dismiss', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    const resolution = `ADMIN_DISMISSED:${req.user.id}`;
     const row = await prisma.flaggedMessage.update({
       where: { id: req.params.id },
-      data: { status: 'RESOLVED', resolution: `ADMIN_DISMISSED:${req.user.id}` },
+      data: { status: 'RESOLVED', resolution },
     });
+    await resolveSiblingFlags(row, resolution);
     res.json(row);
   } catch (error) {
     console.error('Dismiss flagged message error:', error);
@@ -43,10 +86,12 @@ router.post('/flagged-messages/:id/remove-message', authenticateToken, requireAd
       await deleteMessageFromChat(flagged.messageId);
     }
 
+    const resolution = `ADMIN_REMOVED:${req.user.id}`;
     const row = await prisma.flaggedMessage.update({
       where: { id: req.params.id },
-      data: { status: 'RESOLVED', resolution: `ADMIN_REMOVED:${req.user.id}` },
+      data: { status: 'RESOLVED', resolution },
     });
+    await resolveSiblingFlags(row, resolution);
     res.json(row);
   } catch (error) {
     console.error('Remove flagged message error:', error);

@@ -320,7 +320,6 @@ export default function ChatScreen() {
                 onReply={handleReply}
                 onEdit={handleEditMessage}
                 onDelete={handleDeleteMessage}
-                onViewProfile={handlePressUser}
                 onReport={handleReportMessage}
             />
         </SafeAreaView>
