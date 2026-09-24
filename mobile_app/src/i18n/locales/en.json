@@ -400,7 +400,10 @@
     "reportReasonOther": "Other",
     "reportSentTitle": "Thanks for reporting",
     "reportSentBody": "Your report was sent to the moderators.",
-    "reportAlreadySent": "You already reported this message. The moderators will review it."
+    "reportAlreadySent": "You already reported this message. The moderators will review it.",
+    "reportFailedTitle": "Report not sent",
+    "reportNotAllowed": "This message can't be reported (it may have been deleted).",
+    "reportFailedBody": "Something went wrong. Check your connection and try again."
   },
   "notifications": {
     "title": "Notifications",

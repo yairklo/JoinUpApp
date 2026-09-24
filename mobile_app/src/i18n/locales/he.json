@@ -400,7 +400,10 @@
     "reportReasonOther": "אחר",
     "reportSentTitle": "תודה על הדיווח",
     "reportSentBody": "הדיווח נשלח לצוות הניהול ויטופל בהקדם.",
-    "reportAlreadySent": "כבר דיווחת על ההודעה הזו. צוות הניהול יבדוק אותה."
+    "reportAlreadySent": "כבר דיווחת על ההודעה הזו. צוות הניהול יבדוק אותה.",
+    "reportFailedTitle": "הדיווח לא נשלח",
+    "reportNotAllowed": "לא ניתן לדווח על ההודעה הזו (ייתכן שהיא כבר נמחקה).",
+    "reportFailedBody": "משהו השתבש. בדקו את החיבור ונסו שוב."
   },
   "notifications": {
     "title": "התראות",

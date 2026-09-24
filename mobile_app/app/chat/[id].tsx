@@ -74,9 +74,13 @@ export default function ChatScreen() {
         setReplyToMessage(message);
     }, [setReplyToMessage, setEditingMessage]);
 
+    // useChatLogic returns a fresh handleReact every render; read it through a ref so this
+    // callback (and MessageBubble's memoized onReact prop) stays stable across keystrokes.
+    const handleReactRef = useRef(handleReact);
+    handleReactRef.current = handleReact;
     const handleReactToMessage = useCallback((message: ChatMessage, emoji: string) => {
-        handleReact(message.id, emoji);
-    }, [handleReact]);
+        handleReactRef.current(message.id, emoji);
+    }, []);
 
     const handleEditMessage = useCallback((message: ChatMessage) => {
         setReplyToMessage(null);
@@ -92,10 +96,23 @@ export default function ChatScreen() {
     }, [handleDelete, t]);
 
     const handleReportMessage = useCallback(async (message: ChatMessage, reason: MessageReportReason) => {
-        const token = await getToken();
-        if (!token) throw new Error('Not signed in');
-        // apiClient surfaces its own error toast on failure; rethrow keeps the sheet open.
-        const res = await chatsApi.reportMessage(String(message.id), reason, token);
+        let res: { ok: boolean; alreadyReported?: boolean };
+        try {
+            const token = await getToken();
+            if (!token) throw new Error('Not signed in');
+            res = await chatsApi.reportMessage(String(message.id), reason, token);
+        } catch (e: any) {
+            // apiClient only logs; tell the user. A 4xx (e.g. message deleted meanwhile) won't
+            // succeed on retry, so it gets its own wording.
+            const status = e?.status as number | undefined;
+            Alert.alert(
+                t('chat.reportFailedTitle', 'הדיווח לא נשלח'),
+                status && status >= 400 && status < 500
+                    ? t('chat.reportNotAllowed', 'לא ניתן לדווח על ההודעה הזו (ייתכן שהיא כבר נמחקה).')
+                    : t('chat.reportFailedBody', 'משהו השתבש. בדקו את החיבור ונסו שוב.')
+            );
+            throw e;
+        }
         Alert.alert(
             t('chat.reportSentTitle', 'תודה על הדיווח'),
             res?.alreadyReported

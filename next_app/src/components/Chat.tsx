@@ -72,8 +72,15 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           : (isRTL ? "תודה! הדיווח נשלח לצוות הניהול" : "Thanks! Your report was sent to the moderators"),
       });
       setReportTarget(null);
-    } catch {
-      setReportToast({ severity: "error", text: isRTL ? "שליחת הדיווח נכשלה, נסו שוב" : "Failed to send report, please try again" });
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      if (status && status >= 400 && status < 500) {
+        // Deleted meanwhile / not reportable: retrying won't help, so close the dialog.
+        setReportTarget(null);
+        setReportToast({ severity: "error", text: isRTL ? "לא ניתן לדווח על ההודעה הזו (ייתכן שהיא כבר נמחקה)" : "This message can't be reported (it may have been deleted)" });
+      } else {
+        setReportToast({ severity: "error", text: isRTL ? "שליחת הדיווח נכשלה, נסו שוב" : "Failed to send report, please try again" });
+      }
     }
   };
 
@@ -258,7 +265,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       nameByUserId={state.nameByUserId}
                       currentUserId={user?.id}
                       onOpenProfile={openProfile}
-                      onReport={isMine ? undefined : (msg) => setReportTarget(msg)}
+                      onReport={isMine || m.isDeleted || !m.userId ? undefined : (msg) => setReportTarget(msg)}
                     />
                   </div>
                 );
