@@ -25,7 +25,6 @@ interface MessageActionSheetProps {
     onReply: (message: ChatMessage) => void;
     onEdit: (message: ChatMessage) => void;
     onDelete: (message: ChatMessage) => void;
-    onViewProfile?: (userId: string) => void;
     onReport: (message: ChatMessage, reason: MessageReportReason) => Promise<void>;
 }
 
@@ -38,7 +37,7 @@ type ActionRow = {
 };
 
 export default function MessageActionSheet({
-    message, isMe, senderName, currentUserId, onClose, onReact, onReply, onEdit, onDelete, onViewProfile, onReport,
+    message, isMe, senderName, currentUserId, onClose, onReact, onReply, onEdit, onDelete, onReport,
 }: MessageActionSheetProps) {
     const { t } = useTranslation();
     const [mode, setMode] = useState<"actions" | "report">("actions");
@@ -53,7 +52,6 @@ export default function MessageActionSheet({
 
     if (!message) return null;
 
-    const senderId = message.userId || message.senderId || message.sender?.id;
     const myReaction = currentUserId
         ? Object.values(message.reactions || {}).find((r: any) => Array.isArray(r?.userIds) && r.userIds.includes(currentUserId))?.emoji
         : undefined;
@@ -63,10 +61,6 @@ export default function MessageActionSheet({
 
     const actions: ActionRow[] = [
         { key: "reply", label: t("chat.reply", "השב"), icon: "arrow-undo-outline", onPress: run(() => onReply(message)) },
-        ...(!isMe && senderId && onViewProfile ? [{
-            key: "profile", label: t("chat.viewProfile", "צפה בפרופיל"), icon: "person-circle-outline" as const,
-            onPress: run(() => onViewProfile(String(senderId))),
-        }] : []),
         ...(isMe ? [
             { key: "edit", label: t("chat.edit", "ערוך"), icon: "create-outline" as const, onPress: run(() => onEdit(message)) },
             { key: "delete", label: t("chat.delete", "מחק"), icon: "trash-outline" as const, destructive: true, onPress: run(() => onDelete(message)) },
