@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -14,7 +14,9 @@ import {
   Fab,
   Badge,
   Zoom,
-  Avatar
+  Avatar,
+  Snackbar,
+  Alert
 } from "@mui/material";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import SendIcon from "@mui/icons-material/Send";
@@ -24,6 +26,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MessageBubble from "./MessageBubble";
+import ReportMessageDialog from "./ReportMessageDialog";
+import { chatsApi, type MessageReportReason } from "@/services/api/chats";
 import { ChatMessage } from "./types";
 import { useChatLogic } from "@/hooks/useChatLogic";
 
@@ -41,11 +45,44 @@ type ChatProps = {
 export default function Chat({ roomId = "global", language = "he", isWidget = false, chatName, hideHeaderName = false }: ChatProps) {
   const isRTL = language === "he";
   const { user } = useUser();
+  const { getToken } = useAuth();
   const theme = useTheme();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
+
+  const [reportTarget, setReportTarget] = useState<ChatMessage | null>(null);
+  const [reportToast, setReportToast] = useState<{ severity: "success" | "error"; text: string } | null>(null);
+
+  const openProfile = (userId: string) => {
+    if (userId) router.push(`/users/${userId}`);
+  };
+
+  const submitReport = async (reason: MessageReportReason, details?: string) => {
+    if (!reportTarget) return;
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Not signed in");
+      const res = await chatsApi.reportMessage(String(reportTarget.id), reason, token, details);
+      setReportToast({
+        severity: "success",
+        text: res?.alreadyReported
+          ? (isRTL ? "כבר דיווחת על ההודעה הזו" : "You already reported this message")
+          : (isRTL ? "תודה! הדיווח נשלח לצוות הניהול" : "Thanks! Your report was sent to the moderators"),
+      });
+      setReportTarget(null);
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      if (status && status >= 400 && status < 500) {
+        // Deleted meanwhile / not reportable: retrying won't help, so close the dialog.
+        setReportTarget(null);
+        setReportToast({ severity: "error", text: isRTL ? "לא ניתן לדווח על ההודעה הזו (ייתכן שהיא כבר נמחקה)" : "This message can't be reported (it may have been deleted)" });
+      } else {
+        setReportToast({ severity: "error", text: isRTL ? "שליחת הדיווח נכשלה, נסו שוב" : "Failed to send report, please try again" });
+      }
+    }
+  };
 
   // Use the custom hook for all logic
   const { state, actions, refs } = useChatLogic({ roomId, chatName });
@@ -122,7 +159,11 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             <ArrowBackIcon sx={{ transform: isRTL ? "scaleX(-1)" : "none" }} />
           </IconButton>
 
-          {/* Avatar */}
+          {/* Avatar + name open the other user's profile in private chats */}
+          <Box
+            onClick={state.isPrivate && state.otherUserId ? () => openProfile(String(state.otherUserId)) : undefined}
+            sx={{ display: "flex", alignItems: "center", gap: 1.5, flex: 1, overflow: "hidden", cursor: state.isPrivate && state.otherUserId ? "pointer" : "default" }}
+          >
           {roomId !== "global" && (
             <Avatar
               src={state.otherUserAvatar || undefined}
@@ -168,6 +209,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                 ) : null
               )}
             </Box>
+          </Box>
           </Box>
         </Box>
       )}
@@ -222,6 +264,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       isLastInGroup={!isNextSameSender}
                       nameByUserId={state.nameByUserId}
                       currentUserId={user?.id}
+                      onOpenProfile={openProfile}
+                      onReport={isMine || m.isDeleted || !m.userId ? undefined : (msg) => setReportTarget(msg)}
                     />
                   </div>
                 );
@@ -279,6 +323,25 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           </IconButton>
         </Stack>
       </Box>
+
+      <ReportMessageDialog
+        open={!!reportTarget}
+        isRTL={isRTL}
+        messagePreview={reportTarget?.text}
+        onClose={() => setReportTarget(null)}
+        onSubmit={submitReport}
+      />
+      {reportToast && (
+        <Snackbar
+          open
+          autoHideDuration={4000}
+          onClose={() => setReportToast(null)}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+          sx={{ zIndex: 2103 }}
+        >
+          <Alert severity={reportToast.severity} onClose={() => setReportToast(null)} sx={{ width: "100%" }}>{reportToast.text}</Alert>
+        </Snackbar>
+      )}
     </Paper>
   );
 }

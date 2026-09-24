@@ -388,7 +388,22 @@
     "isTyping": "מקליד/ה...",
     "areTyping": "מקלידים...",
     "blockedOffensive": "ההודעה מכילה תוכן פוגעני ולכן לא נשלחה",
-    "edited": "נערך"
+    "edited": "נערך",
+    "viewProfile": "צפה בפרופיל",
+    "reportMessage": "דווח על הודעה פוגענית",
+    "reportTitle": "דיווח על הודעה",
+    "reportSubtitle": "מה הבעיה בהודעה? הדיווח יישלח לצוות הניהול, והשולח לא יידע מי דיווח.",
+    "reportReasonOffensive": "תוכן פוגעני",
+    "reportReasonHarassment": "הטרדה או בריונות",
+    "reportReasonInappropriate": "תוכן לא הולם",
+    "reportReasonSpam": "ספאם",
+    "reportReasonOther": "אחר",
+    "reportSentTitle": "תודה על הדיווח",
+    "reportSentBody": "הדיווח נשלח לצוות הניהול ויטופל בהקדם.",
+    "reportAlreadySent": "כבר דיווחת על ההודעה הזו. צוות הניהול יבדוק אותה.",
+    "reportFailedTitle": "הדיווח לא נשלח",
+    "reportNotAllowed": "לא ניתן לדווח על ההודעה הזו (ייתכן שהיא כבר נמחקה).",
+    "reportFailedBody": "משהו השתבש. בדקו את החיבור ונסו שוב."
   },
   "notifications": {
     "title": "התראות",

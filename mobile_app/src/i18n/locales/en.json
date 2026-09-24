@@ -388,7 +388,22 @@
     "isTyping": "is typing...",
     "areTyping": "are typing...",
     "blockedOffensive": "Message contains offensive content and was not sent",
-    "edited": "Edited"
+    "edited": "Edited",
+    "viewProfile": "View profile",
+    "reportMessage": "Report message",
+    "reportTitle": "Report message",
+    "reportSubtitle": "What's wrong with this message? The report goes to the moderators; the sender won't know who reported it.",
+    "reportReasonOffensive": "Offensive content",
+    "reportReasonHarassment": "Harassment or bullying",
+    "reportReasonInappropriate": "Inappropriate content",
+    "reportReasonSpam": "Spam",
+    "reportReasonOther": "Other",
+    "reportSentTitle": "Thanks for reporting",
+    "reportSentBody": "Your report was sent to the moderators.",
+    "reportAlreadySent": "You already reported this message. The moderators will review it.",
+    "reportFailedTitle": "Report not sent",
+    "reportNotAllowed": "This message can't be reported (it may have been deleted).",
+    "reportFailedBody": "Something went wrong. Check your connection and try again."
   },
   "notifications": {
     "title": "Notifications",

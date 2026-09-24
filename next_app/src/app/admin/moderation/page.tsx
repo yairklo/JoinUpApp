@@ -25,7 +25,16 @@ const FLAG_REASON_LABELS: Record<FieldFlagReason, string> = {
   OTHER: "אחר",
 };
 
+const MESSAGE_REPORT_REASON_LABELS: Record<string, string> = {
+  OFFENSIVE: "תוכן פוגעני",
+  HARASSMENT: "הטרדה",
+  INAPPROPRIATE: "תוכן לא הולם",
+  SPAM: "ספאם",
+  OTHER: "אחר",
+};
+
 const STATUS_LABELS: Record<string, string> = {
+  PENDING_REVIEW: "ממתין לבדיקה",
   OPEN: "פתוח",
   RESOLVED: "טופל",
   PENDING: "ממתין",
@@ -258,8 +267,18 @@ export default function AdminModerationPage() {
             <CardContent>
               <Stack direction="row" spacing={1} alignItems="center" mb={1}>
                 <Chip size="small" label={STATUS_LABELS[row.status] || row.status} />
+                {row.aiTriggers?.source === "user_report" && (
+                  <Chip
+                    size="small"
+                    color="warning"
+                    label={`דיווח משתמש: ${MESSAGE_REPORT_REASON_LABELS[row.aiTriggers.reason || ""] || row.aiTriggers.reason || "—"}`}
+                  />
+                )}
                 <Typography variant="caption" color="text.secondary">{row.userId}</Typography>
               </Stack>
+              {row.aiTriggers?.source === "user_report" && row.aiTriggers.details && (
+                <Typography variant="body2" color="text.secondary" mb={1}>הערת המדווח: {row.aiTriggers.details}</Typography>
+              )}
               <Typography sx={{ whiteSpace: "pre-wrap" }}>{row.content}</Typography>
               {row.failureReason && (
                 <Typography variant="body2" color="error" mt={1}>{row.failureReason}</Typography>
