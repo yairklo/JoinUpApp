@@ -2,19 +2,22 @@ import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, Toucha
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useChatLogic } from '@/hooks/useChatLogic';
-import { useUser } from '@clerk/clerk-expo';
+import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import MessageBubble from '@/components/chat/MessageBubble';
 import ReplyPreview from '@/components/chat/ReplyPreview';
+import MessageActionSheet from '@/components/chat/MessageActionSheet';
+import { chatsApi, type MessageReportReason } from '@/services/api/chats';
 import { ChatMessage } from '@/types/chat';
 
 export default function ChatScreen() {
     const { t } = useTranslation();
     const { id, name } = useLocalSearchParams<{ id: string, name?: string }>();
     const { user } = useUser();
+    const { getToken } = useAuth();
     const router = useRouter();
 
     const {
@@ -25,7 +28,7 @@ export default function ChatScreen() {
         },
         actions: {
             handleSendMessage, setInputValue, setReplyToMessage,
-            setEditingMessage, handleDelete,
+            setEditingMessage, handleDelete, handleReact,
             handleTyping, handleStopTyping
         }
     } = useChatLogic({ roomId: id, chatName: typeof name === 'string' ? name : Array.isArray(name) ? name[0] : undefined });
@@ -59,34 +62,50 @@ export default function ChatScreen() {
         router.push(`/user/${userId}`);
     }, [router]);
 
-    const handleLongPress = useCallback((message: ChatMessage) => {
-        const isMe = message.userId === user?.id || message.senderId === user?.id;
+    // WhatsApp/Telegram-style: long-press opens an overlay with quick reactions + actions.
+    const [actionMessage, setActionMessage] = useState<ChatMessage | null>(null);
 
+    const handleLongPress = useCallback((message: ChatMessage) => {
+        setActionMessage(message);
+    }, []);
+
+    const handleReply = useCallback((message: ChatMessage) => {
+        setEditingMessage(null);
+        setReplyToMessage(message);
+    }, [setReplyToMessage, setEditingMessage]);
+
+    const handleReactToMessage = useCallback((message: ChatMessage, emoji: string) => {
+        handleReact(message.id, emoji);
+    }, [handleReact]);
+
+    const handleEditMessage = useCallback((message: ChatMessage) => {
+        setReplyToMessage(null);
+        setEditingMessage(message);
+        setInputValue(message.text || message.content || '');
+    }, [setReplyToMessage, setEditingMessage, setInputValue]);
+
+    const handleDeleteMessage = useCallback((message: ChatMessage) => {
+        Alert.alert(t('chat.deleteMessage', "מחק הודעה"), t('chat.deleteConfirm', "האם אתה בטוח?"), [
+            { text: t('common.cancel', "ביטול"), style: 'cancel' },
+            { text: t('chat.delete', "מחק"), style: 'destructive', onPress: () => handleDelete(message.id) }
+        ]);
+    }, [handleDelete, t]);
+
+    const handleReportMessage = useCallback(async (message: ChatMessage, reason: MessageReportReason) => {
+        const token = await getToken();
+        if (!token) throw new Error('Not signed in');
+        // apiClient surfaces its own error toast on failure; rethrow keeps the sheet open.
+        const res = await chatsApi.reportMessage(String(message.id), reason, token);
         Alert.alert(
-            t('chat.options', "אפשרויות הודעה"),
-            undefined,
-            [
-                { text: t('chat.reply', "השב"), onPress: () => setReplyToMessage(message) },
-                ...(isMe ? [
-                    {
-                        text: t('chat.edit', "ערוך"), onPress: () => {
-                            setEditingMessage(message);
-                            setInputValue(message.text || message.content || '');
-                        }
-                    },
-                    {
-                        text: t('chat.delete', "מחק"), style: 'destructive' as const, onPress: () => {
-                            Alert.alert(t('chat.deleteMessage', "מחק הודעה"), t('chat.deleteConfirm', "האם אתה בטוח?"), [
-                                { text: t('common.cancel', "ביטול"), style: 'cancel' },
-                                { text: t('chat.delete', "מחק"), style: 'destructive', onPress: () => handleDelete(message.id) }
-                            ]);
-                        }
-                    }
-                ] : []),
-                { text: t('common.cancel', "ביטול"), style: 'cancel' }
-            ]
+            t('chat.reportSentTitle', 'תודה על הדיווח'),
+            res?.alreadyReported
+                ? t('chat.reportAlreadySent', 'כבר דיווחת על ההודעה הזו. צוות הניהול יבדוק אותה.')
+                : t('chat.reportSentBody', 'הדיווח נשלח לצוות הניהול ויטופל בהקדם.')
         );
-    }, [user?.id, setReplyToMessage, setEditingMessage, setInputValue, handleDelete, t]);
+    }, [getToken, t]);
+
+    const actionMessageSenderId = actionMessage ? (actionMessage.userId || actionMessage.senderId) : undefined;
+    const actionMessageIsMe = !!actionMessageSenderId && actionMessageSenderId === user?.id;
 
     // Newest-first for inverted FlatList — copy+reverse once, never mutate `messages`
     const listData = useMemo(() => {
@@ -114,11 +133,14 @@ export default function ChatScreen() {
                 showAvatar={showAvatar}
                 displayName={item.senderName || item.sender?.name || (uid ? nameByUserId[uid] : undefined) || 'User'}
                 displayAvatar={item.sender?.image || (uid ? avatarByUserId[uid] : null) || null}
+                currentUserId={user?.id}
                 onLongPress={handleLongPress}
                 onPressUser={handlePressUser}
+                onReply={handleReply}
+                onReact={handleReactToMessage}
             />
         );
-    }, [listData, user?.id, nameByUserId, avatarByUserId, handleLongPress, handlePressUser]);
+    }, [listData, user?.id, nameByUserId, avatarByUserId, handleLongPress, handlePressUser, handleReply, handleReactToMessage]);
 
     const keyExtractor = useCallback((item: ChatMessage) => String(item.id), []);
 
@@ -270,6 +292,20 @@ export default function ChatScreen() {
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
+
+            <MessageActionSheet
+                message={actionMessage}
+                isMe={actionMessageIsMe}
+                senderName={actionMessage ? (actionMessage.senderName || actionMessage.sender?.name || (actionMessageSenderId ? nameByUserId[actionMessageSenderId] : undefined) || undefined) : undefined}
+                currentUserId={user?.id}
+                onClose={() => setActionMessage(null)}
+                onReact={handleReactToMessage}
+                onReply={handleReply}
+                onEdit={handleEditMessage}
+                onDelete={handleDeleteMessage}
+                onViewProfile={handlePressUser}
+                onReport={handleReportMessage}
+            />
         </SafeAreaView>
     );
 }

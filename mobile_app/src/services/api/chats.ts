@@ -7,6 +7,8 @@ export interface ChatDetails {
     // Add other fields as needed
 }
 
+export type MessageReportReason = 'OFFENSIVE' | 'HARASSMENT' | 'SPAM' | 'INAPPROPRIATE' | 'OTHER';
+
 export const chatsApi = {
     getDetails: (chatId: string, token: string) => {
         return apiClient<ChatDetails>(`/api/chats/${chatId}`, { token, silent: true });
@@ -20,6 +22,14 @@ export const chatsApi = {
         return apiClient<{ chatId: string }>('/api/chats/private', {
             method: 'POST',
             data: { targetUserId },
+            token
+        });
+    },
+
+    reportMessage: (messageId: string, reason: MessageReportReason, token: string, details?: string) => {
+        return apiClient<{ ok: boolean; alreadyReported?: boolean }>(`/api/messages/${messageId}/report`, {
+            method: 'POST',
+            data: { reason, details },
             token
         });
     }

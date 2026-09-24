@@ -22,6 +22,8 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import BlockIcon from "@mui/icons-material/Block";
+import FlagIcon from "@mui/icons-material/Flag";
+import PersonIcon from "@mui/icons-material/Person";
 
 import { ChatMessage } from "./types";
 
@@ -42,13 +44,15 @@ interface MessageBubbleProps {
     isLastInGroup: boolean;
     currentUserId?: string | null;
     nameByUserId?: Record<string, string | null>;
+    onReport?: (message: ChatMessage) => void;
+    onOpenProfile?: (userId: string) => void;
 }
 
 const COMMON_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 export default function MessageBubble({
     message, isMine, isRTL, onReply, onReact, onEdit, onDelete, avatarUrl, displayName, timeStr,
-    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId, nameByUserId
+    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId, nameByUserId, onReport, onOpenProfile
 }: MessageBubbleProps) {
 
     const [hover, setHover] = useState(false);
@@ -65,6 +69,22 @@ export default function MessageBubble({
     const handleEdit = () => {
         onEdit(message);
         handleMenuClose();
+    };
+
+    const senderId = message.userId || message.senderId || message.sender?.id;
+    const canOpenProfile = !isMine && !!senderId && !!onOpenProfile;
+    const openProfile = () => {
+        if (canOpenProfile) onOpenProfile!(String(senderId));
+    };
+
+    const handleReport = () => {
+        handleMenuClose();
+        onReport?.(message);
+    };
+
+    const handleViewProfile = () => {
+        handleMenuClose();
+        openProfile();
     };
 
     const handleDelete = () => {
@@ -107,7 +127,8 @@ export default function MessageBubble({
                     <Avatar
                         src={avatarUrl || undefined}
                         alt={displayName}
-                        sx={{ width: 32, height: 32, bgcolor: isMine ? "primary.dark" : "secondary.main" }}
+                        onClick={canOpenProfile ? openProfile : undefined}
+                        sx={{ width: 32, height: 32, bgcolor: isMine ? "primary.dark" : "secondary.main", cursor: canOpenProfile ? "pointer" : "default" }}
                     >
                         {!avatarUrl && <SmartToyIcon fontSize="small" />}
                     </Avatar>
@@ -117,7 +138,15 @@ export default function MessageBubble({
             <Box sx={{ display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start", maxWidth: "70%" }}>
                 {showName && (
                     <Typography variant="caption" sx={{ ml: 1, mr: 1, color: "text.secondary", fontSize: "0.7rem", mb: 0.2 }}>
-                        {displayName} • {timeStr}
+                        <Box
+                            component="span"
+                            onClick={canOpenProfile ? openProfile : undefined}
+                            role={canOpenProfile ? "link" : undefined}
+                            sx={canOpenProfile ? { cursor: "pointer", fontWeight: 600, "&:hover": { textDecoration: "underline", color: "primary.main" } } : undefined}
+                        >
+                            {displayName}
+                        </Box>
+                        {" • "}{timeStr}
                     </Typography>
                 )}
 
@@ -227,7 +256,7 @@ export default function MessageBubble({
                 <Stack direction={isRTL ? "row-reverse" : "row"} spacing={0} sx={{ opacity: hover || menuAnchorEl ? 1 : 0, transition: "opacity 0.2s", alignSelf: "center" }}>
                     <IconButton size="small" onClick={() => onReply(message)}><ReplyIcon fontSize="small" /></IconButton>
                     <IconButton size="small" onClick={handleReactionClick}><AddReactionIcon fontSize="small" /></IconButton>
-                    {isMine && (
+                    {(isMine || onReport || canOpenProfile) && (
                         <IconButton size="small" onClick={handleMenuOpen}><MoreVertIcon fontSize="small" /></IconButton>
                     )}
                 </Stack>
@@ -254,14 +283,29 @@ export default function MessageBubble({
                 onClose={handleMenuClose}
                 sx={{ zIndex: 2101 }} // Ensure it's above FloatingChat (2000)
             >
-                <MenuItem onClick={handleEdit}>
-                    <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>{isRTL ? "ערוך" : "Edit"}</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={handleDelete}>
-                    <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-                    <ListItemText sx={{ color: "error.main" }}>{isRTL ? "מחק" : "Delete"}</ListItemText>
-                </MenuItem>
+                {isMine ? [
+                    <MenuItem key="edit" onClick={handleEdit}>
+                        <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+                        <ListItemText>{isRTL ? "ערוך" : "Edit"}</ListItemText>
+                    </MenuItem>,
+                    <MenuItem key="delete" onClick={handleDelete}>
+                        <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+                        <ListItemText sx={{ color: "error.main" }}>{isRTL ? "מחק" : "Delete"}</ListItemText>
+                    </MenuItem>
+                ] : [
+                    canOpenProfile && (
+                        <MenuItem key="profile" onClick={handleViewProfile}>
+                            <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
+                            <ListItemText>{isRTL ? "צפה בפרופיל" : "View profile"}</ListItemText>
+                        </MenuItem>
+                    ),
+                    onReport && (
+                        <MenuItem key="report" onClick={handleReport}>
+                            <ListItemIcon><FlagIcon fontSize="small" color="error" /></ListItemIcon>
+                            <ListItemText sx={{ color: "error.main" }}>{isRTL ? "דווח על הודעה פוגענית" : "Report message"}</ListItemText>
+                        </MenuItem>
+                    )
+                ]}
             </Menu>
         </Box>
     );

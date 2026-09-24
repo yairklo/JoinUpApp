@@ -74,6 +74,13 @@ export interface FlaggedMessage {
     resolution?: string | null;
     retryCount: number;
     failureReason?: string | null;
+    aiTriggers?: {
+        source?: string;
+        reason?: string;
+        details?: string | null;
+        reporterId?: string;
+        roomId?: string;
+    } | null;
     createdAt: string;
 }
 
