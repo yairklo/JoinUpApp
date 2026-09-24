@@ -65,6 +65,12 @@ export interface CurrentUser {
     isAdmin: boolean;
 }
 
+export interface FlaggedMessageUser {
+    id: string;
+    name: string | null;
+    imageUrl?: string | null;
+}
+
 export interface FlaggedMessage {
     id: string;
     messageId?: string | null;
@@ -81,6 +87,9 @@ export interface FlaggedMessage {
         reporterId?: string;
         roomId?: string;
     } | null;
+    /** Resolved by the admin list endpoint; null if the user no longer exists. */
+    sender?: FlaggedMessageUser | null;
+    reporter?: FlaggedMessageUser | null;
     createdAt: string;
 }
 
