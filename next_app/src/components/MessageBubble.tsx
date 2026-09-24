@@ -23,7 +23,6 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import BlockIcon from "@mui/icons-material/Block";
 import FlagIcon from "@mui/icons-material/Flag";
-import PersonIcon from "@mui/icons-material/Person";
 
 import { ChatMessage } from "./types";
 
@@ -82,11 +81,6 @@ export default function MessageBubble({
         onReport?.(message);
     };
 
-    const handleViewProfile = () => {
-        handleMenuClose();
-        openProfile();
-    };
-
     const handleDelete = () => {
         if (confirm("Are you sure you want to delete this message?")) {
             onDelete(message.id);
@@ -142,7 +136,7 @@ export default function MessageBubble({
                             component="span"
                             onClick={canOpenProfile ? openProfile : undefined}
                             role={canOpenProfile ? "link" : undefined}
-                            sx={canOpenProfile ? { cursor: "pointer", fontWeight: 600, "&:hover": { textDecoration: "underline", color: "primary.main" } } : undefined}
+                            sx={canOpenProfile ? { cursor: "pointer", fontWeight: 700, color: "primary.main", "&:hover": { textDecoration: "underline" } } : undefined}
                         >
                             {displayName}
                         </Box>
@@ -256,7 +250,7 @@ export default function MessageBubble({
                 <Stack direction={isRTL ? "row-reverse" : "row"} spacing={0} sx={{ opacity: hover || menuAnchorEl ? 1 : 0, transition: "opacity 0.2s", alignSelf: "center" }}>
                     <IconButton size="small" onClick={() => onReply(message)}><ReplyIcon fontSize="small" /></IconButton>
                     <IconButton size="small" onClick={handleReactionClick}><AddReactionIcon fontSize="small" /></IconButton>
-                    {(isMine || onReport || canOpenProfile) && (
+                    {(isMine || onReport) && (
                         <IconButton size="small" onClick={handleMenuOpen}><MoreVertIcon fontSize="small" /></IconButton>
                     )}
                 </Stack>
@@ -292,20 +286,12 @@ export default function MessageBubble({
                         <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
                         <ListItemText sx={{ color: "error.main" }}>{isRTL ? "מחק" : "Delete"}</ListItemText>
                     </MenuItem>
-                ] : [
-                    canOpenProfile && (
-                        <MenuItem key="profile" onClick={handleViewProfile}>
-                            <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
-                            <ListItemText>{isRTL ? "צפה בפרופיל" : "View profile"}</ListItemText>
-                        </MenuItem>
-                    ),
-                    onReport && (
-                        <MenuItem key="report" onClick={handleReport}>
-                            <ListItemIcon><FlagIcon fontSize="small" color="error" /></ListItemIcon>
-                            <ListItemText sx={{ color: "error.main" }}>{isRTL ? "דווח על הודעה פוגענית" : "Report message"}</ListItemText>
-                        </MenuItem>
-                    )
-                ]}
+                ] : (
+                    <MenuItem onClick={handleReport}>
+                        <ListItemIcon><FlagIcon fontSize="small" color="error" /></ListItemIcon>
+                        <ListItemText sx={{ color: "error.main" }}>{isRTL ? "דווח על הודעה פוגענית" : "Report message"}</ListItemText>
+                    </MenuItem>
+                )}
             </Menu>
         </Box>
     );
