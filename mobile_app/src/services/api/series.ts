@@ -1,4 +1,5 @@
-import { apiClient } from './client';
+import { apiClient, API_BASE } from './client';
+import type { PickedImage } from './fields';
 
 export interface SeriesPayload {
     type: 'WEEKLY' | 'CUSTOM';
@@ -20,11 +21,21 @@ export interface UpdateSeriesDTO {
     organizerInLottery?: boolean;
     teamSize?: number | null;
     welcomeMessage?: string | null;
+    fieldId?: string | null;
+    fieldName?: string;
+    fieldLocation?: string;
+    duration?: number;
+    autoOpenRegistrationHours?: number | null;
+    /** Fixed weekly registration-open rule (Asia/Jerusalem); set together, or both null. */
+    registrationOpenDayOfWeek?: number | null;
+    registrationOpenTime?: string | null;
 }
 
+export type SeriesDeleteStrategy = 'DELETE_ALL' | 'KEEP_GAMES' | 'SELECTIVE';
+
 export const seriesApi = {
-    getById: (seriesId: string, token?: string) => {
-        return apiClient<any>(`/api/series/${seriesId}`, { token });
+    getById: (seriesId: string, token?: string, opts?: { includeAll?: boolean }) => {
+        return apiClient<any>(`/api/series/${seriesId}${opts?.includeAll ? '?includeAll=true' : ''}`, { token });
     },
 
     createRecurrence: (gameId: string, payload: SeriesPayload, token: string) => {
@@ -66,11 +77,30 @@ export const seriesApi = {
         });
     },
 
-    delete: (seriesId: string, token: string) => {
+    delete: (seriesId: string, token: string, strategy: SeriesDeleteStrategy = 'DELETE_ALL', gameIdsToDelete?: string[]) => {
         return apiClient(`/api/series/${seriesId}/delete`, {
             method: 'POST',
-            data: { strategy: 'DELETE_ALL' },
+            data: { strategy, gameIdsToDelete: strategy === 'SELECTIVE' ? gameIdsToDelete : undefined },
             token
         });
+    },
+
+    uploadImage: async (seriesId: string, image: PickedImage, token: string): Promise<{ imageUrl: string }> => {
+        const formData = new FormData();
+        formData.append('image', image as unknown as Blob);
+        const res = await fetch(`${API_BASE}/api/series/${seriesId}/image`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to upload image');
+        }
+        return res.json();
+    },
+
+    removeImage: (seriesId: string, token: string) => {
+        return apiClient<{ imageUrl: null }>(`/api/series/${seriesId}/image`, { method: 'DELETE', token });
     }
 };
