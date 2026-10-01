@@ -26,17 +26,19 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
     const [fetching, setFetching] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
+    const [loadError, setLoadError] = useState(false);
 
     useEffect(() => {
         if (!visible) return;
         setStrategy('DELETE_ALL');
         setError('');
+        setLoadError(false);
         let ignore = false;
         (async () => {
             setFetching(true);
             try {
                 const token = await getToken();
-                if (!token) return;
+                if (!token) throw new Error('no token');
                 const data = await seriesApi.getById(seriesId, token, { includeAll: true });
                 if (ignore) return;
                 const list: GameSummary[] = data.upcomingGames || [];
@@ -44,6 +46,7 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
                 setSelected(list.map((g) => g.id));
             } catch (e) {
                 console.error('Failed to fetch upcoming games', e);
+                if (!ignore) setLoadError(true);
             } finally {
                 if (!ignore) setFetching(false);
             }
@@ -56,7 +59,7 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
         setError('');
         try {
             const token = await getToken();
-            if (!token) return;
+            if (!token) throw new Error(t('series.reauth', 'נדרש להתחבר מחדש'));
             await seriesApi.delete(seriesId, token, strategy, selected);
             onDeleted();
         } catch (e) {
@@ -73,7 +76,7 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
         { value: 'KEEP_GAMES', title: t('series.keepGames', 'שמור משחקים'), desc: t('series.keepGamesDesc', 'מחק את הקבוצה אך השאר את המשחקים העתידיים כאירועים נפרדים.') },
         { value: 'SELECTIVE', title: t('series.selectiveDelete', 'בחר משחקים למחיקה'), desc: t('series.selectiveDeleteDesc', 'בחר ידנית אילו משחקים לבטל.') },
     ];
-    const confirmDisabled = busy || (strategy === 'SELECTIVE' && selected.length === 0);
+    const confirmDisabled = busy || (strategy === 'SELECTIVE' && (loadError || selected.length === 0));
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -82,7 +85,7 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
                     <Text className="text-lg font-bold text-red-600 mb-1">{t('series.deleteTitle', 'מחיקת קבוצה')}: {seriesName}</Text>
                     <Text className="text-gray-500 text-sm mb-3">{t('series.deleteIrreversible', 'פעולה זו היא בלתי הפיכה ולא ניתן לבטל אותה.')}</Text>
                     <Text className="text-gray-800 mb-3">
-                        {fetching ? '…' : t('series.deleteFoundGames', 'נמצאו {{count}} משחקים עתידיים בקבוצה זו. כיצד תרצה להמשיך?', { count: games.length })}
+                        {fetching ? '…' : loadError ? t('series.deleteLoadError', 'טעינת המשחקים העתידיים נכשלה. אפשר למחוק הכל או לשמור משחקים, אך לא לבחור משחקים ספציפיים.') : t('series.deleteFoundGames', 'נמצאו {{count}} משחקים עתידיים בקבוצה זו. כיצד תרצה להמשיך?', { count: games.length })}
                     </Text>
 
                     <ScrollView>

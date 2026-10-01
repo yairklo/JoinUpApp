@@ -37,12 +37,25 @@ export default function SeriesLocationPicker({
                 const list = await fieldsApi.getCities();
                 if (ignore) return;
                 setCities(list || []);
-                if (list?.length) setSelectedCity((prev) => prev || list[0]);
+                // Open on the current field's city so the selected venue is actually in the list.
+                let startCity: string | null = null;
+                if (selectedField?.id) {
+                    try {
+                        const current = await fieldsApi.getById(selectedField.id);
+                        if (current?.city && list?.includes(current.city)) startCity = current.city;
+                    } catch {
+                        // fall back to the first city
+                    }
+                }
+                if (ignore) return;
+                if (list?.length) setSelectedCity((prev) => prev || startCity || list[0]);
             } catch (e) {
                 console.error('Failed to load cities', e);
             }
         })();
         return () => { ignore = true; };
+        // Runs once on mount; the initial selectedField only seeds the starting city.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -69,10 +82,7 @@ export default function SeriesLocationPicker({
             <View className="flex-row justify-between items-center mb-2">
                 <Text className="text-gray-700 font-bold">{t('series.location', 'מיקום / מגרש')}</Text>
                 <TouchableOpacity
-                    onPress={() => {
-                        onNewFieldModeChange(!newFieldMode);
-                        if (!newFieldMode) onSelectField(null);
-                    }}
+                    onPress={() => onNewFieldModeChange(!newFieldMode)}
                     className="bg-brand-mist px-3 py-1 rounded-full border border-brand-pale"
                 >
                     <Text className="text-brand-dark font-bold text-xs">

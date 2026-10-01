@@ -603,7 +603,8 @@
     "selectiveDeleteDesc": "Manually pick which games to cancel.",
     "clearSelection": "Clear selection",
     "selectAll": "Select all",
-    "confirmDelete": "Confirm deletion"
+    "confirmDelete": "Confirm deletion",
+    "deleteLoadError": "Couldn't load the upcoming games. You can delete everything or keep the games, but not pick specific ones."
   },
   "editGame": {
     "title": "Edit Game",

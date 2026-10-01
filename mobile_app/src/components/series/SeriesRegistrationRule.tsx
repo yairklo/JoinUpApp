@@ -21,6 +21,12 @@ export function defaultRegOpenDay(gameDay: number | null | undefined): number {
     return gameDay !== null && gameDay !== undefined ? (gameDay + 1) % 7 : 0;
 }
 
+/** "9:00" / "900" / "0900" -> "09:00"; anything else is left for the save-time validation to reject. */
+function normalizeTime(raw: string): string {
+    const m = raw.match(/^(\d{1,2}):(\d{2})$/) || raw.match(/^(\d{1,2})(\d{2})$/);
+    return m ? `${m[1].padStart(2, '0')}:${m[2]}` : raw;
+}
+
 const toMinutes = (hhmm: string) => {
     const [h, m] = hhmm.split(':').map(Number);
     return h * 60 + m;
@@ -90,7 +96,8 @@ export default function SeriesRegistrationRule({ mode, onModeChange, day, onDayC
                     </ScrollView>
                     <TextInput
                         value={time}
-                        onChangeText={onTimeChange}
+                        onChangeText={(v) => onTimeChange(v.replace(/[^0-9:]/g, ''))}
+                        onBlur={() => onTimeChange(normalizeTime(time))}
                         placeholder="HH:MM"
                         keyboardType="numbers-and-punctuation"
                         maxLength={5}

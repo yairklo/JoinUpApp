@@ -661,9 +661,12 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
     // Fetch future games to decide what to do
     const futureGames = await prisma.game.findMany({
       where: { seriesId, start: { gte: now } },
-      select: { id: true }
+      select: { id: true, status: true }
     });
     const futureIds = futureGames.map(g => g.id);
+    // Cancelled games are hidden from the group page's game list, so a SELECTIVE request can never
+    // name them; they're dead events, so delete them rather than detaching them as orphans.
+    const cancelledIds = new Set(futureGames.filter(g => g.status === 'CANCELLED').map(g => g.id));
 
     let idsToDelete = [];
     let idsToDetach = [];
@@ -674,8 +677,8 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
       idsToDetach = futureIds;
     } else if (strategy === 'SELECTIVE') {
       // Only delete explicit IDs, detach the rest of future
-      idsToDelete = futureIds.filter(id => gameIdsToDelete.includes(id));
-      idsToDetach = futureIds.filter(id => !gameIdsToDelete.includes(id));
+      idsToDelete = futureIds.filter(id => gameIdsToDelete.includes(id) || cancelledIds.has(id));
+      idsToDetach = futureIds.filter(id => !idsToDelete.includes(id));
     } else {
       // Fallback default
       idsToDelete = futureIds;

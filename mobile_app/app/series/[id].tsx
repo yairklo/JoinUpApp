@@ -131,7 +131,7 @@ export default function SeriesScreen() {
                 Alert.alert(t('common.error', 'שגיאה'), t('series.maxPlayersInvalid', 'Max players must be at least 2'));
                 return;
             }
-            const nextDuration = parseFloat(duration);
+            const nextDuration = Number(duration.trim().replace(',', '.'));
             if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
                 Alert.alert(t('common.error', 'שגיאה'), t('series.durationInvalid', 'משך המשחק חייב להיות חיובי'));
                 return;
@@ -189,7 +189,9 @@ export default function SeriesScreen() {
                     : {};
 
             await seriesApi.update(id, {
-                time, title, description, duration: nextDuration, updateFutureGames: updateFuture,
+                time, title, description, updateFutureGames: updateFuture,
+                // Only when changed: with "update future games" on, the server writes it onto every game.
+                ...(nextDuration !== (series.duration || 1) ? { duration: nextDuration } : {}),
                 ...registrationRule,
                 ...fieldChange,
                 ...changes,

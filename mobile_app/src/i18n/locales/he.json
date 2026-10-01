@@ -603,7 +603,8 @@
     "selectiveDeleteDesc": "בחר ידנית אילו משחקים לבטל.",
     "clearSelection": "נקה בחירה",
     "selectAll": "בחר הכל",
-    "confirmDelete": "אשר מחיקה"
+    "confirmDelete": "אשר מחיקה",
+    "deleteLoadError": "טעינת המשחקים העתידיים נכשלה. אפשר למחוק הכל או לשמור משחקים, אך לא לבחור משחקים ספציפיים."
   },
   "editGame": {
     "title": "עריכת משחק",
