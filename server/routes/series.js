@@ -16,6 +16,8 @@ const { SPORT_KEYS } = require('../utils/sports');
 const WELCOME_MESSAGE_MAX_LENGTH = 2000;
 const DESCRIPTION_MAX_LENGTH = 2000;
 const MIN_MAX_PLAYERS = 2;
+const FIELD_NAME_MAX_LENGTH = 200;
+const FIELD_LOCATION_MAX_LENGTH = 300;
 
 const router = express.Router();
 const seriesImageUpload = createImageUpload('series');
@@ -331,7 +333,7 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     const {
       title,
       time,
-      fieldId,
+      fieldId: requestedFieldId,
       fieldName,
       fieldLocation,
       price,
@@ -400,6 +402,25 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     }
     if (hoursProvided && autoOpenRegistrationHours !== null && !Number.isFinite(Number(autoOpenRegistrationHours))) {
       return res.status(400).json({ error: 'autoOpenRegistrationHours must be a number or null' });
+    }
+
+    // A free-text venue (no fieldId, just name/location) gets a minimal unlisted Field, exactly like
+    // createGame/patchGame do for a one-off game. Game.fieldId is required, so without this the
+    // group's future games would keep pointing (map pin, field link) at the old venue.
+    let fieldId = requestedFieldId;
+    const freeTextName = typeof fieldName === 'string' ? fieldName.trim() : '';
+    if (typeof requestedFieldId !== 'undefined' && !requestedFieldId && freeTextName) {
+      const createdField = await prisma.field.create({
+        data: {
+          name: sanitizeFreeText(freeTextName, FIELD_NAME_MAX_LENGTH),
+          location: sanitizeFreeText((typeof fieldLocation === 'string' && fieldLocation.trim()) || freeTextName, FIELD_LOCATION_MAX_LENGTH),
+          price: 0,
+          rating: 0,
+          available: false, // unlisted: reachable only through the series / its games
+          type: 'OPEN',
+        },
+      });
+      fieldId = createdField.id;
     }
 
     const data = {};
@@ -661,9 +682,12 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
     // Fetch future games to decide what to do
     const futureGames = await prisma.game.findMany({
       where: { seriesId, start: { gte: now } },
-      select: { id: true }
+      select: { id: true, status: true }
     });
     const futureIds = futureGames.map(g => g.id);
+    // Cancelled games are hidden from the group page's game list, so a SELECTIVE request can never
+    // name them; they're dead events, so delete them rather than detaching them as orphans.
+    const cancelledIds = new Set(futureGames.filter(g => g.status === 'CANCELLED').map(g => g.id));
 
     let idsToDelete = [];
     let idsToDetach = [];
@@ -674,8 +698,8 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
       idsToDetach = futureIds;
     } else if (strategy === 'SELECTIVE') {
       // Only delete explicit IDs, detach the rest of future
-      idsToDelete = futureIds.filter(id => gameIdsToDelete.includes(id));
-      idsToDetach = futureIds.filter(id => !gameIdsToDelete.includes(id));
+      idsToDelete = futureIds.filter(id => gameIdsToDelete.includes(id) || cancelledIds.has(id));
+      idsToDetach = futureIds.filter(id => !idsToDelete.includes(id));
     } else {
       // Fallback default
       idsToDelete = futureIds;

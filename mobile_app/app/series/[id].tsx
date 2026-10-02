@@ -10,6 +10,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING } from '@/utils/sports';
+import SeriesImageUpload from '@/components/series/SeriesImageUpload';
+import SeriesLocationPicker, { type SeriesFieldOption } from '@/components/series/SeriesLocationPicker';
+import SeriesRegistrationRule, {
+    type RegistrationOpenMode, DEFAULT_REG_OPEN_TIME, TIME_RE, initialRegMode, defaultRegOpenDay,
+} from '@/components/series/SeriesRegistrationRule';
+import DeleteSeriesModal from '@/components/series/DeleteSeriesModal';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -53,6 +59,17 @@ export default function SeriesScreen() {
     const [organizerInLottery, setOrganizerInLottery] = useState(false);
     const [teamSize, setTeamSize] = useState('');
     const [welcomeMessage, setWelcomeMessage] = useState('');
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [duration, setDuration] = useState('1');
+    const [regMode, setRegMode] = useState<RegistrationOpenMode>('none');
+    const [regDay, setRegDay] = useState(0);
+    const [regTime, setRegTime] = useState(DEFAULT_REG_OPEN_TIME);
+    const [regHours, setRegHours] = useState('');
+    const [selectedField, setSelectedField] = useState<SeriesFieldOption | null>(null);
+    const [newFieldMode, setNewFieldMode] = useState(false);
+    const [newFieldName, setNewFieldName] = useState('');
+    const [newFieldLocation, setNewFieldLocation] = useState('');
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [memberQuery, setMemberQuery] = useState('');
     const [addingMember, setAddingMember] = useState(false);
 
@@ -80,6 +97,16 @@ export default function SeriesScreen() {
             setOrganizerInLottery(!!data.organizerInLottery);
             setTeamSize(data.teamSize ? String(data.teamSize) : '');
             setWelcomeMessage(data.welcomeMessage || '');
+            setImageUrl(data.imageUrl || null);
+            setDuration(data.duration ? String(data.duration) : '1');
+            setRegMode(initialRegMode(data.registrationOpenDayOfWeek, data.registrationOpenTime, data.autoOpenRegistrationHours));
+            setRegDay(data.registrationOpenDayOfWeek ?? defaultRegOpenDay(data.dayOfWeek));
+            setRegTime(data.registrationOpenTime || DEFAULT_REG_OPEN_TIME);
+            setRegHours(data.autoOpenRegistrationHours ? String(data.autoOpenRegistrationHours) : '');
+            setSelectedField(data.fieldId ? { id: data.fieldId, name: data.fieldName || '', location: data.fieldLocation || '' } : null);
+            setNewFieldMode(false);
+            setNewFieldName('');
+            setNewFieldLocation('');
 
             const isSub = data.subscribers?.some((s: any) => s.userId === user?.id);
             setIsSubscribed(isSub || false);
@@ -104,6 +131,23 @@ export default function SeriesScreen() {
                 Alert.alert(t('common.error', 'שגיאה'), t('series.maxPlayersInvalid', 'Max players must be at least 2'));
                 return;
             }
+            const nextDuration = Number(duration.trim().replace(',', '.'));
+            if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
+                Alert.alert(t('common.error', 'שגיאה'), t('series.durationInvalid', 'משך המשחק חייב להיות חיובי'));
+                return;
+            }
+            if (regMode === 'weekly' && !TIME_RE.test(regTime)) {
+                Alert.alert(t('common.error', 'שגיאה'), t('series.regTimeInvalid', 'יש לבחור שעה לפתיחת ההרשמה'));
+                return;
+            }
+            if (regMode === 'hours' && !(Number(regHours) > 0)) {
+                Alert.alert(t('common.error', 'שגיאה'), t('series.regHoursInvalid', 'יש להזין מספר שעות חיובי לפתיחת ההרשמה'));
+                return;
+            }
+            if (newFieldMode && !newFieldName.trim()) {
+                Alert.alert(t('common.error', 'שגיאה'), t('series.newFieldNameRequired', 'יש להזין שם למגרש החדש'));
+                return;
+            }
             const nextPrice = price ? parseInt(price) : 0;
             const nextTeamSize = teamSize ? parseInt(teamSize) : null;
             const changes: Partial<UpdateSeriesDTO> = {};
@@ -122,8 +166,34 @@ export default function SeriesScreen() {
             if (nextTeamSize !== (series.teamSize ?? null)) changes.teamSize = nextTeamSize;
             if (welcomeMessage !== (series.welcomeMessage || '')) changes.welcomeMessage = welcomeMessage || null;
 
+            // Registration opening: send exactly one mode, and only when it changed -- the server rewrites
+            // registrationOpensAt on every future game whenever these fields are sent.
+            const initialMode = initialRegMode(series.registrationOpenDayOfWeek, series.registrationOpenTime, series.autoOpenRegistrationHours);
+            let registrationRule: Partial<UpdateSeriesDTO> = {};
+            if (regMode === 'weekly') {
+                if (!(initialMode === 'weekly' && regDay === series.registrationOpenDayOfWeek && regTime === series.registrationOpenTime)) {
+                    registrationRule = { registrationOpenDayOfWeek: regDay, registrationOpenTime: regTime, autoOpenRegistrationHours: null };
+                }
+            } else if (regMode === 'hours') {
+                if (!(initialMode === 'hours' && Number(regHours) === series.autoOpenRegistrationHours)) {
+                    registrationRule = { autoOpenRegistrationHours: Number(regHours), registrationOpenDayOfWeek: null, registrationOpenTime: null };
+                }
+            } else if (initialMode !== 'none') {
+                registrationRule = { autoOpenRegistrationHours: null, registrationOpenDayOfWeek: null, registrationOpenTime: null };
+            }
+
+            const fieldChange: Partial<UpdateSeriesDTO> = newFieldMode
+                ? { fieldId: null, fieldName: newFieldName.trim(), fieldLocation: newFieldLocation.trim() }
+                : selectedField && selectedField.id !== series.fieldId
+                    ? { fieldId: selectedField.id, fieldName: selectedField.name, fieldLocation: selectedField.location || '' }
+                    : {};
+
             await seriesApi.update(id, {
                 time, title, description, updateFutureGames: updateFuture,
+                // Only when changed: with "update future games" on, the server writes it onto every game.
+                ...(nextDuration !== (series.duration || 1) ? { duration: nextDuration } : {}),
+                ...registrationRule,
+                ...fieldChange,
                 ...changes,
             }, token);
             Alert.alert(t('common.success', 'הצלחה'), t('series.updateSuccess', 'Group updated successfully'));
@@ -136,27 +206,9 @@ export default function SeriesScreen() {
         }
     };
 
-    const handleDelete = async () => {
-        Alert.alert(
-            t('series.deleteTitle', 'Delete Group'),
-            t('series.deleteConfirm', 'Are you sure? This will delete all future games.'),
-            [
-                { text: t('common.cancel', 'Cancel'), style: "cancel" },
-                {
-                    text: t('common.delete', 'Delete'), style: "destructive", onPress: async () => {
-                        try {
-                            const token = await getToken();
-                            if (!token) return;
-                            await seriesApi.delete(id, token);
-                            Alert.alert(t('common.success', 'הצלחה'), t('series.deleteSuccess', 'Group deleted'));
-                            router.replace('/(tabs)');
-                        } catch (e) {
-                            Alert.alert(t('common.error', 'שגיאה'), t('series.deleteError', 'Failed to delete group'));
-                        }
-                    }
-                }
-            ]
-        );
+    const handleDeleted = () => {
+        setDeleteModalOpen(false);
+        router.replace('/(tabs)');
     };
 
     const shareInvite = async () => {
@@ -308,6 +360,9 @@ export default function SeriesScreen() {
 
                 {/* Hero Header Card */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
+                    {!!imageUrl && (
+                        <Image source={{ uri: imageUrl }} className="w-full h-40 rounded-xl mb-4" resizeMode="cover" />
+                    )}
                     {/* Organizer row */}
                     <View className="flex-row items-center mb-4">
                         {series.organizer?.avatar ? (
@@ -526,6 +581,8 @@ export default function SeriesScreen() {
 
                         {showSettings && (
                             <View className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                                <SeriesImageUpload seriesId={id} image={imageUrl} onChange={setImageUrl} />
+
                                 <Text className="text-gray-700 font-bold mb-2">{t('series.title', 'Group name')}</Text>
                                 <TextInput
                                     value={title}
@@ -541,12 +598,55 @@ export default function SeriesScreen() {
                                     className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base min-h-[80px]"
                                 />
 
-                                <Text className="text-gray-700 font-bold mb-2">{t('series.defaultTime', 'Default Time')}</Text>
-                                <TextInput
-                                    value={time}
-                                    onChangeText={setTime}
-                                    placeholder="HH:MM"
-                                    className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base"
+                                <SeriesLocationPicker
+                                    selectedField={selectedField}
+                                    onSelectField={setSelectedField}
+                                    newFieldMode={newFieldMode}
+                                    onNewFieldModeChange={setNewFieldMode}
+                                    newFieldName={newFieldName}
+                                    onNewFieldNameChange={setNewFieldName}
+                                    newFieldLocation={newFieldLocation}
+                                    onNewFieldLocationChange={setNewFieldLocation}
+                                />
+
+                                <View className="flex-row gap-3 mb-4">
+                                    <View className="flex-1">
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.defaultTime', 'Default Time')}</Text>
+                                        <TextInput
+                                            value={time}
+                                            onChangeText={setTime}
+                                            placeholder="HH:MM"
+                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                        />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.duration', 'משך (שעות)')}</Text>
+                                        <TextInput
+                                            value={duration}
+                                            onChangeText={setDuration}
+                                            keyboardType="decimal-pad"
+                                            className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-base"
+                                        />
+                                    </View>
+                                </View>
+
+                                {series.type === 'WEEKLY' && series.dayOfWeek !== null && series.dayOfWeek !== undefined && (
+                                    <Text className="text-gray-400 text-xs -mt-2 mb-4">
+                                        {t('series.fixedDay', 'יום קבוע')}: {dayName} — {t('series.fixedDayHint', 'לא ניתן לשנות יום בקבוצה שבועית קיימת')}
+                                    </Text>
+                                )}
+
+                                <SeriesRegistrationRule
+                                    mode={regMode}
+                                    onModeChange={setRegMode}
+                                    day={regDay}
+                                    onDayChange={setRegDay}
+                                    time={regTime}
+                                    onTimeChange={setRegTime}
+                                    hours={regHours}
+                                    onHoursChange={setRegHours}
+                                    gameDay={series.type === 'WEEKLY' ? series.dayOfWeek : null}
+                                    gameTime={time}
                                 />
 
                                 <Text className="text-gray-700 font-bold mb-2">{t('series.sport', 'Sport')}</Text>
@@ -671,7 +771,7 @@ export default function SeriesScreen() {
 
                                 {isOrganizer && (
                                 <TouchableOpacity
-                                    onPress={handleDelete}
+                                    onPress={() => setDeleteModalOpen(true)}
                                     className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
                                 >
                                     <Text className="text-red-600 font-bold text-base">{t('series.delete', 'Delete Group')}</Text>
@@ -695,6 +795,14 @@ export default function SeriesScreen() {
 
                 <View className="h-10" />
             </ScrollView>
+
+            <DeleteSeriesModal
+                visible={deleteModalOpen}
+                seriesId={id}
+                seriesName={series.title || series.fieldName || ''}
+                onClose={() => setDeleteModalOpen(false)}
+                onDeleted={handleDeleted}
+            />
         </SafeAreaView>
     );
 }
