@@ -834,5 +834,117 @@
     "title": "Oops!",
     "screenMissing": "This screen doesn't exist.",
     "goHome": "Go to home screen!"
+  },
+  "notificationSettings": {
+    "title": "Notifications",
+    "autoSave": "Changes are saved automatically.",
+    "push": "Push notifications",
+    "pushSubtitle": "In-app notifications are not affected",
+    "osPermissionOff": "Permission is off in device settings",
+    "snooze": "Pause notifications",
+    "snoozeSubtitle": "Stop all push for a while",
+    "snoozeTitle": "Pause push for…",
+    "snoozeFor_one": "1 hour",
+    "snoozeFor_other": "{{count}} hours",
+    "snoozeAction": "Pause",
+    "snoozedUntil": "Paused until {{time}}",
+    "resume": "Resume",
+    "whatTitle": "What to notify me about",
+    "whatSubtitle": "For each type choose push, in-app, both or neither. Cancellations, freed-up spots and replies to join requests always appear in the app.",
+    "channelPush": "Push",
+    "channelInApp": "In app",
+    "groups": {
+      "social": "Friends & messages",
+      "myGames": "My games & groups",
+      "discovery": "Discover games"
+    },
+    "categories": {
+      "friendRequests": {
+        "title": "Friend requests",
+        "subtitle": "New requests, and when yours is accepted"
+      },
+      "messages": {
+        "title": "Chat messages",
+        "subtitle": "New chat message (push only)"
+      },
+      "friendGames": {
+        "title": "Friend created a game",
+        "subtitle": "When a friend creates a new game"
+      },
+      "friendJoins": {
+        "title": "Friend joined a game",
+        "subtitle": "When a friend joins a game you're not in"
+      },
+      "gameReminders": {
+        "title": "Game reminders",
+        "subtitle": "One hour before a game you joined"
+      },
+      "myGames": {
+        "title": "Updates to my games",
+        "subtitle": "Changes, approvals, freed-up spots"
+      },
+      "invitations": {
+        "title": "Game invitations",
+        "subtitle": "When someone adds you to a game"
+      },
+      "organizer": {
+        "title": "Join requests",
+        "subtitle": "For games you organize"
+      },
+      "groupGames": {
+        "title": "My groups",
+        "subtitle": "New game in a group you're in"
+      },
+      "cityGames": {
+        "title": "New games nearby",
+        "subtitle": "Open games created in your city"
+      }
+    },
+    "openFilters": "Filter by city & sport",
+    "closeFilters": "Close filters",
+    "sports": "Sports",
+    "allSports": "All",
+    "cities": "Cities",
+    "citiesHint": "With no cities listed, your profile city is used. Up to 10 cities.",
+    "addCityPlaceholder": "Add a city",
+    "add": "Add",
+    "removeCity": "Remove {{city}}",
+    "quietHours": "Quiet hours",
+    "quietHoursSubtitle": "No push during these hours, except cancellations and freed-up spots. The rest waits for you in the app.",
+    "from": "From",
+    "to": "To",
+    "done": "Done",
+    "muted": "Muted",
+    "noMutes": "Nothing muted. You can mute a friend from their profile, or a group from its page.",
+    "muteType": {
+      "USER": "User",
+      "SERIES": "Group",
+      "GAME": "Game"
+    },
+    "mutedUntil": "until {{time}}",
+    "mutedForever": "until you unmute",
+    "unmute": "Unmute",
+    "mute": "Mute notifications",
+    "muteGroup": "Mute group notifications",
+    "muteFor": "Mute notifications…",
+    "mute8h": "For 8 hours",
+    "muteWeek": "For a week",
+    "muteForever": "Until I unmute",
+    "muteThisUser": "Mute notifications from this user",
+    "muteThisGame": "Mute this game",
+    "turnOffLikeThis": "Turn off notifications like this",
+    "turnedOff": "You won't get notifications like this anymore. You can turn them back on in settings.",
+    "mutedDone": "Muted",
+    "allSettings": "All notification settings",
+    "cityPromptTitle": "Also get a push when a new game opens in your city?",
+    "cityPromptYes": "Yes, turn on",
+    "cityPromptNo": "No thanks",
+    "summaryOn": "On",
+    "summaryPushOff": "Push off",
+    "saveFailed": "Couldn't save — the setting was reverted. Try again.",
+    "actionFailed": "Something went wrong. Try again.",
+    "loadFailed": "Couldn't load notification settings",
+    "retry": "Try again",
+    "filtersApplyInApp": "Push is off for this category — the filters also apply to in-app notifications."
   }
 }

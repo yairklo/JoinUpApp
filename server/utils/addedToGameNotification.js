@@ -90,6 +90,7 @@ async function notifyUserAddedToGame(notificationService, { userId, adderName, g
         gameId,
         link: `/game/${gameId}`,
         adderId: adderId || undefined,
+        actorId: adderId || undefined,
         adderName: adderName || undefined,
         titleEn: copy.titleEn,
         bodyEn: copy.bodyEn,

@@ -1,6 +1,10 @@
 const admin = require('firebase-admin');
 const { Expo } = require('expo-server-sdk');
 const { Logger } = require('../utils/logger');
+const { decideDelivery, toClientSettings, isMuteActive } = require('../utils/notificationPrefs');
+
+// Fan-out batch size: keeps a city-wide send from opening thousands of parallel queries.
+const FANOUT_CHUNK = 50;
 
 // Expo push client (no credentials required - Expo's push service handles APNs/FCM delivery internally)
 const expo = new Expo();
@@ -44,10 +48,62 @@ function initializeFirebase() {
     }
 }
 
+// FCM rejects any non-string value in `data`.
+function stringifyValues(obj = {}) {
+    const out = {};
+    for (const [k, v] of Object.entries(obj || {})) {
+        if (v === undefined || v === null) continue;
+        out[k] = typeof v === 'string' ? v : JSON.stringify(v);
+    }
+    return out;
+}
+
 class NotificationService {
     constructor(prisma) {
         this.prisma = prisma || require('../lib/prisma').prisma;
         initializeFirebase();
+    }
+
+    /**
+     * Loads settings + the mutes relevant to this notification for a batch of recipients.
+     * Two queries total regardless of recipient count.
+     * @returns {Promise<Map<string, {settings: object|null, mutes: object[]}>>}
+     */
+    async loadPreferences(userIds, ctx = {}) {
+        const ids = Array.from(new Set(userIds.filter(Boolean)));
+        const result = new Map(ids.map(id => [id, { settings: null, mutes: [] }]));
+        if (ids.length === 0) return result;
+
+        const targetIds = [ctx.actorId, ctx.seriesId, ctx.gameId].filter(Boolean);
+        const [settingsRows, muteRows] = await Promise.all([
+            this.prisma.userNotificationSettings.findMany({ where: { userId: { in: ids } } }),
+            targetIds.length
+                ? this.prisma.notificationMute.findMany({ where: { userId: { in: ids }, targetId: { in: targetIds } } })
+                : Promise.resolve([]),
+        ]);
+        for (const row of settingsRows) {
+            const entry = result.get(row.userId);
+            if (entry) entry.settings = row;
+        }
+        for (const m of muteRows) {
+            const entry = result.get(m.userId);
+            if (entry) entry.mutes.push(m);
+        }
+        return result;
+    }
+
+    static contextFromData(data = {}) {
+        return {
+            actorId: data.actorId || null,
+            seriesId: data.seriesId || null,
+            gameId: data.gameId || null,
+        };
+    }
+
+    async decideFor(userId, type, data) {
+        const ctx = NotificationService.contextFromData(data || {});
+        const prefs = (await this.loadPreferences([userId], ctx)).get(userId);
+        return decideDelivery({ settings: prefs.settings, mutes: prefs.mutes, type, ctx });
     }
 
     /**
@@ -56,6 +112,11 @@ class NotificationService {
      */
     async sendPushOnly(userId, type, title, body, data = {}) {
         try {
+            const decision = await this.decideFor(userId, type, data);
+            if (!decision.push) {
+                Logger.info('NotificationService', `Push suppressed for ${userId} (${type}: ${decision.reason})`);
+                return;
+            }
             await this.sendPushToAllDevices(userId, type, title, body, data);
         } catch (error) {
             Logger.error('NotificationService', 'Failed to send push-only notification:', error);
@@ -64,46 +125,20 @@ class NotificationService {
     }
 
     /**
-     * Send notification to user (DB + Push + WebSocket)
+     * Send notification to user (DB + Push + WebSocket), subject to the user's preferences.
+     * Channels the user turned off (or a matching mute) are skipped; returns null when nothing
+     * was stored in the in-app feed.
      * @param {string} userId - Recipient user ID
      * @param {string} type - NotificationType enum value
      * @param {string} title - Notification title
      * @param {string} body - Notification body
-     * @param {object} data - Additional metadata (gameId, link, etc.)
+     * @param {object} data - Additional metadata (gameId, seriesId, actorId, link, ...)
      * @param {object} io - Socket.IO instance (optional, for real-time updates)
      */
     async sendNotification(userId, type, title, body, data = {}, io = null) {
         try {
-            // 1. Save to database
-            const notification = await this.prisma.notification.create({
-                data: {
-                    userId,
-                    type,
-                    title,
-                    body,
-                    data: data || {}
-                }
-            });
-
-            Logger.info('NotificationService', `Created notification ${notification.id} for user ${userId}`);
-
-            // 2. Send push notification to all user devices
-            await this.sendPushToAllDevices(userId, type, title, body, data);
-
-            // 3. Send real-time WebSocket event (if io is provided)
-            if (io) {
-                io.to(`user_${userId}`).emit('notification', {
-                    id: notification.id,
-                    type,
-                    title,
-                    body,
-                    data,
-                    createdAt: notification.createdAt
-                });
-                Logger.info('NotificationService', `Sent WebSocket notification to user_${userId}`);
-            }
-
-            return notification;
+            const decision = await this.decideFor(userId, type, data);
+            return await this.deliver(userId, type, title, body, data, io, decision);
         } catch (error) {
             Logger.error('NotificationService', 'Failed to send notification:', error);
             throw error;
@@ -111,43 +146,88 @@ class NotificationService {
     }
 
     /**
-     * Send push notification to all registered devices of a user.
+     * Same notification to many recipients (city / friends / group fan-out). Preferences are
+     * loaded once for the whole batch. A failure for one recipient never affects the others.
+     * @param {string[]} userIds
+     * @returns {Promise<{ stored: number, pushed: number, skipped: number, failed: number }>}
+     */
+    async sendNotificationToMany(userIds, type, title, body, data = {}, io = null) {
+        const ids = Array.from(new Set((userIds || []).filter(Boolean)));
+        const stats = { stored: 0, pushed: 0, skipped: 0, failed: 0 };
+        if (ids.length === 0) return stats;
+
+        const ctx = NotificationService.contextFromData(data || {});
+        const prefs = await this.loadPreferences(ids, ctx);
+        for (let i = 0; i < ids.length; i += FANOUT_CHUNK) {
+            const chunk = ids.slice(i, i + FANOUT_CHUNK);
+            const decisions = chunk.map(uid => {
+                const p = prefs.get(uid);
+                return decideDelivery({ settings: p.settings, mutes: p.mutes, type, ctx });
+            });
+            const results = await Promise.allSettled(chunk.map((uid, j) =>
+                this.deliver(uid, type, title, body, data, io, decisions[j])
+            ));
+            // Count only what actually went out.
+            results.forEach((r, j) => {
+                const decision = decisions[j];
+                if (!decision.inApp && !decision.push) {
+                    stats.skipped++;
+                } else if (r.status === 'rejected') {
+                    stats.failed++;
+                    Logger.error('NotificationService', `Fan-out delivery failed for ${chunk[j]} (${type}):`, r.reason);
+                } else {
+                    if (decision.inApp) stats.stored++;
+                    if (decision.push) stats.pushed++;
+                }
+            });
+        }
+        Logger.info('NotificationService', `Fan-out ${type}: ${ids.length} recipients, ${stats.stored} stored, ${stats.pushed} pushed, ${stats.skipped} skipped, ${stats.failed} failed`);
+        return stats;
+    }
+
+    async deliver(userId, type, title, body, data, io, decision) {
+        if (!decision.inApp && !decision.push) {
+            Logger.info('NotificationService', `Notification ${type} for ${userId} suppressed (${decision.reason})`);
+            return null;
+        }
+
+        let notification = null;
+        if (decision.inApp) {
+            notification = await this.prisma.notification.create({
+                data: { userId, type, title, body, data: data || {} }
+            });
+            Logger.info('NotificationService', `Created notification ${notification.id} for user ${userId}`);
+        }
+
+        if (decision.push) {
+            await this.sendPushToAllDevices(
+                userId, type, title, body,
+                notification ? { ...data, notificationId: notification.id } : data
+            );
+        }
+
+        if (io && notification) {
+            io.to(`user_${userId}`).emit('notification', {
+                id: notification.id,
+                type,
+                title,
+                body,
+                data,
+                createdAt: notification.createdAt
+            });
+        }
+
+        return notification;
+    }
+
+    /**
+     * Send push notification to all registered devices of a user. Preference checks happen
+     * before this is called (decideDelivery) — this only fans out to devices.
      * Devices with an `expoPushToken` are sent via Expo's push service (mobile app);
      * devices with only a legacy `fcmToken` are sent via Firebase (web app).
      */
     async sendPushToAllDevices(userId, type, title, body, data = {}) {
         try {
-            // 1. Check user notification settings (optional - use defaults if table doesn't exist)
-            let settings = null;
-            try {
-                settings = await this.prisma.userNotificationSettings.findUnique({
-                    where: { userId }
-                });
-            } catch (error) {
-                // Table doesn't exist - use default settings (all enabled)
-                Logger.info('NotificationService', 'UserNotificationSettings table not found, using defaults');
-                settings = {
-                    pushEnabled: true,
-                    friendRequestsEnabled: true,
-                    messagesEnabled: true,
-                    gameRemindersEnabled: true
-                };
-            }
-
-            // If settings exist and push is explicitly disabled, skip
-            if (settings && settings.pushEnabled === false) {
-                Logger.info('NotificationService', `Push disabled for user ${userId}`);
-                return;
-            }
-
-            // 2. Check type-specific settings (only if settings exist)
-            if (settings) {
-                if (type === 'FRIEND_REQUEST' && settings.friendRequestsEnabled === false) return;
-                if (type === 'NEW_MESSAGE' && settings.messagesEnabled === false) return;
-                if (type === 'GAME_REMINDER' && settings.gameRemindersEnabled === false) return;
-            }
-
-            // 3. Get all user devices
             const devices = await this.prisma.userDevice.findMany({
                 where: { userId }
             });
@@ -157,7 +237,7 @@ class NotificationService {
                 return;
             }
 
-            // 4. Fan out by token type - mobile clients use Expo, legacy/web clients use Firebase.
+            // Fan out by token type - mobile clients use Expo, legacy/web clients use Firebase.
             // A device with both tokens is only sent via Expo to avoid a duplicate push.
             const expoDevices = devices.filter(d => d.expoPushToken);
             const fcmDevices = devices.filter(d => !d.expoPushToken && d.fcmToken);
@@ -246,7 +326,7 @@ class NotificationService {
                     token,
                     notification: { title, body },
                     data: {
-                        ...data,
+                        ...stringifyValues(data),
                         type,
                         title, // Send title in data
                         body,  // Send body in data
@@ -422,31 +502,78 @@ class NotificationService {
     }
 
     /**
-     * Get or create notification settings for a user
+     * Settings DTO for the client: every preference (defaults filled in) + active mutes with
+     * display info. Upsert-on-read so concurrent first reads can't race into a P2002.
      */
     async getSettings(userId) {
-        let settings = await this.prisma.userNotificationSettings.findUnique({
-            where: { userId }
-        });
-
-        if (!settings) {
-            settings = await this.prisma.userNotificationSettings.create({
-                data: { userId }
-            });
-        }
-
-        return settings;
+        const [settings, mutes] = await Promise.all([
+            this.prisma.userNotificationSettings.upsert({
+                where: { userId },
+                create: { userId },
+                update: {},
+            }),
+            this.listMutes(userId),
+        ]);
+        return toClientSettings(settings, mutes);
     }
 
-    /**
-     * Update notification settings
-     */
-    async updateSettings(userId, updates) {
-        return this.prisma.userNotificationSettings.upsert({
+    /** @param {object} data - already validated by sanitizeSettingsUpdate */
+    async updateSettings(userId, data) {
+        await this.prisma.userNotificationSettings.upsert({
             where: { userId },
-            create: { userId, ...updates },
-            update: updates
+            create: { userId, ...data },
+            update: data,
         });
+        return this.getSettings(userId);
+    }
+
+    /** Active mutes joined with a label/image so the settings screen can render them. */
+    async listMutes(userId) {
+        const now = new Date();
+        const rows = (await this.prisma.notificationMute.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+        })).filter(m => isMuteActive(m, now));
+        if (rows.length === 0) return [];
+
+        const idsOf = t => rows.filter(r => r.targetType === t).map(r => r.targetId);
+        const [users, series, games] = await Promise.all([
+            idsOf('USER').length
+                ? this.prisma.user.findMany({ where: { id: { in: idsOf('USER') } }, select: { id: true, name: true, imageUrl: true } })
+                : [],
+            idsOf('SERIES').length
+                ? this.prisma.gameSeries.findMany({ where: { id: { in: idsOf('SERIES') } }, select: { id: true, title: true, fieldName: true } })
+                : [],
+            idsOf('GAME').length
+                ? this.prisma.game.findMany({ where: { id: { in: idsOf('GAME') } }, select: { id: true, title: true } })
+                : [],
+        ]);
+        const byKey = new Map();
+        users.forEach(u => byKey.set(`USER:${u.id}`, { label: u.name || null, imageUrl: u.imageUrl || null }));
+        series.forEach(s => byKey.set(`SERIES:${s.id}`, { label: s.title || s.fieldName || null, imageUrl: null }));
+        games.forEach(g => byKey.set(`GAME:${g.id}`, { label: g.title || null, imageUrl: null }));
+
+        return rows.map(r => ({
+            targetType: r.targetType,
+            targetId: r.targetId,
+            until: r.until ? new Date(r.until).toISOString() : null,
+            createdAt: new Date(r.createdAt).toISOString(),
+            ...(byKey.get(`${r.targetType}:${r.targetId}`) || { label: null, imageUrl: null }),
+        }));
+    }
+
+    async addMute(userId, { targetType, targetId, until }) {
+        await this.prisma.notificationMute.upsert({
+            where: { userId_targetType_targetId: { userId, targetType, targetId } },
+            create: { userId, targetType, targetId, until },
+            update: { until },
+        });
+        return this.listMutes(userId);
+    }
+
+    async removeMute(userId, targetType, targetId) {
+        await this.prisma.notificationMute.deleteMany({ where: { userId, targetType, targetId } });
+        return this.listMutes(userId);
     }
 }
 

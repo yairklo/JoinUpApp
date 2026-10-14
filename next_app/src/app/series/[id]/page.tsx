@@ -2,6 +2,7 @@ import Avatar from "@/components/Avatar";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import SeriesSubscribeButton from "@/components/SeriesSubscribeButton";
+import MuteNotificationsButton from "@/components/notifications/MuteNotificationsButton";
 import SeriesSettingsEditor from "@/components/SeriesSettingsEditor";
 import SeriesMembersPanel from "@/components/SeriesMembersPanel";
 import GameLocationMap from "@/components/GameLocationMap";
@@ -192,6 +193,9 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                 seriesId={series.id}
                                 initialSubscribed={isSubscribed}
                             />
+                            {isSubscribed && (
+                                <MuteNotificationsButton targetType="SERIES" targetId={series.id} muteLabel="השתק התראות קבוצה" />
+                            )}
                         </Box>
                     </Box>
                 </CardContent>

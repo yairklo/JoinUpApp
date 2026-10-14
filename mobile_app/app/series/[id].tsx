@@ -16,6 +16,7 @@ import SeriesRegistrationRule, {
     type RegistrationOpenMode, DEFAULT_REG_OPEN_TIME, TIME_RE, initialRegMode, defaultRegOpenDay,
 } from '@/components/series/SeriesRegistrationRule';
 import DeleteSeriesModal from '@/components/series/DeleteSeriesModal';
+import MuteNotificationsButton from '@/components/MuteNotificationsButton';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -440,6 +441,14 @@ export default function SeriesScreen() {
                             {isSubscribed ? t('series.subscribed', 'Subscribed ✓') : t('series.subscribe', 'Subscribe to Group')}
                         </Text>
                     </TouchableOpacity>
+                    {isSubscribed && typeof id === 'string' && (
+                        <MuteNotificationsButton
+                            targetType="SERIES"
+                            targetId={id}
+                            labelKey="notificationSettings.muteGroup"
+                            className="mt-3 py-3 rounded-xl border border-gray-200 bg-white flex-row items-center justify-center"
+                        />
+                    )}
                 </View>
 
                 {/* Quick Stats Bar — same pattern as game utility actions */}

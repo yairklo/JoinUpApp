@@ -1,6 +1,6 @@
-import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, Image, Linking } from 'react-native';
-import React, { useEffect, useState } from 'react';
-import { useRouter, Stack } from 'expo-router';
+import { View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import * as NotificationsPermissions from 'expo-notifications';
@@ -13,63 +13,35 @@ export default function SettingsScreen() {
     const { user } = useUser();
     const router = useRouter();
 
-    const [pushEnabled, setPushEnabled] = useState(false);
-    const [pushBusy, setPushBusy] = useState(false);
-    const [settingsLoaded, setSettingsLoaded] = useState(false);
+    const [notifSummary, setNotifSummary] = useState<string | null>(null);
 
-    useEffect(() => {
+    // Refresh the one-line summary whenever we come back from the notification settings screen.
+    useFocusEffect(useCallback(() => {
         let cancelled = false;
         (async () => {
             try {
                 const token = await getToken();
                 if (!token) return;
-                const settings = await notificationsApi.getSettings(token);
-                const { status } = await NotificationsPermissions.getPermissionsAsync();
-                if (!cancelled) {
-                    setPushEnabled(settings.pushEnabled && status === 'granted');
+                const [settings, perm] = await Promise.all([
+                    notificationsApi.getSettings(token),
+                    NotificationsPermissions.getPermissionsAsync(),
+                ]);
+                if (cancelled) return;
+                if (!settings.pushEnabled || perm.status !== 'granted') {
+                    setNotifSummary(t('notificationSettings.summaryPushOff'));
+                } else if (settings.snoozeUntil) {
+                    const time = new Date(settings.snoozeUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    setNotifSummary(t('notificationSettings.snoozedUntil', { time }));
+                } else {
+                    setNotifSummary(t('notificationSettings.summaryOn'));
                 }
             } catch (error) {
                 console.error('[SETTINGS] Failed to load notification settings:', error);
-            } finally {
-                if (!cancelled) setSettingsLoaded(true);
             }
         })();
         return () => { cancelled = true; };
-    }, [getToken]);
-
-    const handleTogglePush = async (next: boolean) => {
-        setPushBusy(true);
-        try {
-            if (next) {
-                const { status: existing } = await NotificationsPermissions.getPermissionsAsync();
-                let status = existing;
-                if (status !== 'granted') {
-                    const req = await NotificationsPermissions.requestPermissionsAsync();
-                    status = req.status;
-                }
-                if (status !== 'granted') {
-                    Alert.alert(
-                        t('settings.notificationsPermissionRequired', 'הרשאת התראות נדרשת'),
-                        t('settings.notificationsPermissionMessage', 'כדי לקבל התראות יש לאשר זאת בהגדרות המכשיר.'),
-                        [
-                            { text: t('common.cancel', 'ביטול'), style: 'cancel' },
-                            { text: t('settings.openSettings', 'פתח הגדרות'), onPress: () => Linking.openSettings() },
-                        ]
-                    );
-                    return;
-                }
-            }
-            const token = await getToken();
-            if (!token) return;
-            await notificationsApi.updateSettings({ pushEnabled: next }, token);
-            setPushEnabled(next);
-        } catch (error) {
-            console.error('[SETTINGS] Failed to update push setting:', error);
-            Alert.alert(t('common.error', 'שגיאה'), t('settings.updatePushFailed', 'עדכון הגדרת ההתראות נכשל, נסה שוב.'));
-        } finally {
-            setPushBusy(false);
-        }
-    };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []));
 
     const handleSignOut = async () => {
         try {
@@ -96,19 +68,21 @@ export default function SettingsScreen() {
 
                 {/* General Settings */}
                 <View className="bg-white mx-4 rounded-xl mb-4 shadow-sm overflow-hidden">
-                    <View className="p-4 flex-row justify-between items-center">
-                        <View className="flex-row items-center">
+                    <TouchableOpacity
+                        className="p-4 flex-row justify-between items-center"
+                        onPress={() => router.push('/settings/notifications' as any)}
+                    >
+                        <View className="flex-row items-center flex-1">
                             <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
                                 <FontAwesome name="bell" size={14} color="#059669" />
                             </View>
-                            <Text className="text-base text-gray-800 font-medium">{t('settings.pushNotifications', 'Push Notifications')}</Text>
+                            <View className="flex-1">
+                                <Text className="text-base text-gray-800 font-medium">{t('notificationSettings.title')}</Text>
+                                {!!notifSummary && <Text className="text-sm text-gray-500">{notifSummary}</Text>}
+                            </View>
                         </View>
-                        <Switch
-                            value={pushEnabled}
-                            onValueChange={handleTogglePush}
-                            disabled={!settingsLoaded || pushBusy}
-                        />
-                    </View>
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* App Info, Support */}

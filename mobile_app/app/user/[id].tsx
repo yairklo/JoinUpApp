@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
+import MuteNotificationsButton from '@/components/MuteNotificationsButton';
 
 const PAGE_SIZE = 5;
 
@@ -214,6 +215,10 @@ export default function UserProfileScreen() {
                                 <FontAwesome name="user-times" size={16} color="#ef4444" style={{ marginRight: 8 }} />
                                 <Text className="text-red-500 font-bold">{actionLoading ? '...' : t('profile.removeFriend', 'Remove Friend')}</Text>
                             </TouchableOpacity>
+                        )}
+
+                        {relationship === 'friends' && typeof id === 'string' && (
+                            <MuteNotificationsButton targetType="USER" targetId={id} />
                         )}
 
                         {relationship === 'none' && (

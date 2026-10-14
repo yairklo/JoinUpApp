@@ -1,4 +1,12 @@
 import { apiClient } from './client';
+import type {
+    NotificationSettings,
+    NotificationSettingsUpdate,
+    NotificationMute,
+    NotificationMuteTarget,
+} from '@joinup/shared/notificationPrefs';
+
+export type { NotificationSettings, NotificationSettingsUpdate, NotificationMute, NotificationMuteTarget };
 
 export interface Notification {
     id: string;
@@ -18,24 +26,48 @@ export interface NotificationsResponse {
     unreadCount: number;
 }
 
-export interface NotificationSettings {
-    pushEnabled: boolean;
-    friendRequestsEnabled: boolean;
-    messagesEnabled: boolean;
-    gameRemindersEnabled: boolean;
-}
 
 export const notificationsApi = {
     getSettings: (token: string) => {
         return apiClient<NotificationSettings>('/api/notifications/settings', { token });
     },
 
-    updateSettings: (settings: Partial<NotificationSettings>, token: string) => {
+    /** Partial update — send only the keys that changed. */
+    updateSettings: (settings: NotificationSettingsUpdate, token: string) => {
         return apiClient<NotificationSettings>('/api/notifications/settings', {
             method: 'PUT',
             data: settings,
             token,
         });
+    },
+
+    /** hours: 1|2|4|8|24 pauses push; null resumes. */
+    snooze: (hours: number | null, token: string) => {
+        return apiClient<NotificationSettings>('/api/notifications/settings/snooze', {
+            method: 'POST',
+            data: { hours },
+            token,
+        });
+    },
+
+    getMutes: (token: string) => {
+        return apiClient<NotificationMute[]>('/api/notifications/mutes', { token });
+    },
+
+    /** durationHours null/undefined = until unmuted */
+    mute: (targetType: NotificationMuteTarget, targetId: string, durationHours: number | null | undefined, token: string) => {
+        return apiClient<NotificationMute[]>('/api/notifications/mutes', {
+            method: 'POST',
+            data: { targetType, targetId, durationHours: durationHours ?? null },
+            token,
+        });
+    },
+
+    unmute: (targetType: NotificationMuteTarget, targetId: string, token: string) => {
+        return apiClient<NotificationMute[]>(
+            `/api/notifications/mutes/${targetType}/${encodeURIComponent(targetId)}`,
+            { method: 'DELETE', token }
+        );
     },
 
     getAll: (token: string) => {

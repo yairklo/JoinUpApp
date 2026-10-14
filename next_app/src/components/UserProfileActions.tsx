@@ -9,6 +9,7 @@ import Typography from "@mui/material/Typography";
 import ChatIcon from "@mui/icons-material/Chat";
 
 import { useUserActions } from "@/hooks/useUserActions";
+import MuteNotificationsButton from "@/components/notifications/MuteNotificationsButton";
 
 export default function UserProfileActions({
     targetUserId,
@@ -94,6 +95,10 @@ export default function UserProfileActions({
                 >
                     הודעה
                 </Button>
+
+                {status === 'FRIEND' && (
+                    <MuteNotificationsButton targetType="USER" targetId={targetUserId} muteLabel="השתק התראות" />
+                )}
             </Box>
             {error && (
                 <Typography variant="caption" color="error" role="alert">
