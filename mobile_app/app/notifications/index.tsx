@@ -1,19 +1,24 @@
-import { View, Text, FlatList, TouchableOpacity } from 'react-native';
-import React, { useCallback } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@clerk/clerk-expo';
 import { useNotifications } from '@/context/NotificationContext';
-import type { Notification } from '@/services/api/notifications';
+import { notificationsApi, type Notification, type NotificationSettingsUpdate } from '@/services/api/notifications';
 import { chatsApi } from '@/services/api/chats';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { formatNotificationDate, getNotificationKey } from '@/utils/notificationDisplay';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import {
+    NOTIFICATION_CATEGORIES,
+    CATEGORY_BY_NOTIFICATION_TYPE,
+    ALWAYS_DELIVERED_TYPES,
+} from '@joinup/shared/notificationPrefs';
 
 export default function NotificationsScreen() {
     const router = useRouter();
     const { t } = useTranslation();
-    const { getToken } = useAuth();
+    const { getToken, userId } = useAuth();
     const {
         notifications,
         unreadCount,
@@ -22,6 +27,74 @@ export default function NotificationsScreen() {
         markAllAsRead,
         refreshNotifications
     } = useNotifications();
+
+    const [showCityPrompt, setShowCityPrompt] = useState(false);
+    const cityPromptChecked = useRef(false);
+    const hasCityNotification = notifications.some(n => n.type === 'NEW_GAME_IN_CITY');
+
+    // One-time suggestion: city games arrive in-app only by default. When the user is looking
+    // at one, offer push for them — once (the answer is stored server-side).
+    useEffect(() => {
+        if (!hasCityNotification || cityPromptChecked.current) return;
+        cityPromptChecked.current = true;
+        (async () => {
+            try {
+                const token = await getToken();
+                if (!token) return;
+                const s = await notificationsApi.getSettings(token);
+                setShowCityPrompt(s.pushEnabled && !s.cityGamesPush && !s.cityPromptDismissedAt);
+            } catch (error) {
+                console.error('[NOTIFICATIONS] Failed to load settings for city prompt:', error);
+            }
+        })();
+    }, [hasCityNotification, getToken]);
+
+    const answerCityPrompt = async (enable: boolean) => {
+        setShowCityPrompt(false);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await notificationsApi.updateSettings(
+                { cityPromptDismissedAt: new Date().toISOString(), ...(enable ? { cityGamesPush: true } : {}) },
+                token
+            );
+        } catch (error) {
+            console.error('[NOTIFICATIONS] Failed to save city prompt answer:', error);
+        }
+    };
+
+    const withToken = async (fn: (token: string) => Promise<unknown>, doneText: string) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await fn(token);
+            Alert.alert(doneText);
+        } catch (error) {
+            console.error('[NOTIFICATIONS] Preference action failed:', error);
+            Alert.alert(t('common.error', 'שגיאה'), t('notificationSettings.actionFailed'));
+        }
+    };
+
+    const showOptions = (item: Notification) => {
+        const cat = NOTIFICATION_CATEGORIES.find(c => c.key === CATEGORY_BY_NOTIFICATION_TYPE[item.type]);
+        if (!cat || ALWAYS_DELIVERED_TYPES.includes(item.type)) {
+            router.push('/settings/notifications' as any);
+            return;
+        }
+        const actorId = typeof item.data?.actorId === 'string' && item.data.actorId !== userId ? item.data.actorId : null;
+        const gameId = typeof item.data?.gameId === 'string' ? item.data.gameId : null;
+        const off: NotificationSettingsUpdate = { [cat.pushField]: false, ...(cat.inAppField ? { [cat.inAppField]: false } : {}) };
+        Alert.alert(item.title || t('notifications.title'), undefined, [
+            { text: t('notificationSettings.turnOffLikeThis'), onPress: () => withToken(tk => notificationsApi.updateSettings(off, tk), t('notificationSettings.turnedOff')) },
+            ...(actorId ? [{ text: t('notificationSettings.muteThisUser'), onPress: () => withToken(tk => notificationsApi.mute('USER', actorId, null, tk), t('notificationSettings.mutedDone')) }] : []),
+            ...(gameId ? [{ text: t('notificationSettings.muteThisGame'), onPress: () => withToken(tk => notificationsApi.mute('GAME', gameId, null, tk), t('notificationSettings.mutedDone')) }] : []),
+            { text: t('notificationSettings.allSettings'), onPress: () => router.push('/settings/notifications' as any) },
+            { text: t('common.cancel', 'ביטול'), style: 'cancel' as const },
+        ]);
+    };
+    // renderItem is memoized on [t]; read the latest handler through a ref.
+    const showOptionsRef = useRef(showOptions);
+    showOptionsRef.current = showOptions;
 
     const handleDirectMessage = async (userId: string) => {
         try {
@@ -87,6 +160,8 @@ export default function NotificationsScreen() {
             <TouchableOpacity
                 className={`flex-row p-3 border-b border-gray-100 ${!item.read ? 'bg-brand-mist' : 'bg-white'}`}
                 onPress={() => handleNotificationPress(item)}
+                onLongPress={() => showOptionsRef.current(item)}
+                delayLongPress={350}
             >
                 <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${!item.read ? 'bg-brand-pale' : 'bg-gray-100'}`}>
                     <FontAwesome
@@ -135,15 +210,36 @@ export default function NotificationsScreen() {
                     headerShown: true,
                     title: t('notifications.title'),
                     headerRight: () => (
-                        unreadCount > 0 ? (
-                            <TouchableOpacity onPress={markAllAsRead}>
-                                <Text className="text-brand font-bold">{t('notifications.readAll')}</Text>
+                        <View className="flex-row items-center">
+                            {unreadCount > 0 ? (
+                                <TouchableOpacity onPress={markAllAsRead} className="mr-4">
+                                    <Text className="text-brand font-bold">{t('notifications.readAll')}</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                            <TouchableOpacity
+                                onPress={() => router.push('/settings/notifications' as any)}
+                                accessibilityLabel={t('notificationSettings.allSettings')}
+                            >
+                                <FontAwesome name="cog" size={20} color="#4b5563" />
                             </TouchableOpacity>
-                        ) : null
+                        </View>
                     )
                 }}
             />
             <View className="flex-1 bg-white">
+                {showCityPrompt && (
+                    <View className="m-3 p-3 rounded-xl bg-brand-mist border border-brand-pale">
+                        <Text className="text-gray-800 font-bold mb-2">{t('notificationSettings.cityPromptTitle')}</Text>
+                        <View className="flex-row">
+                            <TouchableOpacity onPress={() => answerCityPrompt(true)} className="bg-brand px-4 py-2 rounded-lg mr-2">
+                                <Text className="text-white font-bold">{t('notificationSettings.cityPromptYes')}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => answerCityPrompt(false)} className="px-4 py-2 rounded-lg">
+                                <Text className="text-gray-600 font-bold">{t('notificationSettings.cityPromptNo')}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
                 {loading && notifications.length === 0 ? (
                     <View className="flex-1 justify-center items-center">
                         <LoadingMotif id="message-stack" label={t('notifications.loadingNotifications', 'טוען התראות…')} />

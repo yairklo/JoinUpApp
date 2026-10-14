@@ -834,5 +834,123 @@
     "title": "אופס!",
     "screenMissing": "המסך הזה לא קיים.",
     "goHome": "חזרה למסך הבית!"
+  },
+  "notificationSettings": {
+    "title": "התראות",
+    "autoSave": "השינויים נשמרים אוטומטית.",
+    "push": "התראות פוש",
+    "pushSubtitle": "ההתראות בתוך האפליקציה לא מושפעות",
+    "osPermissionOff": "ההרשאה כבויה בהגדרות המכשיר",
+    "snooze": "השהיית התראות",
+    "snoozeSubtitle": "עצור את כל הפוש לזמן קצוב",
+    "snoozeTitle": "להשהות את הפוש ל…",
+    "snoozeFor_one": "שעה",
+    "snoozeFor_two": "שעתיים",
+    "snoozeFor_many": "{{count}} שעות",
+    "snoozeFor_other": "{{count}} שעות",
+    "snoozeAction": "השהה",
+    "snoozedUntil": "מושהות עד {{time}}",
+    "resume": "חדש",
+    "whatTitle": "על מה לקבל התראה",
+    "whatSubtitle": "לכל סוג אפשר לבחור פוש, התראה בתוך האפליקציה, שניהם או אף אחד. ביטול משחק, מקום שהתפנה ותשובה לבקשת הצטרפות תמיד יופיעו באפליקציה.",
+    "channelPush": "פוש",
+    "channelInApp": "באפליקציה",
+    "groups": {
+      "social": "חברים והודעות",
+      "myGames": "המשחקים והקבוצות שלי",
+      "discovery": "גילוי משחקים"
+    },
+    "categories": {
+      "friendRequests": {
+        "title": "בקשות חברות",
+        "subtitle": "בקשה חדשה, ואישור של בקשה ששלחת"
+      },
+      "messages": {
+        "title": "הודעות צ׳אט",
+        "subtitle": "הודעה חדשה בצ׳אט (פוש בלבד)"
+      },
+      "friendGames": {
+        "title": "חבר פתח משחק",
+        "subtitle": "כשחבר שלך יוצר משחק חדש"
+      },
+      "friendJoins": {
+        "title": "חבר הצטרף למשחק",
+        "subtitle": "כשחבר נרשם למשחק שאתה לא בו"
+      },
+      "gameReminders": {
+        "title": "תזכורות למשחק",
+        "subtitle": "שעה לפני משחק שנרשמת אליו"
+      },
+      "myGames": {
+        "title": "עדכונים במשחקים שלי",
+        "subtitle": "שינויים, אישור או דחייה, מקום שהתפנה"
+      },
+      "invitations": {
+        "title": "הזמנות למשחק",
+        "subtitle": "כשמישהו מוסיף אותך למשחק"
+      },
+      "organizer": {
+        "title": "בקשות הצטרפות",
+        "subtitle": "למשחקים שאתה מארגן"
+      },
+      "groupGames": {
+        "title": "משחקים בקבוצות שלי",
+        "subtitle": "משחק חדש בקבוצה שאתה חבר בה"
+      },
+      "cityGames": {
+        "title": "משחקים חדשים באזור",
+        "subtitle": "משחקים פתוחים שנפתחו בעיר שלך"
+      }
+    },
+    "digestAt": "סיכום יומי בשעה {{hour}}",
+    "openFilters": "סינון לפי עיר וענף",
+    "closeFilters": "סגור סינון",
+    "sports": "ענפים",
+    "allSports": "הכול",
+    "cities": "ערים",
+    "citiesHint": "בלי ערים ברשימה, ההתראות לפי העיר שבפרופיל שלך. אפשר עד 10 ערים.",
+    "addCityPlaceholder": "הוסף עיר",
+    "add": "הוסף",
+    "removeCity": "הסר את {{city}}",
+    "frequency": "תדירות הפוש",
+    "instant": "על כל משחק",
+    "digest": "סיכום יומי",
+    "digestHour": "שעת הסיכום",
+    "quietHours": "שעות שקטות",
+    "quietHoursSubtitle": "בלי פוש בשעות האלה. ההתראות יחכו לך באפליקציה.",
+    "from": "מ-",
+    "to": "עד",
+    "done": "סיום",
+    "muted": "מושתקים",
+    "noMutes": "אין השתקות. אפשר להשתיק חבר מהפרופיל שלו, או קבוצה מעמוד הקבוצה.",
+    "muteType": {
+      "USER": "משתמש",
+      "SERIES": "קבוצה",
+      "GAME": "משחק"
+    },
+    "mutedUntil": "עד {{time}}",
+    "mutedForever": "עד שתבטל",
+    "unmute": "בטל השתקה",
+    "mute": "השתק התראות",
+    "muteGroup": "השתק התראות קבוצה",
+    "muteFor": "להשתיק התראות…",
+    "mute8h": "ל-8 שעות",
+    "muteWeek": "לשבוע",
+    "muteForever": "עד שאבטל",
+    "muteThisUser": "השתק התראות מהמשתמש הזה",
+    "muteThisGame": "השתק את המשחק הזה",
+    "turnOffLikeThis": "כבה התראות מהסוג הזה",
+    "turnedOff": "לא תקבל יותר התראות מהסוג הזה. אפשר להחזיר בהגדרות.",
+    "mutedDone": "הושתק",
+    "allSettings": "כל הגדרות ההתראות",
+    "cityPromptTitle": "לקבל גם פוש כשנפתח משחק חדש בעיר שלך?",
+    "cityPromptYes": "כן, הפעל",
+    "cityPromptNo": "לא תודה",
+    "summaryOn": "פועלות",
+    "summaryPushOff": "פוש כבוי",
+    "saveFailed": "השמירה נכשלה, ההגדרה הוחזרה. נסה שוב.",
+    "actionFailed": "הפעולה נכשלה. נסה שוב.",
+    "loadFailed": "לא הצלחנו לטעון את הגדרות ההתראות",
+    "retry": "נסה שוב"
   }
 }
