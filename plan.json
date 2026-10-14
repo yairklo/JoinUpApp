@@ -1,192 +1,171 @@
 [
   {
     "id": 1,
-    "title": "D/server: fix searchGames dropping start/sport/fieldId/network filters when q + map bounds are combined",
+    "title": "server/schema: notification preference columns, NotificationMute model, new notification types",
     "area": "server",
     "files": [
-      "server/services/gameService.js",
-      "server/tests/searchGamesBounds.test.js"
+      "server/prisma/schema.prisma",
+      "server/prisma/migrations/20261014120000_notification_preferences/migration.sql"
     ],
-    "description": "Branch: work on a new branch off main (e.g. feature/map-search-field-suggest-reg-rule), not the current fix/group-membership-* branch. In searchGames (gameService.js ~1026-1125), when both `q` and bounds are present the code builds `where.AND = [{OR: q}, boundsWhere]` and then `finalWhere = where.AND ? { AND: [visibility, ...where.AND] } : ...`, which silently DROPS every other key on `where` (start cutoff, date, sport, fieldId, isOpenToJoin, networkGames participants/id='none', city). Fix: always build `finalWhere = { AND: [visibility, where] }` where `where` keeps its scalar keys and holds `AND: [{OR: textOR}, {OR: boundsOR}]` (and the bounds-only case keeps `where.OR = boundsOR` as today). Add a jest test (mock prisma like searchGlobal.test.js does) asserting that with q+bounds+sport+date the prisma.game.findMany `where` still contains the start/sport constraints plus both OR groups. Run only this test file (PORT=3099 npx jest tests/searchGamesBounds.test.js --runInBand --forceExit).",
-    "status": "done"
+    "description": "Branch: feature/notification-preferences off main, in a dedicated worktree (00-core-invariants). Layer-isolated: schema + migration only.\n\n(a) Extend UserNotificationSettings (model at schema.prisma:689). Keep the four existing columns and their meaning (pushEnabled = master push switch; friendRequestsEnabled / messagesEnabled / gameRemindersEnabled = PUSH flag of their category) so old app builds keep working. Add per-category channel flags, all Boolean:\n  friendRequestsInApp @default(true)\n  gameRemindersInApp @default(true)\n  myGamesPush @default(true), myGamesInApp @default(true)\n  invitationsPush @default(true), invitationsInApp @default(true)\n  organizerPush @default(true), organizerInApp @default(true)\n  groupGamesPush @default(true), groupGamesInApp @default(true)\n  friendGamesPush @default(true), friendGamesInApp @default(true)\n  friendJoinsPush @default(false), friendJoinsInApp @default(false)   (opt-in, high fan-out)\n  cityGamesPush @default(<DECISION D1>), cityGamesInApp @default(true)\n  cityGamesDigest Boolean @default(false)   (true = no instant city push, one daily summary instead)\n  cityGamesSports SportType[] @default([])   (empty = all sports)\n  cityGamesCities String[] @default([])      (empty = the user's profile city; stored normalized via shared cityAliases)\n  quietHoursEnabled Boolean @default(false), quietHoursStart Int @default(1380), quietHoursEnd Int @default(420)   (minutes since local midnight; window may wrap midnight)\n  timezone String @default(\"Asia/Jerusalem\")\n  snoozeUntil DateTime?   (pause all push until this instant)\n  digestHour Int @default(8), lastDigestAt DateTime?   (digest worker claim sentinel)\n  updatedAt DateTime @default(now()) @updatedAt\n\n(b) New model NotificationMute { id cuid, userId, targetType NotificationMuteTarget (enum USER | SERIES | GAME), targetId String, until DateTime? (null = forever), createdAt; user relation onDelete Cascade; @@unique([userId, targetType, targetId]); @@index([targetType, targetId]) }. Add the back-relation on User.\n\n(c) Add NotificationType values: FRIEND_NEW_GAME, FRIEND_JOINED_GAME, NEW_SERIES_GAME (series/group currently misuses NEW_GAME_IN_CITY at gameService.js:879 and :1320).\n\nMigration SQL hand-written to match (ALTER TYPE ... ADD VALUE, ALTER TABLE ADD COLUMN with defaults, CREATE TABLE + indexes). Existing rows get defaults -> no behavior change except D1. Run `npx prisma migrate dev` against a local/branch DB only and `npx prisma generate`; never against prod (prisma-db.mdc).",
+    "status": "todo"
   },
   {
     "id": 2,
-    "title": "D/web: map on /search shows the same results as the list for a text query (no viewport clipping, fit to pins, empty state)",
-    "area": "web",
+    "title": "server: pure preference engine (category map, defaults, validation, delivery decision)",
+    "area": "server",
     "files": [
-      "next_app/src/app/search/page.tsx",
-      "next_app/src/components/SearchMapComponent.tsx"
+      "server/utils/notificationPrefs.js",
+      "server/tests/notificationPrefs.test.js"
     ],
-    "description": "Root cause of prod repro (/search, q='אולם': list 6, map 0): on mobile web the map is only mounted after switching to map view (mapEnabled), it then reports its default viewport (Tel Aviv / user location) via BoundsListener → setMapBounds → performSearch re-queries with minLat..maxLng, so results outside that viewport disappear from BOTH map and list. Target: (a) in performSearch (page.tsx ~150-160) do NOT append bounds params while `debouncedQuery.trim()` is non-empty — a text search is global; bounds-driven search stays exactly as today when there is no query (acceptance: 'without search the map keeps working as usual'). Remove mapBounds from the dependency effect only for the text-query case (e.g. derive `effectiveBounds = debouncedQuery.trim() ? null : mapBounds` and depend on that) so panning during a text search doesn't re-fetch. (b) SearchMapComponent: add prop `fitToResultsKey?: string` (page passes debouncedQuery+sport+date when a query is active, else undefined); when it changes and there are groups with valid coords, call map.fitBounds on all game pins once (cap zoom ~15 for a single pin). Guard so the resulting bounds_changed doesn't trigger a re-search (page ignores bounds while query is active, per (a)). (c) Empty state overlay inside the map pane: if `games.length > 0` but zero have valid coords → 'לתוצאות החיפוש אין מיקום על המפה'; if `games.length === 0 && !loading` with an active query → 'לא נמצאו משחקים לחיפוש הזה'. Results without coords must not hide the others. List↔map toggle must keep the same `games` state (it already shares it — do not introduce a second fetch). Gate: cd next_app && npm run build.",
-    "status": "done"
+    "description": "New pure module, no Prisma access, fully unit-tested.\n\nExports:\n- CATEGORY_BY_TYPE: FRIEND_REQUEST, FRIEND_ACCEPTED -> 'friendRequests'; NEW_MESSAGE -> 'messages' (push only, no in-app channel); GAME_REMINDER -> 'gameReminders'; GAME_CANCELLED, GAME_UPDATED, GAME_JOIN_APPROVED, GAME_JOIN_REJECTED, GAME_WAITLIST_OFFER, GAME_REMOVED_PEER, GAME_ROLE_UPDATE -> 'myGames'; GAME_INVITATION -> 'invitations'; GAME_JOIN_REQUEST -> 'organizer'; NEW_SERIES_GAME -> 'groupGames'; FRIEND_NEW_GAME -> 'friendGames'; FRIEND_JOINED_GAME -> 'friendJoins'; NEW_GAME_IN_CITY -> 'cityGames'. Unknown type -> deliver on both channels (fail open, log).\n- CHANNEL_FIELDS: category -> { push: column, inApp: column|null } (friendRequests.push = friendRequestsEnabled, messages.push = messagesEnabled, gameReminders.push = gameRemindersEnabled, the rest the new columns).\n- DEFAULT_SETTINGS (mirrors schema defaults) and withDefaults(row|null).\n- sanitizeSettingsUpdate(body): whitelist known keys, coerce/validate types (booleans; minutes 0..1439; digestHour 0..23; IANA timezone validated via Intl.DateTimeFormat; cityGamesSports subset of SportType; cityGamesCities trimmed, de-duplicated, normalized with shared cityAliases, max 10; snoozeUntil ISO or null, capped at now+30d). Returns { data, errors }; unknown keys ignored, invalid values -> errors (route returns 400).\n- isInQuietHours(settings, now): local minutes in settings.timezone via Intl; handles wrap-around (start > end) and start === end (= disabled).\n- isMuted(mutes, ctx, now): ctx = { actorId, seriesId, gameId }; a mute matches by targetType/targetId and (until null or until > now).\n- decideDelivery({ settings, mutes, type, ctx, now }) -> { inApp: bool, push: bool, reason }. Rules: category channel flags; push additionally requires pushEnabled, not snoozed, not in quiet hours; cityGames push also false when cityGamesDigest; muted actor/series/game -> both false EXCEPT safety-critical types that are never muted (GAME_CANCELLED, GAME_WAITLIST_OFFER, GAME_JOIN_APPROVED/REJECTED, GAME_REMOVED_PEER): those always keep in-app and only obey channel flags + quiet hours for push.\n- toClientSettings(row, mutes): settings DTO + legacy fields unchanged so old clients still parse it.\n\nTests: every category mapping, legacy columns honored, quiet-hours wrap and DST boundary in Asia/Jerusalem, snooze expiry, mute expiry, safety-critical bypass, digest suppressing city push, sanitize rejects bad input. No DB needed: run `cd server && npx jest tests/notificationPrefs.test.js`.",
+    "status": "todo"
   },
   {
     "id": 3,
-    "title": "D/mobile: same fix in the mobile search tab map view",
-    "area": "mobile",
+    "title": "server: enforce preferences in NotificationService (single choke point) + batch fan-out",
+    "area": "server",
     "files": [
-      "mobile_app/app/(tabs)/search.tsx",
-      "mobile_app/src/i18n/locales/he.json",
-      "mobile_app/src/i18n/locales/en.json"
+      "server/services/notificationService.js",
+      "server/tests/notificationService.prefs.test.js"
     ],
-    "description": "search.tsx ~116-122 appends minLat..maxLng whenever `isMapView && mapBounds`, so a text query in map view is clipped to the viewport (same bug as web). Target: skip bounds params when `query.trim()` is non-empty; after results arrive for a text query in map view, fit the map to the marker coordinates once via mapRef (AppBaseMapHandle.animateToRegion with a region computed from min/max lat/lng + padding, or animateToCoordinate for a single marker). Add an empty-state overlay on the map for 'results but none with coordinates' and 'no results' (i18n keys search.mapNoLocations / search.mapNoResults in he.json + en.json; follow the existing t('key','fallback') style). No-query behavior unchanged. Gate: mobile_app typecheck + lint per PROMPT.md.",
-    "status": "done"
+    "description": "Today prefs are only checked inside sendPushToAllDevices (notificationService.js:118-147) and the DB row + socket event are always created (sendNotification :75-111).\n\n- Add private loadPrefs(userIds[], ctx): one findMany on userNotificationSettings + one on notificationMute (filter userId in ids AND targetId in [ctx.actorId, ctx.seriesId, ctx.gameId]), returns Map<userId, {settings: withDefaults(row), mutes}>. Drop the legacy try/catch 'table doesn't exist' fallback — the table exists in every env.\n- sendNotification(userId, type, title, body, data, io): call decideDelivery with ctx taken from data ({ actorId: data.actorId, seriesId: data.seriesId, gameId: data.gameId }). If !inApp skip DB row + socket emit; if !push skip push; return the row or null. Signature unchanged so all existing callers keep working.\n- sendPushOnly: same gate (messages category), push only.\n- sendPushToAllDevices: remove its own settings checks (moved into the gate) and accept the already-decided call; keep device fan-out / stale-token cleanup as is.\n- New sendNotificationToMany(userIds, type, title, body, dataOrFn, io): de-dupe ids, load prefs in one batch, then per-user decide + create rows with createMany-free individual creates (need ids for socket payload) — chunk 50 at a time with Promise.allSettled so a 2k-user city fan-out doesn't open 2k parallel queries against the Neon pooler.\n- getSettings(userId): upsert-on-read (replace the current findUnique+create race at :402-414 with upsert) and return toClientSettings(row, activeMutes) including the mutes list joined with display info (user name/avatar, series name, game title) for the settings screen.\n- updateSettings(userId, data): data already sanitized by the route.\n- addMute/removeMute/listMutes helpers.\n\nTests (jest, mocked prisma object passed to constructor — no DB): in-app off -> no row, no socket; push off -> row but no push; muted actor suppresses FRIEND_NEW_GAME but not GAME_CANCELLED; quiet hours -> row yes, push no; sendNotificationToMany issues exactly one settings query for N users.",
+    "status": "todo"
   },
   {
     "id": 4,
-    "title": "A/schema: add FieldSuggestion model (pending venue requests) + migration",
+    "title": "server: settings + mutes API (validated) on /api/notifications",
     "area": "server",
     "files": [
-      "server/prisma/schema.prisma",
-      "server/prisma/migrations/20260923120000_add_field_suggestions/migration.sql"
+      "server/routes/notifications.js",
+      "server/tests/notificationSettings.test.js"
     ],
-    "description": "No existing pending-venue mechanism exists (SupportMessage is BUG/FEEDBACK free text; inline 'newField' in createGame creates an unlisted Field immediately). Add: `enum FieldSuggestionStatus { PENDING APPROVED REJECTED }` and `model FieldSuggestion { id String @id @default(cuid()); userId String; name String; address String; isPaid Boolean?  /// null = user doesn't know; contactInfo String?; lat Float?; lng Float?; sport String?; status FieldSuggestionStatus @default(PENDING); createdFieldId String?; adminNote String?; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; resolvedAt DateTime?; user User @relation(fields:[userId], references:[id], onDelete: Cascade); @@index([status, createdAt]); @@index([userId, createdAt]) }` plus the back-relation `fieldSuggestions FieldSuggestion[]` on User. Hand-write migration.sql consistent with the previous migration folders' style; run `npx prisma generate` and `npx prisma migrate diff` / `migrate dev` per server/docs/agents/database_rules.md (directUrl, not pooler). Schema only — no route/UI changes in this step (Layer Isolation Rule).",
-    "status": "done"
+    "description": "- PUT /settings (routes/notifications.js:162-180): replace the 4-field destructure with sanitizeSettingsUpdate(req.body); 400 { error, details } on invalid; partial updates supported (current code writes `undefined` for omitted fields, which Prisma ignores — keep partial semantics explicit). Response = toClientSettings.\n- GET /settings: returns full DTO incl. mutes.\n- GET /mutes, POST /mutes { targetType, targetId, until? | durationHours? } (validate targetType enum; verify target exists; cannot mute yourself; upsert on the unique key), DELETE /mutes/:targetType/:targetId. All authenticateToken, userId from req.user only (server-invariants: never trust a body userId).\n- POST /settings/snooze { hours: 1|2|4|8|24 | null } convenience endpoint -> sets/clears snoozeUntil.\n- Remove the unauthenticated GET /test route (dead, leaks route existence) only if nothing references it (grep next_app/mobile_app first).\n\nExtend the existing integration test file (it already covers GET/PUT): new fields persist; invalid timezone / minutes -> 400; legacy body { pushEnabled:false } still works; mute CRUD round trip; muting self -> 400. Run: `cd server && PORT=3099 npx jest tests/notificationSettings.test.js --runInBand --detectOpenHandles --forceExit`.",
+    "status": "todo"
   },
   {
     "id": 5,
-    "title": "A/server: user submit endpoint + admin list/approve/reject for field suggestions",
+    "title": "server: rework game-created fan-out (city filters, friends-only leak, friend games, group games)",
     "area": "server",
     "files": [
-      "server/routes/fieldSuggestions.js",
-      "server/routes/admin.js",
-      "server/index.js"
+      "server/services/gameService.js",
+      "server/tests/gameCreatedNotifications.test.js"
     ],
-    "description": "New router mounted at /api/field-suggestions in index.js (next to supportRoutes, line ~224). POST / : authenticateToken + a tight createRateLimiter (copy support.js pattern, e.g. 5/hour, prefix 'field-suggest'); validate name (required, sanitizeFreeText, FIELD_NAME_MAX_LENGTH), address (required, FIELD_LOCATION_MAX_LENGTH), isPaid (true|false|null), contactInfo (optional, <=200), optional finite lat/lng, optional sport in SPORT_KEYS; create row status PENDING; 201 with {id,status}. It MUST NOT create a Field — the suggested venue must never appear in /api/fields search until an admin acts. admin.js (authenticateToken, requireAdmin, same style as support-messages): GET /field-suggestions (PENDING first, newest first, take 100, include user id/name/imageUrl); POST /field-suggestions/:id/approve with optional overrides {name, location, lat, lng, type, price, city} → in a single prisma.$transaction create Field with available:true (reuse the field-creation defaults admin fields CRUD uses — check routes/fields.js admin create so city/geo columns are filled the same way) and update suggestion {status:APPROVED, createdFieldId, resolvedAt}; 409 if not PENDING; POST /field-suggestions/:id/reject {adminNote?} → REJECTED. P2025 → 404. Follow server-invariants.mdc (auth on every route, transaction for multi-write). Optionally notify the suggester on approve via the existing notificationService if there is a generic in-app notification helper — skip if it needs a new notification type.",
-    "status": "done"
+    "description": "Current block gameService.js:982-1004 notifies EVERY user whose profile city matches, with no opt-out, and also for friends-only games (privacy bug — buildVisibilityWhere at :323 hides those from non-friends, but the push/in-app copy still announces them). Friends get no notification at all (only a socket 'game:created' at :965-979).\n\nNew flow after the create transaction (still fire-and-forget, never blocks the response):\n1. friendIds = creator's friendships (reuse the query already done at :966).\n2. FRIEND_NEW_GAME to friendIds via sendNotificationToMany, data { gameId, actorId: creatorUser.id, link: `/game/${id}`, sport }.\n3. If !game.isFriendsOnly (or friendsOnlyUntil already passed): city recipients = users where id not in (creator, ...friendIds) AND either (settings.cityGamesCities is empty AND user.city matches game city via cityAliases, case-insensitive) OR cityGamesCities has normalized game city; AND (cityGamesSports empty OR has game.sport). Users without a settings row count as defaults. Implement as a prisma query with relation filters (notificationSettings: { is: null } OR { ... }) — no in-memory scan of all users. Send NEW_GAME_IN_CITY via sendNotificationToMany with actorId + gameId (so per-user mutes apply).\n4. If the game is friends-only with a friendsOnlyUntil in the future, do NOT city-notify now (out of scope to schedule a later city blast — note it in the PR).\n5. Series/group paths (:879 and :1320): switch type to NEW_SERIES_GAME, add seriesId + actorId to data, use sendNotificationToMany; fix the inconsistent link `/games/` -> `/game/` used by the other notifications (check next_app/src/utils/notificationRoute.ts and mobile notificationDisplay to confirm which one resolves).\n\nTests (DB-backed, unique ids, clean up after): friend gets FRIEND_NEW_GAME and not the city one; friends-only game -> no city notification to strangers; sport filter excludes; extra city opts in a user from another city; cityGamesInApp=false -> no row; muted organizer -> nothing.",
+    "status": "todo"
   },
   {
     "id": 6,
-    "title": "A/server: tests for field-suggestion submit + admin flows",
+    "title": "server: friend-joined-game notification + actorId on all actor-originated notifications",
     "area": "server",
     "files": [
-      "server/tests/fieldSuggestions.test.js"
+      "server/services/gameService.js",
+      "server/utils/addedToGameNotification.js",
+      "server/routes/gameRoster.js"
     ],
-    "description": "Model on supportMessages.test.js / fieldsAdminCrud.test.js. Cover: 401 without auth; 400 on missing name/address; 201 creates PENDING row and does NOT call prisma.field.create; non-admin gets 403 on admin list/approve/reject; approve creates Field available:true and marks suggestion APPROVED with createdFieldId inside a transaction; approving a non-PENDING suggestion → 409; reject sets REJECTED. Run only this file with PORT=3099 npx jest tests/fieldSuggestions.test.js --runInBand --detectOpenHandles --forceExit.",
-    "status": "done"
+    "description": "- Add notifyFriendsOfJoin(game, joiningUser, io): on a CONFIRMED join (the paths that call notifyOrganizerOfInstantJoin, gameService.js:400), send FRIEND_JOINED_GAME to the joiner's friends via sendNotificationToMany, excluding organizer and anyone already a participant of that game; skip friends-only games for friends who can't see it (they can — they're friends of the joiner, not necessarily the organizer: apply buildVisibilityWhere semantics, i.e. only notify friends who are also friends of the organizer when game.isFriendsOnly). Default for this category is off, so cost only applies to opted-in users.\n- Add actorId to data everywhere an actor exists so per-user mutes work: notifyOrganizerOfInstantJoin/PendingRequest/WaitlistJoin (actorId = joining user), notifyUserAddedToGame (actorId = adderId), cancelGame (actorId = canceller, still never muted per step 2), gameRoster.js:361/:658 removal notices (actorId = manager), and add gameId everywhere (already present). No copy changes.\n- Run only the touched tests plus any existing test that imports these functions (grep server/tests for notifyOrganizerOf / notifyUserAddedToGame).",
+    "status": "todo"
   },
   {
     "id": 7,
-    "title": "A/web: SuggestFieldDialog component + API client",
-    "area": "web",
+    "title": "server: daily digest worker for city games",
+    "area": "server",
     "files": [
-      "next_app/src/components/SuggestFieldDialog.tsx",
-      "next_app/src/services/api/fieldSuggestions.ts"
+      "server/workers/notificationDigestWorker.js",
+      "server/index.js",
+      "server/tests/notificationDigestWorker.test.js"
     ],
-    "description": "API client: `fieldSuggestionsApi.submit({name,address,isPaid,contactInfo?,lat?,lng?,sport?}, token)` → POST /api/field-suggestions; plus admin helpers `list(token)`, `approve(id, overrides, token)`, `reject(id, note, token)` (match the style of existing services/api/*.ts). Dialog (MUI, dir=rtl, Hebrew): title 'הצע מגרש חדש', short explainer 'המגרש יתווסף לרשימה אחרי בדיקה של הצוות', fields: שם המגרש (required, prefilled from the typed search text), כתובת (required), 'האם המגרש בתשלום?' ToggleButtonGroup כן / לא / לא יודע (maps to true/false/null), איש קשר (אופציונלי) placeholder 'שם / טלפון / קישור'. Submit disabled until required fields valid; on success close + show Snackbar 'הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה' (via an onSubmitted callback so the parent owns the toast); on error show inline Alert and keep the form. Props: open, onClose, initialName, onSubmitted.",
-    "status": "done"
+    "description": "- Cron every 15 min (node-cron, same style as workers/cleanupWorker.js). For users with cityGamesDigest=true AND cityGamesPush=true AND pushEnabled=true whose local time (settings.timezone) hour == digestHour and lastDigestAt older than 20h: claim with updateMany({ where: { userId, OR:[{lastDigestAt:null},{lastDigestAt:{lt: cutoff}}] }, data: { lastDigestAt: now } }) — count 0 means another instance took it (server-invariants: background-job idempotency).\n- Count visible open games created since previous lastDigestAt (or 24h) matching the user's city/sport filters and not organized by a muted user or by friends (they got FRIEND_NEW_GAME); if >0 send one push-only summary (type NEW_GAME_IN_CITY, data { digest: true, link: '/games?city=...' }), bilingual copy via titleEn/bodyEn like addedToGameNotification. Quiet hours/snooze still apply via the gate.\n- Register in index.js next to startCleanupWorker (index.js:1214) behind the same RUN_BACKGROUND_JOBS guard that the scheduler uses.\n- Test: claim is idempotent across two concurrent runs; zero matching games -> no push; wrong hour -> skipped.",
+    "status": "todo"
   },
   {
     "id": 8,
-    "title": "A/web: replace the 'הוסף \"X\"' option in create-game with 'הצע מגרש חדש' while KEEPING the custom-location option",
-    "area": "web",
+    "title": "shared: NotificationSettings / mute types and category metadata for both clients",
+    "area": "shared",
     "files": [
-      "next_app/src/app/games/new/page.tsx",
-      "next_app/src/components/NewGameInline.tsx"
+      "shared/notificationPrefs.js",
+      "shared/notificationPrefs.d.ts",
+      "shared/index.js"
     ],
-    "description": "Today (games/new/page.tsx:543-555 and NewGameInline.tsx:99-110) the autocomplete appends one pseudo-option `הוסף \"X\"` which switches to newFieldMode and, on submit, the server creates an unlisted Field (available:false) just for that game — i.e. an ad-hoc meeting spot, not a listed venue. Product requirement from the user: this ad-hoc location ability MUST stay (meeting points, future running groups). Target: when inputValue is non-empty and not an exact match, append TWO clearly-labelled pseudo-options instead of one: (1) `📍 שחק ב\"X\" (מיקום חופשי למשחק הזה)` → existing newFieldMode flow unchanged (rename the panel heading 'פרטי מגרש חדש' → 'מיקום למשחק הזה' and add helper text 'המיקום ישמש רק למשחק הזה ולא יתווסף לרשימת המגרשים'); (2) `➕ הצע מגרש חדש לרשימה` → opens SuggestFieldDialog with initialName=X, does NOT change the game's field selection, and on success shows the confirmation Snackbar and leaves the user in the form to pick a field/location. Use distinct ids ('CUSTOM_LOCATION' / 'SUGGEST_FIELD') and branch on them in onChange (not on inputValue). Also add a persistent small text link under the search box 'לא מצאת את המגרש? הצע מגרש חדש' so the option is discoverable when there are results too. Update the placeholder 'הקלד לחיפוש או הוסף חדש...' → 'הקלד שם מגרש לחיפוש...'. Server createGame newField path stays as-is (it is the ad-hoc location path). Gate: next_app build.",
-    "status": "done"
+    "description": "Single source for both clients (see shared-types.mdc): NotificationSettings interface matching toClientSettings, NotificationMute { targetType, targetId, until, label, imageUrl }, NOTIFICATION_CATEGORIES ordered list [{ key, pushField, inAppField|null, group: 'social'|'myGames'|'discovery' }], QUIET_HOURS helpers (minutesToHHMM / HHMMToMinutes), SNOOZE_OPTIONS [1,2,4,8,24]. No UI strings (each client localizes). Re-export from index.js and index.d.ts (index.d.ts is a 4th file only for the re-export line — allowed as part of this atomic shared step; if the 3-file rule is enforced strictly, split the index.d.ts line into step 9). Add a small node:test for the time helpers like the other shared/*.test.js.",
+    "status": "todo"
   },
   {
     "id": 9,
-    "title": "A/web admin: field-suggestion queue with approve (prefilled FieldEditorDialog) / reject",
+    "title": "web: notifications API client methods",
     "area": "web",
     "files": [
-      "next_app/src/app/admin/fields/page.tsx",
-      "next_app/src/components/admin/FieldSuggestionsPanel.tsx"
+      "next_app/src/services/api/notifications.ts",
+      "shared/index.d.ts"
     ],
-    "description": "Admin-only (the /admin layout already gates on admin). Add a 'הצעות מגרשים' section/tab on the admin fields page rendering FieldSuggestionsPanel: list PENDING suggestions (name, address, paid yes/no/unknown, contact, suggester name, date) with actions 'אשר והוסף מגרש' and 'דחה'. Approve opens the existing FieldEditorDialog prefilled from the suggestion (name, location=address, lat/lng if present, price hint from isPaid) so the admin can geocode/fix details, then calls fieldSuggestionsApi.approve(id, overrides) — the server creates the real Field (do NOT also call the normal create-field endpoint, or you get two fields). After approve/reject refresh the list and the fields list. Show a count badge of pending suggestions in the section header. Regular users never see this UI. Gate: next_app build.",
-    "status": "done"
+    "description": "Add getSettings, updateSettings(partial), snooze(hours|null), getMutes, mute({targetType,targetId,until?}), unmute(targetType,targetId) to next_app's notificationsApi (pattern: existing apiClient + token). Types from shared. Add the shared index.d.ts re-export line if not done in step 8.",
+    "status": "todo"
   },
   {
     "id": 10,
-    "title": "A/mobile: 'הצע מגרש חדש' entry + form in mobile create-game",
-    "area": "mobile",
+    "title": "web: rebuild /settings/notifications (fix broken auth, auto-save, full controls)",
+    "area": "web",
     "files": [
-      "mobile_app/app/(tabs)/game/new.tsx",
-      "mobile_app/src/services/api/fields.ts",
-      "mobile_app/src/i18n/locales/he.json"
+      "next_app/src/app/settings/notifications/page.tsx",
+      "next_app/src/components/notifications/NotificationCategoryMatrix.tsx",
+      "next_app/src/components/notifications/NotificationMutesList.tsx"
     ],
-    "description": "Mobile create-game has no 'הוסף' option (location = field list by city or a custom map point → inline newField, which must stay unchanged). Add a text button 'לא מצאת את המגרש? הצע מגרש חדש' in the Field Selection card (~line 572) opening a Modal form with the same fields as web (name, address, paid כן/לא/לא יודע, contact optional) → `fieldsApi.suggestField(...)` POST /api/field-suggestions (add to fields.ts, same client pattern). On success close + Alert/toast 'הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה'. i18n keys under newGame.suggestField.* in he.json (en.json fallback via t(key, fallback) is acceptable here to respect the 3-file rule; add en keys in a follow-up only if the lint gate requires it). Gate: mobile typecheck + lint.",
-    "status": "done"
+    "description": "Bug: page.tsx:53 and :84 call relative fetch('/api/notifications/settings') with `localStorage.getItem('__clerk_client_jwt')` — there is no Next API route or rewrite and that key isn't set by Clerk, so the page can't load or save real settings. Replace with notificationsApi + useAuth().getToken().\n\nUX (RTL Hebrew, MUI, existing visual language of the page):\n- Top: master push switch + browser permission state (reuse NotificationAsker logic) + 'pause notifications' snooze menu (1/2/4/8/24h, shows 'paused until HH:MM', resume button).\n- Category matrix grouped Social (friend requests, messages, friend games, friend joins) / My games (reminders, updates & cancellations, invitations, organizer requests, group games) / Discovery (games in my city). Each row: title, one-line description, two compact switches 'Push' and 'In app' (messages: push only). Push switches disabled+dimmed when master push off.\n- City games row expands: sports chips (from shared sports list), extra cities (Autocomplete with shared cityAliases), 'instant vs. daily summary' toggle + summary hour select.\n- Quiet hours: enable switch + from/to time pickers, note 'in-app notifications still arrive'.\n- Muted: list of muted people/groups/games with avatar, 'until' text and unmute.\n- Auto-save: optimistic per change, debounced 400ms PATCH-style PUT with only changed keys, rollback + snackbar on error; remove the Save button. Loading skeleton unchanged (LoadingMotif).\n- Keyboard/a11y: every switch has an aria-label.",
+    "status": "todo"
   },
   {
     "id": 11,
-    "title": "B/web: address search bar on the create-game location-picker map",
+    "title": "web: mute entry points + new notification types in panel/routing",
     "area": "web",
     "files": [
-      "next_app/src/components/MapComponent.tsx",
-      "next_app/src/components/MapAddressSearch.tsx"
+      "next_app/src/app/users/[id]/page.tsx",
+      "next_app/src/app/series/[id]/page.tsx",
+      "next_app/src/components/NotificationPanel.tsx"
     ],
-    "description": "MapComponent (used by the 'מפה' dialog in games/new/page.tsx:930-955 and by NewGameInline) has no address search. Add MapAddressSearch rendered as an overlay at the top of the map (inside APIProvider so it can useMap()): RTL TextField 'חפש כתובת…' with MUI Autocomplete. Suggestions: try Places (useMapsLibrary('places') → AutocompleteSuggestion.fetchAutocompleteSuggestions with language 'he', region 'il', includedRegionCodes ['il']); if the places library fails to load or the request errors (Places API may not be enabled on NEXT_PUBLIC Google key — unverified from code), fall back to google.maps.Geocoder().geocode({address, region:'il'}) on Enter/submit — the same Geocoder the admin FieldLocationPicker already uses successfully. Selecting a result: map.panTo + setZoom(16) and drop a temporary highlight marker; when pickMode && onPick, also call onPick({lat,lng}) so the point is preselected (user can still tap elsewhere or pick an existing field pin exactly as today). Add 'places' to APIProvider libraries. Debounce input 300ms; no request under 2 chars. Gate: next_app build.",
-    "status": "done"
+    "description": "- User profile (friends only): overflow/bell action 'Mute notifications from X' with durations (8h, 1 week, forever) / 'Unmute'. State from GET /mutes.\n- Series page: 'Mute group notifications' toggle for subscribers.\n- NotificationPanel: icons/labels for FRIEND_NEW_GAME, FRIEND_JOINED_GAME, NEW_SERIES_GAME; per-item kebab 'Turn off notifications like this' (sets that category's push+inApp off with undo snackbar) and, when data.actorId exists, 'Mute <name>'. Footer link to /settings/notifications.\n- If page files turn out to be thin wrappers, put the UI in their client component instead and note the file swap in the PR (stays ≤3 files). Verify next_app/src/utils/notificationRoute.ts routes the new types (gameId-based -> /game/:id); if it needs a change that makes this 4 files, split into a separate step.",
+    "status": "todo"
   },
   {
     "id": 12,
-    "title": "B/mobile: address search in the create-game map modal",
+    "title": "mobile: notification settings screen with full parity",
     "area": "mobile",
     "files": [
-      "mobile_app/app/(tabs)/game/new.tsx",
-      "mobile_app/src/i18n/locales/he.json",
-      "mobile_app/src/i18n/locales/en.json"
+      "mobile_app/src/services/api/notifications.ts",
+      "mobile_app/app/settings/notifications.tsx",
+      "mobile_app/app/settings/index.tsx"
     ],
-    "description": "In the map Modal (~line 890-930) add a TextInput row above AppBaseMap: placeholder t('newGame.searchAddress','חפש כתובת…'), textAlign right, returnKeyType search. On submit use expo-location `Location.geocodeAsync(query)` (already a dependency, ~19.0.8; no new API key) → take first result → mapRef.current.animateToCoordinate({latitude, longitude}, 0.01) and show a subtle marker; show inline 'לא נמצאה כתובת' when empty/error. Do NOT auto-select a field — selecting an existing field marker or tapping a custom point keeps working as today. Gate: mobile typecheck + lint.",
-    "status": "done"
+    "description": "Mobile today exposes only the master switch (settings/index.tsx:16-72). Add API methods mirroring step 9 (types from shared), a new expo-router screen settings/notifications.tsx with the same sections as web (master push incl. OS permission prompt / deep link to OS settings when denied — move the existing handleTogglePush logic here; snooze action sheet; category rows with Push / In-app switches; city filters with sport chips, cities, digest + hour; quiet hours via @react-native-community/datetimepicker if already a dependency, else a simple hour/minute picker; muted list with unmute). Optimistic auto-save with debounced partial PUT + revert and Alert on failure. settings/index.tsx: replace the inline switch with a row 'Notifications' -> router.push('/settings/notifications') showing a summary subtitle (On / Off / Paused until …). NativeWind classes consistent with the existing screen. All strings via t('notificationSettings.*') — keys added in step 13.",
+    "status": "todo"
   },
   {
     "id": 13,
-    "title": "C/schema: store the group's registration-open rule as day-of-week + fixed time",
-    "area": "server",
+    "title": "mobile: i18n strings for notification settings (he + en)",
+    "area": "mobile",
     "files": [
-      "server/prisma/schema.prisma",
-      "server/prisma/migrations/20260923130000_series_registration_open_rule/migration.sql"
+      "mobile_app/src/i18n/locales/he.json",
+      "mobile_app/src/i18n/locales/en.json"
     ],
-    "description": "GameSeries today only has `autoOpenRegistrationHours Float?` (relative offset). Add `registrationOpenDayOfWeek Int?  /// 0=Sunday..6=Saturday, Asia/Jerusalem` and `registrationOpenTime String? /// 'HH:MM' Asia/Jerusalem`. Both-null = no absolute rule (legacy hours may still apply). Additive nullable columns only; no backfill. Schema only (Layer Isolation Rule). Why not just convert day+time to hours client-side: a constant offset drifts by an hour across DST weeks and silently shifts when the group's game time is edited — a stored rule avoids both.",
-    "status": "done"
+    "description": "Add notificationSettings.* keys used by steps 12 and 14 (category titles/descriptions, channel labels, snooze options, quiet hours, digest, mute actions, errors) in both files with identical key sets. If the locales use the nested notifications/ directory instead of the flat json files, follow that convention.",
+    "status": "todo"
   },
   {
     "id": 14,
-    "title": "C/server: compute registrationOpensAt from the day+time rule on group save and in the weekly generator",
-    "area": "server",
+    "title": "mobile: mute entry points + new notification types in display",
+    "area": "mobile",
     "files": [
-      "server/utils/seriesRegistrationRule.js",
-      "server/routes/series.js",
-      "server/index.js"
+      "mobile_app/app/user/[id].tsx",
+      "mobile_app/app/series/[id].tsx",
+      "mobile_app/src/utils/notificationDisplay.ts"
     ],
-    "description": "New util `computeRegistrationOpensAt(gameStartUtc, dayOfWeek, 'HH:MM')` → the latest Jerusalem-local occurrence of (dayOfWeek, HH:MM) that is strictly before gameStart (so game Sat 20:00 + rule Sun 18:00 → the preceding Sunday 18:00, 6d2h before; rule equal to the game slot → one week earlier). Reuse parseJerusalemTimeToUTC/formatJerusalemDate already used in series.js. Plus `resolveSeriesRegistrationOpensAt(series, start)`: rule if both fields set, else legacy autoOpenRegistrationHours offset, else null. series.js PATCH (~323-470): accept registrationOpenDayOfWeek (int 0-6 or null) + registrationOpenTime (/^\\d{2}:\\d{2}$/ or null) with 400 on invalid; setting a rule clears autoOpenRegistrationHours and vice versa (so exactly one mode is active); when either changes OR `time` changes, recompute gd.registrationOpensAt for future games (start >= now) with the resolver — this is the existing bulk-to-group path, per-game edit (patchGame) is untouched so single-game edits still don't propagate. GET /:seriesId (~255) returns both new fields. index.js runWeeklySeriesGeneration (~1123-1126): replace the hours-only calc with resolveSeriesRegistrationOpensAt(s, nextStart). Follow server-invariants.mdc (updates already run in prisma.$transaction; keep gameScheduler.resyncGame per game).",
-    "status": "done"
+    "description": "Same entry points as step 11: mute user from profile (friends), mute group from series screen, and resolveNotificationCopy/normalizeNotification + icon handling for FRIEND_NEW_GAME, FRIEND_JOINED_GAME, NEW_SERIES_GAME (route to the game). If the notifications list screen (mobile_app/app/notifications/index.tsx) needs a long-press 'turn off like this' action, add it as step 15 rather than exceeding 3 files.",
+    "status": "todo"
   },
   {
     "id": 15,
-    "title": "C/server: tests for the rule util + series PATCH propagation",
-    "area": "server",
-    "files": [
-      "server/tests/seriesRegistrationRule.test.js"
-    ],
-    "description": "Pure-util cases: Sat 20:00 game + Sun 18:00 rule → previous Sunday 18:00 Jerusalem; rule same weekday later hour than game (e.g. Sat 21:00 for a Sat 20:00 game) → the Saturday a week earlier; a DST-transition week still yields 18:00 local. Route cases (mock prisma like seriesGroupDefaults.test.js): PATCH with {registrationOpenDayOfWeek:0, registrationOpenTime:'18:00'} sets both, nulls autoOpenRegistrationHours, and updates registrationOpensAt on every future game only; invalid time → 400; non-manager → 403; PATCH with legacy hours clears the rule. Run only this file.",
-    "status": "done"
-  },
-  {
-    "id": 16,
-    "title": "C/web: plumb the new rule fields through the series API type and page",
-    "area": "web",
-    "files": [
-      "next_app/src/services/api/series.ts",
-      "next_app/src/app/series/[id]/page.tsx"
-    ],
-    "description": "Add registrationOpenDayOfWeek?: number | null and registrationOpenTime?: string | null to the series update/read types (series.ts:17 area) and to the page's series type (page.tsx:47); pass them to SeriesSettingsEditor as initialRegOpenDay / initialRegOpenTime alongside the existing initialAutoOpenHours (page.tsx:159). Check shared-types.mdc for whether these types must also live in shared/.",
-    "status": "done"
-  },
-  {
-    "id": 17,
-    "title": "C/web: group settings UI — 'נפתחת הרשמה כל [יום] ב־[שעה]' as the primary control, relative hours tucked under 'מתקדם'",
-    "area": "web",
-    "files": [
-      "next_app/src/hooks/useSeriesSettingsEditor.ts",
-      "next_app/src/components/SeriesSettingsEditor.tsx"
-    ],
-    "description": "Replace the prominent 'שעות לפתיחת רישום לפני המשחק' TextField (SeriesSettingsEditor.tsx:241-245) with: a mode choice defaulting to 'יום ושעה קבועים' — Select for day (ראשון..שבת) + HebrewTimeField for time, plus a live preview line computed client-side ('למשחק של שבת 20:00 ההרשמה תיפתח ביום ראשון 18:00'); an option 'ללא פתיחה מתוזמנת'; and the legacy relative-hours field only under a collapsed 'מתקדם: X שעות לפני המשחק' (auto-expanded when the series currently has hours but no rule, so existing groups aren't silently changed). Hook (useSeriesSettingsEditor.ts ~68,128,191): new state regOpenDay/regOpenTime, reset on cancel, and in save send exactly one mode: rule → {registrationOpenDayOfWeek, registrationOpenTime, autoOpenRegistrationHours:null}; hours → {autoOpenRegistrationHours, registrationOpenDayOfWeek:null, registrationOpenTime:null}; none → all null. Copy note under the control: 'חל על כל המשחקים העתידיים בקבוצה. שינוי במשחק בודד לא משפיע על הקבוצה.' Group creation (games/new recurrence) already asks for an absolute first-open date/time rather than an offset, so no change there in this plan. Gate: next_app build; manual check on a WEEKLY group: set Sun 18:00, save, open a future instance and verify its registrationOpensAt; edit a single game's registration time and verify siblings unchanged.",
-    "status": "done"
+    "title": "quality gates + PR",
+    "area": "shared",
+    "files": [],
+    "description": "next_app: `npm run build` green. mobile_app: typecheck + lint per PROMPT.md. server: run only the new/changed test files with PORT=3099 --runInBand (testing-jest.mdc), full suite only once before merge. Manual check in the web preview: settings page loads/saves against staging, toggles persist after reload. Open PR from feature/notification-preferences to main (never push main). PR body lists: migration, default changes (D1), the friends-only privacy fix, and the deferred item (city blast when friendsOnlyUntil expires).",
+    "status": "todo"
   }
 ]

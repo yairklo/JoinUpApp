@@ -49,6 +49,7 @@ model User {
   seriesSubscriptions       SeriesParticipant[]
   devices                   UserDevice[]               @relation("UserDevices")
   notificationSettings      UserNotificationSettings?  @relation("UserNotificationSettings")
+  notificationMutes         NotificationMute[]         @relation("UserNotificationMutes")
   positions                 UserPosition[]
   ratingsGiven              UserRating[]               @relation("RatingsGiven")
   ratingsReceived           UserRating[]               @relation("RatingsReceived")
@@ -686,14 +687,68 @@ model UserDevice {
   @@index([expoPushToken])
 }
 
+/// Per-user notification preferences. The four original columns keep their meaning for old
+/// clients: pushEnabled is the master push switch, and friendRequestsEnabled / messagesEnabled /
+/// gameRemindersEnabled are the PUSH flag of their category. See server/utils/notificationPrefs.js.
 model UserNotificationSettings {
-  id                    String  @id @default(cuid())
-  userId                String  @unique
-  pushEnabled           Boolean @default(true)
-  friendRequestsEnabled Boolean @default(true)
-  messagesEnabled       Boolean @default(true)
-  gameRemindersEnabled  Boolean @default(true)
-  user                  User    @relation("UserNotificationSettings", fields: [userId], references: [id], onDelete: Cascade)
+  id                    String      @id @default(cuid())
+  userId                String      @unique
+  pushEnabled           Boolean     @default(true)
+  friendRequestsEnabled Boolean     @default(true)
+  messagesEnabled       Boolean     @default(true)
+  gameRemindersEnabled  Boolean     @default(true)
+  friendRequestsInApp   Boolean     @default(true)
+  gameRemindersInApp    Boolean     @default(true)
+  myGamesPush           Boolean     @default(true)
+  myGamesInApp          Boolean     @default(true)
+  invitationsPush       Boolean     @default(true)
+  invitationsInApp      Boolean     @default(true)
+  organizerPush         Boolean     @default(true)
+  organizerInApp        Boolean     @default(true)
+  groupGamesPush        Boolean     @default(true)
+  groupGamesInApp       Boolean     @default(true)
+  friendGamesPush       Boolean     @default(true)
+  friendGamesInApp      Boolean     @default(true)
+  friendJoinsPush       Boolean     @default(false)
+  friendJoinsInApp      Boolean     @default(false)
+  cityGamesPush         Boolean     @default(false)
+  cityGamesInApp        Boolean     @default(true)
+  /// true = no instant city-game push; one daily summary push at digestHour instead
+  cityGamesDigest       Boolean     @default(false)
+  /// empty = all sports
+  cityGamesSports       SportType[] @default([])
+  /// empty = the user's profile city. Stored as canonical city names (shared/cityAliases)
+  cityGamesCities       String[]    @default([])
+  quietHoursEnabled     Boolean     @default(false)
+  /// minutes since local midnight; the window may wrap midnight (start > end)
+  quietHoursStart       Int         @default(1380)
+  quietHoursEnd         Int         @default(420)
+  timezone              String      @default("Asia/Jerusalem")
+  /// all push paused until this instant
+  snoozeUntil           DateTime?
+  digestHour            Int         @default(8)
+  /// digest worker claim sentinel (updateMany) — keeps a second instance a no-op
+  lastDigestAt          DateTime?
+  /// one-time "turn on city-game push?" suggestion dismissed/answered
+  cityPromptDismissedAt DateTime?
+  updatedAt             DateTime    @default(now()) @updatedAt
+  user                  User        @relation("UserNotificationSettings", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Silences notifications originating from a user, a group (series) or a single game.
+/// Safety-critical types (cancellation, waitlist offer, join decision, removal) are never muted.
+model NotificationMute {
+  id         String                 @id @default(cuid())
+  userId     String
+  targetType NotificationMuteTarget
+  targetId   String
+  /// null = muted until removed
+  until      DateTime?
+  createdAt  DateTime               @default(now())
+  user       User                   @relation("UserNotificationMutes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId])
 }
 
 model AgentCostLedger {
@@ -835,4 +890,13 @@ enum NotificationType {
   GAME_INVITATION
   GAME_REMOVED_PEER
   GAME_ROLE_UPDATE
+  FRIEND_NEW_GAME
+  FRIEND_JOINED_GAME
+  NEW_SERIES_GAME
+}
+
+enum NotificationMuteTarget {
+  USER
+  SERIES
+  GAME
 }
