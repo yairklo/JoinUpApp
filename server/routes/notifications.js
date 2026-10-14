@@ -3,17 +3,9 @@ const router = express.Router();
 const { NotificationService } = require('../services/notificationService');
 const { prisma } = require('../lib/prisma');
 const { authenticateToken } = require('../utils/auth');
+const { sanitizeSettingsUpdate, sanitizeMuteInput } = require('../utils/notificationPrefs');
 
 const notificationService = new NotificationService(prisma);
-
-// TEST endpoint - no auth required
-router.get('/test', (req, res) => {
-    res.json({
-        success: true,
-        message: 'Notification routes are working!',
-        timestamp: new Date().toISOString()
-    });
-});
 
 // GET /api/notifications - Get all notifications for current user
 router.get('/', authenticateToken, async (req, res) => {
@@ -125,23 +117,89 @@ router.get('/settings', authenticateToken, async (req, res) => {
     }
 });
 
-// PUT /api/notifications/settings - Update notification settings
+// PUT /api/notifications/settings - Partial update of notification preferences.
+// Unknown keys are ignored (client version skew); invalid values for known keys -> 400.
 router.put('/settings', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { pushEnabled, friendRequestsEnabled, messagesEnabled, gameRemindersEnabled } = req.body;
-
-        const settings = await notificationService.updateSettings(userId, {
-            pushEnabled,
-            friendRequestsEnabled,
-            messagesEnabled,
-            gameRemindersEnabled
-        });
-
+        const { data, errors } = sanitizeSettingsUpdate(req.body);
+        if (errors.length) {
+            return res.status(400).json({ error: 'Invalid notification settings', details: errors });
+        }
+        const settings = await notificationService.updateSettings(userId, data);
         res.json(settings);
     } catch (error) {
         console.error('[API] Failed to update settings:', error);
         res.status(500).json({ error: 'Failed to update settings' });
+    }
+});
+
+const SNOOZE_HOURS = [1, 2, 4, 8, 24];
+
+// POST /api/notifications/settings/snooze - { hours: 1|2|4|8|24 } pauses push; { hours: null } resumes
+router.post('/settings/snooze', authenticateToken, async (req, res) => {
+    try {
+        const hours = req.body?.hours ?? null;
+        if (hours !== null && !SNOOZE_HOURS.includes(hours)) {
+            return res.status(400).json({ error: `hours must be one of ${SNOOZE_HOURS.join(', ')} or null` });
+        }
+        const snoozeUntil = hours === null ? null : new Date(Date.now() + hours * 3600000);
+        const settings = await notificationService.updateSettings(req.user.id, { snoozeUntil });
+        res.json(settings);
+    } catch (error) {
+        console.error('[API] Failed to snooze notifications:', error);
+        res.status(500).json({ error: 'Failed to snooze notifications' });
+    }
+});
+
+// GET /api/notifications/mutes - Active mutes with display labels
+router.get('/mutes', authenticateToken, async (req, res) => {
+    try {
+        res.json(await notificationService.listMutes(req.user.id));
+    } catch (error) {
+        console.error('[API] Failed to list mutes:', error);
+        res.status(500).json({ error: 'Failed to list mutes' });
+    }
+});
+
+async function muteTargetExists(targetType, targetId) {
+    if (targetType === 'USER') return !!(await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } }));
+    if (targetType === 'SERIES') return !!(await prisma.gameSeries.findUnique({ where: { id: targetId }, select: { id: true } }));
+    if (targetType === 'GAME') return !!(await prisma.game.findUnique({ where: { id: targetId }, select: { id: true } }));
+    return false;
+}
+
+// POST /api/notifications/mutes - { targetType: USER|SERIES|GAME, targetId, durationHours? | until? }
+router.post('/mutes', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { data, errors } = sanitizeMuteInput(req.body);
+        if (errors.length) return res.status(400).json({ error: 'Invalid mute', details: errors });
+        if (data.targetType === 'USER' && data.targetId === userId) {
+            return res.status(400).json({ error: 'You cannot mute yourself' });
+        }
+        if (!(await muteTargetExists(data.targetType, data.targetId))) {
+            return res.status(404).json({ error: 'Mute target not found' });
+        }
+        const mutes = await notificationService.addMute(userId, data);
+        res.status(201).json(mutes);
+    } catch (error) {
+        console.error('[API] Failed to add mute:', error);
+        res.status(500).json({ error: 'Failed to add mute' });
+    }
+});
+
+// DELETE /api/notifications/mutes/:targetType/:targetId - Unmute (idempotent)
+router.delete('/mutes/:targetType/:targetId', authenticateToken, async (req, res) => {
+    try {
+        const { targetType, targetId } = req.params;
+        if (!['USER', 'SERIES', 'GAME'].includes(targetType)) {
+            return res.status(400).json({ error: 'Invalid targetType' });
+        }
+        res.json(await notificationService.removeMute(req.user.id, targetType, targetId));
+    } catch (error) {
+        console.error('[API] Failed to remove mute:', error);
+        res.status(500).json({ error: 'Failed to remove mute' });
     }
 });
 
