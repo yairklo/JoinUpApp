@@ -1,0 +1,77 @@
+// Notification preference metadata shared by next_app and mobile_app. The server is the source
+// of truth for enforcement (server/utils/notificationPrefs.js); this only drives the settings UI.
+// UI strings live in each client.
+
+/** Ordered as shown in the settings screens. inAppField null = no in-app feed entry. */
+const NOTIFICATION_CATEGORIES = [
+  { key: 'friendRequests', group: 'social', pushField: 'friendRequestsEnabled', inAppField: 'friendRequestsInApp' },
+  { key: 'messages', group: 'social', pushField: 'messagesEnabled', inAppField: null },
+  { key: 'friendGames', group: 'social', pushField: 'friendGamesPush', inAppField: 'friendGamesInApp' },
+  { key: 'friendJoins', group: 'social', pushField: 'friendJoinsPush', inAppField: 'friendJoinsInApp' },
+  { key: 'gameReminders', group: 'myGames', pushField: 'gameRemindersEnabled', inAppField: 'gameRemindersInApp' },
+  { key: 'myGames', group: 'myGames', pushField: 'myGamesPush', inAppField: 'myGamesInApp' },
+  { key: 'invitations', group: 'myGames', pushField: 'invitationsPush', inAppField: 'invitationsInApp' },
+  { key: 'organizer', group: 'myGames', pushField: 'organizerPush', inAppField: 'organizerInApp' },
+  { key: 'groupGames', group: 'myGames', pushField: 'groupGamesPush', inAppField: 'groupGamesInApp' },
+  { key: 'cityGames', group: 'discovery', pushField: 'cityGamesPush', inAppField: 'cityGamesInApp' },
+];
+
+const NOTIFICATION_CATEGORY_GROUPS = ['social', 'myGames', 'discovery'];
+
+const CATEGORY_BY_NOTIFICATION_TYPE = {
+  FRIEND_REQUEST: 'friendRequests',
+  FRIEND_ACCEPTED: 'friendRequests',
+  NEW_MESSAGE: 'messages',
+  GAME_REMINDER: 'gameReminders',
+  GAME_CANCELLED: 'myGames',
+  GAME_UPDATED: 'myGames',
+  GAME_JOIN_APPROVED: 'myGames',
+  GAME_JOIN_REJECTED: 'myGames',
+  GAME_WAITLIST_OFFER: 'myGames',
+  GAME_REMOVED_PEER: 'myGames',
+  GAME_ROLE_UPDATE: 'myGames',
+  GAME_INVITATION: 'invitations',
+  GAME_JOIN_REQUEST: 'organizer',
+  NEW_SERIES_GAME: 'groupGames',
+  FRIEND_NEW_GAME: 'friendGames',
+  FRIEND_JOINED_GAME: 'friendJoins',
+  NEW_GAME_IN_CITY: 'cityGames',
+};
+
+/** Types the server never mutes and always keeps in-app — "turn off like this" isn't offered. */
+const ALWAYS_DELIVERED_TYPES = [
+  'GAME_CANCELLED',
+  'GAME_WAITLIST_OFFER',
+  'GAME_JOIN_APPROVED',
+  'GAME_JOIN_REJECTED',
+  'GAME_REMOVED_PEER',
+];
+
+const SNOOZE_HOURS_OPTIONS = [1, 2, 4, 8, 24];
+/** hours; null = until unmuted */
+const MUTE_DURATION_OPTIONS = [8, 24 * 7, null];
+
+function minutesToHHMM(minutes) {
+  const m = ((Number(minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+function HHMMToMinutes(value) {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || '').trim());
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  if (h > 23 || m > 59) return null;
+  return h * 60 + m;
+}
+
+module.exports = {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_CATEGORY_GROUPS,
+  CATEGORY_BY_NOTIFICATION_TYPE,
+  ALWAYS_DELIVERED_TYPES,
+  SNOOZE_HOURS_OPTIONS,
+  MUTE_DURATION_OPTIONS,
+  minutesToHHMM,
+  HHMMToMinutes,
+};
