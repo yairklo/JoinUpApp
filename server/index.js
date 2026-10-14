@@ -42,6 +42,7 @@ const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Notification Workers
 const { startCleanupWorker } = require('./workers/cleanupWorker');
+const { startNotificationDigestWorker } = require('./workers/notificationDigestWorker');
 const gameScheduler = require('./services/gameScheduler');
 
 // Jest skips timers so --detectOpenHandles stays clean. A second Render API instance
@@ -807,7 +808,7 @@ io.on('connection', async (socket) => {
             'NEW_MESSAGE',
             senderUser?.name || senderName || 'הודעה חדשה',
             messagePreview,
-            { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` }
+            { chatId: roomId, senderId: finalUserId, actorId: finalUserId, link: `/chat/${roomId}` }
           ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
         });
       } catch (err) {
@@ -1212,6 +1213,7 @@ async function startJobs(jobIo) {
   gameScheduler.init({ prisma, io: jobIo, notificationService });
   await gameScheduler.loadAll();
   startCleanupWorker();
+  startNotificationDigestWorker({ notificationService });
   console.log('🔔 Notification workers started');
 }
 

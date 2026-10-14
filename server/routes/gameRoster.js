@@ -363,7 +363,7 @@ router.post('/:id/waitlist-bypass/:userId', authenticateToken, rejectIfCancelled
         'GAME_REMOVED_PEER',
         'בוטל מועד ההצטרפות שלך',
         `מנהל המשחק ביטל את הצעת ההצטרפות שלך למשחק: ${game?.title || 'משחק כדורגל'}`,
-        { gameId },
+        { gameId, actorId: req.user.id },
         req.io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify bypassed user', gameId, err));
     } catch (e) {}
@@ -660,7 +660,7 @@ router.delete('/:id/participants/:userId', authenticateToken, rejectIfCancelled,
         'GAME_REMOVED_PEER',
         'הוסרת מהמשחק',
         `מנהל המשחק הסיר אותך מהמשחק: ${game.title || 'משחק כדורגל'}`,
-        { gameId },
+        { gameId, actorId: req.user.id },
         req.io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of removal', gameId, err));
     } catch (err) {
