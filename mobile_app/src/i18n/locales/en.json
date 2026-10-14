@@ -900,7 +900,6 @@
         "subtitle": "Open games created in your city"
       }
     },
-    "digestAt": "Daily summary at {{hour}}",
     "openFilters": "Filter by city & sport",
     "closeFilters": "Close filters",
     "sports": "Sports",
@@ -910,12 +909,8 @@
     "addCityPlaceholder": "Add a city",
     "add": "Add",
     "removeCity": "Remove {{city}}",
-    "frequency": "Push frequency",
-    "instant": "Every game",
-    "digest": "Daily summary",
-    "digestHour": "Summary time",
     "quietHours": "Quiet hours",
-    "quietHoursSubtitle": "No push during these hours. Notifications wait for you in the app.",
+    "quietHoursSubtitle": "No push during these hours, except cancellations and freed-up spots. The rest waits for you in the app.",
     "from": "From",
     "to": "To",
     "done": "Done",
@@ -949,6 +944,7 @@
     "saveFailed": "Couldn't save — the setting was reverted. Try again.",
     "actionFailed": "Something went wrong. Try again.",
     "loadFailed": "Couldn't load notification settings",
-    "retry": "Try again"
+    "retry": "Try again",
+    "filtersApplyInApp": "Push is off for this category — the filters also apply to in-app notifications."
   }
 }

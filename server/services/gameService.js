@@ -15,7 +15,9 @@ const {
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { notifyUserAddedToGame, notifyUserRemovedFromGame, formatGameWhen, resolveLocation } = require('../utils/addedToGameNotification');
 const { sanitizeFreeText } = require('../utils/sanitize');
-const { prismaFieldCityFilter, normalizeCity } = require('../utils/cityAliases');
+const { prismaFieldCityFilter } = require('../utils/cityAliases');
+const { cityMatchKeys } = require('../utils/notificationPrefs');
+const { getFriendIds: getFriendIdsFor } = require('../utils/friends');
 const gameScheduler = require('./gameScheduler');
 
 // Defense-in-depth limits for free-text fields written by end users. React auto-escapes these
@@ -411,12 +413,8 @@ function notifyOrganizerOfInstantJoin(game, joiningUser, io) {
     .catch(err => console.error('[NOTIFICATIONS] Failed to notify friends of join', game.id, err));
 }
 
-async function getFriendIds(userId) {
-  const rows = await prisma.friendship.findMany({
-    where: { OR: [{ userAId: userId }, { userBId: userId }] },
-    select: { userAId: true, userBId: true },
-  });
-  return rows.map(f => (f.userAId === userId ? f.userBId : f.userAId));
+function getFriendIds(userId) {
+  return getFriendIdsFor(prisma, userId);
 }
 
 /** Visible to non-friends of the organizer right now (mirrors buildVisibilityWhere). */
@@ -435,10 +433,25 @@ function describeGameForNotification(game) {
  * friends who can actually see it (friends of the organizer) are told.
  */
 async function notifyFriendsOfJoin(game, joiningUser, io) {
-  let friendIds = await getFriendIds(joiningUser.id);
+  // The category is opt-in (off by default), so start from the few friends who turned it on:
+  // one indexed query per join instead of loading the whole friend list for nothing.
+  const optedIn = await prisma.userNotificationSettings.findMany({
+    where: {
+      OR: [{ friendJoinsInApp: true }, { friendJoinsPush: true }],
+      user: {
+        OR: [
+          { friendshipsA: { some: { userBId: joiningUser.id } } },
+          { friendshipsB: { some: { userAId: joiningUser.id } } },
+        ],
+      },
+    },
+    select: { userId: true },
+  });
+  let friendIds = optedIn.map(r => r.userId);
   if (friendIds.length === 0) return;
+
   const [participants, organizerFriends] = await Promise.all([
-    prisma.participation.findMany({ where: { gameId: game.id }, select: { userId: true } }),
+    prisma.participation.findMany({ where: { gameId: game.id, userId: { in: friendIds } }, select: { userId: true } }),
     isPubliclyVisible(game) ? Promise.resolve(null) : getFriendIds(game.organizerId),
   ]);
   const onRoster = new Set(participants.map(p => p.userId));
@@ -465,7 +478,7 @@ async function notifyFriendsOfJoin(game, joiningUser, io) {
 async function findCityGameRecipients(game, excludeIds) {
   const city = game.field?.city;
   if (!city) return [];
-  const canonical = normalizeCity(city);
+  const cityKeys = cityMatchKeys(city);
   const sportOk = { OR: [{ cityGamesSports: { isEmpty: true } }, { cityGamesSports: { has: game.sport } }] };
   const users = await prisma.user.findMany({
     where: {
@@ -482,7 +495,7 @@ async function findCityGameRecipients(game, excludeIds) {
             },
           ],
         },
-        { notificationSettings: { is: { cityGamesCities: { has: canonical }, ...sportOk } } },
+        { notificationSettings: { is: { cityGamesCities: { hasSome: cityKeys }, ...sportOk } } },
       ],
     },
     select: { id: true },
@@ -1002,11 +1015,11 @@ async function createGame(payload, creatorUser, io) {
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series subscribers', firstGame.id, err));
     }
 
-    // Friends of the organizer who aren't in the group hear about it as a friend's new game.
+    // Friends of the organizer who aren't in the group hear about it as a friend's new game, and
+    // a public group game is announced to the city like any other.
     if (firstGame) {
       notifyNetworkOfNewGame(firstGame, creatorUser, io, {
         excludeIds: [...(subscriberIds || []), ...invitedUserIds],
-        includeCity: false,
       }).catch(err => console.error('[NOTIFICATIONS] Failed to notify network of new series game', firstGame.id, err));
     }
 

@@ -13,6 +13,7 @@ import {
     NOTIFICATION_CATEGORIES,
     CATEGORY_BY_NOTIFICATION_TYPE,
     ALWAYS_DELIVERED_TYPES,
+    QUICK_OFF_EXCLUDED_CATEGORIES,
 } from '@joinup/shared/notificationPrefs';
 
 export default function NotificationsScreen() {
@@ -84,8 +85,9 @@ export default function NotificationsScreen() {
         const actorId = typeof item.data?.actorId === 'string' && item.data.actorId !== userId ? item.data.actorId : null;
         const gameId = typeof item.data?.gameId === 'string' ? item.data.gameId : null;
         const off: NotificationSettingsUpdate = { [cat.pushField]: false, ...(cat.inAppField ? { [cat.inAppField]: false } : {}) };
+        const canTurnOff = !QUICK_OFF_EXCLUDED_CATEGORIES.includes(cat.key);
         Alert.alert(item.title || t('notifications.title'), undefined, [
-            { text: t('notificationSettings.turnOffLikeThis'), onPress: () => withToken(tk => notificationsApi.updateSettings(off, tk), t('notificationSettings.turnedOff')) },
+            ...(canTurnOff ? [{ text: t('notificationSettings.turnOffLikeThis'), onPress: () => withToken(tk => notificationsApi.updateSettings(off, tk), t('notificationSettings.turnedOff')) }] : []),
             ...(actorId ? [{ text: t('notificationSettings.muteThisUser'), onPress: () => withToken(tk => notificationsApi.mute('USER', actorId, null, tk), t('notificationSettings.mutedDone')) }] : []),
             ...(gameId ? [{ text: t('notificationSettings.muteThisGame'), onPress: () => withToken(tk => notificationsApi.mute('GAME', gameId, null, tk), t('notificationSettings.mutedDone')) }] : []),
             { text: t('notificationSettings.allSettings'), onPress: () => router.push('/settings/notifications' as any) },

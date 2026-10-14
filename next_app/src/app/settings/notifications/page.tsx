@@ -117,8 +117,12 @@ export default function NotificationSettingsPage() {
             setSettings({ ...saved, ...pendingRef.current });
         } catch (error) {
             console.error('[SETTINGS] Failed to save notification settings:', error);
-            pendingRef.current = {};
-            if (confirmedRef.current) setSettings(confirmedRef.current);
+            // Roll back only the failed batch; edits made while it was in flight stay pending
+            // and are retried on the next debounce.
+            if (confirmedRef.current) setSettings({ ...confirmedRef.current, ...pendingRef.current });
+            if (Object.keys(pendingRef.current).length && !timerRef.current) {
+                timerRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
+            }
             setToast({ severity: 'error', text: 'השמירה נכשלה, ההגדרה הוחזרה. נסה שוב.' });
         }
     }, []);
@@ -263,7 +267,7 @@ export default function NotificationSettingsPage() {
                 <SectionCard
                     icon={<BedtimeOutlinedIcon />}
                     title="שעות שקטות"
-                    subtitle="בלי פוש בשעות האלה. ההתראות יחכו לך באפליקציה."
+                    subtitle="בלי פוש בשעות האלה, חוץ מביטול משחק ומקום שהתפנה. השאר יחכה לך באפליקציה."
                     action={
                         <Switch
                             checked={settings.quietHoursEnabled}

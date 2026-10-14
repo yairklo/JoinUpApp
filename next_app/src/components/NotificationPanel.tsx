@@ -32,6 +32,7 @@ import {
     NOTIFICATION_CATEGORIES,
     CATEGORY_BY_NOTIFICATION_TYPE,
     ALWAYS_DELIVERED_TYPES,
+    QUICK_OFF_EXCLUDED_CATEGORIES,
     type NotificationSettingsUpdate,
 } from '@joinup/shared/notificationPrefs';
 import { useAuth } from '@clerk/nextjs';
@@ -329,7 +330,7 @@ export default function NotificationPanel() {
             </Menu>
 
             <Menu anchorEl={itemMenu?.anchor} open={!!itemMenu} onClose={() => setItemMenu(null)}>
-                {itemMenu && (
+                {itemMenu && !QUICK_OFF_EXCLUDED_CATEGORIES.includes(CATEGORY_BY_NOTIFICATION_TYPE[itemMenu.notif.type]) && (
                     <MenuItem onClick={() => turnOffLikeThis(itemMenu.notif)}>
                         <ListItemIcon><NotificationsOffOutlinedIcon fontSize="small" /></ListItemIcon>
                         כבה התראות מהסוג הזה

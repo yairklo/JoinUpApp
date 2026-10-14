@@ -42,7 +42,6 @@ const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Notification Workers
 const { startCleanupWorker } = require('./workers/cleanupWorker');
-const { startNotificationDigestWorker } = require('./workers/notificationDigestWorker');
 const gameScheduler = require('./services/gameScheduler');
 
 // Jest skips timers so --detectOpenHandles stays clean. A second Render API instance
@@ -1213,7 +1212,6 @@ async function startJobs(jobIo) {
   gameScheduler.init({ prisma, io: jobIo, notificationService });
   await gameScheduler.loadAll();
   startCleanupWorker();
-  startNotificationDigestWorker({ notificationService });
   console.log('🔔 Notification workers started');
 }
 

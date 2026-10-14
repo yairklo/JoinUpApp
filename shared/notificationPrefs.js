@@ -47,6 +47,18 @@ const ALWAYS_DELIVERED_TYPES = [
   'GAME_REMOVED_PEER',
 ];
 
+/**
+ * Time-critical types whose push ignores quiet hours and snooze (a waitlist offer expires; a
+ * cancellation changes tonight's plans). They still obey the master push switch.
+ */
+const URGENT_PUSH_TYPES = ['GAME_WAITLIST_OFFER', 'GAME_CANCELLED'];
+
+/**
+ * Categories that also carry ALWAYS_DELIVERED_TYPES. A one-tap "turn off notifications like
+ * this" on one of their items would silence those too, so clients offer it only from settings.
+ */
+const QUICK_OFF_EXCLUDED_CATEGORIES = ['myGames'];
+
 const SNOOZE_HOURS_OPTIONS = [1, 2, 4, 8, 24];
 /** hours; null = until unmuted */
 const MUTE_DURATION_OPTIONS = [8, 24 * 7, null];
@@ -70,6 +82,8 @@ module.exports = {
   NOTIFICATION_CATEGORY_GROUPS,
   CATEGORY_BY_NOTIFICATION_TYPE,
   ALWAYS_DELIVERED_TYPES,
+  URGENT_PUSH_TYPES,
+  QUICK_OFF_EXCLUDED_CATEGORIES,
   SNOOZE_HOURS_OPTIONS,
   MUTE_DURATION_OPTIONS,
   minutesToHHMM,

@@ -1,7 +1,14 @@
 // Pure notification-preference engine: category mapping, defaults, input validation and the
 // per-recipient delivery decision. No Prisma access here — NotificationService loads the rows
 // and calls decideDelivery(), so every notification goes through one choke point.
-const { normalizeCity } = require('./cityAliases');
+const { normalizeCity, CITY_ALIASES } = require('./cityAliases');
+// Type -> category and the always-delivered / urgent lists are shared with both clients
+// (server/shared is the vendored copy of shared/, see scripts/sync-shared.js).
+const {
+  CATEGORY_BY_NOTIFICATION_TYPE,
+  ALWAYS_DELIVERED_TYPES,
+  URGENT_PUSH_TYPES,
+} = require('../shared/notificationPrefs');
 
 const SPORTS = ['SOCCER', 'BASKETBALL', 'TENNIS'];
 const MUTE_TARGETS = ['USER', 'SERIES', 'GAME'];
@@ -9,25 +16,7 @@ const MAX_CITIES = 10;
 const MAX_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_MUTE_MS = 365 * 24 * 60 * 60 * 1000;
 
-const CATEGORY_BY_TYPE = {
-  FRIEND_REQUEST: 'friendRequests',
-  FRIEND_ACCEPTED: 'friendRequests',
-  NEW_MESSAGE: 'messages',
-  GAME_REMINDER: 'gameReminders',
-  GAME_CANCELLED: 'myGames',
-  GAME_UPDATED: 'myGames',
-  GAME_JOIN_APPROVED: 'myGames',
-  GAME_JOIN_REJECTED: 'myGames',
-  GAME_WAITLIST_OFFER: 'myGames',
-  GAME_REMOVED_PEER: 'myGames',
-  GAME_ROLE_UPDATE: 'myGames',
-  GAME_INVITATION: 'invitations',
-  GAME_JOIN_REQUEST: 'organizer',
-  NEW_SERIES_GAME: 'groupGames',
-  FRIEND_NEW_GAME: 'friendGames',
-  FRIEND_JOINED_GAME: 'friendJoins',
-  NEW_GAME_IN_CITY: 'cityGames',
-};
+const CATEGORY_BY_TYPE = CATEGORY_BY_NOTIFICATION_TYPE;
 
 // The first three push columns predate this module and keep their names for old clients.
 // inApp: null = the category has no in-app feed entry (chat uses chat:sync + counters).
@@ -45,13 +34,9 @@ const CHANNEL_FIELDS = {
 };
 
 // Things a user must learn about even from someone they muted (their own game changed under them).
-const NEVER_MUTED_TYPES = new Set([
-  'GAME_CANCELLED',
-  'GAME_WAITLIST_OFFER',
-  'GAME_JOIN_APPROVED',
-  'GAME_JOIN_REJECTED',
-  'GAME_REMOVED_PEER',
-]);
+const NEVER_MUTED_TYPES = new Set(ALWAYS_DELIVERED_TYPES);
+// Push for these also ignores quiet hours and snooze — waiting until morning defeats them.
+const URGENT_TYPES = new Set(URGENT_PUSH_TYPES);
 
 // Mirrors the schema defaults (schema.prisma UserNotificationSettings).
 const DEFAULT_SETTINGS = Object.freeze({
@@ -75,7 +60,6 @@ const DEFAULT_SETTINGS = Object.freeze({
   friendJoinsInApp: false,
   cityGamesPush: false,
   cityGamesInApp: true,
-  cityGamesDigest: false,
   cityGamesSports: [],
   cityGamesCities: [],
   quietHoursEnabled: false,
@@ -83,7 +67,6 @@ const DEFAULT_SETTINGS = Object.freeze({
   quietHoursEnd: 7 * 60,
   timezone: 'Asia/Jerusalem',
   snoozeUntil: null,
-  digestHour: 8,
   cityPromptDismissedAt: null,
 });
 
@@ -133,12 +116,6 @@ function sanitizeSettingsUpdate(body, now = new Date()) {
     else data[key] = body[key];
   }
 
-  if (body.digestHour !== undefined) {
-    if (!Number.isInteger(body.digestHour) || body.digestHour < 0 || body.digestHour > 23) {
-      errors.push('digestHour must be an integer 0-23');
-    } else data.digestHour = body.digestHour;
-  }
-
   if (body.timezone !== undefined) {
     if (!isValidTimezone(body.timezone)) errors.push('timezone must be a valid IANA time zone');
     else data.timezone = body.timezone;
@@ -155,7 +132,7 @@ function sanitizeSettingsUpdate(body, now = new Date()) {
       errors.push('cityGamesCities must be an array of strings');
     } else {
       const cities = Array.from(new Set(
-        body.cityGamesCities.map(c => normalizeCity(c.trim().slice(0, 80))).filter(Boolean)
+        body.cityGamesCities.map(c => canonicalCityKey(c.slice(0, 80))).filter(Boolean)
       ));
       if (cities.length > MAX_CITIES) errors.push(`cityGamesCities allows at most ${MAX_CITIES} cities`);
       else data.cityGamesCities = cities;
@@ -175,6 +152,25 @@ function sanitizeSettingsUpdate(body, now = new Date()) {
   }
 
   return { data, errors };
+}
+
+const KNOWN_CANONICAL_CITIES = new Set(Object.values(CITY_ALIASES));
+
+/**
+ * The form a city is stored in cityGamesCities: the alias-map canonical name when known,
+ * otherwise trimmed + lower-cased (Postgres array `has` is case-sensitive).
+ */
+function canonicalCityKey(city) {
+  const canonical = normalizeCity(String(city || '').trim());
+  if (!canonical) return '';
+  return KNOWN_CANONICAL_CITIES.has(canonical) ? canonical : canonical.toLowerCase();
+}
+
+/** Every stored form a field's city could match in cityGamesCities. */
+function cityMatchKeys(city) {
+  const canonical = normalizeCity(String(city || '').trim());
+  if (!canonical) return [];
+  return Array.from(new Set([canonical, canonical.toLowerCase(), canonicalCityKey(city)]));
 }
 
 /** Minutes since local midnight in `timezone`. */
@@ -234,14 +230,14 @@ function decideDelivery({ settings, mutes = [], type, ctx = {}, now = new Date()
 
   // The in-app copy of a safety-critical notification is always kept.
   const inApp = fields.inApp === null ? false : (NEVER_MUTED_TYPES.has(type) || s[fields.inApp] !== false);
-  let push = s[fields.push] !== false && passesPushGates(s, now);
-  if (category === 'cityGames' && s.cityGamesDigest && !ctx.digest) push = false;
+  let push = s[fields.push] !== false && passesPushGates(s, now, URGENT_TYPES.has(type));
 
   return { inApp, push, reason: push || inApp ? 'ok' : 'disabled' };
 }
 
-function passesPushGates(s, now) {
-  return s.pushEnabled !== false && !isSnoozed(s, now) && !isInQuietHours(s, now);
+function passesPushGates(s, now, urgent = false) {
+  if (s.pushEnabled === false) return false;
+  return urgent || (!isSnoozed(s, now) && !isInQuietHours(s, now));
 }
 
 /** Validates a mute request body; returns { data, errors }. */
@@ -282,6 +278,10 @@ module.exports = {
   CATEGORY_BY_TYPE,
   CHANNEL_FIELDS,
   NEVER_MUTED_TYPES,
+  URGENT_TYPES,
+  canonicalCityKey,
+  cityMatchKeys,
+  passesPushGates,
   DEFAULT_SETTINGS,
   withDefaults,
   sanitizeSettingsUpdate,

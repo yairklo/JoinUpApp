@@ -53,10 +53,15 @@ describe('notificationPrefs', () => {
     expect(decideDelivery({ settings, type: 'NEW_GAME_IN_CITY', now: NOON_UTC })).toMatchObject({ inApp: false, push: true });
   });
 
-  test('digest mode suppresses instant city push but not the digest itself', () => {
-    const settings = { ...DEFAULT_SETTINGS, cityGamesPush: true, cityGamesDigest: true };
-    expect(decideDelivery({ settings, type: 'NEW_GAME_IN_CITY', now: NOON_UTC }).push).toBe(false);
-    expect(decideDelivery({ settings, type: 'NEW_GAME_IN_CITY', ctx: { digest: true }, now: NOON_UTC }).push).toBe(true);
+  test('urgent types push through quiet hours and snooze, but not through master push off', () => {
+    const quiet = { ...DEFAULT_SETTINGS, quietHoursEnabled: true, quietHoursStart: 14 * 60, quietHoursEnd: 16 * 60 };
+    const snoozed = { ...DEFAULT_SETTINGS, snoozeUntil: new Date('2026-10-14T13:00:00Z') };
+    for (const settings of [quiet, snoozed]) {
+      expect(decideDelivery({ settings, type: 'GAME_WAITLIST_OFFER', now: NOON_UTC }).push).toBe(true);
+      expect(decideDelivery({ settings, type: 'GAME_CANCELLED', now: NOON_UTC }).push).toBe(true);
+      expect(decideDelivery({ settings, type: 'GAME_UPDATED', now: NOON_UTC }).push).toBe(false);
+    }
+    expect(decideDelivery({ settings: { ...DEFAULT_SETTINGS, pushEnabled: false }, type: 'GAME_WAITLIST_OFFER', now: NOON_UTC }).push).toBe(false);
   });
 
   describe('quiet hours', () => {
@@ -127,12 +132,14 @@ describe('notificationPrefs', () => {
     });
     test('rejects bad values', () => {
       const { errors } = sanitizeSettingsUpdate({
-        pushEnabled: 'yes', quietHoursEnd: 2000, timezone: 'Mars/Base', cityGamesSports: ['CHESS'], digestHour: 24,
+        pushEnabled: 'yes', quietHoursEnd: 2000, timezone: 'Mars/Base', cityGamesSports: ['CHESS'],
       });
-      expect(errors).toHaveLength(5);
+      expect(errors).toHaveLength(4);
     });
     test('normalizes and de-dupes cities, caps the count', () => {
       expect(sanitizeSettingsUpdate({ cityGamesCities: [' חיפה ', 'חיפה', ''] }).data.cityGamesCities).toEqual(['חיפה']);
+      // Cities outside the alias map are stored lower-cased so matching ignores case
+      expect(sanitizeSettingsUpdate({ cityGamesCities: ['Kfar Saba', 'kfar saba'] }).data.cityGamesCities).toEqual(['kfar saba']);
       expect(sanitizeSettingsUpdate({ cityGamesCities: Array.from({ length: 11 }, (_, i) => `c${i}`) }).errors).toHaveLength(1);
     });
     test('snooze limited to 30 days, null clears', () => {
@@ -154,6 +161,12 @@ describe('notificationPrefs', () => {
       expect(sanitizeMuteInput({ targetType: 'CITY', targetId: 'x' }).errors).toHaveLength(1);
       expect(sanitizeMuteInput({ targetType: 'USER', targetId: 'x', until: '2020-01-01' }, NOON_UTC).errors).toHaveLength(1);
     });
+  });
+
+  test('cityMatchKeys covers the stored form of a field city in any case', () => {
+    const { cityMatchKeys, canonicalCityKey } = require('../utils/notificationPrefs');
+    expect(cityMatchKeys('Kfar Saba')).toContain(canonicalCityKey('KFAR SABA'));
+    expect(cityMatchKeys('חיפה')).toContain('חיפה');
   });
 
   test('toClientSettings hides expired snooze and mutes', () => {

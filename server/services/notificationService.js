@@ -97,7 +97,6 @@ class NotificationService {
             actorId: data.actorId || null,
             seriesId: data.seriesId || null,
             gameId: data.gameId || null,
-            digest: data.digest === true,
         };
     }
 
@@ -109,7 +108,7 @@ class NotificationService {
 
     /**
      * Push-only delivery — no DB row, no in-app notifications feed socket event.
-     * Used for chat messages (handled via chat:sync + message counters separately) and digests.
+     * Used for chat messages (handled via chat:sync + message counters separately).
      */
     async sendPushOnly(userId, type, title, body, data = {}) {
         try {
@@ -150,32 +149,39 @@ class NotificationService {
      * Same notification to many recipients (city / friends / group fan-out). Preferences are
      * loaded once for the whole batch. A failure for one recipient never affects the others.
      * @param {string[]} userIds
-     * @returns {Promise<{ stored: number, pushed: number, skipped: number }>}
+     * @returns {Promise<{ stored: number, pushed: number, skipped: number, failed: number }>}
      */
     async sendNotificationToMany(userIds, type, title, body, data = {}, io = null) {
         const ids = Array.from(new Set((userIds || []).filter(Boolean)));
-        const stats = { stored: 0, pushed: 0, skipped: 0 };
+        const stats = { stored: 0, pushed: 0, skipped: 0, failed: 0 };
         if (ids.length === 0) return stats;
 
         const ctx = NotificationService.contextFromData(data || {});
         const prefs = await this.loadPreferences(ids, ctx);
         for (let i = 0; i < ids.length; i += FANOUT_CHUNK) {
             const chunk = ids.slice(i, i + FANOUT_CHUNK);
-            const results = await Promise.allSettled(chunk.map(uid => {
+            const decisions = chunk.map(uid => {
                 const p = prefs.get(uid);
-                const decision = decideDelivery({ settings: p.settings, mutes: p.mutes, type, ctx });
-                if (decision.inApp) stats.stored++;
-                if (decision.push) stats.pushed++;
-                if (!decision.inApp && !decision.push) stats.skipped++;
-                return this.deliver(uid, type, title, body, data, io, decision);
-            }));
+                return decideDelivery({ settings: p.settings, mutes: p.mutes, type, ctx });
+            });
+            const results = await Promise.allSettled(chunk.map((uid, j) =>
+                this.deliver(uid, type, title, body, data, io, decisions[j])
+            ));
+            // Count only what actually went out.
             results.forEach((r, j) => {
-                if (r.status === 'rejected') {
+                const decision = decisions[j];
+                if (!decision.inApp && !decision.push) {
+                    stats.skipped++;
+                } else if (r.status === 'rejected') {
+                    stats.failed++;
                     Logger.error('NotificationService', `Fan-out delivery failed for ${chunk[j]} (${type}):`, r.reason);
+                } else {
+                    if (decision.inApp) stats.stored++;
+                    if (decision.push) stats.pushed++;
                 }
             });
         }
-        Logger.info('NotificationService', `Fan-out ${type}: ${ids.length} recipients, ${stats.stored} stored, ${stats.pushed} pushed, ${stats.skipped} skipped`);
+        Logger.info('NotificationService', `Fan-out ${type}: ${ids.length} recipients, ${stats.stored} stored, ${stats.pushed} pushed, ${stats.skipped} skipped, ${stats.failed} failed`);
         return stats;
     }
 

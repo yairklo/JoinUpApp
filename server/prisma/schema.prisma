@@ -713,8 +713,6 @@ model UserNotificationSettings {
   friendJoinsInApp      Boolean     @default(false)
   cityGamesPush         Boolean     @default(false)
   cityGamesInApp        Boolean     @default(true)
-  /// true = no instant city-game push; one daily summary push at digestHour instead
-  cityGamesDigest       Boolean     @default(false)
   /// empty = all sports
   cityGamesSports       SportType[] @default([])
   /// empty = the user's profile city. Stored as canonical city names (shared/cityAliases)
@@ -726,9 +724,6 @@ model UserNotificationSettings {
   timezone              String      @default("Asia/Jerusalem")
   /// all push paused until this instant
   snoozeUntil           DateTime?
-  digestHour            Int         @default(8)
-  /// digest worker claim sentinel (updateMany) — keeps a second instance a no-op
-  lastDigestAt          DateTime?
   /// one-time "turn on city-game push?" suggestion dismissed/answered
   cityPromptDismissedAt DateTime?
   updatedAt             DateTime    @default(now()) @updatedAt

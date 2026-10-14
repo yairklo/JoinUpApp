@@ -8,9 +8,6 @@ import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import MenuItem from '@mui/material/MenuItem';
 import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
 
@@ -122,9 +119,7 @@ export default function NotificationCategoryMatrix({ settings, onChange }: Props
                                             <Box sx={{ minWidth: 0 }}>
                                                 <Typography fontWeight={600}>{copy.title}</Typography>
                                                 <Typography variant="body2" color="text.secondary">
-                                                    {isCity && settings.cityGamesDigest && settings.cityGamesPush
-                                                        ? `סיכום יומי בשעה ${String(settings.digestHour).padStart(2, '0')}:00`
-                                                        : copy.subtitle}
+                                                    {copy.subtitle}
                                                 </Typography>
                                                 {isCity && (
                                                     <Button
@@ -200,39 +195,11 @@ export default function NotificationCategoryMatrix({ settings, onChange }: Props
                                                     />
                                                 </Box>
 
-                                                <Box>
-                                                    <Typography variant="body2" fontWeight={600} mb={1}>תדירות הפוש</Typography>
-                                                    <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
-                                                        <ToggleButtonGroup
-                                                            size="small"
-                                                            exclusive
-                                                            value={settings.cityGamesDigest ? 'digest' : 'instant'}
-                                                            onChange={(_, v) => v && onChange({ cityGamesDigest: v === 'digest' })}
-                                                        >
-                                                            <ToggleButton value="instant">על כל משחק</ToggleButton>
-                                                            <ToggleButton value="digest">סיכום יומי</ToggleButton>
-                                                        </ToggleButtonGroup>
-                                                        {settings.cityGamesDigest && (
-                                                            <TextField
-                                                                select
-                                                                size="small"
-                                                                label="שעה"
-                                                                value={settings.digestHour}
-                                                                onChange={e => onChange({ digestHour: Number(e.target.value) })}
-                                                                sx={{ minWidth: 110 }}
-                                                            >
-                                                                {Array.from({ length: 24 }, (_, h) => (
-                                                                    <MenuItem key={h} value={h}>{`${String(h).padStart(2, '0')}:00`}</MenuItem>
-                                                                ))}
-                                                            </TextField>
-                                                        )}
-                                                    </Stack>
-                                                    {!settings.cityGamesPush && (
-                                                        <Typography variant="caption" color="text.secondary" display="block" mt={1}>
-                                                            הפוש לקטגוריה הזו כבוי — הסינון חל גם על ההתראות באפליקציה.
-                                                        </Typography>
-                                                    )}
-                                                </Box>
+                                                {!settings.cityGamesPush && (
+                                                    <Typography variant="caption" color="text.secondary" display="block">
+                                                        הפוש לקטגוריה הזו כבוי — הסינון חל גם על ההתראות באפליקציה.
+                                                    </Typography>
+                                                )}
                                             </Stack>
                                         </Collapse>
                                     )}

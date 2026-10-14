@@ -36,7 +36,6 @@ export interface NotificationSettings {
   friendJoinsInApp: boolean;
   cityGamesPush: boolean;
   cityGamesInApp: boolean;
-  cityGamesDigest: boolean;
   cityGamesSports: NotificationSport[];
   cityGamesCities: string[];
   quietHoursEnabled: boolean;
@@ -46,7 +45,6 @@ export interface NotificationSettings {
   timezone: string;
   /** ISO; null when not snoozed */
   snoozeUntil: string | null;
-  digestHour: number;
   cityPromptDismissedAt: string | null;
   mutes: NotificationMute[];
 }
@@ -68,6 +66,8 @@ export const NOTIFICATION_CATEGORIES: NotificationCategory[];
 export const NOTIFICATION_CATEGORY_GROUPS: NotificationCategoryGroup[];
 export const CATEGORY_BY_NOTIFICATION_TYPE: Record<string, NotificationCategoryKey>;
 export const ALWAYS_DELIVERED_TYPES: string[];
+export const URGENT_PUSH_TYPES: string[];
+export const QUICK_OFF_EXCLUDED_CATEGORIES: NotificationCategoryKey[];
 export const SNOOZE_HOURS_OPTIONS: number[];
 export const MUTE_DURATION_OPTIONS: Array<number | null>;
 export function minutesToHHMM(minutes: number): string;

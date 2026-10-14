@@ -130,8 +130,12 @@ export default function NotificationSettingsScreen() {
             setSettings({ ...saved, ...pendingRef.current });
         } catch (error) {
             console.error('[NOTIFICATION_SETTINGS] Failed to save:', error);
-            pendingRef.current = {};
-            if (confirmedRef.current) setSettings(confirmedRef.current);
+            // Roll back only the failed batch; edits made while it was in flight stay pending
+            // and are retried on the next debounce.
+            if (confirmedRef.current) setSettings({ ...confirmedRef.current, ...pendingRef.current });
+            if (Object.keys(pendingRef.current).length && !timerRef.current) {
+                timerRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
+            }
             Alert.alert(t('common.error', 'שגיאה'), t('notificationSettings.saveFailed'));
         }
     }, [t]);
@@ -303,9 +307,7 @@ export default function NotificationSettingsScreen() {
                                     <View className="flex-1 mr-2">
                                         <Text className="text-base text-gray-800 font-medium">{t(`notificationSettings.categories.${cat.key}.title`)}</Text>
                                         <Text className="text-xs text-gray-500 mt-0.5">
-                                            {cat.key === 'cityGames' && settings.cityGamesDigest && settings.cityGamesPush
-                                                ? t('notificationSettings.digestAt', { hour: `${String(settings.digestHour).padStart(2, '0')}:00` })
-                                                : t(`notificationSettings.categories.${cat.key}.subtitle`)}
+                                            {t(`notificationSettings.categories.${cat.key}.subtitle`)}
                                         </Text>
                                         {cat.key === 'cityGames' && (
                                             <TouchableOpacity onPress={() => setCityOpen(o => !o)} className="mt-1">
@@ -385,34 +387,8 @@ export default function NotificationSettingsScreen() {
                                             </View>
                                         )}
 
-                                        <Text className="text-sm font-bold text-gray-700 mb-2">{t('notificationSettings.frequency')}</Text>
-                                        <View className="flex-row mb-2">
-                                            {(['instant', 'digest'] as const).map(mode => {
-                                                const selected = (mode === 'digest') === settings.cityGamesDigest;
-                                                return (
-                                                    <TouchableOpacity
-                                                        key={mode}
-                                                        onPress={() => apply({ cityGamesDigest: mode === 'digest' })}
-                                                        className={`px-3 py-1.5 rounded-lg mr-2 border ${selected ? 'bg-brand-pale border-brand' : 'bg-white border-gray-200'}`}
-                                                    >
-                                                        <Text className={`text-xs font-bold ${selected ? 'text-brand-dark' : 'text-gray-600'}`}>
-                                                            {t(`notificationSettings.${mode}`)}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                );
-                                            })}
-                                        </View>
-                                        {settings.cityGamesDigest && (
-                                            <View className="flex-row items-center">
-                                                <Text className="text-sm text-gray-700 mr-3">{t('notificationSettings.digestHour')}</Text>
-                                                <TouchableOpacity onPress={() => apply({ digestHour: (settings.digestHour + 23) % 24 })} className="px-3 py-1 rounded bg-white border border-gray-200">
-                                                    <Text>-</Text>
-                                                </TouchableOpacity>
-                                                <Text className="mx-3 font-bold text-gray-800">{`${String(settings.digestHour).padStart(2, '0')}:00`}</Text>
-                                                <TouchableOpacity onPress={() => apply({ digestHour: (settings.digestHour + 1) % 24 })} className="px-3 py-1 rounded bg-white border border-gray-200">
-                                                    <Text>+</Text>
-                                                </TouchableOpacity>
-                                            </View>
+                                        {!settings.cityGamesPush && (
+                                            <Text className="text-xs text-gray-500">{t('notificationSettings.filtersApplyInApp')}</Text>
                                         )}
                                     </View>
                                 )}

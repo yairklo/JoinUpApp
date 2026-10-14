@@ -83,6 +83,8 @@ describe('NotificationService preference gate', () => {
     expect(prisma.userNotificationSettings.findMany).toHaveBeenCalledTimes(1);
     expect(prisma.notificationMute.findMany).toHaveBeenCalledTimes(1);
     expect(stats.skipped).toBe(1); // u3
-    expect(prisma.notification.create).toHaveBeenCalledTimes(119);
+    expect(stats.failed).toBe(1); // u7
+    expect(stats.stored).toBe(118); // 121 recipients - u3 skipped - u7 failed
+    expect(prisma.notification.create).toHaveBeenCalledTimes(119); // includes u7's failed attempt
   });
 });
