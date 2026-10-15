@@ -27,17 +27,20 @@ const isWebKitSafari = () =>
 const isIOSInAppBrowser = () =>
     /FBAN|FBAV|FB_IAB|Instagram|Line\/|Twitter|LinkedInApp|Snapchat|TikTok|musical_ly|GSA\//.test(navigator.userAgent);
 
-// Skip the register-device POST when this user already registered this exact token
-// recently. Re-sent after a week anyway in case the server dropped the row.
-const REGISTERED_KEY = (userId: string) => `joinup:fcmRegistered:${userId}`;
+// Skip the register-device POST only when the LAST registration from this browser was
+// the same user with the same token, within the last week (in case the server dropped
+// the row). One entry per browser, not per user: the server gives a token to whichever
+// user registered it last, so any user switch on a shared browser (A -> B -> A) must
+// re-register.
+const REGISTERED_KEY = 'joinup:fcmRegistration';
 const REREGISTER_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 const isAlreadyRegistered = (userId: string, token: string) => {
     try {
-        const raw = localStorage.getItem(REGISTERED_KEY(userId));
+        const raw = localStorage.getItem(REGISTERED_KEY);
         if (!raw) return false;
-        const { token: saved, at } = JSON.parse(raw);
-        return saved === token && Date.now() - at < REREGISTER_AFTER_MS;
+        const last = JSON.parse(raw);
+        return last.userId === userId && last.token === token && Date.now() - last.at < REREGISTER_AFTER_MS;
     } catch {
         return false;
     }
@@ -45,7 +48,7 @@ const isAlreadyRegistered = (userId: string, token: string) => {
 
 const markRegistered = (userId: string, token: string) => {
     try {
-        localStorage.setItem(REGISTERED_KEY(userId), JSON.stringify({ token, at: Date.now() }));
+        localStorage.setItem(REGISTERED_KEY, JSON.stringify({ userId, token, at: Date.now() }));
     } catch { /* storage unavailable - we'll just re-register next load */ }
 };
 
