@@ -1,10 +1,11 @@
-import { View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import React, { useCallback, useState } from 'react';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import * as NotificationsPermissions from 'expo-notifications';
 import { notificationsApi } from '@/services/api/notifications';
+import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function SettingsScreen() {
@@ -42,6 +43,49 @@ export default function SettingsScreen() {
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []));
+
+    const [deleting, setDeleting] = useState(false);
+
+    const performDeleteAccount = async () => {
+        setDeleting(true);
+        try {
+            const token = await getToken();
+            if (!token) throw new Error('Not signed in');
+            await usersApi.deleteAccount(token);
+            try { await signOut(); } catch { /* the Clerk user is already gone */ }
+            router.replace('/sign-in');
+        } catch (error) {
+            console.error('[SETTINGS] Failed to delete account:', error);
+            Alert.alert(
+                t('settings.deleteAccountFailedTitle', 'מחיקת החשבון נכשלה'),
+                t('settings.deleteAccountFailedBody', 'משהו השתבש. בדקו את החיבור ונסו שוב.')
+            );
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            t('settings.deleteAccountTitle', 'מחיקת חשבון'),
+            t('settings.deleteAccountWarning', 'החשבון והמידע האישי שלך יימחקו לצמיתות, כולל פרופיל, חברים, הרשמות למשחקים ותגובות. לא ניתן לשחזר פעולה זו.'),
+            [
+                { text: t('common.cancel', 'ביטול'), style: 'cancel' },
+                {
+                    text: t('settings.deleteAccountContinue', 'המשך'),
+                    style: 'destructive',
+                    onPress: () => Alert.alert(
+                        t('settings.deleteAccountConfirmTitle', 'בטוחים שרוצים למחוק?'),
+                        t('settings.deleteAccountConfirmBody', 'זו הפעולה האחרונה — החשבון יימחק מיד.'),
+                        [
+                            { text: t('common.cancel', 'ביטול'), style: 'cancel' },
+                            { text: t('settings.deleteAccountConfirm', 'מחק את החשבון שלי'), style: 'destructive', onPress: performDeleteAccount },
+                        ]
+                    ),
+                },
+            ]
+        );
+    };
 
     const handleSignOut = async () => {
         try {
@@ -101,6 +145,13 @@ export default function SettingsScreen() {
                         <Text className="text-base text-gray-800">{t('settings.termsOfService', 'Terms of Service')}</Text>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" />
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        className="p-4 border-b border-gray-100 flex-row items-center justify-between"
+                        onPress={() => router.push('/settings/blocked' as any)}
+                    >
+                        <Text className="text-base text-gray-800">{t('settings.blockedUsers', 'משתמשים חסומים')}</Text>
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                    </TouchableOpacity>
                     <View className="p-4 flex-row items-center justify-between bg-gray-50">
                         <Text className="text-sm text-gray-500">{t('settings.version', 'Version')}</Text>
                         <Text className="text-sm text-gray-500 font-bold">1.0.0 (Beta)</Text>
@@ -109,9 +160,19 @@ export default function SettingsScreen() {
 
                 <TouchableOpacity
                     onPress={handleSignOut}
-                    className="mx-4 bg-red-50 p-4 rounded-xl items-center border border-red-100 mb-10"
+                    className="mx-4 bg-red-50 p-4 rounded-xl items-center border border-red-100 mb-2"
                 >
                     <Text className="text-red-600 font-bold text-lg">{t('settings.signOut', 'Sign Out')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={handleDeleteAccount}
+                    disabled={deleting}
+                    className="mx-4 p-4 rounded-xl items-center mb-10"
+                >
+                    <Text className="text-red-600 font-semibold">
+                        {deleting ? t('settings.deletingAccount', 'מוחק חשבון...') : t('settings.deleteAccount', 'מחיקת חשבון')}
+                    </Text>
                 </TouchableOpacity>
             </ScrollView>
         </>

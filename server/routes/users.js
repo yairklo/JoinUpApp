@@ -24,15 +24,18 @@ const notificationService = new NotificationService(prisma);
 // Shared constants
 const { SPORT_KEYS } = require('../utils/sports');
 const { sanitizeFreeText } = require('../utils/sanitize');
+const { isBlockedEitherWay, getBlockedEitherWayIds } = require('../utils/blocks');
 
 // After a decline the same requester must wait before asking the same person again, so a declined
 // request cannot be re-sent (and re-notified) over and over. The person who declined can always ask.
 const DECLINED_RESEND_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+// Shown wherever a deleted account is still referenced (organised games, chat history).
+const DELETED_USER_NAME = 'משתמש שנמחק';
 const DISPLAY_NAME_MIN_LENGTH = 2;
 const DISPLAY_NAME_MAX_LENGTH = 60;
 // Path segments that live next to /:id in this router; they must never be read as a user id
 // (GET /:id creates a placeholder user row for unknown ids).
-const RESERVED_USER_IDS = new Set(['friends', 'me', 'search', 'sports', 'notifications', 'requests', 'profile']);
+const RESERVED_USER_IDS = new Set(['friends', 'me', 'search', 'sports', 'notifications', 'requests', 'profile', 'blocks']);
 
 // Helper to ensure sports exist
 async function ensureSportsSeeded() {
@@ -70,10 +73,12 @@ router.get('/search', authenticateToken, async (req, res) => {
     }
 
     // Fetch matching users
+    const hiddenUserIds = await getBlockedEitherWayIds(loggedInUserId);
     const matchingUsers = await prisma.user.findMany({
       where: {
         AND: [
-          { id: { not: loggedInUserId } },
+          { id: { notIn: [loggedInUserId, ...hiddenUserIds] } },
+          { deletedAt: null },
           {
             OR: [
               { name: { contains: q, mode: 'insensitive' } },
@@ -384,6 +389,142 @@ router.get('/friends', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/users/blocks - users the caller has blocked
+router.get('/blocks', authenticateToken, async (req, res) => {
+  try {
+    const rows = await prisma.userBlock.findMany({
+      where: { blockerId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+      select: { blockedId: true, createdAt: true, blocked: { select: { id: true, name: true, imageUrl: true } } },
+    });
+    res.json(rows.map((r) => ({
+      id: r.blockedId,
+      name: r.blocked?.name || null,
+      imageUrl: r.blocked?.imageUrl || null,
+      blockedAt: r.createdAt,
+    })));
+  } catch (error) {
+    console.error('List blocks error:', error);
+    res.status(500).json({ error: 'Failed to list blocked users' });
+  }
+});
+
+// POST /api/users/:id/block - block a user (idempotent). Also removes any friendship / pending request.
+router.post('/:id/block', authenticateToken, async (req, res) => {
+  try {
+    const blockerId = String(req.user.id);
+    const blockedId = String(req.params.id);
+    if (RESERVED_USER_IDS.has(blockedId) || blockedId === blockerId) {
+      return res.status(400).json({ error: 'Invalid user' });
+    }
+    await safeUpsertUserFromAuth(prisma, req.user);
+    const target = await prisma.user.findUnique({ where: { id: blockedId }, select: { id: true, deletedAt: true } });
+    if (!target || target.deletedAt) return res.status(404).json({ error: 'User not found' });
+    await prisma.$transaction([
+      prisma.userBlock.upsert({
+        where: { blockerId_blockedId: { blockerId, blockedId } },
+        update: {},
+        create: { blockerId, blockedId },
+      }),
+      prisma.friendship.deleteMany({
+        where: { OR: [{ userAId: blockerId, userBId: blockedId }, { userAId: blockedId, userBId: blockerId }] },
+      }),
+      prisma.friendRequest.deleteMany({
+        where: { OR: [{ requesterId: blockerId, receiverId: blockedId }, { requesterId: blockedId, receiverId: blockerId }] },
+      }),
+    ]);
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    console.error('Block user error:', error);
+    res.status(500).json({ error: 'Failed to block user' });
+  }
+});
+
+// DELETE /api/users/:id/block - unblock
+router.delete('/:id/block', authenticateToken, async (req, res) => {
+  try {
+    await prisma.userBlock.deleteMany({
+      where: { blockerId: String(req.user.id), blockedId: String(req.params.id) },
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Unblock user error:', error);
+    res.status(500).json({ error: 'Failed to unblock user' });
+  }
+});
+
+// DELETE /api/users/me - permanently delete the caller's account (App Store 5.1.1(v)).
+// Personal data is erased and the User row is kept as an anonymous tombstone so games, series and
+// chat history that reference it stay valid. Every step is idempotent, so a failure part-way
+// (e.g. Clerk unreachable) can simply be retried by the user.
+router.delete('/me', authenticateToken, async (req, res) => {
+  const userId = String(req.user.id);
+  try {
+    const existing = await prisma.user.findUnique({ where: { id: userId }, select: { imageUrl: true } });
+    if (existing) {
+      await prisma.$transaction([
+        prisma.participation.deleteMany({ where: { userId } }),
+        prisma.chatParticipant.deleteMany({ where: { userId } }),
+        prisma.reaction.deleteMany({ where: { userId } }),
+        prisma.notification.deleteMany({ where: { userId } }),
+        prisma.userDevice.deleteMany({ where: { userId } }),
+        prisma.userNotificationSettings.deleteMany({ where: { userId } }),
+        prisma.userRating.deleteMany({ where: { OR: [{ raterId: userId }, { targetId: userId }] } }),
+        prisma.favoriteField.deleteMany({ where: { userId } }),
+        prisma.userSport.deleteMany({ where: { userId } }),
+        prisma.userPosition.deleteMany({ where: { userId } }),
+        prisma.gameRole.deleteMany({ where: { userId } }),
+        prisma.seriesParticipant.deleteMany({ where: { userId } }),
+        prisma.friendship.deleteMany({ where: { OR: [{ userAId: userId }, { userBId: userId }] } }),
+        prisma.friendRequest.deleteMany({ where: { OR: [{ requesterId: userId }, { receiverId: userId }] } }),
+        prisma.userBlock.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } }),
+        prisma.fieldCommentReaction.deleteMany({ where: { userId } }),
+        prisma.fieldCommentFlag.deleteMany({ where: { reporterId: userId } }),
+        // Replies cascade from their parent, so a comment/report others replied to is scrubbed
+        // (the author is now the anonymous tombstone) rather than deleted with their replies.
+        prisma.fieldComment.deleteMany({ where: { userId, replies: { none: {} } } }),
+        prisma.fieldComment.updateMany({ where: { userId }, data: { text: '' } }),
+        prisma.fieldIssueReportReaction.deleteMany({ where: { userId } }),
+        prisma.fieldIssueReportFlag.deleteMany({ where: { reporterId: userId } }),
+        prisma.fieldIssueReport.deleteMany({ where: { userId, replies: { none: {} } } }),
+        prisma.fieldIssueReport.updateMany({ where: { userId }, data: { description: null, photoUrl: null } }),
+        prisma.supportMessage.deleteMany({ where: { userId } }),
+        prisma.fieldSuggestion.deleteMany({ where: { userId } }),
+        prisma.message.updateMany({ where: { userId }, data: { text: '', isDeleted: true } }),
+        prisma.flaggedMessage.deleteMany({ where: { userId } }),
+        prisma.user.update({
+          where: { id: userId },
+          data: {
+            name: DELETED_USER_NAME,
+            email: null,
+            imageUrl: null,
+            city: null,
+            phone: null,
+            birthDate: null,
+            gender: null,
+            deletedAt: new Date(),
+          },
+        }),
+      ]);
+      if (existing.imageUrl) {
+        try { await deleteUploadedFile(existing.imageUrl); } catch (_) { /* best effort */ }
+      }
+    }
+    const { clerkClient, invalidateClerkUser } = require('../utils/auth');
+    try {
+      await clerkClient.users.deleteUser(userId);
+    } catch (e) {
+      // Already gone in Clerk counts as success; anything else is surfaced so the user can retry.
+      if (!(e && (e.status === 404 || e.errors?.[0]?.code === 'resource_not_found'))) throw e;
+    }
+    if (typeof invalidateClerkUser === 'function') invalidateClerkUser(userId);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
 // Authenticated viewer — includes isAdmin. Must be registered before /:id
 // so "me" is never treated as a Clerk user id (which would upsert a stub User).
 router.get('/me', authenticateToken, async (req, res) => {
@@ -689,6 +830,9 @@ router.post('/requests', authenticateToken, async (req, res) => {
       await prisma.user.create({ data: { id: receiverId } });
     }
     // already friends?
+    if (await isBlockedEitherWay(requesterId, receiverId)) {
+      return res.status(403).json({ error: 'Cannot send a request to this user', code: 'USER_BLOCKED' });
+    }
     const [a, b] = orderPair(requesterId, receiverId);
     const existingFriend = await prisma.friendship.findFirst({ where: { OR: [{ userAId: a, userBId: b }, { userAId: b, userBId: a }] } });
     if (existingFriend) return res.status(400).json({ error: 'Already friends' });

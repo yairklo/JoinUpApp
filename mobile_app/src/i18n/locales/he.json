@@ -195,7 +195,12 @@
     "about": "אודות",
     "yearsOld": "שנים",
     "favoriteSports": "ענפי ספורט מועדפים",
-    "userNotFound": "המשתמש לא נמצא."
+    "userNotFound": "המשתמש לא נמצא.",
+    "block": "חסום משתמש",
+    "unblock": "בטל חסימה",
+    "blockConfirmTitle": "לחסום את {{name}}?",
+    "blockConfirmBody": "לא תראו יותר הודעות ותגובות מהמשתמש הזה, והוא לא יוכל לשלוח לכם הודעות או בקשות חברות. אפשר לבטל את החסימה בכל עת.",
+    "blockFailed": "הפעולה נכשלה. נסו שוב."
   },
   "game": {
     "details": "פרטי משחק",
@@ -399,7 +404,12 @@
     "reportAlreadySent": "כבר דיווחת על ההודעה הזו. צוות הניהול יבדוק אותה.",
     "reportFailedTitle": "הדיווח לא נשלח",
     "reportNotAllowed": "לא ניתן לדווח על ההודעה הזו (ייתכן שהיא כבר נמחקה).",
-    "reportFailedBody": "משהו השתבש. בדקו את החיבור ונסו שוב."
+    "reportFailedBody": "משהו השתבש. בדקו את החיבור ונסו שוב.",
+    "blockUser": "חסום משתמש",
+    "blockConfirmTitle": "לחסום את {{name}}?",
+    "blockConfirmBody": "לא תראו יותר הודעות ותגובות מהמשתמש הזה, והוא לא יוכל לשלוח לכם הודעות פרטיות או בקשות חברות. אפשר לבטל את החסימה בהגדרות.",
+    "blockFailed": "החסימה נכשלה. נסו שוב.",
+    "thisUser": "המשתמש"
   },
   "notifications": {
     "title": "התראות",
@@ -495,7 +505,8 @@
     "flagSpam": "ספאם",
     "flagOther": "אחר",
     "attachPhoto": "צרף תמונה",
-    "createGameHere": "צור משחק חדש במגרש הזה"
+    "createGameHere": "צור משחק חדש במגרש הזה",
+    "commentDeleted": "התגובה נמחקה"
   },
   "series": {
     "badge": "קבוצה שבועית",
@@ -759,7 +770,19 @@
     "notificationsPermissionMessage": "כדי לקבל התראות יש לאשר זאת בהגדרות המכשיר.",
     "openSettings": "פתח הגדרות",
     "updatePushFailed": "עדכון הגדרת ההתראות נכשל, נסה שוב.",
-    "feedback": "דיווח על באג / יצירת קשר"
+    "feedback": "דיווח על באג / יצירת קשר",
+    "blockedUsers": "משתמשים חסומים",
+    "noBlockedUsers": "לא חסמתם אף משתמש.",
+    "deleteAccount": "מחיקת חשבון",
+    "deletingAccount": "מוחק חשבון...",
+    "deleteAccountTitle": "מחיקת חשבון",
+    "deleteAccountWarning": "החשבון והמידע האישי שלך יימחקו לצמיתות, כולל פרופיל, חברים, הרשמות למשחקים ותגובות. לא ניתן לשחזר פעולה זו.",
+    "deleteAccountContinue": "המשך",
+    "deleteAccountConfirmTitle": "בטוחים שרוצים למחוק?",
+    "deleteAccountConfirmBody": "זו הפעולה האחרונה — החשבון יימחק מיד.",
+    "deleteAccountConfirm": "מחק את החשבון שלי",
+    "deleteAccountFailedTitle": "מחיקת החשבון נכשלה",
+    "deleteAccountFailedBody": "משהו השתבש. בדקו את החיבור ונסו שוב."
   },
   "feedback": {
     "title": "דיווח על באג / יצירת קשר",

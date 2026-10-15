@@ -28,6 +28,31 @@ function getClerkUserCached(userId) {
 
 function invalidateClerkUser(userId) {
   clerkUserCache.delete(userId);
+  deletedAccountCache.delete(userId);
+}
+
+// An account the user deleted keeps an anonymous tombstone row. If Clerk deletion failed part-way
+// the person can still hold a valid session, so every authenticated request is checked against
+// User.deletedAt (cached briefly; a DB hiccup fails open - this guards a stale session, not data).
+const deletedAccountCache = new LRUCache({ max: 5000, ttl: CLERK_USER_TTL_MS });
+
+async function isAccountDeleted(userId) {
+  const cached = deletedAccountCache.get(userId);
+  if (cached !== undefined) return cached;
+  try {
+    const { prisma } = require('../lib/prisma');
+    const row = await prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true } });
+    const deleted = !!row?.deletedAt;
+    deletedAccountCache.set(userId, deleted);
+    return deleted;
+  } catch (e) {
+    return false;
+  }
+}
+
+// DELETE /api/users/me stays reachable so a half-finished deletion can be retried.
+function isAccountDeletionRetry(req) {
+  return req.method === 'DELETE' && /^\/api\/users\/me\/?(\?.*)?$/.test(req.originalUrl || '');
 }
 
 function clearClerkUserCache() {
@@ -81,6 +106,9 @@ const authenticateToken = (req, res, next) => {
     if (req.user.isBanned) {
       return res.status(403).json({ error: 'Account suspended' });
     }
+    if (!isAccountDeletionRetry(req) && (await isAccountDeleted(userId))) {
+      return res.status(403).json({ error: 'Account deleted', code: 'ACCOUNT_DELETED' });
+    }
     next();
   });
 };
@@ -128,5 +156,6 @@ module.exports = {
   getClerkUserCached,
   invalidateClerkUser,
   clearClerkUserCache,
+  isAccountDeleted,
   clerkClient // Exported for use in socket middleware
 };

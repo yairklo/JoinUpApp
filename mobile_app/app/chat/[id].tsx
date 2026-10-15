@@ -11,6 +11,7 @@ import MessageBubble from '@/components/chat/MessageBubble';
 import ReplyPreview from '@/components/chat/ReplyPreview';
 import MessageActionSheet from '@/components/chat/MessageActionSheet';
 import { chatsApi, type MessageReportReason } from '@/services/api/chats';
+import { usersApi } from '@/services/api/users';
 import { ChatMessage } from '@/types/chat';
 
 export default function ChatScreen() {
@@ -121,14 +122,63 @@ export default function ChatScreen() {
         );
     }, [getToken, t]);
 
+    const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const token = await getToken();
+                if (!token) return;
+                const list = await usersApi.getBlockedUsers(token);
+                if (!cancelled) setBlockedIds(new Set(list.map((b) => b.id)));
+            } catch {
+                // Non-fatal: server already filters history; this only hides live messages.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [getToken]);
+
+    const handleBlockUser = useCallback((message: ChatMessage) => {
+        const targetId = message.userId || message.senderId;
+        if (!targetId) return;
+        const name = message.senderName || message.sender?.name || t('chat.thisUser', 'המשתמש');
+        Alert.alert(
+            t('chat.blockConfirmTitle', 'לחסום את {{name}}?', { name }),
+            t('chat.blockConfirmBody', 'לא תראו יותר הודעות ותגובות מהמשתמש הזה, והוא לא יוכל לשלוח לכם הודעות פרטיות או בקשות חברות. אפשר לבטל את החסימה בהגדרות.'),
+            [
+                { text: t('common.cancel', 'ביטול'), style: 'cancel' },
+                {
+                    text: t('chat.blockUser', 'חסום משתמש'),
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const token = await getToken();
+                            if (!token) throw new Error('Not signed in');
+                            await usersApi.blockUser(targetId, token);
+                            setBlockedIds((prev) => new Set(prev).add(targetId));
+                        } catch {
+                            Alert.alert(t('common.error', 'שגיאה'), t('chat.blockFailed', 'החסימה נכשלה. נסו שוב.'));
+                        }
+                    },
+                },
+            ]
+        );
+    }, [getToken, t]);
+
     const actionMessageSenderId = actionMessage ? (actionMessage.userId || actionMessage.senderId) : undefined;
     const actionMessageIsMe = !!actionMessageSenderId && actionMessageSenderId === user?.id;
 
     // Newest-first for inverted FlatList — copy+reverse once, never mutate `messages`
     const listData = useMemo(() => {
-        if (messages.length <= 1) return messages;
-        return messages.slice().reverse();
-    }, [messages]);
+        const visible = blockedIds.size === 0
+            ? messages
+            : messages.filter((m) => {
+                const sid = m.userId || m.senderId;
+                return !(sid && blockedIds.has(sid));
+            });
+        if (visible.length <= 1) return visible;
+        return visible.slice().reverse();
+    }, [messages, blockedIds]);
 
     const handleScroll = useCallback((event: any) => {
         // Inverted list: offset near 0 means visually at the bottom (latest messages)
@@ -321,6 +371,7 @@ export default function ChatScreen() {
                 onEdit={handleEditMessage}
                 onDelete={handleDeleteMessage}
                 onReport={handleReportMessage}
+                onBlock={handleBlockUser}
             />
         </SafeAreaView>
     );
