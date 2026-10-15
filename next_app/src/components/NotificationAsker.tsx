@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import useNotification from "@/hooks/useNotification";
+import { askerView } from "@/utils/pushSupport";
 
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
@@ -62,12 +63,11 @@ export default function NotificationAsker() {
         </Snackbar>
     );
 
-    if (fcmToken || !user) return toast;
     // No button where push can't work (unsupported browser, permission denied, or still checking).
-    if (pushSupport !== "supported" && pushSupport !== "ios-needs-install") return toast;
-    if (pushSupport === "ios-needs-install" && iosHintDismissed) return toast;
+    const view = askerView({ signedIn: !!user, hasToken: !!fcmToken, pushSupport, iosHintDismissed, iosInAppBrowser });
+    if (view === "nothing") return toast;
 
-    const isIosHint = pushSupport === "ios-needs-install";
+    const isIosHint = view !== "enable-button";
 
     const dismissIosHint = () => {
         setIosHintOpen(false);
