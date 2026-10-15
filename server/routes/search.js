@@ -1,4 +1,5 @@
 const express = require('express');
+const { getBlockedEitherWayIds } = require('../utils/blocks');
 const { prisma } = require('../lib/prisma');
 const { authenticateToken } = require('../utils/auth');
 const { getActiveGameStartCutoff } = require('../utils/timezone');
@@ -34,11 +35,14 @@ router.get('/global', authenticateToken, async (req, res) => {
       gameOr.push({ sport: { in: sportFilter } });
     }
 
+    const hiddenUserIds = await getBlockedEitherWayIds(loggedInUserId);
+
     const [users, fields, games] = await Promise.all([
       // Users — match by name, exclude self and mock accounts.
       prisma.user.findMany({
         where: {
-          id: { not: loggedInUserId },
+          id: { notIn: [loggedInUserId, ...hiddenUserIds] },
+          deletedAt: null,
           name: { contains: q, mode: 'insensitive' },
           OR: [
             { email: null },

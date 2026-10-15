@@ -856,5 +856,8 @@
     "title": "אופס!",
     "screenMissing": "המסך הזה לא קיים.",
     "goHome": "חזרה למסך הבית!"
+  },
+  "fields": {
+    "commentDeleted": "התגובה נמחקה"
   }
 }

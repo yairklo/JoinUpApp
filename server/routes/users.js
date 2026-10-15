@@ -24,7 +24,7 @@ const notificationService = new NotificationService(prisma);
 // Shared constants
 const { SPORT_KEYS } = require('../utils/sports');
 const { sanitizeFreeText } = require('../utils/sanitize');
-const { isBlockedEitherWay } = require('../utils/blocks');
+const { isBlockedEitherWay, getBlockedEitherWayIds } = require('../utils/blocks');
 
 // After a decline the same requester must wait before asking the same person again, so a declined
 // request cannot be re-sent (and re-notified) over and over. The person who declined can always ask.
@@ -73,10 +73,12 @@ router.get('/search', authenticateToken, async (req, res) => {
     }
 
     // Fetch matching users
+    const hiddenUserIds = await getBlockedEitherWayIds(loggedInUserId);
     const matchingUsers = await prisma.user.findMany({
       where: {
         AND: [
-          { id: { not: loggedInUserId } },
+          { id: { notIn: [loggedInUserId, ...hiddenUserIds] } },
+          { deletedAt: null },
           {
             OR: [
               { name: { contains: q, mode: 'insensitive' } },

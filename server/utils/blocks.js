@@ -10,6 +10,18 @@ async function getBlockedByMe(userId) {
   return rows.map((r) => r.blockedId);
 }
 
+/** Ids of everyone who is blocked by, or has blocked, `userId`. */
+async function getBlockedEitherWayIds(userId) {
+  if (!userId) return [];
+  const rows = await prisma.userBlock.findMany({
+    where: { OR: [{ blockerId: String(userId) }, { blockedId: String(userId) }] },
+    select: { blockerId: true, blockedId: true },
+  });
+  const ids = new Set();
+  for (const r of rows) ids.add(r.blockerId === String(userId) ? r.blockedId : r.blockerId);
+  return [...ids];
+}
+
 /** True when either user has blocked the other. */
 async function isBlockedEitherWay(a, b) {
   if (!a || !b) return false;
@@ -50,4 +62,4 @@ async function isPrivateChatBlocked(userId, roomId) {
   return isBlockedEitherWay(userId, other);
 }
 
-module.exports = { getBlockedByMe, isBlockedEitherWay, getBlockersAmong, isPrivateChatBlocked };
+module.exports = { getBlockedEitherWayIds, getBlockedByMe, isBlockedEitherWay, getBlockersAmong, isPrivateChatBlocked };

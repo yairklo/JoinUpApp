@@ -856,5 +856,8 @@
     "title": "Oops!",
     "screenMissing": "This screen doesn't exist.",
     "goHome": "Go to home screen!"
+  },
+  "fields": {
+    "commentDeleted": "This comment was deleted"
   }
 }

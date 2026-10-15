@@ -297,11 +297,14 @@ async function socketAuthMiddleware(socket, next) {
       return next(new Error('Unauthorized'));
     }
     try {
-      const { getClerkUserCached } = require('./utils/auth');
+      const { getClerkUserCached, isAccountDeleted } = require('./utils/auth');
       const { resolveIsBanned } = require('./utils/admin');
       const clerkUser = await getClerkUserCached(socket.userId);
       if (resolveIsBanned(clerkUser)) {
         return next(new Error('Account suspended'));
+      }
+      if (await isAccountDeleted(socket.userId)) {
+        return next(new Error('Account deleted'));
       }
     } catch (e) {
       // Clerk lookup failure shouldn't block a socket that already has a valid JWT

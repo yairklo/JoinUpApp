@@ -17,6 +17,7 @@ const {
   sendAutoWelcomeMessage,
 } = require('../services/gameService');
 const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
+const { isBlockedEitherWay } = require('../utils/blocks');
 
 const router = express.Router();
 
@@ -536,8 +537,11 @@ router.post('/:id/participants', authenticateToken, rejectIfCancelled, async (re
 
     // Ensure user exists in local User table
     const userExists = await prisma.user.findUnique({ where: { id: userId } });
-    if (!userExists) {
+    if (!userExists || userExists.deletedAt) {
       return res.status(404).json({ error: 'User not found in local database' });
+    }
+    if (await isBlockedEitherWay(req.user.id, userId)) {
+      return res.status(403).json({ error: 'Cannot add this user', code: 'USER_BLOCKED' });
     }
 
     const already = await prisma.participation.findFirst({

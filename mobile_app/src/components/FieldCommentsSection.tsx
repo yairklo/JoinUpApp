@@ -190,7 +190,11 @@ export default function FieldCommentsSection({ fieldId }: { fieldId: string }) {
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    <Text className="text-gray-700 text-sm mt-1">{comment.text}</Text>
+                    {comment.text ? (
+                        <Text className="text-gray-700 text-sm mt-1">{comment.text}</Text>
+                    ) : (
+                        <Text className="text-gray-400 text-sm mt-1 italic">{t('fields.commentDeleted', 'התגובה נמחקה')}</Text>
+                    )}
                 )}
 
                 <View className="flex-row items-center mt-1" style={{ gap: 10 }}>

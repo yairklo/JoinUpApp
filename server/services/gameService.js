@@ -1,4 +1,5 @@
 const { SportType } = require('@prisma/client');
+const { getBlockedEitherWayIds } = require('../utils/blocks');
 const { NotificationService } = require('./notificationService');
 const {
   getActiveGameStartCutoff,
@@ -633,9 +634,12 @@ async function createGame(payload, creatorUser, io) {
     ? welcomeMessage
     : (series ? sanitizeFreeText(series.welcomeMessage, DESCRIPTION_MAX_LENGTH) : welcomeMessage);
 
-  const invitedUserIds = Array.isArray(invitedParticipantIds)
+  const requestedInviteIds = Array.isArray(invitedParticipantIds)
     ? invitedParticipantIds.filter(id => typeof id === 'string' && id !== creatorUser.id)
     : [];
+  // Never invite someone who has blocked the organizer (or whom the organizer has blocked).
+  const blockedWithCreator = new Set(await getBlockedEitherWayIds(creatorUser.id));
+  const invitedUserIds = requestedInviteIds.filter(id => !blockedWithCreator.has(id));
   const hasFieldId = !!fieldId;
   const hasNewFieldText = !!(newField && (String(newField.name || '').trim() || String(newField.location || '').trim()));
   const hasCoords = Number.isFinite(latNum) && Number.isFinite(lngNum);
