@@ -24,6 +24,7 @@ export default function UserProfileScreen() {
     // Relationship state: 'friends', 'pending_incoming', 'pending_outgoing', 'none', 'self'
     const [relationship, setRelationship] = useState<string>('none');
     const [actionLoading, setActionLoading] = useState(false);
+    const [isBlocked, setIsBlocked] = useState(false);
 
     // Match history pagination
     const [matches, setMatches] = useState<ProfileMatch[]>([]);
@@ -43,6 +44,41 @@ export default function UserProfileScreen() {
         loadUserData();
     }, [id, currentUser?.id]);
 
+    const handleToggleBlock = () => {
+        const doToggle = async () => {
+            try {
+                setActionLoading(true);
+                const token = await getToken();
+                if (!token) return;
+                if (isBlocked) {
+                    await usersApi.unblockUser(id, token);
+                    setIsBlocked(false);
+                } else {
+                    await usersApi.blockUser(id, token);
+                    setIsBlocked(true);
+                    setRelationship('none');
+                }
+            } catch (err) {
+                console.error('Error toggling block', err);
+                Alert.alert(t('common.error', 'Error'), t('profile.blockFailed', 'הפעולה נכשלה. נסו שוב.'));
+            } finally {
+                setActionLoading(false);
+            }
+        };
+        if (isBlocked) {
+            doToggle();
+            return;
+        }
+        Alert.alert(
+            t('profile.blockConfirmTitle', 'לחסום את {{name}}?', { name: profile?.name || '' }),
+            t('profile.blockConfirmBody', 'לא תראו יותר הודעות ותגובות מהמשתמש הזה, והוא לא יוכל לשלוח לכם הודעות או בקשות חברות. אפשר לבטל את החסימה בכל עת.'),
+            [
+                { text: t('common.cancel', 'ביטול'), style: 'cancel' },
+                { text: t('profile.block', 'חסום משתמש'), style: 'destructive', onPress: doToggle },
+            ]
+        );
+    };
+
     const loadUserData = async () => {
         try {
             setLoading(true);
@@ -55,6 +91,11 @@ export default function UserProfileScreen() {
             const initialMatches = profileData.matchHistory || [];
             setMatches(initialMatches);
             setHasMore(initialMatches.length === PAGE_SIZE);
+
+            // Block state (best effort)
+            usersApi.getBlockedUsers(token)
+                .then((list) => setIsBlocked(list.some((b) => b.id === id)))
+                .catch(() => { });
 
             // Fetch relationships to determine status
             const [friends, incoming, outgoing] = await Promise.all([
@@ -249,7 +290,7 @@ export default function UserProfileScreen() {
                         )}
 
                         {/* Always show Send Message button unless it's yourself */}
-                        {relationship !== 'self' && (
+                        {relationship !== 'self' && !isBlocked && (
                             <TouchableOpacity
                                 onPress={async () => {
                                     try {
@@ -280,6 +321,14 @@ export default function UserProfileScreen() {
                             </TouchableOpacity>
                         )}
                     </View>
+                    {relationship !== 'self' && (
+                        <TouchableOpacity onPress={handleToggleBlock} disabled={actionLoading} className="flex-row items-center py-2">
+                            <FontAwesome name="ban" size={14} color={isBlocked ? '#6b7280' : '#ef4444'} style={{ marginRight: 6 }} />
+                            <Text className={isBlocked ? 'text-gray-600 font-semibold' : 'text-red-500 font-semibold'}>
+                                {isBlocked ? t('profile.unblock', 'בטל חסימה') : t('profile.block', 'חסום משתמש')}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
 

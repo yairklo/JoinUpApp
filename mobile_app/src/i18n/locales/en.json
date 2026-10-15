@@ -195,7 +195,12 @@
     "about": "About",
     "yearsOld": "years old",
     "favoriteSports": "Favorite Sports",
-    "userNotFound": "User not found."
+    "userNotFound": "User not found.",
+    "block": "Block user",
+    "unblock": "Unblock",
+    "blockConfirmTitle": "Block {{name}}?",
+    "blockConfirmBody": "You won't see messages or comments from this user, and they can't message you or send friend requests. You can unblock anytime.",
+    "blockFailed": "Action failed. Please try again."
   },
   "game": {
     "details": "Game Details",
@@ -399,7 +404,12 @@
     "reportAlreadySent": "You already reported this message. The moderators will review it.",
     "reportFailedTitle": "Report not sent",
     "reportNotAllowed": "This message can't be reported (it may have been deleted).",
-    "reportFailedBody": "Something went wrong. Check your connection and try again."
+    "reportFailedBody": "Something went wrong. Check your connection and try again.",
+    "blockUser": "Block user",
+    "blockConfirmTitle": "Block {{name}}?",
+    "blockConfirmBody": "You won't see messages or comments from this user, and they can't send you private messages or friend requests. You can unblock in Settings.",
+    "blockFailed": "Blocking failed. Please try again.",
+    "thisUser": "This user"
   },
   "notifications": {
     "title": "Notifications",
@@ -759,7 +769,19 @@
     "notificationsPermissionRequired": "Notification Permission Required",
     "openSettings": "Open Settings",
     "updatePushFailed": "Failed to update notification settings, please try again.",
-    "feedback": "Report a Bug / Contact Us"
+    "feedback": "Report a Bug / Contact Us",
+    "blockedUsers": "Blocked users",
+    "noBlockedUsers": "You haven't blocked anyone.",
+    "deleteAccount": "Delete account",
+    "deletingAccount": "Deleting account...",
+    "deleteAccountTitle": "Delete account",
+    "deleteAccountWarning": "Your account and personal data will be permanently deleted, including profile, friends, game sign-ups and comments. This cannot be undone.",
+    "deleteAccountContinue": "Continue",
+    "deleteAccountConfirmTitle": "Are you sure?",
+    "deleteAccountConfirmBody": "This is final - your account will be deleted immediately.",
+    "deleteAccountConfirm": "Delete my account",
+    "deleteAccountFailedTitle": "Could not delete account",
+    "deleteAccountFailedBody": "Something went wrong. Check your connection and try again."
   },
   "feedback": {
     "title": "Report a Bug / Contact Us",

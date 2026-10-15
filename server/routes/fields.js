@@ -1,4 +1,5 @@
 const express = require('express');
+const { getBlockedByMe } = require('../utils/blocks');
 const { Prisma } = require('@prisma/client');
 const { prisma } = require('../lib/prisma');
 const dataManager = require('../utils/dataManager');
@@ -562,12 +563,17 @@ const REPLIES_INCLUDE = {
 router.get('/:id/comments', attachOptionalUser, async (req, res) => {
   try {
     const fieldId = req.params.id;
+    const blockedIds = req.user?.id ? await getBlockedByMe(req.user.id) : [];
     const comments = await prisma.fieldComment.findMany({
-      where: { fieldId, parentId: null },
+      where: { fieldId, parentId: null, ...(blockedIds.length ? { userId: { notIn: blockedIds } } : {}) },
       orderBy: { createdAt: 'desc' },
       include: { user: { select: USER_SELECT }, reactions: true, replies: REPLIES_INCLUDE },
     });
-    res.json(comments.map((c) => mapCommentForClient(c, req.user?.id)));
+    const hidden = new Set(blockedIds);
+    res.json(comments.map((c) => mapCommentForClient(
+      hidden.size ? { ...c, replies: (c.replies || []).filter((r) => !hidden.has(r.userId)) } : c,
+      req.user?.id,
+    )));
   } catch (error) {
     console.error('Get field comments error:', error);
     res.status(500).json({ error: 'Failed to get field comments' });

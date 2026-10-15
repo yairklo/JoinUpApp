@@ -31,6 +31,7 @@ const searchRoutes = require('./routes/search');
 const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 const { verifyToken } = require('@clerk/backend');
+const { isPrivateChatBlocked, getBlockersAmong } = require('./utils/blocks');
 const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
 const { mapUserToSender } = require('./utils/chatMappers');
 const { NotificationService } = require('./services/notificationService');
@@ -546,6 +547,15 @@ io.on('connection', async (socket) => {
 
     const finalUserId = String(socket.userId);
 
+    try {
+      if (await isPrivateChatBlocked(finalUserId, String(roomId))) {
+        socket.emit('error', 'You cannot message this user');
+        return;
+      }
+    } catch (e) {
+      console.error('[blocks] private chat block check failed:', e.message);
+    }
+
     console.log(`[DEBUG] Incoming Message - Room: "${roomId}", User: ${finalUserId}`); // <--- TOP LEVEL DEBUG LOG
 
     // Fetch sender details early (needed for moderation and fallbacks)
@@ -777,6 +787,9 @@ io.on('connection', async (socket) => {
           });
           recipientIds = participations.map(p => p.userId);
         }
+
+        const blockers = await getBlockersAmong(finalUserId, recipientIds).catch(() => new Set());
+        if (blockers.size) recipientIds = recipientIds.filter(id => !blockers.has(String(id)));
 
         console.log(`[DEBUG NOTIFICATIONS] Resolved recipientIds for room ${roomId}:`, recipientIds);
         const messagePreview = text.length > 80 ? `${text.slice(0, 77)}...` : text;
