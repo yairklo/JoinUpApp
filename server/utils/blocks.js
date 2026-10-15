@@ -43,7 +43,7 @@ async function isPrivateChatBlocked(userId, roomId) {
   const room = await prisma.chatRoom.findUnique({
     where: { id: String(roomId) },
     select: { type: true, participants: { select: { userId: true } } },
-  }).catch(() => null);
+  });
   if (!room || room.type !== 'PRIVATE') return false;
   const other = room.participants.map((p) => p.userId).find((id) => id !== String(userId));
   if (!other) return false;

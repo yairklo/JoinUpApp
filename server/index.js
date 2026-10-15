@@ -553,7 +553,10 @@ io.on('connection', async (socket) => {
         return;
       }
     } catch (e) {
+      // Fail closed: if we cannot tell whether the pair is blocked, do not deliver.
       console.error('[blocks] private chat block check failed:', e.message);
+      socket.emit('error', 'Could not send message');
+      return;
     }
 
     console.log(`[DEBUG] Incoming Message - Room: "${roomId}", User: ${finalUserId}`); // <--- TOP LEVEL DEBUG LOG
