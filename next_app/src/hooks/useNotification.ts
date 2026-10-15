@@ -1,41 +1,71 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { requestForToken, onMessageListener } from '../utils/firebase';
+import { requestForToken, onMessageListener, getMessagingReady } from '../utils/firebase';
+
+/**
+ * 'checking'           - support not known yet (render nothing)
+ * 'supported'          - permission can be requested
+ * 'ios-needs-install'  - iPhone/iPad Safari tab: web push only works from a Home Screen app (iOS 16.4+)
+ * 'unsupported'        - no web push in this browser, or permission already denied
+ */
+export type PushSupport = 'checking' | 'supported' | 'ios-needs-install' | 'unsupported';
+
+const isIOSDevice = () =>
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    // iPadOS 13+ reports itself as Macintosh
+    (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
+
+const isStandalone = () =>
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
 const useNotification = () => {
     const { getToken } = useAuth();
     const [notification, setNotification] = useState<any>({ title: '', body: '' });
     const [fcmToken, setFcmToken] = useState<string | null>(null);
+    const [pushSupport, setPushSupport] = useState<PushSupport>('checking');
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (typeof window === 'undefined') return;
+        let cancelled = false;
+
+        const hasWebPush = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+        if (!hasWebPush) {
+            setPushSupport(isIOSDevice() && !isStandalone() ? 'ios-needs-install' : 'unsupported');
+            return;
+        }
+
+        getMessagingReady().then(messaging => {
+            if (cancelled) return;
+            if (!messaging || Notification.permission === 'denied') {
+                setPushSupport('unsupported');
+                return;
+            }
+            setPushSupport('supported');
             if (Notification.permission === 'granted') {
-                // Automatically fetch token if allowed
+                // Re-fetch on every load: FCM tokens rotate (notably on iOS), so the
+                // backend must be told about the current one each time.
                 requestForToken().then(token => {
-                    if (token) {
+                    if (token && !cancelled) {
                         setFcmToken(token);
-                        // Register device with backend
                         registerDevice(token);
                     }
                 });
             }
-        }
+        });
+
+        return () => { cancelled = true; };
     }, []);
 
     useEffect(() => {
-        const listen = async () => {
-            onMessageListener().then((payload: any) => {
-                setNotification({
-                    title: payload?.notification?.title,
-                    body: payload?.notification?.body,
-                });
-                // You can use a custom toast here. For now standard alert or simple UI update.
-                alert(`New Notification: ${payload?.notification?.title}\n${payload?.notification?.body}`);
-                console.log("Received foreground message:", payload);
+        // Foreground messages are shown via the Snackbar in NotificationAsker.
+        // The server sends data-only messages, so title/body live in payload.data.
+        return onMessageListener((payload) => {
+            setNotification({
+                title: payload?.data?.title ?? payload?.notification?.title,
+                body: payload?.data?.body ?? payload?.notification?.body,
             });
-        };
-
-        listen();
+        });
     }, []); // single initialization
 
     const registerDevice = async (token: string) => {
@@ -78,12 +108,13 @@ const useNotification = () => {
                     await registerDevice(token);
                 }
             }
+            if (permission === 'denied') setPushSupport('unsupported');
             return permission;
         }
         return 'denied';
     };
 
-    return { fcmToken, notification, requestPermission };
+    return { fcmToken, notification, requestPermission, pushSupport };
 };
 
 export default useNotification;

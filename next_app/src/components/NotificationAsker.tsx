@@ -9,12 +9,29 @@ import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import Fab from "@mui/material/Fab";
 import Tooltip from "@mui/material/Tooltip";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
 import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
+import IosShareIcon from "@mui/icons-material/IosShare";
+
+const IOS_HINT_DISMISSED_KEY = "joinup:iosPushHintDismissed";
 
 export default function NotificationAsker() {
     const { user } = useUser();
-    const { fcmToken, requestPermission, notification } = useNotification();
+    const { fcmToken, requestPermission, notification, pushSupport } = useNotification();
     const [showToast, setShowToast] = useState(false);
+    const [iosHintOpen, setIosHintOpen] = useState(false);
+    const [iosHintDismissed, setIosHintDismissed] = useState(false);
+
+    useEffect(() => {
+        try {
+            setIosHintDismissed(localStorage.getItem(IOS_HINT_DISMISSED_KEY) === "1");
+        } catch { /* storage unavailable - keep showing the hint */ }
+    }, []);
 
     useEffect(() => {
         if (notification?.title) {
@@ -46,13 +63,27 @@ export default function NotificationAsker() {
     }
 
     if (!user) return null;
+    // No button where push can't work (unsupported browser, permission denied, or still checking).
+    if (pushSupport !== "supported" && pushSupport !== "ios-needs-install") return null;
+    if (pushSupport === "ios-needs-install" && iosHintDismissed) return null;
+
+    const isIosHint = pushSupport === "ios-needs-install";
+
+    const dismissIosHint = () => {
+        setIosHintOpen(false);
+        setIosHintDismissed(true);
+        try {
+            localStorage.setItem(IOS_HINT_DISMISSED_KEY, "1");
+        } catch { /* ignore */ }
+    };
 
     return (
+        <>
         <Tooltip title="הפעל התראות">
             <Fab
                 color="primary"
                 size="medium"
-                onClick={() => requestPermission()}
+                onClick={() => (isIosHint ? setIosHintOpen(true) : requestPermission())}
                 aria-label="הפעל התראות"
                 sx={{
                     position: "fixed",
@@ -79,5 +110,27 @@ export default function NotificationAsker() {
                 <NotificationsActiveOutlinedIcon fontSize="small" />
             </Fab>
         </Tooltip>
+        {isIosHint && (
+            <Dialog open={iosHintOpen} onClose={() => setIosHintOpen(false)} dir="rtl">
+                <DialogTitle sx={{ fontWeight: 700 }}>התראות באייפון</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" sx={{ mb: 1.5 }}>
+                        באייפון אפשר לקבל התראות רק מהאפליקציה שמותקנת במסך הבית (iOS 16.4 ומעלה):
+                    </Typography>
+                    <Typography component="ol" variant="body2" sx={{ m: 0, ps: 2.5 }}>
+                        <li>
+                            לחצו על כפתור השיתוף <IosShareIcon fontSize="inherit" sx={{ verticalAlign: "middle" }} /> בספארי
+                        </li>
+                        <li>בחרו &quot;הוספה למסך הבית&quot;</li>
+                        <li>פתחו את joinUp ממסך הבית והפעילו שם התראות</li>
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={dismissIosHint} color="inherit">אל תציג שוב</Button>
+                    <Button onClick={() => setIosHintOpen(false)} variant="contained">הבנתי</Button>
+                </DialogActions>
+            </Dialog>
+        )}
+        </>
     );
 }

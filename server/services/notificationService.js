@@ -58,6 +58,41 @@ function stringifyValues(obj = {}) {
     return out;
 }
 
+/**
+ * Build the FCM message for a web (PWA) device. DATA-ONLY on purpose: no top-level
+ * `notification`, so the browser never auto-displays it and firebase-messaging-sw.js is
+ * the single place that shows it (sending both used to produce duplicates). The SW
+ * always calls showNotification, which iOS requires — it revokes permission for pushes
+ * that show nothing. FCM data values must all be strings.
+ */
+function buildFcmMessage(token, type, title, body, data = {}) {
+    const link = data.link || '/';
+    return {
+        token,
+        data: {
+            ...stringifyValues(data),
+            type,
+            title,
+            body,
+            notificationId: data.notificationId ? String(data.notificationId) : '',
+            link,
+            icon: '/icons/web-app-manifest-192x192.png'
+        },
+        webpush: {
+            // Without high urgency, data-only pushes may be delayed on battery-saving devices.
+            headers: { Urgency: 'high' },
+            fcmOptions: { link }
+        },
+        // Ignored for web tokens; keeps any legacy native-Android FCM token displaying
+        // (the current mobile app uses Expo). No `apns` block: the old content-available
+        // flag made it a silent push.
+        android: {
+            priority: 'high',
+            notification: { title, body, icon: 'icon_notification', color: '#000000', channelId: 'default' }
+        }
+    };
+}
+
 class NotificationService {
     constructor(prisma) {
         this.prisma = prisma || require('../lib/prisma').prisma;
@@ -322,44 +357,7 @@ class NotificationService {
         for (const device of devices) {
             const token = device.fcmToken;
             try {
-                await admin.messaging().send({
-                    token,
-                    notification: { title, body },
-                    data: {
-                        ...stringifyValues(data),
-                        type,
-                        title, // Send title in data
-                        body,  // Send body in data
-                        notificationId: data.notificationId || '',
-                        link: data.link || '/',
-                        icon: '/icons/web-app-manifest-192x192.png'
-                    },
-                    webpush: {
-                        fcmOptions: {
-                            link: data.link || '/'
-                        }
-                    },
-                    android: {
-                        priority: 'high',
-                        notification: {
-                            icon: 'icon_notification',
-                            color: '#000000',
-                            channelId: 'default',
-                            clickAction: 'FLUTTER_NOTIFICATION_CLICK' // Standard for many handlers, but we will handle in SW
-                        }
-                    },
-                    apns: {
-                        headers: {
-                            'apns-priority': '10'
-                        },
-                        payload: {
-                            aps: {
-                                'content-available': 1,
-                                sound: 'default'
-                            }
-                        }
-                    }
-                });
+                await admin.messaging().send(buildFcmMessage(token, type, title, body, data));
 
                 Logger.info('NotificationService', `Push sent to token ${token.substring(0, 20)}...`);
             } catch (error) {
@@ -577,4 +575,4 @@ class NotificationService {
     }
 }
 
-module.exports = { NotificationService };
+module.exports = { NotificationService, buildFcmMessage };
