@@ -21,8 +21,8 @@ import DoneAllIcon from "@mui/icons-material/DoneAll";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import BlockIcon from "@mui/icons-material/Block";
 import FlagIcon from "@mui/icons-material/Flag";
+import BlockIcon from "@mui/icons-material/Block";
 
 import { ChatMessage } from "./types";
 
@@ -44,6 +44,7 @@ interface MessageBubbleProps {
     currentUserId?: string | null;
     nameByUserId?: Record<string, string | null>;
     onReport?: (message: ChatMessage) => void;
+    onBlock?: (message: ChatMessage) => void;
     onOpenProfile?: (userId: string) => void;
 }
 
@@ -51,7 +52,7 @@ const COMMON_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 export default function MessageBubble({
     message, isMine, isRTL, onReply, onReact, onEdit, onDelete, avatarUrl, displayName, timeStr,
-    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId, nameByUserId, onReport, onOpenProfile
+    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId, nameByUserId, onReport, onBlock, onOpenProfile
 }: MessageBubbleProps) {
 
     const [hover, setHover] = useState(false);
@@ -79,6 +80,11 @@ export default function MessageBubble({
     const handleReport = () => {
         handleMenuClose();
         onReport?.(message);
+    };
+
+    const handleBlock = () => {
+        handleMenuClose();
+        onBlock?.(message);
     };
 
     const handleDelete = () => {
@@ -250,7 +256,7 @@ export default function MessageBubble({
                 <Stack direction={isRTL ? "row-reverse" : "row"} spacing={0} sx={{ opacity: hover || menuAnchorEl ? 1 : 0, transition: "opacity 0.2s", alignSelf: "center" }}>
                     <IconButton size="small" onClick={() => onReply(message)}><ReplyIcon fontSize="small" /></IconButton>
                     <IconButton size="small" onClick={handleReactionClick}><AddReactionIcon fontSize="small" /></IconButton>
-                    {(isMine || onReport) && (
+                    {(isMine || onReport || onBlock) && (
                         <IconButton size="small" onClick={handleMenuOpen}><MoreVertIcon fontSize="small" /></IconButton>
                     )}
                 </Stack>
@@ -286,12 +292,18 @@ export default function MessageBubble({
                         <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
                         <ListItemText sx={{ color: "error.main" }}>{isRTL ? "מחק" : "Delete"}</ListItemText>
                     </MenuItem>
-                ] : (
-                    <MenuItem onClick={handleReport}>
+                ] : [
+                    <MenuItem key="report" onClick={handleReport}>
                         <ListItemIcon><FlagIcon fontSize="small" color="error" /></ListItemIcon>
                         <ListItemText sx={{ color: "error.main" }}>{isRTL ? "דווח על הודעה פוגענית" : "Report message"}</ListItemText>
-                    </MenuItem>
-                )}
+                    </MenuItem>,
+                    ...(onBlock ? [
+                        <MenuItem key="block" onClick={handleBlock}>
+                            <ListItemIcon><BlockIcon fontSize="small" color="error" /></ListItemIcon>
+                            <ListItemText sx={{ color: "error.main" }}>{isRTL ? "חסום משתמש" : "Block user"}</ListItemText>
+                        </MenuItem>,
+                    ] : []),
+                ]}
             </Menu>
         </Box>
     );

@@ -8,6 +8,15 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import ChatIcon from "@mui/icons-material/Chat";
 
+import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import BlockIcon from "@mui/icons-material/Block";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
+import { usersApi } from "@/services/api/users";
 import { useUserActions } from "@/hooks/useUserActions";
 import MuteNotificationsButton from "@/components/notifications/MuteNotificationsButton";
 
@@ -33,6 +42,50 @@ export default function UserProfileActions({
         isLoaded
     } = useUserActions(targetUserId, targetUserName, targetUserImage);
 
+    const { getToken } = useAuth();
+    const [isBlocked, setIsBlocked] = useState(false);
+    const [blockBusy, setBlockBusy] = useState(false);
+    const [blockError, setBlockError] = useState<string | null>(null);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+
+    useEffect(() => {
+        if (status === 'SELF' || !isLoaded) return;
+        let active = true;
+        (async () => {
+            try {
+                const token = await getToken();
+                if (!token) return;
+                const list = await usersApi.getBlockedUsers(token);
+                if (active) setIsBlocked(list.some((b) => b.id === targetUserId));
+            } catch {
+                // non-fatal: the button just defaults to "block"
+            }
+        })();
+        return () => { active = false; };
+    }, [status, isLoaded, targetUserId, getToken]);
+
+    const toggleBlock = async () => {
+        setBlockBusy(true);
+        setBlockError(null);
+        try {
+            const token = await getToken();
+            if (!token) throw new Error('no token');
+            if (isBlocked) {
+                await usersApi.unblockUser(targetUserId, token);
+                setIsBlocked(false);
+            } else {
+                await usersApi.blockUser(targetUserId, token);
+                setIsBlocked(true);
+            }
+        } catch (e) {
+            console.error('Failed to toggle block:', e);
+            setBlockError('הפעולה נכשלה. נסו שוב.');
+        } finally {
+            setBlockBusy(false);
+            setConfirmOpen(false);
+        }
+    };
+
     if (status === 'SELF' || !isLoaded) return null;
     if (status === 'LOADING') return <CircularProgress size={20} />;
 
@@ -40,7 +93,7 @@ export default function UserProfileActions({
         <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
             <Box display="flex" gap={2} justifyContent="center" flexWrap="wrap">
                 {/* Friend Buttons */}
-                {status === 'FRIEND' ? (
+                {isBlocked ? null : status === 'FRIEND' ? (
                     <Button
                         variant="outlined"
                         color="error"
@@ -86,25 +139,49 @@ export default function UserProfileActions({
                     </Button>
                 )}
 
-                <Button
-                    variant="outlined"
-                    color="primary"
-                    startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <ChatIcon />}
-                    onClick={handleMessage}
-                    disabled={actionLoading}
-                >
-                    הודעה
-                </Button>
+                {!isBlocked && (
+                    <Button
+                        variant="outlined"
+                        color="primary"
+                        startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <ChatIcon />}
+                        onClick={handleMessage}
+                        disabled={actionLoading}
+                    >
+                        הודעה
+                    </Button>
+                )}
 
-                {status === 'FRIEND' && (
+                {status === 'FRIEND' && !isBlocked && (
                     <MuteNotificationsButton targetType="USER" targetId={targetUserId} muteLabel="השתק התראות" />
                 )}
             </Box>
-            {error && (
+            <Button
+                size="small"
+                color={isBlocked ? "inherit" : "error"}
+                startIcon={<BlockIcon fontSize="small" />}
+                onClick={() => (isBlocked ? toggleBlock() : setConfirmOpen(true))}
+                disabled={blockBusy}
+            >
+                {isBlocked ? "בטל חסימה" : "חסום משתמש"}
+            </Button>
+            {(error || blockError) && (
                 <Typography variant="caption" color="error" role="alert">
-                    {error}
+                    {error || blockError}
                 </Typography>
             )}
+
+            <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} dir="rtl">
+                <DialogTitle>לחסום את {targetUserName}?</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        לא תראו יותר הודעות ותגובות מהמשתמש הזה, והוא לא יוכל לשלוח לכם הודעות או בקשות חברות. אפשר לבטל את החסימה בכל עת.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setConfirmOpen(false)}>ביטול</Button>
+                    <Button color="error" onClick={toggleBlock} disabled={blockBusy}>חסום</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }
