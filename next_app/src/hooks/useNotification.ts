@@ -1,31 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { requestForToken, onMessageListener, getMessagingReady } from '../utils/firebase';
+import { detectPushSupport, isWebKitSafari, readPushEnv, PushSupport } from '../utils/pushSupport';
 
-/**
- * 'checking'           - support not known yet (render nothing)
- * 'supported'          - permission can be requested
- * 'ios-needs-install'  - iPhone/iPad Safari tab: web push only works from a Home Screen app (iOS 16.4+)
- * 'unsupported'        - no web push in this browser, or permission already denied
- */
-export type PushSupport = 'checking' | 'supported' | 'ios-needs-install' | 'unsupported';
-
-const isIOSDevice = () =>
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    // iPadOS 13+ reports itself as Macintosh
-    (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
-
-// Safari/WebKit: every iOS browser, plus desktop Safari. Must match IS_WEBKIT_SAFARI in
-// public/firebase-messaging-sw.js, which always shows a system notification there.
-const isWebKitSafari = () =>
-    isIOSDevice() ||
-    (/AppleWebKit/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent) &&
-        !/Chrome|Chromium|Edg|OPR|Android/.test(navigator.userAgent));
-
-// In-app browsers (Instagram, Facebook, LINE, ...) can't "Add to Home Screen" - the page has
-// to be opened in Safari first. (WhatsApp/iMessage use Safari View Controller, which can.)
-const isIOSInAppBrowser = () =>
-    /FBAN|FBAV|FB_IAB|Instagram|Line\/|Twitter|LinkedInApp|Snapchat|TikTok|musical_ly|GSA\//.test(navigator.userAgent);
+export type { PushSupport };
 
 // Skip the register-device POST only when the LAST registration from this browser was
 // the same user with the same token, within the last week (in case the server dropped
@@ -52,10 +30,6 @@ const markRegistered = (userId: string, token: string) => {
     } catch { /* storage unavailable - we'll just re-register next load */ }
 };
 
-const isStandalone = () =>
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true;
-
 const useNotification = () => {
     const { getToken, userId } = useAuth();
     const [notification, setNotification] = useState<any>({ title: '', body: '' });
@@ -67,17 +41,10 @@ const useNotification = () => {
         if (typeof window === 'undefined') return;
         let cancelled = false;
 
-        // On iOS, web push only ever works from a Home Screen app - decide that first,
-        // regardless of which push APIs a given iOS version exposes in a browser tab.
-        if (isIOSDevice() && !isStandalone()) {
-            setIosInAppBrowser(isIOSInAppBrowser());
-            setPushSupport('ios-needs-install');
-            return;
-        }
-
-        const hasWebPush = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
-        if (!hasWebPush) {
-            setPushSupport('unsupported');
+        const detected = detectPushSupport(readPushEnv());
+        setIosInAppBrowser(detected.iosInAppBrowser);
+        if (detected.support !== 'needs-messaging-check') {
+            setPushSupport(detected.support);
             return;
         }
 
@@ -108,7 +75,7 @@ const useNotification = () => {
         // The server sends data-only messages, so title/body live in payload.data.
         // On Safari/WebKit the service worker already showed a system notification for
         // this message (iOS requires it), so don't repeat it in-app.
-        if (typeof window === 'undefined' || isWebKitSafari()) return;
+        if (typeof window === 'undefined' || isWebKitSafari(navigator.userAgent, 'ontouchend' in document)) return;
         return onMessageListener((payload) => {
             setNotification({
                 title: payload?.data?.title ?? payload?.notification?.title,
