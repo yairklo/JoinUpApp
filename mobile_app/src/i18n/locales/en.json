@@ -505,7 +505,8 @@
     "flagSpam": "Spam",
     "flagOther": "Other",
     "attachPhoto": "Attach photo",
-    "createGameHere": "Create a new game at this field"
+    "createGameHere": "Create a new game at this field",
+    "commentDeleted": "This comment was deleted"
   },
   "series": {
     "badge": "Weekly group",
@@ -856,8 +857,5 @@
     "title": "Oops!",
     "screenMissing": "This screen doesn't exist.",
     "goHome": "Go to home screen!"
-  },
-  "fields": {
-    "commentDeleted": "This comment was deleted"
   }
 }

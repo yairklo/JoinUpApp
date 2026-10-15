@@ -505,7 +505,8 @@
     "flagSpam": "ספאם",
     "flagOther": "אחר",
     "attachPhoto": "צרף תמונה",
-    "createGameHere": "צור משחק חדש במגרש הזה"
+    "createGameHere": "צור משחק חדש במגרש הזה",
+    "commentDeleted": "התגובה נמחקה"
   },
   "series": {
     "badge": "קבוצה שבועית",
@@ -856,8 +857,5 @@
     "title": "אופס!",
     "screenMissing": "המסך הזה לא קיים.",
     "goHome": "חזרה למסך הבית!"
-  },
-  "fields": {
-    "commentDeleted": "התגובה נמחקה"
   }
 }
