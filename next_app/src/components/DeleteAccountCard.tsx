@@ -50,11 +50,10 @@ export default function DeleteAccountCard() {
         // The account is gone server-side. End the local session; if Clerk cannot, a hard reload
         // drops the (now invalid) session state anyway.
         try {
+            // Leave `busy` set: the page is navigating away and the button must stay disabled.
             await signOut({ redirectUrl: "/" });
         } catch {
             window.location.href = "/";
-        } finally {
-            setBusy(false);
         }
     };
 

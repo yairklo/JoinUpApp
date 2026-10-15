@@ -50,8 +50,10 @@ export default function UserProfileActions({
     const [blockError, setBlockError] = useState<string | null>(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
 
+    const isSelf = status === 'SELF';
+
     useEffect(() => {
-        if (status === 'SELF' || !isLoaded) return;
+        if (isSelf || !isLoaded) return;
         let active = true;
         (async () => {
             try {
@@ -66,7 +68,7 @@ export default function UserProfileActions({
             }
         })();
         return () => { active = false; };
-    }, [status, isLoaded, targetUserId, getToken]);
+    }, [isSelf, isLoaded, targetUserId, getToken]);
 
     const toggleBlock = async () => {
         setBlockBusy(true);
@@ -171,7 +173,7 @@ export default function UserProfileActions({
             >
                 {isBlocked ? "בטל חסימה" : "חסום משתמש"}
             </Button>
-            {(error || blockError) && (
+            {(error || (blockError && !confirmOpen)) && (
                 <Typography variant="caption" color="error" role="alert">
                     {error || blockError}
                 </Typography>
