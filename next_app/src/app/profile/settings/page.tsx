@@ -24,6 +24,8 @@ import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import LockIcon from "@mui/icons-material/Lock";
+import BlockedUsersCard from "@/components/BlockedUsersCard";
+import DeleteAccountCard from "@/components/DeleteAccountCard";
 
 type FieldKey = "privacyFriends" | "privacyGames" | "privacyMessages";
 
@@ -211,6 +213,9 @@ export default function PrivacySettingsPage() {
                         )}
                     </CardContent>
                 </Card>
+
+                <BlockedUsersCard />
+                <DeleteAccountCard />
             </SignedIn>
 
             <Snackbar

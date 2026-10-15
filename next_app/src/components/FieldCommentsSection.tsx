@@ -241,7 +241,7 @@ export default function FieldCommentsSection({ fieldId }: { fieldId: string }) {
             </Stack>
           ) : (
             <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: "pre-wrap" }}>
-              {comment.text}
+              {comment.text || <em style={{ opacity: 0.6 }}>התגובה נמחקה</em>}
             </Typography>
           )}
 
