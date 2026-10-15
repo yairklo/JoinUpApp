@@ -22,7 +22,7 @@ const IOS_HINT_DISMISSED_KEY = "joinup:iosPushHintDismissed";
 
 export default function NotificationAsker() {
     const { user } = useUser();
-    const { fcmToken, requestPermission, notification, pushSupport } = useNotification();
+    const { fcmToken, requestPermission, notification, pushSupport, iosInAppBrowser } = useNotification();
     const [showToast, setShowToast] = useState(false);
     const [iosHintOpen, setIosHintOpen] = useState(false);
     const [iosHintDismissed, setIosHintDismissed] = useState(false);
@@ -39,33 +39,33 @@ export default function NotificationAsker() {
         }
     }, [notification]);
 
-    if (fcmToken) {
-        return (
-            <Snackbar
-                open={showToast}
-                autoHideDuration={5000}
+    // Rendered regardless of whether a token was fetched on this load: foreground
+    // messages can arrive for an existing push subscription either way.
+    const toast = (
+        <Snackbar
+            open={showToast}
+            autoHideDuration={5000}
+            onClose={() => setShowToast(false)}
+            anchorOrigin={{ vertical: "top", horizontal: "center" }}
+            sx={{ top: { xs: 64, sm: 24 } }}
+        >
+            <Alert
                 onClose={() => setShowToast(false)}
-                anchorOrigin={{ vertical: "top", horizontal: "center" }}
-                sx={{ top: { xs: 64, sm: 24 } }}
+                severity="info"
+                variant="filled"
+                icon={<NotificationsActiveOutlinedIcon fontSize="small" />}
+                sx={{ borderRadius: 3, boxShadow: 4, width: "100%" }}
             >
-                <Alert
-                    onClose={() => setShowToast(false)}
-                    severity="info"
-                    variant="filled"
-                    icon={<NotificationsActiveOutlinedIcon fontSize="small" />}
-                    sx={{ borderRadius: 3, boxShadow: 4, width: "100%" }}
-                >
-                    <AlertTitle sx={{ fontWeight: 700, mb: 0.25 }}>{notification?.title}</AlertTitle>
-                    {notification?.body}
-                </Alert>
-            </Snackbar>
-        );
-    }
+                <AlertTitle sx={{ fontWeight: 700, mb: 0.25 }}>{notification?.title}</AlertTitle>
+                {notification?.body}
+            </Alert>
+        </Snackbar>
+    );
 
-    if (!user) return null;
+    if (fcmToken || !user) return toast;
     // No button where push can't work (unsupported browser, permission denied, or still checking).
-    if (pushSupport !== "supported" && pushSupport !== "ios-needs-install") return null;
-    if (pushSupport === "ios-needs-install" && iosHintDismissed) return null;
+    if (pushSupport !== "supported" && pushSupport !== "ios-needs-install") return toast;
+    if (pushSupport === "ios-needs-install" && iosHintDismissed) return toast;
 
     const isIosHint = pushSupport === "ios-needs-install";
 
@@ -79,6 +79,7 @@ export default function NotificationAsker() {
 
     return (
         <>
+        {toast}
         <Tooltip title="הפעל התראות">
             <Fab
                 color="primary"
@@ -118,6 +119,9 @@ export default function NotificationAsker() {
                         באייפון אפשר לקבל התראות רק מהאפליקציה שמותקנת במסך הבית (iOS 16.4 ומעלה):
                     </Typography>
                     <Typography component="ol" variant="body2" sx={{ m: 0, ps: 2.5 }}>
+                        {iosInAppBrowser && (
+                            <li>פתחו את הדף בספארי (בתפריט ⋯ של האפליקציה: &quot;פתיחה בספארי&quot;)</li>
+                        )}
                         <li>
                             לחצו על כפתור השיתוף <IosShareIcon fontSize="inherit" sx={{ verticalAlign: "middle" }} /> בספארי
                         </li>
