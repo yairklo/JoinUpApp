@@ -1,4 +1,6 @@
 "use client";
+import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -7,9 +9,6 @@ import CheckIcon from "@mui/icons-material/Check";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import ChatIcon from "@mui/icons-material/Chat";
-
-import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
 import BlockIcon from "@mui/icons-material/Block";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -44,6 +43,9 @@ export default function UserProfileActions({
 
     const { getToken } = useAuth();
     const [isBlocked, setIsBlocked] = useState(false);
+    const [blockLoaded, setBlockLoaded] = useState(false);
+    // Blocking removes any friendship / pending request server-side; the hook's status is stale then.
+    const [clearedByBlock, setClearedByBlock] = useState(false);
     const [blockBusy, setBlockBusy] = useState(false);
     const [blockError, setBlockError] = useState<string | null>(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -59,6 +61,8 @@ export default function UserProfileActions({
                 if (active) setIsBlocked(list.some((b) => b.id === targetUserId));
             } catch {
                 // non-fatal: the button just defaults to "block"
+            } finally {
+                if (active) setBlockLoaded(true);
             }
         })();
         return () => { active = false; };
@@ -76,24 +80,27 @@ export default function UserProfileActions({
             } else {
                 await usersApi.blockUser(targetUserId, token);
                 setIsBlocked(true);
+                setClearedByBlock(true);
             }
+            setConfirmOpen(false);
         } catch (e) {
             console.error('Failed to toggle block:', e);
             setBlockError('הפעולה נכשלה. נסו שוב.');
         } finally {
             setBlockBusy(false);
-            setConfirmOpen(false);
         }
     };
 
     if (status === 'SELF' || !isLoaded) return null;
-    if (status === 'LOADING') return <CircularProgress size={20} />;
+    if (status === 'LOADING' || !blockLoaded) return <CircularProgress size={20} />;
+
+    const shownStatus = clearedByBlock ? 'NONE' : status;
 
     return (
         <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
             <Box display="flex" gap={2} justifyContent="center" flexWrap="wrap">
                 {/* Friend Buttons */}
-                {isBlocked ? null : status === 'FRIEND' ? (
+                {isBlocked ? null : shownStatus === 'FRIEND' ? (
                     <Button
                         variant="outlined"
                         color="error"
@@ -103,7 +110,7 @@ export default function UserProfileActions({
                     >
                         הסר חבר
                     </Button>
-                ) : status === 'REQUESTED' ? (
+                ) : shownStatus === 'REQUESTED' ? (
                     <Button
                         variant="text"
                         color="success"
@@ -112,7 +119,7 @@ export default function UserProfileActions({
                     >
                         הבקשה נשלחה
                     </Button>
-                ) : status === 'INCOMING' ? (
+                ) : shownStatus === 'INCOMING' ? (
                     <>
                         <Button
                             variant="contained"
@@ -132,7 +139,7 @@ export default function UserProfileActions({
                         variant="contained"
                         color="primary"
                         startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonAddIcon />}
-                        onClick={addFriend}
+                        onClick={() => { setClearedByBlock(false); addFriend(); }}
                         disabled={loading}
                     >
                         הוסף חבר
@@ -151,7 +158,7 @@ export default function UserProfileActions({
                     </Button>
                 )}
 
-                {status === 'FRIEND' && !isBlocked && (
+                {shownStatus === 'FRIEND' && !isBlocked && (
                     <MuteNotificationsButton targetType="USER" targetId={targetUserId} muteLabel="השתק התראות" />
                 )}
             </Box>
@@ -159,7 +166,7 @@ export default function UserProfileActions({
                 size="small"
                 color={isBlocked ? "inherit" : "error"}
                 startIcon={<BlockIcon fontSize="small" />}
-                onClick={() => (isBlocked ? toggleBlock() : setConfirmOpen(true))}
+                onClick={() => { setBlockError(null); if (isBlocked) toggleBlock(); else setConfirmOpen(true); }}
                 disabled={blockBusy}
             >
                 {isBlocked ? "בטל חסימה" : "חסום משתמש"}
@@ -170,7 +177,7 @@ export default function UserProfileActions({
                 </Typography>
             )}
 
-            <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} dir="rtl">
+            <Dialog open={confirmOpen} onClose={() => !blockBusy && setConfirmOpen(false)} dir="rtl">
                 <DialogTitle>לחסום את {targetUserName}?</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
@@ -178,7 +185,12 @@ export default function UserProfileActions({
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setConfirmOpen(false)}>ביטול</Button>
+                    {blockError && (
+                        <Typography variant="caption" color="error" role="alert" sx={{ flex: 1, px: 1 }}>
+                            {blockError}
+                        </Typography>
+                    )}
+                    <Button onClick={() => setConfirmOpen(false)} disabled={blockBusy}>ביטול</Button>
                     <Button color="error" onClick={toggleBlock} disabled={blockBusy}>חסום</Button>
                 </DialogActions>
             </Dialog>

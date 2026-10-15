@@ -18,6 +18,7 @@ export default function BlockedUsersCard() {
     const [items, setItems] = useState<BlockedUser[] | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [loadFailed, setLoadFailed] = useState(false);
 
     const load = useCallback(async () => {
         try {
@@ -26,8 +27,7 @@ export default function BlockedUsersCard() {
             setItems(await usersApi.getBlockedUsers(token));
         } catch (e) {
             console.error("Failed to load blocked users:", e);
-            setItems([]);
-            setError("טעינת המשתמשים החסומים נכשלה.");
+            setLoadFailed(true);
         }
     }, [getToken]);
 
@@ -59,7 +59,12 @@ export default function BlockedUsersCard() {
                 <Typography variant="body2" color="text.secondary" mb={2}>
                     משתמשים שחסמתם לא יכולים לשלוח לכם הודעות או בקשות חברות, ותוכן שלהם מוסתר מכם.
                 </Typography>
-                {items === null ? (
+                {loadFailed ? (
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                        <Typography variant="body2" color="error" role="alert">טעינת המשתמשים החסומים נכשלה.</Typography>
+                        <Button size="small" onClick={() => { setLoadFailed(false); load(); }}>נסו שוב</Button>
+                    </Stack>
+                ) : items === null ? (
                     <CircularProgress size={22} />
                 ) : items.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">לא חסמתם אף משתמש.</Typography>

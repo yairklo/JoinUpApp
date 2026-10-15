@@ -67,7 +67,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   useEffect(() => {
     let active = true;
-    (async () => {
+    const load = async () => {
       try {
         const token = await getToken();
         if (!token) return;
@@ -76,8 +76,15 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
       } catch {
         // Non-fatal: the server already filters history; this only hides live messages.
       }
-    })();
-    return () => { active = false; };
+    };
+    load();
+    // Picks up blocks / unblocks made elsewhere (profile page, settings, another tab).
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [getToken]);
 
   const confirmBlock = async () => {
@@ -89,8 +96,14 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
       await usersApi.blockUser(targetId, token);
       setBlockedIds((prev) => new Set(prev).add(targetId));
       setReportToast({ severity: "success", text: isRTL ? "המשתמש נחסם. אפשר לבטל בהגדרות" : "User blocked. You can unblock in settings" });
-    } catch {
-      setReportToast({ severity: "error", text: isRTL ? "החסימה נכשלה, נסו שוב" : "Blocking failed, please try again" });
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      setReportToast({
+        severity: "error",
+        text: status === 404
+          ? (isRTL ? "אי אפשר לחסום את המשתמש הזה (ייתכן שהחשבון נמחק)" : "This user can't be blocked (the account may have been deleted)")
+          : (isRTL ? "החסימה נכשלה, נסו שוב" : "Blocking failed, please try again"),
+      });
     } finally {
       setBlockTarget(null);
     }

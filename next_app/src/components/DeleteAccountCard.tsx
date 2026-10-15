@@ -39,15 +39,21 @@ export default function DeleteAccountCard() {
             const token = await getToken();
             if (!token) throw new Error("not signed in");
             await usersApi.deleteAccount(token);
-            try {
-                await signOut({ redirectUrl: "/" });
-            } catch {
-                // the Clerk user is already gone; fall through to a hard redirect
-                window.location.href = "/";
-            }
         } catch (e) {
             console.error("Failed to delete account:", e);
-            setError("מחיקת החשבון נכשלה. בדקו את החיבור ונסו שוב.");
+            // The server wipes data first and deletes the Clerk user last, and the call is safe to
+            // repeat, so a failure here can simply be retried.
+            setError("מחיקת החשבון נכשלה. אפשר ללחוץ שוב כדי לנסות להשלים את המחיקה.");
+            setBusy(false);
+            return;
+        }
+        // The account is gone server-side. End the local session; if Clerk cannot, a hard reload
+        // drops the (now invalid) session state anyway.
+        try {
+            await signOut({ redirectUrl: "/" });
+        } catch {
+            window.location.href = "/";
+        } finally {
             setBusy(false);
         }
     };
