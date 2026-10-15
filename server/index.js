@@ -826,7 +826,7 @@ io.on('connection', async (socket) => {
             'NEW_MESSAGE',
             senderUser?.name || senderName || 'הודעה חדשה',
             messagePreview,
-            { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` }
+            { chatId: roomId, senderId: finalUserId, actorId: finalUserId, link: `/chat/${roomId}` }
           ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
         });
       } catch (err) {
