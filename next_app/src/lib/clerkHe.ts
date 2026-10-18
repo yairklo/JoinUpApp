@@ -19,6 +19,10 @@ export const clerkAppearance = {
     shimmer: false,
   },
   elements: {
+    // Display data (name, avatar, username) lives in our DB and is edited on /profile. Clerk's
+    // "manage account" modal is for credentials only, so hide its name/image/username sections.
+    profileSection__profile: { display: "none" },
+    profileSection__username: { display: "none" },
     footerAction__clerk: { display: "none" },
     footerPages: { display: "none" },
     footer: {
