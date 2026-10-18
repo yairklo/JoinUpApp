@@ -125,7 +125,10 @@ function SearchPageInner() {
   const [locating, setLocating] = useState(false);
   const [mapEnabled, setMapEnabled] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const extraFilterCount = (selectedDate ? 1 : 0) + (networkGames ? 1 : 0) + (showEmptyFields ? 1 : 0);
+  // Every non-default filter counts, including the sport pill (visible outside the panel but
+  // still a filter), so the badge answers "is my list narrowed?" at a glance.
+  const extraFilterCount =
+    (selectedSport ? 1 : 0) + (selectedDate ? 1 : 0) + (networkGames ? 1 : 0) + (showEmptyFields ? 1 : 0);
 
   useEffect(() => {
     const wide = window.matchMedia("(min-width: 900px)");
@@ -153,6 +156,18 @@ function SearchPageInner() {
   // reported its default bounds. Only a query-less search is driven by the map viewport.
   const textQueryActive = debouncedQuery.trim() !== "";
   const searchBounds = textQueryActive ? null : mapBounds;
+  // The map reports its real viewport shortly after mounting (and again once geolocation moves
+  // it). Searching before that returns an unbounded/stale list that the next, viewport-clipped
+  // search then replaces, so the count visibly jumped ("1" -> "12") on a plain page load. Hold
+  // the first search until the map has reported once; if it never does (blocked key, no WebGL),
+  // fall back to the unbounded search after a short grace period.
+  const [boundsGraceOver, setBoundsGraceOver] = useState(false);
+  useEffect(() => {
+    if (!mapEnabled) return;
+    const t = setTimeout(() => setBoundsGraceOver(true), 3500);
+    return () => clearTimeout(t);
+  }, [mapEnabled]);
+  const waitingForBounds = mapEnabled && !textQueryActive && !mapBounds && !boundsGraceOver;
   // Empty fields are always "fields in view", so they keep following the real viewport.
   const emptyFieldsBounds = showEmptyFields ? mapBounds : null;
   const currentFitKey = textQueryActive
@@ -160,6 +175,7 @@ function SearchPageInner() {
     : null;
 
   const performSearch = useCallback(async () => {
+    if (waitingForBounds) return; // stays in the initial loading state until the map reports
     // Cancel any still-in-flight search before starting a new one — without this, panning
     // the map for a few seconds fires a request every ~800ms and lets them all race to
     // completion, each one counting against the API rate limit and occasionally applying a
@@ -244,7 +260,7 @@ function SearchPageInner() {
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [getToken, debouncedQuery, selectedSport, selectedDate, networkGames, searchBounds, emptyFieldsBounds, currentFitKey]);
+  }, [getToken, debouncedQuery, selectedSport, selectedDate, networkGames, searchBounds, emptyFieldsBounds, currentFitKey, waitingForBounds]);
 
   useEffect(() => {
     performSearch();
@@ -406,7 +422,7 @@ function SearchPageInner() {
               מפת משחקים
             </Typography>
             <Typography variant="body2" color="text.secondary" fontWeight={700} sx={{ minHeight: "1.5em" }} aria-live="polite">
-              {loading || locating ? "" : `${games.length} משחקים`}
+              {loading || locating ? "" : games.length === 1 ? "משחק אחד" : `${games.length} משחקים`}
             </Typography>
           </Stack>
 
@@ -451,7 +467,7 @@ function SearchPageInner() {
                 fullWidth
               />
             </Box>
-            <Badge color="primary" badgeContent={extraFilterCount} overlap="rectangular" invisible={extraFilterCount === 0}>
+            <Badge color="primary" badgeContent={extraFilterCount > 0 ? extraFilterCount : undefined} overlap="rectangular">
               <Button
                 variant={filtersOpen ? "contained" : "outlined"}
                 color={filtersOpen ? "primary" : "inherit"}

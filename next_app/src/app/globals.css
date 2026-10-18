@@ -92,6 +92,15 @@ body,
   );
 }
 
+/* Desktop shows ~2.5 cards per rail, so the last visible card is cut mid-text; a deeper fade
+   makes that peek read as "scroll for more" instead of a clipping bug. */
+@media (min-width: 900px) {
+  .carousel-edge {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 44px, black calc(100% - 56px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, black 44px, black calc(100% - 56px), transparent 100%);
+  }
+}
+
 /* Subtle, modern scrollbars (desktop) */
 @media (hover: hover) {
   * {

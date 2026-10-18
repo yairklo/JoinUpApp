@@ -12,6 +12,7 @@ import {
   IconButton,
   Stack,
   useTheme,
+  alpha,
   Fab,
   Badge,
   Zoom,
@@ -278,7 +279,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         <Box
           ref={refs.scrollContainerRef}
           onScroll={handleScroll}
-          sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50' }}
+          sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", bgcolor: theme.palette.mode === 'dark' ? alpha(theme.palette.background.default, 0.6) : 'grey.50' }}
         >
           {state.isLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>

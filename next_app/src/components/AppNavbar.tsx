@@ -13,6 +13,7 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Badge from "@mui/material/Badge";
@@ -41,7 +42,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 export default function AppNavbar() {
   const [mounted, setMounted] = useState(false);
   const { mode, toggleColorMode } = useContext(ColorModeContext);
-  const { user } = useUser();
+  const { user, isLoaded: userLoaded } = useUser();
   const router = useRouter();
   const theme = useTheme();
   const { friendRequests } = useNotificationCounters();
@@ -76,7 +77,7 @@ export default function AppNavbar() {
         >
           {/* Start: Logo + desktop nav links */}
           <Stack direction="row" alignItems="center" spacing={{ xs: 0.75, md: 2.5 }} sx={{ minWidth: 0 }}>
-            <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
+            <Link href="/" aria-label="JoinUp – דף הבית" style={{ textDecoration: "none", color: "inherit" }}>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer" }}>
                 <Box
                   component={motion.div}
@@ -117,6 +118,7 @@ export default function AppNavbar() {
               <Button
                 component={Link}
                 href="/search"
+                aria-label="מפת משחקים"
                 startIcon={<MapOutlinedIcon />}
                 sx={navLinkSx}
               >
@@ -125,6 +127,7 @@ export default function AppNavbar() {
               <Button
                 component={Link}
                 href="/fields"
+                aria-label="מגרשים"
                 startIcon={<StadiumOutlinedIcon />}
                 sx={navLinkSx}
               >
@@ -206,6 +209,17 @@ export default function AppNavbar() {
                 {mode === "dark" ? <LightModeOutlinedIcon fontSize="small" /> : <DarkModeOutlinedIcon fontSize="small" />}
               </IconButton>
             </Tooltip>
+
+            {/* Auth hasn't resolved yet: hold the icon slots with quiet placeholders so the
+                header doesn't pop in and shift once Clerk loads (signed-out visitors simply
+                see them fade out when the sign-in button appears). */}
+            {(!mounted || !userLoaded) && (
+              <Stack direction="row" spacing={0.75} aria-hidden sx={{ display: { xs: "none", md: "flex" }, alignItems: "center" }}>
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} variant="circular" width={32} height={32} animation="wave" />
+                ))}
+              </Stack>
+            )}
 
             {mounted && (
               <ClerkLoaded>

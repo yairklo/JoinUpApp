@@ -14,7 +14,6 @@ import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Chip from "@mui/material/Chip";
-import LoadingMotif from "@/components/motion/LoadingMotif";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -114,13 +113,9 @@ export default function PendingJoinRequests({
     }
   }
 
-  if (loading) {
-    return (
-      <Card elevation={2} sx={{ p: 2, mb: 2, display: "flex", justifyContent: "center" }}>
-        <LoadingMotif id="passing-lane" />
-      </Card>
-    );
-  }
+  // Most games have nothing pending, so a spinner card here flashed an empty white box between
+  // the hero and the roster that then vanished. Render nothing until we know there's content.
+  if (loading) return null;
 
   if (requests.length === 0 && !activeOffer && waitlist.length === 0 && rejected.length === 0) return null;
 

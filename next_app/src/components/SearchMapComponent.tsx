@@ -11,6 +11,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import Box from "@mui/material/Box";
+import { alpha, useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
@@ -111,6 +112,7 @@ export default function SearchMapComponent({
   fitToResultsKey = null,
 }: SearchMapComponentProps) {
   const [apiError, setApiError] = useState<unknown>(null);
+  const isDark = useTheme().palette.mode === "dark";
   const safeUserLocation =
     userLocation && isValidLatLng(userLocation[0], userLocation[1]) ? userLocation : null;
   const safeTarget =
@@ -167,7 +169,7 @@ export default function SearchMapComponent({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            bgcolor: "rgba(248, 250, 252, 0.78)",
+            bgcolor: (t) => alpha(t.palette.background.default, 0.78),
             pointerEvents: "none",
           }}
         >
@@ -209,6 +211,10 @@ export default function SearchMapComponent({
       >
         <GoogleMap
           mapId={GOOGLE_MAPS_MAP_ID}
+          // Follows the site theme. Honored by vector maps (a Cloud map ID with vector rendering
+          // enabled); a raster map ID ignores it, in which case the dark style has to be set on
+          // the map ID in Google Cloud Console instead.
+          colorScheme={isDark ? "DARK" : "LIGHT"}
           defaultCenter={DEFAULT_CENTER}
           defaultZoom={12}
           gestureHandling="greedy"
