@@ -21,6 +21,7 @@
           "remote-notification"
         ],
         "NSPhotoLibraryUsageDescription": "כדי לצרף תמונות למגרש שאתם מנהלים באפליקציה",
+        "NSLocationWhenInUseUsageDescription": "כדי להציג משחקים ומגרשים קרובים אליכם",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
