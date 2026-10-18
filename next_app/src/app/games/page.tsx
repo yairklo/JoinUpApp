@@ -22,7 +22,7 @@ export default async function GamesPage(props: {
 
   return (
     <main>
-      <HomeHero />
+      <HomeHero signedIn={!!userId} />
 
       <GamesPageContent initialDate={initialDate} fieldId={typeof searchParams.fieldId === "string" ? searchParams.fieldId : undefined} />
     </main>

@@ -12,8 +12,7 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import GroupIcon from "@mui/icons-material/Group";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
-import CardMedia from "@mui/material/CardMedia";
-import { SPORT_IMAGES, SportType } from "@/utils/sports";
+import SportCover from "@/components/ui/SportCover";
 import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
 
 const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
@@ -60,9 +59,6 @@ export default function SeriesHeaderCard({
 }) {
     const router = useRouter();
     const dayName = typeof dayOfWeek === "number" ? DAYS[dayOfWeek] : "שבועי";
-    const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
-        ? SPORT_IMAGES[sport as SportType]
-        : SPORT_IMAGES.SOCCER;
 
     return (
         <MotionCard
@@ -110,21 +106,7 @@ export default function SeriesHeaderCard({
             }}
         >
             <Box sx={{ position: "relative", overflow: "hidden", flexShrink: 0 }}>
-                <CardMedia
-                    component="img"
-                    height="132"
-                    image={imageSrc}
-                    alt={name}
-                    sx={{ objectPosition: "center 30%", display: "block", width: "100%" }}
-                />
-                <Box
-                    sx={{
-                        position: "absolute",
-                        inset: 0,
-                        background: "linear-gradient(180deg, rgba(2,6,23,0.2) 0%, transparent 40%, rgba(2,6,23,0.6) 100%)",
-                        pointerEvents: "none",
-                    }}
-                />
+                <SportCover sport={sport} height={132} />
 
                 <Box
                     sx={{

@@ -18,6 +18,7 @@ import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
 import FavoriteButton from "@/components/FavoriteButton";
 import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
 import { SPORT_IMAGES, SportType } from "@/utils/sports";
+import SportCover from "@/components/ui/SportCover";
 
 export type Field = {
   id: string;
@@ -53,12 +54,7 @@ export default function FieldCard({ field }: { field: Field }) {
   const primarySport = field.supportedSports?.find(
     (s): s is SportType => s in SPORT_IMAGES
   );
-  const imgSrc =
-    field.image && field.image.trim().length > 0
-      ? field.image
-      : primarySport
-        ? SPORT_IMAGES[primarySport]
-        : "/images/default-field.jpg";
+  const hasPhoto = !!field.image && field.image.trim().length > 0;
   const isFree = !field.price || field.price <= 0;
   const isOpen = field.type === "open";
 
@@ -98,21 +94,29 @@ export default function FieldCard({ field }: { field: Field }) {
       }}
     >
       <Box sx={{ position: "relative", overflow: "hidden", flexShrink: 0 }}>
-        <CardMedia
-          component="img"
-          height="150"
-          image={imgSrc}
-          alt={field.name}
-          sx={{ display: "block", width: "100%" }}
-        />
-        <Box
-          sx={{
-            position: "absolute",
-            inset: 0,
-            background: "linear-gradient(180deg, rgba(2,6,23,0.15) 0%, transparent 40%, rgba(2,6,23,0.55) 100%)",
-            pointerEvents: "none",
-          }}
-        />
+        {hasPhoto ? (
+          <>
+            <CardMedia
+              component="img"
+              height="150"
+              image={field.image!}
+              alt={field.name}
+              sx={{ display: "block", width: "100%" }}
+            />
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(180deg, rgba(2,6,23,0.15) 0%, transparent 40%, rgba(2,6,23,0.55) 100%)",
+                pointerEvents: "none",
+              }}
+            />
+          </>
+        ) : (
+          // No uploaded photo: generated court art for the field's main sport instead of the
+          // same stock photo on every card.
+          <SportCover sport={primarySport} height={150} />
+        )}
 
         <Box
           sx={{
@@ -143,8 +147,9 @@ export default function FieldCard({ field }: { field: Field }) {
               sx={{
                 ...chipOverlaySx,
                 color: "#fff",
-                bgcolor: "rgba(2,6,23,0.55)",
-                backdropFilter: "blur(6px)",
+                bgcolor: "rgba(255,255,255,0.14)",
+                border: "1px solid rgba(255,255,255,0.22)",
+                backdropFilter: "blur(8px)",
               }}
             />
             <Chip
@@ -162,7 +167,7 @@ export default function FieldCard({ field }: { field: Field }) {
 
       <CardContent sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1, minWidth: 0, "&:last-child": { pb: 2 } }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h6" fontWeight={700} sx={{ fontSize: "1.05rem", lineHeight: 1.3 }} noWrap>
+          <Typography variant="h6" component="h3" fontWeight={800} sx={{ fontSize: "1.05rem", lineHeight: 1.3, letterSpacing: "-0.01em" }} noWrap>
             {field.name}
           </Typography>
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.25, color: "text.secondary", minWidth: 0 }}>

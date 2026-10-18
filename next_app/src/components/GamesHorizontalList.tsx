@@ -21,6 +21,7 @@ export default function GamesHorizontalList({
   seeAllHref,
   customHeaderAction,
   isRefreshing = false,
+  staticContent = false,
 }: {
   title: string;
   children: React.ReactNode;
@@ -29,10 +30,12 @@ export default function GamesHorizontalList({
   seeAllHref?: string;
   customHeaderAction?: React.ReactNode;
   isRefreshing?: boolean;
+  /** Render children as a plain block under the header (empty/error states) instead of a card rail. */
+  staticContent?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const childCount = React.Children.count(children);
-  const showArrows = childCount > 1;
+  const showArrows = !staticContent && childCount > 1;
 
   const scrollByCard = (direction: 1 | -1) => {
     const el = scrollerRef.current;
@@ -144,6 +147,9 @@ export default function GamesHorizontalList({
         </Box>
       </Box>
 
+      {staticContent ? (
+        <Box sx={{ px: { xs: 2, sm: 1 } }}>{children}</Box>
+      ) : (
       <Reveal>
         <Box sx={{ position: "relative" }}>
           <Stack
@@ -187,6 +193,7 @@ export default function GamesHorizontalList({
           )}
         </Box>
       </Reveal>
+      )}
     </Box>
   );
 }

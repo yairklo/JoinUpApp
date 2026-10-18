@@ -7,17 +7,14 @@ import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
-import LinearProgress from "@mui/material/LinearProgress";
 import Chip from "@mui/material/Chip";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import PeopleAltRoundedIcon from "@mui/icons-material/PeopleAltRounded";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 
-import CardMedia from "@mui/material/CardMedia";
-import { SPORT_IMAGES, SPORT_MAPPING, SPORT_EMOJI, SportType } from "@/utils/sports";
+import { SPORT_MAPPING, SPORT_EMOJI, getSportTheme } from "@/utils/sports";
+import SportCover from "@/components/ui/SportCover";
 import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
-import { formatHebrewDateShort } from "@/utils/hebrewDate";
+import { formatHebrewDateRelative } from "@/utils/hebrewDate";
 
 const chipOverlaySx = {
   height: 24,
@@ -33,6 +30,13 @@ const chipOverlaySx = {
     marginInlineStart: "6px",
     marginInlineEnd: "-2px",
   },
+} as const;
+
+const glassChipSx = {
+  color: "#fff",
+  bgcolor: "rgba(255,255,255,0.14)",
+  border: "1px solid rgba(255,255,255,0.22)",
+  backdropFilter: "blur(8px)",
 } as const;
 
 export default function GameHeaderCard({
@@ -90,9 +94,7 @@ export default function GameHeaderCard({
   const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
   const almostFull = !isFull && spotsLeft <= 2;
 
-  const imageSrc = (sport && SPORT_IMAGES[sport as SportType])
-    ? SPORT_IMAGES[sport as SportType]
-    : SPORT_IMAGES.SOCCER;
+  const theme = getSportTheme(sport);
   const sportLabel = sport ? SPORT_MAPPING[sport] : undefined;
   const sportEmoji = sport ? SPORT_EMOJI[sport] : undefined;
 
@@ -141,125 +143,88 @@ export default function GameHeaderCard({
         },
       }}
     >
-      {/* Image + overlays constrained inside padded flex layer (no absolute edge bleed) */}
-      <Box sx={{ position: "relative", overflow: "hidden", flexShrink: 0 }}>
-        <CardMedia
-          component="img"
-          height={fullWidth ? 148 : 132}
-          image={imageSrc}
-          alt={title}
-          sx={{ objectPosition: "center 30%", display: "block", width: "100%" }}
-        />
+      <SportCover sport={sport} height={fullWidth ? 156 : 128}>
         <Box
           sx={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(180deg, rgba(2,6,23,0.2) 0%, transparent 40%, rgba(2,6,23,0.6) 100%)",
-            pointerEvents: "none",
-          }}
-        />
-
-        <Box
-          sx={{
-            position: "absolute",
-            inset: 0,
-            p: 2,
+            p: 1.75,
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
             minWidth: 0,
-            pointerEvents: "none",
-            "& > *": { pointerEvents: "auto", minWidth: 0 },
+            color: "#fff",
           }}
         >
-          {/* Top row */}
+          {/* Top row: sport identity + status badges */}
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
             {sportLabel ? (
               <Chip
                 size="small"
                 label={sportEmoji ? `${sportEmoji} ${sportLabel}` : sportLabel}
-                sx={{
-                  ...chipOverlaySx,
-                  maxWidth: isJoined ? "58%" : "100%",
-                  color: "#fff",
-                  bgcolor: "rgba(2,6,23,0.55)",
-                  backdropFilter: "blur(6px)",
-                }}
+                sx={{ ...chipOverlaySx, ...glassChipSx, maxWidth: isJoined ? "58%" : "100%" }}
               />
             ) : (
               <Box />
             )}
-            {isFriendsOnly === false && (
-              <Chip
-                size="small"
-                label="פתוח לכולם"
-                sx={{
-                  ...chipOverlaySx,
-                  flexShrink: 0,
-                  color: "#fff",
-                  bgcolor: "rgba(2,6,23,0.55)",
-                  backdropFilter: "blur(6px)",
-                }}
-              />
-            )}
-            {isJoined && (
-              <Chip
-                size="small"
-                icon={<CheckCircleRoundedIcon sx={{ fontSize: "15px !important", color: "#fff !important" }} />}
-                label="רשום"
-                sx={{
-                  ...chipOverlaySx,
-                  flexShrink: 0,
-                  color: "#fff",
-                  bgcolor: "rgba(5,150,105,0.92)",
-                }}
-              />
-            )}
+            <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
+              {isFriendsOnly === false && !isJoined && (
+                <Chip size="small" label="פתוח לכולם" sx={{ ...chipOverlaySx, ...glassChipSx }} />
+              )}
+              {isJoined && (
+                <Chip
+                  size="small"
+                  icon={<CheckCircleRoundedIcon sx={{ fontSize: "15px !important", color: `${theme.deep} !important` }} />}
+                  label="רשום"
+                  sx={{ ...chipOverlaySx, color: theme.ink, bgcolor: "#fff" }}
+                />
+              )}
+            </Stack>
           </Stack>
 
-          {/* Bottom row */}
+          {/* Bottom row: start time is the hero of a game card */}
           <Stack direction="row" justifyContent="space-between" alignItems="flex-end" spacing={1} sx={{ minWidth: 0 }}>
-            <Stack
-              direction="row"
-              spacing={0.5}
-              alignItems="center"
-              sx={{
-                minWidth: 0,
-                color: "#fff",
-                px: 1,
-                py: 0.4,
-                borderRadius: 999,
-                bgcolor: "rgba(2,6,23,0.55)",
-                backdropFilter: "blur(6px)",
-              }}
-            >
-              <AccessTimeIcon sx={{ fontSize: 14, flexShrink: 0 }} />
+            <Box sx={{ minWidth: 0 }}>
+              {date && (
+                <Typography
+                  suppressHydrationWarning
+                  noWrap
+                  sx={{ fontSize: "0.78rem", fontWeight: 700, opacity: 0.85, lineHeight: 1.2, mb: 0.25 }}
+                >
+                  {formatHebrewDateRelative(date)}
+                </Typography>
+              )}
               <Typography
-                variant="caption"
-                fontWeight={700}
-                noWrap
+                component="p"
                 dir="ltr"
-                sx={{ unicodeBidi: "isolate" }}
+                noWrap
+                sx={{
+                  unicodeBidi: "isolate",
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  letterSpacing: "-0.02em",
+                  fontVariantNumeric: "tabular-nums",
+                  fontSize: fullWidth ? "2.1rem" : "1.75rem",
+                  textShadow: "0 2px 12px rgba(0,0,0,0.25)",
+                }}
               >
-                {time}–{end}{date ? ` • ${formatHebrewDateShort(date)}` : ""}
+                {time}
+                <Box component="span" sx={{ fontSize: "0.5em", fontWeight: 600, opacity: 0.7, ml: 0.5 }}>
+                  –{end}
+                </Box>
               </Typography>
-            </Stack>
+            </Box>
 
             {typeof price === "number" && price > 0 && (
               <Chip
                 size="small"
                 label={`₪${price} במגרש`}
-                sx={{
-                  ...chipOverlaySx,
-                  flexShrink: 0,
-                  color: "#022c22",
-                  bgcolor: "rgba(167,243,208,0.95)",
-                }}
+                sx={{ ...chipOverlaySx, flexShrink: 0, color: theme.ink, bgcolor: theme.glow }}
               />
             )}
           </Stack>
         </Box>
-      </Box>
+      </SportCover>
 
       <CardContent
         sx={{
@@ -268,7 +233,7 @@ export default function GameHeaderCard({
           flexGrow: 1,
           display: "flex",
           flexDirection: "column",
-          gap: 1,
+          gap: 1.5,
           minWidth: 0,
           "&:last-child": { pb: 2 },
         }}
@@ -277,10 +242,11 @@ export default function GameHeaderCard({
           <Typography
             variant="h6"
             component="h3"
-            fontWeight={700}
+            fontWeight={800}
             sx={{
               lineHeight: 1.25,
               fontSize: "1.05rem",
+              letterSpacing: "-0.01em",
               display: "-webkit-box",
               overflow: "hidden",
               WebkitBoxOrient: "vertical",
@@ -315,7 +281,7 @@ export default function GameHeaderCard({
                 variant="body2"
                 sx={{
                   fontSize: "0.82rem",
-                  fontWeight: fieldHref ? 700 : 400,
+                  fontWeight: fieldHref ? 700 : 500,
                   display: "-webkit-box",
                   overflow: "hidden",
                   WebkitBoxOrient: "vertical",
@@ -330,29 +296,46 @@ export default function GameHeaderCard({
         </Box>
 
         <Box sx={{ mt: "auto", minWidth: 0 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" gap={1} mb={0.5} sx={{ minWidth: 0 }}>
-            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "text.secondary", minWidth: 0 }}>
-              <PeopleAltRoundedIcon sx={{ fontSize: 15, flexShrink: 0 }} />
-              <Typography variant="caption" fontWeight={700} noWrap>
-                {currentPlayers}/{maxPlayers}
-                {teamSize ? ` • ${teamSize}X${teamSize}` : ""}
+          <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={1} mb={0.75} sx={{ minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="baseline" sx={{ minWidth: 0 }}>
+              <Typography
+                component="span"
+                sx={{ fontWeight: 800, fontSize: "0.95rem", fontVariantNumeric: "tabular-nums", color: "text.primary" }}
+              >
+                {currentPlayers}
+                <Box component="span" sx={{ color: "text.secondary", fontWeight: 600 }}>/{maxPlayers}</Box>
+              </Typography>
+              <Typography component="span" variant="caption" color="text.secondary" fontWeight={600} noWrap>
+                שחקנים{teamSize ? ` · ${teamSize}X${teamSize}` : ""}
               </Typography>
             </Stack>
             <Typography
               variant="caption"
-              fontWeight={600}
+              fontWeight={700}
               noWrap
               color={isFull ? "error.main" : almostFull ? "warning.main" : "text.secondary"}
             >
-              {isFull ? "מלא" : `נשארו ${spotsLeft} מקומות`}
+              {isFull ? "מלא" : spotsLeft === 1 ? "מקום אחרון!" : `נשארו ${spotsLeft}`}
             </Typography>
           </Box>
-          <LinearProgress
-            variant="determinate"
-            value={occupancyPercentage}
-            color={isFull ? "error" : almostFull ? "warning" : "primary"}
-            sx={{ height: 6, borderRadius: 999, bgcolor: "action.hover" }}
-          />
+          <Box
+            role="progressbar"
+            aria-label="תפוסה"
+            aria-valuenow={Math.round(occupancyPercentage)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            sx={{ height: 6, borderRadius: 999, bgcolor: "action.hover", overflow: "hidden" }}
+          >
+            <Box
+              sx={{
+                height: "100%",
+                width: `${Math.max(occupancyPercentage, 4)}%`,
+                borderRadius: 999,
+                bgcolor: isFull ? "error.main" : almostFull ? "warning.main" : theme.base,
+                transition: "width 400ms cubic-bezier(0.16, 1, 0.3, 1)",
+              }}
+            />
+          </Box>
         </Box>
 
         {children && (

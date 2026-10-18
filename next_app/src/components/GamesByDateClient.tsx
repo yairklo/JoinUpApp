@@ -25,6 +25,8 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import { buildSearchHref } from "@/utils/searchHref";
+import EmptyState from "@/components/ui/EmptyState";
+import EventBusyRoundedIcon from "@mui/icons-material/EventBusyRounded";
 
 export default function GamesByDateClient({
   initialDate,
@@ -102,7 +104,7 @@ export default function GamesByDateClient({
     <Box>
       <Box display="flex" alignItems="center" gap={1} mb={0.5} px={1}>
         <CalendarTodayIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-        <Typography variant="subtitle2" color="text.secondary" fontWeight="600" textTransform="uppercase" letterSpacing={1}>
+        <Typography variant="subtitle2" color="text.secondary" fontWeight={700}>
           חפש לפי תאריך
         </Typography>
       </Box>
@@ -138,40 +140,32 @@ export default function GamesByDateClient({
       ) : error && currentDayGames.length === 0 ? (
         <InlineErrorRow message={error} onRetry={refetch} />
       ) : currentDayGames.length === 0 ? (
-        <Box
-          sx={{
-            bgcolor: "action.hover",
-            borderRadius: 2,
-            p: 4,
-            textAlign: "center",
-          }}
-        >
-          <Typography variant="body1" color="text.secondary">
-            {sportFilter !== "ALL"
-              ? `לא נמצאו משחקי ${sportLabel(sportFilter)} בתאריך זה`
-              : `לא נמצאו משחקים בתאריך ${formatJerusalemDateLong(selectedDate)}.`}
-          </Typography>
-          <Button
-            size="small"
-            sx={{ mt: 1 }}
-            onClick={() => setSelectedDate(todayIso)}
-          >
-            חזור להיום
-          </Button>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            {selectedDate === todayIso
-              ? "אין משחקים להיום? צפה במשחקי השבוע במפת המשחקים"
-              : "אין משחקים בתאריך הזה? צפה במשחקי השבוע במפת המשחקים"}
-          </Typography>
-          <Button
-            component={Link}
-            href="/search"
-            variant="outlined"
-            size="small"
-            sx={{ mt: 1 }}
-          >
-            למפת המשחקים
-          </Button>
+        <Box px={1}>
+          <EmptyState
+            icon={<EventBusyRoundedIcon />}
+            title={
+              sportFilter !== "ALL"
+                ? `אין משחקי ${sportLabel(sportFilter)} ב${formatJerusalemDateLong(selectedDate)}`
+                : `אין משחקים ב${formatJerusalemDateLong(selectedDate)}`
+            }
+            description="במפת המשחקים תמצאו את כל המשחקים של השבוע — או פתחו משחק בעצמכם."
+            actions={
+              <>
+                <Button component={Link} href="/search" variant="contained" size="small">
+                  למפת המשחקים
+                </Button>
+                {selectedDate !== todayIso ? (
+                  <Button size="small" variant="outlined" onClick={() => setSelectedDate(todayIso)}>
+                    חזור להיום
+                  </Button>
+                ) : (
+                  <Button component={Link} href="/games/new" size="small" variant="outlined">
+                    פתח משחק
+                  </Button>
+                )}
+              </>
+            }
+          />
         </Box>
       ) : (
         <GamesHorizontalList
