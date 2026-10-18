@@ -6,17 +6,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { getAgeInJerusalem, type AgeGateInfo } from '@joinup/shared/ageGate';
-import { GUARDIAN_DECLARATION_LABEL } from '@joinup/shared/legal';
+import { getLegalTexts } from '@joinup/shared/legal';
+import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/services/api/users';
 
-const rtl = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
 const toYmd = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const formatHe = (d: Date) => `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 
 function CheckRow({ checked, onToggle, children }: { checked: boolean; onToggle: () => void; children: React.ReactNode }) {
     return (
-        <Pressable onPress={onToggle} className="flex-row-reverse items-start gap-3 py-2" accessibilityRole="checkbox" accessibilityState={{ checked }}>
+        <Pressable onPress={onToggle} className="flex-row items-start gap-3 py-2" accessibilityRole="checkbox" accessibilityState={{ checked }}>
             <View className={`w-6 h-6 rounded-md border-2 items-center justify-center mt-0.5 ${checked ? 'bg-brand border-brand' : 'border-gray-400 dark:border-gray-500'}`}>
                 {checked && <Ionicons name="checkmark" size={16} color="#fff" />}
             </View>
@@ -35,6 +35,9 @@ export default function AgeGate() {
     const segments = useSegments();
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { t, i18n } = useTranslation();
+    const legal = getLegalTexts(i18n.language);
+    const rtl = { textAlign: legal.dir === 'rtl' ? ('right' as const) : ('left' as const), writingDirection: legal.dir };
 
     const [gate, setGate] = useState<AgeGateInfo | null>(null);
     const [birthDate, setBirthDate] = useState<Date | null>(null);
@@ -85,17 +88,17 @@ export default function AgeGate() {
             );
             setGate(res.ageGate);
         } catch (e) {
-            setError(e instanceof Error && e.message ? e.message : 'השמירה נכשלה. נסו שוב.');
+            setError(e instanceof Error && e.message ? e.message : t('ageGate.saveFailed', 'השמירה נכשלה. נסו שוב.'));
         } finally {
             setBusy(false);
         }
     };
 
     const deleteAccount = () => {
-        Alert.alert('מחיקת חשבון', 'החשבון וכל המידע שבו יימחקו לצמיתות.', [
-            { text: 'ביטול', style: 'cancel' },
+        Alert.alert(t('ageGate.deleteTitle', 'מחיקת חשבון'), t('ageGate.deleteBody', 'החשבון וכל המידע שבו יימחקו לצמיתות.'), [
+            { text: t('common.cancel', 'ביטול'), style: 'cancel' },
             {
-                text: 'מחק את החשבון',
+                text: t('ageGate.deleteConfirm', 'מחק את החשבון'),
                 style: 'destructive',
                 onPress: async () => {
                     try {
@@ -103,7 +106,7 @@ export default function AgeGate() {
                         if (token) await usersApi.deleteAccount(token);
                         try { await signOut(); } catch { /* Clerk user already gone */ }
                     } catch {
-                        Alert.alert('מחיקת החשבון נכשלה', 'בדקו את החיבור ונסו שוב.');
+                        Alert.alert(t('ageGate.deleteFailedTitle', 'מחיקת החשבון נכשלה'), t('ageGate.deleteFailedBody', 'בדקו את החיבור ונסו שוב.'));
                     }
                 },
             },
@@ -119,36 +122,36 @@ export default function AgeGate() {
                 {tooYoung ? (
                     <>
                         <Text className="text-2xl font-bold text-gray-900 dark:text-white mb-3" style={rtl}>
-                            JoinUp מיועדת לגיל {gate.minAge} ומעלה
+                            {t('ageGate.tooYoungTitle', 'JoinUp מיועדת לגיל {{minAge}} ומעלה', { minAge: gate.minAge })}
                         </Text>
                         <Text className="text-base text-gray-700 dark:text-gray-300 mb-3" style={rtl}>
-                            לפי תאריך הלידה שהוזן, אי אפשר להשתמש ב-JoinUp כרגע. נשמח לראות אותך כאן כשתגיע/י לגיל {gate.minAge}.
+                            {t('ageGate.tooYoungBody', 'לפי תאריך הלידה שהוזן, אי אפשר להשתמש ב-JoinUp כרגע. נשמח לראות אותך כאן כשתגיע/י לגיל {{minAge}}.', { minAge: gate.minAge })}
                         </Text>
                         <Text className="text-sm text-gray-500 dark:text-gray-400 mb-6" style={rtl}>
-                            אם תאריך הלידה הוזן בטעות, אפשר לפנות לתמיכה. אפשר גם למחוק את החשבון ואת כל המידע שבו.
+                            {t('ageGate.tooYoungHelp', 'אם תאריך הלידה הוזן בטעות, אפשר לפנות לתמיכה. אפשר גם למחוק את החשבון ואת כל המידע שבו.')}
                         </Text>
                         <Pressable onPress={deleteAccount} className="border border-red-500 rounded-xl py-3 mb-3">
-                            <Text className="text-red-600 text-center font-bold">מחק את החשבון שלי</Text>
+                            <Text className="text-red-600 text-center font-bold">{t('ageGate.deleteAccount', 'מחק את החשבון שלי')}</Text>
                         </Pressable>
                     </>
                 ) : (
                     <>
                         <Text className="text-2xl font-bold text-gray-900 dark:text-white mb-2" style={rtl}>
-                            {needsBirthDate ? 'עוד פרט אחד לפני שמתחילים' : 'עדכנו את תנאי השימוש'}
+                            {needsBirthDate ? t('ageGate.titleBirthDate', 'עוד פרט אחד לפני שמתחילים') : t('ageGate.titleTerms', 'עדכנו את תנאי השימוש')}
                         </Text>
 
                         {needsBirthDate && (
                             <>
                                 <Text className="text-sm text-gray-500 dark:text-gray-400 mb-4" style={rtl}>
-                                    תאריך הלידה משמש להגנה על משתמשים צעירים. אי אפשר לשנות אותו אחר כך.
+                                    {t('ageGate.birthDateHint', 'תאריך הלידה משמש להגנה על משתמשים צעירים. אי אפשר לשנות אותו אחר כך.')}
                                 </Text>
-                                <Text className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1" style={rtl}>תאריך לידה</Text>
+                                <Text className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1" style={rtl}>{t('ageGate.birthDateLabel', 'תאריך לידה')}</Text>
                                 <Pressable
                                     onPress={() => setShowPicker(true)}
                                     className="border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 mb-2"
                                 >
                                     <Text className={birthDate ? 'text-gray-900 dark:text-white' : 'text-gray-400'} style={rtl}>
-                                        {birthDate ? formatHe(birthDate) : 'בחירת תאריך'}
+                                        {birthDate ? formatHe(birthDate) : t('ageGate.pickDate', 'בחירת תאריך')}
                                     </Text>
                                 </Pressable>
                                 {showPicker && (
@@ -165,7 +168,7 @@ export default function AgeGate() {
                                 )}
                                 {age !== null && age < gate.minAge && (
                                     <Text className="text-amber-700 dark:text-amber-300 text-sm mb-2" style={rtl}>
-                                        JoinUp מיועדת לגיל {gate.minAge} ומעלה.
+                                        {t('ageGate.tooYoungTitle', 'JoinUp מיועדת לגיל {{minAge}} ומעלה', { minAge: gate.minAge })}
                                     </Text>
                                 )}
                             </>
@@ -174,16 +177,16 @@ export default function AgeGate() {
                         <View className="mt-4">
                             <CheckRow checked={acceptTerms} onToggle={() => setAcceptTerms((v) => !v)}>
                                 <Text className="text-gray-800 dark:text-gray-200" style={rtl}>
-                                    קראתי ואני מסכים/ה ל
-                                    <Text className="text-brand font-bold" onPress={() => router.push('/legal/terms' as any)}>תנאי השימוש</Text>
-                                    {' '}ול
-                                    <Text className="text-brand font-bold" onPress={() => router.push('/legal/privacy' as any)}>מדיניות הפרטיות</Text>
+                                    {t('auth.agreeToTermsPrefix', 'אני מאשר/ת שקראתי ומסכים/ה ל')}
+                                    <Text className="text-brand font-bold" onPress={() => router.push('/legal/terms' as any)}>{t('auth.termsOfService', 'תנאי השימוש')}</Text>
+                                    {' '}{t('auth.and', 'ול')}
+                                    <Text className="text-brand font-bold" onPress={() => router.push('/legal/privacy' as any)}>{t('auth.privacyPolicy', 'מדיניות הפרטיות')}</Text>
                                 </Text>
                             </CheckRow>
 
                             {isMinor && (
                                 <CheckRow checked={guardianConsent} onToggle={() => setGuardianConsent((v) => !v)}>
-                                    <Text className="text-gray-800 dark:text-gray-200" style={rtl}>{GUARDIAN_DECLARATION_LABEL}</Text>
+                                    <Text className="text-gray-800 dark:text-gray-200" style={rtl}>{legal.guardianDeclarationLabel}</Text>
                                 </CheckRow>
                             )}
                         </View>
@@ -195,13 +198,13 @@ export default function AgeGate() {
                             disabled={!canSubmit}
                             className={`rounded-xl py-3.5 mt-6 ${canSubmit ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-700'}`}
                         >
-                            {busy ? <ActivityIndicator color="#fff" /> : <Text className="text-white text-center font-bold text-base">המשך</Text>}
+                            {busy ? <ActivityIndicator color="#fff" /> : <Text className="text-white text-center font-bold text-base">{t('ageGate.continue', 'המשך')}</Text>}
                         </Pressable>
                     </>
                 )}
 
                 <Pressable onPress={() => signOut()} className="py-3 mt-2">
-                    <Text className="text-gray-500 dark:text-gray-400 text-center">התנתקות</Text>
+                    <Text className="text-gray-500 dark:text-gray-400 text-center">{t('ageGate.signOut', 'התנתקות')}</Text>
                 </Pressable>
             </ScrollView>
         </View>

@@ -975,5 +975,24 @@
     "loadFailed": "Couldn't load notification settings",
     "retry": "Try again",
     "filtersApplyInApp": "Push is off for this category — the filters also apply to in-app notifications."
+  },
+  "ageGate": {
+    "titleBirthDate": "One more thing before you start",
+    "titleTerms": "Our terms have been updated",
+    "birthDateHint": "Your date of birth is used to protect younger users. It can't be changed later.",
+    "birthDateLabel": "Date of birth",
+    "pickDate": "Choose a date",
+    "continue": "Continue",
+    "signOut": "Sign out",
+    "saveFailed": "Couldn't save. Please try again.",
+    "tooYoungTitle": "JoinUp is for ages {{minAge}} and up",
+    "tooYoungBody": "Based on the date of birth you entered, you can't use JoinUp yet. We'd love to see you here when you turn {{minAge}}.",
+    "tooYoungHelp": "If the date of birth was entered by mistake, contact support. You can also delete your account and all its data.",
+    "deleteAccount": "Delete my account",
+    "deleteTitle": "Delete account",
+    "deleteBody": "Your account and all its data will be permanently deleted.",
+    "deleteConfirm": "Delete account",
+    "deleteFailedTitle": "Couldn't delete the account",
+    "deleteFailedBody": "Check your connection and try again."
   }
 }
