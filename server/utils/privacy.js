@@ -2,29 +2,8 @@ const { prisma } = require('../lib/prisma');
 
 const VALID_LEVELS = ['EVERYONE', 'FRIENDS_ONLY'];
 
-/**
- * Computes a user's age using Jerusalem-local calendar dates on both ends,
- * avoiding UTC drift near midnight / DST boundaries.
- * @param {Date|string|null} birthDate
- * @returns {number|null} age in whole years, or null if no birthDate
- */
-function getAgeInJerusalem(birthDate) {
-  if (!birthDate) return null;
-  const fmt = (d) =>
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Jerusalem',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(d);
-
-  const [ny, nm, nd] = fmt(new Date()).split('-').map(Number);
-  const [by, bm, bd] = fmt(new Date(birthDate)).split('-').map(Number);
-
-  let age = ny - by;
-  if (nm < bm || (nm === bm && nd < bd)) age -= 1;
-  return age;
-}
+// Jerusalem-local calendar age (null when no birthDate); shared with clients and the age gate.
+const { getAgeInJerusalem } = require('../shared/ageGate');
 
 /**
  * Age-based DEFAULT only (used when a user has not saved an explicit preference).

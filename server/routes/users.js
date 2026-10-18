@@ -1,6 +1,6 @@
 const express = require('express');
 const { prisma } = require('../lib/prisma');
-const { authenticateToken, attachOptionalUser } = require('../utils/auth');
+const { authenticateToken, attachOptionalUser, invalidateAccountState } = require('../utils/auth');
 const { NotificationService } = require('../services/notificationService');
 const { getCounters, broadcastCounters } = require('../services/counterService');
 const {
@@ -17,6 +17,15 @@ const {
   validateScore,
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
+const {
+  MIN_AGE,
+  ADULT_AGE,
+  LEGAL_VERSION,
+  AGE_GATE_STATUS,
+  getAgeInJerusalem,
+  getAgeGateStatus,
+  isPlausibleBirthDate,
+} = require('../shared/ageGate');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile, isManagedUploadUrl } = require('../middleware/upload');
 const router = express.Router();
 const userImageUpload = createImageUpload('users');
@@ -526,11 +535,82 @@ router.delete('/me', authenticateToken, async (req, res) => {
 
 // Authenticated viewer — includes isAdmin. Must be registered before /:id
 // so "me" is never treated as a Clerk user id (which would upsert a stub User).
+const BIRTH_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const sameCalendarDay = (a, b) => new Date(a).toISOString().slice(0, 10) === new Date(b).toISOString().slice(0, 10);
+
+function buildAgeGateInfo(user) {
+  return {
+    status: getAgeGateStatus(user),
+    age: getAgeInJerusalem(user?.birthDate),
+    minAge: MIN_AGE,
+    adultAge: ADULT_AGE,
+    legalVersion: LEGAL_VERSION,
+  };
+}
+
+// POST /api/users/me/age-gate  { birthDate?: 'YYYY-MM-DD', acceptTerms: true, guardianConsent?: boolean }
+// Records birth date (once — it is locked afterwards), terms acceptance for the current
+// LEGAL_VERSION, and for 13-17 year olds the guardian-consent declaration.
+router.post('/me/age-gate', authenticateToken, async (req, res) => {
+  try {
+    const userId = String(req.user.id);
+    const { birthDate, acceptTerms, guardianConsent } = req.body || {};
+
+    let user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, birthDate: true } });
+    if (!user) user = await safeUpsertUserFromAuth(prisma, req.user);
+
+    let effectiveBirthDate = user.birthDate;
+    if (!effectiveBirthDate) {
+      if (typeof birthDate !== 'string' || !BIRTH_DATE_RE.test(birthDate) || !isPlausibleBirthDate(birthDate)) {
+        return res.status(400).json({ error: 'יש להזין תאריך לידה תקין', code: 'INVALID_BIRTHDATE' });
+      }
+      effectiveBirthDate = new Date(birthDate);
+    } else if (birthDate && !sameCalendarDay(birthDate, effectiveBirthDate)) {
+      return res.status(409).json({ error: 'לא ניתן לשנות תאריך לידה. לתיקון יש לפנות לתמיכה', code: 'BIRTHDATE_LOCKED' });
+    }
+
+    const age = getAgeInJerusalem(effectiveBirthDate);
+    const data = user.birthDate ? {} : { birthDate: effectiveBirthDate };
+
+    if (age >= MIN_AGE) {
+      if (acceptTerms !== true) {
+        return res.status(400).json({ error: 'יש לאשר את תנאי השימוש ומדיניות הפרטיות', code: 'TERMS_REQUIRED' });
+      }
+      const isMinor = age < ADULT_AGE;
+      if (isMinor && guardianConsent !== true) {
+        return res.status(400).json({ error: 'נדרשת הצהרה על הסכמת הורה או אפוטרופוס', code: 'GUARDIAN_CONSENT_REQUIRED' });
+      }
+      const now = new Date();
+      Object.assign(data, {
+        termsAcceptedAt: now,
+        termsVersion: LEGAL_VERSION,
+        guardianConsentAt: isMinor ? now : null,
+      });
+    }
+    // Under MIN_AGE: only the birth date is stored (so it can't be re-entered differently);
+    // the account stays gated and the client offers account deletion.
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: { birthDate: true, termsAcceptedAt: true, termsVersion: true, guardianConsentAt: true },
+    });
+    invalidateAccountState(userId);
+    res.json({ ageGate: buildAgeGateInfo(updated) });
+  } catch (error) {
+    console.error('Age gate error:', error);
+    res.status(500).json({ error: 'Failed to save' });
+  }
+});
+
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, name: true, imageUrl: true, email: true, city: true },
+      select: {
+        id: true, name: true, imageUrl: true, email: true, city: true,
+        birthDate: true, termsAcceptedAt: true, termsVersion: true, guardianConsentAt: true,
+      },
     });
     res.json({
       id: req.user.id,
@@ -539,6 +619,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       email: user?.email || null,
       city: user?.city || null,
       isAdmin: !!req.user.isAdmin,
+      ageGate: buildAgeGateInfo(user),
     });
   } catch (error) {
     console.error('Get me error:', error);
@@ -706,6 +787,17 @@ router.put('/:id', authenticateToken, async (req, res) => {
       const current = await prisma.user.findUnique({ where: { id: req.user.id }, select: { imageUrl: true } });
       if (current?.imageUrl !== imageUrl) {
         return res.status(400).json({ error: 'Use the image upload endpoint to set a profile image' });
+      }
+    }
+
+    // Birth date drives minor protections, so once set it can only be changed by support.
+    if (typeof birthDate !== 'undefined') {
+      const current = await prisma.user.findUnique({ where: { id: req.user.id }, select: { birthDate: true } });
+      if (current?.birthDate && (!birthDate || !sameCalendarDay(birthDate, current.birthDate))) {
+        return res.status(409).json({ error: 'לא ניתן לשנות תאריך לידה. לתיקון יש לפנות לתמיכה', code: 'BIRTHDATE_LOCKED' });
+      }
+      if (birthDate && !isPlausibleBirthDate(birthDate)) {
+        return res.status(400).json({ error: 'יש להזין תאריך לידה תקין', code: 'INVALID_BIRTHDATE' });
       }
     }
 

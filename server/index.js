@@ -39,6 +39,8 @@ const { broadcastCounters } = require('./services/counterService');
 
 // Moderation
 const { moderator } = require('./moderationInstance');
+const { isAgeGateEnforced } = require('./utils/ageGatePolicy');
+const { getAgeGateStatus, AGE_GATE_STATUS } = require('./shared/ageGate');
 const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('./services/chatSafety');
 const { processReviewQueue } = require('./workers/reviewWorker');
 
@@ -582,11 +584,19 @@ io.on('connection', async (socket) => {
       try {
         senderUser = await prisma.user.findUnique({
           where: { id: finalUserId },
-          select: { id: true, name: true, imageUrl: true, birthDate: true, gender: true }
+          select: {
+            id: true, name: true, imageUrl: true, birthDate: true, gender: true,
+            termsAcceptedAt: true, termsVersion: true, guardianConsentAt: true,
+          }
         });
       } catch (e) {
         console.error('Failed to fetch sender details:', e);
       }
+    }
+
+    if (isAgeGateEnforced() && senderUser && getAgeGateStatus(senderUser) !== AGE_GATE_STATUS.OK) {
+      socket.emit('error', 'AGE_GATE_REQUIRED');
+      return;
     }
 
     // --- MODERATION & SAFETY CHECK (AI runs only when a recipient is a minor; see services/chatSafety.js) ---
