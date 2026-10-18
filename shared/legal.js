@@ -1,32 +1,33 @@
 // Terms of Use + Privacy Policy — single source of truth for web (/legal/*) and mobile
-// (app/legal/*). Pending legal review: fill OPERATOR, review every [bracketed] item, then
-// set LEGAL_IS_DRAFT = false. A material change also needs LEGAL_VERSION bumped in ageGate.js.
+// (app/legal/*), in Hebrew (primary) and English. A material change needs LEGAL_VERSION
+// bumped in ageGate.js (every user re-accepts) and LEGAL_LAST_UPDATED updated here.
 //
 // Blocks: { p: string } for a paragraph, { ul: string[] } for a bullet list.
 
 const { MIN_AGE, ADULT_AGE, LEGAL_VERSION } = require('./ageGate');
 
-const LEGAL_IS_DRAFT = true;
+/** Shows an "under legal review" note on the legal pages while true. */
+const LEGAL_IS_DRAFT = false;
 const LEGAL_LAST_UPDATED = '18.10.2026';
+const LEGAL_LAST_UPDATED_EN = 'October 18, 2026';
 
 const OPERATOR = {
-  name: '[שם המפעיל / החברה]',
-  registrationId: '[מספר ע.מ. / ח.פ.]',
-  address: '[כתובת למשלוח דואר]',
-  email: '[כתובת דוא"ל לפניות]',
-  jurisdiction: '[תל אביב-יפו]',
+  name: 'יאיר קלאוזנר',
+  nameEn: 'Yair Klausner',
+  email: 'support@joinup.co.il',
 };
-
-const operatorLine = `${OPERATOR.name} (${OPERATOR.registrationId})`;
 
 const TERMS_ACCEPT_LABEL = 'קראתי ואני מסכים/ה לתנאי השימוש ולמדיניות הפרטיות';
 const GUARDIAN_DECLARATION_LABEL =
   'אני מצהיר/ה שהוריי או האפוטרופוס החוקי שלי קראו את תנאי השימוש ואת מדיניות הפרטיות, ומסכימים שאשתמש ב-JoinUp';
+const TERMS_ACCEPT_LABEL_EN = 'I have read and agree to the Terms of Service and Privacy Policy';
+const GUARDIAN_DECLARATION_LABEL_EN =
+  'I declare that my parents or legal guardian have read the Terms of Service and Privacy Policy and consent to my use of JoinUp';
 
 const TERMS = {
   title: 'תנאי שימוש',
   intro: [
-    `ברוכים הבאים ל-JoinUp. תנאי שימוש אלה ("התנאים") מסדירים את השימוש באפליקציית JoinUp ובאתר הנלווה לה (יחד: "השירות"), המופעלים על ידי ${operatorLine} ("המפעיל", "אנחנו").`,
+    `ברוכים הבאים ל-JoinUp. תנאי שימוש אלה ("התנאים") מסדירים את השימוש באפליקציית JoinUp ובאתר הנלווה לה (יחד: "השירות"), המופעלים על ידי ${OPERATOR.name} ("המפעיל", "אנחנו").`,
     'יצירת חשבון, סימון הסכמה לתנאים או כל שימוש בשירות מהווים הסכמה מלאה לתנאים אלה ולמדיניות הפרטיות, המהווה חלק בלתי נפרד מהם. אם אינך מסכים לתנאים, אין להשתמש בשירות.',
     'התנאים מנוסחים בלשון זכר מטעמי נוחות בלבד, והם מתייחסים לכל המגדרים באופן שווה. כותרות הסעיפים נועדו לנוחות הקריאה ואין להשתמש בהן לפרשנות.',
   ],
@@ -147,13 +148,13 @@ const TERMS = {
     {
       heading: '14. דין וסמכות שיפוט',
       blocks: [
-        { p: `על התנאים ועל השימוש בשירות יחולו דיני מדינת ישראל בלבד. סמכות השיפוט הבלעדית בכל עניין הנוגע להם נתונה לבתי המשפט המוסמכים במחוז ${OPERATOR.jurisdiction}.` },
+        { p: 'על התנאים ועל השימוש בשירות יחולו דיני מדינת ישראל בלבד. סמכות השיפוט הבלעדית בכל עניין הנוגע להם נתונה לבתי המשפט המוסמכים במחוז תל אביב-יפו.' },
       ],
     },
     {
       heading: '15. יצירת קשר',
       blocks: [
-        { p: `לשאלות, לבירורים ולתלונות: דרך מסך התמיכה באפליקציה, בדוא"ל ${OPERATOR.email}, או בדואר אל ${OPERATOR.name}, ${OPERATOR.address}.` },
+        { p: `לשאלות, לבירורים ולתלונות: דרך מסך התמיכה באפליקציה, או בדוא"ל ${OPERATOR.email}.` },
       ],
     },
   ],
@@ -162,7 +163,7 @@ const TERMS = {
 const PRIVACY = {
   title: 'מדיניות פרטיות',
   intro: [
-    `מדיניות זו מסבירה איזה מידע ${operatorLine} ("המפעיל", "אנחנו") אוסף על משתמשי אפליקציית JoinUp והאתר הנלווה לה ("השירות"), למה המידע משמש, עם מי הוא משותף, ומה הזכויות שלך לגביו. המדיניות היא חלק מתנאי השימוש.`,
+    `מדיניות זו מסבירה איזה מידע ${OPERATOR.name} ("המפעיל", "אנחנו") אוסף על משתמשי אפליקציית JoinUp והאתר הנלווה לה ("השירות"), למה המידע משמש, עם מי הוא משותף, ומה הזכויות שלך לגביו. המדיניות היא חלק מתנאי השימוש.`,
     'המדיניות מנוסחת בלשון זכר מטעמי נוחות בלבד, והיא מתייחסת לכל המגדרים באופן שווה.',
   ],
   sections: [
@@ -213,7 +214,7 @@ const PRIVACY = {
     {
       heading: '5. מודרציה אוטומטית ובינה מלאכותית',
       blocks: [
-        { p: 'כדי להגן על קטינים, הודעות הנשלחות לשיחה שמשתתף בה קטין נבדקות באופן אוטומטי. לצורך הבדיקה, טקסט ההודעה נשלח לשירותי הבינה המלאכותית של OpenAI ושל Google, לאחר הסרה אוטומטית של מספרי טלפון וכתובות דוא"ל. יחד עם הטקסט נשלחים נתוני גיל ומגדר כלליים, לצורך כיול הבדיקה. הודעות בשיחות שכל משתתפיהן בגירים אינן נשלחות לבדיקה כזו. הודעות שסומנו נשמרות לבדיקה של צוות המפעיל.' },
+        { p: 'כדי להגן על קטינים, הודעות הנשלחות לשיחה שמשתתף בה קטין נבדקות באופן אוטומטי. לצורך הבדיקה, טקסט ההודעה נשלח לשירותי הבינה המלאכותית של OpenAI ושל Google (תוך שימוש במסלולים העסקיים המאובטחים שאינם משתמשים בנתונים לאימון מודלים), לאחר הסרה אוטומטית של מספרי טלפון וכתובות דוא"ל. יחד עם הטקסט נשלחים נתוני גיל ומגדר כלליים, לצורך כיול הבדיקה. הודעות בשיחות שכל משתתפיהן בגירים אינן נשלחות לבדיקה כזו. הודעות שסומנו נשמרות לבדיקה של צוות המפעיל.' },
       ],
     },
     {
@@ -222,7 +223,7 @@ const PRIVACY = {
         { p: 'אנו משתפים מידע רק עם ספקי שירות שפועלים מטעמנו ובמידה הדרושה לתפקידם:' },
         { ul: [
           'Clerk: אימות משתמשים וניהול חשבונות.',
-          '[ספק אחסון השרת ומסד הנתונים] ו-Vercel: אחסון השרתים, מסד הנתונים והאתר.',
+          'ספק אחסון השרת ו-Vercel: אחסון השרתים, מסד הנתונים והאתר.',
           'Cloudinary: אחסון תמונות.',
           'Google Firebase ו-Expo: שליחת התראות Push.',
           'OpenAI ו-Google: מודרציה אוטומטית של הודעות, כמתואר בסעיף 5.',
@@ -254,7 +255,7 @@ const PRIVACY = {
       heading: '10. שמירת מידע ומחיקתו',
       blocks: [
         { p: 'אנו שומרים את המידע כל עוד החשבון פעיל. במחיקת חשבון יימחקו שמך, כתובת הדוא"ל, הטלפון, התמונה, העיר, תאריך הלידה, המגדר, הדירוגים, החברויות, החסימות והפניות לתמיכה. תוכן ההודעות שלך יימחק, ותגובות על מגרשים יימחקו או ירוקנו מתוכן. החשבון יישמר כרשומה אנונימית ("משתמש שנמחק"), כדי לשמור על שלמות המשחקים וההיסטוריה של משתמשים אחרים.' },
-        { p: 'עותקים בגיבויים וביומני מערכת עשויים להישמר לתקופה מוגבלת של עד [X ימים], ומידע מסוים עשוי להישמר זמן רב יותר אם הדבר נדרש על פי דין או לצורך בירור תלונה או מחלוקת.' },
+        { p: 'עותקים בגיבויים וביומני מערכת עשויים להישמר לתקופה מוגבלת של עד 30 יום, ומידע מסוים עשוי להישמר זמן רב יותר אם הדבר נדרש על פי דין או לצורך בירור תלונה או מחלוקת.' },
       ],
     },
     {
@@ -284,19 +285,307 @@ const PRIVACY = {
     {
       heading: '14. יצירת קשר',
       blocks: [
-        { p: `בעל מאגר המידע: ${operatorLine}, ${OPERATOR.address}. לשאלות או לתלונות בנושא פרטיות: דרך מסך התמיכה באפליקציה או בדוא"ל ${OPERATOR.email}.` },
+        { p: `בעל מאגר המידע: ${OPERATOR.name}. לשאלות או לתלונות בנושא פרטיות: דרך מסך התמיכה באפליקציה או בדוא"ל ${OPERATOR.email}.` },
       ],
     },
   ],
 };
 
+const TERMS_EN = {
+  title: 'Terms of Service',
+  intro: [
+    `Welcome to JoinUp. These Terms of Service ("Terms") govern your use of the JoinUp mobile application and its companion website (collectively: the "Service"), operated by ${OPERATOR.nameEn} ("the Operator", "we", "us", or "our").`,
+    'By creating an account, checking the box to accept these Terms, or otherwise using the Service, you fully agree to these Terms and to our Privacy Policy, which forms an integral part of them. If you do not agree to these Terms, do not use the Service.',
+    'These Terms are drafted in the masculine gender for convenience only and apply equally to all genders. Section headings are for reading convenience only and shall not be used for interpretation.',
+  ],
+  sections: [
+    {
+      heading: '1. The Service',
+      blocks: [
+        { p: 'JoinUp is a community platform for coordinating amateur sports matches: publishing matches and fixed groups, joining matches, in-app chat between participants, pitch information, and player ratings.' },
+        { p: 'The Operator provides the technological platform only. The Operator does not organize matches, supervise them, employ organizers or players, and is not a party to any agreement between them. Pitch and match information is primarily user-generated and may be partial or inaccurate.' },
+      ],
+    },
+    {
+      heading: '2. Age and Eligibility',
+      blocks: [
+        { p: `Use of the Service is permitted for ages ${MIN_AGE} and older only. Do not register for or use the Service if you are under ${MIN_AGE}.` },
+        { p: `A user under the age of ${ADULT_AGE} ("Minor") may use the Service only with the consent of their parent or legal guardian. Upon registration, the Minor is required to declare that their parent or legal guardian has read these Terms and the Privacy Policy and consented to their use of the Service. A parent or legal guardian of a Minor is responsible for supervising the Minor's use of the Service.` },
+        { p: 'You must provide a correct date of birth during registration. Date of birth is used to apply protections for minors and cannot be changed independently once submitted. To correct an error, please contact support.' },
+        { p: 'Providing false information, specifically a false age, constitutes a breach of these Terms. The Operator may request verification, restrict an account, or close it if there is reason to believe the provided details are incorrect.' },
+      ],
+    },
+    {
+      heading: '3. Your Account',
+      blocks: [
+        { ul: [
+          'Registration and login to the Service are performed via an external authentication provider (Clerk).',
+          'You may open only one account per person. Impersonating another person or opening an account under a false name is prohibited.',
+          'You must keep your login credentials secure. You are responsible for all activity conducted through your account.',
+          'If you become aware of any unauthorized use of your account, you must notify us immediately.',
+        ] },
+      ],
+    },
+    {
+      heading: '4. Safety, Health, and Physical Meetups',
+      blocks: [
+        { p: 'The Service is designed to coordinate physical meetups for sports activities among individuals, some of whom may not know each other. Physical activity involves a risk of injury. Participation in any match is entirely at your own decision and sole responsibility.' },
+        { ul: [
+          'It is your responsibility to ensure that your health condition allows for such activity. In case of doubt, consult a physician.',
+          'It is recommended to meet in public, well-known locations and inform someone close to you where and when you are playing.',
+          'The Operator does not verify the identity, background, or suitability of users, organizers, or pitches, and is not responsible for pitch safety or equipment condition.',
+          'We strongly recommend that minors notify their parents prior to participating in any match, and that parents accompany minors to matches with unfamiliar people.',
+          'In case of emergency, contact emergency services (Magen David Adom 101, Police 100) rather than the Service.',
+        ] },
+      ],
+    },
+    {
+      heading: '5. Code of Conduct',
+      blocks: [
+        { p: 'When using the Service, including in chat, profile, pitch reviews, and reports, you must not:' },
+        { ul: [
+          'Harass, threaten, humiliate, badger, or pressure other users.',
+          'Publish explicit sexual content, obscene content, or violent content. Any sexual approach toward a minor, or any attempt to solicit a minor for a meeting unrelated to sports activity, is strictly prohibited. Such instances will result in immediate account termination and may be reported to authorities.',
+          'Publish racist, incitive, or discriminatory content based on religion, origin, gender, sexual orientation, disability, or age.',
+          'Publish personal details of another person without their consent.',
+          'Send spam, advertisements, or unsolicited commercial offers.',
+          'Impersonate any person or entity.',
+          'Publish content that infringes copyrights, trademarks, privacy rights of others, or illegal content of any kind.',
+          'Automatically scrape data from the Service, bypass security or restriction mechanisms, or disrupt the operation of the Service.',
+        ] },
+      ],
+    },
+    {
+      heading: '6. User-Generated Content',
+      blocks: [
+        { p: 'Content you publish on the Service (messages, photos, comments, ratings, and reports) remains yours. You are solely responsible for it.' },
+        { p: 'By publishing content, you grant the Operator a non-exclusive, worldwide, royalty-free license to store, display, copy, and process the content to the extent necessary to operate the Service, improve it, and enforce these Terms. This license terminates upon the deletion of the content or account, except for copies retained as required by law or in backups for a limited period.' },
+      ],
+    },
+    {
+      heading: '7. Moderation, Reporting, and Enforcement',
+      blocks: [
+        { ul: [
+          'To protect minors, chat messages sent to a conversation involving a minor are automatically checked, inter alia, using third-party artificial intelligence services. Messages found to be offensive may be blocked from sending. If automated checking is unavailable, messages to a minor from someone who is not an approved friend of the sender may be blocked.',
+          'Flagged messages may be reviewed by the Operator\'s team.',
+          'You can report a message or user, and block users directly within the Service.',
+          'The Operator may, at its discretion and without prior notice, remove content, restrict actions, suspend an account, or terminate it when there is suspicion of a breach of these Terms or risk to users.',
+          'The Operator will cooperate with law enforcement authorities when required by law, or when necessary in its opinion to prevent bodily harm, specifically harm to minors.',
+        ] },
+      ],
+    },
+    {
+      heading: '8. Matches, Prices, and Payments',
+      blocks: [
+        { p: 'Prices displayed for a match or group are set by the organizer and displayed for informational purposes only. Payments, if any, are made directly between participants or at the pitch, outside of the Service. The Operator is not a party to these transactions, does not collect fees, and is not responsible for collection, refunds, cancellations, or disputes between users. The Service itself is provided free of charge.' },
+      ],
+    },
+    {
+      heading: '9. Intellectual Property',
+      blocks: [
+        { p: 'All rights in the Service, including code, design, the JoinUp name, trademarks, and logo, belong to the Operator or its licensors. You may not copy, distribute, modify, or create derivative works from the Service without written consent, except for personal and ordinary use of the Service.' },
+      ],
+    },
+    {
+      heading: '10. Account Deletion and Termination of Use',
+      blocks: [
+        { p: 'You may delete your account at any time from the settings screen. Upon deletion, your personal account details and message content will be removed, and your account will be displayed to other users as a "Deleted User" to preserve the integrity of other users\' matches and history. Further details appear in the Privacy Policy.' },
+        { p: 'The Operator may modify the Service, discontinue all or part of it, or terminate a specific user\'s access, subject to applicable law.' },
+      ],
+    },
+    {
+      heading: '11. Limitation of Liability',
+      blocks: [
+        { p: 'The Service is provided on an "AS IS" and "AS AVAILABLE" basis. The Operator does not warrant that the Service will be uninterrupted or error-free, or that its information is accurate.' },
+        { p: 'To the maximum extent permitted by law, the Operator, its employees, and anyone acting on its behalf shall not be liable for any direct or indirect damage resulting from the use of or reliance on the Service. This includes bodily or property injury caused during a match or meetup coordinated via the Service, actions or omissions of other users, user-published content, or data loss. Nothing herein shall derogate from liability that cannot be limited by law.' },
+      ],
+    },
+    {
+      heading: '12. Indemnification',
+      blocks: [
+        { p: 'You agree to indemnify and hold harmless the Operator and anyone on its behalf from any damage, expense, loss, or claim, including reasonable attorney\'s fees, incurred by them due to your breach of these Terms or content you published.' },
+      ],
+    },
+    {
+      heading: '13. Changes to Terms',
+      blocks: [
+        { p: 'The Operator may update these Terms from time to time. Material changes will be notified via the Service, and continued use will require accepting the updated terms (and in the case of a minor, renewing parental consent). The date of the last update appears at the top of this document.' },
+      ],
+    },
+    {
+      heading: '14. Governing Law and Jurisdiction',
+      blocks: [
+        { p: 'These Terms and the use of the Service shall be governed solely by the laws of the State of Israel. Exclusive jurisdiction for any matter concerning them is granted to the competent courts in the Tel Aviv-Yafo district.' },
+      ],
+    },
+    {
+      heading: '15. Contact',
+      blocks: [
+        { p: `For questions, inquiries, and complaints: via the support screen in the app, or by email at ${OPERATOR.email}.` },
+      ],
+    },
+  ],
+};
+
+const PRIVACY_EN = {
+  title: 'Privacy Policy',
+  intro: [
+    `This policy explains what information ${OPERATOR.nameEn} ("the Operator", "we", "us") collects about users of the JoinUp application and its companion website (the "Service"), what the information is used for, with whom it is shared, and what your rights are regarding it. This policy is part of the Terms of Service.`,
+    'This policy is drafted in the masculine gender for convenience only and applies equally to all genders.',
+  ],
+  sections: [
+    {
+      heading: '1. Provision of Information',
+      blocks: [
+        { p: 'There is no legal obligation to provide us with information, and its provision depends on your will and consent. However, without certain details, such as email address and date of birth, we will not be able to provide you with the Service. Information marked as optional is not required to use the Service.' },
+      ],
+    },
+    {
+      heading: '2. Information We Collect',
+      blocks: [
+        { ul: [
+          'Account Details: Name, email address, profile picture, and phone number (optional). Authentication is performed via Clerk.',
+          'Profile Details: Date of birth, gender (optional), city, sports branches, and playing positions.',
+          'Service Activity: Matches and groups you created or joined, friends and friend requests, blocks, favorite pitches, ratings given and received, pitch comments, bug reports, pitch suggestions, and support requests.',
+          'Chat Content: Messages and replies in conversations you participate in.',
+          'Location: If permitted on your device, location is used to display nearby matches and pitches and to center the map. We do not store location history. Map search areas may be sent to the server for search purposes.',
+          'Consent Logs: Date and version of Terms of Service acceptance, and in the case of a minor, the date of parental consent declaration.',
+          'Technical Information: IP address, device type and operating system, server logs, crash and error reports, and push notification device token.',
+        ] },
+      ],
+    },
+    {
+      heading: '3. How Information Is Used',
+      blocks: [
+        { ul: [
+          'Operating the Service: Creating and joining matches, chat, friends, notifications, and support.',
+          'Safety: Enforcing age-based protections, content moderation, handling reports, and enforcing Terms of Service.',
+          'Security: Preventing misuse, fraud, and unauthorized access.',
+          'Operations and Improvement: Diagnosing bugs, aggregated usage analysis, and improving the Service.',
+          'Compliance: Fulfilling legal obligations and responding to authorized requests by authorities.',
+        ] },
+        { p: 'We do not sell personal information, and we do not use it for third-party targeted advertising.' },
+      ],
+    },
+    {
+      heading: '4. Information Visible to Other Users',
+      blocks: [
+        { ul: [
+          'Name, profile picture, and sports branches are displayed to other users.',
+          'Friends list and match history are displayed according to your privacy settings. The default for minors is "Friends only".',
+          'Chat messages are visible to conversation participants. Your participation in a match is visible to match participants and the organizer.',
+          'Calculated age may be displayed on your profile. Your full date of birth is not displayed to other users.',
+        ] },
+      ],
+    },
+    {
+      heading: '5. Automated Moderation and Artificial Intelligence',
+      blocks: [
+        { p: 'To protect minors, messages sent to conversations involving a minor are checked automatically. For this purpose, message text is sent to OpenAI and Google Gemini artificial intelligence services (using secure business tiers that do not use data to train models), following the automatic removal of phone numbers and email addresses. General age and gender metadata are sent alongside the text to calibrate moderation. Conversations where all participants are adults are not sent for such checks. Flagged messages are saved for Operator team review.' },
+      ],
+    },
+    {
+      heading: '6. Sharing Information with Third Parties',
+      blocks: [
+        { p: 'We share information only with service providers acting on our behalf and to the extent necessary for their role:' },
+        { ul: [
+          'Clerk: User authentication and account management.',
+          'Server and Database Provider & Vercel: Hosting servers, databases, and website.',
+          'Cloudinary: Image hosting.',
+          'Google Firebase & Expo: Sending push notifications.',
+          'OpenAI & Google: Automated message moderation, as described in Section 5.',
+          'Sentry: Crash and error reports.',
+        ] },
+        { p: 'Additionally, information may be disclosed to authorities when required by law or court order, when necessary to prevent bodily or property harm, or as part of a transfer of the Operator\'s activity to another entity bound by this policy.' },
+      ],
+    },
+    {
+      heading: '7. International Data Transfers',
+      blocks: [
+        { p: 'Some of our service providers store or process information outside of Israel, inter alia, in the United States and the European Union. Information transfer is carried out in accordance with the Privacy Protection Regulations (Transfer of Information to Databases Outside State Borders), 2001.' },
+      ],
+    },
+    {
+      heading: '8. Minors',
+      blocks: [
+        { p: `The Service is not intended for individuals under ${MIN_AGE}, and we do not knowingly collect information from children under this age. Users under ${ADULT_AGE} are required to declare parental or guardian consent. Minors are subject to additional protections: default "Friends only" privacy settings, and message moderation as described in Section 5.` },
+        { p: 'A parent or legal guardian may contact us to review minor information under their responsibility, correct it, or request account deletion.' },
+      ],
+    },
+    {
+      heading: '9. Data Security',
+      blocks: [
+        { p: 'We implement reasonable and customary measures to protect information in accordance with the Privacy Protection Regulations (Data Security), 2017. Measures include traffic encryption, access and permission restrictions, and logging. However, no security system is completely immune, and we cannot guarantee absolute protection against unauthorized access.' },
+      ],
+    },
+    {
+      heading: '10. Data Retention and Deletion',
+      blocks: [
+        { p: 'We retain information as long as your account is active. Upon account deletion, your name, email address, phone number, picture, city, date of birth, gender, ratings, friendships, blocks, and support inquiries will be deleted. Your chat message content will be deleted, and pitch reviews will be deleted or emptied. The account will be retained as an anonymous record ("Deleted User") to preserve the integrity of other users\' matches and history.' },
+        { p: 'Backups and system log copies may be retained for a limited period of up to 30 days, and certain information may be retained longer if required by law or for investigating a complaint or dispute.' },
+      ],
+    },
+    {
+      heading: '11. Your Rights',
+      blocks: [
+        { ul: [
+          'Right of Inspection: To review information held about you in our database (Section 13 of the Privacy Protection Law, 1981).',
+          'Right to Correction and Deletion: To request correction or deletion of information that is incorrect, incomplete, unclear, or outdated (Section 14 of the Law).',
+          'Account Deletion: You may delete your account yourself at any time from the settings screen.',
+          'Notifications: You can disable notifications or specific notification types in app settings and device settings.',
+        ] },
+        { p: `To exercise your rights: via the support screen in the app or by email at ${OPERATOR.email}. We will respond within the timeframes prescribed by law.` },
+      ],
+    },
+    {
+      heading: '12. Cookies and Local Storage',
+      blocks: [
+        { p: 'The website uses cookies and browser local storage for operational purposes only: maintaining account connection via Clerk, and preferences such as display mode. We do not use advertising cookies or third-party tracking for advertising purposes.' },
+      ],
+    },
+    {
+      heading: '13. Changes to Policy',
+      blocks: [
+        { p: 'We may update this policy from time to time. Material changes will be notified via the Service, and acceptance of the updated policy will be required. The date of the last update appears at the top of this document.' },
+      ],
+    },
+    {
+      heading: '14. Contact',
+      blocks: [
+        { p: `Database Owner: ${OPERATOR.nameEn}. For questions or privacy complaints: via the support screen in the app or by email at ${OPERATOR.email}.` },
+      ],
+    },
+  ],
+};
+
+/** Legal texts for a UI language; anything but 'en' gets Hebrew. */
+function getLegalTexts(lang) {
+  const en = lang === 'en';
+  return {
+    lang: en ? 'en' : 'he',
+    dir: en ? 'ltr' : 'rtl',
+    terms: en ? TERMS_EN : TERMS,
+    privacy: en ? PRIVACY_EN : PRIVACY,
+    lastUpdated: en ? LEGAL_LAST_UPDATED_EN : LEGAL_LAST_UPDATED,
+    lastUpdatedLabel: en ? 'Last updated' : 'עדכון אחרון',
+    termsAcceptLabel: en ? TERMS_ACCEPT_LABEL_EN : TERMS_ACCEPT_LABEL,
+    guardianDeclarationLabel: en ? GUARDIAN_DECLARATION_LABEL_EN : GUARDIAN_DECLARATION_LABEL,
+  };
+}
+
 module.exports = {
   LEGAL_VERSION,
   LEGAL_IS_DRAFT,
   LEGAL_LAST_UPDATED,
+  LEGAL_LAST_UPDATED_EN,
   OPERATOR,
   TERMS,
   PRIVACY,
+  TERMS_EN,
+  PRIVACY_EN,
   TERMS_ACCEPT_LABEL,
   GUARDIAN_DECLARATION_LABEL,
+  TERMS_ACCEPT_LABEL_EN,
+  GUARDIAN_DECLARATION_LABEL_EN,
+  getLegalTexts,
 };
