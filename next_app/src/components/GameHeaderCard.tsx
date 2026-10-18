@@ -11,7 +11,8 @@ import Chip from "@mui/material/Chip";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 
-import { SPORT_MAPPING, SPORT_EMOJI, getSportTheme } from "@/utils/sports";
+import { SPORT_MAPPING, getSportTheme } from "@/utils/sports";
+import SportIcon from "@/components/ui/SportIcon";
 import SportCover from "@/components/ui/SportCover";
 import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
 import { formatHebrewDateRelative } from "@/utils/hebrewDate";
@@ -96,7 +97,6 @@ export default function GameHeaderCard({
 
   const theme = getSportTheme(sport);
   const sportLabel = sport ? SPORT_MAPPING[sport] : undefined;
-  const sportEmoji = sport ? SPORT_EMOJI[sport] : undefined;
 
   return (
     <MotionCard
@@ -161,7 +161,8 @@ export default function GameHeaderCard({
             {sportLabel ? (
               <Chip
                 size="small"
-                label={sportEmoji ? `${sportEmoji} ${sportLabel}` : sportLabel}
+                icon={<SportIcon sport={sport} sx={{ fontSize: "15px !important", color: `${theme.glow} !important` }} />}
+                label={sportLabel}
                 sx={{ ...chipOverlaySx, ...glassChipSx, maxWidth: isJoined ? "58%" : "100%" }}
               />
             ) : (

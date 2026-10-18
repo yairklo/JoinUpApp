@@ -36,7 +36,11 @@ export default function Footer() {
         bgcolor: "background.paper",
         // Clears the fixed BottomNav on mobile (hidden from md up, same
         // breakpoint BottomNav itself uses) so footer links aren't covered.
-        pb: { xs: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))", md: 0 },
+        // --guest-bar-height is set by GuestJoinBar while it's mounted (0 otherwise)
+        pb: {
+          xs: "calc(var(--bottom-nav-height) + var(--guest-bar-height, 0px) + env(safe-area-inset-bottom, 0px))",
+          md: "var(--guest-bar-height, 0px)",
+        },
       }}
     >
       <Container maxWidth="md" sx={{ py: { xs: 3, sm: 4 }, px: { xs: 2, sm: 3 } }}>

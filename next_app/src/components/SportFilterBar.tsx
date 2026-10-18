@@ -4,7 +4,8 @@ import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import { alpha } from "@mui/material/styles";
 
-import { SportFilter, SPORT_MAPPING, SPORT_EMOJI, getSportTheme } from "@/utils/sports";
+import { SportFilter, SPORT_MAPPING, getSportTheme } from "@/utils/sports";
+import SportIcon from "@/components/ui/SportIcon";
 
 const FILTERS: { label: string; value: SportFilter }[] = [
     { label: "הכל", value: "ALL" },
@@ -41,7 +42,6 @@ export default function SportFilterBar({
         >
             {FILTERS.map((f) => {
                 const selected = value === f.value;
-                const emoji = f.value !== "ALL" ? SPORT_EMOJI[f.value] : undefined;
                 const sportColors = f.value !== "ALL" ? getSportTheme(f.value) : null;
                 return (
                     <ButtonBase
@@ -88,10 +88,11 @@ export default function SportFilterBar({
                             };
                         }}
                     >
-                        {emoji && (
-                            <Box component="span" aria-hidden sx={{ fontSize: "1rem", lineHeight: 1 }}>
-                                {emoji}
-                            </Box>
+                        {sportColors && (
+                            <SportIcon
+                                sport={f.value}
+                                sx={{ fontSize: 18, color: selected ? "#fff" : sportColors.base, transition: "color 150ms ease" }}
+                            />
                         )}
                         {f.label}
                     </ButtonBase>

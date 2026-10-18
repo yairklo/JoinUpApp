@@ -14,7 +14,8 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 
 import SportCover from "@/components/ui/SportCover";
-import { SPORT_MAPPING, SPORT_EMOJI, getSportTheme } from "@/utils/sports";
+import { SPORT_MAPPING, getSportTheme } from "@/utils/sports";
+import SportIcon from "@/components/ui/SportIcon";
 import { formatHebrewDateRelative } from "@/utils/hebrewDate";
 
 function formatEndTime(startTime: string, hours: number | undefined): string {
@@ -118,7 +119,6 @@ export default function GameHero({
     const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
     const almostFull = !isFull && spotsLeft <= 2;
     const sportLabel = sport ? SPORT_MAPPING[sport] : undefined;
-    const sportEmoji = sport ? SPORT_EMOJI[sport] : undefined;
     const isFree = !price || price <= 0;
 
     return (
@@ -148,7 +148,12 @@ export default function GameHero({
                 >
                     <Stack direction="row" spacing={0.75}>
                         {sportLabel && (
-                            <Chip size="small" label={sportEmoji ? `${sportEmoji} ${sportLabel}` : sportLabel} sx={glassChipSx} />
+                            <Chip
+                                size="small"
+                                icon={<SportIcon sport={sport} sx={{ fontSize: "16px !important", color: `${theme.glow} !important`, marginInlineStart: "6px !important" }} />}
+                                label={sportLabel}
+                                sx={glassChipSx}
+                            />
                         )}
                         {teamSize ? <Chip size="small" label={`${teamSize}X${teamSize}`} sx={glassChipSx} dir="ltr" /> : null}
                     </Stack>
