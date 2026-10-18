@@ -202,6 +202,8 @@ class ContentModerator {
         return dynamicConfig;
     }
 
+    // Fallback results (AI unavailable / errored / AI rate limit) carry `unverified: true`:
+    // the message was not actually checked, and callers decide whether to deliver it.
     async checkMessage(currentMessage, chatHistory = [], userConfig = {}, options = {}) {
         const {
             userId = 'anonymous',
@@ -224,12 +226,12 @@ class ContentModerator {
         const rateLimit = reputation < REPUTATION.SUSPICIOUS_THRESHOLD ? 5 : 20;
 
         if (await this.security.shouldSkipAI(userId, rateLimit)) {
-            return { isSafe: true, reviewNeeded: true, source: "ratelimit_bypass" };
+            return { isSafe: true, reviewNeeded: true, unverified: true, source: "ratelimit_bypass" };
         }
 
         if (!this.openai || !this.gemini) {
             Logger.error("ContentModerator", "AI Systems unavailable");
-            return { isSafe: true, reviewNeeded: true, source: "system_down" };
+            return { isSafe: true, reviewNeeded: true, unverified: true, source: "system_down" };
         }
 
         const sanitizedMessage = this._scrubPII(safeMessage);
@@ -293,6 +295,7 @@ class ContentModerator {
             return {
                 isSafe: true,
                 reviewNeeded: true,
+                unverified: true,
                 source: "fail_open_error",
                 auditData: { error: error.message }
             };
@@ -473,6 +476,7 @@ class ContentModerator {
         return {
             isSafe: true,
             reviewNeeded: true,
+            unverified: true,
             source: "fail_open_gemini",
             retryDelay: lastError?.parsedRetryDelay || null
         };
