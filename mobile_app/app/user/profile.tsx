@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
-import { useMyAvatar, useMyName, setMyName } from '@/hooks/useMyAvatar';
+import { useMyAvatar, useMyName, notifyAvatarChanged, notifyNameChanged } from '@/hooks/useMyAvatar';
 import { pickOneImage } from '@/utils/pickImage';
 
 const getPositionOptions = (t: any): Record<string, string[]> => ({
@@ -69,7 +69,7 @@ export default function ProfileScreen() {
     const [avatarBusy, setAvatarBusy] = useState(false);
     const [avatarError, setAvatarError] = useState<string | null>(null);
     const myName = useMyName();
-    const { imageUrl: displayAvatar, hasImage: hasAvatar, set: setMyAvatar } = useMyAvatar();
+    const { imageUrl: displayAvatar, hasImage: hasAvatar } = useMyAvatar();
 
     // Form state
     const [form, setForm] = useState({ city: '', phone: '', gender: '' as GenderValue, sportsData: [] as SportEntry[] });
@@ -149,7 +149,7 @@ export default function ProfileScreen() {
                     gender: form.gender || null,
                 }, token);
                 setProfile(updated);
-                if (typeof updated?.name === 'string') setMyName(updated.name);
+                if (typeof updated?.name === 'string') notifyNameChanged(updated.name);
                 setIsEditing(false);
             }
         } catch (err) {
@@ -169,7 +169,7 @@ export default function ProfileScreen() {
             const token = await getToken();
             if (!token) throw new Error(t('upload.reauth', 'נדרש להתחבר מחדש'));
             const result = await usersApi.uploadImage(user.id, picked, token);
-            setMyAvatar(result.imageUrl);
+            notifyAvatarChanged(result.imageUrl);
             setProfile(prev => (prev ? { ...prev, imageUrl: result.imageUrl } : prev));
         } catch (err) {
             setAvatarError(err instanceof Error ? err.message : t('upload.avatarUploadFailed', 'העלאת התמונה נכשלה'));
@@ -186,7 +186,7 @@ export default function ProfileScreen() {
             const token = await getToken();
             if (!token) throw new Error(t('upload.reauth', 'נדרש להתחבר מחדש'));
             await usersApi.removeImage(user.id, token);
-            setMyAvatar(null);
+            notifyAvatarChanged(null);
             setProfile(prev => (prev ? { ...prev, imageUrl: undefined } : prev));
         } catch (err) {
             setAvatarError(err instanceof Error ? err.message : t('upload.avatarRemoveFailed', 'הסרת התמונה נכשלה'));
