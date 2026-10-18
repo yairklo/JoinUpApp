@@ -16,6 +16,7 @@ import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateConte
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { tryParseJerusalemTimeToUTC } from '@/utils/timezone';
+import BackButton from '@/components/ui/BackButton';
 
 export default function GameDetailsScreen() {
     const { t, i18n } = useTranslation();
@@ -241,9 +242,7 @@ export default function GameDetailsScreen() {
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
             <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
-                    <FontAwesome name="arrow-left" size={20} color="#4b5563" />
-                </TouchableOpacity>
+                <BackButton className="me-3" />
                 <Text className="flex-1 text-xl font-bold text-gray-900">{t('game.details')}</Text>
             </View>
             <ScrollView className="flex-1 bg-gray-50">

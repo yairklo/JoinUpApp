@@ -3,12 +3,12 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator,
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { fieldsApi, Field } from '@/services/api/fields';
 import { SPORT_MAPPING } from '@/utils/sports';
 import FieldLocationPicker from '@/components/admin/FieldLocationPicker';
 import FieldImageUpload from '@/components/admin/FieldImageUpload';
 import FieldPhotoGallery from '@/components/admin/FieldPhotoGallery';
+import BackButton from '@/components/ui/BackButton';
 
 // Kept explicit and in sync with server/prisma/schema.prisma's SportType enum,
 // mirroring next_app's FieldEditorDialog (SPORT_MAPPING's own type is too loose
@@ -158,9 +158,7 @@ export default function FieldEditorForm({ field }: FieldEditorFormProps) {
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
             <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3" accessibilityRole="button">
-                    <FontAwesome name="arrow-left" size={20} color="#4b5563" />
-                </TouchableOpacity>
+                <BackButton className="me-3" />
                 <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>
                     {isEdit ? `עריכת מגרש: ${field?.name}` : 'מגרש חדש'}
                 </Text>

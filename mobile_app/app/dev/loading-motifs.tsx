@@ -2,9 +2,9 @@ import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { LOADING_MOTIFS, LOADING_MOTIF_FAMILY_LABELS } from "@joinup/shared";
 import LoadingMotif from "@/components/loading/LoadingMotif";
+import BackButton from '@/components/ui/BackButton';
 
 /**
  * Internal picker: preview every loading motif on native so we can choose
@@ -16,9 +16,7 @@ export default function LoadingMotifsPreviewScreen() {
     return (
         <SafeAreaView edges={["top"]} className="flex-1 bg-white">
             <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3" accessibilityRole="button">
-                    <FontAwesome name="arrow-left" size={20} color="#4b5563" />
-                </TouchableOpacity>
+                <BackButton className="me-3" />
                 <Text className="text-xl font-bold text-gray-900 flex-1">אנימציות טעינה</Text>
             </View>
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} className="bg-gray-50">

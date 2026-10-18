@@ -12,6 +12,7 @@ import LoadingMotif from '@/components/loading/LoadingMotif';
 import FieldCommentsSection from '@/components/FieldCommentsSection';
 import FieldIssueReportSection from '@/components/FieldIssueReportSection';
 import FavoriteButton from '@/components/FavoriteButton';
+import BackButton from '@/components/ui/BackButton';
 
 const CHART_MAX_HEIGHT = 120;
 
@@ -35,9 +36,7 @@ function currentJerusalemDay(): number {
 function FieldProfileHeader({ title, onBack }: { title: string; onBack: () => void }) {
     return (
         <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-            <TouchableOpacity onPress={onBack} className="p-2 mr-3" accessibilityRole="button" accessibilityLabel="Back">
-                <FontAwesome name="arrow-left" size={20} color="#4b5563" />
-            </TouchableOpacity>
+            <BackButton onPress={onBack} className="me-3" />
             <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>{title}</Text>
         </View>
     );
