@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useMyAvatar } from '@/hooks/useMyAvatar';
 import { pickOneImage } from '@/utils/pickImage';
 import type { PickedImage } from '@/services/api/fields';
 
@@ -69,8 +70,7 @@ export default function ProfileScreen() {
     const [avatarBusy, setAvatarBusy] = useState(false);
     const [avatarError, setAvatarError] = useState<string | null>(null);
     const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
-    // DB avatar: null after removal (so we don't fall back to a stale value); undefined until loaded.
-    const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(undefined);
+    const { imageUrl: displayAvatar, hasImage: hasAvatar, set: setMyAvatar } = useMyAvatar();
 
     // Form state
     const [form, setForm] = useState({ city: '', phone: '', gender: '' as GenderValue, sportsData: [] as SportEntry[] });
@@ -194,7 +194,7 @@ export default function ProfileScreen() {
             const token = await getToken();
             if (!token) throw new Error(t('upload.reauth', 'נדרש להתחבר מחדש'));
             const result = await usersApi.uploadImage(user.id, picked, token);
-            setAvatarUrl(result.imageUrl);
+            setMyAvatar(result.imageUrl);
             setProfile(prev => (prev ? { ...prev, imageUrl: result.imageUrl } : prev));
             syncPicked = picked;
         } catch (err) {
@@ -215,7 +215,7 @@ export default function ProfileScreen() {
             const token = await getToken();
             if (!token) throw new Error(t('upload.reauth', 'נדרש להתחבר מחדש'));
             await usersApi.removeImage(user.id, token);
-            setAvatarUrl(null);
+            setMyAvatar(null);
             setProfile(prev => (prev ? { ...prev, imageUrl: undefined } : prev));
             syncPicked = null;
         } catch (err) {
@@ -285,11 +285,6 @@ export default function ProfileScreen() {
             })
         }));
     };
-
-    const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}`;
-    const dbAvatar = avatarUrl === undefined ? profile?.imageUrl : avatarUrl;
-    const hasAvatar = avatarUrl === null ? false : !!(dbAvatar || user?.hasImage);
-    const displayAvatar = avatarUrl === null ? fallbackAvatar : dbAvatar || user?.imageUrl || fallbackAvatar;
 
     const unaddedSports = availableSports.filter(
         sport => !form.sportsData.some(s => s.sportId === sport.id)

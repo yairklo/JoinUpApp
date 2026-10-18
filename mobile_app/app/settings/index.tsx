@@ -5,12 +5,14 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import * as NotificationsPermissions from 'expo-notifications';
 import { notificationsApi } from '@/services/api/notifications';
+import { useMyAvatar } from '@/hooks/useMyAvatar';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function SettingsScreen() {
     const { t } = useTranslation();
     const { signOut, getToken } = useAuth();
     const { user } = useUser();
+    const { imageUrl: avatarUrl } = useMyAvatar();
     const router = useRouter();
 
     const [pushEnabled, setPushEnabled] = useState(false);
@@ -87,7 +89,7 @@ export default function SettingsScreen() {
                 {/* Profile Section */}
                 <View className="mt-6 mb-6 items-center">
                     <Image
-                        source={{ uri: user?.imageUrl }}
+                        source={{ uri: avatarUrl }}
                         className="w-24 h-24 rounded-full bg-gray-200 mb-3"
                     />
                     <Text className="text-xl font-bold text-gray-800">{user?.fullName}</Text>
