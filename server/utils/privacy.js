@@ -46,6 +46,16 @@ function resolvePrivacyLevel(stored, birthDate) {
   return getDefaultPrivacyForAge(birthDate);
 }
 
+/**
+ * Age-based default for every privacy field — what each would resolve to if unset.
+ * Unlike `resolved`, this never echoes a stored explicit value, so clients can always
+ * label the "default" option with its true meaning.
+ */
+function getAgeDefaults(birthDate) {
+  const d = getDefaultPrivacyForAge(birthDate);
+  return { privacyFriends: d, privacyGames: d, privacyMessages: d };
+}
+
 /** Confirmed friendship check using the ordered-pair unique key. */
 async function areConfirmedFriends(userAId, userBId) {
   if (!userAId || !userBId || userAId === userBId) return false;
@@ -68,6 +78,7 @@ module.exports = {
   getAgeInJerusalem,
   getDefaultPrivacyForAge,
   resolvePrivacyLevel,
+  getAgeDefaults,
   areConfirmedFriends,
   canViewSection,
 };

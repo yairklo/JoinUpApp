@@ -88,11 +88,11 @@
   },
   "privacy": {
     "settings": "Privacy Settings",
-    "description": "Control who can see your info and contact you.",
+    "description": "Control who can see your info and contact you. Choosing \"Default\" is set automatically based on age.",
     "friends": "Who can see my friends",
     "games": "Who can see my match history",
     "messages": "Who can message me",
-    "default": "Default by age",
+    "default": "Default",
     "everyone": "Everyone",
     "friendsOnly": "Friends only",
     "save": "Save",

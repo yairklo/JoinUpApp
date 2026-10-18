@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usersApi, PrivacyLevel, PrivacySettings } from "@/services/api/users";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { defaultOptionLabel } from "@/utils/privacyLabels";
 
 import Container from "@mui/material/Container";
 import Card from "@mui/material/Card";
@@ -49,19 +50,8 @@ export default function PrivacySettingsPage() {
         privacyGames: "DEFAULT",
         privacyMessages: "DEFAULT",
     });
-    const [resolved, setResolved] = useState<PrivacySettings["resolved"] | null>(null);
-    // The raw (nullable) server-persisted value per field, as of the last load/save. `resolved`
-    // only reflects what "DEFAULT" truly resolves to when the stored value is actually null —
-    // when a field has an explicit stored value, `resolved[key]` just echoes that explicit value
-    // back (see resolvePrivacyLevel: a stored value always wins). So if the user has an explicit
-    // value saved and then flips the dropdown back to "DEFAULT" without saving yet, the
-    // parenthetical hint must NOT use `resolved` — it would show the stale explicit value as if
-    // it were the age-based default. We only trust the hint when rawSaved[key] is null.
-    const [rawSaved, setRawSaved] = useState<Record<FieldKey, PrivacyLevel | null>>({
-        privacyFriends: null,
-        privacyGames: null,
-        privacyMessages: null,
-    });
+    // Age-based default per field; fixed for the user, so the "default" option label never changes.
+    const [ageDefaults, setAgeDefaults] = useState<PrivacySettings["ageDefaults"] | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -82,12 +72,7 @@ export default function PrivacySettingsPage() {
                         privacyGames: ps.privacyGames ?? "DEFAULT",
                         privacyMessages: ps.privacyMessages ?? "DEFAULT",
                     });
-                    setResolved(ps.resolved);
-                    setRawSaved({
-                        privacyFriends: ps.privacyFriends ?? null,
-                        privacyGames: ps.privacyGames ?? null,
-                        privacyMessages: ps.privacyMessages ?? null,
-                    });
+                    setAgeDefaults(ps.ageDefaults ?? null);
                 }
             } catch (e) {
                 console.error("Failed to load settings:", e);
@@ -112,12 +97,7 @@ export default function PrivacySettingsPage() {
                 privacyMessages: values.privacyMessages === "DEFAULT" ? null : values.privacyMessages,
             };
             const res = await usersApi.updatePrivacySettings(payload, token);
-            setResolved(res.resolved);
-            setRawSaved({
-                privacyFriends: res.privacyFriends ?? null,
-                privacyGames: res.privacyGames ?? null,
-                privacyMessages: res.privacyMessages ?? null,
-            });
+            if (res.ageDefaults) setAgeDefaults(res.ageDefaults);
             setSuccess(true);
         } catch (e) {
             console.error("Failed to save settings:", e);
@@ -188,7 +168,7 @@ export default function PrivacySettingsPage() {
                                             }
                                         >
                                             <MenuItem value="DEFAULT">
-                                                ברירת מחדל לפי גיל{resolved && rawSaved[f.key] === null ? ` (${resolved[f.key] === "EVERYONE" ? "כולם" : "חברים בלבד"})` : ""}
+                                                {defaultOptionLabel(ageDefaults, f.key)}
                                             </MenuItem>
                                             <MenuItem value="EVERYONE">כולם</MenuItem>
                                             <MenuItem value="FRIENDS_ONLY">חברים בלבד</MenuItem>

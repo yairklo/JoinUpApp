@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
-import { usersApi, PrivacyLevel } from '../../src/services/api/users';
+import { usersApi, PrivacyLevel, PrivacySettings } from '../../src/services/api/users';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 
 type FieldKey = 'privacyFriends' | 'privacyGames' | 'privacyMessages';
@@ -22,6 +22,8 @@ export default function PrivacySettingsScreen() {
         privacyGames: 'DEFAULT',
         privacyMessages: 'DEFAULT',
     });
+    // Age-based default per field; fixed for the user, so the default option label never changes.
+    const [ageDefaults, setAgeDefaults] = useState<PrivacySettings['ageDefaults'] | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -31,8 +33,9 @@ export default function PrivacySettingsScreen() {
         { key: 'privacyMessages', label: t('privacy.messages') },
     ];
 
-    const OPTIONS: { value: FieldValue; label: string }[] = [
-        { value: 'DEFAULT', label: t('privacy.default') },
+    const levelLabel = (level: PrivacyLevel) => (level === 'EVERYONE' ? t('privacy.everyone') : t('privacy.friendsOnly'));
+    const optionsFor = (key: FieldKey): { value: FieldValue; label: string }[] => [
+        { value: 'DEFAULT', label: ageDefaults?.[key] ? levelLabel(ageDefaults[key]) : t('privacy.default') },
         { value: 'EVERYONE', label: t('privacy.everyone') },
         { value: 'FRIENDS_ONLY', label: t('privacy.friendsOnly') },
     ];
@@ -51,6 +54,7 @@ export default function PrivacySettingsScreen() {
                         privacyGames: ps.privacyGames ?? 'DEFAULT',
                         privacyMessages: ps.privacyMessages ?? 'DEFAULT',
                     });
+                    setAgeDefaults(ps.ageDefaults ?? null);
                 }
             } catch (e) {
                 console.error('Failed to load privacy settings', e);
@@ -65,7 +69,7 @@ export default function PrivacySettingsScreen() {
         try {
             const token = await getToken();
             if (!token) return;
-            await usersApi.updatePrivacySettings(
+            const saved = await usersApi.updatePrivacySettings(
                 {
                     privacyFriends: values.privacyFriends === 'DEFAULT' ? null : values.privacyFriends,
                     privacyGames: values.privacyGames === 'DEFAULT' ? null : values.privacyGames,
@@ -73,6 +77,7 @@ export default function PrivacySettingsScreen() {
                 },
                 token
             );
+            if (saved.ageDefaults) setAgeDefaults(saved.ageDefaults);
             Alert.alert('', t('privacy.saved'));
         } catch (e) {
             console.error('Failed to save privacy settings', e);
@@ -103,7 +108,7 @@ export default function PrivacySettingsScreen() {
                         <View key={f.key} className="mb-6">
                             <Text className="font-bold text-gray-800 mb-3">{f.label}</Text>
                             <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                                {OPTIONS.map((opt, idx) => {
+                                {optionsFor(f.key).map((opt, idx) => {
                                     const active = values[f.key] === opt.value;
                                     return (
                                         <TouchableOpacity

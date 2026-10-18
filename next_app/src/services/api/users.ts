@@ -32,6 +32,12 @@ export interface PrivacySettings {
         privacyGames: PrivacyLevel;
         privacyMessages: PrivacyLevel;
     };
+    /** What each field resolves to when unset (age-based). Absent on older servers. */
+    ageDefaults?: {
+        privacyFriends: PrivacyLevel;
+        privacyGames: PrivacyLevel;
+        privacyMessages: PrivacyLevel;
+    };
 }
 
 export interface UserProfile {
