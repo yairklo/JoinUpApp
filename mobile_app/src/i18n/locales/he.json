@@ -807,8 +807,7 @@
     "reauth": "נדרש להתחבר מחדש",
     "avatarUploading": "מעלה תמונה…",
     "avatarChange": "החלפת תמונה",
-    "avatarRemove": "הסרת תמונה",
-    "avatarSyncFailed": "התמונה נשמרה, אך ייתכן שלא תתעדכן בכל המסכים מיד"
+    "avatarRemove": "הסרת תמונה"
   },
   "errors": {
     "gatewayError": "השרת לא זמין כרגע. נסה שוב בעוד רגע.",

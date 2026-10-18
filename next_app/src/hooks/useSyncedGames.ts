@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
+import { useMyName } from "@/hooks/useMyAvatar";
 import { useGameUpdateListener, useGameCreatedListener, useGameDeletedListener, useGameUpdatedListener } from "@/context/GameUpdateContext";
 import { Game } from "@/types/game";
 import { normalizeIncomingGame } from "@/utils/timezone";
@@ -15,6 +16,7 @@ function sortByStart(games: Game[]) {
 export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (game: Game) => boolean) {
     const [games, setGames] = useState<Game[]>(initialGames);
     const { user } = useUser();
+    const myName = useMyName();
     const myId = user?.id;
 
     const predicateRef = useRef(filterPredicate);
@@ -84,7 +86,7 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
 
                     // If it's the current user, try to get their name
                     // Otherwise use "User" placeholder
-                    const name = userId === myId ? user?.fullName || "Me" : "User";
+                    const name = userId === myId ? myName || "Me" : "User";
 
                     return {
                         ...game,

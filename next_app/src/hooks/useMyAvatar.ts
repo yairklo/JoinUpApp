@@ -1,47 +1,58 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useAuth, useUser } from '@clerk/nextjs';
 import { usersApi } from '@/services/api/users';
-
-const AVATAR_CHANGED_EVENT = 'joinup:avatar-changed';
-
-/** Call after the current user's avatar was uploaded (url) or removed (null) so open headers refresh. */
-export function notifyAvatarChanged(url: string | null) {
-    if (typeof window === 'undefined') return;
-    window.dispatchEvent(new CustomEvent<string | null>(AVATAR_CHANGED_EVENT, { detail: url }));
-}
+import { createProfileStore } from '@/lib/profileStore';
+import { resolveMyName } from '@/lib/resolveMyName';
 
 /**
- * The current user's avatar. Our DB imageUrl is the source of truth (Clerk's own image is only a
- * fallback while loading / when none is set), so uploads from any client show up in the header.
+ * The current user's display profile (name, avatar) from our DB, which is the source of truth;
+ * Clerk's own values are only fallbacks while loading. Module-level store: every consumer shares
+ * one fetch and one value, and the profile screen pushes updates right after a save/upload.
  */
-export function useMyAvatar(): string | null {
+const store = createProfileStore();
+
+/** Call after the current user's avatar was uploaded (url) or removed (null). */
+export const notifyAvatarChanged = store.setAvatar;
+/** Call after the current user's name was saved. */
+export const notifyNameChanged = store.setName;
+
+function useMyProfile() {
     const { getToken, isLoaded, isSignedIn } = useAuth();
     const { user } = useUser();
-    // undefined = not loaded yet; null = loaded, user has no DB avatar.
-    const [dbUrl, setDbUrl] = useState<string | null | undefined>(undefined);
+    const userId = user?.id ?? null;
+    const snap = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
 
-    const load = useCallback(async () => {
-        try {
-            const token = await getToken();
-            if (!token) return;
-            const me = await usersApi.getMe(token);
-            setDbUrl(me.imageUrl || null);
-        } catch (e) {
-            console.error('Failed to load avatar', e);
+    useEffect(() => {
+        if (!isLoaded) return;
+        if (!isSignedIn || !userId) {
+            store.signOut();
+            return;
         }
-    }, [getToken]);
+        if (!store.signIn(userId)) return;
+        (async () => {
+            try {
+                const token = await getToken();
+                if (!token) return store.loadFailed(userId);
+                store.applyLoaded(userId, await usersApi.getMe(token));
+            } catch (e) {
+                console.error('Failed to load profile', e);
+                store.loadFailed(userId);
+            }
+        })();
+    }, [isLoaded, isSignedIn, userId, snap.userId, getToken]);
 
-    useEffect(() => {
-        if (isLoaded && isSignedIn) load();
-    }, [isLoaded, isSignedIn, load]);
+    return { user, own: snap.userId === userId ? snap : null };
+}
 
-    useEffect(() => {
-        const onChange = (e: Event) => setDbUrl((e as CustomEvent<string | null>).detail ?? null);
-        window.addEventListener(AVATAR_CHANGED_EVENT, onChange);
-        return () => window.removeEventListener(AVATAR_CHANGED_EVENT, onChange);
-    }, []);
+/** Returns the avatar URL, or null when the user has none (render initials). */
+export function useMyAvatar(): string | null {
+    const { user, own } = useMyProfile();
+    if (own?.imageUrl) return own.imageUrl;
+    if (own?.imageUrl === null) return null; // DB says no photo: don't fall back to a stale Clerk image
+    return user?.hasImage ? user.imageUrl : null; // not loaded yet
+}
 
-    if (dbUrl) return dbUrl;
-    if (dbUrl === null) return null;
-    return user?.hasImage ? user.imageUrl : null;
+export function useMyName(): string {
+    const { user, own } = useMyProfile();
+    return resolveMyName(own?.name, user?.fullName);
 }

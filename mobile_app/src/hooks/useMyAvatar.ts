@@ -1,66 +1,58 @@
-import { useCallback, useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { usersApi } from '@/services/api/users';
+import { createProfileStore } from '@/lib/profileStore';
 
 /**
- * The current user's avatar, from our DB (users/me.imageUrl) rather than Clerk, so an upload from
- * any client shows up everywhere. Module-level so every screen shares one fetch and one value;
- * `set` lets the profile screen update all consumers right after an upload/remove.
+ * The current user's display profile (name, avatar) from our DB (users/me), which is the source of
+ * truth; Clerk's own values are only fallbacks while loading. Same store semantics as the web
+ * hook (next_app/src/hooks/useMyAvatar.ts): one shared fetch and value, updated right after a
+ * save/upload via notifyAvatarChanged / notifyNameChanged.
  */
-type Store = { userId: string | null; imageUrl: string | null | undefined; loading: boolean };
+const store = createProfileStore();
 
-let store: Store = { userId: null, imageUrl: undefined, loading: false };
-const listeners = new Set<() => void>();
+/** Call after the current user's avatar was uploaded (url) or removed (null). */
+export const notifyAvatarChanged = store.setAvatar;
+/** Call after the current user's name was saved. */
+export const notifyNameChanged = store.setName;
 
-const update = (next: Partial<Store>) => {
-    store = { ...store, ...next };
-    listeners.forEach(l => l());
-};
-const subscribe = (l: () => void) => {
-    listeners.add(l);
-    return () => { listeners.delete(l); };
-};
-const getSnapshot = () => store;
-
-export function useMyAvatar() {
+function useMyProfile() {
     const { user } = useUser();
     const { getToken } = useAuth();
     const userId = user?.id ?? null;
-    const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-
-    const refresh = useCallback(async () => {
-        if (!userId) return;
-        update({ loading: true });
-        try {
-            const token = await getToken();
-            if (!token) return;
-            const me = await usersApi.getMe(token);
-            if (store.userId === userId) update({ imageUrl: me.imageUrl ?? null });
-        } catch (err) {
-            console.error('Failed to load avatar', err);
-        } finally {
-            update({ loading: false });
-        }
-    }, [userId, getToken]);
-
-    const set = useCallback((imageUrl: string | null) => update({ userId, imageUrl }), [userId]);
+    const snap = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
 
     useEffect(() => {
         if (!userId) {
-            if (store.userId) update({ userId: null, imageUrl: undefined });
+            store.signOut();
             return;
         }
-        if (store.userId !== userId) {
-            update({ userId, imageUrl: undefined });
-            void refresh();
-        }
-    }, [userId, refresh]);
+        if (!store.signIn(userId)) return;
+        (async () => {
+            try {
+                const token = await getToken();
+                if (!token) return store.loadFailed(userId);
+                store.applyLoaded(userId, await usersApi.getMe(token));
+            } catch (err) {
+                console.error('Failed to load profile', err);
+                store.loadFailed(userId);
+            }
+        })();
+    }, [userId, snap.userId, getToken]);
 
-    const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}`;
-    const own = snap.userId === userId ? snap.imageUrl : undefined;
+    return { user, own: snap.userId === userId ? snap : null };
+}
+
+export function useMyAvatar() {
+    const { user, own } = useMyProfile();
+    const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(own?.name || user?.fullName || '')}`;
     // null = DB says no photo (don't fall back to a stale Clerk image); undefined = not loaded yet.
-    const imageUrl = own === null ? fallback : own || user?.imageUrl || fallback;
-    const hasImage = own === null ? false : !!(own || user?.hasImage);
+    const imageUrl = own?.imageUrl === null ? fallback : own?.imageUrl || user?.imageUrl || fallback;
+    const hasImage = own?.imageUrl === null ? false : !!(own?.imageUrl || user?.hasImage);
+    return { imageUrl, hasImage };
+}
 
-    return { imageUrl, hasImage, hasDbImage: !!own, refresh, set };
+export function useMyName(): string {
+    const { user, own } = useMyProfile();
+    return own?.name?.trim() || user?.fullName?.trim() || '';
 }

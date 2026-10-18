@@ -807,8 +807,7 @@
     "reauth": "Please sign in again",
     "avatarUploading": "Uploading photo…",
     "avatarChange": "Change photo",
-    "avatarRemove": "Remove photo",
-    "avatarSyncFailed": "Photo saved, but it may not update everywhere right away"
+    "avatarRemove": "Remove photo"
   },
   "errors": {
     "gatewayError": "Server is currently unavailable. Please try again in a moment.",

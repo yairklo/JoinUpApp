@@ -3,6 +3,7 @@ import MapView, { Marker } from 'react-native-maps';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useMyName } from '@/hooks/useMyAvatar';
 import { useTranslation } from 'react-i18next';
 import { gamesApi } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
@@ -681,7 +682,7 @@ export default function LiveTeamManagementScreen() {
 }
 
 function ManagerPickChat({ roomId }: { roomId: string }) {
-  const { user } = useUser();
+  const myName = useMyName();
   const { t } = useTranslation();
   const { state, actions } = useChatLogic({ roomId, chatName: t('teams.managersChatName') });
   const [text, setText] = useState('');
@@ -692,7 +693,7 @@ function ManagerPickChat({ roomId }: { roomId: string }) {
       <ScrollView style={{ maxHeight: 160, marginBottom: 8 }}>
         {(state.messages || []).slice(-30).map((m: any) => (
           <Text key={m.id || m.tempId} style={{ marginBottom: 4 }}>
-            <Text style={{ fontWeight: '700' }}>{m.senderName || m.userId || user?.fullName}: </Text>
+            <Text style={{ fontWeight: '700' }}>{m.senderName || m.userId || myName}: </Text>
             {m.text || m.content}
           </Text>
         ))}

@@ -14,7 +14,7 @@ import ManageAccountsOutlinedIcon from "@mui/icons-material/ManageAccountsOutlin
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import Avatar from "@/components/Avatar";
-import { useMyAvatar } from "@/hooks/useMyAvatar";
+import { useMyAvatar, useMyName } from "@/hooks/useMyAvatar";
 
 // Replaces Clerk's <UserButton>, which can only render Clerk's own image and so never showed the
 // avatar stored in our DB. Same menu entries, rendered from our imageUrl.
@@ -24,7 +24,8 @@ function UserMenu() {
   const avatarUrl = useMyAvatar();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const close = () => setAnchorEl(null);
-  const name = user?.fullName || user?.primaryEmailAddress?.emailAddress || "";
+  const myName = useMyName();
+  const name = myName || user?.primaryEmailAddress?.emailAddress || "";
 
   return (
     <>

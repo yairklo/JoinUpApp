@@ -19,6 +19,14 @@ export const clerkAppearance = {
     shimmer: false,
   },
   elements: {
+    // Display data (name, avatar, username) lives in our DB and is edited on /profile. Clerk's
+    // "manage account" modal is for credentials only, so hide its name/image/username sections.
+    // Ids (profileSection__<id>) checked against the ProfileSectionId type in @clerk/shared 3.47.8
+    // (@clerk/nextjs 6.39.6). The "account" page still has email addresses / connected accounts, so
+    // the modal opens on a non-empty page. This is cosmetic: also disable name/username/image
+    // editing in the Clerk dashboard (see server/docs/clerk-dashboard-settings.md).
+    profileSection__profile: { display: "none" },
+    profileSection__username: { display: "none" },
     footerAction__clerk: { display: "none" },
     footerPages: { display: "none" },
     footer: {

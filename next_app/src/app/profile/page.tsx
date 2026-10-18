@@ -52,7 +52,7 @@ import { SPORT_MAPPING, POSITION_OPTIONS } from "@/utils/sports";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 import Avatar from "@/components/Avatar";
-import { notifyAvatarChanged } from "@/hooks/useMyAvatar";
+import { notifyAvatarChanged, notifyNameChanged } from "@/hooks/useMyAvatar";
 import ImageUploadField from "@/components/ImageUploadField";
 import AddFriendButton from "@/components/AddFriendButton";
 import { Game } from "@/types/game";
@@ -308,6 +308,7 @@ export default function ProfilePage() {
       }
       const updated = await res.json();
       setProfile(updated);
+      if (typeof updated?.name === "string") notifyNameChanged(updated.name);
       setEditing(false);
       setSavedWithImageFailure(imageFailed);
       setSaveSuccess(true);
@@ -365,26 +366,16 @@ export default function ProfilePage() {
     } catch { }
   }
 
-  // The header now renders our DB imageUrl; this only keeps Clerk's own image (account modal) in
-  // step. Best effort and not awaited: it must not block Save or our own upload result.
-  const syncClerkAvatar = (file: File | null) => {
-    user?.setProfileImage({ file }).catch((e) => console.error("Failed to sync avatar to Clerk", e));
-  };
-
   const uploadProfileImage = async (file: File) => {
     const token = await getToken({ template: undefined }).catch(() => "");
     if (!token || !userId) throw new Error("יש להתחבר מחדש");
-    const result = await usersApi.uploadImage(userId, file, token);
-    syncClerkAvatar(file);
-    return result;
+    return usersApi.uploadImage(userId, file, token);
   };
 
   const removeProfileImage = async () => {
     const token = await getToken({ template: undefined }).catch(() => "");
     if (!token || !userId) throw new Error("יש להתחבר מחדש");
-    const result = await usersApi.removeImage(userId, token);
-    syncClerkAvatar(null);
-    return result;
+    return usersApi.removeImage(userId, token);
   };
 
   const handleImageUploaded = (url: string) => {

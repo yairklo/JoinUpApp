@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from "react";
 import { Socket } from "socket.io-client";
 import { useUser, useAuth } from "@clerk/nextjs";
+import { useMyName, useMyAvatar } from "@/hooks/useMyAvatar";
 import { useChat } from "@/context/ChatContext";
 import { chatsApi, usersApi } from "@/services/api";
 import { ChatMessage, Reaction, MessageStatus } from "@/components/types";
@@ -13,6 +14,8 @@ export interface UseChatLogicProps {
 
 export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const { user } = useUser();
+    const myName = useMyName();
+    const myAvatar = useMyAvatar();
     const { getToken, isLoaded, isSignedIn } = useAuth();
     const { messagesCache, loadMessages } = useChat();
 
@@ -237,9 +240,9 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             const optimisticId = Date.now();
             const optimisticMessage: ChatMessage & { content: string } = {
                 id: optimisticId, text: trimmed, content: trimmed, roomId,
-                userId: user?.id || "anon", senderId: user?.id || "anon", senderName: user?.fullName || "Me",
+                userId: user?.id || "anon", senderId: user?.id || "anon", senderName: myName || "Me",
                 ts: new Date().toISOString(), status: "sent",
-                sender: { id: user?.id, name: user?.fullName || undefined, image: user?.imageUrl || undefined },
+                sender: { id: user?.id, name: myName || undefined, image: myAvatar || undefined },
                 replyTo: replyToMessage ? {
                     id: replyToMessage.id, text: replyToMessage.text,
                     senderName: replyToMessage.sender?.name || replyToMessage.senderName || "User"
@@ -251,15 +254,15 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         }
         setInputValue("");
         setReplyToMessage(null);
-        socketInstance.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
+        socketInstance.emit("typing", { isTyping: false, roomId, userName: myName || undefined });
     };
 
     const handleTyping = () => {
-        socketInstance?.emit("typing", { isTyping: true, roomId, userName: user?.fullName });
+        socketInstance?.emit("typing", { isTyping: true, roomId, userName: myName || undefined });
     };
 
     const handleStopTyping = () => {
-        socketInstance?.emit("typing", { isTyping: false, roomId, userName: user?.fullName });
+        socketInstance?.emit("typing", { isTyping: false, roomId, userName: myName || undefined });
     };
 
     return {

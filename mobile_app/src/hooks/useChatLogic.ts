@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { SocketManager } from "@/services/socketManager";
 import { useUser, useAuth } from "@clerk/clerk-expo";
+import { useMyName, useMyAvatar } from "@/hooks/useMyAvatar";
 import { useChat } from "@/context/ChatContext";
 import { chatsApi, usersApi, gamesApi } from "@/services/api";
 import { ChatMessage } from "@/types/chat";
@@ -16,6 +17,8 @@ export interface UseChatLogicProps {
 
 export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const { user } = useUser();
+    const myName = useMyName();
+    const { imageUrl: myAvatar, hasImage: hasMyAvatar } = useMyAvatar();
     const { getToken } = useAuth();
     const { messagesCache, loadMessages, markChatAsRead, openChat, closeChat } = useChat();
 
@@ -397,9 +400,9 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             const optimisticId = Date.now();
             const optimisticMessage: ChatMessage & { content: string } = {
                 id: optimisticId, text: trimmed, content: trimmed, roomId: effectiveRoomId,
-                userId: user?.id || "anon", senderId: user?.id || "anon", senderName: user?.fullName || "Me",
+                userId: user?.id || "anon", senderId: user?.id || "anon", senderName: myName || "Me",
                 ts: new Date().toISOString(), status: "sent",
-                sender: { id: user?.id, name: user?.fullName || undefined, image: user?.imageUrl || undefined },
+                sender: { id: user?.id, name: myName || undefined, image: (hasMyAvatar ? myAvatar : undefined) },
                 replyTo: replyToMessage ? {
                     id: replyToMessage.id, text: replyToMessage.text,
                     senderName: replyToMessage.sender?.name || replyToMessage.senderName || "User"
@@ -412,16 +415,16 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         }
         setInputValue("");
         setReplyToMessage(null);
-        SocketManager.emit("typing", { isTyping: false, roomId: effectiveRoomId, userName: user?.fullName });
+        SocketManager.emit("typing", { isTyping: false, roomId: effectiveRoomId, userName: myName || undefined });
     };
 
     const handleTyping = () => {
         // Use effectiveRoomId so typing events reach the correct socket room
-        SocketManager.emit("typing", { isTyping: true, roomId: effectiveRoomId, userName: user?.fullName });
+        SocketManager.emit("typing", { isTyping: true, roomId: effectiveRoomId, userName: myName || undefined });
     };
 
     const handleStopTyping = () => {
-        SocketManager.emit("typing", { isTyping: false, roomId: effectiveRoomId, userName: user?.fullName });
+        SocketManager.emit("typing", { isTyping: false, roomId: effectiveRoomId, userName: myName || undefined });
     };
 
     return {
