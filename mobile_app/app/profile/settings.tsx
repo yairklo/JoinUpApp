@@ -10,6 +10,7 @@ import LoadingMotif from '@/components/loading/LoadingMotif';
 
 type FieldKey = 'privacyFriends' | 'privacyGames' | 'privacyMessages';
 type FieldValue = PrivacyLevel | 'DEFAULT';
+type PrivacySettingsLike = Record<FieldKey, PrivacyLevel | null> & { resolved: Record<FieldKey, PrivacyLevel> };
 
 export default function PrivacySettingsScreen() {
     const router = useRouter();
@@ -22,8 +23,19 @@ export default function PrivacySettingsScreen() {
         privacyGames: 'DEFAULT',
         privacyMessages: 'DEFAULT',
     });
+    // What "default" currently resolves to, per field. Only known while the field has no explicit
+    // stored value (otherwise the server's resolved value just echoes the explicit one).
+    const [defaults, setDefaults] = useState<Partial<Record<FieldKey, PrivacyLevel>>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
+    const applyServerState = (ps: PrivacySettingsLike) => {
+        const next: Partial<Record<FieldKey, PrivacyLevel>> = {};
+        (['privacyFriends', 'privacyGames', 'privacyMessages'] as FieldKey[]).forEach((k) => {
+            if (ps[k] === null) next[k] = ps.resolved[k];
+        });
+        setDefaults(next);
+    };
 
     const FIELDS: { key: FieldKey; label: string }[] = [
         { key: 'privacyFriends', label: t('privacy.friends') },
@@ -31,8 +43,9 @@ export default function PrivacySettingsScreen() {
         { key: 'privacyMessages', label: t('privacy.messages') },
     ];
 
-    const OPTIONS: { value: FieldValue; label: string }[] = [
-        { value: 'DEFAULT', label: t('privacy.default') },
+    const levelLabel = (level: PrivacyLevel) => (level === 'EVERYONE' ? t('privacy.everyone') : t('privacy.friendsOnly'));
+    const optionsFor = (key: FieldKey): { value: FieldValue; label: string }[] => [
+        { value: 'DEFAULT', label: defaults[key] ? levelLabel(defaults[key] as PrivacyLevel) : t('privacy.default') },
         { value: 'EVERYONE', label: t('privacy.everyone') },
         { value: 'FRIENDS_ONLY', label: t('privacy.friendsOnly') },
     ];
@@ -51,6 +64,7 @@ export default function PrivacySettingsScreen() {
                         privacyGames: ps.privacyGames ?? 'DEFAULT',
                         privacyMessages: ps.privacyMessages ?? 'DEFAULT',
                     });
+                    applyServerState(ps);
                 }
             } catch (e) {
                 console.error('Failed to load privacy settings', e);
@@ -65,7 +79,7 @@ export default function PrivacySettingsScreen() {
         try {
             const token = await getToken();
             if (!token) return;
-            await usersApi.updatePrivacySettings(
+            const saved = await usersApi.updatePrivacySettings(
                 {
                     privacyFriends: values.privacyFriends === 'DEFAULT' ? null : values.privacyFriends,
                     privacyGames: values.privacyGames === 'DEFAULT' ? null : values.privacyGames,
@@ -73,6 +87,7 @@ export default function PrivacySettingsScreen() {
                 },
                 token
             );
+            applyServerState(saved);
             Alert.alert('', t('privacy.saved'));
         } catch (e) {
             console.error('Failed to save privacy settings', e);
@@ -103,7 +118,7 @@ export default function PrivacySettingsScreen() {
                         <View key={f.key} className="mb-6">
                             <Text className="font-bold text-gray-800 mb-3">{f.label}</Text>
                             <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                                {OPTIONS.map((opt, idx) => {
+                                {optionsFor(f.key).map((opt, idx) => {
                                     const active = values[f.key] === opt.value;
                                     return (
                                         <TouchableOpacity

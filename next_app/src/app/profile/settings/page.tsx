@@ -188,7 +188,7 @@ export default function PrivacySettingsPage() {
                                             }
                                         >
                                             <MenuItem value="DEFAULT">
-                                                ברירת מחדל לפי גיל{resolved && rawSaved[f.key] === null ? ` (${resolved[f.key] === "EVERYONE" ? "כולם" : "חברים בלבד"})` : ""}
+                                                {resolved && rawSaved[f.key] === null ? (resolved[f.key] === "EVERYONE" ? "כולם" : "חברים בלבד") : "ברירת מחדל"}
                                             </MenuItem>
                                             <MenuItem value="EVERYONE">כולם</MenuItem>
                                             <MenuItem value="FRIENDS_ONLY">חברים בלבד</MenuItem>
