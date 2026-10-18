@@ -121,6 +121,10 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  // Captured at save time: leaving edit mode unmounts the field and resets imageFailed.
+  const [savedWithImageFailure, setSavedWithImageFailure] = useState(false);
+  const [avatarSyncFailed, setAvatarSyncFailed] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -305,6 +309,7 @@ export default function ProfilePage() {
       const updated = await res.json();
       setProfile(updated);
       setEditing(false);
+      setSavedWithImageFailure(imageFailed);
       setSaveSuccess(true);
     } catch (e) {
       // Keep `editing` true and the unsaved form data intact so the user doesn't lose their edits.
@@ -362,19 +367,24 @@ export default function ProfilePage() {
 
   // The header's Clerk <UserButton> only ever renders Clerk's own avatar, never our DB imageUrl,
   // so mirror the change to Clerk (best effort: our own upload already succeeded).
-  const syncClerkAvatar = async (file: File | null) => {
-    try {
-      await user?.setProfileImage({ file });
-    } catch (e) {
-      console.error("Failed to sync avatar to Clerk", e);
+  // Deliberately not awaited by callers: it must not keep Save blocked or delay our own upload result.
+  const syncClerkAvatar = (file: File | null) => {
+    setAvatarSyncFailed(false);
+    if (!user) {
+      setAvatarSyncFailed(true);
+      return;
     }
+    user.setProfileImage({ file }).catch((e) => {
+      console.error("Failed to sync avatar to Clerk", e);
+      setAvatarSyncFailed(true);
+    });
   };
 
   const uploadProfileImage = async (file: File) => {
     const token = await getToken({ template: undefined }).catch(() => "");
     if (!token || !userId) throw new Error("יש להתחבר מחדש");
     const result = await usersApi.uploadImage(userId, file, token);
-    await syncClerkAvatar(file);
+    syncClerkAvatar(file);
     return result;
   };
 
@@ -382,7 +392,7 @@ export default function ProfilePage() {
     const token = await getToken({ template: undefined }).catch(() => "");
     if (!token || !userId) throw new Error("יש להתחבר מחדש");
     const result = await usersApi.removeImage(userId, token);
-    await syncClerkAvatar(null);
+    syncClerkAvatar(null);
     return result;
   };
 
@@ -730,11 +740,17 @@ export default function ProfilePage() {
                           onRemove={removeProfileImage}
                           onRemoved={handleImageRemoved}
                           onBusyChange={setImageBusy}
+                          onErrorChange={setImageFailed}
                         />
+                        {avatarSyncFailed && (
+                          <Typography variant="caption" color="warning.main" display="block" sx={{ mt: 0.5 }}>
+                            התמונה נשמרה, אך סמל המשתמש בכותרת עשוי להתעדכן רק בהתחברות הבאה.
+                          </Typography>
+                        )}
                       </Grid>
                       <Grid size={12} sx={{ mt: 2, display: 'flex', gap: 2 }}>
                         <Button variant="contained" startIcon={<SaveIcon />} onClick={save} disabled={saving || imageBusy || !canSaveProfile}>
-                          {saving ? 'שומר...' : imageBusy ? 'מעלה תמונה...' : 'שמור שינויים'}
+                          {saving ? 'שומר...' : imageBusy ? 'מעדכן תמונה...' : 'שמור שינויים'}
                         </Button>
                         <Button variant="outlined" color="inherit" startIcon={<CancelIcon />} onClick={() => setEditing(false)}>
                           ביטול
@@ -936,8 +952,8 @@ export default function ProfilePage() {
         onClose={() => setSaveSuccess(false)}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity="success" variant="filled" onClose={() => setSaveSuccess(false)}>
-          נשמר בהצלחה
+        <Alert severity={savedWithImageFailure ? "warning" : "success"} variant="filled" onClose={() => setSaveSuccess(false)}>
+          {savedWithImageFailure ? "הפרטים נשמרו, אך העלאת התמונה נכשלה" : "נשמר בהצלחה"}
         </Alert>
       </Snackbar>
 

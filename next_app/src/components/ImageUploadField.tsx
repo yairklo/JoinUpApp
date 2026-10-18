@@ -33,6 +33,8 @@ interface ImageUploadFieldProps {
     onRemoved?: () => void;
     /** Reports whether an upload/remove request is in flight so the parent can block Save meanwhile. */
     onBusyChange?: (busy: boolean) => void;
+    /** Reports whether the last upload/remove attempt failed, so the parent can warn on Save. */
+    onErrorChange?: (hasError: boolean) => void;
 }
 
 export default function ImageUploadField({
@@ -45,6 +47,7 @@ export default function ImageUploadField({
     onRemove,
     onRemoved,
     onBusyChange,
+    onErrorChange,
 }: ImageUploadFieldProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [busy, setBusy] = useState(false);
@@ -52,8 +55,16 @@ export default function ImageUploadField({
 
     useEffect(() => {
         onBusyChange?.(busy);
-        return () => onBusyChange?.(false);
     }, [busy, onBusyChange]);
+
+    // Reset only on unmount, not on every busy change.
+    useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
+
+    useEffect(() => {
+        onErrorChange?.(!!error);
+    }, [error, onErrorChange]);
+
+    useEffect(() => () => onErrorChange?.(false), [onErrorChange]);
 
     const handlePick = () => inputRef.current?.click();
 
