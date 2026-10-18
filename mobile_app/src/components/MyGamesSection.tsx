@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
 import LoadingMotif from '@/components/loading/LoadingMotif';
+import SectionHeader from '@/components/ui/SectionHeader';
 
 function isMyGame(game: Game, userId?: string | null) {
     if (!userId) return false;
@@ -102,9 +103,7 @@ export default function MyGamesSection() {
 
     return (
         <View className="mb-6">
-            <View className="px-5 mb-3 flex-row justify-between items-end">
-                <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">{t('home.myGames')}</Text>
-            </View>
+            <SectionHeader title={t('home.myGames')} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {games.map((game) => (
                     <View key={game.id} className="w-72 mr-4">

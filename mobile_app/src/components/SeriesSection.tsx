@@ -8,6 +8,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
 import SportCover from '@/components/ui/SportCover';
+import SectionHeader from '@/components/ui/SectionHeader';
 
 type Series = {
     id: string;
@@ -136,10 +137,7 @@ export default function SeriesSection() {
         <View className="mb-6">
             {subscribedSeries.length > 0 && (
                 <>
-                    <View className="px-5 mb-3 flex-row items-center mt-2">
-                        <View className="w-1 h-5 rounded-full bg-brand mr-2" />
-                        <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">{t('home.mySeries')}</Text>
-                    </View>
+                    <SectionHeader title={t('home.mySeries')} className="mt-2" />
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}>
                         {subscribedSeries.map(renderSeriesCard)}
                     </ScrollView>
@@ -148,10 +146,7 @@ export default function SeriesSection() {
 
             {unsubscribedSeries.length > 0 && (
                 <>
-                    <View className="px-5 mb-3 flex-row items-center mt-4">
-                        <View className="w-1 h-5 rounded-full bg-brand mr-2" />
-                        <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">{t('home.joinGroup')}</Text>
-                    </View>
+                    <SectionHeader title={t('home.joinGroup')} className="mt-4" />
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                         {unsubscribedSeries.map(renderSeriesCard)}
                     </ScrollView>

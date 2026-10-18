@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
+import SectionHeader from '@/components/ui/SectionHeader';
 
 export default function GamesByFriendsSection({ sportFilter }: { sportFilter?: string }) {
     const { games, loading } = useGamesByFriends();
@@ -30,12 +31,7 @@ export default function GamesByFriendsSection({ sportFilter }: { sportFilter?: s
 
     return (
         <View className="mb-6 mt-2">
-            <View className="px-5 mb-3 flex-row items-center">
-                <View className="w-1 h-5 rounded-full bg-brand mr-2" />
-                <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">
-                    {t('home.friendsGames', 'משחקים של חברים')}
-                </Text>
-            </View>
+            <SectionHeader title={t('home.friendsGames', 'משחקים של חברים')} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {filteredGames.map((game) => {
                     const isJoined =
