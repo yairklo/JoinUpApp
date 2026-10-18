@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
-import { useMyAvatar } from '@/hooks/useMyAvatar';
+import { useMyAvatar, useMyName, setMyName } from '@/hooks/useMyAvatar';
 import { pickOneImage } from '@/utils/pickImage';
 
 const getPositionOptions = (t: any): Record<string, string[]> => ({
@@ -68,6 +68,7 @@ export default function ProfileScreen() {
     const [saving, setSaving] = useState(false);
     const [avatarBusy, setAvatarBusy] = useState(false);
     const [avatarError, setAvatarError] = useState<string | null>(null);
+    const myName = useMyName();
     const { imageUrl: displayAvatar, hasImage: hasAvatar, set: setMyAvatar } = useMyAvatar();
 
     // Form state
@@ -148,6 +149,7 @@ export default function ProfileScreen() {
                     gender: form.gender || null,
                 }, token);
                 setProfile(updated);
+                if (typeof updated?.name === 'string') setMyName(updated.name);
                 setIsEditing(false);
             }
         } catch (err) {
@@ -334,7 +336,7 @@ export default function ProfileScreen() {
                             {avatarError && <Text className="text-red-600 text-xs mt-1 text-center">{avatarError}</Text>}
                         </View>
                     )}
-                    <Text className="text-xl font-black text-gray-900">{user?.fullName || 'User'}</Text>
+                    <Text className="text-xl font-black text-gray-900">{myName || 'User'}</Text>
                     <Text className="text-gray-400 text-sm mt-1">{user?.primaryEmailAddress?.emailAddress}</Text>
                 </View>
 

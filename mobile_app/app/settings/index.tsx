@@ -5,7 +5,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import * as NotificationsPermissions from 'expo-notifications';
 import { notificationsApi } from '@/services/api/notifications';
-import { useMyAvatar } from '@/hooks/useMyAvatar';
+import { useMyAvatar, useMyName } from '@/hooks/useMyAvatar';
 import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
@@ -14,6 +14,7 @@ export default function SettingsScreen() {
     const { signOut, getToken } = useAuth();
     const { user } = useUser();
     const { imageUrl: avatarUrl } = useMyAvatar();
+    const myName = useMyName();
     const router = useRouter();
 
     const [notifSummary, setNotifSummary] = useState<string | null>(null);
@@ -108,7 +109,7 @@ export default function SettingsScreen() {
                         source={{ uri: avatarUrl }}
                         className="w-24 h-24 rounded-full bg-gray-200 mb-3"
                     />
-                    <Text className="text-xl font-bold text-gray-800">{user?.fullName}</Text>
+                    <Text className="text-xl font-bold text-gray-800">{myName}</Text>
                     <Text className="text-gray-500">{user?.primaryEmailAddress?.emailAddress}</Text>
                 </View>
 

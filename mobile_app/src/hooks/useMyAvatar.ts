@@ -7,9 +7,9 @@ import { usersApi } from '@/services/api/users';
  * any client shows up everywhere. Module-level so every screen shares one fetch and one value;
  * `set` lets the profile screen update all consumers right after an upload/remove.
  */
-type Store = { userId: string | null; imageUrl: string | null | undefined; loading: boolean };
+type Store = { userId: string | null; imageUrl: string | null | undefined; name: string | null | undefined; loading: boolean };
 
-let store: Store = { userId: null, imageUrl: undefined, loading: false };
+let store: Store = { userId: null, imageUrl: undefined, name: undefined, loading: false };
 const listeners = new Set<() => void>();
 
 const update = (next: Partial<Store>) => {
@@ -21,6 +21,18 @@ const subscribe = (l: () => void) => {
     return () => { listeners.delete(l); };
 };
 const getSnapshot = () => store;
+
+/** Call after the current user's name was saved so every screen shows it immediately. */
+export function setMyName(name: string | null) {
+    if (store.userId) update({ name });
+}
+
+/** The current user's name: DB value, with Clerk's only as a fallback while loading / when empty. */
+export function useMyName(): string {
+    const { user } = useUser();
+    const { name } = useMyAvatar();
+    return name?.trim() || user?.fullName?.trim() || '';
+}
 
 export function useMyAvatar() {
     const { user } = useUser();
@@ -35,7 +47,7 @@ export function useMyAvatar() {
             const token = await getToken();
             if (!token) return;
             const me = await usersApi.getMe(token);
-            if (store.userId === userId) update({ imageUrl: me.imageUrl ?? null });
+            if (store.userId === userId) update({ imageUrl: me.imageUrl ?? null, name: me.name ?? null });
         } catch (err) {
             console.error('Failed to load avatar', err);
         } finally {
@@ -47,20 +59,22 @@ export function useMyAvatar() {
 
     useEffect(() => {
         if (!userId) {
-            if (store.userId) update({ userId: null, imageUrl: undefined });
+            if (store.userId) update({ userId: null, imageUrl: undefined, name: undefined });
             return;
         }
         if (store.userId !== userId) {
-            update({ userId, imageUrl: undefined });
+            update({ userId, imageUrl: undefined, name: undefined });
             void refresh();
         }
     }, [userId, refresh]);
 
-    const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}`;
+    const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent((snap.userId === userId && snap.name) || user?.fullName || '')}`;
     const own = snap.userId === userId ? snap.imageUrl : undefined;
     // null = DB says no photo (don't fall back to a stale Clerk image); undefined = not loaded yet.
     const imageUrl = own === null ? fallback : own || user?.imageUrl || fallback;
     const hasImage = own === null ? false : !!(own || user?.hasImage);
 
-    return { imageUrl, hasImage, hasDbImage: !!own, refresh, set };
+    const name = snap.userId === userId ? snap.name : undefined;
+
+    return { imageUrl, hasImage, hasDbImage: !!own, name, refresh, set };
 }
