@@ -186,12 +186,19 @@ export default function ProfilePage() {
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         const res = await fetch(`${API_BASE}/api/users/${userId}`, { headers });
         setProfile(await res.json());
+
+        // Both endpoints need the token: the user listing is signed-in only, and the friends
+        // list is gated by privacyFriends (the owner always passes, but only when identified).
+        // Bounded to a handful of rows — this only feeds the "people you may know"
+        // widget below, which renders at most 6 of them.
+        const [usersRes, friendsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/users?take=7`, { headers }),
+          fetch(`${API_BASE}/api/users/${userId}/friends`, { headers }),
+        ]);
+        if (usersRes.ok) setAllUsers(await usersRes.json());
+        if (friendsRes.ok) setFriends(await friendsRes.json());
       } catch { }
     })();
-    // Bounded to a handful of rows — this only feeds the "people you may know"
-    // widget below, which renders at most 6 of them.
-    fetch(`${API_BASE}/api/users?take=7`).then(r => r.json()).then(setAllUsers).catch(() => { });
-    fetch(`${API_BASE}/api/users/${userId}/friends`).then(r => r.json()).then(setFriends).catch(() => { });
     fieldsApi.getCities().then(setCities).catch(() => { });
     (async () => {
       try {
@@ -332,7 +339,7 @@ export default function ProfilePage() {
       if (userId) {
         // Re-read both lists (uncached) so the UI shows what was actually persisted.
         const [friendsRes, inc] = await Promise.all([
-          fetch(`${API_BASE}/api/users/${userId}/friends`, { cache: 'no-store' }),
+          fetch(`${API_BASE}/api/users/${userId}/friends`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
           fetch(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }),
         ]);
         if (friendsRes.ok) setFriends(await friendsRes.json());

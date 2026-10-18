@@ -97,8 +97,12 @@ export default function GameParticipantsList({
 
   useEffect(() => {
     if (canManage && userId) {
-      fetch(`${API_BASE}/api/users/${userId}/friends`)
-        .then((r) => r.json())
+      // Token required: the friends list is gated by the owner's privacyFriends setting.
+      getToken()
+        .then((token) => fetch(`${API_BASE}/api/users/${userId}/friends`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }))
+        .then((r) => (r.ok ? r.json() : []))
         .then((arr) => {
           const existingIds = new Set(participants.map((p) => p.id));
           setTotalFriendsCount((arr || []).length);
@@ -106,7 +110,7 @@ export default function GameParticipantsList({
         })
         .catch((e) => console.error("Failed to load friends", e));
     }
-  }, [canManage, userId, participants]);
+  }, [canManage, userId, participants, getToken]);
 
   // Three distinct empty states for the invite-friends search, instead of one misleading
   // "לא נמצאו חברים" for all of them (see BUG-B1): no friends at all, every friend is already in
