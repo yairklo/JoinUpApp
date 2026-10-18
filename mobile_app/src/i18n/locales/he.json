@@ -778,7 +778,13 @@
     "unsupportedType": "סוג קובץ לא נתמך",
     "unsupportedTypeMessage": "ניתן להעלות תמונות מסוג JPEG, PNG, WEBP או GIF בלבד",
     "fileTooLarge": "הקובץ גדול מדי",
-    "fileTooLargeMessage": "גודל התמונה חייב להיות עד 5MB"
+    "fileTooLargeMessage": "גודל התמונה חייב להיות עד 5MB",
+    "avatarUploadFailed": "העלאת התמונה נכשלה",
+    "avatarRemoveFailed": "הסרת התמונה נכשלה",
+    "reauth": "נדרש להתחבר מחדש",
+    "avatarUploading": "מעלה תמונה…",
+    "avatarChange": "החלפת תמונה",
+    "avatarRemove": "הסרת תמונה"
   },
   "errors": {
     "gatewayError": "השרת לא זמין כרגע. נסה שוב בעוד רגע.",
