@@ -6,6 +6,7 @@ const { getCounters, broadcastCounters } = require('../services/counterService')
 const {
   VALID_LEVELS,
   resolvePrivacyLevel,
+  getAgeDefaults,
   areConfirmedFriends,
   canViewSection,
 } = require('../utils/privacy');
@@ -215,6 +216,7 @@ router.put('/profile/settings', authenticateToken, async (req, res) => {
         privacyGames: resolvePrivacyLevel(updated.privacyGames, updated.birthDate),
         privacyMessages: resolvePrivacyLevel(updated.privacyMessages, updated.birthDate),
       },
+      ageDefaults: getAgeDefaults(updated.birthDate),
     });
   } catch (error) {
     console.error('Update privacy settings error:', error);
@@ -638,6 +640,7 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
           privacyGames: effGames,
           privacyMessages: resolvePrivacyLevel(user.privacyMessages, user.birthDate),
         },
+        ageDefaults: getAgeDefaults(user.birthDate),
       };
     }
 
