@@ -365,26 +365,16 @@ export default function ProfilePage() {
     } catch { }
   }
 
-  // The header now renders our DB imageUrl; this only keeps Clerk's own image (account modal) in
-  // step. Best effort and not awaited: it must not block Save or our own upload result.
-  const syncClerkAvatar = (file: File | null) => {
-    user?.setProfileImage({ file }).catch((e) => console.error("Failed to sync avatar to Clerk", e));
-  };
-
   const uploadProfileImage = async (file: File) => {
     const token = await getToken({ template: undefined }).catch(() => "");
     if (!token || !userId) throw new Error("יש להתחבר מחדש");
-    const result = await usersApi.uploadImage(userId, file, token);
-    syncClerkAvatar(file);
-    return result;
+    return usersApi.uploadImage(userId, file, token);
   };
 
   const removeProfileImage = async () => {
     const token = await getToken({ template: undefined }).catch(() => "");
     if (!token || !userId) throw new Error("יש להתחבר מחדש");
-    const result = await usersApi.removeImage(userId, token);
-    syncClerkAvatar(null);
-    return result;
+    return usersApi.removeImage(userId, token);
   };
 
   const handleImageUploaded = (url: string) => {
