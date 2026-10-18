@@ -52,6 +52,7 @@ import { SPORT_MAPPING, POSITION_OPTIONS } from "@/utils/sports";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 import Avatar from "@/components/Avatar";
+import { notifyAvatarChanged } from "@/hooks/useMyAvatar";
 import ImageUploadField from "@/components/ImageUploadField";
 import AddFriendButton from "@/components/AddFriendButton";
 import { Game } from "@/types/game";
@@ -124,7 +125,6 @@ export default function ProfilePage() {
   const [imageFailed, setImageFailed] = useState(false);
   // Captured at save time: leaving edit mode unmounts the field and resets imageFailed.
   const [savedWithImageFailure, setSavedWithImageFailure] = useState(false);
-  const [avatarSyncFailed, setAvatarSyncFailed] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -365,19 +365,10 @@ export default function ProfilePage() {
     } catch { }
   }
 
-  // The header's Clerk <UserButton> only ever renders Clerk's own avatar, never our DB imageUrl,
-  // so mirror the change to Clerk (best effort: our own upload already succeeded).
-  // Deliberately not awaited by callers: it must not keep Save blocked or delay our own upload result.
+  // The header now renders our DB imageUrl; this only keeps Clerk's own image (account modal) in
+  // step. Best effort and not awaited: it must not block Save or our own upload result.
   const syncClerkAvatar = (file: File | null) => {
-    setAvatarSyncFailed(false);
-    if (!user) {
-      setAvatarSyncFailed(true);
-      return;
-    }
-    user.setProfileImage({ file }).catch((e) => {
-      console.error("Failed to sync avatar to Clerk", e);
-      setAvatarSyncFailed(true);
-    });
+    user?.setProfileImage({ file }).catch((e) => console.error("Failed to sync avatar to Clerk", e));
   };
 
   const uploadProfileImage = async (file: File) => {
@@ -397,11 +388,13 @@ export default function ProfilePage() {
   };
 
   const handleImageUploaded = (url: string) => {
+    notifyAvatarChanged(url);
     setForm((prev) => ({ ...prev, imageUrl: url }));
     setProfile((prev) => (prev ? { ...prev, imageUrl: url } : prev));
   };
 
   const handleImageRemoved = () => {
+    notifyAvatarChanged(null);
     setForm((prev) => ({ ...prev, imageUrl: "" }));
     setProfile((prev) => (prev ? { ...prev, imageUrl: null } : prev));
   };
@@ -742,11 +735,6 @@ export default function ProfilePage() {
                           onBusyChange={setImageBusy}
                           onErrorChange={setImageFailed}
                         />
-                        {avatarSyncFailed && (
-                          <Typography variant="caption" color="warning.main" display="block" sx={{ mt: 0.5 }}>
-                            התמונה נשמרה, אך סמל המשתמש בכותרת עשוי להתעדכן רק בהתחברות הבאה.
-                          </Typography>
-                        )}
                       </Grid>
                       <Grid size={12} sx={{ mt: 2, display: 'flex', gap: 2 }}>
                         <Button variant="contained" startIcon={<SaveIcon />} onClick={save} disabled={saving || imageBusy || !canSaveProfile}>
