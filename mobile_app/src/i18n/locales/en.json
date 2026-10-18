@@ -801,7 +801,14 @@
     "unsupportedType": "Unsupported File Type",
     "unsupportedTypeMessage": "Only JPEG, PNG, WEBP, or GIF images are allowed",
     "fileTooLarge": "File Too Large",
-    "fileTooLargeMessage": "Image file size must be up to 5MB"
+    "fileTooLargeMessage": "Image file size must be up to 5MB",
+    "avatarUploadFailed": "Failed to upload the photo",
+    "avatarRemoveFailed": "Failed to remove the photo",
+    "reauth": "Please sign in again",
+    "avatarUploading": "Uploading photo…",
+    "avatarChange": "Change photo",
+    "avatarRemove": "Remove photo",
+    "avatarSyncFailed": "Photo saved, but it may not update everywhere right away"
   },
   "errors": {
     "gatewayError": "Server is currently unavailable. Please try again in a moment.",

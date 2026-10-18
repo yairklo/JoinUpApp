@@ -1,4 +1,4 @@
-import { apiClient, API_BASE } from './client';
+import { apiClient, uploadMultipart } from './client';
 import type { MapBounds } from '@/components/map/types';
 
 export interface Field {
@@ -231,20 +231,8 @@ export const fieldsApi = {
         return apiClient<{ message: string }>(`/api/fields/${fieldId}/issues/${issueId}`, { method: 'DELETE', token });
     },
 
-    uploadIssuePhoto: async (fieldId: string, issueId: string, image: PickedImage, token: string): Promise<FieldIssueReport> => {
-        const formData = new FormData();
-        formData.append('photo', image as unknown as Blob);
-        const res = await fetch(`${API_BASE}/api/fields/${fieldId}/issues/${issueId}/photo`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            body: formData,
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Failed to upload photo');
-        }
-        return res.json();
-    },
+    uploadIssuePhoto: (fieldId: string, issueId: string, image: PickedImage, token: string) =>
+        uploadMultipart<FieldIssueReport>(`/api/fields/${fieldId}/issues/${issueId}/photo`, 'photo', image, token, 'Failed to upload photo'),
 
     removeIssuePhoto: (fieldId: string, issueId: string, token: string) => {
         return apiClient<FieldIssueReport>(`/api/fields/${fieldId}/issues/${issueId}/photo`, { method: 'DELETE', token });
@@ -280,39 +268,15 @@ export const fieldsApi = {
     },
 
     // RN's fetch/FormData needs { uri, name, type } for a file part, not a web File object.
-    uploadImage: async (fieldId: string, image: PickedImage, token: string): Promise<{ image: string }> => {
-        const formData = new FormData();
-        formData.append('image', image as unknown as Blob);
-        const res = await fetch(`${API_BASE}/api/fields/${fieldId}/image`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            body: formData,
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Failed to upload image');
-        }
-        return res.json();
-    },
+    uploadImage: (fieldId: string, image: PickedImage, token: string) =>
+        uploadMultipart<{ image: string }>(`/api/fields/${fieldId}/image`, 'image', image, token, 'Failed to upload image'),
 
     removeImage: (fieldId: string, token: string) => {
         return apiClient<{ image: null }>(`/api/fields/${fieldId}/image`, { method: 'DELETE', token });
     },
 
-    addPhoto: async (fieldId: string, image: PickedImage, token: string): Promise<Field> => {
-        const formData = new FormData();
-        formData.append('photo', image as unknown as Blob);
-        const res = await fetch(`${API_BASE}/api/fields/${fieldId}/photos`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            body: formData,
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Failed to add photo');
-        }
-        return res.json();
-    },
+    addPhoto: (fieldId: string, image: PickedImage, token: string) =>
+        uploadMultipart<Field>(`/api/fields/${fieldId}/photos`, 'photo', image, token, 'Failed to add photo'),
 
     removePhoto: (fieldId: string, url: string, token: string) => {
         return apiClient<Field>(`/api/fields/${fieldId}/photos`, { method: 'DELETE', data: { url }, token });

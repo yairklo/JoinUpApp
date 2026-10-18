@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { TouchableOpacity, Text, View, Image } from 'react-native';
 import i18n, { changeLanguage } from '@/i18n';
 import { Ionicons } from '@expo/vector-icons';
-import { useUser } from '@clerk/clerk-expo';
+import { useMyAvatar } from '@/hooks/useMyAvatar';
 import { useNotificationCounters } from '@/context/NotificationCountersContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorMode } from '@/theme/ColorModeContext';
@@ -22,7 +22,7 @@ function TabBarIcon(props: {
 export default function TabLayout() {
   const { t } = useTranslation();
   const { colorMode, toggleColorMode } = useColorMode();
-  const { user } = useUser();
+  const { imageUrl: avatarUrl, hasImage: hasAvatar } = useMyAvatar();
   const { friendRequests, unreadMessages } = useNotificationCounters();
   const insets = useSafeAreaInsets();
   const isDark = colorMode === 'dark';
@@ -50,15 +50,15 @@ export default function TabLayout() {
       </Link>
       <Link href="/user/profile" asChild>
         <TouchableOpacity className="w-8 h-8 bg-brand-mist dark:bg-cyber-card rounded-xl items-center justify-center border border-brand-pale dark:border-cyber-border overflow-hidden">
-          {user?.imageUrl ? (
-            <Image source={{ uri: user.imageUrl }} style={{ width: '100%', height: '100%' }} />
+          {hasAvatar ? (
+            <Image source={{ uri: avatarUrl }} style={{ width: '100%', height: '100%' }} />
           ) : (
             <Ionicons name="person-outline" size={16} color={isDark ? '#f1f5f9' : '#0f172a'} />
           )}
         </TouchableOpacity>
       </Link>
     </View>
-  ), [toggleColorMode, user, isDark]);
+  ), [toggleColorMode, avatarUrl, hasAvatar, isDark]);
 
   return (
     <Tabs

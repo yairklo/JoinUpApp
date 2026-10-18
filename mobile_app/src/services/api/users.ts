@@ -1,5 +1,5 @@
-import { apiClient } from './client';
-import type { Field, FieldFlagReason } from './fields';
+import { apiClient, uploadMultipart } from './client';
+import type { Field, FieldFlagReason, PickedImage } from './fields';
 
 export type PrivacyLevel = 'EVERYONE' | 'FRIENDS_ONLY';
 
@@ -143,6 +143,13 @@ export const usersApi = {
             data,
             token
         });
+    },
+
+    uploadImage: (userId: string, image: PickedImage, token: string) =>
+        uploadMultipart<{ imageUrl: string }>(`/api/users/${userId}/image`, 'image', image, token, 'Failed to upload image'),
+
+    removeImage: (userId: string, token: string) => {
+        return apiClient<{ imageUrl: null }>(`/api/users/${userId}/image`, { method: 'DELETE', token });
     },
 
     getFriends: (userId: string, token: string) => {

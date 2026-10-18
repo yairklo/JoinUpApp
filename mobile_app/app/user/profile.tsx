@@ -14,6 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { SPORT_MAPPING } from '@/utils/sports';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useMyAvatar } from '@/hooks/useMyAvatar';
+import { pickOneImage } from '@/utils/pickImage';
+import type { PickedImage } from '@/services/api/fields';
 
 const getPositionOptions = (t: any): Record<string, string[]> => ({
     SOCCER: [
@@ -64,6 +67,10 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [avatarBusy, setAvatarBusy] = useState(false);
+    const [avatarError, setAvatarError] = useState<string | null>(null);
+    const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
+    const { imageUrl: displayAvatar, hasImage: hasAvatar, set: setMyAvatar } = useMyAvatar();
 
     // Form state
     const [form, setForm] = useState({ city: '', phone: '', gender: '' as GenderValue, sportsData: [] as SportEntry[] });
@@ -152,7 +159,75 @@ export default function ProfileScreen() {
         }
     };
 
+    // Clerk-backed avatars (tab header, settings) only show Clerk's own image, so mirror the change
+    // there (best effort: our own upload already succeeded).
+    const syncClerkAvatar = async (picked: PickedImage | null) => {
+        const sync = async () => {
+            if (!picked) {
+                await user?.setProfileImage({ file: null });
+                return;
+            }
+            const blob = await (await fetch(picked.uri)).blob();
+            await user?.setProfileImage({ file: blob });
+        };
+        try {
+            // Bounded so a hung Clerk request can't linger; never part of the busy window.
+            await Promise.race([
+                sync(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Clerk sync timed out')), 15000)),
+            ]);
+        } catch (err) {
+            console.error('Failed to sync avatar to Clerk', err);
+            setAvatarWarning(t('upload.avatarSyncFailed', 'התמונה נשמרה, אך ייתכן שלא תתעדכן בכל המסכים מיד'));
+        }
+    };
+
+    const handlePickAvatar = async () => {
+        if (!user?.id || avatarBusy) return;
+        setAvatarError(null);
+        setAvatarWarning(null);
+        const picked = await pickOneImage();
+        if (!picked) return;
+        let syncPicked: PickedImage | null | undefined;
+        setAvatarBusy(true);
+        try {
+            const token = await getToken();
+            if (!token) throw new Error(t('upload.reauth', 'נדרש להתחבר מחדש'));
+            const result = await usersApi.uploadImage(user.id, picked, token);
+            setMyAvatar(result.imageUrl);
+            setProfile(prev => (prev ? { ...prev, imageUrl: result.imageUrl } : prev));
+            syncPicked = picked;
+        } catch (err) {
+            setAvatarError(err instanceof Error ? err.message : t('upload.avatarUploadFailed', 'העלאת התמונה נכשלה'));
+        } finally {
+            setAvatarBusy(false);
+        }
+        if (syncPicked !== undefined) void syncClerkAvatar(syncPicked);
+    };
+
+    const handleRemoveAvatar = async () => {
+        if (!user?.id || avatarBusy) return;
+        setAvatarError(null);
+        setAvatarWarning(null);
+        let syncPicked: PickedImage | null | undefined;
+        setAvatarBusy(true);
+        try {
+            const token = await getToken();
+            if (!token) throw new Error(t('upload.reauth', 'נדרש להתחבר מחדש'));
+            await usersApi.removeImage(user.id, token);
+            setMyAvatar(null);
+            setProfile(prev => (prev ? { ...prev, imageUrl: undefined } : prev));
+            syncPicked = null;
+        } catch (err) {
+            setAvatarError(err instanceof Error ? err.message : t('upload.avatarRemoveFailed', 'הסרת התמונה נכשלה'));
+        } finally {
+            setAvatarBusy(false);
+        }
+        if (syncPicked !== undefined) void syncClerkAvatar(syncPicked);
+    };
+
     const handleCancelEdit = () => {
+        if (avatarBusy) return;
         setIsEditing(false);
         setForm({
             city: profile?.city || '',
@@ -257,10 +332,42 @@ export default function ProfileScreen() {
             <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }} keyboardShouldPersistTaps="handled">
                 {/* Header details */}
                 <View className="items-center py-6 bg-white rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
-                    <Image
-                        source={{ uri: user?.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}` }}
-                        className="w-24 h-24 rounded-full bg-gray-200 mb-3 border-2 border-brand-mist"
-                    />
+                    <TouchableOpacity
+                        onPress={handlePickAvatar}
+                        disabled={!isEditing || avatarBusy}
+                        accessibilityLabel={t('upload.avatarChange', 'החלפת תמונה')}
+                        className="mb-3"
+                    >
+                        <Image
+                            source={{ uri: displayAvatar }}
+                            className="w-24 h-24 rounded-full bg-gray-200 border-2 border-brand-mist"
+                        />
+                        {avatarBusy && (
+                            <View className="absolute inset-0 rounded-full bg-black/40 items-center justify-center">
+                                <ActivityIndicator color="#fff" />
+                            </View>
+                        )}
+                        {isEditing && !avatarBusy && (
+                            <View className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-brand items-center justify-center border-2 border-white">
+                                <FontAwesome name="camera" size={13} color="#fff" />
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                    {isEditing && (
+                        <View className="items-center mb-3">
+                            {avatarBusy ? (
+                                <Text className="text-gray-500 text-xs">{t('upload.avatarUploading', 'מעלה תמונה…')}</Text>
+                            ) : (
+                                hasAvatar && (
+                                    <TouchableOpacity onPress={handleRemoveAvatar}>
+                                        <Text className="text-red-600 text-xs font-bold">{t('upload.avatarRemove', 'הסרת תמונה')}</Text>
+                                    </TouchableOpacity>
+                                )
+                            )}
+                            {avatarError && <Text className="text-red-600 text-xs mt-1 text-center">{avatarError}</Text>}
+                            {avatarWarning && <Text className="text-amber-600 text-xs mt-1 text-center">{avatarWarning}</Text>}
+                        </View>
+                    )}
                     <Text className="text-xl font-black text-gray-900">{user?.fullName || 'User'}</Text>
                     <Text className="text-gray-400 text-sm mt-1">{user?.primaryEmailAddress?.emailAddress}</Text>
                 </View>
@@ -364,6 +471,9 @@ export default function ProfileScreen() {
                         </Text>
                     </View>
 
+                    {isEditing && avatarError && (
+                        <Text className="text-red-600 text-xs mt-4 text-right">{avatarError}</Text>
+                    )}
                     {isEditing && (
                         <View className="flex-row gap-3 mt-4">
                             <TouchableOpacity
@@ -374,8 +484,8 @@ export default function ProfileScreen() {
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={handleSave}
-                                disabled={saving}
-                                className={`flex-1 py-3 rounded-xl items-center ${saving ? 'bg-brand-soft' : 'bg-brand'}`}
+                                disabled={saving || avatarBusy}
+                                className={`flex-1 py-3 rounded-xl items-center ${saving || avatarBusy ? 'bg-brand-soft' : 'bg-brand'}`}
                             >
                                 {saving ? <ActivityIndicator color="white" /> : <Text className="text-white font-bold">{t('profile.save', 'שמור')}</Text>}
                             </TouchableOpacity>

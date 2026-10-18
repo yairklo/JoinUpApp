@@ -87,3 +87,25 @@ export async function apiClient<T>(endpoint: string, { token, data, signal, sile
         throw error;
     }
 }
+
+/** RN's fetch/FormData needs { uri, name, type } for a file part, not a web File object. */
+export async function uploadMultipart<T>(
+    path: string,
+    fieldName: string,
+    image: { uri: string; name: string; type: string },
+    token: string,
+    failMessage = 'Failed to upload image'
+): Promise<T> {
+    const formData = new FormData();
+    formData.append(fieldName, image as unknown as Blob);
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || failMessage);
+    }
+    return res.json();
+}
