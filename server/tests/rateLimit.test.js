@@ -65,28 +65,44 @@ describe('HTTP rate limiter', () => {
     expect(blocked.statusCode).toEqual(429);
   });
 
-  test('distinct clients behind Cloudflare (distinct CF-Connecting-IP) get separate buckets', async () => {
+  test('without Cloudflare, rotating CF-Connecting-IP does not bypass the limiter (keys by req.ip)', async () => {
     const app = appWithLimiter();
-    // Same request "shape" (same req.ip since it's all supertest/loopback, same spoofable
-    // X-Forwarded-For) but a different Cloudflare-assigned client IP each time — this must not
-    // collapse every real visitor onto one shared bucket the way trusting req.ip alone did
-    // once Cloudflare sits in front of Render (2 proxy hops, not the 1 `trust proxy` expects).
-    for (const ip of ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']) {
-      const res = await request(app).get('/ok').set('CF-Connecting-IP', ip).set('X-Forwarded-For', '9.9.9.9');
-      expect(res.statusCode).toEqual(200);
+    // Production has no Cloudflare in front, so the header is plain client input: a client
+    // that rotates it per request must still share one bucket.
+    for (const ip of ['10.0.0.1', '10.0.0.2', '10.0.0.3']) {
+      expect((await request(app).get('/ok').set('CF-Connecting-IP', ip)).statusCode).toEqual(200);
     }
+    const blocked = await request(app).get('/ok').set('CF-Connecting-IP', '10.0.0.4');
+    expect(blocked.statusCode).toEqual(429);
   });
 
-  test('a spoofed CF-Connecting-IP header from the same real client still gets one bucket', async () => {
-    const app = appWithLimiter();
-    const r1 = await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5');
-    const r2 = await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5');
-    const r3 = await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5');
-    const blocked = await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5');
-    expect(r1.statusCode).toEqual(200);
-    expect(r2.statusCode).toEqual(200);
-    expect(r3.statusCode).toEqual(200);
-    expect(blocked.statusCode).toEqual(429);
+  describe('with TRUST_CF_CONNECTING_IP=true (deployment behind Cloudflare)', () => {
+    const prev = process.env.TRUST_CF_CONNECTING_IP;
+    beforeEach(() => { process.env.TRUST_CF_CONNECTING_IP = 'true'; });
+    afterEach(() => {
+      if (prev === undefined) delete process.env.TRUST_CF_CONNECTING_IP;
+      else process.env.TRUST_CF_CONNECTING_IP = prev;
+    });
+
+    test('distinct CF-Connecting-IP values get separate buckets', async () => {
+      const app = appWithLimiter();
+      // Same req.ip (supertest/loopback) but a different Cloudflare-assigned client IP each
+      // time — real visitors behind Cloudflare must not collapse onto one shared bucket.
+      for (const ip of ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']) {
+        const res = await request(app).get('/ok').set('CF-Connecting-IP', ip).set('X-Forwarded-For', '9.9.9.9');
+        expect(res.statusCode).toEqual(200);
+      }
+    });
+
+    test('the same CF-Connecting-IP still gets one bucket', async () => {
+      const app = appWithLimiter();
+      for (let i = 0; i < 3; i++) {
+        // eslint-disable-next-line no-await-in-loop
+        expect((await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5')).statusCode).toEqual(200);
+      }
+      const blocked = await request(app).get('/ok').set('CF-Connecting-IP', '5.5.5.5');
+      expect(blocked.statusCode).toEqual(429);
+    });
   });
 
   test('read and write limiters are independent buckets: exhausting GETs does not block a POST', async () => {
