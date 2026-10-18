@@ -52,7 +52,7 @@ import { SPORT_MAPPING, POSITION_OPTIONS } from "@/utils/sports";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 import Avatar from "@/components/Avatar";
-import { notifyAvatarChanged } from "@/hooks/useMyAvatar";
+import { notifyAvatarChanged, notifyNameChanged } from "@/hooks/useMyAvatar";
 import ImageUploadField from "@/components/ImageUploadField";
 import AddFriendButton from "@/components/AddFriendButton";
 import { Game } from "@/types/game";
@@ -308,6 +308,7 @@ export default function ProfilePage() {
       }
       const updated = await res.json();
       setProfile(updated);
+      if (typeof updated?.name === "string") notifyNameChanged(updated.name);
       setEditing(false);
       setSavedWithImageFailure(imageFailed);
       setSaveSuccess(true);
