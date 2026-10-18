@@ -111,11 +111,14 @@ export default async function GameDetails(props: {
   const isOrganizer = game.organizerId === userId;
   const isManager = (game.managers || []).some((m) => m.id === userId && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
   const canManageSeries = isOrganizer || isManager;
+  // Only joined players get the side-by-side roster + chat layout; everyone else sees a single
+  // column, so a narrower container keeps the hero and roster from stretching across the page.
+  const viewerJoined = !!userId && (game.participants || []).some((p) => p.id === userId);
 
   return (
     <main>
       <Container
-        maxWidth="lg"
+        maxWidth={viewerJoined ? "lg" : "md"}
         sx={{
           py: { xs: 2.5, md: 4 },
           px: { xs: 2, sm: 3 },
