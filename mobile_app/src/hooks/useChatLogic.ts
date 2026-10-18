@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from "react-native";
 import { SocketManager } from "@/services/socketManager";
 import { useUser, useAuth } from "@clerk/clerk-expo";
 import { useChat } from "@/context/ChatContext";
+import { useMyAvatar } from "@/hooks/useMyAvatar";
 import { chatsApi, usersApi, gamesApi } from "@/services/api";
 import { ChatMessage } from "@/types/chat";
 
@@ -16,6 +17,7 @@ export interface UseChatLogicProps {
 
 export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const { user } = useUser();
+    const { imageUrl: myAvatarUrl, hasImage: hasMyAvatar } = useMyAvatar();
     const { getToken } = useAuth();
     const { messagesCache, loadMessages, markChatAsRead, openChat, closeChat } = useChat();
 
@@ -399,7 +401,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
                 id: optimisticId, text: trimmed, content: trimmed, roomId: effectiveRoomId,
                 userId: user?.id || "anon", senderId: user?.id || "anon", senderName: user?.fullName || "Me",
                 ts: new Date().toISOString(), status: "sent",
-                sender: { id: user?.id, name: user?.fullName || undefined, image: user?.imageUrl || undefined },
+                sender: { id: user?.id, name: user?.fullName || undefined, image: hasMyAvatar ? myAvatarUrl : undefined },
                 replyTo: replyToMessage ? {
                     id: replyToMessage.id, text: replyToMessage.text,
                     senderName: replyToMessage.sender?.name || replyToMessage.senderName || "User"

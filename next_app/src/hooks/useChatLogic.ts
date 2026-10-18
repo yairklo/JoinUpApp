@@ -5,6 +5,7 @@ import { useChat } from "@/context/ChatContext";
 import { chatsApi, usersApi } from "@/services/api";
 import { ChatMessage, Reaction, MessageStatus } from "@/components/types";
 import { useSocket } from "@/context/SocketContext";
+import { useMyAvatar } from "@/hooks/useMyAvatar";
 
 export interface UseChatLogicProps {
     roomId: string;
@@ -13,6 +14,7 @@ export interface UseChatLogicProps {
 
 export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const { user } = useUser();
+    const myAvatar = useMyAvatar();
     const { getToken, isLoaded, isSignedIn } = useAuth();
     const { messagesCache, loadMessages } = useChat();
 
@@ -239,7 +241,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
                 id: optimisticId, text: trimmed, content: trimmed, roomId,
                 userId: user?.id || "anon", senderId: user?.id || "anon", senderName: user?.fullName || "Me",
                 ts: new Date().toISOString(), status: "sent",
-                sender: { id: user?.id, name: user?.fullName || undefined, image: user?.imageUrl || undefined },
+                sender: { id: user?.id, name: user?.fullName || undefined, image: myAvatar || undefined },
                 replyTo: replyToMessage ? {
                     id: replyToMessage.id, text: replyToMessage.text,
                     senderName: replyToMessage.sender?.name || replyToMessage.senderName || "User"
