@@ -74,6 +74,8 @@ function mapAuthenticatedUser(userId, clerkUser) {
     id: userId,
     name: displayName(clerkUser, userId),
     avatar: clerkUser.imageUrl || null,
+    username: clerkUser.username || null,
+    email: clerkUser.emailAddresses?.[0]?.emailAddress || null,
     isAdmin: resolveIsAdmin(userId, clerkUser),
     isBanned: resolveIsBanned(clerkUser),
   };

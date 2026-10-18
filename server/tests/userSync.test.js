@@ -38,7 +38,7 @@ describe('userSync', () => {
     const prisma = makePrisma({ id: 'u1', name: null });
     const res = await safeUpsertUserFromAuth(prisma, clerk);
     expect(prisma.user.updateMany).toHaveBeenCalledWith({
-      where: { id: 'u1', OR: [{ name: null }, { name: '' }] },
+      where: { id: 'u1', name: null },
       data: { name: 'Clerk Name' },
     });
     expect(res.name).toBe('Clerk Name');
@@ -54,5 +54,29 @@ describe('userSync', () => {
     const prisma = makePrisma({ id: 'u1', name: null }, 0);
     const res = await safeUpsertUserFromAuth(prisma, clerk);
     expect(res.name).toBeNull();
+  });
+
+  test('email-shaped / username Clerk names are never written', async () => {
+    const prisma = makePrisma({ id: 'u1', name: null });
+    await safeUpsertUserFromAuth(prisma, { id: 'u1', name: 'a@b.c' });
+    await safeUpsertUserFromAuth(prisma, { id: 'u1', name: 'uname', username: 'uname' });
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(buildSafeUserUpsertPayload({ id: 'u1', name: 'a@b.c' }).create.name).toBeNull();
+  });
+
+  test('email-shaped stored name is repaired when Clerk has a real name', async () => {
+    const prisma = makePrisma({ id: 'u1', name: 'old@x.com', email: 'old@x.com' });
+    const res = await safeUpsertUserFromAuth(prisma, clerk);
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: 'u1', name: 'old@x.com' },
+      data: { name: 'Clerk Name' },
+    });
+    expect(res.name).toBe('Clerk Name');
+  });
+
+  test('no extra query for empty stored name + unusable Clerk name', async () => {
+    const prisma = makePrisma({ id: 'u1', name: null });
+    await safeUpsertUserFromAuth(prisma, { id: 'u1', name: 'u1' });
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
 });
