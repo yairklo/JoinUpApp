@@ -59,6 +59,11 @@ model User {
   /// Set when the user deleted their own account: the row is kept as an anonymous tombstone so
   /// organised games / series / chat history keep valid references.
   deletedAt                 DateTime?
+  /// Terms of Use + Privacy Policy acceptance (version = shared/ageGate.js LEGAL_VERSION).
+  termsAcceptedAt           DateTime?
+  termsVersion              String?
+  /// Minor (13-17) declared guardian consent, recorded together with termsAcceptedAt.
+  guardianConsentAt         DateTime?
 }
 
 /// One-directional user block (App Store UGC requirement): blocker no longer sees the blocked
