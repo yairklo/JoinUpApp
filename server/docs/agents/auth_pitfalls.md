@@ -38,6 +38,9 @@ await prisma.user.upsert({
 });
 ```
 
+### 1.3 Current policy (server/utils/userSync.js)
+Our DB is the source of truth for `User.name` and `imageUrl` once the row exists. Use `safeUpsertUserFromAuth(prisma, req.user)`; its upsert `update` is empty, so Clerk data is only copied on **create**. The one exception: if the stored name is null/empty, a guarded `updateMany` fills it from Clerk (never when the Clerk name is the id-fallback). Never write `name` from `req.user` anywhere else, or profile-name edits silently revert.
+
 ## 2. FRIENDSHIP ORDERING CONSTRAINTS
 The Friendship model enforces a strict @@unique([userAId, userBId]) constraint. To avoid reciprocal duplication (A→B and B→A coexisting) and constraint crashes:
 

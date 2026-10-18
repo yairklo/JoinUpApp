@@ -10,12 +10,11 @@ function buildSafeUserUpsertPayload(authUser) {
 
   return {
     where: { id },
-    update: {
-      // Never touch imageUrl on an existing user here: once a user has an account, their photo
-      // is only changed via the explicit profile-image upload endpoint (POST /api/users/:id/image),
-      // never silently re-synced from Clerk's avatar on unrelated writes (roster join, game create, etc).
-      name: isNameFallback ? undefined : name,
-    },
+    // Never touch name or imageUrl on an existing user here: our DB is the source of truth once the
+    // row exists. imageUrl changes only via POST /api/users/:id/image, name only via the profile
+    // update endpoint — never silently re-synced from Clerk on unrelated writes (roster join, game create, etc).
+    // The only exception (null/empty stored name) is handled race-safely in safeUpsertUserFromAuth.
+    update: {},
     create: {
       id,
       name: isNameFallback ? null : name,
@@ -26,7 +25,17 @@ function buildSafeUserUpsertPayload(authUser) {
 }
 
 async function safeUpsertUserFromAuth(prisma, authUser) {
-  return prisma.user.upsert(buildSafeUserUpsertPayload(authUser));
+  const user = await prisma.user.upsert(buildSafeUserUpsertPayload(authUser));
+  const name = authUser.name ?? null;
+  if (name && name !== authUser.id && !user.name) {
+    // Fill a missing name from Clerk only; the where-guard makes this a no-op if a name was set meanwhile.
+    const { count } = await prisma.user.updateMany({
+      where: { id: authUser.id, OR: [{ name: null }, { name: '' }] },
+      data: { name },
+    });
+    if (count > 0) return { ...user, name };
+  }
+  return user;
 }
 
 module.exports = { buildSafeUserUpsertPayload, safeUpsertUserFromAuth };
