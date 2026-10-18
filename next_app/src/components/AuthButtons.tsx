@@ -1,39 +1,68 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { SignedIn, SignedOut, SignInButton, ClerkLoaded, UserButton } from "@clerk/nextjs";
+import { useState } from "react";
+import Link from "next/link";
+import { SignedIn, SignedOut, SignInButton, ClerkLoaded, useClerk, useUser } from "@clerk/nextjs";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
 import LoginIcon from "@mui/icons-material/Login";
+import LogoutIcon from "@mui/icons-material/Logout";
+import ManageAccountsOutlinedIcon from "@mui/icons-material/ManageAccountsOutlined";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import Avatar from "@/components/Avatar";
+import { useMyAvatar } from "@/hooks/useMyAvatar";
 
-export default function AuthButtons() {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Clerk's UserButton trigger ships a hardcoded "Open user menu" aria-label that isn't exposed
-  // through @clerk/localizations' heIL pack, so there's no supported way to translate it via
-  // props. Patch the attribute directly instead -- scoped to this component's own subtree, and
-  // a MutationObserver re-applies it if Clerk re-renders the trigger (the label only ever
-  // matches the English string once, so this can't loop on its own mutation).
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const relabel = () => {
-      const trigger = container.querySelector('button[aria-label="Open user menu"]');
-      if (trigger) trigger.setAttribute("aria-label", "פתח תפריט משתמש");
-    };
-    relabel();
-    const observer = new MutationObserver(relabel);
-    observer.observe(container, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["aria-label"],
-    });
-    return () => observer.disconnect();
-  }, []);
+// Replaces Clerk's <UserButton>, which can only render Clerk's own image and so never showed the
+// avatar stored in our DB. Same menu entries, rendered from our imageUrl.
+function UserMenu() {
+  const { signOut, openUserProfile } = useClerk();
+  const { user } = useUser();
+  const avatarUrl = useMyAvatar();
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const close = () => setAnchorEl(null);
+  const name = user?.fullName || user?.primaryEmailAddress?.emailAddress || "";
 
   return (
-    <div ref={containerRef}>
+    <>
+      <IconButton
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        aria-label="פתח תפריט משתמש"
+        aria-haspopup="menu"
+        aria-expanded={!!anchorEl}
+        size="small"
+        sx={{ p: 0.25 }}
+      >
+        <Avatar src={avatarUrl} name={name} alt={name} size="md" />
+      </IconButton>
+      <Menu anchorEl={anchorEl} open={!!anchorEl} onClose={close}>
+        <MenuItem component={Link} href="/profile" onClick={close}>
+          <ListItemIcon><PersonOutlineIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>הפרופיל שלי</ListItemText>
+        </MenuItem>
+        <MenuItem component={Link} href="/profile/settings" onClick={close}>
+          <ListItemIcon><LockOutlinedIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>הגדרות פרטיות</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { close(); openUserProfile(); }}>
+          <ListItemIcon><ManageAccountsOutlinedIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>ניהול חשבון</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => { close(); signOut({ redirectUrl: "/" }); }}>
+          <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>התנתקות</ListItemText>
+        </MenuItem>
+      </Menu>
+    </>
+  );
+}
+
+export default function AuthButtons() {
+  return (
+    <div>
       <SignedOut>
         <SignInButton mode="modal">
           <Button
@@ -48,21 +77,7 @@ export default function AuthButtons() {
       </SignedOut>
       <SignedIn>
         <ClerkLoaded>
-          <UserButton afterSignOutUrl="/">
-            <UserButton.MenuItems>
-              <UserButton.Link
-                label="הפרופיל שלי"
-                href="/profile"
-                labelIcon={<PersonOutlineIcon sx={{ fontSize: 16 }} />}
-              />
-              <UserButton.Link
-                label="הגדרות פרטיות"
-                href="/profile/settings"
-                labelIcon={<LockOutlinedIcon sx={{ fontSize: 16 }} />}
-              />
-              <UserButton.Action label="manageAccount" />
-            </UserButton.MenuItems>
-          </UserButton>
+          <UserMenu />
         </ClerkLoaded>
       </SignedIn>
     </div>
