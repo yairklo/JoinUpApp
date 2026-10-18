@@ -16,7 +16,6 @@ import { SPORT_MAPPING } from '@/utils/sports';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useMyAvatar } from '@/hooks/useMyAvatar';
 import { pickOneImage } from '@/utils/pickImage';
-import type { PickedImage } from '@/services/api/fields';
 
 const getPositionOptions = (t: any): Record<string, string[]> => ({
     SOCCER: [
@@ -69,7 +68,6 @@ export default function ProfileScreen() {
     const [saving, setSaving] = useState(false);
     const [avatarBusy, setAvatarBusy] = useState(false);
     const [avatarError, setAvatarError] = useState<string | null>(null);
-    const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
     const { imageUrl: displayAvatar, hasImage: hasAvatar, set: setMyAvatar } = useMyAvatar();
 
     // Form state
@@ -159,36 +157,11 @@ export default function ProfileScreen() {
         }
     };
 
-    // Clerk-backed avatars (tab header, settings) only show Clerk's own image, so mirror the change
-    // there (best effort: our own upload already succeeded).
-    const syncClerkAvatar = async (picked: PickedImage | null) => {
-        const sync = async () => {
-            if (!picked) {
-                await user?.setProfileImage({ file: null });
-                return;
-            }
-            const blob = await (await fetch(picked.uri)).blob();
-            await user?.setProfileImage({ file: blob });
-        };
-        try {
-            // Bounded so a hung Clerk request can't linger; never part of the busy window.
-            await Promise.race([
-                sync(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Clerk sync timed out')), 15000)),
-            ]);
-        } catch (err) {
-            console.error('Failed to sync avatar to Clerk', err);
-            setAvatarWarning(t('upload.avatarSyncFailed', 'התמונה נשמרה, אך ייתכן שלא תתעדכן בכל המסכים מיד'));
-        }
-    };
-
     const handlePickAvatar = async () => {
         if (!user?.id || avatarBusy) return;
         setAvatarError(null);
-        setAvatarWarning(null);
         const picked = await pickOneImage();
         if (!picked) return;
-        let syncPicked: PickedImage | null | undefined;
         setAvatarBusy(true);
         try {
             const token = await getToken();
@@ -196,20 +169,16 @@ export default function ProfileScreen() {
             const result = await usersApi.uploadImage(user.id, picked, token);
             setMyAvatar(result.imageUrl);
             setProfile(prev => (prev ? { ...prev, imageUrl: result.imageUrl } : prev));
-            syncPicked = picked;
         } catch (err) {
             setAvatarError(err instanceof Error ? err.message : t('upload.avatarUploadFailed', 'העלאת התמונה נכשלה'));
         } finally {
             setAvatarBusy(false);
         }
-        if (syncPicked !== undefined) void syncClerkAvatar(syncPicked);
     };
 
     const handleRemoveAvatar = async () => {
         if (!user?.id || avatarBusy) return;
         setAvatarError(null);
-        setAvatarWarning(null);
-        let syncPicked: PickedImage | null | undefined;
         setAvatarBusy(true);
         try {
             const token = await getToken();
@@ -217,13 +186,11 @@ export default function ProfileScreen() {
             await usersApi.removeImage(user.id, token);
             setMyAvatar(null);
             setProfile(prev => (prev ? { ...prev, imageUrl: undefined } : prev));
-            syncPicked = null;
         } catch (err) {
             setAvatarError(err instanceof Error ? err.message : t('upload.avatarRemoveFailed', 'הסרת התמונה נכשלה'));
         } finally {
             setAvatarBusy(false);
         }
-        if (syncPicked !== undefined) void syncClerkAvatar(syncPicked);
     };
 
     const handleCancelEdit = () => {
@@ -365,7 +332,6 @@ export default function ProfileScreen() {
                                 )
                             )}
                             {avatarError && <Text className="text-red-600 text-xs mt-1 text-center">{avatarError}</Text>}
-                            {avatarWarning && <Text className="text-amber-600 text-xs mt-1 text-center">{avatarWarning}</Text>}
                         </View>
                     )}
                     <Text className="text-xl font-black text-gray-900">{user?.fullName || 'User'}</Text>
