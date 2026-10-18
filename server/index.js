@@ -39,6 +39,7 @@ const { broadcastCounters } = require('./services/counterService');
 
 // Moderation
 const { moderator } = require('./moderationInstance');
+const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('./services/chatSafety');
 const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Notification Workers
@@ -542,6 +543,19 @@ io.on('connection', async (socket) => {
       return;
     }
 
+    const textError = validateMessageText(text);
+    if (textError) {
+      socket.emit('error', textError === 'MESSAGE_TOO_LONG'
+        ? `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)`
+        : 'Message is empty');
+      return;
+    }
+
+    if (!sendRateLimiter.allow(socket.userId)) {
+      socket.emit('error', 'You are sending messages too fast');
+      return;
+    }
+
     const allowed = await checkChatPermission(socket.userId, String(roomId));
     if (!allowed) {
       socket.emit('error', 'Unauthorized access to room');
@@ -562,8 +576,6 @@ io.on('connection', async (socket) => {
       return;
     }
 
-    console.log(`[DEBUG] Incoming Message - Room: "${roomId}", User: ${finalUserId}`); // <--- TOP LEVEL DEBUG LOG
-
     // Fetch sender details early (needed for moderation and fallbacks)
     let senderUser = null;
     if (finalUserId) {
@@ -577,109 +589,30 @@ io.on('connection', async (socket) => {
       }
     }
 
-    // --- MODERATION & SAFETY CHECK ---
-    const getAge = (u) => {
-      if (!u) return 21; // Default to adult if unknown
-      if (u.age) return u.age;
-      if (u.birthDate) {
-        const diff = Date.now() - new Date(u.birthDate).getTime();
-        return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
-      }
-      return 21;
-    };
-
-    const senderAge = getAge(senderUser);
-    let receiverAge = null;
-
-    // Fetch all participants in this chat to find the receiver
-    if (roomId) {
-      try {
-        const participants = await prisma.chatParticipant.findMany({
-          where: { chatId: String(roomId) },
-          select: { userId: true }
-        });
-
-        console.log(`[DEBUG] Chat Participants:`, participants.map(p => p.userId)); // DEBUG LOG
-
-        // Find the other user (not the sender)
-        const otherParticipant = participants.find(p => p.userId !== String(finalUserId));
-
-        if (otherParticipant) {
-          const receiver = await prisma.user.findUnique({
-            where: { id: otherParticipant.userId },
-            select: { birthDate: true }
-          });
-          receiverAge = getAge(receiver);
-          console.log(`[DEBUG] Receiver Found: ${otherParticipant.userId}, Age Data:`, receiver, `CalcAge: ${receiverAge}`); // DEBUG LOG
-        } else {
-          console.log(`[DEBUG] No other participant found (group chat or solo?)`); // DEBUG LOG
-        }
-      } catch (e) {
-        console.error('[MODERATION] Failed to fetch chat participants:', e);
-      }
+    // --- MODERATION & SAFETY CHECK (AI runs only when a recipient is a minor; see services/chatSafety.js) ---
+    let initialStatus;
+    let recipientIds;
+    try {
+      ({ status: initialStatus, recipientIds } = await assessOutgoingMessage({
+        moderator,
+        sender: senderUser || { id: finalUserId },
+        roomId: String(roomId),
+        text,
+        onFlagged: () => gameScheduler.triggerReviewQueue(),
+      }));
+    } catch (e) {
+      // Fail closed: if we cannot tell who receives this (or whether they are minors), do not deliver.
+      console.error('[MODERATION] Recipient/age lookup failed:', e.message);
+      socket.emit('error', 'Could not send message');
+      return;
     }
 
     // Check active users in room to determine initial status
-    let initialStatus = 'sent';
-    if (roomId) {
+    if (initialStatus === 'sent') {
       const clients = io.sockets.adapter.rooms.get(String(roomId));
       if (clients && clients.size > 1) {
         initialStatus = 'delivered';
       }
-    }
-
-    // Call Moderator Service
-    try {
-      const modResult = await moderator.checkMessage(
-        text,
-        [], // Chat History (empty for now)
-        {}, // User Config (default)
-        {
-          userId: finalUserId,
-          userAge: senderAge,
-          receiverAge: receiverAge,
-          userGender: senderUser?.gender
-        }
-      );
-
-      if (!modResult.isSafe) {
-        console.log(`❌ [MODERATION] BLOCKED message from ${finalUserId} (Age: ${senderAge}) -> ${receiverAge ? `Receiver Age: ${receiverAge}` : 'Public'}`);
-        initialStatus = 'blocked';
-      }
-
-      // Check if message needs human review (flagged but allowed)
-      if (modResult.reviewNeeded) {
-        console.log(`⚠️ [MODERATION] FLAGGED for review: ${finalUserId} (Age: ${senderAge}) -> ${receiverAge ? `Receiver Age: ${receiverAge}` : 'Public'} | Reason: ${modResult.reason || 'N/A'}`);
-
-        // Save to FlaggedMessage table for human review
-        try {
-          await prisma.flaggedMessage.create({
-            data: {
-              content: text,
-              userId: finalUserId,
-              status: 'PENDING_REVIEW',
-              resolution: null,
-              aiTriggers: {
-                reason: modResult.reason || 'Unknown',
-                source: modResult.source || 'moderator',
-                senderAge,
-                receiverAge,
-                chatMode: senderAge >= 18 && receiverAge < 18 ? 'ADULT_TO_MINOR' : 'OTHER',
-                retryDelay: modResult.retryDelay || null,
-                retryAfter: modResult.retryDelay ? new Date(Date.now() + modResult.retryDelay * 1000).toISOString() : null
-              }
-            }
-          });
-          console.log(`💾 [MODERATION] Saved flagged message to database for review`);
-          gameScheduler.triggerReviewQueue();
-        } catch (dbError) {
-          console.error('[MODERATION] Failed to save flagged message:', dbError);
-        }
-      }
-    } catch (e) {
-      console.error('[MODERATION] Service Error:', e);
-      // Fail Open: Allow message if moderation crashes? Or Closed?
-      // Usually Fail Open to prevent chat downtime, unless strict.
     }
     // ---------------------------------
 
@@ -742,13 +675,6 @@ io.on('connection', async (socket) => {
     };
 
 
-    // Debug Log for Reply Persistence
-    if (msg.replyTo) {
-      console.log(`[DEBUG] Emitting message ${msg.id} with replyTo:`, msg.replyTo.senderName);
-    } else {
-      console.log(`[DEBUG] Emitting message ${msg.id} WITHOUT replyTo`);
-    }
-
     if (msg.roomId) {
       if (initialStatus === 'blocked') {
         io.to(`user_${finalUserId}`).emit('message', msg);
@@ -762,47 +688,12 @@ io.on('connection', async (socket) => {
     // Send Notifications to recipients
     if (finalUserId && roomId && initialStatus !== 'blocked') {
       try {
-        let recipientIds = [];
-
-        // 1. Try to fetch ChatRoom and its participants from database first (works for mobile UUIDs)
-        const chatRoom = await prisma.chatRoom.findUnique({
-          where: { id: String(roomId) },
-          include: { participants: true }
-        }).catch(() => null);
-
-        if (chatRoom) {
-          recipientIds = chatRoom.participants
-            .map(p => p.userId)
-            .filter(id => id !== String(finalUserId));
-        }
-        // 2. Fallback for Web's "private_ID1_ID2" string format
-        else if (String(roomId).startsWith('private_')) {
-          const parts = String(roomId).replace('private_', '').split('_');
-          const otherId = parts.find(id => id !== String(finalUserId));
-          if (otherId) recipientIds.push(otherId);
-        }
-        // 3. Fallback: Group Chat (roomId is a gameId directly)
-        else {
-          const participations = await prisma.participation.findMany({
-            where: {
-              gameId: String(roomId),
-              status: 'CONFIRMED',
-              userId: { not: String(finalUserId) }
-            },
-            select: { userId: true }
-          });
-          recipientIds = participations.map(p => p.userId);
-        }
-
         const blockers = await getBlockersAmong(finalUserId, recipientIds).catch(() => new Set());
         if (blockers.size) recipientIds = recipientIds.filter(id => !blockers.has(String(id)));
 
-        console.log(`[DEBUG NOTIFICATIONS] Resolved recipientIds for room ${roomId}:`, recipientIds);
         const messagePreview = text.length > 80 ? `${text.slice(0, 77)}...` : text;
 
         recipientIds.forEach(recipientId => {
-          const online = isUserOnline(recipientId);
-          console.log(`[DEBUG NOTIFICATIONS] Recipient ${recipientId} online=${online}`);
 
           // Refresh the recipient's Navbar/Tab unread-messages badge regardless of
           // online status (they may be connected but viewing a different screen).
@@ -830,7 +721,7 @@ io.on('connection', async (socket) => {
           ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
         });
       } catch (err) {
-        console.error("[DEBUG NOTIFICATIONS] Notification error:", err);
+        console.error("[NOTIFICATIONS] Notification error:", err);
       }
     }
 

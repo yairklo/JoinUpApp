@@ -61,7 +61,7 @@ describe('ContentModerator.checkMessage', () => {
 
     const result = await moderator.checkMessage('hello there', [], {}, { userId: 'u2' });
 
-    expect(result).toEqual({ isSafe: true, reviewNeeded: true, source: 'system_down' });
+    expect(result).toEqual({ isSafe: true, reviewNeeded: true, unverified: true, source: 'system_down' });
     expect(mockModerationsCreate).not.toHaveBeenCalled();
   });
 
@@ -108,6 +108,7 @@ describe('ContentModerator.checkMessage', () => {
     expect(result.isSafe).toBe(true);
     expect(result.reviewNeeded).toBe(true);
     expect(result.source).toBe('fail_open_error');
+    expect(result.unverified).toBe(true);
     expect(result.auditData.error).toMatch(/openai unavailable/);
   });
 });

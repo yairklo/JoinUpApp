@@ -4,6 +4,8 @@ const { checkChatPermission } = require('../utils/chatAuth');
 const { prisma } = require('../lib/prisma');
 const { mapUserToSender } = require('../utils/chatMappers');
 const { getBlockedByMe, isPrivateChatBlocked } = require('../utils/blocks');
+const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('../services/chatSafety');
+const { moderator } = require('../moderationInstance');
 const router = express.Router();
 
 // GET /api/messages?roomId=abc&limit=100
@@ -90,6 +92,13 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const { roomId, text } = req.body || {};
     if (!roomId || !text) return res.status(400).json({ error: 'roomId and text are required' });
+    const textError = validateMessageText(text);
+    if (textError) {
+      return res.status(400).json({ error: textError === 'MESSAGE_TOO_LONG' ? `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` : 'Message is empty', code: textError });
+    }
+    if (!sendRateLimiter.allow(req.user.id)) {
+      return res.status(429).json({ error: 'You are sending messages too fast', code: 'RATE_LIMITED' });
+    }
 
     const isAllowed = await checkChatPermission(req.user.id, String(roomId));
     if (!isAllowed) {
@@ -100,14 +109,28 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'You cannot message this user', code: 'USER_BLOCKED' });
     }
 
+    const sender = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, birthDate: true, gender: true },
+    });
+    // Same minor-protection policy as the socket path; throws (-> 500, not delivered) if recipients can't be resolved.
+    const { status } = await assessOutgoingMessage({
+      moderator,
+      sender: sender || { id: req.user.id },
+      roomId: String(roomId),
+      text,
+      onFlagged: () => require('../services/gameScheduler').triggerReviewQueue(),
+    });
+
     const saved = await prisma.message.create({
       data: {
         chatRoomId: String(roomId),
         text: String(text),
         userId: req.user.id,
+        status,
       },
     });
-    res.status(201).json({ id: saved.id, roomId: saved.chatRoomId, text: saved.text, userId: saved.userId, ts: saved.createdAt });
+    res.status(201).json({ id: saved.id, roomId: saved.chatRoomId, text: saved.text, userId: saved.userId, ts: saved.createdAt, status: saved.status });
   } catch (e) {
     console.error('Create message error:', e);
     res.status(500).json({ error: 'Failed to create message' });

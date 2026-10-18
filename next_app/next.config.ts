@@ -30,7 +30,17 @@ const nextConfig: NextConfig = {
     // file propagate within a day instead of caching it away for a year.
     // sw.js/workbox-*.js/manifest.json are deliberately left untouched:
     // the service worker must keep revalidating on every load to roll out.
+    // Baseline security headers on every route. No CSP yet: Clerk, Sentry, Firebase
+    // and Cloudinary need a tested allowlist first, or the app breaks silently.
+    const securityHeaders = [
+      { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(self)" },
+    ];
     return [
+      { source: "/:path*", headers: securityHeaders },
       {
         source: "/images/:path*",
         headers: [
