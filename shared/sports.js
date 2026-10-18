@@ -12,6 +12,17 @@ const SPORT_EMOJI = {
   TENNIS: '🎾',
 };
 
+// Sport identity palette — the single source for per-sport color across web and mobile.
+// `base` is the accent (chips, active filters, map pins), `deep`/`ink` build the dark
+// gradient behind generated court art (SportCover), `glow` is the light highlight on it,
+// and `tint` is a pale background for light surfaces. Base hexes match the mobile map
+// pins (mobile_app/src/utils/mapSport.ts) so a sport reads the same everywhere.
+const SPORT_THEME = {
+  SOCCER: { base: '#16a34a', glow: '#4ade80', deep: '#065f46', ink: '#022c22', tint: '#dcfce7' },
+  BASKETBALL: { base: '#f97316', glow: '#fdba74', deep: '#9a3412', ink: '#2a0f05', tint: '#ffedd5' },
+  TENNIS: { base: '#eab308', glow: '#fde047', deep: '#3f6212', ink: '#1a2e05', tint: '#fef9c3' },
+};
+
 const POSITION_OPTIONS = {
   SOCCER: ['שוער', 'בלם', 'מגן', 'קשר', 'חלוץ'],
   BASKETBALL: ['פוינט גארד', 'שוטינג גארד', 'סמול פורוורד', 'פאואר פורוורד', 'סנטר'],
@@ -45,6 +56,7 @@ module.exports = {
   SPORT_KEYS,
   SPORT_MAPPING,
   SPORT_EMOJI,
+  SPORT_THEME,
   POSITION_OPTIONS,
   HEBREW_SPORT_MAP,
   resolveSportFilters,
