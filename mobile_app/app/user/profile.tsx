@@ -68,6 +68,7 @@ export default function ProfileScreen() {
     const [saving, setSaving] = useState(false);
     const [avatarBusy, setAvatarBusy] = useState(false);
     const [avatarError, setAvatarError] = useState<string | null>(null);
+    const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
     // DB avatar: null after removal (so we don't fall back to a stale value); undefined until loaded.
     const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(undefined);
 
@@ -161,23 +162,33 @@ export default function ProfileScreen() {
     // Clerk-backed avatars (tab header, settings) only show Clerk's own image, so mirror the change
     // there (best effort: our own upload already succeeded).
     const syncClerkAvatar = async (picked: PickedImage | null) => {
-        try {
+        const sync = async () => {
             if (!picked) {
                 await user?.setProfileImage({ file: null });
                 return;
             }
             const blob = await (await fetch(picked.uri)).blob();
             await user?.setProfileImage({ file: blob });
+        };
+        try {
+            // Bounded so a hung Clerk request can't linger; never part of the busy window.
+            await Promise.race([
+                sync(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Clerk sync timed out')), 15000)),
+            ]);
         } catch (err) {
             console.error('Failed to sync avatar to Clerk', err);
+            setAvatarWarning(t('upload.avatarSyncFailed', 'התמונה נשמרה, אך ייתכן שלא תתעדכן בכל המסכים מיד'));
         }
     };
 
     const handlePickAvatar = async () => {
         if (!user?.id || avatarBusy) return;
         setAvatarError(null);
+        setAvatarWarning(null);
         const picked = await pickOneImage();
         if (!picked) return;
+        let syncPicked: PickedImage | null | undefined;
         setAvatarBusy(true);
         try {
             const token = await getToken();
@@ -185,17 +196,20 @@ export default function ProfileScreen() {
             const result = await usersApi.uploadImage(user.id, picked, token);
             setAvatarUrl(result.imageUrl);
             setProfile(prev => (prev ? { ...prev, imageUrl: result.imageUrl } : prev));
-            await syncClerkAvatar(picked);
+            syncPicked = picked;
         } catch (err) {
             setAvatarError(err instanceof Error ? err.message : t('upload.avatarUploadFailed', 'העלאת התמונה נכשלה'));
         } finally {
             setAvatarBusy(false);
         }
+        if (syncPicked !== undefined) void syncClerkAvatar(syncPicked);
     };
 
     const handleRemoveAvatar = async () => {
         if (!user?.id || avatarBusy) return;
         setAvatarError(null);
+        setAvatarWarning(null);
+        let syncPicked: PickedImage | null | undefined;
         setAvatarBusy(true);
         try {
             const token = await getToken();
@@ -203,12 +217,13 @@ export default function ProfileScreen() {
             await usersApi.removeImage(user.id, token);
             setAvatarUrl(null);
             setProfile(prev => (prev ? { ...prev, imageUrl: undefined } : prev));
-            await syncClerkAvatar(null);
+            syncPicked = null;
         } catch (err) {
             setAvatarError(err instanceof Error ? err.message : t('upload.avatarRemoveFailed', 'הסרת התמונה נכשלה'));
         } finally {
             setAvatarBusy(false);
         }
+        if (syncPicked !== undefined) void syncClerkAvatar(syncPicked);
     };
 
     const handleCancelEdit = () => {
@@ -272,8 +287,9 @@ export default function ProfileScreen() {
     };
 
     const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName || '')}`;
-    const hasAvatar = avatarUrl === null ? false : !!(avatarUrl || user?.hasImage);
-    const displayAvatar = avatarUrl === null ? fallbackAvatar : avatarUrl || user?.imageUrl || fallbackAvatar;
+    const dbAvatar = avatarUrl === undefined ? profile?.imageUrl : avatarUrl;
+    const hasAvatar = avatarUrl === null ? false : !!(dbAvatar || user?.hasImage);
+    const displayAvatar = avatarUrl === null ? fallbackAvatar : dbAvatar || user?.imageUrl || fallbackAvatar;
 
     const unaddedSports = availableSports.filter(
         sport => !form.sportsData.some(s => s.sportId === sport.id)
@@ -354,6 +370,7 @@ export default function ProfileScreen() {
                                 )
                             )}
                             {avatarError && <Text className="text-red-600 text-xs mt-1 text-center">{avatarError}</Text>}
+                            {avatarWarning && <Text className="text-amber-600 text-xs mt-1 text-center">{avatarWarning}</Text>}
                         </View>
                     )}
                     <Text className="text-xl font-black text-gray-900">{user?.fullName || 'User'}</Text>
@@ -459,6 +476,9 @@ export default function ProfileScreen() {
                         </Text>
                     </View>
 
+                    {isEditing && avatarError && (
+                        <Text className="text-red-600 text-xs mt-4 text-right">{avatarError}</Text>
+                    )}
                     {isEditing && (
                         <View className="flex-row gap-3 mt-4">
                             <TouchableOpacity
