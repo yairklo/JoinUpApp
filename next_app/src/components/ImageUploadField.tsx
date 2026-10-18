@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -31,6 +31,8 @@ interface ImageUploadFieldProps {
     onUploaded: (url: string) => void;
     onRemove?: () => Promise<unknown>;
     onRemoved?: () => void;
+    /** Reports whether an upload/remove request is in flight so the parent can block Save meanwhile. */
+    onBusyChange?: (busy: boolean) => void;
 }
 
 export default function ImageUploadField({
@@ -42,10 +44,16 @@ export default function ImageUploadField({
     onUploaded,
     onRemove,
     onRemoved,
+    onBusyChange,
 }: ImageUploadFieldProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        onBusyChange?.(busy);
+        return () => onBusyChange?.(false);
+    }, [busy, onBusyChange]);
 
     const handlePick = () => inputRef.current?.click();
 

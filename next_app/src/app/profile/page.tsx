@@ -120,6 +120,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -277,7 +278,7 @@ export default function ProfilePage() {
   const canSaveProfile = !nameError && !birthDateError;
 
   const save = async () => {
-    if (!userId || !canSaveProfile) return;
+    if (!userId || !canSaveProfile || imageBusy) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -709,15 +710,17 @@ export default function ProfilePage() {
                           imageUrl={form.imageUrl}
                           name={profile.name || ""}
                           label="העלה תמונת פרופיל"
+                          disabled={saving}
                           onUpload={uploadProfileImage}
                           onUploaded={handleImageUploaded}
                           onRemove={removeProfileImage}
                           onRemoved={handleImageRemoved}
+                          onBusyChange={setImageBusy}
                         />
                       </Grid>
                       <Grid size={12} sx={{ mt: 2, display: 'flex', gap: 2 }}>
-                        <Button variant="contained" startIcon={<SaveIcon />} onClick={save} disabled={saving || !canSaveProfile}>
-                          {saving ? 'שומר...' : 'שמור שינויים'}
+                        <Button variant="contained" startIcon={<SaveIcon />} onClick={save} disabled={saving || imageBusy || !canSaveProfile}>
+                          {saving ? 'שומר...' : imageBusy ? 'מעלה תמונה...' : 'שמור שינויים'}
                         </Button>
                         <Button variant="outlined" color="inherit" startIcon={<CancelIcon />} onClick={() => setEditing(false)}>
                           ביטול
