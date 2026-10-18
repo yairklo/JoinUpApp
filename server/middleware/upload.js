@@ -11,7 +11,14 @@ const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 // Container disks are ephemeral (wiped on every deploy/restart), so in production images go to
 // Cloudinary. Enabled when CLOUDINARY_URL (cloudinary://<key>:<secret>@<cloud>) is set; without
 // it (local dev, tests) we fall back to local disk under server/uploads.
-const useCloudinary = () => Boolean(process.env.CLOUDINARY_URL);
+// A malformed value (stray quotes, "CLOUDINARY_URL=" prefix, spaces) would make the SDK throw an
+// uncaught exception, so validate the shape up front and fall back to disk with a warning.
+const CLOUDINARY_URL_RE = /^cloudinary:\/\/[^:\s]+:[^@\s]+@[^\s/]+$/;
+const cloudinaryConfigured = CLOUDINARY_URL_RE.test(process.env.CLOUDINARY_URL || '');
+if (process.env.CLOUDINARY_URL && !cloudinaryConfigured) {
+  console.warn('[uploads] CLOUDINARY_URL is set but malformed (expected cloudinary://<key>:<secret>@<cloud_name>, no quotes or spaces); falling back to local disk');
+}
+const useCloudinary = () => cloudinaryConfigured;
 let cloudinaryClient;
 function getCloudinary() {
   if (!cloudinaryClient) cloudinaryClient = require('cloudinary').v2;
