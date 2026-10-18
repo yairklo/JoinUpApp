@@ -1,42 +1,11 @@
 # Auth & User Profile Pitfalls Guide
 
 ## 1. THE CLERK FALLBACK OVERWRITE BUG
-### 1.1 The Exact Code Logic
-In `server/utils/auth.js`, the verification middleware fetches the profile from Clerk. If the Clerk API call fails (rate limit, network error) or if the profile is sparse right after signup, the middleware falls back to:
-```javascript
-req.user = { id: userId, name: userId, avatar: null, isAdmin: false };
-```
-When user actions subsequently trigger a database write (such as joining a game roster or creating a match), the system executes an unsafe upsert:
+### 1.1 History
+`req.user` can be the sparse fallback `{ id, name: userId, avatar: null }` (Clerk API failure), and `displayName()` falls back to username/email. Older code upserted `name`/`imageUrl` from `req.user` on every write, clobbering real profile data with the Clerk id, an email, or a stale Clerk name. Never do that.
 
-```javascript
-// UNSAFE - DO NOT REPLICATE
-await prisma.user.upsert({
-  where: { id: req.user.id },
-  update: { name: req.user.name, imageUrl: req.user.avatar },
-  create: { id: req.user.id, name: req.user.name, imageUrl: req.user.avatar }
-});
-```
-This blindly overwrites the user's real name with their raw Clerk ID string (e.g., "user_2Niz...") and sets their profile picture to null!
-
-### 1.2 Line-by-Line Prevention Rule
-All database writes on the User model must use Prisma's undefined property ignore behavior to protect existing data:
-
-```javascript
-const isNameFallback = req.user.name === req.user.id;
-
-await prisma.user.upsert({
-  where: { id: req.user.id },
-  update: {
-    name: isNameFallback ? undefined : req.user.name,
-    imageUrl: (isNameFallback || !req.user.avatar) ? undefined : req.user.avatar
-  },
-  create: {
-    id: req.user.id,
-    name: isNameFallback ? null : req.user.name,
-    imageUrl: isNameFallback ? null : req.user.avatar
-  }
-});
-```
+### 1.3 Current policy (server/utils/userSync.js)
+Our DB is the source of truth for `User.name` and `imageUrl` once the row exists. Use `safeUpsertUserFromAuth(prisma, req.user)`; its upsert `update` is empty, so Clerk data is only copied on **create**. The one exception: if the stored name is null/empty, a guarded `updateMany` fills it from Clerk Stored names that are email-shaped (contain `@`) or equal the stored email count as missing. Clerk names that are the id, contain `@`, or equal the Clerk email/username are never written (create or fill). Never write `name` from `req.user` anywhere else, or profile-name edits silently revert.
 
 ## 2. FRIENDSHIP ORDERING CONSTRAINTS
 The Friendship model enforces a strict @@unique([userAId, userBId]) constraint. To avoid reciprocal duplication (A→B and B→A coexisting) and constraint crashes:
