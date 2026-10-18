@@ -146,6 +146,13 @@ export interface AdminFieldIssueFlag {
     };
 }
 
+export interface BlockedUser {
+    id: string;
+    name: string | null;
+    imageUrl: string | null;
+    blockedAt: string;
+}
+
 export const usersApi = {
     getProfile: (userId: string, token?: string) => {
         return apiClient<UserProfile>(`/api/users/${userId}`, { token });
@@ -153,6 +160,22 @@ export const usersApi = {
 
     getNotificationCounters: (token: string) => {
         return apiClient<NotificationCounters>('/api/users/notifications/counts', { token });
+    },
+
+    getBlockedUsers: (token: string) => {
+        return apiClient<BlockedUser[]>('/api/users/blocks', { token, cache: 'no-store' });
+    },
+
+    blockUser: (userId: string, token: string) => {
+        return apiClient(`/api/users/${userId}/block`, { method: 'POST', token });
+    },
+
+    unblockUser: (userId: string, token: string) => {
+        return apiClient(`/api/users/${userId}/block`, { method: 'DELETE', token });
+    },
+
+    deleteAccount: (token: string) => {
+        return apiClient<{ ok: boolean }>('/api/users/me', { method: 'DELETE', token });
     },
 
     getMe: (token: string) => {
