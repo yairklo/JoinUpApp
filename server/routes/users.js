@@ -16,7 +16,7 @@ const {
   validateScore,
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
-const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
+const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile, isManagedUploadUrl } = require('../middleware/upload');
 const router = express.Router();
 const userImageUpload = createImageUpload('users');
 const notificationService = new NotificationService(prisma);
@@ -695,6 +695,16 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     if (typeof gender !== 'undefined' && gender !== null && !VALID_GENDERS.includes(gender)) {
       return res.status(400).json({ error: 'Invalid gender. Must be MALE or FEMALE.' });
+    }
+
+    // imageUrl may only point at storage we manage if it is already this user's current image;
+    // otherwise someone could adopt another user's Cloudinary URL and then delete/replace it,
+    // which would destroy the victim's file. New images go through POST /:id/image.
+    if (typeof imageUrl === 'string' && isManagedUploadUrl(imageUrl)) {
+      const current = await prisma.user.findUnique({ where: { id: req.user.id }, select: { imageUrl: true } });
+      if (current?.imageUrl !== imageUrl) {
+        return res.status(400).json({ error: 'Use the image upload endpoint to set a profile image' });
+      }
     }
 
     let cleanName;
