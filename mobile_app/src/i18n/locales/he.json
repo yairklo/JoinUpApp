@@ -293,7 +293,10 @@
     "activeWaitlistOffer": "הוצע מקום אוטומטית (ממתין לאישור השחקן)",
     "bypassToNext": "עקוף לבא בתור",
     "waitlistQueuePosition": "ממתין #{{position}}",
-    "waitlistTitle": "רשימת המתנה"
+    "waitlistTitle": "רשימת המתנה",
+    "statWhen": "מתי",
+    "statPrice": "מחיר",
+    "organizerTools": "כלי מארגן"
   },
   "newGame": {
     "searchAddress": "חפש כתובת…",

@@ -12,6 +12,7 @@ import { jerusalemInstantToPickerDate, pickerToJerusalemUTC } from '@/utils/time
 import { SPORT_MAPPING } from '@/utils/sports';
 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import BackButton from '@/components/ui/BackButton';
 
 interface ScrollSelectionModalProps<T> {
     visible: boolean;
@@ -534,9 +535,7 @@ export default function EditGameScreen() {
             <Stack.Screen options={{ headerShown: false }} />
             
             <View className={`flex-row items-center px-4 py-3 bg-white border-b border-gray-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                <TouchableOpacity onPress={() => router.back()} className={`p-2 ${isRtl ? 'ml-3' : 'mr-3'}`}>
-                    <FontAwesome name={isRtl ? 'arrow-right' : 'arrow-left'} size={20} color="#4b5563" />
-                </TouchableOpacity>
+                <BackButton className={isRtl ? 'ml-3' : 'mr-3'} />
                 <Text className={`text-xl font-bold text-gray-900 flex-1 ${isRtl ? 'text-right' : 'text-left'}`}>{t('editGame.title', 'Edit Game')}</Text>
             </View>
 

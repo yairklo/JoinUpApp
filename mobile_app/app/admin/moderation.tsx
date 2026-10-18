@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import {
     usersApi,
     fieldsApi,
@@ -11,6 +10,7 @@ import {
     AdminFieldIssueFlag,
 } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
+import BackButton from '@/components/ui/BackButton';
 
 const REASON_LABELS: Record<string, string> = {
     OFFENSIVE: 'תוכן פוגעני',
@@ -162,9 +162,7 @@ export default function AdminModerationScreen() {
     return (
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
             <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3" accessibilityRole="button">
-                    <FontAwesome name="arrow-left" size={20} color="#4b5563" />
-                </TouchableOpacity>
+                <BackButton className="me-3" />
                 <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>ניהול תוכן ודיווחים</Text>
             </View>
 

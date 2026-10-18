@@ -293,7 +293,10 @@
     "activeWaitlistOffer": "Spot offered automatically (awaiting player confirmation)",
     "bypassToNext": "Skip to next",
     "waitlistQueuePosition": "Waiting #{{position}}",
-    "waitlistTitle": "Waitlist"
+    "waitlistTitle": "Waitlist",
+    "statWhen": "When",
+    "statPrice": "Price",
+    "organizerTools": "Organizer tools"
   },
   "newGame": {
     "searchAddress": "Search an address…",

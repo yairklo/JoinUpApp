@@ -17,6 +17,7 @@ import SeriesRegistrationRule, {
 } from '@/components/series/SeriesRegistrationRule';
 import DeleteSeriesModal from '@/components/series/DeleteSeriesModal';
 import MuteNotificationsButton from '@/components/MuteNotificationsButton';
+import BackButton from '@/components/ui/BackButton';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -296,9 +297,7 @@ export default function SeriesScreen() {
         return (
             <SafeAreaView edges={['top']} className="flex-1 bg-white">
                 <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                    <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
-                        <FontAwesome name="arrow-left" size={20} color="#4b5563" />
-                    </TouchableOpacity>
+                    <BackButton className="me-3" />
                     <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Group Details')}</Text>
                 </View>
                 <View className="flex-1 justify-center items-center">
@@ -312,9 +311,7 @@ export default function SeriesScreen() {
         return (
             <SafeAreaView edges={['top']} className="flex-1 bg-white">
                 <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                    <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
-                        <FontAwesome name="arrow-left" size={20} color="#4b5563" />
-                    </TouchableOpacity>
+                    <BackButton className="me-3" />
                     <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Group Details')}</Text>
                 </View>
                 <View className="flex-1 justify-center items-center">
@@ -344,9 +341,7 @@ export default function SeriesScreen() {
         <SafeAreaView edges={['top']} className="flex-1 bg-white">
             {/* Navigation Header — same pattern as game/[id].tsx */}
             <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
-                    <FontAwesome name="arrow-left" size={20} color="#4b5563" />
-                </TouchableOpacity>
+                <BackButton className="me-3" />
                 <Text className="text-xl font-bold text-gray-900 flex-1" numberOfLines={1}>
                     {series.title || series.fieldName}
                 </Text>

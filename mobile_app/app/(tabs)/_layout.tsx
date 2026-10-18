@@ -1,5 +1,4 @@
 import React, { useCallback } from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, Link } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TouchableOpacity, Text, View, Image } from 'react-native';
@@ -12,11 +11,24 @@ import { useColorMode } from '@/theme/ColorModeContext';
 
 const BRAND = '#059669';
 
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={22} style={{ marginBottom: -2 }} {...props} />;
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+/** Outline glyph when inactive, filled when active, over a soft brand pill. */
+function TabBarIcon({ name, focused, color, isDark }: { name: 'list' | 'football' | 'home' | 'chatbubbles' | 'people'; focused: boolean; color: string; isDark?: boolean }) {
+  return (
+    <View
+      style={{
+        width: 56,
+        height: 30,
+        borderRadius: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: focused ? (isDark ? 'rgba(52,211,153,0.16)' : 'rgba(5,150,105,0.12)') : 'transparent',
+      }}
+    >
+      <Ionicons name={(focused ? name : `${name}-outline`) as IoniconName} size={22} color={color} />
+    </View>
+  );
 }
 
 export default function TabLayout() {
@@ -63,7 +75,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: BRAND,
+        tabBarActiveTintColor: isDark ? '#34d399' : BRAND,
         tabBarInactiveTintColor: isDark ? '#94a3b8' : '#64748b',
         tabBarStyle: {
           backgroundColor: isDark ? 'rgba(17,26,44,0.96)' : 'rgba(255,255,255,0.96)',
@@ -79,7 +91,12 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '700',
+          fontWeight: '600',
+          marginTop: 2,
+        },
+        tabBarIconStyle: {
+          width: 56,
+          height: 30,
         },
         headerShown: true,
         headerShadowVisible: false,
@@ -96,7 +113,7 @@ export default function TabLayout() {
         name="fields"
         options={{
           title: t('tabs.fields'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="th-list" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="list" focused={focused} color={color} isDark={isDark} />,
           headerTitle: t('tabs.fields'),
           headerRight: HeaderRight,
         }}
@@ -105,7 +122,7 @@ export default function TabLayout() {
         name="search"
         options={{
           title: t('tabs.games', 'משחקים'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="soccer-ball-o" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="football" focused={focused} color={color} isDark={isDark} />,
           headerTitle: t('tabs.games', 'משחקים'),
           headerRight: HeaderRight,
         }}
@@ -114,7 +131,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: t('tabs.home', 'בית'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="home" focused={focused} color={color} isDark={isDark} />,
           headerTitle: 'JoinUp',
           headerRight: HeaderRight,
         }}
@@ -123,7 +140,7 @@ export default function TabLayout() {
         name="chats"
         options={{
           title: t('tabs.chats'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="comments" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="chatbubbles" focused={focused} color={color} isDark={isDark} />,
           tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
           tabBarBadgeStyle: { backgroundColor: '#ef4444' },
           headerTitle: t('tabs.chats'),
@@ -134,7 +151,7 @@ export default function TabLayout() {
         name="friends"
         options={{
           title: t('tabs.friends'),
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="people" focused={focused} color={color} isDark={isDark} />,
           tabBarBadge: friendRequests > 0 ? friendRequests : undefined,
           tabBarBadgeStyle: { backgroundColor: '#ef4444' },
           headerTitle: t('tabs.friends'),
