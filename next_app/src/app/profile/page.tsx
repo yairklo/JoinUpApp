@@ -360,16 +360,30 @@ export default function ProfilePage() {
     } catch { }
   }
 
+  // The header's Clerk <UserButton> only ever renders Clerk's own avatar, never our DB imageUrl,
+  // so mirror the change to Clerk (best effort: our own upload already succeeded).
+  const syncClerkAvatar = async (file: File | null) => {
+    try {
+      await user?.setProfileImage({ file });
+    } catch (e) {
+      console.error("Failed to sync avatar to Clerk", e);
+    }
+  };
+
   const uploadProfileImage = async (file: File) => {
     const token = await getToken({ template: undefined }).catch(() => "");
     if (!token || !userId) throw new Error("יש להתחבר מחדש");
-    return usersApi.uploadImage(userId, file, token);
+    const result = await usersApi.uploadImage(userId, file, token);
+    await syncClerkAvatar(file);
+    return result;
   };
 
   const removeProfileImage = async () => {
     const token = await getToken({ template: undefined }).catch(() => "");
     if (!token || !userId) throw new Error("יש להתחבר מחדש");
-    return usersApi.removeImage(userId, token);
+    const result = await usersApi.removeImage(userId, token);
+    await syncClerkAvatar(null);
+    return result;
   };
 
   const handleImageUploaded = (url: string) => {
