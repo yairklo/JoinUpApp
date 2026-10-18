@@ -33,6 +33,21 @@ npm start
 
 The server will run on `http://localhost:3001`
 
+### Image uploads (Cloudinary)
+
+Container disks are ephemeral, so uploaded images (avatars, field/venue photos, series images) are
+stored in Cloudinary.
+
+| Env var | Purpose |
+|---|---|
+| `CLOUDINARY_URL` | `cloudinary://<api_key>:<api_secret>@<cloud_name>` (no quotes or `CLOUDINARY_URL=` prefix). Required when `NODE_ENV` is not `test`/`development`; the server **refuses to boot** if it is missing or malformed. Never commit or log it. |
+| `CLOUDINARY_FOLDER` | Optional root folder (default `joinup`); only files under it are ever deleted. |
+| `ALLOW_DISK_UPLOADS=true` | Explicit opt-in to store uploads on local disk (`server/uploads/`) outside test/dev. Files are lost on redeploy. |
+
+Verify a deployment with `CLOUDINARY_URL=... node scripts/check-cloudinary.js`.
+Images uploaded before the Cloudinary switch are stored as `/uploads/...` URLs and no longer
+resolve on hosts with ephemeral disks; users/admins must re-upload them.
+
 ## API Endpoints
 
 ### Authentication
