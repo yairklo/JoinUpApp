@@ -104,7 +104,7 @@ JoinUp היא פלטפורמה קהילתית לתיאום משחקי ספורט
 
 ### 15. יצירת קשר
 
-לשאלות, לבירורים ולתלונות: דרך מסך התמיכה באפליקציה, או בדוא"ל support@joinup.co.il.
+לשאלות, לבירורים ולתלונות: דרך מסך התמיכה באפליקציה, או בדוא"ל joinupapp.support@gmail.com.
 
 ## מדיניות פרטיות
 
@@ -189,7 +189,7 @@ JoinUp היא פלטפורמה קהילתית לתיאום משחקי ספורט
 - מחיקת חשבון: אפשר למחוק את החשבון בעצמך בכל עת ממסך ההגדרות.
 - התראות: אפשר לכבות התראות או סוגי התראות בהגדרות האפליקציה ובהגדרות המכשיר.
 
-לפנייה בעניין זכויותיך: דרך מסך התמיכה באפליקציה או בדוא"ל support@joinup.co.il. נשיב לפנייה בתוך הזמנים הקבועים בדין.
+לפנייה בעניין זכויותיך: דרך מסך התמיכה באפליקציה או בדוא"ל joinupapp.support@gmail.com. נשיב לפנייה בתוך הזמנים הקבועים בדין.
 
 ### 12. עוגיות ואחסון מקומי
 
@@ -201,7 +201,7 @@ JoinUp היא פלטפורמה קהילתית לתיאום משחקי ספורט
 
 ### 14. יצירת קשר
 
-בעל מאגר המידע: יאיר קלאוזנר. לשאלות או לתלונות בנושא פרטיות: דרך מסך התמיכה באפליקציה או בדוא"ל support@joinup.co.il.
+בעל מאגר המידע: יאיר קלאוזנר. לשאלות או לתלונות בנושא פרטיות: דרך מסך התמיכה באפליקציה או בדוא"ל joinupapp.support@gmail.com.
 
 ## נוסחי ההסכמה במסך ההרשמה
 
@@ -316,7 +316,7 @@ These Terms and the use of the Service shall be governed solely by the laws of t
 
 ### 15. Contact
 
-For questions, inquiries, and complaints: via the support screen in the app, or by email at support@joinup.co.il.
+For questions, inquiries, and complaints: via the support screen in the app, or by email at joinupapp.support@gmail.com.
 
 ## Privacy Policy
 
@@ -401,7 +401,7 @@ Backups and system log copies may be retained for a limited period of up to 30 d
 - Account Deletion: You may delete your account yourself at any time from the settings screen.
 - Notifications: You can disable notifications or specific notification types in app settings and device settings.
 
-To exercise your rights: via the support screen in the app or by email at support@joinup.co.il. We will respond within the timeframes prescribed by law.
+To exercise your rights: via the support screen in the app or by email at joinupapp.support@gmail.com. We will respond within the timeframes prescribed by law.
 
 ### 12. Cookies and Local Storage
 
@@ -413,7 +413,7 @@ We may update this policy from time to time. Material changes will be notified v
 
 ### 14. Contact
 
-Database Owner: Yair Klausner. For questions or privacy complaints: via the support screen in the app or by email at support@joinup.co.il.
+Database Owner: Yair Klausner. For questions or privacy complaints: via the support screen in the app or by email at joinupapp.support@gmail.com.
 
 ## Registration consent texts
 

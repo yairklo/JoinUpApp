@@ -12,6 +12,7 @@ import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import { ColorModeContext } from "@/components/theme/themeRegistry";
 import SupportFeedbackDialog from "@/components/SupportFeedbackDialog";
+import { OPERATOR } from "@joinup/shared/legal";
 
 const LINKS = [
   { href: "/legal/terms", label: "תנאי שימוש" },
@@ -69,7 +70,7 @@ export default function Footer() {
             ))}
             <Typography
               component="a"
-              href="mailto:support@joinup.co.il"
+              href={`mailto:${OPERATOR.email}`}
               variant="body2"
               sx={{
                 color: "text.secondary",

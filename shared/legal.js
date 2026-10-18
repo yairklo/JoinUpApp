@@ -14,7 +14,7 @@ const LEGAL_LAST_UPDATED_EN = 'October 18, 2026';
 const OPERATOR = {
   name: 'יאיר קלאוזנר',
   nameEn: 'Yair Klausner',
-  email: 'support@joinup.co.il',
+  email: 'joinupapp.support@gmail.com',
 };
 
 const TERMS_ACCEPT_LABEL = 'קראתי ואני מסכים/ה לתנאי השימוש ולמדיניות הפרטיות';
