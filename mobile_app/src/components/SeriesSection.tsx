@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, I18nManager } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, I18nManager } from 'react-native';
 import { apiClient } from '@/services/api/client';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@clerk/clerk-expo';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
+import SportCover from '@/components/ui/SportCover';
 
 type Series = {
     id: string;
@@ -19,13 +20,6 @@ type Series = {
     isSubscribed?: boolean;
     nextGameId?: string;
     field?: { name: string };
-};
-
-const SPORT_IMAGES: Record<string, string> = {
-    SOCCER: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&q=80&w=800',
-    BASKETBALL: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&q=80&w=800',
-    TENNIS: 'https://images.unsplash.com/photo-1622279457486-62dcc4a4bd13?auto=format&fit=crop&q=80&w=800',
-    DEFAULT: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=800',
 };
 
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -92,14 +86,8 @@ export default function SeriesSection() {
                     elevation: 2,
                 }}
             >
-                <View className="relative h-28 overflow-hidden">
-                    <Image
-                        source={{ uri: SPORT_IMAGES[s.sport?.toUpperCase() || 'DEFAULT'] || SPORT_IMAGES.DEFAULT }}
-                        className="w-full h-full"
-                        resizeMode="cover"
-                    />
-                    <View className="absolute inset-0 bg-black/35" />
-                    <View className="absolute inset-0 p-3 justify-between">
+                <SportCover sport={s.sport} height={112}>
+                    <View className="flex-1 p-3 justify-between">
                         <View className="bg-brand self-start px-2 py-1 rounded-full flex-row items-center">
                             <Ionicons name="people" size={10} color="#fff" />
                             <Text className="text-white text-[10px] font-bold ml-1">{t('series.badge')}</Text>
@@ -114,7 +102,7 @@ export default function SeriesSection() {
                             </View>
                         )}
                     </View>
-                </View>
+                </SportCover>
                 <View className="p-4">
                     <Text
                         className="font-bold text-lg text-gray-900 dark:text-cyber-text mb-1"
