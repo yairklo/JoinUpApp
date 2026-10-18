@@ -34,8 +34,7 @@ const DECLINED_RESEND_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const DELETED_USER_NAME = 'משתמש שנמחק';
 const DISPLAY_NAME_MIN_LENGTH = 2;
 const DISPLAY_NAME_MAX_LENGTH = 60;
-// Path segments that live next to /:id in this router; they must never be read as a user id
-// (GET /:id creates a placeholder user row for unknown ids).
+// Path segments that live next to /:id in this router; they must never be read as a user id.
 const RESERVED_USER_IDS = new Set(['friends', 'me', 'search', 'sports', 'notifications', 'requests', 'profile', 'blocks']);
 
 // Helper to ensure sports exist
@@ -224,17 +223,15 @@ router.put('/profile/settings', authenticateToken, async (req, res) => {
   }
 });
 
-// List users (public basic listing). Pass `take` to bound the result — used by
-// the profile page's "people you may know" widget, which only ever renders a
-// handful of rows and previously fetched the entire users table to do it.
-router.get('/', async (req, res) => {
+// List users (basic listing) — feeds the profile page's "people you may know" widget.
+// Signed-in only and always bounded, so the whole users table can't be scraped anonymously.
+router.get('/', authenticateToken, async (req, res) => {
   try {
-    const take = typeof req.query.take !== 'undefined'
-      ? Math.min(Math.max(parseInt(req.query.take, 10) || 20, 1), 100)
-      : undefined;
+    const take = Math.min(Math.max(parseInt(req.query.take, 10) || 20, 1), 100);
     const users = await prisma.user.findMany({
+      where: { deletedAt: null },
       orderBy: { name: 'asc' },
-      ...(take ? { take } : {}),
+      take,
     });
     res.json(users.map(u => ({ id: u.id, name: u.name, imageUrl: u.imageUrl, city: u.city })));
   } catch (error) {
@@ -562,8 +559,10 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
       }
     });
     if (!user) {
-      // create a minimal placeholder so users appear in listings
-      await prisma.user.create({ data: { id: targetId } });
+      // Only the signed-in owner may materialize their own row (first visit before any other
+      // write synced it). Unknown ids from anyone else 404 instead of creating junk user rows.
+      if (!req.user || req.user.id !== targetId) return res.status(404).json({ error: 'User not found' });
+      await safeUpsertUserFromAuth(prisma, req.user);
       user = await prisma.user.findUnique({
         where: { id: targetId },
         include: { sports: { include: { sport: true } }, positions: { include: { position: true } } }
@@ -807,16 +806,32 @@ router.delete('/:id/image', authenticateToken, async (req, res) => {
   }
 });
 
-// List friends for a user (public basic info)
-router.get('/:id/friends', async (req, res) => {
+// List friends for a user (public basic info), gated by the target's privacyFriends setting
+// exactly like the Friends section of GET /:id.
+router.get('/:id/friends', attachOptionalUser, async (req, res) => {
   try {
-    const friendIds = await getFriendIds(req.params.id);
+    const targetId = req.params.id;
+    const target = await prisma.user.findUnique({
+      where: { id: targetId },
+      select: { birthDate: true, privacyFriends: true },
+    });
+    if (!target) return res.json([]);
+
+    const viewerId = req.user?.id || null;
+    const isOwner = viewerId === targetId;
+    const isFriend = viewerId && !isOwner ? await areConfirmedFriends(viewerId, targetId) : false;
+    const effFriends = resolvePrivacyLevel(target.privacyFriends, target.birthDate);
+    if (!canViewSection({ effectivePrivacy: effFriends, isOwner, isFriend })) {
+      return res.status(403).json({ error: 'This section is private' });
+    }
+
+    const friendIds = await getFriendIds(targetId);
     if (friendIds.length === 0) return res.json([]);
     const friends = await prisma.user.findMany({ where: { id: { in: friendIds } } });
     // mutual friends relative to current viewer (if signed in)
     let viewerMutual = new Set();
-    if (req.auth?.userId) {
-      const ids = await getFriendIds(req.auth.userId);
+    if (viewerId) {
+      const ids = await getFriendIds(viewerId);
       viewerMutual = new Set(ids);
     }
     const mapped = friends.map(u => ({
