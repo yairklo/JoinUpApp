@@ -35,6 +35,10 @@
     "./cityAliases": {
       "types": "./cityAliases.d.ts",
       "default": "./cityAliases.js"
+    },
+    "./notificationPrefs": {
+      "types": "./notificationPrefs.d.ts",
+      "default": "./notificationPrefs.js"
     }
   },
   "devDependencies": {

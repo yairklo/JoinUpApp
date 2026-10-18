@@ -26,6 +26,7 @@ interface MessageActionSheetProps {
     onEdit: (message: ChatMessage) => void;
     onDelete: (message: ChatMessage) => void;
     onReport: (message: ChatMessage, reason: MessageReportReason) => Promise<void>;
+    onBlock?: (message: ChatMessage) => void;
 }
 
 type ActionRow = {
@@ -37,7 +38,7 @@ type ActionRow = {
 };
 
 export default function MessageActionSheet({
-    message, isMe, senderName, currentUserId, onClose, onReact, onReply, onEdit, onDelete, onReport,
+    message, isMe, senderName, currentUserId, onClose, onReact, onReply, onEdit, onDelete, onReport, onBlock,
 }: MessageActionSheetProps) {
     const { t } = useTranslation();
     const [mode, setMode] = useState<"actions" | "report">("actions");
@@ -66,6 +67,9 @@ export default function MessageActionSheet({
             { key: "delete", label: t("chat.delete", "מחק"), icon: "trash-outline" as const, destructive: true, onPress: run(() => onDelete(message)) },
         ] : [
             { key: "report", label: t("chat.reportMessage", "דווח על הודעה פוגענית"), icon: "flag-outline" as const, destructive: true, onPress: () => setMode("report") },
+            ...(onBlock ? [
+                { key: "block", label: t("chat.blockUser", "חסום משתמש"), icon: "ban-outline" as const, destructive: true, onPress: run(() => onBlock(message)) },
+            ] : []),
         ]),
     ];
 

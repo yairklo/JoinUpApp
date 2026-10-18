@@ -3,6 +3,7 @@ const router = express.Router();
 const { prisma } = require('../lib/prisma');
 const { authenticateToken } = require('../utils/auth');
 const { resolvePrivacyLevel, areConfirmedFriends } = require('../utils/privacy');
+const { isBlockedEitherWay } = require('../utils/blocks');
 
 // POST /api/chats/private - Get or Create a Private Chat
 router.post('/private', authenticateToken, async (req, res) => {
@@ -16,6 +17,10 @@ router.post('/private', authenticateToken, async (req, res) => {
 
         if (currentUserId === targetUserId) {
             return res.status(400).json({ error: 'Cannot chat with yourself' });
+        }
+
+        if (await isBlockedEitherWay(currentUserId, targetUserId)) {
+            return res.status(403).json({ error: 'You cannot message this user', code: 'USER_BLOCKED' });
         }
 
         // 1. Check if a private chat already exists between these two users

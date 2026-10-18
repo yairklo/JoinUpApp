@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 // Give the service worker access to Firebase Messaging.
-const SW_VERSION = 'v1.2.0'; // Change this to force update
+const SW_VERSION = 'v1.3.1'; // Change this to force update
 console.log(`[firebase-messaging-sw.js] Service Worker Version: ${SW_VERSION}`);
 
 self.addEventListener('install', (event) => {
@@ -11,6 +11,53 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
     console.log('[firebase-messaging-sw.js] Activating new version...');
     event.waitUntil(clients.claim()); // Take control of all clients immediately
+});
+
+// Display path (one decision per platform):
+// The server sends DATA-ONLY FCM messages (title/body/link in `data`), so the browser
+// never auto-displays anything; this SW decides, in exactly one place per platform:
+//  - Safari/WebKit (iOS Home Screen apps, macOS Safari): the 'push' listener below ALWAYS
+//    shows the notification, whether or not a window is visible. WebKit treats a push
+//    without a notification as silent and revokes the subscription after a few, so we
+//    never make that depend on a visibility check that could race. onBackgroundMessage
+//    is a no-op here, and the page skips its Snackbar (useNotification).
+//  - Everything else: Firebase decides. No visible window -> onBackgroundMessage ->
+//    showNotification; visible window -> forwarded to the page (Snackbar), nothing shown.
+// `tag` (notificationId, else FCM's per-message id) collapses any accidental duplicate.
+const UA = self.navigator.userAgent;
+// Every browser on iOS/iPadOS is WebKit (incl. CriOS/EdgiOS/FxiOS); iPadOS may report
+// itself as Macintosh Safari, which the second clause covers.
+const IS_WEBKIT_SAFARI = /iPhone|iPad|iPod/.test(UA) ||
+    (/AppleWebKit/.test(UA) && /Safari/.test(UA) && !/Chrome|Chromium|Edg|OPR|Android/.test(UA));
+
+function buildNotification(payload) {
+    const data = (payload && payload.data) || {};
+    const notification = (payload && payload.notification) || {};
+    return {
+        title: data.title || notification.title || 'joinUp',
+        options: {
+            body: data.body || notification.body || '',
+            icon: '/icons/web-app-manifest-192x192.png',
+            badge: '/icons/favicon-96x96.png',
+            tag: data.notificationId || (payload && payload.fcmMessageId) || undefined,
+            data: {
+                link: data.link || '/'
+            }
+        }
+    };
+}
+
+// Registered before Firebase's own push listener so event.waitUntil is still callable.
+self.addEventListener('push', (event) => {
+    if (!IS_WEBKIT_SAFARI) return;
+    let payload = {};
+    try {
+        payload = event.data ? event.data.json() : {};
+    } catch (e) {
+        // Unparseable payload: still show something rather than a silent push.
+    }
+    const { title, options } = buildNotification(payload);
+    event.waitUntil(self.registration.showNotification(title, options));
 });
 
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
@@ -35,19 +82,9 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
-    // Customize notification here
-    const notificationTitle = payload.data.title || payload.notification?.title || 'New Notification';
-    const notificationOptions = {
-        body: payload.data.body || payload.notification?.body,
-        icon: '/icons/web-app-manifest-192x192.png',
-        badge: '/icons/favicon-96x96.png',
-        data: {
-            link: payload.data.link || '/'
-        }
-    };
-
-    self.registration.showNotification(notificationTitle, notificationOptions);
+    if (IS_WEBKIT_SAFARI) return; // already shown by the 'push' listener above
+    const { title, options } = buildNotification(payload);
+    return self.registration.showNotification(title, options);
 });
 
 self.addEventListener('notificationclick', function (event) {

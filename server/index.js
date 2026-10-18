@@ -31,6 +31,7 @@ const searchRoutes = require('./routes/search');
 const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 const { verifyToken } = require('@clerk/backend');
+const { isPrivateChatBlocked, getBlockersAmong } = require('./utils/blocks');
 const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
 const { mapUserToSender } = require('./utils/chatMappers');
 const { NotificationService } = require('./services/notificationService');
@@ -296,11 +297,14 @@ async function socketAuthMiddleware(socket, next) {
       return next(new Error('Unauthorized'));
     }
     try {
-      const { getClerkUserCached } = require('./utils/auth');
+      const { getClerkUserCached, isAccountDeleted } = require('./utils/auth');
       const { resolveIsBanned } = require('./utils/admin');
       const clerkUser = await getClerkUserCached(socket.userId);
       if (resolveIsBanned(clerkUser)) {
         return next(new Error('Account suspended'));
+      }
+      if (await isAccountDeleted(socket.userId)) {
+        return next(new Error('Account deleted'));
       }
     } catch (e) {
       // Clerk lookup failure shouldn't block a socket that already has a valid JWT
@@ -546,6 +550,18 @@ io.on('connection', async (socket) => {
 
     const finalUserId = String(socket.userId);
 
+    try {
+      if (await isPrivateChatBlocked(finalUserId, String(roomId))) {
+        socket.emit('error', 'You cannot message this user');
+        return;
+      }
+    } catch (e) {
+      // Fail closed: if we cannot tell whether the pair is blocked, do not deliver.
+      console.error('[blocks] private chat block check failed:', e.message);
+      socket.emit('error', 'Could not send message');
+      return;
+    }
+
     console.log(`[DEBUG] Incoming Message - Room: "${roomId}", User: ${finalUserId}`); // <--- TOP LEVEL DEBUG LOG
 
     // Fetch sender details early (needed for moderation and fallbacks)
@@ -778,6 +794,9 @@ io.on('connection', async (socket) => {
           recipientIds = participations.map(p => p.userId);
         }
 
+        const blockers = await getBlockersAmong(finalUserId, recipientIds).catch(() => new Set());
+        if (blockers.size) recipientIds = recipientIds.filter(id => !blockers.has(String(id)));
+
         console.log(`[DEBUG NOTIFICATIONS] Resolved recipientIds for room ${roomId}:`, recipientIds);
         const messagePreview = text.length > 80 ? `${text.slice(0, 77)}...` : text;
 
@@ -807,7 +826,7 @@ io.on('connection', async (socket) => {
             'NEW_MESSAGE',
             senderUser?.name || senderName || 'הודעה חדשה',
             messagePreview,
-            { chatId: roomId, senderId: finalUserId, link: `/chat/${roomId}` }
+            { chatId: roomId, senderId: finalUserId, actorId: finalUserId, link: `/chat/${roomId}` }
           ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
         });
       } catch (err) {

@@ -3,6 +3,7 @@ const { authenticateToken } = require('../utils/auth');
 const { checkChatPermission } = require('../utils/chatAuth');
 const { prisma } = require('../lib/prisma');
 const { mapUserToSender } = require('../utils/chatMappers');
+const { getBlockedByMe, isPrivateChatBlocked } = require('../utils/blocks');
 const router = express.Router();
 
 // GET /api/messages?roomId=abc&limit=100
@@ -36,7 +37,11 @@ router.get('/', authenticateToken, async (req, res) => {
     });
     const rawItems = newestFirst.reverse();
 
-    const items = rawItems.filter(m => m.status !== 'blocked' || m.userId === req.user.id);
+    const blockedByMe = new Set(await getBlockedByMe(req.user.id));
+    const items = rawItems.filter(m =>
+      (m.status !== 'blocked' || m.userId === req.user.id) &&
+      !(m.userId && blockedByMe.has(m.userId))
+    );
 
     const mappedItems = items.map(m => {
       // Aggregate reactions
@@ -89,6 +94,10 @@ router.post('/', authenticateToken, async (req, res) => {
     const isAllowed = await checkChatPermission(req.user.id, String(roomId));
     if (!isAllowed) {
       return res.status(403).json({ error: 'Access denied: You are not a participant of this chat' });
+    }
+
+    if (await isPrivateChatBlocked(req.user.id, String(roomId))) {
+      return res.status(403).json({ error: 'You cannot message this user', code: 'USER_BLOCKED' });
     }
 
     const saved = await prisma.message.create({

@@ -1,4 +1,5 @@
 const { SportType } = require('@prisma/client');
+const { getBlockedEitherWayIds } = require('../utils/blocks');
 const { NotificationService } = require('./notificationService');
 const {
   getActiveGameStartCutoff,
@@ -13,9 +14,11 @@ const {
   isConfirmedParticipant,
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
-const { notifyUserAddedToGame, notifyUserRemovedFromGame } = require('../utils/addedToGameNotification');
+const { notifyUserAddedToGame, notifyUserRemovedFromGame, formatGameWhen, resolveLocation } = require('../utils/addedToGameNotification');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { prismaFieldCityFilter } = require('../utils/cityAliases');
+const { cityMatchKeys } = require('../utils/notificationPrefs');
+const { getFriendIds: getFriendIdsFor } = require('../utils/friends');
 const gameScheduler = require('./gameScheduler');
 
 // Defense-in-depth limits for free-text fields written by end users. React auto-escapes these
@@ -404,9 +407,140 @@ function notifyOrganizerOfInstantJoin(game, joiningUser, io) {
     'GAME_JOIN_REQUEST',
     'מישהו הצטרף למשחק שלך',
     `${joiningUser.name || 'משתמש'} הצטרף/ה למשחק שלך`,
-    { gameId: game.id, userId: joiningUser.id, link: `/game/${game.id}` },
+    { gameId: game.id, userId: joiningUser.id, actorId: joiningUser.id, link: `/game/${game.id}` },
     io
   ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));
+  notifyFriendsOfJoin(game, joiningUser, io)
+    .catch(err => console.error('[NOTIFICATIONS] Failed to notify friends of join', game.id, err));
+}
+
+function getFriendIds(userId) {
+  return getFriendIdsFor(prisma, userId);
+}
+
+/** Visible to non-friends of the organizer right now (mirrors buildVisibilityWhere). */
+function isPubliclyVisible(game) {
+  return !game.isFriendsOnly || (!!game.friendsOnlyUntil && new Date(game.friendsOnlyUntil) <= new Date());
+}
+
+function describeGameForNotification(game) {
+  const when = formatGameWhen(game.start, 'he-IL');
+  return [resolveLocation(game), [when.date, when.time].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+}
+
+/**
+ * FRIEND_JOINED_GAME to the joiner's friends (opt-in category, off by default). Skips the
+ * organizer (already told) and people already on the roster. For a friends-only game, only
+ * friends who can actually see it (friends of the organizer) are told.
+ */
+async function notifyFriendsOfJoin(game, joiningUser, io) {
+  // The category is opt-in (off by default), so start from the few friends who turned it on:
+  // one indexed query per join instead of loading the whole friend list for nothing.
+  const optedIn = await prisma.userNotificationSettings.findMany({
+    where: {
+      OR: [{ friendJoinsInApp: true }, { friendJoinsPush: true }],
+      user: {
+        OR: [
+          { friendshipsA: { some: { userBId: joiningUser.id } } },
+          { friendshipsB: { some: { userAId: joiningUser.id } } },
+        ],
+      },
+    },
+    select: { userId: true },
+  });
+  let friendIds = optedIn.map(r => r.userId);
+  if (friendIds.length === 0) return;
+
+  const [participants, organizerFriends] = await Promise.all([
+    prisma.participation.findMany({ where: { gameId: game.id, userId: { in: friendIds } }, select: { userId: true } }),
+    isPubliclyVisible(game) ? Promise.resolve(null) : getFriendIds(game.organizerId),
+  ]);
+  const onRoster = new Set(participants.map(p => p.userId));
+  const canSee = organizerFriends ? new Set([...organizerFriends, game.organizerId]) : null;
+  friendIds = friendIds.filter(id => id !== game.organizerId && !onRoster.has(id) && (!canSee || canSee.has(id)));
+  if (friendIds.length === 0) return;
+
+  const full = game.field ? game : await prisma.game.findUnique({ where: { id: game.id }, include: { field: true } });
+  await notificationService.sendNotificationToMany(
+    friendIds,
+    'FRIEND_JOINED_GAME',
+    `${joiningUser.name || 'חבר/ה'} הצטרף/ה למשחק`,
+    describeGameForNotification(full || game) || (game.title || 'משחק'),
+    { gameId: game.id, actorId: joiningUser.id, sport: game.sport, link: `/game/${game.id}` },
+    io
+  );
+}
+
+/**
+ * Users who should hear about a new public game in their city: profile city matches (unless
+ * they picked explicit cities) or the city is in their explicit list, and the sport passes
+ * their sport filter. Users without a settings row get the defaults (profile city, all sports).
+ */
+async function findCityGameRecipients(game, excludeIds) {
+  const city = game.field?.city;
+  if (!city) return [];
+  const cityKeys = cityMatchKeys(city);
+  const sportOk = { OR: [{ cityGamesSports: { isEmpty: true } }, { cityGamesSports: { has: game.sport } }] };
+  const users = await prisma.user.findMany({
+    where: {
+      id: { notIn: excludeIds },
+      OR: [
+        {
+          AND: [
+            prismaFieldCityFilter(city),
+            {
+              OR: [
+                { notificationSettings: { is: null } },
+                { notificationSettings: { is: { cityGamesCities: { isEmpty: true }, ...sportOk } } },
+              ],
+            },
+          ],
+        },
+        { notificationSettings: { is: { cityGamesCities: { hasSome: cityKeys }, ...sportOk } } },
+      ],
+    },
+    select: { id: true },
+  });
+  return users.map(u => u.id);
+}
+
+/**
+ * Fire-and-forget fan-out after a game is created: friends of the creator get FRIEND_NEW_GAME;
+ * if the game is public, everyone else in the city (per their filters) gets NEW_GAME_IN_CITY.
+ * Each recipient's category switches and mutes are enforced in NotificationService.
+ */
+async function notifyNetworkOfNewGame(game, creatorUser, io, { excludeIds = [], includeCity = true } = {}) {
+  const friendIds = await getFriendIds(creatorUser.id);
+  const exclude = new Set([creatorUser.id, ...excludeIds]);
+  const details = describeGameForNotification(game);
+  const baseData = { gameId: game.id, actorId: creatorUser.id, sport: game.sport, link: `/game/${game.id}` };
+
+  const friendRecipients = friendIds.filter(id => !exclude.has(id));
+  if (friendRecipients.length) {
+    await notificationService.sendNotificationToMany(
+      friendRecipients,
+      'FRIEND_NEW_GAME',
+      `${creatorUser.name || 'חבר/ה'} פתח/ה משחק חדש`,
+      details || (game.title || 'משחק חדש'),
+      baseData,
+      io
+    );
+  }
+
+  // Friends-only games are never announced to the city (privacy). A game whose friends-only
+  // window is still open isn't re-announced when it expires — out of scope for now.
+  if (!includeCity || !game.field?.city || !isPubliclyVisible(game)) return;
+  const cityRecipients = await findCityGameRecipients(game, [...exclude, ...friendIds]);
+  if (cityRecipients.length) {
+    await notificationService.sendNotificationToMany(
+      cityRecipients,
+      'NEW_GAME_IN_CITY',
+      `משחק חדש ב${game.field.city}`,
+      `${creatorUser.name || 'מישהו'} פתח/ה משחק חדש ב${game.field.name || 'מגרש חדש'}`,
+      { ...baseData, city: game.field.city },
+      io
+    );
+  }
 }
 function notifyOrganizerOfPendingRequest(game, requestingUser, io) {
   notificationService.sendNotification(
@@ -414,7 +548,7 @@ function notifyOrganizerOfPendingRequest(game, requestingUser, io) {
     'GAME_JOIN_REQUEST',
     'בקשת הצטרפות חדשה',
     `${requestingUser.name || 'משתמש'} ביקש/ה להצטרף למשחק שלך וממתין/ה לאישורך`,
-    { gameId: game.id, userId: requestingUser.id, link: `/game/${game.id}` },
+    { gameId: game.id, userId: requestingUser.id, actorId: requestingUser.id, link: `/game/${game.id}` },
     io
   ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of pending request', game.id, err));
 }
@@ -426,7 +560,7 @@ function notifyOrganizerOfWaitlistJoin(game, joiningUser, io) {
     'GAME_JOIN_REQUEST',
     'מישהו נוסף לרשימת ההמתנה',
     `${joiningUser.name || 'משתמש'} הצטרף/ה לרשימת ההמתנה של המשחק שלך`,
-    { gameId: game.id, userId: joiningUser.id, link: `/game/${game.id}`, waitlisted: true },
+    { gameId: game.id, userId: joiningUser.id, actorId: joiningUser.id, link: `/game/${game.id}`, waitlisted: true },
     io
   ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of waitlist join', game.id, err));
 }
@@ -633,9 +767,12 @@ async function createGame(payload, creatorUser, io) {
     ? welcomeMessage
     : (series ? sanitizeFreeText(series.welcomeMessage, DESCRIPTION_MAX_LENGTH) : welcomeMessage);
 
-  const invitedUserIds = Array.isArray(invitedParticipantIds)
+  const requestedInviteIds = Array.isArray(invitedParticipantIds)
     ? invitedParticipantIds.filter(id => typeof id === 'string' && id !== creatorUser.id)
     : [];
+  // Never invite someone who has blocked the organizer (or whom the organizer has blocked).
+  const blockedWithCreator = new Set(await getBlockedEitherWayIds(creatorUser.id));
+  const invitedUserIds = requestedInviteIds.filter(id => !blockedWithCreator.has(id));
   const hasFieldId = !!fieldId;
   const hasNewFieldText = !!(newField && (String(newField.name || '').trim() || String(newField.location || '').trim()));
   const hasCoords = Number.isFinite(latNum) && Number.isFinite(lngNum);
@@ -869,21 +1006,25 @@ async function createGame(payload, creatorUser, io) {
 
     // Notify series subscribers that a new game has been created
     if (firstGame && subscriberIds && subscriberIds.length) {
-      for (const subscriberId of subscriberIds) {
-        if (subscriberId === creatorUser.id) continue;
-        
-        const regText = firstGame.registrationOpensAt 
-          ? `ההרשמה תיפתח ב-${new Date(firstGame.registrationOpensAt).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}` 
-          : 'ההרשמה פתוחה כעת';
-          
-        notificationService.sendNotification(
-          subscriberId,
-          'NEW_GAME_IN_CITY', // Use existing type
-          `משחק חדש לקבוצה שלך נוצר!`,
-          `${firstGame.title || 'משחק'} נוצר עבור הקבוצה שלך. ${regText}. לחץ כאן כדי להירשם!`,
-          { gameId: firstGame.id, link: `/games/${firstGame.id}` }
-        );
-      }
+      const regText = firstGame.registrationOpensAt
+        ? `ההרשמה תיפתח ב-${new Date(firstGame.registrationOpensAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}`
+        : 'ההרשמה פתוחה כעת';
+      notificationService.sendNotificationToMany(
+        subscriberIds.filter(id => id !== creatorUser.id),
+        'NEW_SERIES_GAME',
+        `משחק חדש לקבוצה שלך נוצר!`,
+        `${firstGame.title || 'משחק'} נוצר עבור הקבוצה שלך. ${regText}. לחץ כאן כדי להירשם!`,
+        { gameId: firstGame.id, seriesId: firstGame.seriesId || series?.id, actorId: creatorUser.id, link: `/game/${firstGame.id}` },
+        io
+      ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series subscribers', firstGame.id, err));
+    }
+
+    // Friends of the organizer who aren't in the group hear about it as a friend's new game, and
+    // a public group game is announced to the city like any other.
+    if (firstGame) {
+      notifyNetworkOfNewGame(firstGame, creatorUser, io, {
+        excludeIds: [...(subscriberIds || []), ...invitedUserIds],
+      }).catch(err => console.error('[NOTIFICATIONS] Failed to notify network of new series game', firstGame.id, err));
     }
 
     return firstGame;
@@ -981,30 +1122,10 @@ async function createGame(payload, creatorUser, io) {
     }
   }
 
-  // 3. Notify every user whose profile city matches the game's city (DB record + push),
-  // regardless of whether they're currently connected. Runs after the response and never
-  // blocks game creation if it fails.
-  if (created.field?.city) {
-    const cityGameName = created.field.name || 'מגרש חדש';
-    prisma.user.findMany({
-      where: {
-        city: { equals: created.field.city, mode: 'insensitive' },
-        id: { not: creatorUser.id }
-      },
-      select: { id: true }
-    }).then(cityUsers => {
-      cityUsers.forEach(u => {
-        notificationService.sendNotification(
-          u.id,
-          'NEW_GAME_IN_CITY',
-          `משחק חדש ב${created.field.city}`,
-          `${creatorUser.name || 'מישהו'} פתח/ה משחק חדש ב${cityGameName}`,
-          { gameId: created.id, city: created.field.city, link: `/game/${created.id}` },
-          io
-        ).catch(err => console.error('[NOTIFICATIONS] Failed to notify city user', u.id, err));
-      });
-    }).catch(err => console.error('[NOTIFICATIONS] Failed to query city users', err));
-  }
+  // 3. Friends of the creator + (public games only) users in the city, per their preferences.
+  // Runs after the response and never blocks game creation if it fails.
+  notifyNetworkOfNewGame(created, creatorUser, io, { excludeIds: invitedUserIds })
+    .catch(err => console.error('[NOTIFICATIONS] Failed to notify network of new game', created.id, err));
 
   // 4. Friends invited at create-time get the same immediate "added to game" notification
   // as when a manager adds them later via POST /participants.
@@ -1311,20 +1432,19 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
 
   // Notify subscribers about the newly created future games
   if (subscriberIds && subscriberIds.length) {
+    const recipients = subscriberIds.filter(id => id !== creatorUserId);
     for (const g of createdGames) {
-      const regText = g.registrationOpensAt 
-        ? `ההרשמה תיפתח ב-${new Date(g.registrationOpensAt).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}` 
+      const regText = g.registrationOpensAt
+        ? `ההרשמה תיפתח ב-${new Date(g.registrationOpensAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}`
         : 'ההרשמה פתוחה כעת';
-      for (const subscriberId of subscriberIds) {
-        if (subscriberId === creatorUserId) continue;
-        notificationService.sendNotification(
-          subscriberId,
-          'NEW_GAME_IN_CITY',
-          `משחק חדש לקבוצה שלך נוצר!`,
-          `${g.title || 'משחק'} נוצר עבור הקבוצה שלך. ${regText}. לחץ כאן כדי להירשם!`,
-          { gameId: g.id, link: `/games/${g.id}` }
-        );
-      }
+      notificationService.sendNotificationToMany(
+        recipients,
+        'NEW_SERIES_GAME',
+        `משחק חדש לקבוצה שלך נוצר!`,
+        `${g.title || 'משחק'} נוצר עבור הקבוצה שלך. ${regText}. לחץ כאן כדי להירשם!`,
+        { gameId: g.id, seriesId: series.id, actorId: creatorUserId, link: `/game/${g.id}` },
+        io
+      ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series subscribers', g.id, err));
     }
   }
 
@@ -1650,7 +1770,7 @@ async function cancelGame(gameId, userId, isAdmin, io) {
       'GAME_CANCELLED',
       'המשחק בוטל',
       `${updated.title || 'המשחק'} (${when}) בוטל על ידי המארגן`,
-      { gameId, link: `/game/${gameId}` },
+      { gameId, actorId: userId, link: `/game/${gameId}` },
       io
     ).catch((err) => console.error('[NOTIFICATION] Failed to send game cancelled notification:', err));
   }
@@ -1944,6 +2064,9 @@ module.exports = {
   canManageGame,
   offerSpotToNextWaitlistUser,
   notifyOrganizerOfInstantJoin,
+  notifyNetworkOfNewGame,
+  notifyFriendsOfJoin,
+  findCityGameRecipients,
   notifyOrganizerOfPendingRequest,
   notifyOrganizerOfWaitlistJoin,
   broadcastGameUpdate,

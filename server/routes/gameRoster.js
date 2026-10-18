@@ -17,6 +17,7 @@ const {
   sendAutoWelcomeMessage,
 } = require('../services/gameService');
 const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
+const { isBlockedEitherWay } = require('../utils/blocks');
 
 const router = express.Router();
 
@@ -363,7 +364,7 @@ router.post('/:id/waitlist-bypass/:userId', authenticateToken, rejectIfCancelled
         'GAME_REMOVED_PEER',
         'בוטל מועד ההצטרפות שלך',
         `מנהל המשחק ביטל את הצעת ההצטרפות שלך למשחק: ${game?.title || 'משחק כדורגל'}`,
-        { gameId },
+        { gameId, actorId: req.user.id },
         req.io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify bypassed user', gameId, err));
     } catch (e) {}
@@ -536,8 +537,11 @@ router.post('/:id/participants', authenticateToken, rejectIfCancelled, async (re
 
     // Ensure user exists in local User table
     const userExists = await prisma.user.findUnique({ where: { id: userId } });
-    if (!userExists) {
+    if (!userExists || userExists.deletedAt) {
       return res.status(404).json({ error: 'User not found in local database' });
+    }
+    if (await isBlockedEitherWay(req.user.id, userId)) {
+      return res.status(403).json({ error: 'Cannot add this user', code: 'USER_BLOCKED' });
     }
 
     const already = await prisma.participation.findFirst({
@@ -660,7 +664,7 @@ router.delete('/:id/participants/:userId', authenticateToken, rejectIfCancelled,
         'GAME_REMOVED_PEER',
         'הוסרת מהמשחק',
         `מנהל המשחק הסיר אותך מהמשחק: ${game.title || 'משחק כדורגל'}`,
-        { gameId },
+        { gameId, actorId: req.user.id },
         req.io
       ).catch(err => console.error('[NOTIFICATIONS] Failed to notify user of removal', gameId, err));
     } catch (err) {

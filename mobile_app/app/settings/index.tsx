@@ -1,11 +1,12 @@
-import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, Image, Linking } from 'react-native';
-import React, { useEffect, useState } from 'react';
-import { useRouter, Stack } from 'expo-router';
+import { View, Text, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import * as NotificationsPermissions from 'expo-notifications';
 import { notificationsApi } from '@/services/api/notifications';
 import { useMyAvatar } from '@/hooks/useMyAvatar';
+import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 export default function SettingsScreen() {
@@ -15,62 +16,77 @@ export default function SettingsScreen() {
     const { imageUrl: avatarUrl } = useMyAvatar();
     const router = useRouter();
 
-    const [pushEnabled, setPushEnabled] = useState(false);
-    const [pushBusy, setPushBusy] = useState(false);
-    const [settingsLoaded, setSettingsLoaded] = useState(false);
+    const [notifSummary, setNotifSummary] = useState<string | null>(null);
 
-    useEffect(() => {
+    // Refresh the one-line summary whenever we come back from the notification settings screen.
+    useFocusEffect(useCallback(() => {
         let cancelled = false;
         (async () => {
             try {
                 const token = await getToken();
                 if (!token) return;
-                const settings = await notificationsApi.getSettings(token);
-                const { status } = await NotificationsPermissions.getPermissionsAsync();
-                if (!cancelled) {
-                    setPushEnabled(settings.pushEnabled && status === 'granted');
+                const [settings, perm] = await Promise.all([
+                    notificationsApi.getSettings(token),
+                    NotificationsPermissions.getPermissionsAsync(),
+                ]);
+                if (cancelled) return;
+                if (!settings.pushEnabled || perm.status !== 'granted') {
+                    setNotifSummary(t('notificationSettings.summaryPushOff'));
+                } else if (settings.snoozeUntil) {
+                    const time = new Date(settings.snoozeUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    setNotifSummary(t('notificationSettings.snoozedUntil', { time }));
+                } else {
+                    setNotifSummary(t('notificationSettings.summaryOn'));
                 }
             } catch (error) {
                 console.error('[SETTINGS] Failed to load notification settings:', error);
-            } finally {
-                if (!cancelled) setSettingsLoaded(true);
             }
         })();
         return () => { cancelled = true; };
-    }, [getToken]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []));
 
-    const handleTogglePush = async (next: boolean) => {
-        setPushBusy(true);
+    const [deleting, setDeleting] = useState(false);
+
+    const performDeleteAccount = async () => {
+        setDeleting(true);
         try {
-            if (next) {
-                const { status: existing } = await NotificationsPermissions.getPermissionsAsync();
-                let status = existing;
-                if (status !== 'granted') {
-                    const req = await NotificationsPermissions.requestPermissionsAsync();
-                    status = req.status;
-                }
-                if (status !== 'granted') {
-                    Alert.alert(
-                        t('settings.notificationsPermissionRequired', 'הרשאת התראות נדרשת'),
-                        t('settings.notificationsPermissionMessage', 'כדי לקבל התראות יש לאשר זאת בהגדרות המכשיר.'),
+            const token = await getToken();
+            if (!token) throw new Error('Not signed in');
+            await usersApi.deleteAccount(token);
+            try { await signOut(); } catch { /* the Clerk user is already gone */ }
+            router.replace('/sign-in');
+        } catch (error) {
+            console.error('[SETTINGS] Failed to delete account:', error);
+            Alert.alert(
+                t('settings.deleteAccountFailedTitle', 'מחיקת החשבון נכשלה'),
+                t('settings.deleteAccountFailedBody', 'משהו השתבש. בדקו את החיבור ונסו שוב.')
+            );
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            t('settings.deleteAccountTitle', 'מחיקת חשבון'),
+            t('settings.deleteAccountWarning', 'החשבון והמידע האישי שלך יימחקו לצמיתות, כולל פרופיל, חברים, הרשמות למשחקים ותגובות. לא ניתן לשחזר פעולה זו.'),
+            [
+                { text: t('common.cancel', 'ביטול'), style: 'cancel' },
+                {
+                    text: t('settings.deleteAccountContinue', 'המשך'),
+                    style: 'destructive',
+                    onPress: () => Alert.alert(
+                        t('settings.deleteAccountConfirmTitle', 'בטוחים שרוצים למחוק?'),
+                        t('settings.deleteAccountConfirmBody', 'זו הפעולה האחרונה — החשבון יימחק מיד.'),
                         [
                             { text: t('common.cancel', 'ביטול'), style: 'cancel' },
-                            { text: t('settings.openSettings', 'פתח הגדרות'), onPress: () => Linking.openSettings() },
+                            { text: t('settings.deleteAccountConfirm', 'מחק את החשבון שלי'), style: 'destructive', onPress: performDeleteAccount },
                         ]
-                    );
-                    return;
-                }
-            }
-            const token = await getToken();
-            if (!token) return;
-            await notificationsApi.updateSettings({ pushEnabled: next }, token);
-            setPushEnabled(next);
-        } catch (error) {
-            console.error('[SETTINGS] Failed to update push setting:', error);
-            Alert.alert(t('common.error', 'שגיאה'), t('settings.updatePushFailed', 'עדכון הגדרת ההתראות נכשל, נסה שוב.'));
-        } finally {
-            setPushBusy(false);
-        }
+                    ),
+                },
+            ]
+        );
     };
 
     const handleSignOut = async () => {
@@ -98,19 +114,21 @@ export default function SettingsScreen() {
 
                 {/* General Settings */}
                 <View className="bg-white mx-4 rounded-xl mb-4 shadow-sm overflow-hidden">
-                    <View className="p-4 flex-row justify-between items-center">
-                        <View className="flex-row items-center">
+                    <TouchableOpacity
+                        className="p-4 flex-row justify-between items-center"
+                        onPress={() => router.push('/settings/notifications' as any)}
+                    >
+                        <View className="flex-row items-center flex-1">
                             <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
                                 <FontAwesome name="bell" size={14} color="#059669" />
                             </View>
-                            <Text className="text-base text-gray-800 font-medium">{t('settings.pushNotifications', 'Push Notifications')}</Text>
+                            <View className="flex-1">
+                                <Text className="text-base text-gray-800 font-medium">{t('notificationSettings.title')}</Text>
+                                {!!notifSummary && <Text className="text-sm text-gray-500">{notifSummary}</Text>}
+                            </View>
                         </View>
-                        <Switch
-                            value={pushEnabled}
-                            onValueChange={handleTogglePush}
-                            disabled={!settingsLoaded || pushBusy}
-                        />
-                    </View>
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* App Info, Support */}
@@ -129,6 +147,13 @@ export default function SettingsScreen() {
                         <Text className="text-base text-gray-800">{t('settings.termsOfService', 'Terms of Service')}</Text>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" />
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        className="p-4 border-b border-gray-100 flex-row items-center justify-between"
+                        onPress={() => router.push('/settings/blocked' as any)}
+                    >
+                        <Text className="text-base text-gray-800">{t('settings.blockedUsers', 'משתמשים חסומים')}</Text>
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                    </TouchableOpacity>
                     <View className="p-4 flex-row items-center justify-between bg-gray-50">
                         <Text className="text-sm text-gray-500">{t('settings.version', 'Version')}</Text>
                         <Text className="text-sm text-gray-500 font-bold">1.0.0 (Beta)</Text>
@@ -137,9 +162,19 @@ export default function SettingsScreen() {
 
                 <TouchableOpacity
                     onPress={handleSignOut}
-                    className="mx-4 bg-red-50 p-4 rounded-xl items-center border border-red-100 mb-10"
+                    className="mx-4 bg-red-50 p-4 rounded-xl items-center border border-red-100 mb-2"
                 >
                     <Text className="text-red-600 font-bold text-lg">{t('settings.signOut', 'Sign Out')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={handleDeleteAccount}
+                    disabled={deleting}
+                    className="mx-4 p-4 rounded-xl items-center mb-10"
+                >
+                    <Text className="text-red-600 font-semibold">
+                        {deleting ? t('settings.deletingAccount', 'מוחק חשבון...') : t('settings.deleteAccount', 'מחיקת חשבון')}
+                    </Text>
                 </TouchableOpacity>
             </ScrollView>
         </>

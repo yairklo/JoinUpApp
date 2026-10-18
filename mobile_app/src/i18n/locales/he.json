@@ -195,7 +195,12 @@
     "about": "אודות",
     "yearsOld": "שנים",
     "favoriteSports": "ענפי ספורט מועדפים",
-    "userNotFound": "המשתמש לא נמצא."
+    "userNotFound": "המשתמש לא נמצא.",
+    "block": "חסום משתמש",
+    "unblock": "בטל חסימה",
+    "blockConfirmTitle": "לחסום את {{name}}?",
+    "blockConfirmBody": "לא תראו יותר הודעות ותגובות מהמשתמש הזה, והוא לא יוכל לשלוח לכם הודעות או בקשות חברות. אפשר לבטל את החסימה בכל עת.",
+    "blockFailed": "הפעולה נכשלה. נסו שוב."
   },
   "game": {
     "details": "פרטי משחק",
@@ -399,7 +404,12 @@
     "reportAlreadySent": "כבר דיווחת על ההודעה הזו. צוות הניהול יבדוק אותה.",
     "reportFailedTitle": "הדיווח לא נשלח",
     "reportNotAllowed": "לא ניתן לדווח על ההודעה הזו (ייתכן שהיא כבר נמחקה).",
-    "reportFailedBody": "משהו השתבש. בדקו את החיבור ונסו שוב."
+    "reportFailedBody": "משהו השתבש. בדקו את החיבור ונסו שוב.",
+    "blockUser": "חסום משתמש",
+    "blockConfirmTitle": "לחסום את {{name}}?",
+    "blockConfirmBody": "לא תראו יותר הודעות ותגובות מהמשתמש הזה, והוא לא יוכל לשלוח לכם הודעות פרטיות או בקשות חברות. אפשר לבטל את החסימה בהגדרות.",
+    "blockFailed": "החסימה נכשלה. נסו שוב.",
+    "thisUser": "המשתמש"
   },
   "notifications": {
     "title": "התראות",
@@ -495,7 +505,8 @@
     "flagSpam": "ספאם",
     "flagOther": "אחר",
     "attachPhoto": "צרף תמונה",
-    "createGameHere": "צור משחק חדש במגרש הזה"
+    "createGameHere": "צור משחק חדש במגרש הזה",
+    "commentDeleted": "התגובה נמחקה"
   },
   "series": {
     "badge": "קבוצה שבועית",
@@ -759,7 +770,19 @@
     "notificationsPermissionMessage": "כדי לקבל התראות יש לאשר זאת בהגדרות המכשיר.",
     "openSettings": "פתח הגדרות",
     "updatePushFailed": "עדכון הגדרת ההתראות נכשל, נסה שוב.",
-    "feedback": "דיווח על באג / יצירת קשר"
+    "feedback": "דיווח על באג / יצירת קשר",
+    "blockedUsers": "משתמשים חסומים",
+    "noBlockedUsers": "לא חסמתם אף משתמש.",
+    "deleteAccount": "מחיקת חשבון",
+    "deletingAccount": "מוחק חשבון...",
+    "deleteAccountTitle": "מחיקת חשבון",
+    "deleteAccountWarning": "החשבון והמידע האישי שלך יימחקו לצמיתות, כולל פרופיל, חברים, הרשמות למשחקים ותגובות. לא ניתן לשחזר פעולה זו.",
+    "deleteAccountContinue": "המשך",
+    "deleteAccountConfirmTitle": "בטוחים שרוצים למחוק?",
+    "deleteAccountConfirmBody": "זו הפעולה האחרונה — החשבון יימחק מיד.",
+    "deleteAccountConfirm": "מחק את החשבון שלי",
+    "deleteAccountFailedTitle": "מחיקת החשבון נכשלה",
+    "deleteAccountFailedBody": "משהו השתבש. בדקו את החיבור ונסו שוב."
   },
   "feedback": {
     "title": "דיווח על באג / יצירת קשר",
@@ -841,5 +864,119 @@
     "title": "אופס!",
     "screenMissing": "המסך הזה לא קיים.",
     "goHome": "חזרה למסך הבית!"
+  },
+  "notificationSettings": {
+    "title": "התראות",
+    "autoSave": "השינויים נשמרים אוטומטית.",
+    "push": "התראות פוש",
+    "pushSubtitle": "ההתראות בתוך האפליקציה לא מושפעות",
+    "osPermissionOff": "ההרשאה כבויה בהגדרות המכשיר",
+    "snooze": "השהיית התראות",
+    "snoozeSubtitle": "עצור את כל הפוש לזמן קצוב",
+    "snoozeTitle": "להשהות את הפוש ל…",
+    "snoozeFor_one": "שעה",
+    "snoozeFor_two": "שעתיים",
+    "snoozeFor_many": "{{count}} שעות",
+    "snoozeFor_other": "{{count}} שעות",
+    "snoozeAction": "השהה",
+    "snoozedUntil": "מושהות עד {{time}}",
+    "resume": "חדש",
+    "whatTitle": "על מה לקבל התראה",
+    "whatSubtitle": "לכל סוג אפשר לבחור פוש, התראה בתוך האפליקציה, שניהם או אף אחד. ביטול משחק, מקום שהתפנה ותשובה לבקשת הצטרפות תמיד יופיעו באפליקציה.",
+    "channelPush": "פוש",
+    "channelInApp": "באפליקציה",
+    "groups": {
+      "social": "חברים והודעות",
+      "myGames": "המשחקים והקבוצות שלי",
+      "discovery": "גילוי משחקים"
+    },
+    "categories": {
+      "friendRequests": {
+        "title": "בקשות חברות",
+        "subtitle": "בקשה חדשה, ואישור של בקשה ששלחת"
+      },
+      "messages": {
+        "title": "הודעות צ׳אט",
+        "subtitle": "הודעה חדשה בצ׳אט (פוש בלבד)"
+      },
+      "friendGames": {
+        "title": "חבר פתח משחק",
+        "subtitle": "כשחבר שלך יוצר משחק חדש"
+      },
+      "friendJoins": {
+        "title": "חבר הצטרף למשחק",
+        "subtitle": "כשחבר נרשם למשחק שאתה לא בו"
+      },
+      "gameReminders": {
+        "title": "תזכורות למשחק",
+        "subtitle": "שעה לפני משחק שנרשמת אליו"
+      },
+      "myGames": {
+        "title": "עדכונים במשחקים שלי",
+        "subtitle": "שינויים, אישור או דחייה, מקום שהתפנה"
+      },
+      "invitations": {
+        "title": "הזמנות למשחק",
+        "subtitle": "כשמישהו מוסיף אותך למשחק"
+      },
+      "organizer": {
+        "title": "בקשות הצטרפות",
+        "subtitle": "למשחקים שאתה מארגן"
+      },
+      "groupGames": {
+        "title": "משחקים בקבוצות שלי",
+        "subtitle": "משחק חדש בקבוצה שאתה חבר בה"
+      },
+      "cityGames": {
+        "title": "משחקים חדשים באזור",
+        "subtitle": "משחקים פתוחים שנפתחו בעיר שלך"
+      }
+    },
+    "openFilters": "סינון לפי עיר וענף",
+    "closeFilters": "סגור סינון",
+    "sports": "ענפים",
+    "allSports": "הכול",
+    "cities": "ערים",
+    "citiesHint": "בלי ערים ברשימה, ההתראות לפי העיר שבפרופיל שלך. אפשר עד 10 ערים.",
+    "addCityPlaceholder": "הוסף עיר",
+    "add": "הוסף",
+    "removeCity": "הסר את {{city}}",
+    "quietHours": "שעות שקטות",
+    "quietHoursSubtitle": "בלי פוש בשעות האלה, חוץ מביטול משחק ומקום שהתפנה. השאר יחכה לך באפליקציה.",
+    "from": "מ-",
+    "to": "עד",
+    "done": "סיום",
+    "muted": "מושתקים",
+    "noMutes": "אין השתקות. אפשר להשתיק חבר מהפרופיל שלו, או קבוצה מעמוד הקבוצה.",
+    "muteType": {
+      "USER": "משתמש",
+      "SERIES": "קבוצה",
+      "GAME": "משחק"
+    },
+    "mutedUntil": "עד {{time}}",
+    "mutedForever": "עד שתבטל",
+    "unmute": "בטל השתקה",
+    "mute": "השתק התראות",
+    "muteGroup": "השתק התראות קבוצה",
+    "muteFor": "להשתיק התראות…",
+    "mute8h": "ל-8 שעות",
+    "muteWeek": "לשבוע",
+    "muteForever": "עד שאבטל",
+    "muteThisUser": "השתק התראות מהמשתמש הזה",
+    "muteThisGame": "השתק את המשחק הזה",
+    "turnOffLikeThis": "כבה התראות מהסוג הזה",
+    "turnedOff": "לא תקבל יותר התראות מהסוג הזה. אפשר להחזיר בהגדרות.",
+    "mutedDone": "הושתק",
+    "allSettings": "כל הגדרות ההתראות",
+    "cityPromptTitle": "לקבל גם פוש כשנפתח משחק חדש בעיר שלך?",
+    "cityPromptYes": "כן, הפעל",
+    "cityPromptNo": "לא תודה",
+    "summaryOn": "פועלות",
+    "summaryPushOff": "פוש כבוי",
+    "saveFailed": "השמירה נכשלה, ההגדרה הוחזרה. נסה שוב.",
+    "actionFailed": "הפעולה נכשלה. נסה שוב.",
+    "loadFailed": "לא הצלחנו לטעון את הגדרות ההתראות",
+    "retry": "נסה שוב",
+    "filtersApplyInApp": "הפוש לקטגוריה הזו כבוי — הסינון חל גם על ההתראות באפליקציה."
   }
 }

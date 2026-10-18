@@ -8,18 +8,70 @@ const { MAX_IMAGE_FILE_SIZE: MAX_FILE_SIZE, MIME_EXTENSIONS } = require('../shar
 
 const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 
+// Container disks are ephemeral (wiped on every deploy/restart), so in production images go to
+// Cloudinary, enabled by CLOUDINARY_URL (cloudinary://<key>:<secret>@<cloud>).
+// No silent fallback: a missing or malformed CLOUDINARY_URL throws at require time (i.e. the server
+// refuses to boot) so a misconfigured deploy fails loudly instead of quietly writing to the
+// ephemeral container disk. Local disk is only allowed for tests/dev, or when explicitly opted in
+// with ALLOW_DISK_UPLOADS=true.
+const CLOUDINARY_URL_RE = /^cloudinary:\/\/[^:\s]+:[^@\s]+@[^\s/]+$/;
+const rawCloudinaryUrl = process.env.CLOUDINARY_URL;
+const diskAllowed = ['test', 'development'].includes(process.env.NODE_ENV)
+  || process.env.ALLOW_DISK_UPLOADS === 'true';
+if (rawCloudinaryUrl && !CLOUDINARY_URL_RE.test(rawCloudinaryUrl)) {
+  throw new Error('[uploads] CLOUDINARY_URL is malformed (expected cloudinary://<key>:<secret>@<cloud_name>, no quotes, spaces or "CLOUDINARY_URL=" prefix)');
+}
+if (!rawCloudinaryUrl && !diskAllowed) {
+  throw new Error('[uploads] CLOUDINARY_URL is not set; refusing to store uploads on local disk (set ALLOW_DISK_UPLOADS=true to override for local dev)');
+}
+const useCloudinary = () => Boolean(rawCloudinaryUrl);
+let cloudinaryClient;
+function getCloudinary() {
+  if (!cloudinaryClient) cloudinaryClient = require('cloudinary').v2;
+  return cloudinaryClient;
+}
+const CLOUDINARY_FOLDER = process.env.CLOUDINARY_FOLDER || 'joinup';
+
+// Minimal multer storage engine: streams the upload to Cloudinary. `file.filename` is set to the
+// final https URL, which absoluteUrlFor() passes through unchanged, so routes need no changes.
+function cloudinaryStorage(subfolder) {
+  return {
+    _handleFile(req, file, cb) {
+      const stream = getCloudinary().uploader.upload_stream(
+        {
+          folder: `${CLOUDINARY_FOLDER}/${subfolder}`,
+          public_id: crypto.randomUUID(),
+          resource_type: 'image',
+        },
+        (err, result) => {
+          if (err) return cb(err);
+          cb(null, { filename: result.secure_url, size: result.bytes, path: result.public_id });
+        }
+      );
+      file.stream.pipe(stream);
+    },
+    _removeFile(req, file, cb) {
+      getCloudinary().uploader.destroy(file.path).then(() => cb(null), cb);
+    },
+  };
+}
+
 // Returns a multer instance that saves single-image uploads to server/uploads/<subfolder>
 // with a random filename (never trusts the client-supplied original filename).
 function createImageUpload(subfolder) {
-  const destDir = path.join(UPLOADS_ROOT, subfolder);
-  fs.mkdirSync(destDir, { recursive: true });
-
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, destDir),
-    filename: (req, file, cb) => {
-      cb(null, `${crypto.randomUUID()}${MIME_EXTENSIONS[file.mimetype] || ''}`);
-    },
-  });
+  let storage;
+  if (useCloudinary()) {
+    storage = cloudinaryStorage(subfolder);
+  } else {
+    const destDir = path.join(UPLOADS_ROOT, subfolder);
+    fs.mkdirSync(destDir, { recursive: true });
+    storage = multer.diskStorage({
+      destination: (req, file, cb) => cb(null, destDir),
+      filename: (req, file, cb) => {
+        cb(null, `${crypto.randomUUID()}${MIME_EXTENSIONS[file.mimetype] || ''}`);
+      },
+    });
+  }
 
   return multer({
     storage,
@@ -56,13 +108,23 @@ function getPublicOrigin(req) {
 }
 
 function absoluteUrlFor(req, subfolder, filename) {
+  if (/^https?:\/\//.test(filename)) return filename; // already a full CDN URL (Cloudinary)
   return `${getPublicOrigin(req)}/uploads/${subfolder}/${filename}`;
 }
 
 // Best-effort cleanup of a previously uploaded file when it's replaced/removed.
-// No-ops for external URLs (Clerk avatars, pasted links) — only touches our own /uploads/ paths.
+// No-ops for external URLs (Clerk avatars, pasted links) — only touches our own /uploads/ paths
+// and our own Cloudinary folder.
 function deleteUploadedFile(urlOrPath) {
   if (!urlOrPath || typeof urlOrPath !== 'string') return;
+  if (urlOrPath.includes('res.cloudinary.com/')) {
+    const m = urlOrPath.match(/\/image\/upload\/(?:[^/]+\/)*?(?:v\d+\/)?(.+?)\.[a-z0-9]+(?:\?.*)?$/i);
+    const publicId = m && decodeURIComponent(m[1]);
+    if (useCloudinary() && publicId && publicId.startsWith(`${CLOUDINARY_FOLDER}/`)) {
+      getCloudinary().uploader.destroy(publicId).catch(() => {});
+    }
+    return;
+  }
   let pathname;
   try {
     pathname = urlOrPath.startsWith('http') ? new URL(urlOrPath).pathname : urlOrPath;

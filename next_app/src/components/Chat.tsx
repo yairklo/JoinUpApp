@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import {
@@ -16,7 +16,13 @@ import {
   Zoom,
   Avatar,
   Snackbar,
-  Alert
+  Alert,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from "@mui/material";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import SendIcon from "@mui/icons-material/Send";
@@ -28,6 +34,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MessageBubble from "./MessageBubble";
 import ReportMessageDialog from "./ReportMessageDialog";
 import { chatsApi, type MessageReportReason } from "@/services/api/chats";
+import { usersApi } from "@/services/api/users";
 import { ChatMessage } from "./types";
 import { useChatLogic } from "@/hooks/useChatLogic";
 
@@ -54,6 +61,53 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   const [reportTarget, setReportTarget] = useState<ChatMessage | null>(null);
   const [reportToast, setReportToast] = useState<{ severity: "success" | "error"; text: string } | null>(null);
+
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+  const [blockTarget, setBlockTarget] = useState<ChatMessage | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const list = await usersApi.getBlockedUsers(token);
+        if (active) setBlockedIds(new Set(list.map((b) => b.id)));
+      } catch {
+        // Non-fatal: the server already filters history; this only hides live messages.
+      }
+    };
+    load();
+    // Picks up blocks / unblocks made elsewhere (profile page, settings, another tab).
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [getToken]);
+
+  const confirmBlock = async () => {
+    const targetId = blockTarget?.userId;
+    if (!targetId) { setBlockTarget(null); return; }
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("no token");
+      await usersApi.blockUser(targetId, token);
+      setBlockedIds((prev) => new Set(prev).add(targetId));
+      setReportToast({ severity: "success", text: isRTL ? "המשתמש נחסם. אפשר לבטל בהגדרות" : "User blocked. You can unblock in settings" });
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      setReportToast({
+        severity: "error",
+        text: status === 404
+          ? (isRTL ? "אי אפשר לחסום את המשתמש הזה (ייתכן שהחשבון נמחק)" : "This user can't be blocked (the account may have been deleted)")
+          : (isRTL ? "החסימה נכשלה, נסו שוב" : "Blocking failed, please try again"),
+      });
+    } finally {
+      setBlockTarget(null);
+    }
+  };
 
   const openProfile = (userId: string) => {
     if (userId) router.push(`/users/${userId}`);
@@ -86,6 +140,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   // Use the custom hook for all logic
   const { state, actions, refs } = useChatLogic({ roomId, chatName });
+  const visibleMessages = useMemo(
+    () => state.messages.filter((m: ChatMessage) => !(m.userId && blockedIds.has(m.userId))),
+    [state.messages, blockedIds]
+  );
 
   // Scroll To Bottom Action
   const scrollToBottom = () => {
@@ -226,9 +284,9 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             </Box>
           ) : (
             <>
-              {state.messages.map((m, index) => {
+              {visibleMessages.map((m, index) => {
                 const isMine = m.userId === user?.id;
-                const prevMsg = state.messages[index - 1]; const nextMsg = state.messages[index + 1];
+                const prevMsg = visibleMessages[index - 1]; const nextMsg = visibleMessages[index + 1];
                 const currentDate = new Date(m.ts); const prevDate = prevMsg ? new Date(prevMsg.ts) : null;
                 const showDateSeparator = !prevDate || currentDate.toDateString() !== prevDate.toDateString();
                 const isPrevSameSender = prevMsg && prevMsg.userId === m.userId && !showDateSeparator;
@@ -266,6 +324,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       currentUserId={user?.id}
                       onOpenProfile={openProfile}
                       onReport={isMine || m.isDeleted || !m.userId ? undefined : (msg) => setReportTarget(msg)}
+                      onBlock={isMine || !m.userId ? undefined : (msg) => setBlockTarget(msg)}
                     />
                   </div>
                 );
@@ -323,6 +382,21 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           </IconButton>
         </Stack>
       </Box>
+
+      <Dialog open={!!blockTarget} onClose={() => setBlockTarget(null)} dir={isRTL ? "rtl" : "ltr"} sx={{ zIndex: 2102 }}>
+        <DialogTitle>{isRTL ? "לחסום את המשתמש?" : "Block this user?"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {isRTL
+              ? "לא תראו יותר הודעות ותגובות מהמשתמש הזה, והוא לא יוכל לשלוח לכם הודעות פרטיות או בקשות חברות. אפשר לבטל את החסימה בהגדרות."
+              : "You won't see messages or comments from this user, and they can't send you private messages or friend requests. You can unblock in settings."}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBlockTarget(null)}>{isRTL ? "ביטול" : "Cancel"}</Button>
+          <Button color="error" onClick={confirmBlock}>{isRTL ? "חסום" : "Block"}</Button>
+        </DialogActions>
+      </Dialog>
 
       <ReportMessageDialog
         open={!!reportTarget}
