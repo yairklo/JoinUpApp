@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { useMyName, useMyAvatar } from "@/hooks/useMyAvatar";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -52,6 +53,7 @@ type ChatProps = {
 export default function Chat({ roomId = "global", language = "he", isWidget = false, chatName, hideHeaderName = false }: ChatProps) {
   const isRTL = language === "he";
   const { user } = useUser();
+  const myName = useMyName();
   const { getToken } = useAuth();
   const theme = useTheme();
   const router = useRouter();
@@ -314,7 +316,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       onEdit={(msg) => { actions.setEditingMessage(msg); actions.setInputValue(msg.text); }}
                       onDelete={actions.handleDelete}
                       avatarUrl={avatarUrl}
-                      displayName={m.sender?.name || u?.name || (m.userId && state.nameByUserId[m.userId]) || (isMine ? (user?.fullName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
+                      displayName={m.sender?.name || u?.name || (m.userId && state.nameByUserId[m.userId]) || (isMine ? (myName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
                       timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                       showAvatar={!isNextSameSender}
                       showName={!isPrevSameSender && !isMine && !state.isPrivate}
