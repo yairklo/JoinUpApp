@@ -17,6 +17,60 @@ import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOf
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { tryParseJerusalemTimeToUTC } from '@/utils/timezone';
 import BackButton from '@/components/ui/BackButton';
+import SportCover, { resolveSportKey, SPORT_GLYPH } from '@/components/ui/SportCover';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SPORT_MAPPING } from '@/utils/sports';
+
+const HERO_HEIGHT = 200;
+
+function StatTile({ label, value }: { label: string; value: string }) {
+    return (
+        <View className="flex-1 bg-white dark:bg-cyber-card rounded-2xl px-3 py-3 border border-gray-100 dark:border-cyber-border">
+            <Text className="text-gray-500 dark:text-cyber-muted" style={{ fontSize: 12 }} numberOfLines={1}>
+                {label}
+            </Text>
+            <Text
+                className="text-gray-900 dark:text-cyber-text mt-0.5"
+                style={{ fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] }}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+            >
+                {value}
+            </Text>
+        </View>
+    );
+}
+
+/** Neutral outlined secondary action; `destructive` switches to red for destructive actions only. */
+function SecondaryAction({
+    label,
+    icon,
+    onPress,
+    destructive,
+}: {
+    label: string;
+    icon?: React.ComponentProps<typeof FontAwesome>['name'];
+    onPress: () => void;
+    destructive?: boolean;
+}) {
+    const color = destructive ? '#dc2626' : '#6b7280';
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            accessibilityRole="button"
+            className={`mt-3 h-12 px-4 rounded-2xl flex-row items-center justify-center border ${
+                destructive
+                    ? 'border-red-200 bg-white dark:bg-cyber-card'
+                    : 'border-gray-200 dark:border-cyber-border bg-white dark:bg-cyber-card'
+            }`}
+        >
+            {icon ? <FontAwesome name={icon} size={15} color={color} style={{ marginEnd: 8 }} /> : null}
+            <Text className={`font-semibold text-[15px] ${destructive ? 'text-red-600' : 'text-gray-700 dark:text-cyber-text'}`}>
+                {label}
+            </Text>
+        </TouchableOpacity>
+    );
+}
 
 export default function GameDetailsScreen() {
     const { t, i18n } = useTranslation();
@@ -212,6 +266,9 @@ export default function GameDetailsScreen() {
     const isWaitlisted = game.viewerParticipationStatus === 'WAITLISTED' && !isWaitlistOfferPending;
     const approvalOnlyHint = isOrganizerApprovalPending(game);
     const isCancelled = game.status === 'CANCELLED';
+    const heroSportKey = resolveSportKey(game.sport);
+    const rawSportKey = (game.sport || '').toUpperCase();
+    const sportLabel = t('sports.' + rawSportKey.toLowerCase(), SPORT_MAPPING[rawSportKey] || game.sport || t('sports.sport', 'ספורט'));
 
     const handleCancelGame = () => {
         Alert.alert(
@@ -240,12 +297,57 @@ export default function GameDetailsScreen() {
     };
 
     return (
-        <SafeAreaView edges={['top']} className="flex-1 bg-white">
-            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-                <BackButton className="me-3" />
-                <Text className="flex-1 text-xl font-bold text-gray-900">{t('game.details')}</Text>
-            </View>
-            <ScrollView className="flex-1 bg-gray-50">
+        <SafeAreaView edges={['top']} className="flex-1 bg-gray-50 dark:bg-cyber-bg">
+            <ScrollView className="flex-1 bg-gray-50 dark:bg-cyber-bg">
+                {/* Hero */}
+                <SportCover sport={game.sport} height={HERO_HEIGHT}>
+                    <View className="flex-1 justify-end px-5 pb-5">
+                        <View
+                            className="self-start px-2.5 py-1 rounded-full flex-row items-center mb-2"
+                            style={{ backgroundColor: 'rgba(0,0,0,0.28)' }}
+                        >
+                            <MaterialCommunityIcons name={SPORT_GLYPH[heroSportKey]} size={13} color="#fff" />
+                            <Text className="text-white text-xs font-bold ms-1">{sportLabel}</Text>
+                        </View>
+                        <Text
+                            className="text-white"
+                            style={{ fontSize: 24, fontWeight: '800', lineHeight: 30 }}
+                            numberOfLines={2}
+                        >
+                            {game.title || game.field?.name || game.fieldName || t('game.details')}
+                        </Text>
+                        <TouchableOpacity
+                            disabled={!game.fieldId}
+                            onPress={() => game.fieldId && router.push(`/field/${game.fieldId}`)}
+                            className="flex-row items-center mt-1 self-start"
+                        >
+                            <Text className="text-white/80 text-[14px] font-semibold" numberOfLines={1}>
+                                {game.field?.name || game.fieldName || t('game.unknownField')}
+                            </Text>
+                            {game.fieldId ? (
+                                <FontAwesome name="angle-left" size={16} color="rgba(255,255,255,0.8)" style={{ marginStart: 6 }} />
+                            ) : null}
+                        </TouchableOpacity>
+                    </View>
+                </SportCover>
+
+                {/* Stat tiles */}
+                <View className="flex-row gap-2.5 px-4 pt-4">
+                    <StatTile
+                        label={t('game.statWhen', 'מתי')}
+                        value={`${new Date(game.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL', { day: 'numeric', month: 'numeric' })} · ${game.time}`}
+                    />
+                    <StatTile label={t('game.players')} value={`${game.currentPlayers || 0}/${game.maxPlayers}`} />
+                    <StatTile label={t('game.statPrice', 'מחיר')} value={game.price ? `₪${game.price}` : t('game.free')} />
+                </View>
+
+                <View className="flex-row items-center px-5 pt-3 pb-1">
+                    <FontAwesome name="map-marker" size={15} color="#9ca3af" style={{ width: 20 }} />
+                    <Text className="text-gray-600 dark:text-cyber-muted text-[14px] flex-1" numberOfLines={2}>
+                        {game.field?.location || game.fieldLocation || t('game.unknownLocation')}
+                    </Text>
+                </View>
+
                 {/* Waitlist offer — top of page (same placement idea as web GameLiveSection) */}
                 {isWaitlistOfferPending && (
                     <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-amber-50 border border-amber-300">
@@ -289,40 +391,8 @@ export default function GameDetailsScreen() {
                     </View>
                 )}
 
-                {/* Header Section */}
-                <View className="bg-white p-6 mb-4 shadow-sm">
-                    <TouchableOpacity
-                        disabled={!game.fieldId}
-                        onPress={() => game.fieldId && router.push(`/field/${game.fieldId}`)}
-                        className="flex-row items-center mb-2"
-                    >
-                        <Text className="text-2xl font-bold text-gray-800 text-right">{game.field?.name || game.fieldName || t('game.unknownField')}</Text>
-                        {game.fieldId ? (
-                            <FontAwesome name="angle-left" size={20} color="#059669" style={{ marginLeft: 8 }} />
-                        ) : null}
-                    </TouchableOpacity>
-                    <View className="flex-row items-center mb-2">
-                        <FontAwesome name="calendar" size={16} color="#6b7280" style={{ width: 24 }} />
-                        <Text className="text-gray-600 text-base text-right">
-                            {new Date(game.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} {t('search.atTime', 'בשעה')} {game.time}
-                        </Text>
-                    </View>
-                    <View className="flex-row items-center mb-2">
-                        <FontAwesome name="map-marker" size={16} color="#6b7280" style={{ width: 24 }} />
-                        <Text className="text-gray-600 text-base text-right flex-1">
-                            {game.field?.location || game.fieldLocation || t('game.unknownLocation')}
-                        </Text>
-                    </View>
-                    <View className="flex-row items-center">
-                        <FontAwesome name="money" size={16} color="#6b7280" style={{ width: 24 }} />
-                        <Text className="text-gray-600 text-base text-right">
-                            {game.price ? `₪${game.price}` : t('game.free')}
-                        </Text>
-                    </View>
-                </View>
-
                 {/* Utility Actions Section */}
-                <View className="bg-white p-4 mb-4 shadow-sm flex-row justify-around border-y border-gray-100">
+                <View className="mx-4 mt-3 mb-4 bg-white dark:bg-cyber-card rounded-2xl p-4 flex-row justify-around border border-gray-100 dark:border-cyber-border">
                     <TouchableOpacity 
                         className="items-center"
                         onPress={() => {
@@ -338,10 +408,10 @@ export default function GameDetailsScreen() {
                             });
                         }}
                     >
-                        <View className="w-12 h-12 bg-brand-mist rounded-full items-center justify-center mb-1">
+                        <View className="w-12 h-12 bg-brand-mist dark:bg-cyber-border rounded-full items-center justify-center mb-1">
                             <FontAwesome name="share-alt" size={20} color="#059669" />
                         </View>
-                        <Text className="text-xs text-gray-600 font-bold">{t('game.share', 'שתף')}</Text>
+                        <Text className="text-xs text-gray-600 dark:text-cyber-muted font-bold">{t('game.share', 'שתף')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity 
@@ -351,10 +421,10 @@ export default function GameDetailsScreen() {
                             Linking.openURL(`https://maps.google.com/?q=${query}`);
                         }}
                     >
-                        <View className="w-12 h-12 bg-green-50 rounded-full items-center justify-center mb-1">
-                            <FontAwesome name="location-arrow" size={20} color="#16a34a" />
+                        <View className="w-12 h-12 bg-brand-mist dark:bg-cyber-border rounded-full items-center justify-center mb-1">
+                            <FontAwesome name="location-arrow" size={20} color="#059669" />
                         </View>
-                        <Text className="text-xs text-gray-600 font-bold">{t('game.navigate', 'נווט')}</Text>
+                        <Text className="text-xs text-gray-600 dark:text-cyber-muted font-bold">{t('game.navigate', 'נווט')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity 
@@ -374,10 +444,10 @@ export default function GameDetailsScreen() {
                             Linking.openURL(url);
                         }}
                     >
-                        <View className="w-12 h-12 bg-purple-50 rounded-full items-center justify-center mb-1">
-                            <FontAwesome name="calendar-plus-o" size={20} color="#9333ea" />
+                        <View className="w-12 h-12 bg-brand-mist dark:bg-cyber-border rounded-full items-center justify-center mb-1">
+                            <FontAwesome name="calendar-plus-o" size={20} color="#059669" />
                         </View>
-                        <Text className="text-xs text-gray-600 font-bold">{t('game.calendar', 'יומן')}</Text>
+                        <Text className="text-xs text-gray-600 dark:text-cyber-muted font-bold">{t('game.calendar', 'יומן')}</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -503,14 +573,73 @@ export default function GameDetailsScreen() {
                     />
                 )}
 
-                {/* Actions Section — waitlist offer CTAs live in the top banner only */}
-                <View className="p-6" style={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}>
+                {/* Organizer tools — one neutral secondary style, red only for destructive */}
+                {isOrganizer && (
+                    <View className="px-4 pt-2 pb-4">
+                        <Text className="text-gray-500 dark:text-cyber-muted text-[12px] font-semibold mb-0.5">
+                            {t('game.organizerTools', 'כלי מארגן')}
+                        </Text>
+                        <SecondaryAction
+                            label={t('game.editGame', 'ערוך משחק')}
+                            icon="pencil"
+                            onPress={() => router.push(`/game/edit/${game.id}`)}
+                        />
+                        <SecondaryAction
+                            label={t('game.manageTeams', 'נהל קבוצות')}
+                            icon="users"
+                            onPress={() => router.push(`/game/teams/${game.id}`)}
+                        />
+                        {/* Series Management */}
+                        {game.seriesId ? (
+                            <SecondaryAction
+                                label={t('game.manageSeries', 'לעמוד הקבוצה')}
+                                icon="calendar-check-o"
+                                onPress={() => router.push(`/series/${game.seriesId}`)}
+                            />
+                        ) : (
+                            <SecondaryAction
+                                label={t('game.convertToGroup', 'הפוך לקבוצה')}
+                                icon="repeat"
+                                onPress={() => series.actions.setOpen(true)}
+                            />
+                        )}
+                        {!isCancelled && game.status !== 'COMPLETED' && (
+                            <SecondaryAction
+                                label={t('game.cancelGame', 'בטל משחק')}
+                                icon="ban"
+                                onPress={handleCancelGame}
+                                destructive
+                            />
+                        )}
+                    </View>
+                )}
+
+                {game.viewerParticipationStatus === 'CONFIRMED' && (
+                    <GameRatingsPanel gameId={game.id} />
+                )}
+
+                <View className="h-6" />
+            </ScrollView>
+
+            {/* Floating back button over the hero */}
+            <View pointerEvents="box-none" style={{ position: 'absolute', top: insets.top + 10, start: 16 }}>
+                <BackButton variant="overlay" />
+            </View>
+
+            {/* Sticky primary CTA — waitlist offer CTAs live in the top banner only */}
+            {(isCancelled || !isWaitlistOfferPending) && (
+                <View
+                    className="bg-white dark:bg-cyber-card border-t border-gray-100 dark:border-cyber-border px-4 pt-3"
+                    // The bottom tab bar stays visible under this screen and already
+                    // reserves the device's bottom inset, so only a fixed gap is needed here.
+                    style={{ paddingBottom: 12 }}
+                >
                     {isCancelled ? (
-                        <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200">
-                            <Text className="text-amber-800 font-bold text-base text-center">{t('game.cancelledBanner', 'המשחק בוטל על ידי המארגן, ולא ניתן להצטרף אליו.')}</Text>
+                        <View className="min-h-[52px] px-4 py-3 rounded-2xl items-center justify-center bg-amber-50 border border-amber-200">
+                            <Text className="text-amber-800 font-bold text-[15px] text-center">{t('game.cancelledBanner', 'המשחק בוטל על ידי המארגן, ולא ניתן להצטרף אליו.')}</Text>
                         </View>
-                    ) : isWaitlistOfferPending ? null : isParticipant ? (
-                        <View>
+                    ) : isParticipant ? (
+                        <View className="flex-row gap-3">
                             <TouchableOpacity
                                 onPress={() => router.push({
                                     pathname: '/chat/[id]',
@@ -519,50 +648,58 @@ export default function GameDetailsScreen() {
                                         name: game.title || game.fieldName || '',
                                     },
                                 })}
-                                className="bg-brand-pale p-4 rounded-xl items-center mb-3 border border-brand-pale"
+                                className="flex-1 h-[52px] rounded-2xl items-center justify-center flex-row bg-brand"
                             >
-                                <Text className="text-brand-dark font-bold text-lg">{t('game.openChat', 'פתח צ\'אט')}</Text>
+                                <FontAwesome name="comments" size={17} color="#fff" style={{ marginEnd: 8 }} />
+                                <Text className="text-white font-bold text-[16px]">{t('game.openChat', 'פתח צ\'אט')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
                                 onPress={handleעזוב}
                                 disabled={actionLoading}
-                                className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
+                                className="h-[52px] px-5 rounded-2xl items-center justify-center border border-red-200 bg-white dark:bg-cyber-card"
                             >
-                                <Text className="text-red-600 font-bold text-lg">{t('game.leaveGame', 'עזוב משחק')}</Text>
+                                <Text className="text-red-600 font-bold text-[15px]">{t('game.leaveGame', 'עזוב משחק')}</Text>
                             </TouchableOpacity>
                         </View>
                     ) : isWaitlisted ? (
-                        <View>
-                            <View className="p-4 rounded-xl items-center bg-gray-100 border border-gray-200 mb-3">
-                                <Text className="text-gray-700 font-bold text-base text-center">{t('game.waitlistStatus', 'הרשמת כמחליף (ברשימת המתנה)')}</Text>
+                        <View className="flex-row gap-3 items-center">
+                            <View className="flex-1 min-h-[52px] px-3 py-2 rounded-2xl items-center justify-center bg-gray-100 dark:bg-cyber-border">
+                                <Text className="text-gray-700 dark:text-cyber-text font-bold text-[14px] text-center">{t('game.waitlistStatus', 'הרשמת כמחליף (ברשימת המתנה)')}</Text>
                             </View>
                             <TouchableOpacity
                                 onPress={handleעזוב}
                                 disabled={actionLoading}
-                                className="bg-red-50 p-4 rounded-xl items-center border border-red-100"
+                                className="h-[52px] px-4 rounded-2xl items-center justify-center border border-red-200 bg-white dark:bg-cyber-card"
                             >
-                                <Text className="text-red-600 font-bold text-lg">{t('game.cancelWaitlist', 'בטל הרשמה כמחליף')}</Text>
+                                <Text className="text-red-600 font-bold text-[14px]">{t('game.cancelWaitlist', 'בטל הרשמה כמחליף')}</Text>
                             </TouchableOpacity>
                         </View>
                     ) : isPendingApproval ? (
-                        <View className="p-4 rounded-xl items-center bg-amber-50 border border-amber-200">
-                            <Text className="text-amber-700 font-bold text-lg">{t('game.requestPending')}</Text>
+                        <View className="h-[52px] rounded-2xl items-center justify-center bg-amber-50 border border-amber-200">
+                            <Text className="text-amber-700 font-bold text-[16px]">{t('game.requestPending')}</Text>
                         </View>
                     ) : isRejected ? (
-                        <View className="p-4 rounded-xl items-center bg-gray-100 border border-gray-200">
-                            <Text className="text-gray-500 font-bold text-lg">{t('game.reject')}</Text>
+                        <View className="h-[52px] rounded-2xl items-center justify-center bg-gray-100 dark:bg-cyber-border">
+                            <Text className="text-gray-500 dark:text-cyber-muted font-bold text-[16px]">{t('game.reject')}</Text>
                         </View>
                     ) : (
                         <TouchableOpacity
                             onPress={handleJoin}
                             disabled={actionLoading}
-                            className={`p-4 rounded-xl items-center ${actionLoading ? 'bg-brand-soft' : 'bg-brand'}`}
+                            className={`h-[52px] rounded-2xl items-center justify-center ${actionLoading ? 'bg-brand-soft' : 'bg-brand'}`}
+                            style={{
+                                shadowColor: '#059669',
+                                shadowOpacity: 0.25,
+                                shadowRadius: 10,
+                                shadowOffset: { width: 0, height: 4 },
+                                elevation: 3,
+                            }}
                         >
                             {actionLoading ? (
                                 <ActivityIndicator color="white" />
                             ) : (
-                                <Text className="text-white font-bold text-lg">
+                                <Text className="text-white font-bold text-[16px]">
                                     {isFull
                                         ? t('game.joinWaitlist', 'הצטרף לרשימת המתנה')
                                         : game.joinPolicy === 'REQUIRES_APPROVAL'
@@ -572,68 +709,8 @@ export default function GameDetailsScreen() {
                             )}
                         </TouchableOpacity>
                     )}
-
-                    {isOrganizer && (
-                        <>
-                            <TouchableOpacity
-                                onPress={() => router.push(`/game/edit/${game.id}`)}
-                                className="mt-4 p-4 rounded-xl items-center border border-gray-300"
-                            >
-                                <Text className="text-gray-600 font-bold">{t('game.editGame', 'ערוך משחק')}</Text>
-                            </TouchableOpacity>
-
-                            {!isCancelled && game.status !== 'COMPLETED' && (
-                                <TouchableOpacity
-                                    onPress={handleCancelGame}
-                                    accessibilityRole="button"
-                                    className="mt-4 p-4 rounded-xl items-center border border-red-200 bg-red-50"
-                                >
-                                    <Text className="text-red-600 font-bold">{t('game.cancelGame', 'בטל משחק')}</Text>
-                                </TouchableOpacity>
-                            )}
-
-                            <TouchableOpacity
-                                onPress={() => router.push(`/game/teams/${game.id}`)}
-                                className="mt-4 p-4 rounded-xl items-center border border-brand-pale bg-brand-mist"
-                            >
-                                <View className="flex-row items-center">
-                                    <FontAwesome name="users" size={16} color="#4f46e5" style={{ marginLeft: 8 }} />
-                                    <Text className="text-brand-dark font-bold">{t('game.manageTeams', 'נהל קבוצות')}</Text>
-                                </View>
-                            </TouchableOpacity>
-
-                            {/* Series Management */}
-                            {game.seriesId ? (
-                                <TouchableOpacity
-                                    onPress={() => router.push(`/series/${game.seriesId}`)}
-                                    className="mt-3 p-4 rounded-xl items-center border border-brand-pale bg-brand-mist"
-                                >
-                                    <View className="flex-row items-center">
-                                        <FontAwesome name="calendar-check-o" size={16} color="#059669" style={{ marginLeft: 8 }} />
-                                        <Text className="text-brand-dark font-bold">{t('game.manageSeries', 'לעמוד הקבוצה')}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            ) : (
-                                <TouchableOpacity
-                                    onPress={() => series.actions.setOpen(true)}
-                                    className="mt-3 p-4 rounded-xl items-center border border-purple-200 bg-purple-50"
-                                >
-                                    <View className="flex-row items-center">
-                                        <FontAwesome name="repeat" size={16} color="#9333ea" style={{ marginLeft: 8 }} />
-                                        <Text className="text-purple-700 font-bold">{t('game.convertToGroup', 'הפוך לקבוצה')}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            )}
-                        </>
-                    )}
                 </View>
-
-                {game.viewerParticipationStatus === 'CONFIRMED' && (
-                    <GameRatingsPanel gameId={game.id} />
-                )}
-
-                <View className="h-10" />
-            </ScrollView>
+            )}
 
             {/* Series Creation Modal */}
             <Modal
