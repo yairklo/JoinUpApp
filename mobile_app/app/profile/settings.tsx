@@ -5,12 +5,11 @@ import { useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
-import { usersApi, PrivacyLevel } from '../../src/services/api/users';
+import { usersApi, PrivacyLevel, PrivacySettings } from '../../src/services/api/users';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 
 type FieldKey = 'privacyFriends' | 'privacyGames' | 'privacyMessages';
 type FieldValue = PrivacyLevel | 'DEFAULT';
-type PrivacySettingsLike = Record<FieldKey, PrivacyLevel | null> & { resolved: Record<FieldKey, PrivacyLevel> };
 
 export default function PrivacySettingsScreen() {
     const router = useRouter();
@@ -23,19 +22,10 @@ export default function PrivacySettingsScreen() {
         privacyGames: 'DEFAULT',
         privacyMessages: 'DEFAULT',
     });
-    // What "default" currently resolves to, per field. Only known while the field has no explicit
-    // stored value (otherwise the server's resolved value just echoes the explicit one).
-    const [defaults, setDefaults] = useState<Partial<Record<FieldKey, PrivacyLevel>>>({});
+    // Age-based default per field; fixed for the user, so the default option label never changes.
+    const [ageDefaults, setAgeDefaults] = useState<PrivacySettings['ageDefaults'] | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
-    const applyServerState = (ps: PrivacySettingsLike) => {
-        const next: Partial<Record<FieldKey, PrivacyLevel>> = {};
-        (['privacyFriends', 'privacyGames', 'privacyMessages'] as FieldKey[]).forEach((k) => {
-            if (ps[k] === null) next[k] = ps.resolved[k];
-        });
-        setDefaults(next);
-    };
 
     const FIELDS: { key: FieldKey; label: string }[] = [
         { key: 'privacyFriends', label: t('privacy.friends') },
@@ -45,7 +35,7 @@ export default function PrivacySettingsScreen() {
 
     const levelLabel = (level: PrivacyLevel) => (level === 'EVERYONE' ? t('privacy.everyone') : t('privacy.friendsOnly'));
     const optionsFor = (key: FieldKey): { value: FieldValue; label: string }[] => [
-        { value: 'DEFAULT', label: defaults[key] ? levelLabel(defaults[key] as PrivacyLevel) : t('privacy.default') },
+        { value: 'DEFAULT', label: ageDefaults?.[key] ? levelLabel(ageDefaults[key]) : t('privacy.default') },
         { value: 'EVERYONE', label: t('privacy.everyone') },
         { value: 'FRIENDS_ONLY', label: t('privacy.friendsOnly') },
     ];
@@ -64,7 +54,7 @@ export default function PrivacySettingsScreen() {
                         privacyGames: ps.privacyGames ?? 'DEFAULT',
                         privacyMessages: ps.privacyMessages ?? 'DEFAULT',
                     });
-                    applyServerState(ps);
+                    setAgeDefaults(ps.ageDefaults ?? null);
                 }
             } catch (e) {
                 console.error('Failed to load privacy settings', e);
@@ -87,7 +77,7 @@ export default function PrivacySettingsScreen() {
                 },
                 token
             );
-            applyServerState(saved);
+            if (saved.ageDefaults) setAgeDefaults(saved.ageDefaults);
             Alert.alert('', t('privacy.saved'));
         } catch (e) {
             console.error('Failed to save privacy settings', e);
