@@ -21,7 +21,18 @@ const subscribe = (l: () => void) => {
     return () => { listeners.delete(l); };
 };
 const getSnapshot = () => store;
-const getServerSnapshot = (): Store => ({ userId: null, imageUrl: undefined });
+// Must be a stable reference: useSyncExternalStore requires a cached server snapshot.
+const SERVER_STORE: Store = { userId: null, imageUrl: undefined };
+const getServerSnapshot = () => SERVER_STORE;
+
+const RETRY_MS = 15_000;
+// A failed load must not leave the store stuck on "not loaded" for the whole session: after a
+// delay, forget the user so the next render of any consumer initialises (and fetches) again.
+function retryLater(forUserId: string) {
+    setTimeout(() => {
+        if (store.userId === forUserId && store.imageUrl === undefined) update({ userId: null });
+    }, RETRY_MS);
+}
 
 /** Call after the current user's avatar was uploaded (url) or removed (null). */
 export function notifyAvatarChanged(url: string | null) {
@@ -38,12 +49,16 @@ export function useMyAvatar(): string | null {
     const load = useCallback(async (forUserId: string) => {
         try {
             const token = await getToken();
-            if (!token) return;
+            if (!token) {
+                retryLater(forUserId);
+                return;
+            }
             const me = await usersApi.getMe(token);
             // Ignore the response if the signed-in user changed, or an upload already updated it.
             if (store.userId === forUserId && store.imageUrl === undefined) update({ imageUrl: me.imageUrl || null });
         } catch (e) {
             console.error('Failed to load avatar', e);
+            retryLater(forUserId);
         }
     }, [getToken]);
 
@@ -54,10 +69,13 @@ export function useMyAvatar(): string | null {
             return;
         }
         if (store.userId !== userId) {
-            update({ userId, imageUrl: undefined });
-            void load(userId);
+            // A value set by notifyAvatarChanged before any consumer initialised (userId still null)
+            // belongs to this user: keep it instead of resetting to "not loaded".
+            const early = store.userId === null ? store.imageUrl : undefined;
+            update({ userId, imageUrl: early });
+            if (early === undefined) void load(userId);
         }
-    }, [isLoaded, isSignedIn, userId, load]);
+    }, [isLoaded, isSignedIn, userId, snap.userId, load]);
 
     const own = snap.userId === userId ? snap.imageUrl : undefined;
     if (own) return own;
