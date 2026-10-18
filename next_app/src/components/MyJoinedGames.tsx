@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { SignInButton } from "@clerk/nextjs";
 import Link from "next/link";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
 
@@ -16,6 +15,9 @@ import InlineErrorRow from "@/components/InlineErrorRow";
 import { useMyGames } from "@/hooks/useMyGames";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { SportFilter } from "@/utils/sports";
+import EmptyState from "@/components/ui/EmptyState";
+import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
+import WavingHandRoundedIcon from "@mui/icons-material/WavingHandRounded";
 
 export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
   const { games, loading, error, refetch, userId, isLoaded } = useMyGames();
@@ -55,17 +57,30 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
 
   if (filteredGames.length === 0) {
     return (
-      <GamesHorizontalList title="המשחקים שלי">
-        <Box p={2} width="100%">
-          <Typography variant="body2" color="text.secondary">
-            {userId ? "עדיין אין לך משחקים פעילים — מצא משחק והצטרף" : "התחבר כדי לראות את המשחקים שלך"}
-          </Typography>
+      <GamesHorizontalList title="המשחקים שלי" staticContent>
+        <Box width="100%">
           {userId ? (
-            <Button component={Link} href="/search" size="small" variant="outlined" sx={{ mt: 1 }}>מצא משחק</Button>
+            <EmptyState
+              compact
+              icon={<EventAvailableRoundedIcon />}
+              title="אין לך משחקים קרובים"
+              description="מצאו משחק פתוח באזור והצטרפו בלחיצה."
+              actions={
+                <Button component={Link} href="/search" size="small" variant="contained">מצא משחק</Button>
+              }
+            />
           ) : (
-            <SignInButton mode="modal">
-              <Button size="small" variant="outlined" sx={{ mt: 1 }}>התחבר</Button>
-            </SignInButton>
+            <EmptyState
+              compact
+              icon={<WavingHandRoundedIcon />}
+              title="המשחקים, החברים והקבוצות שלך — במקום אחד"
+              description="התחברו כדי להצטרף למשחקים, לראות איפה החברים משחקים ולהירשם לקבוצות קבועות."
+              actions={
+                <SignInButton mode="modal">
+                  <Button size="small" variant="contained">התחברות</Button>
+                </SignInButton>
+              }
+            />
           )}
         </Box>
       </GamesHorizontalList>

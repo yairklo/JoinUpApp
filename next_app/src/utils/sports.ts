@@ -1,10 +1,18 @@
 import {
   SPORT_MAPPING,
   SPORT_EMOJI,
+  SPORT_THEME,
   POSITION_OPTIONS,
 } from '@joinup/shared/sports';
+import type { SportThemeColors } from '@joinup/shared/sports';
 
-export { SPORT_MAPPING, SPORT_EMOJI, POSITION_OPTIONS };
+export { SPORT_MAPPING, SPORT_EMOJI, SPORT_THEME, POSITION_OPTIONS };
+export type { SportThemeColors };
+
+/** Per-sport identity colors, falling back to soccer for unknown/missing sports. */
+export function getSportTheme(sport?: string | null): SportThemeColors {
+    return (SPORT_THEME as Record<string, SportThemeColors>)[sport || ""] || SPORT_THEME.SOCCER;
+}
 
 export const SPORT_IMAGES = {
     SOCCER: "/images/soccer.jpg",

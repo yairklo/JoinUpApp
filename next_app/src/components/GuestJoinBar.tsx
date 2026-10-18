@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
@@ -13,8 +14,27 @@ import { SignInButton } from "@clerk/nextjs";
  * `app/games/[id]/page.tsx` crashed the whole page render for every guest.
  */
 export default function GuestJoinBar() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Publish the bar's real height as --guest-bar-height so the Footer (the last thing on the
+  // page) can reserve room for it; otherwise this fixed bar sits on top of the footer's last row.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const sync = () => root.style.setProperty("--guest-bar-height", `${el.offsetHeight}px`);
+    sync();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(sync) : null;
+    ro?.observe(el);
+    return () => {
+      ro?.disconnect();
+      root.style.removeProperty("--guest-bar-height");
+    };
+  }, []);
+
   return (
     <Box
+      ref={ref}
       sx={{
         position: "fixed",
         bottom: { xs: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px))", md: 0 },

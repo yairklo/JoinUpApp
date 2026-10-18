@@ -10,7 +10,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
 import Card from "@mui/material/Card";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import GameHeaderCard from "@/components/GameHeaderCard";
+import GameHero from "@/components/GameHero";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import PendingJoinRequests from "@/components/PendingJoinRequests";
@@ -312,7 +312,7 @@ export default function GameLiveSection({
         </Alert>
       )}
 
-      <GameHeaderCard
+      <GameHero
         time={game.time}
         // `game.date` can be in either DD/MM/YYYY (the initial SSR fetch, see games/[id]/page.tsx)
         // or ISO YYYY-MM-DD (normalizeIncomingGame, used for optimistic join/leave updates and
@@ -334,7 +334,6 @@ export default function GameLiveSection({
         sport={game.sport}
         teamSize={game.teamSize}
         price={game.price}
-        fullWidth
       >
         {game.status === "CANCELLED" ? null : joined ? (
           <Box display="flex" flexDirection="column" alignItems="flex-end" gap={0.5}>
@@ -396,7 +395,7 @@ export default function GameLiveSection({
             onRequestSent={mergeAndSet}
           />
         ) : null}
-      </GameHeaderCard>
+      </GameHero>
 
       {canManageSeries && (
         <Box mt={2}>
@@ -405,7 +404,7 @@ export default function GameLiveSection({
       )}
 
       <Grid container spacing={{ xs: 3, md: 4 }} mt={0.5}>
-        <Grid size={{ xs: 12, md: 7 }}>
+        <Grid size={{ xs: 12, md: joined ? 7 : 12 }}>
           <TeamBuilderWrapper
             gameId={game.id}
             participants={game.participants}

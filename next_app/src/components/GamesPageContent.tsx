@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
-import Chip from "@mui/material/Chip";
 import Container from "@mui/material/Container";
 import { alpha } from "@mui/material/styles";
 
@@ -13,14 +12,9 @@ import GamesByFriendsClient from "@/components/GamesByFriendsClient";
 import GamesByCityClient from "@/components/GamesByCityClient";
 import SeriesSectionClient from "@/components/SeriesSectionClient";
 import LoginInventoryToast from "@/components/LoginInventoryToast";
-import { SportFilter, SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
+import SportFilterBar from "@/components/SportFilterBar";
+import { SportFilter } from "@/utils/sports";
 
-const FILTERS: { label: string; value: SportFilter }[] = [
-    { label: "הכל", value: "ALL" },
-    { label: SPORT_MAPPING.SOCCER, value: "SOCCER" },
-    { label: SPORT_MAPPING.BASKETBALL, value: "BASKETBALL" },
-    { label: SPORT_MAPPING.TENNIS, value: "TENNIS" },
-];
 
 import { GameUpdateProvider } from "@/context/GameUpdateContext";
 
@@ -44,85 +38,23 @@ export default function GamesPageContent({
             >
                 <Stack spacing={{ xs: 2.5, md: 4 }} id="games-feed" sx={{ scrollMarginTop: "72px" }}>
 
-                    {/* Sticky sport filters on mobile */}
+                    {/* Sticky sport filters on mobile: one full-bleed glass strip */}
                     <Box
-                        sx={{
+                        sx={(t) => ({
                             position: { xs: "sticky", md: "static" },
                             top: { xs: 56, md: "auto" },
                             zIndex: 5,
-                            mx: { xs: -2, sm: 0 },
+                            // !important: Stack resets direct children's margins, which would undo the full bleed
+                            marginInline: { xs: "-16px !important", sm: "0 !important" },
                             px: { xs: 2, sm: 0 },
                             py: { xs: 1, md: 0 },
-                            bgcolor: { xs: "background.default", md: "transparent" },
-                            borderBottom: { xs: 1, md: 0 },
-                            borderColor: "divider",
+                            bgcolor: { xs: alpha(t.palette.background.default, 0.82), md: "transparent" },
+                            backdropFilter: { xs: "saturate(180%) blur(14px)", md: "none" },
+                            boxShadow: { xs: `inset 0 -1px 0 ${t.palette.divider}`, md: "none" },
                             mb: { xs: 0, md: -2 },
-                        }}
+                        })}
                     >
-                        <Box
-                            display="flex"
-                            gap={1}
-                            sx={{
-                                // Wrap on phones so no chip is clipped at the edge; only scroll on
-                                // wider screens where a single row is guaranteed to fit.
-                                flexWrap: { xs: "wrap", md: "nowrap" },
-                                overflowX: { xs: "visible", md: "auto" },
-                                scrollbarWidth: "none",
-                                "&::-webkit-scrollbar": { display: "none" },
-                                WebkitOverflowScrolling: "touch",
-                                pb: 0.25,
-                            }}
-                        >
-                            {FILTERS.map((f) => {
-                                const selected = sportFilter === f.value;
-                                const emoji = f.value !== "ALL" ? SPORT_EMOJI[f.value] : undefined;
-                                return (
-                                    <Chip
-                                        key={f.value}
-                                        label={emoji ? `${emoji} ${f.label}` : f.label}
-                                        clickable
-                                        onClick={() => setSportFilter(f.value)}
-                                        sx={{
-                                            flexShrink: 0,
-                                            px: 0.5,
-                                            height: 34,
-                                            fontSize: "0.875rem",
-                                            fontWeight: 700,
-                                            border: "1px solid",
-                                            transition: "all 150ms ease",
-                                            ...(selected
-                                                ? {
-                                                      color: "primary.contrastText",
-                                                      borderColor: "transparent",
-                                                      backgroundImage: (t) =>
-                                                          `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)`,
-                                                      boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.4)}`,
-                                                  }
-                                                : {
-                                                      color: "text.secondary",
-                                                      bgcolor: (t) => alpha(t.palette.text.primary, 0.03),
-                                                      borderColor: (t) => alpha(t.palette.text.primary, 0.1),
-                                                      "&:hover": {
-                                                          bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
-                                                          borderColor: (t) => alpha(t.palette.primary.main, 0.3),
-                                                          color: "primary.main",
-                                                      },
-                                                  }),
-                                        }}
-                                    />
-                                );
-                            })}
-                        </Box>
-                        {sportFilter !== "ALL" && (
-                            <Chip
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                                onDelete={() => setSportFilter("ALL")}
-                                label={`${SPORT_EMOJI[sportFilter] || ""} ${SPORT_MAPPING[sportFilter]}`.trim()}
-                                sx={{ mt: 1, fontWeight: 700 }}
-                            />
-                        )}
+                        <SportFilterBar value={sportFilter} onChange={setSportFilter} />
                     </Box>
 
                     <Box>

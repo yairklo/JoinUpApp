@@ -7,7 +7,9 @@ import { useAuth } from "@clerk/nextjs";
 import { gamesApi } from "@/services/api/games";
 import { fieldsApi } from "@/services/api/fields";
 import { Game } from "@/types/game";
-import { SPORT_MAPPING } from "@/utils/sports";
+import { SPORT_MAPPING, SportFilter } from "@/utils/sports";
+import SportFilterBar from "@/components/SportFilterBar";
+import EmptyState from "@/components/ui/EmptyState";
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
@@ -28,6 +30,12 @@ import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
+import Badge from "@mui/material/Badge";
+import Collapse from "@mui/material/Collapse";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import LocationOffRoundedIcon from "@mui/icons-material/LocationOffRounded";
+import FilterAltOffRoundedIcon from "@mui/icons-material/FilterAltOffRounded";
+import SportsRoundedIcon from "@mui/icons-material/SportsRounded";
 import SearchIcon from "@mui/icons-material/Search";
 import GroupIcon from "@mui/icons-material/Group";
 
@@ -116,6 +124,8 @@ function SearchPageInner() {
   const cityPickerRef = useRef<CityPickerHandle>(null);
   const [locating, setLocating] = useState(false);
   const [mapEnabled, setMapEnabled] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const extraFilterCount = (selectedDate ? 1 : 0) + (networkGames ? 1 : 0) + (showEmptyFields ? 1 : 0);
 
   useEffect(() => {
     const wide = window.matchMedia("(min-width: 900px)");
@@ -123,6 +133,8 @@ function SearchPageInner() {
       if (wide.matches) setMapEnabled(true);
     };
     sync();
+    // Desktop has room for the secondary filters; phones start collapsed.
+    if (wide.matches) setFiltersOpen(true);
     wide.addEventListener("change", sync);
     return () => wide.removeEventListener("change", sync);
   }, []);
@@ -385,11 +397,18 @@ function SearchPageInner() {
           pb: { xs: 10, md: 2 },
         }}
       >
-        {/* Search Header */}
-        <Stack spacing={2} mb={3}>
-          <Typography variant="h5" fontWeight={800} sx={{ fontSize: { xs: "1.25rem", sm: "1.5rem" } }}>
-            מפת משחקים
-          </Typography>
+        {/* Search header: title + live count, search, city, sport pills. Secondary filters
+            (date, network, empty fields) live behind one "סינון" toggle so results start
+            above the fold on phones instead of after five stacked filter rows. */}
+        <Stack spacing={1.5} mb={2}>
+          <Stack direction="row" alignItems="baseline" justifyContent="space-between" spacing={1}>
+            <Typography variant="h5" component="h1" fontWeight={800} sx={{ fontSize: { xs: "1.35rem", sm: "1.6rem" }, letterSpacing: "-0.02em" }}>
+              מפת משחקים
+            </Typography>
+            <Typography variant="body2" color="text.secondary" fontWeight={700} sx={{ minHeight: "1.5em" }} aria-live="polite">
+              {loading || locating ? "" : `${games.length} משחקים`}
+            </Typography>
+          </Stack>
 
           {/* Copy kept honest with what this page actually queries: only /api/games/search
               (gamesApi.search), so we don't promise player search here. Note: a real global
@@ -401,96 +420,111 @@ function SearchPageInner() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             InputProps={{
-              startAdornment: <SearchIcon color="action" sx={{ marginInlineEnd: 1 }} />
+              startAdornment: <SearchIcon color="action" sx={{ marginInlineEnd: 1 }} />,
+              sx: { borderRadius: 999, bgcolor: "background.paper", height: 46 },
             }}
             fullWidth
             size="small"
           />
 
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button
-              variant={networkGames ? "contained" : "outlined"}
-              size="small"
-              onClick={() => setNetworkGames(!networkGames)}
-              startIcon={<GroupIcon />}
-              sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
-            >
-              רשת המכרים
-            </Button>
-
-            <Button
-              variant={showEmptyFields ? "contained" : "outlined"}
-              size="small"
-              onClick={() => setShowEmptyFields(!showEmptyFields)}
-              startIcon={<MapIcon />}
-              sx={{ borderRadius: 8, textTransform: "none", fontWeight: 600 }}
-            >
-              מגרשים פנויים
-            </Button>
-
+          <Stack direction="row" spacing={1} alignItems="flex-start">
+            <Box id="search-city-select" sx={{ flex: 1, minWidth: 0 }}>
+              <CityPicker
+                ref={cityPickerRef}
+                value={selectedCity}
+                onChange={(city) => {
+                  setSelectedCity(city);
+                  if (city && CITY_COORDS[city]) {
+                    setTargetLocation(CITY_COORDS[city]);
+                  }
+                }}
+                includeAllCitiesOption
+                allowGeolocation
+                detectOnMount={!(selectedCity && CITY_COORDS[selectedCity])}
+                onLocationDetected={(coords) => {
+                  const tuple = asLatLngTuple(coords);
+                  if (!tuple) return;
+                  setTargetLocation(tuple);
+                  setUserLocation(tuple);
+                }}
+                onLocatingChange={setLocating}
+                fullWidth
+              />
+            </Box>
+            <Badge color="primary" badgeContent={extraFilterCount} overlap="rectangular" invisible={extraFilterCount === 0}>
+              <Button
+                variant={filtersOpen ? "contained" : "outlined"}
+                color={filtersOpen ? "primary" : "inherit"}
+                onClick={() => setFiltersOpen((v) => !v)}
+                startIcon={<TuneRoundedIcon />}
+                aria-expanded={filtersOpen}
+                aria-controls="search-more-filters"
+                sx={{
+                  // Matches the CityPicker field height/radius beside it
+                  height: 48,
+                  flexShrink: 0,
+                  borderRadius: "12px",
+                  ...(!filtersOpen && { borderColor: "divider", color: "text.primary" }),
+                }}
+              >
+                סינון
+              </Button>
+            </Badge>
           </Stack>
 
-          <Box id="search-city-select">
-            <CityPicker
-              ref={cityPickerRef}
-              value={selectedCity}
-              onChange={(city) => {
-                setSelectedCity(city);
-                if (city && CITY_COORDS[city]) {
-                  setTargetLocation(CITY_COORDS[city]);
-                }
-              }}
-              includeAllCitiesOption
-              allowGeolocation
-              detectOnMount={!(selectedCity && CITY_COORDS[selectedCity])}
-              onLocationDetected={(coords) => {
-                const tuple = asLatLngTuple(coords);
-                if (!tuple) return;
-                setTargetLocation(tuple);
-                setUserLocation(tuple);
-              }}
-              onLocatingChange={setLocating}
-              fullWidth
-            />
-          </Box>
-
-          {/* Date Picker Section with "השבוע הקרוב" Chip */}
-          <Stack direction="row" spacing={1} alignItems="center" width="100%">
-            <Chip
-              label="השבוע הקרוב"
-              onClick={() => setSelectedDate("")}
-              color={!selectedDate ? "primary" : "default"}
-              variant={!selectedDate ? "filled" : "outlined"}
-              sx={{ fontWeight: 600, height: 40, px: 1 }}
-            />
-            <HebrewDateInput value={selectedDate} onChange={setSelectedDate} />
-          </Stack>
-        </Stack>
-
-        {/* Sport Filters */}
-        <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: 1, mb: 2 }}>
-          <Chip
-            label="כל הענפים"
-            onClick={() => setSelectedSport(null)}
-            color={!selectedSport ? "primary" : "default"}
-            variant={!selectedSport ? "filled" : "outlined"}
-            sx={{ fontWeight: 600 }}
+          <SportFilterBar
+            value={(selectedSport as SportFilter | null) ?? "ALL"}
+            onChange={(v) => setSelectedSport(v === "ALL" ? null : v)}
           />
-          {SPORTS.map(s => (
-            <Chip
-              key={s.id}
-              label={s.label}
-              onClick={() => setSelectedSport(s.id)}
-              color={selectedSport === s.id ? "primary" : "default"}
-              variant={selectedSport === s.id ? "filled" : "outlined"}
-              sx={{ fontWeight: 600 }}
-            />
-          ))}
-        </Stack>
 
-        <Typography variant="subtitle2" color="text.secondary" mb={2} minHeight="1.5em">
-          {loading || locating ? null : `${games.length} משחקים נמצאו`}
-        </Typography>
+          <Collapse in={filtersOpen} unmountOnExit={false}>
+            <Box
+              id="search-more-filters"
+              sx={{
+                p: 1.5,
+                borderRadius: 4,
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: "background.paper",
+              }}
+            >
+              <Typography variant="caption" color="text.secondary" fontWeight={700} component="div" mb={1}>
+                מתי
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center" width="100%" mb={1.75}>
+                <Chip
+                  label="השבוע הקרוב"
+                  onClick={() => setSelectedDate("")}
+                  color={!selectedDate ? "primary" : "default"}
+                  variant={!selectedDate ? "filled" : "outlined"}
+                  sx={{ fontWeight: 700, height: 40, px: 1, flexShrink: 0 }}
+                />
+                <HebrewDateInput value={selectedDate} onChange={setSelectedDate} />
+              </Stack>
+              <Typography variant="caption" color="text.secondary" fontWeight={700} component="div" mb={1}>
+                הצג
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Chip
+                  icon={<GroupIcon />}
+                  label="רשת המכרים"
+                  onClick={() => setNetworkGames(!networkGames)}
+                  color={networkGames ? "primary" : "default"}
+                  variant={networkGames ? "filled" : "outlined"}
+                  sx={{ fontWeight: 700, height: 36 }}
+                />
+                <Chip
+                  icon={<MapIcon />}
+                  label="מגרשים פנויים על המפה"
+                  onClick={() => setShowEmptyFields(!showEmptyFields)}
+                  color={showEmptyFields ? "primary" : "default"}
+                  variant={showEmptyFields ? "filled" : "outlined"}
+                  sx={{ fontWeight: 700, height: 36 }}
+                />
+              </Stack>
+            </Box>
+          </Collapse>
+        </Stack>
 
         {loading && games.length === 0 ? (
           <Box display="flex" justifyContent="center" p={4}>
@@ -608,37 +642,31 @@ function SearchEmptyState({
 }) {
   if (noLocation) {
     return (
-      <Box textAlign="center" p={4} bgcolor="action.hover" borderRadius={2}>
-        <Typography color="text.secondary" mb={2}>
-          הפעל מיקום או בחר עיר כדי לראות משחקים באזורך
-        </Typography>
-        <Button variant="contained" size="small" onClick={onPickCity}>
-          בחר עיר
-        </Button>
-      </Box>
+      <EmptyState
+        icon={<LocationOffRoundedIcon />}
+        title="איפה משחקים?"
+        description="הפעילו מיקום או בחרו עיר כדי לראות משחקים באזור שלכם."
+        actions={<Button variant="contained" size="small" onClick={onPickCity}>בחר עיר</Button>}
+      />
     );
   }
   if (filtersActive) {
     return (
-      <Box textAlign="center" p={4} bgcolor="action.hover" borderRadius={2}>
-        <Typography color="text.secondary" mb={2}>
-          לא נמצאו תוצאות לפילטרים שנבחרו
-        </Typography>
-        <Button variant="outlined" size="small" onClick={onClearFilters}>
-          נקה פילטרים
-        </Button>
-      </Box>
+      <EmptyState
+        icon={<FilterAltOffRoundedIcon />}
+        title="אין תוצאות לסינון הזה"
+        description="נסו להסיר חלק מהמסננים או לבחור תאריך אחר."
+        actions={<Button variant="outlined" size="small" onClick={onClearFilters}>נקה סינון</Button>}
+      />
     );
   }
   return (
-    <Box textAlign="center" p={4} bgcolor="action.hover" borderRadius={2}>
-      <Typography color="text.secondary" mb={2}>
-        לא נמצאו משחקים השבוע באזור זה — נסה להרחיב טווח חיפוש או ליצור משחק חדש
-      </Typography>
-      <Button component={Link} href="/games/new" variant="outlined" size="small">
-        יצירת משחק
-      </Button>
-    </Box>
+    <EmptyState
+      icon={<SportsRoundedIcon />}
+      title="השבוע עוד אין משחקים באזור"
+      description="היו הראשונים — פתחו משחק והשחקנים כבר יגיעו."
+      actions={<Button component={Link} href="/games/new" variant="contained" size="small">פתח משחק</Button>}
+    />
   );
 }
 

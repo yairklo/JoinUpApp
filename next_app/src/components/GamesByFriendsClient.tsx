@@ -1,9 +1,9 @@
 "use client";
 
-import { useUser, SignInButton } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
 
@@ -17,6 +17,8 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import { buildSearchHref } from "@/utils/searchHref";
+import EmptyState from "@/components/ui/EmptyState";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 
 export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFilter?: SportFilter }) {
     const { games, loading, error, refetch } = useGamesByFriends();
@@ -49,21 +51,26 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
     }
 
     if (filteredGames.length === 0) {
+        // Signed-out visitors already get one consolidated sign-in card in "המשחקים שלי";
+        // repeating a sign-in prompt per rail just stacks dead ends down the feed.
+        if (!user) return null;
         return (
-            <GamesHorizontalList title="משחקים עם חברים">
-                <Box p={2} width="100%">
-                    <Typography variant="body2" color="text.secondary">
-                        {user
-                            ? (sportFilter !== "ALL"
-                                ? `לא נמצאו משחקי ${sportLabel(sportFilter)} עם חברים`
-                                : "עדיין אין משחקים עם חברים כרגע — הזמינו חברים או מצאו משחק חדש")
-                            : "התחבר כדי לראות משחקים עם חברים"}
-                    </Typography>
-                    {!user && (
-                        <SignInButton mode="modal">
-                            <Button size="small" variant="outlined" sx={{ mt: 1 }}>התחבר</Button>
-                        </SignInButton>
-                    )}
+            <GamesHorizontalList title="משחקים עם חברים" staticContent>
+                <Box width="100%">
+                    <EmptyState
+                        compact
+                        accent="#6366f1"
+                        icon={<GroupsRoundedIcon />}
+                        title={
+                            sportFilter !== "ALL"
+                                ? `אין כרגע משחקי ${sportLabel(sportFilter)} עם חברים`
+                                : "החברים שלך עוד לא קבעו משחק"
+                        }
+                        description="הזמינו חברים ל-JoinUp או פתחו משחק ושתפו אותו."
+                        actions={
+                            <Button component={Link} href="/games/new" size="small" variant="outlined">פתח משחק</Button>
+                        }
+                    />
                 </Box>
             </GamesHorizontalList>
         );

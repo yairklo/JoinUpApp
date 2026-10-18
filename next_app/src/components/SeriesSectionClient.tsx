@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAuth, useUser, SignInButton } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
@@ -16,6 +15,8 @@ import InlineErrorRow from "@/components/InlineErrorRow";
 import { getLoadErrorMessage } from "@/utils/apiError";
 import { useSeriesCreatedListener, useSeriesDeletedListener, SeriesPayload } from "@/context/GameUpdateContext";
 import { SportFilter, sportLabel } from "@/utils/sports";
+import EmptyState from "@/components/ui/EmptyState";
+import EventRepeatRoundedIcon from "@mui/icons-material/EventRepeatRounded";
 
 type Series = {
     id: string;
@@ -139,21 +140,17 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
     const joinableSeries = filteredSeries.filter((s) => !s.isSubscribed);
 
     if (mySeries.length === 0 && joinableSeries.length === 0) {
+        if (!isSignedIn) return null;
         return (
-            <GamesHorizontalList title="קבוצות פעילות">
-                <Box p={2} width="100%">
-                    <Typography variant="body2" color="text.secondary">
-                        {isSignedIn
-                            ? (sportFilter !== "ALL"
-                                ? `לא נמצאו קבוצות ${sportLabel(sportFilter)}`
-                                : "אין עדיין קבוצות פעילות")
-                            : "התחבר כדי לשחק עם חברים בקבוצה קבועה"}
-                    </Typography>
-                    {!isSignedIn && (
-                        <SignInButton mode="modal">
-                            <Button size="small" variant="outlined" sx={{ mt: 1 }}>התחבר</Button>
-                        </SignInButton>
-                    )}
+            <GamesHorizontalList title="קבוצות פעילות" staticContent>
+                <Box width="100%">
+                    <EmptyState
+                        compact
+                        accent="#6366f1"
+                        icon={<EventRepeatRoundedIcon />}
+                        title={sportFilter !== "ALL" ? `אין קבוצות ${sportLabel(sportFilter)} פעילות` : "אין עדיין קבוצות פעילות"}
+                        description="קבוצה קבועה = אותו משחק, כל שבוע, בלי לתאם מחדש."
+                    />
                 </Box>
             </GamesHorizontalList>
         );

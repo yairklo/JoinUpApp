@@ -47,3 +47,26 @@ export function formatHebrewDateShort(value?: string | null): string {
 export const HEBREW_DATE_INPUT_PROPS = {
   lang: "he-IL",
 } as const;
+
+/**
+ * Friendly card date: "היום" / "מחר" for the next two days, otherwise a short weekday plus
+ * day.month ("יום ה׳ · 23.10"). Accepts ISO or DD/MM/YYYY like the other helpers; returns
+ * the raw value when it can't be parsed. `todayIso` is injectable for tests.
+ */
+export function formatHebrewDateRelative(value?: string | null, todayIso?: string): string {
+  const normalized = toIsoDateInput(value);
+  if (!normalized) return value || "";
+  const parsed = parseNoon(normalized);
+  if (!parsed) return value || "";
+  const today =
+    todayIso ||
+    new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+  const todayDate = parseNoon(today);
+  if (todayDate) {
+    const diffDays = Math.round((parsed.getTime() - todayDate.getTime()) / 86_400_000);
+    if (diffDays === 0) return "היום";
+    if (diffDays === 1) return "מחר";
+  }
+  const weekday = parsed.toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem", weekday: "short" });
+  return `${weekday} · ${parsed.getDate()}.${parsed.getMonth() + 1}`;
+}

@@ -19,7 +19,8 @@ import IconButton from "@mui/material/IconButton";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Game } from "@/types/game";
-import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
+import { SPORT_MAPPING } from "@/utils/sports";
+import SportIcon from "@/components/ui/SportIcon";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import { isValidLatLng } from "@/utils/geo";
 
@@ -74,7 +75,7 @@ const getSportVisual = (sport?: string) => {
   const key = normalizeSportKey(sport);
   return {
     color: key ? SPORT_COLORS[key] : "#2563eb",
-    emoji: key ? SPORT_EMOJI[key] : "🏅",
+    key,
     label: key ? SPORT_MAPPING[key] : sport || "משחק",
   };
 };
@@ -593,7 +594,19 @@ function ClusteredGameMarkers({
                   "&:hover": { bgcolor: "action.hover", transform: "translateY(-1px)" },
                 }}
               >
-                <Box sx={{ fontSize: 20, lineHeight: 1, flexShrink: 0 }}>{visual.emoji}</Box>
+                <Box
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "10px",
+                    display: "grid",
+                    placeItems: "center",
+                    flexShrink: 0,
+                    bgcolor: `${visual.color}1f`,
+                  }}
+                >
+                  <SportIcon sport={visual.key} sx={{ fontSize: 19, color: visual.color }} />
+                </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
                     {visual.label}
