@@ -4,6 +4,7 @@ import { useGamesByDate } from '@/hooks/useGamesByDate';
 import { useRouter } from 'expo-router';
 import { Game } from '@/types/game';
 import { useUser } from '@clerk/clerk-expo';
+import { useMyName } from '@/hooks/useMyAvatar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GameCard from '@/components/GameCard';
 import JoinGameButton from '@/components/JoinGameButton';
@@ -27,6 +28,7 @@ export default function HomeScreen() {
   const today = new Date().toISOString().split('T')[0];
   const { games, loading, refreshGames, selectedDate, setSelectedDate, error } = useGamesByDate(today);
   const { user } = useUser();
+  const myFirstName = useMyName().split(' ')[0];
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSport, setSelectedSport] = useState('ALL');
@@ -101,7 +103,7 @@ export default function HomeScreen() {
                 {t('home.welcomeBack')}
               </Text>
               <Text className="text-2xl font-black text-white mb-1">
-                {t('home.greeting', { name: user?.firstName || t('home.friend') })}
+                {t('home.greeting', { name: myFirstName || t('home.friend') })}
               </Text>
               <Text className="text-brand-pale/90 text-sm leading-5">
                 {t('home.tagline')}

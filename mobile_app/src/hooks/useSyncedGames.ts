@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/clerk-expo";
+import { useMyName } from "@/hooks/useMyAvatar";
 import {
     useGameUpdateListener,
     useGameCreatedListener,
@@ -16,6 +17,7 @@ function sortByStart(games: Game[]) {
 export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (game: Game) => boolean) {
     const [games, setGames] = useState<Game[]>(initialGames);
     const { user } = useUser();
+    const myName = useMyName();
     const myId = user?.id;
 
     const predicateRef = useRef(filterPredicate);
@@ -94,7 +96,7 @@ export function useSyncedGames(initialGames: Game[] = [], filterPredicate?: (gam
                     );
                 }
 
-                const name = userId === myId ? user?.fullName || "אני" : "משתמש";
+                const name = userId === myId ? myName || "אני" : "משתמש";
 
                 return prev.map((game) => {
                     if (game.id !== gameId) return game;
