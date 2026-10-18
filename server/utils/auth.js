@@ -2,6 +2,8 @@ const { requireAuth } = require('@clerk/express');
 const { createClerkClient } = require('@clerk/backend');
 const { LRUCache } = require('lru-cache');
 const { resolveIsAdmin, resolveIsBanned } = require('./admin');
+const { getAgeGateStatus, AGE_GATE_STATUS } = require('../shared/ageGate');
+const { isAgeGateEnforced, isAgeGateExempt } = require('./ageGatePolicy');
 
 const clerkClient = createClerkClient({
   secretKey: process.env.CLERK_SECRET_KEY,
@@ -28,26 +30,39 @@ function getClerkUserCached(userId) {
 
 function invalidateClerkUser(userId) {
   clerkUserCache.delete(userId);
-  deletedAccountCache.delete(userId);
+  accountStateCache.delete(userId);
+}
+
+/** Drop the cached deleted/age-gate state, e.g. right after the user completes the age gate. */
+function invalidateAccountState(userId) {
+  accountStateCache.delete(userId);
 }
 
 // An account the user deleted keeps an anonymous tombstone row. If Clerk deletion failed part-way
 // the person can still hold a valid session, so every authenticated request is checked against
 // User.deletedAt (cached briefly; a DB hiccup fails open - this guards a stale session, not data).
-const deletedAccountCache = new LRUCache({ max: 5000, ttl: CLERK_USER_TTL_MS });
+// The same lookup also yields the age-gate status (shared/ageGate.js).
+const accountStateCache = new LRUCache({ max: 5000, ttl: CLERK_USER_TTL_MS });
 
-async function isAccountDeleted(userId) {
-  const cached = deletedAccountCache.get(userId);
+async function getAccountState(userId) {
+  const cached = accountStateCache.get(userId);
   if (cached !== undefined) return cached;
   try {
     const { prisma } = require('../lib/prisma');
-    const row = await prisma.user.findUnique({ where: { id: userId }, select: { deletedAt: true } });
-    const deleted = !!row?.deletedAt;
-    deletedAccountCache.set(userId, deleted);
-    return deleted;
+    const row = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { deletedAt: true, birthDate: true, termsAcceptedAt: true, termsVersion: true, guardianConsentAt: true },
+    });
+    const state = { deleted: !!row?.deletedAt, ageGateStatus: getAgeGateStatus(row) };
+    accountStateCache.set(userId, state);
+    return state;
   } catch (e) {
-    return false;
+    return { deleted: false, ageGateStatus: AGE_GATE_STATUS.OK };
   }
+}
+
+async function isAccountDeleted(userId) {
+  return (await getAccountState(userId)).deleted;
 }
 
 // DELETE /api/users/me stays reachable so a half-finished deletion can be retried.
@@ -108,8 +123,12 @@ const authenticateToken = (req, res, next) => {
     if (req.user.isBanned) {
       return res.status(403).json({ error: 'Account suspended' });
     }
-    if (!isAccountDeletionRetry(req) && (await isAccountDeleted(userId))) {
+    const state = await getAccountState(userId);
+    if (!isAccountDeletionRetry(req) && state.deleted) {
       return res.status(403).json({ error: 'Account deleted', code: 'ACCOUNT_DELETED' });
+    }
+    if (isAgeGateEnforced() && state.ageGateStatus !== AGE_GATE_STATUS.OK && !isAgeGateExempt(req)) {
+      return res.status(403).json({ error: 'Age verification required', code: 'AGE_GATE_REQUIRED', status: state.ageGateStatus });
     }
     next();
   });
@@ -159,5 +178,7 @@ module.exports = {
   invalidateClerkUser,
   clearClerkUserCache,
   isAccountDeleted,
+  getAccountState,
+  invalidateAccountState,
   clerkClient // Exported for use in socket middleware
 };

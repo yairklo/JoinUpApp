@@ -1,3 +1,4 @@
+import type { AgeGateInfo } from '@joinup/shared/ageGate';
 import { apiClient, uploadMultipart } from './client';
 import type { Field, FieldFlagReason, PickedImage } from './fields';
 
@@ -74,6 +75,13 @@ export interface CurrentUser {
     email: string | null;
     city: string | null;
     isAdmin: boolean;
+    ageGate?: AgeGateInfo;
+}
+
+export interface AgeGateSubmission {
+    birthDate?: string; // YYYY-MM-DD
+    acceptTerms: boolean;
+    guardianConsent?: boolean;
 }
 
 export interface AdminFieldUser {
@@ -137,6 +145,10 @@ export const usersApi = {
 
     getMe: (token: string) => {
         return apiClient<CurrentUser>('/api/users/me', { token, cache: 'no-store' });
+    },
+
+    submitAgeGate: (body: AgeGateSubmission, token: string) => {
+        return apiClient<{ ageGate: AgeGateInfo }>('/api/users/me/age-gate', { method: 'POST', data: body, token });
     },
 
     getNotificationCounters: (token: string) => {

@@ -714,10 +714,11 @@ export default function ProfilePage() {
                           value={form.birthDate}
                           onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
                           size="small"
+                          disabled={!!profile.birthDate}
                           InputLabelProps={{ shrink: true }}
                           slotProps={{ htmlInput: { max: todayStr, lang: "he-IL" } }}
                           error={!!birthDateError}
-                          helperText={birthDateError}
+                          helperText={birthDateError || (profile.birthDate ? "לשינוי תאריך הלידה יש לפנות לתמיכה" : "")}
                         />
                       </Grid>
                       <Grid size={12}>

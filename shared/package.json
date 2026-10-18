@@ -39,6 +39,14 @@
     "./notificationPrefs": {
       "types": "./notificationPrefs.d.ts",
       "default": "./notificationPrefs.js"
+    },
+    "./ageGate": {
+      "types": "./ageGate.d.ts",
+      "default": "./ageGate.js"
+    },
+    "./legal": {
+      "types": "./legal.d.ts",
+      "default": "./legal.js"
     }
   },
   "devDependencies": {

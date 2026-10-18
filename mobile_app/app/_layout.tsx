@@ -25,6 +25,7 @@ import { GameUpdateProvider } from "@/context/GameUpdateContext";
 import { I18nextProvider, useTranslation } from 'react-i18next';
 import i18n, { initI18n } from "@/i18n";
 import { SocketManager } from "@/services/socketManager";
+import AgeGate from "@/components/AgeGate";
 import { ColorModeProvider, useColorMode } from "@/theme/ColorModeContext";
 import "../global.css"; // NativeWind
 
@@ -121,6 +122,7 @@ function RootLayoutInner() {
                   <NotificationCountersProvider>
                     <GameUpdateProvider>
                       <Stack screenOptions={{ headerShown: false }} />
+                      <AgeGate />
                     </GameUpdateProvider>
                   </NotificationCountersProvider>
                 </NotificationProvider>
