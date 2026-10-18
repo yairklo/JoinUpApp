@@ -9,16 +9,22 @@ const { MAX_IMAGE_FILE_SIZE: MAX_FILE_SIZE, MIME_EXTENSIONS } = require('../shar
 const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 
 // Container disks are ephemeral (wiped on every deploy/restart), so in production images go to
-// Cloudinary. Enabled when CLOUDINARY_URL (cloudinary://<key>:<secret>@<cloud>) is set; without
-// it (local dev, tests) we fall back to local disk under server/uploads.
-// A malformed value (stray quotes, "CLOUDINARY_URL=" prefix, spaces) would make the SDK throw an
-// uncaught exception, so validate the shape up front and fall back to disk with a warning.
+// Cloudinary, enabled by CLOUDINARY_URL (cloudinary://<key>:<secret>@<cloud>).
+// No silent fallback: a missing or malformed CLOUDINARY_URL throws at require time (i.e. the server
+// refuses to boot) so a misconfigured deploy fails loudly instead of quietly writing to the
+// ephemeral container disk. Local disk is only allowed for tests/dev, or when explicitly opted in
+// with ALLOW_DISK_UPLOADS=true.
 const CLOUDINARY_URL_RE = /^cloudinary:\/\/[^:\s]+:[^@\s]+@[^\s/]+$/;
-const cloudinaryConfigured = CLOUDINARY_URL_RE.test(process.env.CLOUDINARY_URL || '');
-if (process.env.CLOUDINARY_URL && !cloudinaryConfigured) {
-  console.warn('[uploads] CLOUDINARY_URL is set but malformed (expected cloudinary://<key>:<secret>@<cloud_name>, no quotes or spaces); falling back to local disk');
+const rawCloudinaryUrl = process.env.CLOUDINARY_URL;
+const diskAllowed = ['test', 'development'].includes(process.env.NODE_ENV)
+  || process.env.ALLOW_DISK_UPLOADS === 'true';
+if (rawCloudinaryUrl && !CLOUDINARY_URL_RE.test(rawCloudinaryUrl)) {
+  throw new Error('[uploads] CLOUDINARY_URL is malformed (expected cloudinary://<key>:<secret>@<cloud_name>, no quotes, spaces or "CLOUDINARY_URL=" prefix)');
 }
-const useCloudinary = () => cloudinaryConfigured;
+if (!rawCloudinaryUrl && !diskAllowed) {
+  throw new Error('[uploads] CLOUDINARY_URL is not set; refusing to store uploads on local disk (set ALLOW_DISK_UPLOADS=true to override for local dev)');
+}
+const useCloudinary = () => Boolean(rawCloudinaryUrl);
 let cloudinaryClient;
 function getCloudinary() {
   if (!cloudinaryClient) cloudinaryClient = require('cloudinary').v2;
