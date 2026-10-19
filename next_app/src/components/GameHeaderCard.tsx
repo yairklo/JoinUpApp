@@ -49,6 +49,7 @@ export default function GameHeaderCard({
   maxPlayers,
   durationHours,
   sport,
+  coverImage,
   teamSize,
   price,
   children,
@@ -66,6 +67,8 @@ export default function GameHeaderCard({
   maxPlayers: number;
   durationHours?: number;
   sport?: string;
+  /** Field photo used as the card cover (under a sport-tinted wash) when set. */
+  coverImage?: string | null;
   teamSize?: number | null;
   price?: number | null;
   children?: React.ReactNode;
@@ -143,7 +146,7 @@ export default function GameHeaderCard({
         },
       }}
     >
-      <SportCover sport={sport} height={fullWidth ? 156 : 128}>
+      <SportCover sport={sport} image={coverImage} height={fullWidth ? 156 : 128}>
         <Box
           sx={{
             position: "absolute",

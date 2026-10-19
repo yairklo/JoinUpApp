@@ -46,6 +46,7 @@ export type Game = {
     fieldId: string;
     fieldName: string;
     fieldLocation: string;
+    fieldImage?: string | null;
     city?: string | null;
     start?: string;
     date: string;
