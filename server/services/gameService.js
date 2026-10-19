@@ -159,6 +159,8 @@ function mapGameForClient(game, viewerId) {
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
     fieldImage: game.field?.image || null,
+    imageUrl: game.imageUrl || null,
+    seriesImageUrl: game.series?.imageUrl || null,
     isFriendsOnly: !!game.isFriendsOnly,
     friendsOnlyUntil: game.friendsOnlyUntil ? new Date(game.friendsOnlyUntil).toISOString() : null,
     joinPolicy: game.joinPolicy || 'INSTANT',
@@ -219,6 +221,8 @@ const SEARCH_GAME_SELECT = {
   maxPlayers: true,
   seriesId: true,
   fieldId: true,
+  imageUrl: true,
+  series: { select: { imageUrl: true } },
   customLat: true,
   customLng: true,
   customLocation: true,
@@ -265,6 +269,8 @@ function mapGameForSearchClient(game, viewerId) {
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
     fieldImage: game.field?.image || null,
+    imageUrl: game.imageUrl || null,
+    seriesImageUrl: game.series?.imageUrl || null,
     fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
     fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
     customLat: typeof game.customLat === 'number' ? game.customLat : null,
@@ -605,6 +611,7 @@ function notifyRequesterOfDecision(game, requesterId, approved, io) {
 
 const GAME_CREATE_INCLUDE = {
   field: true,
+  series: { select: { imageUrl: true } },
   participants: { include: { user: true } },
   roles: { include: { user: true } },
   teams: true,
@@ -1272,6 +1279,7 @@ async function searchGames(queryParams, viewerId, { dedupe = true } = {}) {
 
 const GAME_FULL_INCLUDE = {
   field: true,
+  series: { select: { imageUrl: true } },
   participants: { include: { user: true } },
   roles: { include: { user: true } },
   teams: true,
@@ -1279,6 +1287,7 @@ const GAME_FULL_INCLUDE = {
 
 const GAME_DETAIL_INCLUDE = {
   field: true,
+  series: { select: { imageUrl: true } },
   participants: { include: { user: true, team: true } },
   roles: { include: { user: true } },
   teams: true,

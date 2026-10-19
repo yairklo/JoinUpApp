@@ -40,6 +40,7 @@ export default function SeriesHeaderCard({
     dayOfWeek,
     subscriberCount,
     sport,
+    coverImage,
     children,
     isSubscribed,
     fullWidth = false,
@@ -51,6 +52,8 @@ export default function SeriesHeaderCard({
     dayOfWeek?: number | null;
     subscriberCount: number;
     sport?: string;
+    /** Group photo (or the field's as fallback), shown under a sport-tinted wash. */
+    coverImage?: string | null;
     children?: React.ReactNode;
     isSubscribed?: boolean;
     fullWidth?: boolean;
@@ -106,7 +109,7 @@ export default function SeriesHeaderCard({
             }}
         >
             <Box sx={{ position: "relative", overflow: "hidden", flexShrink: 0 }}>
-                <SportCover sport={sport} height={132} />
+                <SportCover sport={sport} image={coverImage} height={132} />
 
                 <Box
                     sx={{

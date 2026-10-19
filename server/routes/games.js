@@ -27,6 +27,11 @@ const gameTeamsRouter = require('./gameTeams');
 const gameRolesRouter = require('./gameRoles');
 const gamePickSessionRouter = require('./gamePickSession');
 
+const { prisma } = require('../lib/prisma');
+const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
+
+const gameImageUpload = createImageUpload('games');
+
 const router = express.Router();
 
 function handleRouteError(res, error, fallbackMessage) {
@@ -187,6 +192,44 @@ router.post('/:id/cancel', authenticateToken, async (req, res) => {
     res.json(await cancelGame(req.params.id, req.user.id, !!req.user?.isAdmin, req.io));
   } catch (error) {
     handleRouteError(res, error, 'Failed to cancel game');
+  }
+});
+
+// Upload / remove a game's own cover photo (organizer or admin). Cards prefer this over the
+// series image and the field photo.
+async function loadGameForImageEdit(req, res) {
+  const game = await prisma.game.findUnique({ where: { id: req.params.id }, select: { id: true, organizerId: true, imageUrl: true } });
+  if (!game) { res.status(404).json({ error: 'Game not found' }); return null; }
+  if (game.organizerId !== req.user.id && !req.user?.isAdmin) {
+    res.status(403).json({ error: 'Only organizer or admin can change the game image' });
+    return null;
+  }
+  return game;
+}
+
+router.post('/:id/image', authenticateToken, handleSingleUpload(gameImageUpload, 'image'), async (req, res) => {
+  try {
+    const game = await loadGameForImageEdit(req, res);
+    if (!game) return;
+    if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+    const imageUrl = absoluteUrlFor(req, 'games', req.file.filename);
+    await prisma.game.update({ where: { id: game.id }, data: { imageUrl } });
+    if (game.imageUrl) deleteUploadedFile(game.imageUrl);
+    res.json({ imageUrl });
+  } catch (error) {
+    handleRouteError(res, error, 'Failed to upload game image');
+  }
+});
+
+router.delete('/:id/image', authenticateToken, async (req, res) => {
+  try {
+    const game = await loadGameForImageEdit(req, res);
+    if (!game) return;
+    await prisma.game.update({ where: { id: game.id }, data: { imageUrl: null } });
+    if (game.imageUrl) deleteUploadedFile(game.imageUrl);
+    res.json({ imageUrl: null });
+  } catch (error) {
+    handleRouteError(res, error, 'Failed to remove game image');
   }
 });
 

@@ -30,6 +30,7 @@ import { useGameEditor, GameEditorProps } from "@/hooks/useGameEditor";
 import type { FieldOption } from "@/hooks/useGameCreator";
 import { formatHebrewDate } from "@/utils/hebrewDate";
 import { HebrewDateField, HebrewTimeField } from "@/components/HebrewDateTimeField";
+import ImageUploadField from "@/components/ImageUploadField";
 
 export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
   value,
@@ -164,6 +165,17 @@ export default function GameDetailsEditor(props: ComponentProps) {
                     )}
                   />
                 )}
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <ImageUploadField
+                  imageUrl={state.imageUrl}
+                  name={state.title || "משחק"}
+                  label="העלה תמונת משחק"
+                  onUpload={actions.uploadImage}
+                  onUploaded={actions.handleImageUploaded}
+                  onRemove={actions.removeImage}
+                  onRemoved={actions.handleImageRemoved}
+                />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <TextField

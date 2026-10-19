@@ -140,6 +140,13 @@ router.get('/active', attachOptionalUser, async (req, res) => {
       select: { id: true, name: true, imageUrl: true }
     });
 
+    // GameSeries.fieldId has no relation, so resolve field photos in one query for the card fallback.
+    const fieldIds = [...new Set(seriesList.map(s => s.fieldId).filter(Boolean))];
+    const fields = fieldIds.length
+      ? await prisma.field.findMany({ where: { id: { in: fieldIds } }, select: { id: true, image: true } })
+      : [];
+    const fieldImageById = new Map(fields.map(f => [f.id, f.image]));
+
     const userId = req.user?.id;
     const results = seriesList.map(s => {
       const org = organizers.find(u => u.id === s.organizerId);
@@ -150,6 +157,8 @@ router.get('/active', attachOptionalUser, async (req, res) => {
         name: s.title || `${s.fieldName} • ${s.time}`,
         fieldName: s.fieldName,
         fieldLocation: s.fieldLocation,
+        imageUrl: s.imageUrl || null,
+        fieldImage: (s.fieldId && fieldImageById.get(s.fieldId)) || null,
         time: s.time,
         dayOfWeek: s.dayOfWeek,
         type: s.type,

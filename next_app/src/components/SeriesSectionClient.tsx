@@ -26,6 +26,8 @@ type Series = {
     dayOfWeek?: number;
     subscriberCount: number;
     sport?: string;
+    imageUrl?: string | null;
+    fieldImage?: string | null;
     isSubscribed?: boolean;
 };
 
@@ -165,6 +167,7 @@ export default function SeriesSectionClient({ sportFilter = "ALL" }: { sportFilt
             dayOfWeek={s.dayOfWeek}
             subscriberCount={s.subscriberCount}
             sport={s.sport}
+            coverImage={s.imageUrl || s.fieldImage}
             isSubscribed={s.isSubscribed}
             href={`/series/${s.id}`}
         />
