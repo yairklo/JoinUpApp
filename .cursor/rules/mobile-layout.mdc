@@ -1,0 +1,19 @@
+---
+description: React Native layout pitfalls for mobile_app cards/lists (equal heights, clipped buttons)
+globs: mobile_app/src/components/**/*.tsx,mobile_app/app/**/*.tsx
+alwaysApply: false
+---
+
+# Mobile layout rules (joinUp)
+
+- **Cards that sit side by side (horizontal ScrollView/FlatList) must have a height independent of
+  their content.** Any text with `numberOfLines={N}` must reserve `minHeight = N * lineHeight`;
+  otherwise a long title makes one card taller than its neighbours. `GameCard` reserves its title
+  lines (`titleLines`; carousels pass 1 and ellipsize) — keep that if you touch it, and do the same for any new card component.
+- **Never use `flex-1` / `flex: 1` on a child of an auto-height container** (card bodies, `children`
+  slots, `overflow-hidden` cards). In React Native `flex: 1` means `flexBasis: 0`, so the child can be
+  measured too short (depends on text wrapping, so it is intermittent) and its content is clipped by
+  `overflow-hidden` — this was the "Join button cut off" bug on the home date list. Use `w-full` /
+  natural height. `flex-1` is fine inside a `flex-row` for horizontal sharing.
+- When adding a new card variant, check it on a device with: a 1-line title, a very long title (3+
+  lines of text), and a long location string.

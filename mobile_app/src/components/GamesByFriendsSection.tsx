@@ -40,7 +40,7 @@ export default function GamesByFriendsSection({ sportFilter }: { sportFilter?: s
 
                     return (
                         <View key={game.id} className="w-72 mr-4">
-                            <GameCard game={game} isJoined={!!isJoined}>
+                            <GameCard titleLines={1} game={game} isJoined={!!isJoined}>
                                 <View className="flex-row justify-between items-center w-full">
                                     <View className="flex-1 mr-2">
                                         {isJoined ? (
