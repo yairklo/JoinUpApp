@@ -766,7 +766,11 @@
     "cancelSelection": "Cancel selection",
     "returnToBench": "Back to bench",
     "moveHint": "Pick another team to move",
-    "untitled": "Untitled"
+    "untitled": "Untitled",
+    "unsavedTitle": "Unsaved changes",
+    "unsavedBody": "Your team assignments aren't saved yet. Leave without saving?",
+    "keepEditing": "Keep editing",
+    "discardLeave": "Leave without saving"
   },
   "joined": "Joined",
   "full": "Full",
