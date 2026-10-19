@@ -999,5 +999,29 @@
     "deleteConfirm": "מחק את החשבון",
     "deleteFailedTitle": "מחיקת החשבון נכשלה",
     "deleteFailedBody": "בדקו את החיבור ונסו שוב."
+  },
+  "manage": {
+    "title": "הניהול שלי",
+    "seeAll": "הכל",
+    "allMine": "הקבוצות והמשחקים שלי",
+    "needsAttention": "דורש טיפול",
+    "attentionBanner": "{{count}} דברים מחכים לך",
+    "attentionPending": "{{count}} בקשות הצטרפות",
+    "attentionWaitlist": "רשימת המתנה ({{count}})",
+    "badgeGroup": "קבוצה",
+    "badgeGame": "משחק בודד",
+    "roleOrganizer": "מארגן",
+    "roleManager": "מנהל",
+    "registered": "{{count}}/{{max}} נרשמו",
+    "pending": "{{count}} ממתינים לאישור",
+    "waitlist": "{{count}} ברשימת המתנה",
+    "members": "{{count}} חברי קבוצה",
+    "noUpcoming": "אין משחק מתוכנן",
+    "openNextGame": "המשחק הבא",
+    "openGroup": "ניהול הקבוצה",
+    "openGame": "ניהול המשחק",
+    "loadFailed": "לא הצלחנו לטעון. משכו למטה כדי לנסות שוב.",
+    "emptyTitle": "אתם עדיין לא מנהלים כלום",
+    "emptyDesc": "צרו משחק או קבוצה והם יופיעו כאן."
   }
 }
