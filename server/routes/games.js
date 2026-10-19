@@ -21,11 +21,17 @@ const {
   getTodayCityGames,
   getGameById,
   getGameRatings,
+  loadGameForImageEdit,
 } = require('../services/gameService');
 const gameRosterRouter = require('./gameRoster');
 const gameTeamsRouter = require('./gameTeams');
 const gameRolesRouter = require('./gameRoles');
 const gamePickSessionRouter = require('./gamePickSession');
+
+const { prisma } = require('../lib/prisma');
+const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
+
+const gameImageUpload = createImageUpload('games');
 
 const router = express.Router();
 
@@ -187,6 +193,32 @@ router.post('/:id/cancel', authenticateToken, async (req, res) => {
     res.json(await cancelGame(req.params.id, req.user.id, !!req.user?.isAdmin, req.io));
   } catch (error) {
     handleRouteError(res, error, 'Failed to cancel game');
+  }
+});
+
+// Upload / remove a game's own cover photo (organizer, MANAGER+ role or admin). Cards prefer this
+// over the series image and the field photo.
+router.post('/:id/image', authenticateToken, handleSingleUpload(gameImageUpload, 'image'), async (req, res) => {
+  try {
+    const game = await loadGameForImageEdit(req.params.id, req.user.id, !!req.user?.isAdmin, { forUpload: true });
+    if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+    const imageUrl = absoluteUrlFor(req, 'games', req.file.filename);
+    await prisma.game.update({ where: { id: game.id }, data: { imageUrl } });
+    if (game.imageUrl) deleteUploadedFile(game.imageUrl);
+    res.json({ imageUrl });
+  } catch (error) {
+    handleRouteError(res, error, 'Failed to upload game image');
+  }
+});
+
+router.delete('/:id/image', authenticateToken, async (req, res) => {
+  try {
+    const game = await loadGameForImageEdit(req.params.id, req.user.id, !!req.user?.isAdmin);
+    await prisma.game.update({ where: { id: game.id }, data: { imageUrl: null } });
+    if (game.imageUrl) deleteUploadedFile(game.imageUrl);
+    res.json({ imageUrl: null });
+  } catch (error) {
+    handleRouteError(res, error, 'Failed to remove game image');
   }
 });
 

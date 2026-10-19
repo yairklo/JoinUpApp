@@ -159,6 +159,8 @@ function mapGameForClient(game, viewerId) {
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
     fieldImage: game.field?.image || null,
+    imageUrl: game.imageUrl || null,
+    ...(game.series ? { seriesImageUrl: game.series.imageUrl || null } : {}),
     isFriendsOnly: !!game.isFriendsOnly,
     friendsOnlyUntil: game.friendsOnlyUntil ? new Date(game.friendsOnlyUntil).toISOString() : null,
     joinPolicy: game.joinPolicy || 'INSTANT',
@@ -219,6 +221,8 @@ const SEARCH_GAME_SELECT = {
   maxPlayers: true,
   seriesId: true,
   fieldId: true,
+  imageUrl: true,
+  series: { select: { imageUrl: true } },
   customLat: true,
   customLng: true,
   customLocation: true,
@@ -238,6 +242,7 @@ const SEARCH_GAME_SELECT = {
       city: true,
       lat: true,
       lng: true,
+      image: true,
     },
   },
   participants: {
@@ -264,6 +269,8 @@ function mapGameForSearchClient(game, viewerId) {
     fieldName: game.field?.name || '',
     fieldLocation: game.field?.location || '',
     fieldImage: game.field?.image || null,
+    imageUrl: game.imageUrl || null,
+    ...(game.series ? { seriesImageUrl: game.series.imageUrl || null } : {}),
     fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
     fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
     customLat: typeof game.customLat === 'number' ? game.customLat : null,
@@ -604,6 +611,7 @@ function notifyRequesterOfDecision(game, requesterId, approved, io) {
 
 const GAME_CREATE_INCLUDE = {
   field: true,
+  series: { select: { imageUrl: true } },
   participants: { include: { user: true } },
   roles: { include: { user: true } },
   teams: true,
@@ -1271,6 +1279,7 @@ async function searchGames(queryParams, viewerId, { dedupe = true } = {}) {
 
 const GAME_FULL_INCLUDE = {
   field: true,
+  series: { select: { imageUrl: true } },
   participants: { include: { user: true } },
   roles: { include: { user: true } },
   teams: true,
@@ -1278,6 +1287,7 @@ const GAME_FULL_INCLUDE = {
 
 const GAME_DETAIL_INCLUDE = {
   field: true,
+  series: { select: { imageUrl: true } },
   participants: { include: { user: true, team: true } },
   roles: { include: { user: true } },
   teams: true,
@@ -1511,6 +1521,23 @@ async function resolveFieldUpdateFromBody(body) {
     ...(typeof customLng !== 'undefined' ? { customLng: Number.isFinite(lngNum) ? lngNum : null } : {}),
     ...(typeof customLocation !== 'undefined' ? { customLocation: customLocation || null } : {}),
   };
+}
+
+/**
+ * Permission gate for a game's cover photo: same audience as patchGame (organizer or a MANAGER+
+ * role) plus admins. Cancelled games can't gain a new photo, but their photo can still be removed.
+ */
+async function loadGameForImageEdit(gameId, userId, isAdmin, { forUpload = false } = {}) {
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+    select: { id: true, organizerId: true, imageUrl: true, status: true },
+  });
+  if (!game) throw httpError('Game not found', 404);
+  if (!isAdmin && game.organizerId !== userId && (await getRoleLevel(gameId, userId)) < ROLE_LEVEL.MANAGER) {
+    throw httpError('Not allowed', 403);
+  }
+  if (forUpload && game.status === 'CANCELLED') throw httpError('Game was cancelled', 400);
+  return game;
 }
 
 async function patchGame(gameId, body, userId, io) {
@@ -2056,6 +2083,7 @@ module.exports = {
   prisma,
   notificationService,
   mapGameForClient,
+  loadGameForImageEdit,
   SEARCH_GAME_SELECT,
   mapGameForSearchClient,
   deduplicateSeriesGames,

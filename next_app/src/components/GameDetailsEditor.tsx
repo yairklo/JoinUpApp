@@ -24,12 +24,14 @@ import Checkbox from "@mui/material/Checkbox";
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 
 import { SPORT_MAPPING } from "@/utils/sports";
 import { useGameEditor, GameEditorProps } from "@/hooks/useGameEditor";
 import type { FieldOption } from "@/hooks/useGameCreator";
 import { formatHebrewDate } from "@/utils/hebrewDate";
 import { HebrewDateField, HebrewTimeField } from "@/components/HebrewDateTimeField";
+import ImageUploadField from "@/components/ImageUploadField";
 
 export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
   value,
@@ -54,11 +56,12 @@ export default function GameDetailsEditor(props: ComponentProps) {
   return (
     <>
       <Button
-        variant="outlined"
-        size="small"
+        variant="contained"
+        disableElevation
         startIcon={<EditIcon />}
+        endIcon={<ChevronLeftRoundedIcon />}
         onClick={actions.handleOpen}
-        sx={{ mt: 2, borderRadius: 2 }}
+        sx={{ borderRadius: 3, py: 1.25, px: 2, fontWeight: 800, justifyContent: "space-between", "& .MuiButton-endIcon": { marginInlineStart: "auto" } }}
         fullWidth
       >
         ערוך פרטי משחק
@@ -164,6 +167,17 @@ export default function GameDetailsEditor(props: ComponentProps) {
                     )}
                   />
                 )}
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <ImageUploadField
+                  imageUrl={state.imageUrl}
+                  name={state.title || "משחק"}
+                  label="העלה תמונת משחק"
+                  onUpload={actions.uploadImage}
+                  onUploaded={actions.handleImageUploaded}
+                  onRemove={actions.removeImage}
+                  onRemoved={actions.handleImageRemoved}
+                />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <TextField

@@ -9,10 +9,13 @@ import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 
 // Icons
-import NavigationOutlinedIcon from "@mui/icons-material/NavigationOutlined";
-import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
+import NavigationRoundedIcon from "@mui/icons-material/NavigationRounded";
+import IosShareRoundedIcon from "@mui/icons-material/IosShareRounded";
+import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 
 export default function GameActions({
   gameId,
@@ -53,23 +56,60 @@ export default function GameActions({
   };
 
   return (
-    <Box component="section" dir="rtl" sx={{ mb: 2 }}>
+    <Card
+      component="section"
+      dir="rtl"
+      elevation={0}
+      sx={{ mb: 2, borderRadius: 5, border: "1px solid", borderColor: "divider", overflow: "hidden" }}
+    >
+      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ px: 2, py: 1.5, minWidth: 0 }}>
+        <Box
+          sx={(t) => ({
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            display: "grid",
+            placeItems: "center",
+            flexShrink: 0,
+            color: "primary.main",
+            bgcolor: alpha(t.palette.primary.main, 0.1),
+          })}
+        >
+          <PlaceRoundedIcon fontSize="small" />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="subtitle2" fontWeight={800} lineHeight={1.2}>
+            מיקום
+          </Typography>
+          {fieldName && (
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {fieldName}
+            </Typography>
+          )}
+        </Box>
+      </Stack>
+
       {isLoc && (
-        <Card sx={{ mb: 1.5, overflow: "hidden", borderRadius: 3 }}>
-          <GameLocationMap lat={lat as number} lng={lng as number} title={fieldName} height={220} />
-        </Card>
+        <Box sx={{ borderTop: "1px solid", borderColor: "divider" }}>
+          <GameLocationMap lat={lat as number} lng={lng as number} title={fieldName} height={200} />
+        </Box>
       )}
 
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ p: 1.5, borderTop: "1px solid", borderColor: "divider", "& > *": { flex: { xs: 1, sm: "0 0 auto" } } }}
+      >
         {isLoc && navHref && (
           <Button
             component="a"
-            variant="outlined"
-            size="small"
-            startIcon={<NavigationOutlinedIcon fontSize="small" />}
+            variant="contained"
+            disableElevation
+            startIcon={<NavigationRoundedIcon fontSize="small" />}
             href={navHref}
             target="_blank"
             rel="noreferrer"
+            sx={{ borderRadius: 999, fontWeight: 800, px: 2.5 }}
           >
             ניווט
           </Button>
@@ -77,9 +117,9 @@ export default function GameActions({
 
         <Button
           variant="outlined"
-          size="small"
-          startIcon={<ShareOutlinedIcon fontSize="small" />}
+          startIcon={<IosShareRoundedIcon fontSize="small" />}
           onClick={doShare}
+          sx={{ borderRadius: 999, fontWeight: 800, px: 2.5 }}
         >
           שיתוף
         </Button>
@@ -94,6 +134,6 @@ export default function GameActions({
         copyState={copyState}
         onCopy={() => copyLink(url)}
       />
-    </Box>
+    </Card>
   );
 }
