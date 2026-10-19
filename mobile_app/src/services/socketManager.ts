@@ -3,6 +3,8 @@ import { SOCKET_BASE } from './api/client';
 
 let socket: Socket | null = null;
 let isConnecting = false;
+let connectingSince = 0;
+let watchdog: ReturnType<typeof setInterval> | null = null;
 let lastErrorLogAt = 0;
 let consecutiveFailures = 0;
 let reconnectCooldownUntil = 0;
@@ -13,6 +15,31 @@ const TRANSIENT_ERRORS = new Set(['timeout', 'xhr poll error', 'websocket error'
 const MAX_RECONNECT_ATTEMPTS = 12;
 const COOLDOWN_AFTER_FAILURES_MS = 60_000;
 const COOLDOWN_FAILURE_THRESHOLD = 4;
+const WATCHDOG_INTERVAL_MS = 15_000;
+const STUCK_CONNECTING_MS = 50_000;
+
+/**
+ * After airplane mode / long offline the socket can sit in `isConnecting` forever, exhaust its
+ * reconnection attempts, or be in cooldown. This restarts the connection attempt regardless.
+ */
+function kickReconnect(ignoreCooldown: boolean) {
+  if (!socket || socket.connected) return;
+  if (isConnecting && Date.now() - connectingSince < STUCK_CONNECTING_MS) return;
+  if (!ignoreCooldown && isInCooldown()) return;
+  reconnectCooldownUntil = 0;
+  consecutiveFailures = 0;
+  socket.io.reconnection(true);
+  isConnecting = true;
+  connectingSince = Date.now();
+  void refreshAuthToken().then(() => {
+    if (socket && !socket.connected) socket.connect();
+  });
+}
+
+function startWatchdog() {
+  if (watchdog) return;
+  watchdog = setInterval(() => kickReconnect(false), WATCHDOG_INTERVAL_MS);
+}
 
 /**
  * Normalize base URL for Socket.IO:
@@ -185,6 +212,7 @@ export const SocketManager = {
       socket.auth = { token: authToken };
       if (!socket.connected && !isConnecting) {
         isConnecting = true;
+        connectingSince = Date.now();
         socket.connect();
       }
       return;
@@ -193,6 +221,7 @@ export const SocketManager = {
     if (isConnecting) return;
 
     isConnecting = true;
+    connectingSince = Date.now();
     console.log('[SocketManager] Creating socket →', handshakeLogLabel(url));
 
     const handshakeTimeout = isRemoteProductionHost() ? 45000 : 20000;
@@ -216,12 +245,16 @@ export const SocketManager = {
 
     attachCoreHandlers(socket);
     socket.connect();
+    startWatchdog();
   },
 
   ensureConnected() {
-    if (!socket || socket.connected || isConnecting || isInCooldown()) return;
-    isConnecting = true;
-    void refreshAuthToken().then(() => socket?.connect());
+    kickReconnect(false);
+  },
+
+  /** Call when the app returns to the foreground / network may have returned: skips cooldown. */
+  reconnectNow() {
+    kickReconnect(true);
   },
 
   disconnect() {
@@ -230,6 +263,10 @@ export const SocketManager = {
     consecutiveFailures = 0;
     reconnectCooldownUntil = 0;
     authRefresher = null;
+    if (watchdog) {
+      clearInterval(watchdog);
+      watchdog = null;
+    }
     if (socket) {
       socket.removeAllListeners();
       socket.io.removeAllListeners();

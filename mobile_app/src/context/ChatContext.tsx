@@ -152,7 +152,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
             if (SocketManager.connected) {
                 onSocketConnected();
             } else {
-                SocketManager.ensureConnected();
+                SocketManager.reconnectNow();
             }
         };
         const appSub = AppState.addEventListener('change', onAppStateChange);
