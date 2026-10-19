@@ -967,12 +967,10 @@ router.post('/requests', authenticateToken, async (req, res) => {
     const requesterId = req.user.id;
     const { receiverId } = req.body;
     if (!receiverId || receiverId === requesterId) return res.status(400).json({ error: 'Invalid receiver' });
-    // Ensure both users exist in our DB (upsert current, create receiver if missing)
+    // Ensure the requester exists; never invent a placeholder row for an unknown receiver
     await safeUpsertUserFromAuth(prisma, req.user);
-    const rx = await prisma.user.findUnique({ where: { id: receiverId } });
-    if (!rx) {
-      await prisma.user.create({ data: { id: receiverId } });
-    }
+    const rx = await prisma.user.findUnique({ where: { id: String(receiverId) }, select: { id: true } });
+    if (!rx) return res.status(404).json({ error: 'User not found' });
     // already friends?
     if (await isBlockedEitherWay(requesterId, receiverId)) {
       return res.status(403).json({ error: 'Cannot send a request to this user', code: 'USER_BLOCKED' });
