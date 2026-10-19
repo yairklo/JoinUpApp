@@ -14,6 +14,7 @@ process.on('unhandledRejection', (reason) => {
 
 const express = require('express');
 const cors = require('cors');
+const { createCorsOriginCallback } = require('./utils/corsOrigin');
 const path = require('path');
 const fs = require('fs').promises;
 const http = require('http');
@@ -96,50 +97,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 const corsPermissive =
   process.env.CORS_PERMISSIVE === 'true' || process.env.CORS_PERMISSIVE === '1' || !isProduction;
 
-const LOCAL_DEV_ORIGIN_PATTERNS = [
-  /^https?:\/\/localhost(:\d+)?$/i,
-  /^https?:\/\/127\.0\.0\.1(:\d+)?$/i,
-  /^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
-  /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
-  /^https?:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
-  /^exp:\/\/[\w.-]+(:\d+)?$/i,
-  // Vercel preview deployments of THIS project only (e.g. join-up-app-git-<branch>-<team>.vercel.app).
-  // Not a bare `*.vercel.app` wildcard — that would let any Vercel-hosted app pass CORS with credentials.
-  /^https:\/\/join-up-app(-[\w-]+)?\.vercel\.app$/i,
-];
-
-function isLocalDevOrigin(origin) {
-  return LOCAL_DEV_ORIGIN_PATTERNS.some((re) => re.test(origin));
-}
-
-function isOriginAllowed(origin) {
-  if (!origin) return true;
-  if (allowedOrigins.includes(origin)) return true;
-  if (isLocalDevOrigin(origin)) return true;
-  if (corsPermissive) return true;
-  return false;
-}
-
-function corsOriginCallback(origin, callback) {
-  // React Native, Expo, Postman, curl — no Origin header
-  if (!origin) return callback(null, true);
-
-  if (isOriginAllowed(origin)) {
-    // Must echo the exact origin (not *) when credentials: true
-    return callback(null, origin);
-  }
-
-  console.warn('[CORS] Rejected origin:', origin, {
-    NODE_ENV: process.env.NODE_ENV,
-    corsPermissive,
-    allowedOrigins,
-  });
-
-  return callback(
-    new Error('The CORS policy for this site does not allow access from the specified Origin.'),
-    false
-  );
-}
+const corsOriginCallback = createCorsOriginCallback({ allowedOrigins, permissive: corsPermissive });
 
 app.use(
   cors({
