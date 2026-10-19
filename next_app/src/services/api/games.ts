@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, API_BASE } from './client';
 import { Game } from '@/types/game';
 
 export interface UpdateGameDTO {
@@ -209,5 +209,25 @@ export const gamesApi = {
             data: { accept },
             token,
         });
+    },
+
+
+    uploadImage: async (gameId: string, file: File, token: string): Promise<{ imageUrl: string }> => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await fetch(`${API_BASE}/api/games/${gameId}/image`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to upload image');
+        }
+        return res.json();
+    },
+
+    removeImage: (gameId: string, token: string) => {
+        return apiClient<{ imageUrl: null }>(`/api/games/${gameId}/image`, { method: 'DELETE', token });
     },
 };

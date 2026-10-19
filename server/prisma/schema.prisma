@@ -368,6 +368,8 @@ model Game {
   sport                SportType         @default(SOCCER)
   registrationOpensAt  DateTime?
   title                String?
+  /// Optional cover photo for this game (Cloudinary URL). Cards fall back to the series image, then the field photo.
+  imageUrl             String?
   teamSize             Int?
   /// Display-only ILS amount. Collected at the field or by the organizer — joinUp does not process payments.
   price                Int?

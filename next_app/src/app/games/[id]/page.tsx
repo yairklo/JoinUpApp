@@ -28,6 +28,7 @@ type Game = {
   fieldId: string;
   fieldName: string;
   fieldLocation: string;
+  imageUrl?: string | null;
   start: string;
   date: string;
   time: string;
@@ -211,6 +212,7 @@ export default async function GameDetails(props: {
                     initialFieldId={game.fieldId}
                     initialFieldName={game.fieldName}
                     initialFieldLocation={game.fieldLocation}
+                    initialImageUrl={game.imageUrl}
                     canManage={canManageSeries}
                   />
 
