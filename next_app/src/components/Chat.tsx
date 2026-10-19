@@ -37,7 +37,6 @@ import ReportMessageDialog from "./ReportMessageDialog";
 import { chatsApi, type MessageReportReason } from "@/services/api/chats";
 import { usersApi } from "@/services/api/users";
 import { ChatMessage } from "./types";
-import { useChat } from "@/context/ChatContext";
 import { useChatLogic, MAX_MESSAGE_LENGTH } from "@/hooks/useChatLogic";
 
 type ChatProps = {
@@ -49,9 +48,11 @@ type ChatProps = {
   // for callers that already render their own heading above this component, so the two
   // don't show duplicate text right next to each other.
   hideHeaderName?: boolean;
+  // True while this chat is mounted but not on screen (the floating widget passes it when minimized).
+  suspended?: boolean;
 };
 
-export default function Chat({ roomId = "global", language = "he", isWidget = false, chatName, hideHeaderName = false }: ChatProps) {
+export default function Chat({ roomId = "global", language = "he", isWidget = false, chatName, hideHeaderName = false, suspended = false }: ChatProps) {
   const isRTL = language === "he";
   const { user } = useUser();
   const myName = useMyName();
@@ -142,8 +143,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   };
 
   // Use the custom hook for all logic
-  const { isMinimized } = useChat();
-  const { state, actions, refs } = useChatLogic({ roomId, chatName, suspended: isWidget && isMinimized });
+  const { state, actions, refs } = useChatLogic({ roomId, chatName, suspended });
   const visibleMessages = useMemo(
     () => state.messages.filter((m: ChatMessage) => !(m.userId && blockedIds.has(m.userId))),
     [state.messages, blockedIds]

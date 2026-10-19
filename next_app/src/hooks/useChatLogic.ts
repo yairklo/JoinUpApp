@@ -11,6 +11,9 @@ import { SEND_TIMEOUT_MS, markFailed, markPending, discardFailed, applyStatusUpd
 // Mirrors MAX_MESSAGE_LENGTH in server/services/chatSafety.js.
 export const MAX_MESSAGE_LENGTH = 2000;
 const RECONNECT_WAIT_MS = 6000;
+// Server remembers tempIds for 5 minutes (server/index.js TEMP_ID_TTL_MS).
+const DEDUPE_WINDOW_MS = 5 * 60 * 1000;
+const FLUSH_BURST = 5;
 // Scoped by user so a shared browser never shows one account's unsent texts to another.
 const failedStoreKey = (userId: string, roomId: string) => `joinup:chat:unsent:${userId}:${roomId}`;
 
@@ -54,7 +57,7 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
     suspendedRef.current = suspended;
     const canReadNow = () =>
         !suspendedRef.current && typeof document !== "undefined" &&
-        document.visibilityState === "visible" && document.hasFocus();
+        document.visibilityState === "visible";
     const sendTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     // Room whose locally-saved unsent messages were already merged into `messages`.
     const [restoredRoom, setRestoredRoom] = useState<string | null>(null);
@@ -366,11 +369,16 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
 
     // Back online (or restored after a refresh): send unsent messages automatically, oldest first.
     // The server handles one socket's messages in order and dedupes by tempId, so a message that
-    // actually went through earlier is simply re-echoed instead of being stored twice.
+    // actually went through earlier is simply re-echoed instead of being stored twice -- but only
+    // within the server's in-memory dedupe window, so older ones are left for a manual retry.
+    // Sends are paced to stay under the server's per-user rate limit (10 per 10s).
+    const flushTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
     useEffect(() => {
         if (!socketInstance || !isConnected || restoredRoom !== roomId || loadedRoom !== roomId || !user?.id) return;
+        const now = Date.now();
         const queue = messagesRef.current
-            .filter(m => m.userId === user.id && m.status === 'failed' && m.retryable !== false)
+            .filter(m => m.userId === user.id && m.status === 'failed' && m.retryable !== false &&
+                now - new Date(m.ts).getTime() < DEDUPE_WINDOW_MS)
             .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
         if (!queue.length) return;
         const ids = new Set(queue.map(m => String(m.id)));
@@ -378,7 +386,11 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
         messagesRef.current = next;
         setMessages(next);
         socketInstance.emit("joinRoom", roomId);
-        queue.forEach(emitMessage);
+        queue.forEach((m, i) => {
+            if (i < FLUSH_BURST) { emitMessage(m); return; }
+            flushTimersRef.current.push(setTimeout(() => emitMessage(m), (i - FLUSH_BURST + 1) * 1000));
+        });
+        return () => { flushTimersRef.current.forEach(clearTimeout); flushTimersRef.current = []; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isConnected, socketInstance, restoredRoom, loadedRoom, roomId, user?.id]);
 
