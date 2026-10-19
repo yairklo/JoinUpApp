@@ -56,9 +56,9 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // UI State
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [isWidgetOpen, setIsWidgetOpen] = useState(false);
-    // Read the persisted state synchronously: restoring it in an effect left a first render with
-    // isMinimized=false, so a minimized chat mounted "visible" and marked messages as read.
-    // (The widget renders null until isWidgetOpen is set in the effect, so SSR output is unchanged.)
+    // Seed from localStorage synchronously (harmless belt-and-braces; not the W1 root cause).
+    // Hydration-safe only because FloatingChatWindow renders null until isWidgetOpen is set in the
+    // mount effect below, so server and first client render produce the same markup.
     const [isMinimized, setIsMinimized] = useState(() => {
         try {
             return typeof window !== "undefined" && localStorage.getItem("chatMinimized") === "true";
