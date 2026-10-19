@@ -7,6 +7,7 @@ import Container from "@mui/material/Container";
 import { alpha } from "@mui/material/styles";
 
 import MyJoinedGames from "@/components/MyJoinedGames";
+import ManageSection from "@/components/ManageSection";
 import GamesByDateClient from "@/components/GamesByDateClient";
 import GamesByFriendsClient from "@/components/GamesByFriendsClient";
 import GamesByCityClient from "@/components/GamesByCityClient";
@@ -56,6 +57,8 @@ export default function GamesPageContent({
                     >
                         <SportFilterBar value={sportFilter} onChange={setSportFilter} />
                     </Box>
+
+                    <ManageSection />
 
                     <Box>
                         <MyJoinedGames sportFilter={sportFilter} />
