@@ -6,8 +6,7 @@ import { useTranslation } from 'react-i18next';
 import ManageItemCard from '@/components/ManageItemCard';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { useManageOverview } from '@/hooks/useManageOverview';
-import { buildManageItems } from '@/utils/manageItems';
-import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
+import { buildManageItems } from '@joinup/shared/manage';
 
 const BRAND = '#059669';
 
@@ -62,7 +61,7 @@ export default function ManageScreen() {
                                             {a.type === 'PENDING_REQUESTS'
                                                 ? t('manage.attentionPending', { count: a.count })
                                                 : t('manage.attentionWaitlist', { count: a.count })}
-                                            {' • '}{formatJerusalemDate(a.start).split('-').reverse().slice(0, 2).join('/')} {formatJerusalemTime(a.start)}
+                                            {' • '}{a.label}
                                         </Text>
                                         <Ionicons name="chevron-forward" size={16} color="#b45309" />
                                     </TouchableOpacity>

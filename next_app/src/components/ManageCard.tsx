@@ -8,21 +8,18 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import SportsSoccerRoundedIcon from "@mui/icons-material/SportsSoccerRounded";
-import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
+import { describeStart } from "@joinup/shared/manage";
 import type { ManageItem, ManagedGame } from "@/services/api/manage";
 
 const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
 /** "היום 20:00" / "מחר 20:00" / "שבת 20:00 • 12/12", all in Jerusalem time. */
 export function whenLabel(startIso: string): string {
-  const date = formatJerusalemDate(startIso);
-  const time = formatJerusalemTime(startIso);
-  if (!date) return "";
-  if (date === formatJerusalemDate(new Date())) return `היום ${time}`;
-  if (date === formatJerusalemDate(new Date(Date.now() + 24 * 60 * 60 * 1000))) return `מחר ${time}`;
-  const [y, m, d] = date.split("-").map(Number);
-  const dow = new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
-  return `${DAY_NAMES[dow]} ${time} • ${d}/${m}`;
+  const when = describeStart(startIso);
+  if (!when) return "";
+  if (when.kind === "today") return `היום ${when.time}`;
+  if (when.kind === "tomorrow") return `מחר ${when.time}`;
+  return `${DAY_NAMES[when.dayOfWeek]} ${when.time} • ${when.day}/${when.month}`;
 }
 
 function GameStats({ game }: { game: ManagedGame }) {

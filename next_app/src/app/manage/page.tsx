@@ -14,7 +14,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import GameCardSkeletonRow from "@/components/GameCardSkeletonRow";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import { useManageOverview } from "@/hooks/useManageOverview";
-import { buildManageItems } from "@/services/api/manage";
+import { buildManageItems } from "@joinup/shared/manage";
 
 export default function ManagePage() {
   const { data, loading, error, refetch } = useManageOverview();
@@ -82,7 +82,7 @@ export default function ManagePage() {
                   >
                     <HourglassEmptyRoundedIcon fontSize="small" />
                     {a.type === "PENDING_REQUESTS" ? `${a.count} בקשות הצטרפות` : `רשימת המתנה (${a.count})`}
-                    {` • ${whenLabel(a.start)}`}
+                    {` • ${a.label} • ${whenLabel(a.start)}`}
                   </Box>
                 ))}
               </Stack>

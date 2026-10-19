@@ -8,9 +8,7 @@ import Typography from "@mui/material/Typography";
 import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
 import ManageCard from "@/components/ManageCard";
 import { useManageOverview } from "@/hooks/useManageOverview";
-import { buildManageItems } from "@/services/api/manage";
-
-const HOME_LIMIT = 3;
+import { buildManageItems, MANAGE_HOME_LIMIT } from "@joinup/shared/manage";
 
 /** Home-feed shortcut to what the user manages. Renders nothing for players who manage nothing. */
 export default function ManageSection() {
@@ -25,7 +23,7 @@ export default function ManageSection() {
         <Typography variant="h5" fontWeight={700}>
           הניהול שלי
         </Typography>
-        {(items.length > HOME_LIMIT || attentionCount > 0) && (
+        {(items.length > MANAGE_HOME_LIMIT || attentionCount > 0) && (
           <Button component={Link} href="/manage" size="small">
             הכל
           </Button>
@@ -54,7 +52,7 @@ export default function ManageSection() {
         </Box>
       )}
       <Stack spacing={1.5}>
-        {items.slice(0, HOME_LIMIT).map((item) => (
+        {items.slice(0, MANAGE_HOME_LIMIT).map((item) => (
           <ManageCard key={item.key} item={item} />
         ))}
       </Stack>

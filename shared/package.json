@@ -44,6 +44,10 @@
       "types": "./ageGate.d.ts",
       "default": "./ageGate.js"
     },
+    "./manage": {
+      "types": "./manage.d.ts",
+      "default": "./manage.js"
+    },
     "./legal": {
       "types": "./legal.d.ts",
       "default": "./legal.js"

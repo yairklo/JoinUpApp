@@ -3,9 +3,8 @@ import { I18nManager, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
-import type { ManagedGame } from '@/services/api/manage';
-import type { ManageItem } from '@/utils/manageItems';
+import { describeStart } from '@joinup/shared/manage';
+import type { ManageItem, ManagedGame } from '@/services/api/manage';
 
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
@@ -13,14 +12,11 @@ const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 function useWhenLabel() {
     const { t } = useTranslation();
     return (startIso: string) => {
-        const date = formatJerusalemDate(startIso);
-        const time = formatJerusalemTime(startIso);
-        if (!date) return '';
-        if (date === formatJerusalemDate(new Date())) return `${t('common.today')} ${time}`;
-        if (date === formatJerusalemDate(new Date(Date.now() + 24 * 60 * 60 * 1000))) return `${t('common.tomorrow')} ${time}`;
-        const [y, m, d] = date.split('-').map(Number);
-        const dow = new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
-        return `${t(`common.days.${DAY_KEYS[dow]}`)} ${time} • ${d}/${m}`;
+        const when = describeStart(startIso);
+        if (!when) return '';
+        if (when.kind === 'today') return `${t('common.today')} ${when.time}`;
+        if (when.kind === 'tomorrow') return `${t('common.tomorrow')} ${when.time}`;
+        return `${t(`common.days.${DAY_KEYS[when.dayOfWeek]}`)} ${when.time} • ${when.day}/${when.month}`;
     };
 }
 

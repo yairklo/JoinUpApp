@@ -5,10 +5,8 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import SectionHeader from '@/components/ui/SectionHeader';
 import ManageItemCard from '@/components/ManageItemCard';
-import { buildManageItems } from '@/utils/manageItems';
+import { buildManageItems, MANAGE_HOME_LIMIT } from '@joinup/shared/manage';
 import type { ManageOverview } from '@/services/api/manage';
-
-const HOME_LIMIT = 3;
 
 /** Home-feed shortcut to what the user manages. Renders nothing for players who manage nothing. */
 export default function ManageSection({ overview }: { overview: ManageOverview | null }) {
@@ -24,7 +22,7 @@ export default function ManageSection({ overview }: { overview: ManageOverview |
             <SectionHeader
                 title={t('manage.title')}
                 className="mt-2"
-                onSeeAll={items.length > HOME_LIMIT || attentionCount > 0 ? () => router.push('/manage' as any) : undefined}
+                onSeeAll={items.length > MANAGE_HOME_LIMIT || attentionCount > 0 ? () => router.push('/manage' as any) : undefined}
                 seeAllLabel={t('manage.seeAll')}
             />
             {attentionCount > 0 && (
@@ -41,7 +39,7 @@ export default function ManageSection({ overview }: { overview: ManageOverview |
                     <Ionicons name="chevron-forward" size={16} color="#b45309" />
                 </TouchableOpacity>
             )}
-            {items.slice(0, HOME_LIMIT).map((item) => (
+            {items.slice(0, MANAGE_HOME_LIMIT).map((item) => (
                 <ManageItemCard key={item.key} item={item} />
             ))}
         </View>
