@@ -100,10 +100,10 @@ export default function TeamBuilderWrapper({
   return (
     <>
       {canManage && (
-        <Box mb={2}>
+        <Box mb={2} sx={(t) => ({ p: 1.5, borderRadius: 4, bgcolor: alpha(t.palette.primary.main, 0.06), border: "1px solid", borderColor: alpha(t.palette.primary.main, 0.14) })}>
           <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-            <Typography variant="h6" fontWeight="bold">
-              סגל המשחק
+            <Typography variant="subtitle1" fontWeight={800} color="primary.main">
+              ניהול קבוצות
             </Typography>
             <Box display="flex" gap={1} flexWrap="wrap">
               {/* Primary path: the full live screen where managers/captains pick players. */}
@@ -113,7 +113,8 @@ export default function TeamBuilderWrapper({
                 variant="contained"
                 startIcon={<SportsEsportsIcon />}
                 size="small"
-                sx={{ borderRadius: 2, textTransform: "none" }}
+                disableElevation
+                sx={{ borderRadius: 999, textTransform: "none", fontWeight: 800, px: 2 }}
               >
                 ניהול קבוצות חי
               </Button>
@@ -130,20 +131,20 @@ export default function TeamBuilderWrapper({
                 }}
                 size="small"
                 disabled={saving}
-                sx={{ borderRadius: 2, textTransform: "none" }}
+                sx={{ borderRadius: 999, textTransform: "none", fontWeight: 800, px: 2, bgcolor: "background.paper" }}
               >
                 {saving ? "שומר..." : "עריכה ידנית מהירה"}
               </Button>
             </Box>
           </Box>
           <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-            ניהול קבוצות חי פותח מסך מלא לבחירת שחקנים על ידי מנהלים. עריכה ידנית מהירה משבצת קבוצות בעצמך, כאן במקום.
+            מסך חי לבחירת שחקנים עם הקפטנים, או שיבוץ ידני מהיר כאן במקום.
           </Typography>
         </Box>
       )}
 
       {canManage && pickSessionStatus && pickSessionStatus !== "IDLE" && (
-        <Alert severity="info" sx={{ mb: 2 }}>
+        <Alert severity="info" sx={{ mb: 2, borderRadius: 3 }}>
           סטטוס בחירה: <strong>{
             ({
               IDLE: "ממתין",
@@ -169,7 +170,7 @@ export default function TeamBuilderWrapper({
       )}
 
       {lotteryData?.enabled && lotteryData.pending && lotteryData.overbooked && (
-        <Alert severity="warning" icon={<AccessTimeIcon />} sx={{ mb: 3 }}>
+        <Alert severity="warning" icon={<AccessTimeIcon />} sx={{ mb: 2, borderRadius: 3 }}>
           <Typography variant="subtitle2" fontWeight="bold">
             הגרלה ממתינה
           </Typography>
@@ -199,6 +200,8 @@ export default function TeamBuilderWrapper({
             <Card
               elevation={0}
               sx={(t) => ({
+                borderRadius: 5,
+                border: "1px solid",
                 bgcolor: alpha(t.palette.warning.main, 0.08),
                 borderColor: alpha(t.palette.warning.main, 0.3),
               })}
@@ -210,7 +213,10 @@ export default function TeamBuilderWrapper({
                 <List disablePadding>
                   {waitlistParticipants.map((p) => (
                     <Link key={p.id} href={`/users/${p.id}`} passHref legacyBehavior>
-                      <ListItemButton component="a" sx={{ borderRadius: 2 }}>
+                      <ListItemButton
+                        component="a"
+                        sx={{ borderRadius: 3, mb: 1, border: "1px solid", borderColor: "divider", bgcolor: "background.paper" }}
+                      >
                         <ListItemAvatar>
                           <Avatar src={p.avatar} alt={normalizeName(p.name) || p.id} name={normalizeName(p.name) || p.id} size="sm" />
                         </ListItemAvatar>

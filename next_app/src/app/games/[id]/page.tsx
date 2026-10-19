@@ -13,9 +13,8 @@ import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
-import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
+import GameManagePanel from "@/components/GameManagePanel";
 import Link from "next/link";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
@@ -29,6 +28,8 @@ type Game = {
   fieldName: string;
   fieldLocation: string;
   imageUrl?: string | null;
+  seriesImageUrl?: string | null;
+  fieldImage?: string | null;
   start: string;
   date: string;
   time: string;
@@ -61,6 +62,7 @@ type Game = {
   teamSize?: number | null;
   price?: number | null;
   chatRoomId?: string;
+  pendingRequestCount?: number;
   status?: "OPEN" | "COMPLETED" | "CANCELLED";
 };
 
@@ -164,6 +166,9 @@ export default async function GameDetails(props: {
               status: game.status,
               fieldId: game.fieldId,
               seriesId: game.seriesId,
+              pendingRequestCount: game.pendingRequestCount,
+              // Same fallback the feed cards use: the game's own photo, then its group's, then the field's.
+              coverImage: game.imageUrl || game.seriesImageUrl || game.fieldImage || null,
             }}
             viewerId={userId}
             canManageSeries={canManageSeries}
@@ -181,18 +186,7 @@ export default async function GameDetails(props: {
             </SectionErrorBoundary>
 
             {canManageSeries && (
-              <Paper id="game-manage" variant="outlined" sx={{ mt: 2, p: { xs: 2, sm: 2.5 } }}>
-                <Typography variant="h6" fontWeight={800}>
-                  ניהול משחק
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  עריכת פרטי המשחק, וניהול קבוצה שבועית אם יש כזו. תפקידים, קבוצות, הגרלה ורשימת המתנה מנוהלים למעלה, ליד רשימת השחקנים.
-                </Typography>
-                {isOrganizer && game.status !== "CANCELLED" && game.status !== "COMPLETED" && (
-                  <Box sx={{ mb: 2 }}>
-                    <CancelGameButton gameId={game.id} isSeriesGame={!!game.seriesId} />
-                  </Box>
-                )}
+              <GameManagePanel>
                 <GameDetailsEditor
                     gameId={game.id}
                     initialTime={game.time}
@@ -227,7 +221,14 @@ export default async function GameDetails(props: {
                       date: game.date
                     }}
                   />
-              </Paper>
+
+                  {isOrganizer && game.status !== "CANCELLED" && game.status !== "COMPLETED" && (
+                    <>
+                      <Divider sx={{ my: 2 }} />
+                      <CancelGameButton gameId={game.id} isSeriesGame={!!game.seriesId} />
+                    </>
+                  )}
+              </GameManagePanel>
             )}
           </Box>
         </Box>

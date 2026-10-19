@@ -6,23 +6,17 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 // MUI Imports
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemAvatar from "@mui/material/ListItemAvatar";
-import ListItemText from "@mui/material/ListItemText";
 import Avatar from "@/components/Avatar";
-import Chip from "@mui/material/Chip";
+import Stack from "@mui/material/Stack";
+import { alpha } from "@mui/material/styles";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
-import Divider from "@mui/material/Divider";
-import AvatarGroup from "@mui/material/AvatarGroup";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
-import Paper from "@mui/material/Paper";
 import Button from "@mui/material/Button";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
@@ -36,6 +30,7 @@ import StarIcon from "@mui/icons-material/Star";
 import PersonIcon from "@mui/icons-material/Person";
 import SecurityIcon from "@mui/icons-material/Security";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import PersonAddAltRoundedIcon from "@mui/icons-material/PersonAddAltRounded";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -236,59 +231,144 @@ export default function GameParticipantsList({
     return false;
   };
 
-  // Helper to render a single participant row
+  // Helper to render a single participant tile. The menu button sits beside (not inside) the
+  // profile link so opening it never navigates.
   const renderParticipantRow = (p: Participant) => {
     const isOrg = isOrganizer(p.id);
     const isMgr = isManager(p.id);
+    const isMe = !!userId && p.id === userId;
     const showMenu = canEditUser(p.id);
+    const name = normalizeName(p.name) || "משתמש לא ידוע";
 
     return (
-      <ListItem
+      <Box
         key={p.id}
-        disablePadding
-        sx={{
-          mb: 1,
-          bgcolor: "background.paper",
-          borderRadius: 2,
+        sx={(t) => ({
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          gap: 0.5,
+          minWidth: 0,
+          p: 1,
+          pr: 1.25,
+          borderRadius: 3,
           border: "1px solid",
-          borderColor: "divider",
-        }}
+          borderColor: isMe
+            ? alpha(t.palette.success.main, 0.5)
+            : isOrg
+              ? alpha(t.palette.primary.main, 0.4)
+              : "divider",
+          bgcolor: isMe ? alpha(t.palette.success.main, 0.06) : "background.paper",
+          transition: "border-color 0.15s ease, transform 0.15s ease",
+          "@media (hover: hover)": {
+            "&:hover": { borderColor: alpha(t.palette.primary.main, 0.5), transform: "translateY(-1px)" },
+          },
+        })}
       >
-        <Box sx={{ p: 1.5, display: "flex", alignItems: "center", width: '100%', justifyContent: 'space-between', gap: 2 }}>
-            <Link href={`/users/${p.id}`} passHref legacyBehavior>
-                <Box component="a" sx={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0 }}>
-                  <ListItemAvatar sx={{ minWidth: "auto", mr: 2 }}>
-                    <Avatar src={p.avatar} alt={normalizeName(p.name) || p.id} name={normalizeName(p.name) || p.id} size="md" />
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={normalizeName(p.name) || "משתמש לא ידוע"}
-                    primaryTypographyProps={{ fontWeight: 500, noWrap: true }}
-                    secondary={isOrg ? "מארגן" : isMgr ? "מנהל" : "שחקן"}
-                  />
-                </Box>
-            </Link>
-
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
-              {isOrg ? (
-                <Chip icon={<StarIcon sx={{ fontSize: "16px !important" }} />} label="מארגן" size="small" color="primary" variant="filled" />
-              ) : isMgr ? (
-                <Chip icon={<AdminPanelSettingsIcon sx={{ fontSize: "16px !important" }} />} label="מנהל" size="small" color="info" variant="outlined" sx={{ fontWeight: "bold" }} />
-              ) : null}
-
-              {showMenu && (
-                <IconButton
-                  aria-label="אפשרויות"
-                  onClick={(e) => openMenu(e, p)}
-                  size="small"
-                >
-                  <MoreVertIcon />
-                </IconButton>
-              )}
-            </Box>
+        <Box
+          component={Link}
+          href={`/users/${p.id}`}
+          sx={{ display: "flex", alignItems: "center", gap: 1.25, textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
+        >
+          <Box sx={{ position: "relative", flexShrink: 0 }}>
+            <Avatar src={p.avatar} alt={name} name={name} size="md" />
+            {(isOrg || isMgr) && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: -2,
+                  insetInlineEnd: -2,
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  display: "grid",
+                  placeItems: "center",
+                  color: "#fff",
+                  bgcolor: isOrg ? "primary.main" : "info.main",
+                  border: "2px solid",
+                  borderColor: "background.paper",
+                  "& svg": { fontSize: 11 },
+                }}
+              >
+                {isOrg ? <StarIcon /> : <AdminPanelSettingsIcon />}
+              </Box>
+            )}
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="body2" fontWeight={700} noWrap>
+              {name}
+            </Typography>
+            <Typography
+              variant="caption"
+              noWrap
+              component="div"
+              sx={{ fontWeight: 600, color: isOrg ? "primary.main" : isMgr ? "info.main" : "text.secondary" }}
+            >
+              {isOrg ? "מארגן" : isMgr ? "מנהל" : "שחקן"}
+              {isMe ? " · זה אתה" : ""}
+            </Typography>
+          </Box>
         </Box>
-      </ListItem>
+
+        {showMenu && (
+          <IconButton aria-label="אפשרויות" onClick={(e) => openMenu(e, p)} size="small" sx={{ flexShrink: 0 }}>
+            <MoreVertIcon fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
     );
   };
+
+  const tilesGridSx = {
+    display: "grid",
+    gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(auto-fill, minmax(180px, 1fr))" },
+    gap: 1,
+  } as const;
+
+  // Open seats are drawn as dashed placeholders so a half-empty game reads as "room for you".
+  const openSlots = Math.max(0, maxPlayers - participants.length);
+  const shownSlots = Math.min(openSlots, 6);
+  const renderOpenSlots = () =>
+    Array.from({ length: shownSlots }, (_, i) => {
+      const isOverflow = i === shownSlots - 1 && openSlots > shownSlots;
+      return (
+        <Box
+          key={`slot-${i}`}
+          aria-hidden
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.25,
+            p: 1,
+            borderRadius: 3,
+            border: "1.5px dashed",
+            borderColor: "divider",
+            color: "text.disabled",
+            minWidth: 0,
+          }}
+        >
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              border: "1.5px dashed",
+              borderColor: "divider",
+              display: "grid",
+              placeItems: "center",
+              flexShrink: 0,
+              fontWeight: 800,
+              fontSize: "0.85rem",
+            }}
+          >
+            {isOverflow ? `+${openSlots - shownSlots + 1}` : "+"}
+          </Box>
+          <Typography variant="caption" fontWeight={700} noWrap>
+            {isOverflow ? "מקומות פנויים" : "מקום פנוי"}
+          </Typography>
+        </Box>
+      );
+    });
 
   // Calculate unassigned players if teams exist.
   // Managers (incl. organizer) are pre-assigned to their own team and must not
@@ -310,39 +390,43 @@ export default function GameParticipantsList({
   const hasTeams = teams.length > 0;
 
   return (
-    <Card elevation={2}>
-      <CardContent>
+    <Card elevation={0} sx={{ borderRadius: 5, border: "1px solid", borderColor: "divider" }}>
+      <CardContent sx={{ p: { xs: 2, sm: 2.5 }, "&:last-child": { pb: { xs: 2, sm: 2.5 } } }}>
         {/* Header Summary */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={2}>
-          <Box>
-            <Typography variant="h6" fontWeight="bold">
-              משתתפים
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              אושרו{" "}
-              <Box component="span" dir="ltr" sx={{ unicodeBidi: "isolate", display: "inline-block" }}>
-                {participants.length}/{maxPlayers}
-              </Box>
-            </Typography>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={1}>
+          <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>
+            השחקנים
+          </Typography>
+          <Box
+            dir="ltr"
+            sx={(t) => ({
+              unicodeBidi: "isolate",
+              px: 1.25,
+              py: 0.25,
+              borderRadius: 999,
+              fontWeight: 800,
+              fontSize: "0.85rem",
+              fontVariantNumeric: "tabular-nums",
+              color: "primary.main",
+              bgcolor: alpha(t.palette.primary.main, 0.1),
+            })}
+          >
+            {participants.length}/{maxPlayers}
           </Box>
-          {participants.length > 0 && (
-            <AvatarGroup max={5} sx={{ "& .MuiAvatar-root": { width: 32, height: 32, fontSize: 14 } }}>
-              {participants.map((p) => (
-                <Box key={p.id}>
-                  <Avatar src={p.avatar} alt={normalizeName(p.name) || "?"} name={normalizeName(p.name) || "?"} size="sm" />
-                </Box>
-              ))}
-            </AvatarGroup>
-          )}
         </Box>
 
-        <Divider sx={{ mb: 2 }} />
-
         {canManage && (
-          <Box mb={3} dir="rtl">
-            <Typography variant="subtitle2" color="text.secondary" mb={1} align="right">
-              צרף חברים נוספים
-            </Typography>
+          <Box
+            mb={2.5}
+            dir="rtl"
+            sx={(t) => ({ p: 1.5, borderRadius: 3, bgcolor: alpha(t.palette.primary.main, 0.06) })}
+          >
+            <Stack direction="row" spacing={0.75} alignItems="center" mb={1} sx={{ color: "primary.main" }}>
+              <PersonAddAltRoundedIcon fontSize="small" />
+              <Typography variant="subtitle2" fontWeight={800}>
+                צרף חברים למשחק
+              </Typography>
+            </Stack>
             <Box display="flex" gap={1}>
               <Autocomplete
                 multiple
@@ -362,6 +446,7 @@ export default function GameParticipantsList({
                     variant="outlined"
                     size="small"
                     placeholder="חפש חברים..."
+                    sx={{ "& .MuiOutlinedInput-root": { bgcolor: "background.paper", borderRadius: 2 } }}
                   />
                 )}
                 renderOption={(props, option) => {
@@ -380,7 +465,8 @@ export default function GameParticipantsList({
                 onClick={handleAddFriends}
                 disabled={addingFriends || selectedFriends.length === 0}
                 size="small"
-                sx={{ borderRadius: 2 }}
+                disableElevation
+                sx={{ borderRadius: 999, px: 2.5, fontWeight: 800 }}
               >
                 {addingFriends ? <CircularProgress size={20} color="inherit" /> : "צרף"}
               </Button>
@@ -390,56 +476,55 @@ export default function GameParticipantsList({
 
         {/* --- VIEW MODE 1: TEAMS EXIST --- */}
         {hasTeams ? (
-          <Box>
-            {displayTeams.map(team => (
-                <Paper key={team.id} elevation={0} sx={{ mb: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden', borderRadius: 3 }}>
-                    {/* Team Header */}
-                    <Box sx={{ bgcolor: team.color, p: 1.5, color: 'white' }}>
-                         <Typography variant="subtitle1" fontWeight="bold" sx={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
-                            {team.name} ({team.playerIds.length})
-                         </Typography>
-                    </Box>
-                    <Box p={1}>
-                        <List disablePadding>
-                             {team.playerIds.map(pid => {
-                                 const p = participants.find(part => part.id === pid);
-                                 if (!p) return null;
-                                 return renderParticipantRow(p);
-                             })}
-                             {team.playerIds.length === 0 && (
-                                 <Typography variant="caption" sx={{ p: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
-                                     No players assigned yet
-                                 </Typography>
-                             )}
-                        </List>
-                    </Box>
-                </Paper>
+          <Stack spacing={2.5}>
+            {displayTeams.map((team) => (
+              <Box key={team.id}>
+                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                  <Box sx={{ width: 6, height: 22, borderRadius: 999, bgcolor: team.color, flexShrink: 0 }} />
+                  <Typography variant="subtitle1" fontWeight={800} noWrap>
+                    {team.name}
+                  </Typography>
+                  <Typography variant="caption" fontWeight={800} color="text.secondary">
+                    {team.playerIds.length}
+                  </Typography>
+                </Stack>
+                {team.playerIds.length > 0 ? (
+                  <Box sx={tilesGridSx}>
+                    {team.playerIds.map((pid) => {
+                      const p = participants.find((part) => part.id === pid);
+                      return p ? renderParticipantRow(p) : null;
+                    })}
+                  </Box>
+                ) : (
+                  <Typography variant="caption" sx={{ display: "block", color: "text.secondary", py: 1 }}>
+                    עדיין אין שחקנים בקבוצה
+                  </Typography>
+                )}
+              </Box>
             ))}
 
             {/* Unassigned Section */}
             {unassignedPlayers.length > 0 && (
-                <Box mt={2}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ ml: 1, textTransform: 'uppercase', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                        Not Assigned ({unassignedPlayers.length})
-                    </Typography>
-                    <List disablePadding>
-                        {unassignedPlayers.map(p => renderParticipantRow(p))}
-                    </List>
-                </Box>
-            )}
-          </Box>
-        ) : (
-          /* --- VIEW MODE 2: FLAT LIST (Default) --- */
-          <Box>
-             {participants.length > 0 ? (
-                <List disablePadding>
-                   {participants.map(p => renderParticipantRow(p))}
-                </List>
-             ) : (
-                <Typography variant="body2" color="text.secondary" align="center" py={4}>
-                    No participants yet. Be the first to join!
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" fontWeight={800} mb={1}>
+                  לא שובצו ({unassignedPlayers.length})
                 </Typography>
-             )}
+                <Box sx={tilesGridSx}>{unassignedPlayers.map((p) => renderParticipantRow(p))}</Box>
+              </Box>
+            )}
+          </Stack>
+        ) : (
+          /* --- VIEW MODE 2: FLAT GRID (Default) --- */
+          <Box>
+            {participants.length === 0 && (
+              <Typography variant="body2" color="text.secondary" fontWeight={600} align="center" pb={2}>
+                עוד אין שחקנים — היו הראשונים להצטרף!
+              </Typography>
+            )}
+            <Box sx={tilesGridSx}>
+              {participants.map((p) => renderParticipantRow(p))}
+              {renderOpenSlots()}
+            </Box>
           </Box>
         )}
 
