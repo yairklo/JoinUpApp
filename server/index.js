@@ -408,6 +408,10 @@ if (enableRedis) {
 }
 
 
+// tempIds of messages accepted/in flight per sender+room, so client retries are idempotent.
+const recentTempIds = new Map();
+const TEMP_ID_TTL_MS = 5 * 60 * 1000;
+
 io.on('connection', async (socket) => {
   // 1. Auto-join User & City User Rooms & Presence
   if (socket.userId) {
@@ -540,27 +544,49 @@ io.on('connection', async (socket) => {
   socket.on('message', async ({ text, roomId, senderName, replyTo, tempId }) => {
     if (!text || !roomId) return;
 
+    // Tell the sender (correlated by tempId) that this send failed, so the client can show an
+    // error + optional retry instead of leaving the message on a single "sending" tick forever.
+    // Moderation blocks are NOT failures: they come back as a normal echo with status 'blocked'.
+    let dedupeKey = null;
+    const fail = (error, code, retryable) => {
+      if (dedupeKey) recentTempIds.delete(dedupeKey);
+      socket.emit('error', error);
+      if (tempId !== undefined && tempId !== null) {
+        socket.emit('messageFailed', { tempId, roomId: String(roomId), code, retryable });
+      }
+    };
+
     if (!socket.userId) {
-      socket.emit('error', 'Unauthorized: Please login');
+      fail('Unauthorized: Please login', 'UNAUTHORIZED', false);
       return;
+    }
+
+    // Retries reuse the same tempId: ignore a duplicate of a message already accepted/in flight,
+    // otherwise a retry after a lost echo would store the message twice.
+    if (tempId !== undefined && tempId !== null) {
+      const now = Date.now();
+      for (const [k, t] of recentTempIds) if (now - t > TEMP_ID_TTL_MS) recentTempIds.delete(k);
+      dedupeKey = `${socket.userId}:${roomId}:${tempId}`;
+      if (recentTempIds.has(dedupeKey)) return;
+      recentTempIds.set(dedupeKey, now);
     }
 
     const textError = validateMessageText(text);
     if (textError) {
-      socket.emit('error', textError === 'MESSAGE_TOO_LONG'
+      fail(textError === 'MESSAGE_TOO_LONG'
         ? `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)`
-        : 'Message is empty');
+        : 'Message is empty', textError, false);
       return;
     }
 
     if (!sendRateLimiter.allow(socket.userId)) {
-      socket.emit('error', 'You are sending messages too fast');
+      fail('You are sending messages too fast', 'RATE_LIMITED', true);
       return;
     }
 
     const allowed = await checkChatPermission(socket.userId, String(roomId));
     if (!allowed) {
-      socket.emit('error', 'Unauthorized access to room');
+      fail('Unauthorized access to room', 'FORBIDDEN', false);
       return;
     }
 
@@ -568,13 +594,13 @@ io.on('connection', async (socket) => {
 
     try {
       if (await isPrivateChatBlocked(finalUserId, String(roomId))) {
-        socket.emit('error', 'You cannot message this user');
+        fail('You cannot message this user', 'USER_BLOCKED', false);
         return;
       }
     } catch (e) {
       // Fail closed: if we cannot tell whether the pair is blocked, do not deliver.
       console.error('[blocks] private chat block check failed:', e.message);
-      socket.emit('error', 'Could not send message');
+      fail('Could not send message', 'SEND_FAILED', true);
       return;
     }
 
@@ -595,7 +621,7 @@ io.on('connection', async (socket) => {
     }
 
     if (isAgeGateEnforced() && senderUser && getAgeGateStatus(senderUser) !== AGE_GATE_STATUS.OK) {
-      socket.emit('error', 'AGE_GATE_REQUIRED');
+      fail('AGE_GATE_REQUIRED', 'AGE_GATE_REQUIRED', false);
       return;
     }
 
@@ -613,7 +639,7 @@ io.on('connection', async (socket) => {
     } catch (e) {
       // Fail closed: if we cannot tell who receives this (or whether they are minors), do not deliver.
       console.error('[MODERATION] Recipient/age lookup failed:', e.message);
-      socket.emit('error', 'Could not send message');
+      fail('Could not send message', 'SEND_FAILED', true);
       return;
     }
 
@@ -628,6 +654,7 @@ io.on('connection', async (socket) => {
 
     // 4. Atomic Creation with Forced Deep Include
     let savedMsg = null;
+    let persistFailed = false;
     try {
       if (roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
         savedMsg = await prisma.message.create({
@@ -655,6 +682,13 @@ io.on('connection', async (socket) => {
       }
     } catch (e) {
       console.error('Socket persist error:', e);
+      persistFailed = true;
+    }
+
+    // Never confirm (or notify recipients about) a message that was not stored.
+    if (persistFailed) {
+      fail('Could not send message', 'SEND_FAILED', true);
+      return;
     }
 
     // 5. Construct Payload from Hydrated DB Record (or fallback)

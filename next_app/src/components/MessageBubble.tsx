@@ -17,6 +17,7 @@ import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ReplyIcon from "@mui/icons-material/Reply";
 import AddReactionIcon from "@mui/icons-material/AddReaction";
 import DoneIcon from "@mui/icons-material/Done";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
@@ -46,13 +47,15 @@ interface MessageBubbleProps {
     onReport?: (message: ChatMessage) => void;
     onBlock?: (message: ChatMessage) => void;
     onOpenProfile?: (userId: string) => void;
+    onRetry?: (messageId: string | number) => void;
+    onDiscard?: (messageId: string | number) => void;
 }
 
 const COMMON_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 export default function MessageBubble({
     message, isMine, isRTL, onReply, onReact, onEdit, onDelete, avatarUrl, displayName, timeStr,
-    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId, nameByUserId, onReport, onBlock, onOpenProfile
+    showAvatar, showName, isFirstInGroup, isLastInGroup, currentUserId, nameByUserId, onReport, onBlock, onOpenProfile, onRetry, onDiscard
 }: MessageBubbleProps) {
 
     const [hover, setHover] = useState(false);
@@ -102,9 +105,12 @@ export default function MessageBubble({
         if (!isMine || message.isDeleted) return null;
         const status = message.status || "sent";
         const iconSize = { fontSize: 14 };
-        if (status === "read") return <DoneAllIcon sx={{ ...iconSize, color: "#4fc3f7" }} />;
-        if (status === "delivered") return <DoneAllIcon sx={{ ...iconSize, color: "text.secondary" }} />;
-        return <DoneIcon sx={{ ...iconSize, color: "text.secondary" }} />;
+        // Mirrors mobile: 1 tick = sending (optimistic), 2 light ticks = server confirmed, 2 blue = read.
+        // Light blues stay legible on the green bubble.
+        if (status === "failed") return <ErrorOutlineIcon sx={{ ...iconSize, color: "#fecaca" }} />;
+        if (status === "read") return <DoneAllIcon sx={{ ...iconSize, color: "#93c5fd" }} />;
+        if (status === "pending") return <DoneIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
+        return <DoneAllIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
     };
 
     return (
@@ -247,12 +253,29 @@ export default function MessageBubble({
                 </Paper>
                 {isMine && message.status === 'blocked' && (
                     <Typography variant="caption" sx={{ color: "error.main", mt: 0.5, px: 1, alignSelf: isRTL ? "flex-end" : "flex-start", width: "100%", textAlign: isRTL ? "right" : "left" }}>
-                        {isRTL ? "ההודעה מכילה תוכן פוגעני ולכן לא נשלחה" : "Message contains offensive content and was not sent."}
+                            ההודעה נחסמה על ידי הסינון האוטומטי ולא נשלחה
                     </Typography>
+                )}
+                {isMine && message.status === 'failed' && (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5, px: 1, width: "100%", justifyContent: "flex-start" }}>
+                        <Typography variant="caption" sx={{ color: "error.main" }}>ההודעה לא נשלחה</Typography>
+                        {message.retryable !== false && onRetry && (
+                            <Typography component="button" variant="caption" onClick={() => onRetry(message.id)}
+                                sx={{ color: "primary.main", fontWeight: "bold", cursor: "pointer", background: "none", border: 0, p: 0 }}>
+                                נסה שוב
+                            </Typography>
+                        )}
+                        {onDiscard && (
+                            <Typography component="button" variant="caption" onClick={() => onDiscard(message.id)}
+                                sx={{ color: "text.secondary", cursor: "pointer", background: "none", border: 0, p: 0 }}>
+                                מחק
+                            </Typography>
+                        )}
+                    </Box>
                 )}
             </Box>
 
-            {!message.isDeleted && message.status !== 'blocked' && (
+            {!message.isDeleted && message.status !== 'blocked' && message.status !== 'failed' && message.status !== 'pending' && (
                 <Stack direction={isRTL ? "row-reverse" : "row"} spacing={0} sx={{ opacity: hover || menuAnchorEl ? 1 : 0, transition: "opacity 0.2s", alignSelf: "center" }}>
                     <IconButton size="small" onClick={() => onReply(message)}><ReplyIcon fontSize="small" /></IconButton>
                     <IconButton size="small" onClick={handleReactionClick}><AddReactionIcon fontSize="small" /></IconButton>

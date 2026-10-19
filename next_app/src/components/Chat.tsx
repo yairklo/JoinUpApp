@@ -315,6 +315,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       onReact={actions.handleReact}
                       onEdit={(msg) => { actions.setEditingMessage(msg); actions.setInputValue(msg.text); }}
                       onDelete={actions.handleDelete}
+                      onRetry={actions.handleRetryMessage}
+                      onDiscard={actions.handleDiscardMessage}
                       avatarUrl={avatarUrl}
                       displayName={m.sender?.name || u?.name || (m.userId && state.nameByUserId[m.userId]) || (isMine ? (myName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
                       timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}

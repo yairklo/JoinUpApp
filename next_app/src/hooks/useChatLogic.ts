@@ -40,6 +40,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const isUserAtBottomRef = useRef(true);
     const prevMessagesLengthRef = useRef(0);
     const typingTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+    const sendTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     // 1. Fetch Chat Details
     useEffect(() => {
@@ -142,6 +143,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
         const handleMessage = (incomingMsg: ChatMessage) => {
             if (incomingMsg.roomId && String(incomingMsg.roomId) !== String(roomId)) return;
+            if (incomingMsg.tempId) clearSendTimer(incomingMsg.tempId);
 
             setMessages(prev => {
                 const matchIndex = prev.findIndex(m => {
@@ -179,9 +181,18 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             }
         };
 
+        // Server could not accept the message (not a moderation block - that arrives as status 'blocked').
+        const handleMessageFailed = (payload: { tempId?: string | number; roomId?: string; retryable?: boolean }) => {
+            if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
+            if (payload.tempId === undefined || payload.tempId === null) return;
+            clearSendTimer(payload.tempId);
+            setMessages(prev => prev.map(m => String(m.id) === String(payload.tempId) && m.status === 'pending'
+                ? { ...m, status: 'failed' as MessageStatus, retryable: payload.retryable !== false } : m));
+        };
+
         const handleMessageStatusUpdate = (payload: any) => {
             if (payload.roomId === roomId) {
-                setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read') ? { ...m, status: payload.status } : m));
+                setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read' && m.status !== 'pending' && m.status !== 'failed' && m.status !== 'blocked') ? { ...m, status: payload.status } : m));
             }
         };
 
@@ -193,6 +204,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         socketInstance.on("messageDeleted", handleMessageDeleted);
         socketInstance.on("messageReaction", handleMessageReaction);
         socketInstance.on("messageStatusUpdate", handleMessageStatusUpdate);
+        socketInstance.on("messageFailed", handleMessageFailed);
 
         return () => {
             socketInstance.off('presence:update', handlePresenceUpdate);
@@ -203,6 +215,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             socketInstance.off("messageDeleted", handleMessageDeleted);
             socketInstance.off("messageReaction", handleMessageReaction);
             socketInstance.off("messageStatusUpdate", handleMessageStatusUpdate);
+            socketInstance.off("messageFailed", handleMessageFailed);
         };
     }, [socketInstance, isConnected, roomId, user?.id, otherUserId]);
 
@@ -228,6 +241,44 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
 
 
+    // A confirmed message (or a failure) clears the timer; no response at all => mark failed so the
+    // user can retry instead of staring at a single "sending" tick forever.
+    const SEND_TIMEOUT_MS = 15000;
+    function clearSendTimer(id: string | number) {
+        const k = String(id);
+        if (sendTimersRef.current[k]) { clearTimeout(sendTimersRef.current[k]); delete sendTimersRef.current[k]; }
+    }
+    const startSendTimer = (id: string | number) => {
+        clearSendTimer(id);
+        sendTimersRef.current[String(id)] = setTimeout(() => {
+            delete sendTimersRef.current[String(id)];
+            setMessages(prev => prev.map(m => String(m.id) === String(id) && m.status === 'pending'
+                ? { ...m, status: 'failed' as MessageStatus, retryable: true } : m));
+        }, SEND_TIMEOUT_MS);
+    };
+    useEffect(() => () => { Object.values(sendTimersRef.current).forEach(clearTimeout); }, []);
+
+    const emitMessage = (msg: ChatMessage) => {
+        if (!socketInstance || !socketInstance.connected) {
+            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, status: 'failed' as MessageStatus, retryable: true } : m));
+            return;
+        }
+        startSendTimer(msg.id);
+        socketInstance.emit("message", { text: msg.text, roomId, userId: user?.id, replyTo: msg.replyTo, status: "sent", tempId: msg.id });
+    };
+
+    const handleRetryMessage = (id: string | number) => {
+        const msg = messages.find(m => String(m.id) === String(id));
+        if (!msg || msg.status !== 'failed' || msg.retryable === false) return;
+        setMessages(prev => prev.map(m => String(m.id) === String(id) ? { ...m, status: 'pending' as MessageStatus } : m));
+        emitMessage(msg);
+    };
+
+    const handleDiscardMessage = (id: string | number) => {
+        clearSendTimer(id);
+        setMessages(prev => prev.filter(m => !(String(m.id) === String(id) && m.status === 'failed')));
+    };
+
     // Actions
     const handleSendMessage = () => {
         const trimmed = inputValue.trim();
@@ -241,7 +292,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             const optimisticMessage: ChatMessage & { content: string } = {
                 id: optimisticId, text: trimmed, content: trimmed, roomId,
                 userId: user?.id || "anon", senderId: user?.id || "anon", senderName: myName || "Me",
-                ts: new Date().toISOString(), status: "sent",
+                ts: new Date().toISOString(), status: "pending",
                 sender: { id: user?.id, name: myName || undefined, image: myAvatar || undefined },
                 replyTo: replyToMessage ? {
                     id: replyToMessage.id, text: replyToMessage.text,
@@ -250,7 +301,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             };
             setMessages((prev) => [...prev, optimisticMessage]);
 
-            socketInstance.emit("message", { text: trimmed, roomId, userId: user?.id, replyTo: optimisticMessage.replyTo, status: "sent", tempId: optimisticId });
+            emitMessage(optimisticMessage);
         }
         setInputValue("");
         setReplyToMessage(null);
@@ -277,7 +328,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         actions: {
             setInputValue, setReplyToMessage, setEditingMessage,
             setShowScrollButton, setUnreadNewMessages,
-            handleSendMessage, handleTyping, handleStopTyping,
+            handleSendMessage, handleRetryMessage, handleDiscardMessage, handleTyping, handleStopTyping,
             handleDelete: (id: string | number) => socketInstance?.emit("deleteMessage", { messageId: id, roomId }),
             handleReact: (id: string | number, emoji: string) => socketInstance?.emit("addReaction", { messageId: id, emoji, userId: user?.id, roomId }),
         }

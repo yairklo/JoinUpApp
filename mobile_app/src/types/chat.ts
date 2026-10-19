@@ -8,6 +8,8 @@ export interface ChatMessage {
     replyTo?: any;
     reactions?: Record<string, any>; // Consider typing this better if possible
     status: string;
+    /** Only meaningful when status === 'failed': false => no retry (e.g. forbidden). */
+    retryable?: boolean;
     isEdited?: boolean;
     isDeleted?: boolean;
 
@@ -28,4 +30,4 @@ export interface Reaction {
     ts?: string;
 }
 
-export type MessageStatus = 'sent' | 'delivered' | 'read' | 'rejected' | string;
+export type MessageStatus = 'pending' | 'failed' | 'sent' | 'delivered' | 'read' | 'rejected' | string;
