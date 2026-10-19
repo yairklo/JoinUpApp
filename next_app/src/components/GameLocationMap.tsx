@@ -52,13 +52,15 @@ function GameLocationMarker({
     const marker = new markerLib.AdvancedMarkerElement({
       map,
       position: { lat, lng },
-      content: pin.element,
+      // PinElement is itself the <gmp-pin> element (`.element` is deprecated).
+      content: pin,
       gmpClickable: true,
     });
-    const listener = marker.addListener("gmp-click", () => onClickRef.current());
+    const handleClick = () => onClickRef.current();
+    marker.addEventListener("gmp-click", handleClick);
 
     return () => {
-      listener.remove();
+      marker.removeEventListener("gmp-click", handleClick);
       marker.map = null;
     };
   }, [map, markerLib, lat, lng]);
