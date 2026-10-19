@@ -614,6 +614,17 @@ export default function GameDetailsScreen() {
                     </View>
                 )}
 
+                {/* Game-role managers (not the organizer) get team management only */}
+                {!isOrganizer && isManager && (
+                    <View className="px-4 pt-2 pb-4">
+                        <SecondaryAction
+                            label={t('game.manageTeams', 'נהל קבוצות')}
+                            icon="users"
+                            onPress={() => router.push(`/game/teams/${game.id}`)}
+                        />
+                    </View>
+                )}
+
                 {game.viewerParticipationStatus === 'CONFIRMED' && (
                     <GameRatingsPanel gameId={game.id} />
                 )}

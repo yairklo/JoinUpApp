@@ -509,9 +509,17 @@ io.on('connection', async (socket) => {
   socket.on('joinPickSession', async (gameId) => {
     try {
       if (!socket.userId || !gameId) return;
-      const { getManagerIdsForGame, buildPickSessionState } = require('./services/pickSessionService');
+      const { getManagerIdsForGame, buildPickSessionState, canManagePickSession } = require('./services/pickSessionService');
       const managerIds = await getManagerIdsForGame(String(gameId));
-      if (!managerIds.includes(String(socket.userId))) {
+      let allowed = managerIds.includes(String(socket.userId));
+      if (!allowed) {
+        const g = await prisma.game.findUnique({
+          where: { id: String(gameId) },
+          select: { organizerId: true, roles: { select: { userId: true, role: true } } },
+        });
+        allowed = canManagePickSession(g, String(socket.userId));
+      }
+      if (!allowed) {
         socket.emit('error', 'Unauthorized: managers only');
         return;
       }
