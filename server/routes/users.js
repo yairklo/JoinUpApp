@@ -184,7 +184,10 @@ router.get('/notifications/counts', authenticateToken, async (req, res) => {
 // Static path registered before '/:id' routes to avoid param capture.
 router.put('/profile/settings', authenticateToken, async (req, res) => {
   try {
-    const { privacyFriends, privacyGames, privacyMessages } = req.body || {};
+    const { privacyFriends, privacyGames, privacyMessages, hideGroups } = req.body || {};
+    if (typeof hideGroups !== 'undefined' && typeof hideGroups !== 'boolean') {
+      return res.status(400).json({ error: 'Invalid value for hideGroups' });
+    }
 
     const validate = (v, field) => {
       if (typeof v === 'undefined') return undefined;
@@ -199,6 +202,7 @@ router.put('/profile/settings', authenticateToken, async (req, res) => {
         ...(typeof privacyFriends !== 'undefined' ? { privacyFriends: validate(privacyFriends, 'privacyFriends') } : {}),
         ...(typeof privacyGames !== 'undefined' ? { privacyGames: validate(privacyGames, 'privacyGames') } : {}),
         ...(typeof privacyMessages !== 'undefined' ? { privacyMessages: validate(privacyMessages, 'privacyMessages') } : {}),
+        ...(typeof hideGroups !== 'undefined' ? { hideGroups } : {}),
       };
     } catch (validationErr) {
       return res.status(400).json({ error: validationErr.message });
@@ -212,10 +216,12 @@ router.put('/profile/settings', authenticateToken, async (req, res) => {
         privacyFriends: true,
         privacyGames: true,
         privacyMessages: true,
+        hideGroups: true,
       },
     });
 
     res.json({
+      hideGroups: updated.hideGroups,
       privacyFriends: updated.privacyFriends,
       privacyGames: updated.privacyGames,
       privacyMessages: updated.privacyMessages,
@@ -670,7 +676,24 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
       friends: null,
       matchHistory: null,
       sportStats: [],
+      groups: null,
     };
+
+    // Groups (recurring series) the user belongs to; hidden from others when they opted out.
+    // Follows the same visibility rule as match history (privacyGames, age-based default for minors),
+    // and friends-only groups are only listed for the owner or confirmed friends.
+    if (isOwner || (!user.hideGroups && showGames)) {
+      const memberships = await prisma.seriesParticipant.findMany({
+        where: {
+          userId: targetId,
+          series: { isActive: true, ...(isOwner || isFriend ? {} : { isFriendsOnly: false }) },
+        },
+        select: { series: { select: { id: true, title: true, fieldName: true, sport: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      });
+      payload.groups = memberships.map((m) => m.series);
+    }
 
     // Friends list (id/name/imageUrl only) when visible.
     if (showFriends) {
@@ -712,6 +735,7 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     // Owner also receives their raw + resolved privacy settings for the settings UI.
     if (isOwner) {
       payload.privacySettings = {
+        hideGroups: user.hideGroups,
         privacyFriends: user.privacyFriends,
         privacyGames: user.privacyGames,
         privacyMessages: user.privacyMessages,

@@ -12,6 +12,8 @@ import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
+import EventRepeatRoundedIcon from "@mui/icons-material/EventRepeatRounded";
+import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 
 import SportCover from "@/components/ui/SportCover";
 import { SPORT_MAPPING, getSportTheme } from "@/utils/sports";
@@ -92,6 +94,7 @@ export default function GameHero({
     title,
     subtitle,
     fieldHref,
+    seriesHref,
     currentPlayers,
     maxPlayers,
     sport,
@@ -105,6 +108,8 @@ export default function GameHero({
     title: string;
     subtitle?: string;
     fieldHref?: string;
+    /** Set when the game belongs to a recurring group; renders a prominent link to its page. */
+    seriesHref?: string;
     currentPlayers: number;
     maxPlayers: number;
     sport?: string;
@@ -133,7 +138,7 @@ export default function GameHero({
                 boxShadow: "0 1px 3px rgba(15,23,42,0.06), 0 12px 32px -12px rgba(15,23,42,0.12)",
             }}
         >
-            <SportCover sport={sport} height={{ xs: 196, md: 248 }} lineOpacity={0.2}>
+            <SportCover sport={sport} height={{ xs: 196, md: 248 }} lineOpacity={0.36}>
                 <Box
                     sx={{
                         position: "absolute",
@@ -200,6 +205,32 @@ export default function GameHero({
                     </Box>
                 </Box>
             </SportCover>
+
+            {seriesHref && (
+                <Box
+                    component={NextLink}
+                    href={seriesHref}
+                    sx={(t) => ({
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        px: { xs: 2, md: 3 },
+                        py: 1.25,
+                        textDecoration: "none",
+                        color: "primary.main",
+                        fontWeight: 800,
+                        bgcolor: alpha(t.palette.primary.main, 0.08),
+                        borderBottom: "1px solid",
+                        borderColor: "divider",
+                    })}
+                >
+                    <EventRepeatRoundedIcon fontSize="small" />
+                    <Typography component="span" sx={{ fontWeight: 800, flex: 1, fontSize: "0.95rem" }}>
+                        משחק זה שייך לקבוצה קבועה · לדף הקבוצה
+                    </Typography>
+                    <ChevronLeftRoundedIcon fontSize="small" />
+                </Box>
+            )}
 
             <Box
                 sx={{

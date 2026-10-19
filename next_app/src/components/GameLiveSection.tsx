@@ -34,6 +34,7 @@ export type LiveGame = {
   duration?: number;
   title?: string | null;
   fieldId?: string;
+  seriesId?: string | null;
   fieldName: string;
   fieldLocation: string;
   currentPlayers: number;
@@ -329,6 +330,7 @@ export default function GameLiveSection({
             : game.fieldLocation
         }
         fieldHref={game.fieldId ? `/fields/${game.fieldId}` : undefined}
+        seriesHref={game.seriesId ? `/series/${game.seriesId}` : undefined}
         currentPlayers={headerCount}
         maxPlayers={game.maxPlayers}
         sport={game.sport}

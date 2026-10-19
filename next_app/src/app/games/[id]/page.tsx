@@ -162,6 +162,7 @@ export default async function GameDetails(props: {
               pickSessionStatus: (game as { pickSessionStatus?: string }).pickSessionStatus,
               status: game.status,
               fieldId: game.fieldId,
+              seriesId: game.seriesId,
             }}
             viewerId={userId}
             canManageSeries={canManageSeries}

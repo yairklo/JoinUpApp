@@ -15,6 +15,8 @@ import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import FormControl from "@mui/material/FormControl";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import InputLabel from "@mui/material/InputLabel";
@@ -50,6 +52,7 @@ export default function PrivacySettingsPage() {
         privacyGames: "DEFAULT",
         privacyMessages: "DEFAULT",
     });
+    const [hideGroups, setHideGroups] = useState(false);
     // Age-based default per field; fixed for the user, so the "default" option label never changes.
     const [ageDefaults, setAgeDefaults] = useState<PrivacySettings["ageDefaults"] | null>(null);
     const [loading, setLoading] = useState(true);
@@ -72,6 +75,7 @@ export default function PrivacySettingsPage() {
                         privacyGames: ps.privacyGames ?? "DEFAULT",
                         privacyMessages: ps.privacyMessages ?? "DEFAULT",
                     });
+                    setHideGroups(!!ps.hideGroups);
                     setAgeDefaults(ps.ageDefaults ?? null);
                 }
             } catch (e) {
@@ -91,7 +95,8 @@ export default function PrivacySettingsPage() {
         try {
             const token = await getToken();
             if (!token) return;
-            const payload: Partial<Record<FieldKey, PrivacyLevel | null>> = {
+            const payload: Partial<Record<FieldKey, PrivacyLevel | null>> & { hideGroups?: boolean } = {
+                hideGroups,
                 privacyFriends: values.privacyFriends === "DEFAULT" ? null : values.privacyFriends,
                 privacyGames: values.privacyGames === "DEFAULT" ? null : values.privacyGames,
                 privacyMessages: values.privacyMessages === "DEFAULT" ? null : values.privacyMessages,
@@ -175,6 +180,11 @@ export default function PrivacySettingsPage() {
                                         </Select>
                                     </FormControl>
                                 ))}
+
+                                <FormControlLabel
+                                    control={<Switch checked={hideGroups} onChange={(e) => setHideGroups(e.target.checked)} />}
+                                    label="הסתר את הקבוצות שלי בפרופיל"
+                                />
 
                                 <Stack direction="row" spacing={2} justifyContent="flex-end">
                                     <Button variant="text" onClick={() => router.push("/profile")}>

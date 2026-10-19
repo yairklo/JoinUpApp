@@ -73,6 +73,7 @@ type PublicUser = {
   gender?: "MALE" | "FEMALE" | null;
   sports?: { id: string; name: string; position?: string | null }[];
   positions?: { id: string; name: string; sportId: string }[];
+  groups?: { id: string; title?: string | null; fieldName: string; sport?: string | null }[] | null;
 };
 
 const GENDER_LABELS: Record<"MALE" | "FEMALE", string> = {
@@ -314,7 +315,8 @@ export default function ProfilePage() {
         throw new Error(body.error || "Save failed");
       }
       const updated = await res.json();
-      setProfile(updated);
+      // The save response doesn't carry the groups list; keep what we already loaded.
+      setProfile((prev) => ({ ...updated, groups: prev?.groups }));
       if (typeof updated?.name === "string") notifyNameChanged(updated.name);
       setEditing(false);
       setSavedWithImageFailure(imageFailed);
@@ -528,6 +530,24 @@ export default function ProfilePage() {
                           </Stack>
                         ) : <Typography variant="body2">-</Typography>}
                       </Grid>
+                      {profile.groups && profile.groups.length > 0 && (
+                        <Grid size={12}>
+                          <Typography variant="caption" color="text.secondary" display="block" gutterBottom>הקבוצות שלי</Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {profile.groups.map((g) => (
+                              <Chip
+                                key={g.id}
+                                component={Link}
+                                href={`/series/${g.id}`}
+                                clickable
+                                variant="outlined"
+                                color="primary"
+                                label={g.title || g.fieldName}
+                              />
+                            ))}
+                          </Stack>
+                        </Grid>
+                      )}
 
                     </Grid>
                   ) : (
