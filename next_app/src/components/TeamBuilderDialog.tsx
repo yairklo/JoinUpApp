@@ -17,7 +17,7 @@ import Zoom from "@mui/material/Zoom";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress from "@mui/material/LinearProgress";
 import InputAdornment from "@mui/material/InputAdornment";
-import { alpha, darken } from "@mui/material/styles";
+import { alpha, darken, lighten, getLuminance, useTheme } from "@mui/material/styles";
 
 // Icons
 import CloseIcon from "@mui/icons-material/Close";
@@ -70,6 +70,13 @@ const JERSEY_COLORS = [
 // Drop target id for dragging a player back to the bench (unassign).
 const BENCH_DROP_ID = "__bench__";
 
+// Jersey colors like black vanish against the dark-mode surface, so outlines, tints and accent
+// text use a lightened variant there; the header keeps the real jersey color.
+const teamAccent = (color: string, mode: "light" | "dark") =>
+  mode === "dark" && getLuminance(color) < 0.12 ? lighten(color, 0.55) : color;
+const teamAccentText = (color: string, mode: "light" | "dark") =>
+  mode === "dark" ? lighten(teamAccent(color, mode), 0.3) : darken(color, 0.1);
+
 const teamGradient = (color: string) =>
   `linear-gradient(135deg, ${color} 0%, ${darken(color, 0.28)} 100%)`;
 
@@ -88,6 +95,9 @@ export default function TeamBuilderDialog({
   initialTeams,
   onSave,
 }: TeamBuilderDialogProps) {
+  const theme = useTheme();
+  const mode = theme.palette.mode;
+
   // --- State ---
   const [teams, setTeams] = useState<Team[]>(
     initialTeams && initialTeams.length > 0
@@ -597,6 +607,8 @@ export default function TeamBuilderDialog({
               const isDragOver = dragOverId === team.id;
               const highlighted = isTarget || isDragOver;
               const confirmingDelete = confirmRemoveTeamId === team.id;
+              const accent = teamAccent(team.color, mode);
+              const accentText = teamAccentText(team.color, mode);
 
               return (
                 <Box
@@ -616,16 +628,16 @@ export default function TeamBuilderDialog({
                     bgcolor: "background.paper",
                     borderRadius: "20px",
                     overflow: "hidden",
-                    border: `1px solid ${highlighted ? team.color : t.palette.divider}`,
+                    border: `1px solid ${highlighted ? accent : t.palette.divider}`,
                     boxShadow: highlighted
-                      ? `0 0 0 3px ${alpha(team.color, 0.22)}, 0 14px 30px ${alpha(team.color, 0.22)}`
+                      ? `0 0 0 3px ${alpha(accent, 0.22)}, 0 14px 30px ${alpha(accent, 0.22)}`
                       : t.shadows[2],
                     transform: isDragOver ? "translateY(-3px)" : "none",
                     cursor: isTarget ? "pointer" : "default",
                     transition: "all 180ms cubic-bezier(0.16, 1, 0.3, 1)",
                     "&:hover": isTarget ? { transform: "translateY(-3px)" } : undefined,
                     outline: "none",
-                    "&:focus-visible": { boxShadow: `0 0 0 3px ${alpha(team.color, 0.5)}` },
+                    "&:focus-visible": { boxShadow: `0 0 0 3px ${alpha(accent, 0.5)}` },
                   })}
                 >
                   {/* Colored Header */}
@@ -633,7 +645,7 @@ export default function TeamBuilderDialog({
                     sx={{
                       position: "relative",
                       overflow: "hidden",
-                      backgroundImage: teamGradient(team.color),
+                      backgroundImage: teamGradient(mode === "dark" && getLuminance(team.color) < 0.12 ? lighten(team.color, 0.18) : team.color),
                       color: "#fff",
                       px: 2,
                       py: 1.5,
@@ -727,9 +739,9 @@ export default function TeamBuilderDialog({
                           gap: 1,
                           minHeight: 120,
                           borderRadius: "14px",
-                          border: `2px dashed ${alpha(team.color, highlighted ? 0.7 : 0.3)}`,
-                          bgcolor: alpha(team.color, highlighted ? 0.1 : 0.04),
-                          color: highlighted ? darken(team.color, 0.1) : "text.secondary",
+                          border: `2px dashed ${alpha(accent, highlighted ? 0.7 : 0.3)}`,
+                          bgcolor: alpha(accent, highlighted ? 0.1 : 0.04),
+                          color: highlighted ? accentText : "text.secondary",
                           transition: "all 160ms ease",
                           px: 2,
                           textAlign: "center",
@@ -742,8 +754,8 @@ export default function TeamBuilderDialog({
                             borderRadius: "50%",
                             display: "grid",
                             placeItems: "center",
-                            bgcolor: alpha(team.color, 0.14),
-                            color: team.color,
+                            bgcolor: alpha(accent, 0.14),
+                            color: accent,
                           }}
                         >
                           <PersonAddAlt1Icon />
@@ -778,17 +790,17 @@ export default function TeamBuilderDialog({
                                 py: 0.75,
                                 borderRadius: "12px",
                                 cursor: "pointer",
-                                bgcolor: selected ? alpha(team.color, 0.14) : "transparent",
-                                boxShadow: selected ? `inset 0 0 0 1.5px ${team.color}` : "none",
+                                bgcolor: selected ? alpha(accent, 0.14) : "transparent",
+                                boxShadow: selected ? `inset 0 0 0 1.5px ${accent}` : "none",
                                 transition: "background-color 140ms ease, box-shadow 140ms ease",
-                                "&:hover": { bgcolor: selected ? alpha(team.color, 0.18) : t.palette.action.hover },
+                                "&:hover": { bgcolor: selected ? alpha(accent, 0.18) : t.palette.action.hover },
                                 "&:hover .remove-btn": { opacity: 1 },
                               })}
                             >
                               <Box
                                 sx={{
                                   borderRadius: "50%",
-                                  boxShadow: `0 0 0 2px ${alpha(team.color, 0.55)}`,
+                                  boxShadow: `0 0 0 2px ${alpha(accent, 0.55)}`,
                                   display: "inline-flex",
                                 }}
                               >
@@ -799,7 +811,7 @@ export default function TeamBuilderDialog({
                                   {name}
                                 </Typography>
                                 {selected && (
-                                  <Typography sx={{ fontSize: 11, color: darken(team.color, 0.1), fontWeight: 600 }}>
+                                  <Typography sx={{ fontSize: 11, color: accentText, fontWeight: 600 }}>
                                     בחרו קבוצה אחרת להעברה
                                   </Typography>
                                 )}
@@ -832,9 +844,9 @@ export default function TeamBuilderDialog({
                               mt: 0.5,
                               py: 1,
                               borderRadius: "12px",
-                              border: `2px dashed ${alpha(team.color, 0.6)}`,
-                              bgcolor: alpha(team.color, 0.08),
-                              color: darken(team.color, 0.1),
+                              border: `2px dashed ${alpha(accent, 0.6)}`,
+                              bgcolor: alpha(accent, 0.08),
+                              color: accentText,
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -914,9 +926,9 @@ export default function TeamBuilderDialog({
               paddingInlineEnd: "6px",
               py: 0.75,
               borderRadius: 999,
-              color: "#fff",
-              bgcolor: "#0f172a",
-              boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
+              color: mode === "dark" ? "#0f172a" : "#fff",
+              bgcolor: mode === "dark" ? "#f1f5f9" : "#0f172a",
+              boxShadow: mode === "dark" ? "0 16px 40px rgba(0,0,0,0.55)" : "0 16px 40px rgba(15,23,42,0.35)",
               maxWidth: "calc(100vw - 32px)",
             }}
           >
@@ -938,7 +950,7 @@ export default function TeamBuilderDialog({
                   size="small"
                   aria-label="ביטול בחירה"
                   onClick={() => setSelectedPlayerId(null)}
-                  sx={{ color: "#fff", bgcolor: "rgba(255,255,255,0.12)", "&:hover": { bgcolor: "rgba(255,255,255,0.22)" } }}
+                  sx={{ color: "inherit", bgcolor: alpha(mode === "dark" ? "#0f172a" : "#ffffff", 0.12), "&:hover": { bgcolor: alpha(mode === "dark" ? "#0f172a" : "#ffffff", 0.22) } }}
                 >
                   <CloseIcon sx={{ fontSize: 18 }} />
                 </IconButton>

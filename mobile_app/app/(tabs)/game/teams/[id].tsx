@@ -92,7 +92,7 @@ export default function LiveTeamManagementScreen() {
   const isOrganizer = state?.organizerId === userId;
   // Roles live on the embedded game (state.managers carries no role); the server only allows MANAGER+ to save teams.
   const isManager = (state?.game?.managers || []).some((m) => m.id === userId && m.role === 'MANAGER');
-  const myTurn =state?.currentTurnManagerId === userId;
+  const myTurn = state?.currentTurnManagerId === userId;
   const currentOnline = state?.currentTurnManagerId ? !!presence[state.currentTurnManagerId] : false;
   const pickingActive = state?.pickSessionStatus === 'PICKING';
   const showOfflineControls =
@@ -364,11 +364,13 @@ export default function LiveTeamManagementScreen() {
         {(isOrganizer || isManager) && (
           <TouchableOpacity
             onPress={() => router.push(`/game/teams/quick/${id}`)}
-            style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+            style={{ borderWidth: 1, borderColor: '#e8ecf1', borderRadius: 16, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff' }}
           >
-            <FontAwesome name="users" size={18} color="#2563eb" />
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#ecfdf5', alignItems: 'center', justifyContent: 'center' }}>
+              <FontAwesome name="users" size={18} color="#059669" />
+            </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.quickEdit')}</Text>
+              <Text style={{ fontWeight: '800', fontSize: 16, color: '#0f172a' }}>{t('teams.quickEdit')}</Text>
               <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.quickEditOpen')}</Text>
             </View>
             <FontAwesome name="angle-left" size={20} color="#9ca3af" />
