@@ -1,159 +1,65 @@
 [
   {
     "id": 1,
-    "title": "server/schema: notification preference columns, NotificationMute model, new notification types",
-    "area": "server",
+    "title": "Game hero: real cover photo, countdown pill, status badge, colorful stat tiles",
+    "area": "web",
     "files": [
-      "server/prisma/schema.prisma",
-      "server/prisma/migrations/20261014120000_notification_preferences/migration.sql"
+      "next_app/src/components/GameHero.tsx",
+      "next_app/src/components/GameLiveSection.tsx",
+      "next_app/src/app/games/[id]/page.tsx"
     ],
-    "description": "Branch: feature/notification-preferences off main, in a dedicated worktree (00-core-invariants). Layer-isolated: schema + migration only.\n\n(a) Extend UserNotificationSettings (model at schema.prisma:689). Keep the four existing columns and their meaning (pushEnabled = master push switch; friendRequestsEnabled / messagesEnabled / gameRemindersEnabled = PUSH flag of their category) so old app builds keep working. Add per-category channel flags, all Boolean:\n  friendRequestsInApp @default(true)\n  gameRemindersInApp @default(true)\n  myGamesPush @default(true), myGamesInApp @default(true)\n  invitationsPush @default(true), invitationsInApp @default(true)\n  organizerPush @default(true), organizerInApp @default(true)\n  groupGamesPush @default(true), groupGamesInApp @default(true)\n  friendGamesPush @default(true), friendGamesInApp @default(true)\n  friendJoinsPush @default(false), friendJoinsInApp @default(false)   (opt-in, high fan-out)\n  cityGamesPush @default(<DECISION D1>), cityGamesInApp @default(true)\n  cityGamesSports SportType[] @default([])   (empty = all sports)\n  cityGamesCities String[] @default([])      (empty = the user's profile city; stored normalized via shared cityAliases)\n  quietHoursEnabled Boolean @default(false), quietHoursStart Int @default(1380), quietHoursEnd Int @default(420)   (minutes since local midnight; window may wrap midnight)\n  timezone String @default(\"Asia/Jerusalem\")\n  snoozeUntil DateTime?   (pause all push until this instant)\n  updatedAt DateTime @default(now()) @updatedAt\n\n(b) New model NotificationMute { id cuid, userId, targetType NotificationMuteTarget (enum USER | SERIES | GAME), targetId String, until DateTime? (null = forever), createdAt; user relation onDelete Cascade; @@unique([userId, targetType, targetId]); @@index([targetType, targetId]) }. Add the back-relation on User.\n\n(c) Add NotificationType values: FRIEND_NEW_GAME, FRIEND_JOINED_GAME, NEW_SERIES_GAME (series/group currently misuses NEW_GAME_IN_CITY at gameService.js:879 and :1320).\n\nMigration SQL hand-written to match (ALTER TYPE ... ADD VALUE, ALTER TABLE ADD COLUMN with defaults, CREATE TABLE + indexes). Existing rows get defaults -> no behavior change except D1. Run `npx prisma migrate dev` against a local/branch DB only and `npx prisma generate`; never against prod (prisma-db.mdc).",
-    "status": "todo"
+    "description": "Visual refresh of the game page header (young/fresh style), same data, no behavior change.\n\n(a) page.tsx: add `fieldImage?: string | null` and `seriesImageUrl?: string | null` to the local Game type and pass `coverImage: game.imageUrl || game.seriesImageUrl || game.fieldImage` into GameLiveSection's initialGame (the API already returns all three, see server/services/gameService.js:161-163; the feed cards already use this exact fallback, e.g. GamesByDateClient.tsx:72). Today the detail hero ignores the per-game/series/field photo entirely.\n(b) GameLiveSection.tsx: add `coverImage?: string | null` to LiveGame, include it in the initialGame sync effect deps, pass it to GameHero as `coverImage`, and pass a new `viewerState` prop: 'joined' | 'waitlisted' | 'pending' | null (from `joined`, viewerParticipationStatus).\n(c) GameHero.tsx: pass `image={coverImage}` to SportCover; taller hero (xs 240, md 300); top row = sport chip + teamSize chip on one side, a status pill on the other ('אתה בפנים ✓' white pill with sport-ink text when joined, 'ברשימת המתנה' / 'ממתין לאישור' glass pill, 'מלא' red pill / 'מקום אחרון!' amber pill otherwise); under the title add a bright countdown pill (sport glow bg, ink text) computed from date+time: 'היום · 20:00', 'מחר · 20:00', 'בעוד N ימים', 'הסתיים' (pure helper in the same file, Jerusalem-agnostic string math on the DD/MM/YYYY date the component already receives). Replace the bordered 3-column stat strip with three rounded tinted tiles (gap 1.5, radius 3, bg = alpha(sport base, 0.08) in light / 0.14 dark, icon in a 32px circle filled with sport base and white icon). Players tile keeps the progressbar (height 8, gradient from sport base to glow) and the spots-left caption. Actions footer: no grey band; actions sit in a padded row, full-width on xs (children container `width: {xs: '100%', sm: 'auto'}`). Keep the series link row but restyle as a rounded pill link inside the card padding instead of a full-bleed band. Card radius 6, softer shadow. Keep all aria/progressbar semantics and RTL (dir) handling as-is.",
+    "status": "verify"
   },
   {
     "id": 2,
-    "title": "server: pure preference engine (category map, defaults, validation, delivery decision)",
-    "area": "server",
+    "title": "Map + nav/share actions as one rounded location card",
+    "area": "web",
     "files": [
-      "server/utils/notificationPrefs.js",
-      "server/tests/notificationPrefs.test.js"
+      "next_app/src/components/GameActions.tsx"
     ],
-    "description": "New pure module, no Prisma access, fully unit-tested.\n\nExports:\n- CATEGORY_BY_TYPE: FRIEND_REQUEST, FRIEND_ACCEPTED -> 'friendRequests'; NEW_MESSAGE -> 'messages' (push only, no in-app channel); GAME_REMINDER -> 'gameReminders'; GAME_CANCELLED, GAME_UPDATED, GAME_JOIN_APPROVED, GAME_JOIN_REJECTED, GAME_WAITLIST_OFFER, GAME_REMOVED_PEER, GAME_ROLE_UPDATE -> 'myGames'; GAME_INVITATION -> 'invitations'; GAME_JOIN_REQUEST -> 'organizer'; NEW_SERIES_GAME -> 'groupGames'; FRIEND_NEW_GAME -> 'friendGames'; FRIEND_JOINED_GAME -> 'friendJoins'; NEW_GAME_IN_CITY -> 'cityGames'. Unknown type -> deliver on both channels (fail open, log).\n- CHANNEL_FIELDS: category -> { push: column, inApp: column|null } (friendRequests.push = friendRequestsEnabled, messages.push = messagesEnabled, gameReminders.push = gameRemindersEnabled, the rest the new columns).\n- DEFAULT_SETTINGS (mirrors schema defaults) and withDefaults(row|null).\n- sanitizeSettingsUpdate(body): whitelist known keys, coerce/validate types (booleans; minutes 0..1439; IANA timezone validated via Intl.DateTimeFormat; cityGamesSports subset of SportType; cityGamesCities trimmed, de-duplicated, normalized with shared cityAliases, max 10; snoozeUntil ISO or null, capped at now+30d). Returns { data, errors }; unknown keys ignored, invalid values -> errors (route returns 400).\n- isInQuietHours(settings, now): local minutes in settings.timezone via Intl; handles wrap-around (start > end) and start === end (= disabled).\n- isMuted(mutes, ctx, now): ctx = { actorId, seriesId, gameId }; a mute matches by targetType/targetId and (until null or until > now).\n- decideDelivery({ settings, mutes, type, ctx, now }) -> { inApp: bool, push: bool, reason }. Rules: category channel flags; push additionally requires pushEnabled, not snoozed, not in quiet hours; cityGames push also false when\n- toClientSettings(row, mutes): settings DTO + legacy fields unchanged so old clients still parse it.\n\nTests: every category mapping, legacy columns honored, quiet-hours wrap and DST boundary in Asia/Jerusalem, snooze expiry, mute expiry, safety-critical bypass, sanitize rejects bad input. No DB needed: run `cd server && npx jest tests/notificationPrefs.test.js`.",
-    "status": "todo"
+    "description": "Restyle GameActions (no logic change to navHref/share): wrap everything in one Card (radius 5, border divider, no elevation) with a small header row: PlaceRounded icon in a tinted circle + 'מיקום' + fieldName (noWrap). Map below it (height 200, no inner card/radius, borderTop). Navigation and share become two pill buttons (borderRadius 999, size medium) in a footer row: 'ניווט' contained (primary, disableElevation), 'שיתוף' outlined; on xs they split 50/50 (flex: 1). When there is no location, render the same card with only the header + share button (no empty map). Keep ShareDialog wiring unchanged.",
+    "status": "verify"
   },
   {
     "id": 3,
-    "title": "server: enforce preferences in NotificationService (single choke point) + batch fan-out",
-    "area": "server",
+    "title": "Roster: player tiles grid with open-slot placeholders, Hebrew empty states",
+    "area": "web",
     "files": [
-      "server/services/notificationService.js",
-      "server/tests/notificationService.prefs.test.js"
+      "next_app/src/components/GameParticipantsList.tsx"
     ],
-    "description": "Today prefs are only checked inside sendPushToAllDevices (notificationService.js:118-147) and the DB row + socket event are always created (sendNotification :75-111).\n\n- Add private loadPrefs(userIds[], ctx): one findMany on userNotificationSettings + one on notificationMute (filter userId in ids AND targetId in [ctx.actorId, ctx.seriesId, ctx.gameId]), returns Map<userId, {settings: withDefaults(row), mutes}>. Drop the legacy try/catch 'table doesn't exist' fallback — the table exists in every env.\n- sendNotification(userId, type, title, body, data, io): call decideDelivery with ctx taken from data ({ actorId: data.actorId, seriesId: data.seriesId, gameId: data.gameId }). If !inApp skip DB row + socket emit; if !push skip push; return the row or null. Signature unchanged so all existing callers keep working.\n- sendPushOnly: same gate (messages category), push only.\n- sendPushToAllDevices: remove its own settings checks (moved into the gate) and accept the already-decided call; keep device fan-out / stale-token cleanup as is.\n- New sendNotificationToMany(userIds, type, title, body, dataOrFn, io): de-dupe ids, load prefs in one batch, then per-user decide + create rows with createMany-free individual creates (need ids for socket payload) — chunk 50 at a time with Promise.allSettled so a 2k-user city fan-out doesn't open 2k parallel queries against the Neon pooler.\n- getSettings(userId): upsert-on-read (replace the current findUnique+create race at :402-414 with upsert) and return toClientSettings(row, activeMutes) including the mutes list joined with display info (user name/avatar, series name, game title) for the settings screen.\n- updateSettings(userId, data): data already sanitized by the route.\n- addMute/removeMute/listMutes helpers.\n\nTests (jest, mocked prisma object passed to constructor — no DB): in-app off -> no row, no socket; push off -> row but no push; muted actor suppresses FRIEND_NEW_GAME but not GAME_CANCELLED; quiet hours -> row yes, push no; sendNotificationToMany issues exactly one settings query for N users.",
-    "status": "todo"
+    "description": "Visual refresh of the participants card, same actions/menus/API calls.\n(a) Card: elevation 0, border divider, radius 5. Header: 'השחקנים' h6 800 + a count pill 'N/M' (dir=ltr isolate) in primary tint; drop the AvatarGroup and Divider (the tiles show everyone already).\n(b) Flat mode (no teams): replace the full-width ListItem rows with a responsive CSS grid (`gridTemplateColumns: repeat(auto-fill, minmax(150px, 1fr))` on sm+, 2 columns on xs). Each tile: radius 3, border divider, avatar size md + name (noWrap, 700) + role caption; organizer tile gets a primary ring and a small StarIcon badge on the avatar corner, manager gets an info AdminPanelSettings badge; the viewer's own tile gets 'את/ה' caption suffix and a success border. MoreVert menu button stays in the tile corner, only when canEditUser (unchanged rule). Tile links to /users/:id exactly as today (keep stopPropagation-free structure: the menu button must NOT be inside the link).\n(c) After the real players, render `Math.max(0, maxPlayers - participants.length)` dashed open-slot tiles (cap at 6, then a '+K מקומות פנויים' tile) with a dashed 40px circle + 'מקום פנוי' caption — read-only, not clickable.\n(d) Team mode: same tiles inside each team section; team header = left color bar (6px, team.color) + name + count pill instead of the full colored band. Unassigned heading becomes 'לא שובצו (N)'.\n(e) Replace English strings: 'No participants yet. Be the first to join!' -> 'עוד אין שחקנים — היו הראשונים להצטרף!', 'No players assigned yet' -> 'עדיין אין שחקנים בקבוצה', 'Not Assigned' -> 'לא שובצו'.\n(f) Manager-only invite box ('צרף חברים נוספים'): wrap in a tinted rounded box (alpha primary 0.06, radius 3, p 1.5) with PersonAddAlt icon, so it reads as an admin tool distinct from the roster.",
+    "status": "verify"
   },
   {
     "id": 4,
-    "title": "server: settings + mutes API (validated) on /api/notifications",
-    "area": "server",
+    "title": "Manager view: admin bar under hero + chat card polish",
+    "area": "web",
     "files": [
-      "server/routes/notifications.js",
-      "server/tests/notificationSettings.test.js"
+      "next_app/src/components/GameLiveSection.tsx"
     ],
-    "description": "- PUT /settings (routes/notifications.js:162-180): replace the 4-field destructure with sanitizeSettingsUpdate(req.body); 400 { error, details } on invalid; partial updates supported (current code writes `undefined` for omitted fields, which Prisma ignores — keep partial semantics explicit). Response = toClientSettings.\n- GET /settings: returns full DTO incl. mutes.\n- GET /mutes, POST /mutes { targetType, targetId, until? | durationHours? } (validate targetType enum; verify target exists; cannot mute yourself; upsert on the unique key), DELETE /mutes/:targetType/:targetId. All authenticateToken, userId from req.user only (server-invariants: never trust a body userId).\n- POST /settings/snooze { hours: 1|2|4|8|24 | null } convenience endpoint -> sets/clears snoozeUntil.\n- Remove the unauthenticated GET /test route (dead, leaks route existence) only if nothing references it (grep next_app/mobile_app first).\n\nExtend the existing integration test file (it already covers GET/PUT): new fields persist; invalid timezone / minutes -> 400; legacy body { pushEnabled:false } still works; mute CRUD round trip; muting self -> 400. Run: `cd server && PORT=3099 npx jest tests/notificationSettings.test.js --runInBand --detectOpenHandles --forceExit`.",
-    "status": "todo"
+    "description": "Managers (canManageSeries) currently get a 'נהל משחק' outlined button mixed into the player CTA row. Replace with a dedicated admin bar rendered between the hero and PendingJoinRequests, only when canManageSeries: a rounded (radius 4) strip with a dark ink background (`#0f172a` light / alpha white 0.06 dark), white text, a 'מצב מנהל' pill with AdminPanelSettingsRounded icon in amber, and horizontally scrollable pill buttons (glass style): 'עריכת פרטים' (scrollToManage), 'ניהול קבוצות חי' (NextLink to /games/:id/team-management), 'בקשות ממתינות' only when `pendingRequestCount > 0` if present on the live game (add optional `pendingRequestCount?: number` to LiveGame; server already returns it, gameService.js:166) with a count badge, scrolling to PendingJoinRequests (give it a wrapper id `game-requests`). Remove the two 'נהל משחק' buttons from the hero children (joined + not-joined manager branches) so the hero CTA is identical to the player view; keep JoinGameButton/LeaveGameButton exactly as wired. Chat card: radius 5, header gets a ChatBubbleRounded icon in a sport-tinted circle and a small green 'live' dot next to the title. No change to the refresh/socket logic.",
+    "status": "verify"
   },
   {
     "id": 5,
-    "title": "server: rework game-created fan-out (city filters, friends-only leak, friend games, group games)",
-    "area": "server",
+    "title": "Manager control panel: tiles instead of plain Paper; roster admin header",
+    "area": "web",
     "files": [
-      "server/services/gameService.js",
-      "server/tests/gameCreatedNotifications.test.js"
+      "next_app/src/app/games/[id]/page.tsx",
+      "next_app/src/components/TeamBuilderWrapper.tsx",
+      "next_app/src/components/GameDetailsEditor.tsx",
+      "next_app/src/components/GameManagePanel.tsx"
     ],
-    "description": "Current block gameService.js:982-1004 notifies EVERY user whose profile city matches, with no opt-out, and also for friends-only games (privacy bug — buildVisibilityWhere at :323 hides those from non-friends, but the push/in-app copy still announces them). Friends get no notification at all (only a socket 'game:created' at :965-979).\n\nNew flow after the create transaction (still fire-and-forget, never blocks the response):\n1. friendIds = creator's friendships (reuse the query already done at :966).\n2. FRIEND_NEW_GAME to friendIds via sendNotificationToMany, data { gameId, actorId: creatorUser.id, link: `/game/${id}`, sport }.\n3. If !game.isFriendsOnly (or friendsOnlyUntil already passed): city recipients = users where id not in (creator, ...friendIds) AND either (settings.cityGamesCities is empty AND user.city matches game city via cityAliases, case-insensitive) OR cityGamesCities has normalized game city; AND (cityGamesSports empty OR has game.sport). Users without a settings row count as defaults. Implement as a prisma query with relation filters (notificationSettings: { is: null } OR { ... }) — no in-memory scan of all users. Send NEW_GAME_IN_CITY via sendNotificationToMany with actorId + gameId (so per-user mutes apply).\n4. If the game is friends-only with a friendsOnlyUntil in the future, do NOT city-notify now (out of scope to schedule a later city blast — note it in the PR).\n5. Series/group paths (:879 and :1320): switch type to NEW_SERIES_GAME, add seriesId + actorId to data, use sendNotificationToMany; fix the inconsistent link `/games/` -> `/game/` used by the other notifications (check next_app/src/utils/notificationRoute.ts and mobile notificationDisplay to confirm which one resolves).\n\nTests (DB-backed, unique ids, clean up after): friend gets FRIEND_NEW_GAME and not the city one; friends-only game -> no city notification to strangers; sport filter excludes; extra city opts in a user from another city; cityGamesInApp=false -> no row; muted organizer -> nothing.",
-    "status": "todo"
+    "description": "(a) page.tsx #game-manage: replace the outlined Paper with a Card (radius 5, border) whose header is a slim gradient band (primary.dark -> primary.main) with TuneRounded icon, 'לוח ניהול' title and the existing helper sentence in white/0.8 shortened to 'עריכת פרטים, קבוצה שבועית וביטול המשחק'. Body: GameDetailsEditor trigger, CancelGameButton (same visibility condition) and SeriesManager, separated by Divider as today. Keep id=\"game-manage\" on the outer Card (scrollToManage relies on it). Keep GameActions where it is.\n(b) GameDetailsEditor.tsx: only the trigger button changes — not fullWidth outlined; instead a full-width tile-like Button (variant contained, color primary, disableElevation, borderRadius 3, py 1.25, justifyContent space-between, EditRounded start icon, ChevronLeft end icon). Dialog untouched.\n(c) TeamBuilderWrapper.tsx: the manager header ('סגל המשחק' + two buttons + caption) becomes a compact tinted admin box (alpha primary 0.06, radius 3, p 1.5, mb 2) titled 'ניהול קבוצות' with the two buttons as pills (borderRadius 999); caption kept but shortened to one line. Lottery-pending alert and waitlist card: radius 3, waitlist ListItemButtons become the same tile look as step 3 (border, radius 3). No change to save/route logic.\n\n(d) Implementation note: the panel shell moved into a new client component GameManagePanel.tsx, because its header uses a theme sx callback that a server component (page.tsx) cannot pass to a client component (it would have crashed the page for managers only).",
+    "status": "verify"
   },
   {
     "id": 6,
-    "title": "server: friend-joined-game notification + actorId on all actor-originated notifications",
-    "area": "server",
-    "files": [
-      "server/services/gameService.js",
-      "server/utils/addedToGameNotification.js",
-      "server/routes/gameRoster.js"
-    ],
-    "description": "- Add notifyFriendsOfJoin(game, joiningUser, io): on a CONFIRMED join (the paths that call notifyOrganizerOfInstantJoin, gameService.js:400), send FRIEND_JOINED_GAME to the joiner's friends via sendNotificationToMany, excluding organizer and anyone already a participant of that game; skip friends-only games for friends who can't see it (they can — they're friends of the joiner, not necessarily the organizer: apply buildVisibilityWhere semantics, i.e. only notify friends who are also friends of the organizer when game.isFriendsOnly). Default for this category is off, so cost only applies to opted-in users.\n- Add actorId to data everywhere an actor exists so per-user mutes work: notifyOrganizerOfInstantJoin/PendingRequest/WaitlistJoin (actorId = joining user), notifyUserAddedToGame (actorId = adderId), cancelGame (actorId = canceller, still never muted per step 2), gameRoster.js:361/:658 removal notices (actorId = manager), and add gameId everywhere (already present). No copy changes.\n- Run only the touched tests plus any existing test that imports these functions (grep server/tests for notifyOrganizerOf / notifyUserAddedToGame).",
-    "status": "todo"
-  },
-  {
-    "id": 8,
-    "title": "shared: NotificationSettings / mute types and category metadata for both clients",
-    "area": "shared",
-    "files": [
-      "shared/notificationPrefs.js",
-      "shared/notificationPrefs.d.ts",
-      "shared/index.js"
-    ],
-    "description": "Single source for both clients (see shared-types.mdc): NotificationSettings interface matching toClientSettings, NotificationMute { targetType, targetId, until, label, imageUrl }, NOTIFICATION_CATEGORIES ordered list [{ key, pushField, inAppField|null, group: 'social'|'myGames'|'discovery' }], QUIET_HOURS helpers (minutesToHHMM / HHMMToMinutes), SNOOZE_OPTIONS [1,2,4,8,24]. No UI strings (each client localizes). Re-export from index.js and index.d.ts (index.d.ts is a 4th file only for the re-export line — allowed as part of this atomic shared step; if the 3-file rule is enforced strictly, split the index.d.ts line into step 9). Add a small node:test for the time helpers like the other shared/*.test.js.",
-    "status": "todo"
-  },
-  {
-    "id": 9,
-    "title": "web: notifications API client methods",
+    "title": "Quality gates + visual check (player and manager views, light/dark, mobile width)",
     "area": "web",
-    "files": [
-      "next_app/src/services/api/notifications.ts",
-      "shared/index.d.ts"
-    ],
-    "description": "Add getSettings, updateSettings(partial), snooze(hours|null), getMutes, mute({targetType,targetId,until?}), unmute(targetType,targetId) to next_app's notificationsApi (pattern: existing apiClient + token). Types from shared. Add the shared index.d.ts re-export line if not done in step 8.",
-    "status": "todo"
-  },
-  {
-    "id": 10,
-    "title": "web: rebuild /settings/notifications (fix broken auth, auto-save, full controls)",
-    "area": "web",
-    "files": [
-      "next_app/src/app/settings/notifications/page.tsx",
-      "next_app/src/components/notifications/NotificationCategoryMatrix.tsx",
-      "next_app/src/components/notifications/NotificationMutesList.tsx"
-    ],
-    "description": "Bug: page.tsx:53 and :84 call relative fetch('/api/notifications/settings') with `localStorage.getItem('__clerk_client_jwt')` — there is no Next API route or rewrite and that key isn't set by Clerk, so the page can't load or save real settings. Replace with notificationsApi + useAuth().getToken().\n\nUX (RTL Hebrew, MUI, existing visual language of the page):\n- Top: master push switch + browser permission state (reuse NotificationAsker logic) + 'pause notifications' snooze menu (1/2/4/8/24h, shows 'paused until HH:MM', resume button).\n- Category matrix grouped Social (friend requests, messages, friend games, friend joins) / My games (reminders, updates & cancellations, invitations, organizer requests, group games) / Discovery (games in my city). Each row: title, one-line description, two compact switches 'Push' and 'In app' (messages: push only). Push switches disabled+dimmed when master push off.\n- City games row expands: sports chips (from shared sports list), extra cities (Autocomplete with shared cityAliases).\n- Quiet hours: enable switch + from/to time pickers, note 'in-app notifications still arrive'.\n- Muted: list of muted people/groups/games with avatar, 'until' text and unmute.\n- Auto-save: optimistic per change, debounced 400ms PATCH-style PUT with only changed keys, rollback + snackbar on error; remove the Save button. Loading skeleton unchanged (LoadingMotif).\n- Keyboard/a11y: every switch has an aria-label.",
-    "status": "todo"
-  },
-  {
-    "id": 11,
-    "title": "web: mute entry points + new notification types in panel/routing",
-    "area": "web",
-    "files": [
-      "next_app/src/app/users/[id]/page.tsx",
-      "next_app/src/app/series/[id]/page.tsx",
-      "next_app/src/components/NotificationPanel.tsx"
-    ],
-    "description": "- User profile (friends only): overflow/bell action 'Mute notifications from X' with durations (8h, 1 week, forever) / 'Unmute'. State from GET /mutes.\n- Series page: 'Mute group notifications' toggle for subscribers.\n- NotificationPanel: icons/labels for FRIEND_NEW_GAME, FRIEND_JOINED_GAME, NEW_SERIES_GAME; per-item kebab 'Turn off notifications like this' (sets that category's push+inApp off with undo snackbar) and, when data.actorId exists, 'Mute <name>'. Footer link to /settings/notifications.\n- If page files turn out to be thin wrappers, put the UI in their client component instead and note the file swap in the PR (stays ≤3 files). Verify next_app/src/utils/notificationRoute.ts routes the new types (gameId-based -> /game/:id); if it needs a change that makes this 4 files, split into a separate step.",
-    "status": "todo"
-  },
-  {
-    "id": 12,
-    "title": "mobile: notification settings screen with full parity",
-    "area": "mobile",
-    "files": [
-      "mobile_app/src/services/api/notifications.ts",
-      "mobile_app/app/settings/notifications.tsx",
-      "mobile_app/app/settings/index.tsx"
-    ],
-    "description": "Mobile today exposes only the master switch (settings/index.tsx:16-72). Add API methods mirroring step 9 (types from shared), a new expo-router screen settings/notifications.tsx with the same sections as web (master push incl. OS permission prompt / deep link to OS settings when denied — move the existing handleTogglePush logic here; snooze action sheet; category rows with Push / In-app switches; city filters with sport chips, cities; quiet hours via @react-native-community/datetimepicker if already a dependency, else a simple hour/minute picker; muted list with unmute). Optimistic auto-save with debounced partial PUT + revert and Alert on failure. settings/index.tsx: replace the inline switch with a row 'Notifications' -> router.push('/settings/notifications') showing a summary subtitle (On / Off / Paused until …). NativeWind classes consistent with the existing screen. All strings via t('notificationSettings.*') — keys added in step 13.",
-    "status": "todo"
-  },
-  {
-    "id": 13,
-    "title": "mobile: i18n strings for notification settings (he + en)",
-    "area": "mobile",
-    "files": [
-      "mobile_app/src/i18n/locales/he.json",
-      "mobile_app/src/i18n/locales/en.json"
-    ],
-    "description": "Add notificationSettings.* keys used by steps 12 and 14 (category titles/descriptions, channel labels, snooze options, quiet hours, mute actions, errors) in both files with identical key sets. If the locales use the nested notifications/ directory instead of the flat json files, follow that convention.",
-    "status": "todo"
-  },
-  {
-    "id": 14,
-    "title": "mobile: mute entry points + new notification types in display",
-    "area": "mobile",
-    "files": [
-      "mobile_app/app/user/[id].tsx",
-      "mobile_app/app/series/[id].tsx",
-      "mobile_app/src/utils/notificationDisplay.ts"
-    ],
-    "description": "Same entry points as step 11: mute user from profile (friends), mute group from series screen, and resolveNotificationCopy/normalizeNotification + icon handling for FRIEND_NEW_GAME, FRIEND_JOINED_GAME, NEW_SERIES_GAME (route to the game). If the notifications list screen (mobile_app/app/notifications/index.tsx) needs a long-press 'turn off like this' action, add it as step 15 rather than exceeding 3 files.",
-    "status": "todo"
-  },
-  {
-    "id": 15,
-    "title": "quality gates + PR",
-    "area": "shared",
     "files": [],
-    "description": "next_app: `npm run build` green. mobile_app: typecheck + lint per PROMPT.md. server: run only the new/changed test files with PORT=3099 --runInBand (testing-jest.mdc), full suite only once before merge. Manual check in the web preview: settings page loads/saves against staging, toggles persist after reload. Open PR from feature/notification-preferences to main (never push main). PR body lists: migration, default changes (D1), the friends-only privacy fix, and the deferred item (city blast when friendsOnlyUntil expires).",
+    "description": "Run `cd next_app && npx tsc --noEmit` and `npm run lint` (PROMPT.md quality gate). Visually check /games/:id at 375px and desktop, light and dark, as (1) a guest, (2) a joined player, (3) the organizer. NOTE: the local server currently 500s on every games query because the shared dev DB is missing the Game.imageUrl column added on this branch (commit 00c16c3) — the migration must be applied to the dev DB (or verification done against a DB that has it) before the page renders at all; that is a user decision, not part of this plan.",
     "status": "todo"
   }
 ]

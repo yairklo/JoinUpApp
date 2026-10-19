@@ -14,11 +14,13 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import EventRepeatRoundedIcon from "@mui/icons-material/EventRepeatRounded";
 import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 
 import SportCover from "@/components/ui/SportCover";
 import { SPORT_MAPPING, getSportTheme } from "@/utils/sports";
 import SportIcon from "@/components/ui/SportIcon";
-import { formatHebrewDateRelative } from "@/utils/hebrewDate";
+import { formatHebrewDateRelative, toIsoDateInput } from "@/utils/hebrewDate";
 
 function formatEndTime(startTime: string, hours: number | undefined): string {
     const dur = typeof hours === "number" && Number.isFinite(hours) ? hours : 1;
@@ -28,34 +30,79 @@ function formatEndTime(startTime: string, hours: number | undefined): string {
     return `${String(base.getHours()).padStart(2, "0")}:${String(base.getMinutes()).padStart(2, "0")}`;
 }
 
+/** "היום · 20:00" / "מחר · 20:00" / "בעוד 3 ימים" / "הסתיים", counted in Jerusalem calendar days. */
+function countdownLabel(date: string | undefined, time: string, end: string): string | null {
+    const iso = toIsoDateInput(date);
+    if (!iso) return null;
+    const todayIso = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+    const days = Math.round((Date.parse(`${iso}T12:00:00Z`) - Date.parse(`${todayIso}T12:00:00Z`)) / 86_400_000);
+    if (Number.isNaN(days)) return null;
+    if (days < 0) return "הסתיים";
+    if (days === 0) {
+        const nowHm = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Jerusalem", hour: "2-digit", minute: "2-digit", hour12: false });
+        if (nowHm >= time && nowHm < end) return "משחקים עכשיו!";
+        if (end > time && nowHm >= end) return "הסתיים";
+        return `היום · ${time}`;
+    }
+    if (days === 1) return `מחר · ${time}`;
+    return `בעוד ${days} ימים`;
+}
+
 const glassChipSx = {
-    height: 26,
-    fontSize: "0.75rem",
+    height: 28,
+    fontSize: "0.78rem",
     fontWeight: 700,
     color: "#fff",
-    bgcolor: "rgba(255,255,255,0.14)",
-    border: "1px solid rgba(255,255,255,0.22)",
-    backdropFilter: "blur(8px)",
+    bgcolor: "rgba(255,255,255,0.16)",
+    border: "1px solid rgba(255,255,255,0.24)",
+    backdropFilter: "blur(10px)",
 } as const;
 
-function Stat({
+export type HeroViewerState = "joined" | "waitlisted" | "pending" | null;
+
+function StatTile({
     icon,
     label,
     value,
     caption,
+    accent,
     children,
 }: {
     icon: React.ReactNode;
     label: string;
     value: React.ReactNode;
     caption?: React.ReactNode;
+    accent: string;
     children?: React.ReactNode;
 }) {
     return (
-        <Box sx={{ minWidth: 0, px: { xs: 1.25, sm: 2.5 }, py: { xs: 1.75, sm: 2.25 } }}>
-            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "text.secondary", mb: 0.5 }}>
-                <Box sx={{ display: "flex", "& svg": { fontSize: 16 } }}>{icon}</Box>
-                <Typography variant="caption" fontWeight={700} noWrap>
+        <Box
+            sx={(t) => ({
+                minWidth: 0,
+                p: { xs: 1.25, sm: 1.75 },
+                borderRadius: 3,
+                bgcolor: alpha(accent, t.palette.mode === "dark" ? 0.14 : 0.08),
+                border: "1px solid",
+                borderColor: alpha(accent, t.palette.mode === "dark" ? 0.28 : 0.16),
+            })}
+        >
+            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.75, minWidth: 0 }}>
+                <Box
+                    sx={{
+                        width: { xs: 26, sm: 30 },
+                        height: { xs: 26, sm: 30 },
+                        borderRadius: "50%",
+                        bgcolor: accent,
+                        color: "#fff",
+                        display: "grid",
+                        placeItems: "center",
+                        flexShrink: 0,
+                        "& svg": { fontSize: { xs: 15, sm: 17 } },
+                    }}
+                >
+                    {icon}
+                </Box>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" noWrap>
                     {label}
                 </Typography>
             </Stack>
@@ -64,8 +111,8 @@ function Stat({
                 noWrap
                 sx={{
                     fontWeight: 800,
-                    fontSize: { xs: "1.05rem", sm: "1.3rem" },
-                    lineHeight: 1.2,
+                    fontSize: { xs: "1.05rem", sm: "1.35rem" },
+                    lineHeight: 1.15,
                     letterSpacing: "-0.01em",
                     fontVariantNumeric: "tabular-nums",
                 }}
@@ -83,9 +130,9 @@ function Stat({
 }
 
 /**
- * Game page header: a full sport-art hero carrying the title and venue, a three-up stat strip
- * (when / players / price) and the viewer's actions. Replaces reusing the feed's list card
- * here, which buried the title under the photo and crammed page-level info into card chrome.
+ * Game page header: a full sport-art hero (game/series/field photo under a sport wash) carrying
+ * the title, venue, a countdown and the viewer's status, then three tinted stat tiles
+ * (when / players / price) and the viewer's actions.
  */
 export default function GameHero({
     time,
@@ -100,6 +147,8 @@ export default function GameHero({
     sport,
     teamSize,
     price,
+    coverImage,
+    viewerState = null,
     children,
 }: {
     time: string;
@@ -115,6 +164,9 @@ export default function GameHero({
     sport?: string;
     teamSize?: number | null;
     price?: number | null;
+    /** Game, series or field photo shown under the sport wash. */
+    coverImage?: string | null;
+    viewerState?: HeroViewerState;
     children?: React.ReactNode;
 }) {
     const theme = getSportTheme(sport);
@@ -125,6 +177,29 @@ export default function GameHero({
     const almostFull = !isFull && spotsLeft <= 2;
     const sportLabel = sport ? SPORT_MAPPING[sport] : undefined;
     const isFree = !price || price <= 0;
+    const countdown = countdownLabel(date, time, end);
+
+    const statusPill =
+        viewerState === "joined" ? (
+            <Chip
+                size="small"
+                icon={<CheckCircleRoundedIcon sx={{ fontSize: "17px !important", color: `${theme.base} !important` }} />}
+                label="אתה בפנים"
+                sx={{ ...glassChipSx, color: theme.ink, bgcolor: "#fff", border: "none" }}
+            />
+        ) : viewerState === "waitlisted" ? (
+            <Chip size="small" label="ברשימת המתנה" sx={glassChipSx} />
+        ) : viewerState === "pending" ? (
+            <Chip size="small" label="ממתין לאישור" sx={glassChipSx} />
+        ) : isFull ? (
+            <Chip size="small" label="מלא" sx={{ ...glassChipSx, bgcolor: "#ef4444", border: "none" }} />
+        ) : almostFull ? (
+            <Chip
+                size="small"
+                label={spotsLeft === 1 ? "מקום אחרון!" : `נשארו ${spotsLeft}!`}
+                sx={{ ...glassChipSx, bgcolor: "#f59e0b", color: "#1f1300", border: "none" }}
+            />
+        ) : null;
 
     return (
         <Card
@@ -135,10 +210,10 @@ export default function GameHero({
                 overflow: "hidden",
                 border: "1px solid",
                 borderColor: "divider",
-                boxShadow: "0 1px 3px rgba(15,23,42,0.06), 0 12px 32px -12px rgba(15,23,42,0.12)",
+                boxShadow: `0 1px 2px rgba(15,23,42,0.05), 0 24px 48px -24px ${alpha(theme.deep, 0.45)}`,
             }}
         >
-            <SportCover sport={sport} height={{ xs: 196, md: 248 }} lineOpacity={0.36}>
+            <SportCover sport={sport} image={coverImage} height={{ xs: 240, md: 300 }} lineOpacity={0.36}>
                 <Box
                     sx={{
                         position: "absolute",
@@ -149,29 +224,56 @@ export default function GameHero({
                         justifyContent: "space-between",
                         color: "#fff",
                         minWidth: 0,
+                        // Extra bottom scrim so the title stays legible over bright photos.
+                        background: "linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.38) 100%)",
                     }}
                 >
-                    <Stack direction="row" spacing={0.75}>
-                        {sportLabel && (
-                            <Chip
-                                size="small"
-                                icon={<SportIcon sport={sport} sx={{ fontSize: "16px !important", color: `${theme.glow} !important`, marginInlineStart: "6px !important" }} />}
-                                label={sportLabel}
-                                sx={glassChipSx}
-                            />
-                        )}
-                        {teamSize ? <Chip size="small" label={`${teamSize}X${teamSize}`} sx={glassChipSx} dir="ltr" /> : null}
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                            {sportLabel && (
+                                <Chip
+                                    size="small"
+                                    icon={<SportIcon sport={sport} sx={{ fontSize: "16px !important", color: `${theme.glow} !important`, marginInlineStart: "6px !important" }} />}
+                                    label={sportLabel}
+                                    sx={glassChipSx}
+                                />
+                            )}
+                            {teamSize ? <Chip size="small" label={`${teamSize}X${teamSize}`} sx={glassChipSx} dir="ltr" /> : null}
+                        </Stack>
+                        {statusPill}
                     </Stack>
 
                     <Box sx={{ minWidth: 0 }}>
+                        {countdown && (
+                            <Box
+                                suppressHydrationWarning
+                                sx={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 0.5,
+                                    mb: 1,
+                                    px: 1.25,
+                                    py: 0.4,
+                                    borderRadius: 999,
+                                    bgcolor: theme.glow,
+                                    color: theme.ink,
+                                    fontWeight: 800,
+                                    fontSize: { xs: "0.78rem", md: "0.85rem" },
+                                    boxShadow: `0 6px 20px -6px ${alpha(theme.glow, 0.8)}`,
+                                }}
+                            >
+                                <BoltRoundedIcon sx={{ fontSize: 16 }} />
+                                <span suppressHydrationWarning>{countdown}</span>
+                            </Box>
+                        )}
                         <Typography
                             component="h1"
                             sx={{
-                                fontWeight: 800,
-                                fontSize: { xs: "1.6rem", sm: "2rem", md: "2.6rem" },
-                                lineHeight: 1.1,
-                                letterSpacing: "-0.025em",
-                                textShadow: "0 2px 16px rgba(0,0,0,0.3)",
+                                fontWeight: 900,
+                                fontSize: { xs: "1.75rem", sm: "2.2rem", md: "2.8rem" },
+                                lineHeight: 1.05,
+                                letterSpacing: "-0.03em",
+                                textShadow: "0 2px 18px rgba(0,0,0,0.35)",
                                 display: "-webkit-box",
                                 overflow: "hidden",
                                 WebkitBoxOrient: "vertical",
@@ -191,13 +293,13 @@ export default function GameHero({
                                     mt: 0.75,
                                     width: "fit-content",
                                     maxWidth: "100%",
-                                    color: "rgba(255,255,255,0.88)",
+                                    color: "rgba(255,255,255,0.9)",
                                     textDecoration: "none",
                                     ...(fieldHref && { "&:hover": { color: "#fff", textDecoration: "underline" } }),
                                 }}
                             >
-                                <PlaceRoundedIcon sx={{ fontSize: 17, color: theme.glow, flexShrink: 0 }} />
-                                <Typography noWrap sx={{ fontSize: { xs: "0.875rem", md: "1rem" }, fontWeight: 600 }}>
+                                <PlaceRoundedIcon sx={{ fontSize: 18, color: theme.glow, flexShrink: 0 }} />
+                                <Typography noWrap sx={{ fontSize: { xs: "0.9rem", md: "1rem" }, fontWeight: 600 }}>
                                     {subtitle}
                                 </Typography>
                             </Stack>
@@ -206,115 +308,120 @@ export default function GameHero({
                 </Box>
             </SportCover>
 
-            {seriesHref && (
-                <Box
-                    component={NextLink}
-                    href={seriesHref}
-                    sx={(t) => ({
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        px: { xs: 2, md: 3 },
-                        py: 1.25,
-                        textDecoration: "none",
-                        color: "primary.main",
-                        fontWeight: 800,
-                        bgcolor: alpha(t.palette.primary.main, 0.08),
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                    })}
-                >
-                    <EventRepeatRoundedIcon fontSize="small" />
-                    <Typography component="span" sx={{ fontWeight: 800, flex: 1, fontSize: "0.95rem" }}>
-                        משחק זה שייך לקבוצה קבועה · לדף הקבוצה
-                    </Typography>
-                    <ChevronLeftRoundedIcon fontSize="small" />
-                </Box>
-            )}
-
-            <Box
-                sx={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                    "& > * + *": { borderInlineStart: "1px solid", borderColor: "divider" },
-                }}
-            >
-                <Stat
-                    icon={<ScheduleRoundedIcon />}
-                    label="מתי"
-                    value={
-                        <Box component="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
-                            {time}
-                            <Box component="span" sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.75em" }}>
-                                –{end}
-                            </Box>
-                        </Box>
-                    }
-                    caption={date ? <span suppressHydrationWarning>{formatHebrewDateRelative(date)}</span> : undefined}
-                />
-                <Stat
-                    icon={<GroupsRoundedIcon />}
-                    label="שחקנים"
-                    value={
-                        <>
-                            {currentPlayers}
-                            <Box component="span" sx={{ color: "text.secondary", fontWeight: 600 }}>/{maxPlayers}</Box>
-                        </>
-                    }
-                >
+            <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 }, display: "flex", flexDirection: "column", gap: { xs: 1.5, md: 2 } }}>
+                {seriesHref && (
                     <Box
-                        role="progressbar"
-                        aria-label="תפוסה"
-                        aria-valuenow={Math.round(pct)}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        sx={{ mt: 0.75, height: 5, borderRadius: 999, bgcolor: "action.hover", overflow: "hidden", maxWidth: 140 }}
+                        component={NextLink}
+                        href={seriesHref}
+                        sx={(t) => ({
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            px: 1.75,
+                            py: 1,
+                            borderRadius: 999,
+                            textDecoration: "none",
+                            color: "primary.main",
+                            bgcolor: alpha(t.palette.primary.main, 0.08),
+                            transition: "background-color 0.2s ease",
+                            "&:hover": { bgcolor: alpha(t.palette.primary.main, 0.14) },
+                        })}
+                    >
+                        <EventRepeatRoundedIcon fontSize="small" />
+                        <Typography component="span" sx={{ fontWeight: 800, flex: 1, fontSize: "0.9rem" }}>
+                            חלק מקבוצה קבועה · לדף הקבוצה
+                        </Typography>
+                        <ChevronLeftRoundedIcon fontSize="small" />
+                    </Box>
+                )}
+
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: { xs: 1, sm: 1.5 } }}>
+                    <StatTile
+                        accent={theme.base}
+                        icon={<ScheduleRoundedIcon />}
+                        label="מתי"
+                        value={
+                            <Box component="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+                                {time}
+                                <Box component="span" sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7em", display: { xs: "none", sm: "inline" } }}>
+                                    –{end}
+                                </Box>
+                            </Box>
+                        }
+                        caption={date ? <span suppressHydrationWarning>{formatHebrewDateRelative(date)}</span> : undefined}
+                    />
+                    <StatTile
+                        accent={isFull ? "#ef4444" : almostFull ? "#f59e0b" : theme.base}
+                        icon={<GroupsRoundedIcon />}
+                        label="שחקנים"
+                        value={
+                            <>
+                                {currentPlayers}
+                                <Box component="span" sx={{ color: "text.secondary", fontWeight: 600 }}>/{maxPlayers}</Box>
+                            </>
+                        }
                     >
                         <Box
-                            sx={{
-                                height: "100%",
-                                width: `${Math.max(pct, 4)}%`,
-                                borderRadius: 999,
-                                bgcolor: isFull ? "error.main" : almostFull ? "warning.main" : theme.base,
-                            }}
-                        />
-                    </Box>
-                    <Typography
-                        variant="caption"
-                        fontWeight={700}
-                        component="div"
-                        noWrap
-                        sx={{ mt: 0.5, color: isFull ? "error.main" : almostFull ? "warning.main" : "text.secondary" }}
-                    >
-                        {isFull ? "המשחק מלא" : spotsLeft === 1 ? "מקום אחרון!" : `נשארו ${spotsLeft} מקומות`}
-                    </Typography>
-                </Stat>
-                <Stat
-                    icon={<PaymentsRoundedIcon />}
-                    label="מחיר"
-                    value={isFree ? "חינם" : `₪${price}`}
-                    caption={isFree ? "ללא עלות" : "תשלום במגרש"}
-                />
-            </Box>
-
-            {children && (
-                <Box
-                    sx={(t) => ({
-                        px: { xs: 2, md: 3 },
-                        py: 1.5,
-                        borderTop: "1px solid",
-                        borderColor: "divider",
-                        bgcolor: alpha(t.palette.text.primary, t.palette.mode === "dark" ? 0.03 : 0.015),
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        gap: 1,
-                    })}
-                >
-                    {children}
+                            role="progressbar"
+                            aria-label="תפוסה"
+                            aria-valuenow={Math.round(pct)}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            sx={{ mt: 0.75, height: 8, borderRadius: 999, bgcolor: "action.hover", overflow: "hidden" }}
+                        >
+                            <Box
+                                sx={{
+                                    height: "100%",
+                                    width: `${Math.max(pct, 4)}%`,
+                                    borderRadius: 999,
+                                    background: isFull
+                                        ? "#ef4444"
+                                        : almostFull
+                                          ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
+                                          : `linear-gradient(90deg, ${theme.base}, ${theme.glow})`,
+                                    transition: "width 400ms cubic-bezier(0.16, 1, 0.3, 1)",
+                                }}
+                            />
+                        </Box>
+                        <Typography
+                            variant="caption"
+                            fontWeight={700}
+                            component="div"
+                            noWrap
+                            sx={{ mt: 0.5, color: isFull ? "error.main" : almostFull ? "warning.main" : "text.secondary" }}
+                        >
+                            {isFull ? "המשחק מלא" : spotsLeft === 1 ? "מקום אחרון!" : (
+                                <>
+                                    נשארו {spotsLeft}
+                                    <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}> מקומות</Box>
+                                </>
+                            )}
+                        </Typography>
+                    </StatTile>
+                    <StatTile
+                        accent={theme.base}
+                        icon={<PaymentsRoundedIcon />}
+                        label="מחיר"
+                        value={isFree ? "חינם" : `₪${price}`}
+                        caption={isFree ? "ללא עלות" : "תשלום במגרש"}
+                    />
                 </Box>
-            )}
+
+                {children && (
+                    <Box
+                        sx={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 1,
+                            "& > *": { flex: { xs: "1 1 100%", sm: "0 0 auto" } },
+                        }}
+                    >
+                        {children}
+                    </Box>
+                )}
+            </Box>
         </Card>
     );
 }

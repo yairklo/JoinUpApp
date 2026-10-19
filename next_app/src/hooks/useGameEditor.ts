@@ -39,6 +39,7 @@ export interface GameEditorProps {
     initialFieldId?: string | null;
     initialFieldName?: string | null;
     initialFieldLocation?: string | null;
+    initialImageUrl?: string | null;
 }
 
 export function useGameEditor({
@@ -60,6 +61,7 @@ export function useGameEditor({
     initialFieldId,
     initialFieldName,
     initialFieldLocation,
+    initialImageUrl,
 }: GameEditorProps) {
     const { getToken } = useAuth();
     const router = useRouter();
@@ -80,6 +82,7 @@ export function useGameEditor({
     const [duration, setDuration] = useState<number>(initialDuration);
     const [description, setDescription] = useState<string>(initialDescription || "");
     const [welcomeMessage, setWelcomeMessage] = useState<string>(initialWelcomeMessage || "");
+    const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl ?? null);
 
     // Field / venue state (same mechanism as create game)
     const [fields, setFields] = useState<FieldOption[]>([]);
@@ -280,13 +283,27 @@ export function useGameEditor({
         }
     };
 
+    // The image is saved immediately on upload/remove (like the series editor), independent of Save.
+    const uploadImage = async (file: File) => {
+        const token = await getToken();
+        if (!token) throw new Error("יש להתחבר מחדש");
+        return gamesApi.uploadImage(gameId, file, token);
+    };
+    const removeImage = async () => {
+        const token = await getToken();
+        if (!token) throw new Error("יש להתחבר מחדש");
+        return gamesApi.removeImage(gameId, token);
+    };
+    const handleImageUploaded = (url: string) => { setImageUrl(url); router.refresh(); };
+    const handleImageRemoved = () => { setImageUrl(null); router.refresh(); };
+
     return {
         state: {
             open, loading,
             time, date, maxPlayers, sport, title, teamSize, price, isFriendsOnly, requiresApproval,
             futureRegEnabled, regDate, regTime,
             makePublicLater, publicDate, publicTime,
-            duration, description, welcomeMessage,
+            duration, description, welcomeMessage, imageUrl,
             fields, selectedField, newFieldMode, newField,
         },
         actions: {
@@ -295,7 +312,8 @@ export function useGameEditor({
             setMakePublicLater, setPublicDate, setPublicTime,
             setDuration, setDescription, setWelcomeMessage,
             setSelectedField, setNewFieldMode, setNewField,
-            handleOpen, handleClose, saveGame, deleteGame
+            handleOpen, handleClose, saveGame, deleteGame,
+            uploadImage, removeImage, handleImageUploaded, handleImageRemoved,
         }
     };
 }
