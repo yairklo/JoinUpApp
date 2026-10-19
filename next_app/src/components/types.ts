@@ -17,7 +17,7 @@ export type ReplyInfo = {
     };
 };
 
-export type MessageStatus = "pending" | "sent" | "delivered" | "read" | "rejected" | "blocked";
+export type MessageStatus = "pending" | "failed" | "sent" | "delivered" | "read" | "rejected" | "blocked";
 
 export type ChatMessage = {
     id: number | string;
@@ -30,6 +30,8 @@ export type ChatMessage = {
     replyTo?: ReplyInfo;
     reactions?: Record<string, Reaction>;
     status?: MessageStatus;
+    /** Only meaningful when status === 'failed': false => no retry (e.g. forbidden). */
+    retryable?: boolean;
     isEdited?: boolean;
     isDeleted?: boolean;
     content?: string;

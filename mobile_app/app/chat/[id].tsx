@@ -29,7 +29,7 @@ export default function ChatScreen() {
         },
         actions: {
             handleSendMessage, setInputValue, setReplyToMessage,
-            setEditingMessage, handleDelete, handleReact,
+            setEditingMessage, handleDelete, handleReact, handleRetryMessage, handleDiscardMessage,
             handleTyping, handleStopTyping
         }
     } = useChatLogic({ roomId: id, chatName: typeof name === 'string' ? name : Array.isArray(name) ? name[0] : undefined });
@@ -79,6 +79,12 @@ export default function ChatScreen() {
     // callback (and MessageBubble's memoized onReact prop) stays stable across keystrokes.
     const handleReactRef = useRef(handleReact);
     handleReactRef.current = handleReact;
+    const handleRetryRef = useRef(handleRetryMessage);
+    handleRetryRef.current = handleRetryMessage;
+    const handleDiscardRef = useRef(handleDiscardMessage);
+    handleDiscardRef.current = handleDiscardMessage;
+    const retryMessage = useCallback((id: string | number) => handleRetryRef.current(id), []);
+    const discardMessage = useCallback((id: string | number) => handleDiscardRef.current(id), []);
     const handleReactToMessage = useCallback((message: ChatMessage, emoji: string) => {
         handleReactRef.current(message.id, emoji);
     }, []);
@@ -205,9 +211,11 @@ export default function ChatScreen() {
                 onPressUser={handlePressUser}
                 onReply={handleReply}
                 onReact={handleReactToMessage}
+                onRetry={retryMessage}
+                onDiscard={discardMessage}
             />
         );
-    }, [listData, user?.id, nameByUserId, avatarByUserId, handleLongPress, handlePressUser, handleReply, handleReactToMessage]);
+    }, [listData, user?.id, nameByUserId, avatarByUserId, handleLongPress, handlePressUser, handleReply, handleReactToMessage, retryMessage, discardMessage]);
 
     const keyExtractor = useCallback((item: ChatMessage) => String(item.id), []);
 

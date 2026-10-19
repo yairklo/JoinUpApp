@@ -15,6 +15,8 @@ interface MessageBubbleProps {
     onPressUser?: (userId: string) => void;
     onReply?: (message: ChatMessage) => void;
     onReact?: (message: ChatMessage, emoji: string) => void;
+    onRetry?: (messageId: string | number) => void;
+    onDiscard?: (messageId: string | number) => void;
 }
 
 // Swipe distance (px) that commits a reply, and the max the bubble follows the finger.
@@ -34,6 +36,8 @@ function MessageBubble({
     onPressUser,
     onReply,
     onReact,
+    onRetry,
+    onDiscard,
 }: MessageBubbleProps) {
     const { t } = useTranslation();
     const reactionsList = Object.entries(message.reactions || {});
@@ -44,7 +48,7 @@ function MessageBubble({
         displayAvatar ||
         message.sender?.image ||
         "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
-    const isInteractive = message.status !== 'blocked' && !message.isDeleted;
+    const isInteractive = message.status !== 'blocked' && message.status !== 'failed' && message.status !== 'pending' && !message.isDeleted;
 
     const handlePressUser = () => {
         if (senderId && onPressUser) onPressUser(String(senderId));
@@ -179,9 +183,9 @@ function MessageBubble({
                             {isMe && message.status !== 'blocked' && (
                                 <View className="ml-1">
                                     <Ionicons
-                                        name={message.status === 'pending' ? "checkmark" : "checkmark-done"}
+                                        name={message.status === 'failed' ? "alert-circle" : message.status === 'pending' ? "checkmark" : "checkmark-done"}
                                         size={12}
-                                        color={message.status === 'read' ? "#93c5fd" : "#bfdbfe"}
+                                        color={message.status === 'failed' ? "#fecaca" : message.status === 'read' ? "#93c5fd" : "#bfdbfe"}
                                     />
                                 </View>
                             )}
@@ -216,9 +220,25 @@ function MessageBubble({
                         </View>
                     )}
 
+                    {isMe && message.status === 'failed' && (
+                        <View className="flex-row items-center mt-1 px-2">
+                            <Text className="text-red-500 text-xs">{t('chat.sendFailed', 'ההודעה לא נשלחה')}</Text>
+                            {message.retryable !== false && !!onRetry && (
+                                <TouchableOpacity onPress={() => onRetry(message.id)} hitSlop={8} className="ml-3">
+                                    <Text className="text-brand text-xs font-bold">{t('chat.retry', 'נסה שוב')}</Text>
+                                </TouchableOpacity>
+                            )}
+                            {!!onDiscard && (
+                                <TouchableOpacity onPress={() => onDiscard(message.id)} hitSlop={8} className="ml-3">
+                                    <Text className="text-gray-500 text-xs">{t('chat.discard', 'מחק')}</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    )}
+
                     {isMe && message.status === 'blocked' && (
                         <Text className="text-red-500 text-xs mt-1 px-2">
-                            {t('chat.blockedOffensive', 'ההודעה מכילה תוכן פוגעני ולכן לא נשלחה')}
+                            {t('chat.blockedOffensive', 'ההודעה נחסמה על ידי הסינון האוטומטי ולא נשלחה')}
                         </Text>
                     )}
                 </View>
@@ -244,5 +264,8 @@ export default memo(MessageBubble, (prev, next) => (
     prev.onPressUser === next.onPressUser &&
     prev.onLongPress === next.onLongPress &&
     prev.onReply === next.onReply &&
-    prev.onReact === next.onReact
+    prev.onReact === next.onReact &&
+    prev.message.retryable === next.message.retryable &&
+    prev.onRetry === next.onRetry &&
+    prev.onDiscard === next.onDiscard
 ));

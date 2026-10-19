@@ -43,6 +43,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const isUserAtBottomRef = useRef(true);
     const prevMessagesLengthRef = useRef(0);
     const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+    const sendTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     // Fix #5: track fetched user IDs to prevent re-fetching and cascading re-renders
     const fetchedUserIdsRef = useRef<Set<string>>(new Set());
     const otherUserIdRef = useRef<string | undefined>(undefined);
@@ -256,6 +257,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             if (incomingMsg.roomId &&
                 String(incomingMsg.roomId) !== String(roomId) &&
                 String(incomingMsg.roomId) !== String(effectiveRoomId)) return;
+            if (incomingMsg.tempId) clearSendTimer(incomingMsg.tempId);
 
             setMessages(prev => {
                 const matchIndex = prev.findIndex(m => {
@@ -297,9 +299,18 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             }
         });
 
+        // Server could not accept the message (not a moderation block - that arrives as status 'blocked').
+        const unsubscribeMessageFailed = SocketManager.on("messageFailed", (payload: { tempId?: string | number; roomId?: string; retryable?: boolean }) => {
+            if (payload.roomId && String(payload.roomId) !== String(roomId) && String(payload.roomId) !== String(effectiveRoomId)) return;
+            if (payload.tempId === undefined || payload.tempId === null) return;
+            clearSendTimer(payload.tempId);
+            setMessages(prev => prev.map(m => String(m.id) === String(payload.tempId) && m.status === 'pending'
+                ? { ...m, status: 'failed', retryable: payload.retryable !== false } : m));
+        });
+
         const unsubscribeMessageStatusUpdate = SocketManager.on("messageStatusUpdate", (payload) => {
             if (payload.roomId === roomId || payload.roomId === effectiveRoomId) {
-                setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read') ? { ...m, status: payload.status } : m));
+                setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read' && m.status !== 'pending' && m.status !== 'failed' && m.status !== 'blocked') ? { ...m, status: payload.status } : m));
             }
         });
 
@@ -310,6 +321,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             unsubscribeTypingStart();
             unsubscribeTypingStop();
             unsubscribeMessage();
+            unsubscribeMessageFailed();
             unsubscribeMessageUpdated();
             unsubscribeMessageDeleted();
             unsubscribeMessageReaction();
@@ -388,6 +400,41 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         || (roomId === "global" ? "Global Chat" : null)
         || (isPrivate ? "Chat" : "Game Chat");
 
+    // A confirmed message (or a failure) clears the timer; no response at all => mark failed so the
+    // user can retry instead of staring at a single "sending" tick forever.
+    const SEND_TIMEOUT_MS = 15000;
+    function clearSendTimer(id: string | number) {
+        const k = String(id);
+        if (sendTimersRef.current[k]) { clearTimeout(sendTimersRef.current[k]); delete sendTimersRef.current[k]; }
+    }
+    const markFailed = (id: string | number) => {
+        setMessages(prev => prev.map(m => String(m.id) === String(id) && m.status === 'pending'
+            ? { ...m, status: 'failed', retryable: true } : m));
+    };
+    const emitMessage = (msg: ChatMessage) => {
+        if (!SocketManager.connected) { markFailed(msg.id); return; }
+        clearSendTimer(msg.id);
+        sendTimersRef.current[String(msg.id)] = setTimeout(() => {
+            delete sendTimersRef.current[String(msg.id)];
+            markFailed(msg.id);
+        }, SEND_TIMEOUT_MS);
+        // Always use effectiveRoomId (resolved ChatRoom UUID) so the server routes correctly
+        SocketManager.emit("message", { text: msg.text, roomId: effectiveRoomId, userId: user?.id, replyTo: msg.replyTo, status: "sent", tempId: msg.id });
+    };
+    useEffect(() => () => { Object.values(sendTimersRef.current).forEach(clearTimeout); }, []);
+
+    const handleRetryMessage = (id: string | number) => {
+        const msg = messages.find(m => String(m.id) === String(id));
+        if (!msg || msg.status !== 'failed' || msg.retryable === false) return;
+        setMessages(prev => prev.map(m => String(m.id) === String(id) ? { ...m, status: 'pending' } : m));
+        emitMessage(msg);
+    };
+
+    const handleDiscardMessage = (id: string | number) => {
+        clearSendTimer(id);
+        setMessages(prev => prev.filter(m => !(String(m.id) === String(id) && m.status === 'failed')));
+    };
+
     // Actions
     const handleSendMessage = () => {
         const trimmed = inputValue.trim();
@@ -410,8 +457,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             };
             setMessages((prev) => [...prev, optimisticMessage]);
 
-            // Always use effectiveRoomId (resolved ChatRoom UUID) so the server routes correctly
-            SocketManager.emit("message", { text: trimmed, roomId: effectiveRoomId, userId: user?.id, replyTo: optimisticMessage.replyTo, status: "sent", tempId: optimisticId });
+            emitMessage(optimisticMessage);
         }
         setInputValue("");
         setReplyToMessage(null);
@@ -439,7 +485,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         actions: {
             setInputValue, setReplyToMessage, setEditingMessage,
             setShowScrollButton, setUnreadNewMessages,
-            handleSendMessage, handleTyping, handleStopTyping,
+            handleSendMessage, handleRetryMessage, handleDiscardMessage, handleTyping, handleStopTyping,
             handleDelete: (id: string | number) => SocketManager.emit("deleteMessage", { messageId: id, roomId: effectiveRoomId }),
             handleReact: (id: string | number, emoji: string) => SocketManager.emit("addReaction", { messageId: id, emoji, userId: user?.id, roomId: effectiveRoomId }),
         }
