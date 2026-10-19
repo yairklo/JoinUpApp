@@ -150,7 +150,7 @@ export default function ProfileScreen() {
                     name: form.name.trim() || undefined,
                     gender: form.gender || null,
                 }, token);
-                setProfile(updated);
+                setProfile(prev => ({ ...updated, groups: prev?.groups }));
                 if (typeof updated?.name === 'string') notifyNameChanged(updated.name);
                 setIsEditing(false);
             }
@@ -477,6 +477,24 @@ export default function ProfileScreen() {
                         </View>
                     )}
                 </View>
+
+                {/* My groups (recurring series) */}
+                {!isEditing && profile?.groups && profile.groups.length > 0 && (
+                    <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
+                        <Text className="text-lg font-black text-gray-900 mb-3 text-right">{t('profile.myGroups', 'הקבוצות שלי')}</Text>
+                        <View className="flex-row flex-wrap gap-2">
+                            {profile.groups.map((g) => (
+                                <TouchableOpacity
+                                    key={g.id}
+                                    onPress={() => router.push(`/series/${g.id}`)}
+                                    className="bg-brand-mist border border-brand-pale rounded-full px-3 py-1.5"
+                                >
+                                    <Text className="text-brand font-bold text-sm">{g.title || g.fieldName}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                )}
 
                 {/* Sports & Positions */}
                 <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
