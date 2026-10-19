@@ -275,7 +275,8 @@ export default function ChatScreen() {
                     renderItem={renderMessage}
                     contentContainerStyle={{ paddingVertical: 20, flexGrow: 1 }}
                     ListEmptyComponent={
-                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', transform: [{ scaleY: -1 }], padding: 24 }}>
+                        // Inverted lists flip their children, so counter-flip on both axes to render upright
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', transform: [{ scaleY: -1 }, { scaleX: -1 }], padding: 24 }}>
                             <View className="w-16 h-16 rounded-full bg-brand-mist items-center justify-center mb-4">
                                 <Ionicons name="chatbubbles-outline" size={32} color="#059669" />
                             </View>
