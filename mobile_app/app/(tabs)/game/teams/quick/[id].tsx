@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Image, Modal, ActivityIndicator, type ViewStyle } from 'react-native';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useLocalSearchParams, useNavigation, Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -88,6 +88,7 @@ export default function QuickTeamEditScreen() {
   const { getToken } = useAuth();
   const getTokenRef = useAuthTokenRef();
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation();
   const { colorMode } = useColorMode();
@@ -107,6 +108,9 @@ export default function QuickTeamEditScreen() {
   const [editing, setEditing] = useState<Team | null>(null);
   const [tempName, setTempName] = useState('');
   const [tempColor, setTempColor] = useState('');
+  // Teams as last loaded/saved -- anything different is unsaved work the user would lose on back.
+  const snapshotRef = useRef('');
+  const dirtyRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -115,14 +119,15 @@ export default function QuickTeamEditScreen() {
       const game = await gamesApi.getById(id, token);
       setParticipants((game.participants || []).filter((p) => p.status !== 'WAITLISTED'));
       const existing = (game.teams || []) as Team[];
-      setTeams(
+      const initial =
         existing.length > 0
           ? existing.map((tm) => ({ ...tm, playerIds: [...(tm.playerIds || [])] }))
           : [
               { id: 't1', name: t('teams.teamA'), color: '#f97316', playerIds: [] },
               { id: 't2', name: t('teams.teamB'), color: '#3b82f6', playerIds: [] },
-            ]
-      );
+            ];
+      snapshotRef.current = JSON.stringify(initial);
+      setTeams(initial);
     } catch (e) {
       console.error(e);
       Alert.alert(t('teams.error'), t('teams.loadFailed'));
@@ -135,6 +140,22 @@ export default function QuickTeamEditScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  dirtyRef.current = !loading && JSON.stringify(teams) !== snapshotRef.current;
+
+  // Back button, Android hardware back and the swipe gesture all go through beforeRemove, so one
+  // listener guards every way out of the screen while there are unsaved assignments.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!dirtyRef.current) return;
+      e.preventDefault();
+      Alert.alert(t('teams.unsavedTitle'), t('teams.unsavedBody'), [
+        { text: t('teams.keepEditing'), style: 'cancel' },
+        { text: t('teams.discardLeave'), style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+      ]);
+    });
+    return unsubscribe;
+  }, [navigation, t]);
 
   const bench = useMemo(() => {
     const assigned = new Set(teams.flatMap((tm) => tm.playerIds));
@@ -220,6 +241,8 @@ export default function QuickTeamEditScreen() {
       const token = await getToken();
       if (!token) return;
       await gamesApi.saveTeams(id, teams, token);
+      snapshotRef.current = JSON.stringify(teams);
+      dirtyRef.current = false;
       Alert.alert(t('teams.success'), t('teams.saved'));
       router.back();
     } catch (e) {

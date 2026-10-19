@@ -16,6 +16,7 @@ import ListItemAvatar from "@mui/material/ListItemAvatar";
 import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import Avatar from "@/components/Avatar";
+import { alpha } from "@mui/material/styles";
 import Link from "next/link";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useAuth } from "@clerk/nextjs";
@@ -90,12 +91,10 @@ export default function TeamBuilderWrapper({
 
       router.refresh();
       setIsDialogOpen(false);
-    } catch (error) {
-      console.error("Error saving teams:", error);
-      alert("שמירת הקבוצות נכשלה. נסה שוב.");
     } finally {
       setSaving(false);
     }
+    // Errors propagate: TeamBuilderDialog stays open with the assignments intact and shows a retry.
   };
 
   return (
@@ -192,7 +191,13 @@ export default function TeamBuilderWrapper({
         lotteryData.overbooked &&
         waitlistParticipants.length > 0 && (
           <Box mt={3}>
-            <Card elevation={2} sx={{ bgcolor: "warning.50" }}>
+            <Card
+              elevation={0}
+              sx={(t) => ({
+                bgcolor: alpha(t.palette.warning.main, 0.08),
+                borderColor: alpha(t.palette.warning.main, 0.3),
+              })}
+            >
               <CardContent>
                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="warning.dark">
                   רשימת המתנה / מאגר הגרלה

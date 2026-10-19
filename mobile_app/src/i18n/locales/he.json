@@ -766,7 +766,11 @@
     "cancelSelection": "ביטול בחירה",
     "returnToBench": "החזרה לספסל",
     "moveHint": "בחרו קבוצה אחרת להעברה",
-    "untitled": "ללא שם"
+    "untitled": "ללא שם",
+    "unsavedTitle": "שינויים שלא נשמרו",
+    "unsavedBody": "השיבוצים שלך עדיין לא נשמרו. לצאת בלי לשמור?",
+    "keepEditing": "המשך עריכה",
+    "discardLeave": "צאו בלי לשמור"
   },
   "joined": "הצטרפת",
   "full": "מלא",

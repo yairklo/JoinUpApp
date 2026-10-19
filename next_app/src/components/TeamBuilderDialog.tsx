@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, forwardRef } from "react";
+import { useState, useEffect, useRef, forwardRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -17,6 +17,7 @@ import Zoom from "@mui/material/Zoom";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress from "@mui/material/LinearProgress";
 import InputAdornment from "@mui/material/InputAdornment";
+import CircularProgress from "@mui/material/CircularProgress";
 import { alpha, darken, lighten, getLuminance, useTheme } from "@mui/material/styles";
 
 // Icons
@@ -34,6 +35,8 @@ import CheckroomIcon from "@mui/icons-material/Checkroom";
 import EventSeatOutlinedIcon from "@mui/icons-material/EventSeatOutlined";
 import BalanceIcon from "@mui/icons-material/Balance";
 import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
 import { normalizeName } from "@/utils/normalizeName";
 
 // Types
@@ -85,8 +88,20 @@ interface TeamBuilderDialogProps {
   onClose: () => void;
   participants: Participant[];
   initialTeams?: Team[];
-  onSave: (teams: Team[]) => void;
+  /** Resolves on success (the parent closes the dialog); rejects to keep it open with a retry. */
+  onSave: (teams: Team[]) => Promise<void>;
 }
+
+const DEFAULT_TEAMS: Team[] = [
+  { id: "t1", name: "קבוצה א׳", color: "#f97316", playerIds: [] },
+  { id: "t2", name: "קבוצה ב׳", color: "#3b82f6", playerIds: [] },
+];
+
+const buildInitialTeams = (initialTeams?: Team[]) =>
+  (initialTeams && initialTeams.length > 0 ? initialTeams : DEFAULT_TEAMS).map((t) => ({
+    ...t,
+    playerIds: [...t.playerIds],
+  }));
 
 export default function TeamBuilderDialog({
   open,
@@ -99,14 +114,14 @@ export default function TeamBuilderDialog({
   const mode = theme.palette.mode;
 
   // --- State ---
-  const [teams, setTeams] = useState<Team[]>(
-    initialTeams && initialTeams.length > 0
-      ? initialTeams
-      : [
-          { id: "t1", name: "קבוצה א׳", color: "#f97316", playerIds: [] },
-          { id: "t2", name: "קבוצה ב׳", color: "#3b82f6", playerIds: [] },
-        ]
-  );
+  const [teams, setTeams] = useState<Team[]>(() => buildInitialTeams(initialTeams));
+  // What the teams looked like when the dialog opened -- anything different is unsaved work.
+  const snapshotRef = useRef(JSON.stringify(teams));
+  const isDirty = JSON.stringify(teams) !== snapshotRef.current;
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  // Inline "discard changes?" step for close/Escape, same reasoning as the confirms below.
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [benchSearch, setBenchSearch] = useState("");
@@ -213,8 +228,30 @@ export default function TeamBuilderDialog({
     setSelectedPlayerId(null);
   };
 
-  const handleSaveTeams = () => {
-    onSave(teams);
+  // The dialog stays open (and keeps every assignment) until the save actually succeeds; the
+  // parent closes it on success. A failure shows an inline retry instead of losing the work.
+  const handleSaveTeams = async () => {
+    if (saving) return;
+    setSaving(true);
+    setSaveFailed(false);
+    setConfirmDiscard(false);
+    try {
+      await onSave(teams);
+      snapshotRef.current = JSON.stringify(teams);
+    } catch (error) {
+      console.error("Error saving teams:", error);
+      setSaveFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const requestClose = () => {
+    if (saving) return;
+    if (isDirty && !confirmDiscard) {
+      setConfirmDiscard(true);
+      return;
+    }
     onClose();
   };
 
@@ -276,15 +313,38 @@ export default function TeamBuilderDialog({
       setConfirmRemoveTeamId(null);
       setBenchSearch("");
       setSelectedPlayerId(null);
+      setConfirmDiscard(false);
+      setSaveFailed(false);
     }
   }, [open]);
+
+  // Every open starts from the saved teams, so changes discarded on a previous visit don't linger.
+  useEffect(() => {
+    if (open) {
+      const fresh = buildInitialTeams(initialTeams);
+      setTeams(fresh);
+      snapshotRef.current = JSON.stringify(fresh);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open, not on every parent refresh
+  }, [open]);
+
+  // Closing or reloading the tab with unsaved assignments gets the browser's own leave prompt.
+  useEffect(() => {
+    if (!open || !isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [open, isDirty]);
 
   return (
     <>
       <Dialog
         fullScreen
         open={open}
-        onClose={onClose}
+        onClose={requestClose}
         TransitionComponent={Transition}
         PaperProps={{
           dir: "rtl",
@@ -321,7 +381,7 @@ export default function TeamBuilderDialog({
             }}
           >
             <IconButton
-              onClick={onClose}
+              onClick={requestClose}
               aria-label="סגור"
               sx={{ bgcolor: "action.hover", "&:hover": { bgcolor: "action.selected" } }}
             >
@@ -359,7 +419,8 @@ export default function TeamBuilderDialog({
             <Button
               variant="contained"
               onClick={handleSaveTeams}
-              startIcon={<CheckIcon />}
+              disabled={saving}
+              startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <CheckIcon />}
               sx={(t) => ({
                 px: { xs: 2, sm: 3 },
                 py: 1,
@@ -368,7 +429,7 @@ export default function TeamBuilderDialog({
                 "&:hover": { boxShadow: `0 10px 24px ${alpha(t.palette.primary.main, 0.45)}` },
               })}
             >
-              שמירה
+              {saving ? "שומר..." : "שמירה"}
             </Button>
           </Box>
           <LinearProgress
@@ -377,6 +438,53 @@ export default function TeamBuilderDialog({
             aria-label="התקדמות שיבוץ"
             sx={{ height: 3, borderRadius: 0, bgcolor: "transparent", "& .MuiLinearProgress-bar": { borderRadius: 0 } }}
           />
+          {(confirmDiscard || saveFailed) && (
+            <Box
+              role="alert"
+              sx={(t) => {
+                const tone = saveFailed ? t.palette.error.main : t.palette.warning.main;
+                return { bgcolor: alpha(tone, 0.1), borderTop: `1px solid ${alpha(tone, 0.25)}` };
+              }}
+            >
+              <Box
+                sx={{
+                  maxWidth: 1200,
+                  mx: "auto",
+                  px: { xs: 1.5, sm: 3 },
+                  py: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                }}
+              >
+                {saveFailed ? (
+                  <ErrorOutlineRoundedIcon color="error" fontSize="small" />
+                ) : (
+                  <WarningAmberRoundedIcon color="warning" fontSize="small" />
+                )}
+                <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 180 }}>
+                  {saveFailed
+                    ? "השמירה נכשלה. השיבוצים שלך לא אבדו — אפשר לנסות שוב."
+                    : "יש שינויים שלא נשמרו. לצאת בלי לשמור?"}
+                </Typography>
+                {saveFailed ? (
+                  <Button size="small" variant="contained" color="error" onClick={handleSaveTeams} disabled={saving}>
+                    נסו שוב
+                  </Button>
+                ) : (
+                  <>
+                    <Button size="small" variant="contained" onClick={() => setConfirmDiscard(false)}>
+                      המשך עריכה
+                    </Button>
+                    <Button size="small" color="error" onClick={onClose}>
+                      צאו בלי לשמור
+                    </Button>
+                  </>
+                )}
+              </Box>
+            </Box>
+          )}
         </Box>
 
         <Box
