@@ -411,7 +411,7 @@ export default function GameParticipantsList({
                              })}
                              {team.playerIds.length === 0 && (
                                  <Typography variant="caption" sx={{ p: 2, display: 'block', color: 'text.secondary', fontStyle: 'italic' }}>
-                                     No players assigned yet
+                                     עדיין לא שובצו שחקנים
                                  </Typography>
                              )}
                         </List>
