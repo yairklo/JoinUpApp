@@ -24,7 +24,15 @@ export interface ProfileMatch {
     time?: string;
 }
 
+export interface ProfileGroup {
+    id: string;
+    title?: string | null;
+    fieldName: string;
+    sport?: string | null;
+}
+
 export interface PrivacySettings {
+    hideGroups?: boolean;
     privacyFriends: PrivacyLevel | null;
     privacyGames: PrivacyLevel | null;
     privacyMessages: PrivacyLevel | null;
@@ -53,6 +61,8 @@ export interface UserProfile {
     friends?: ProfileFriend[] | null;
     matchHistory?: ProfileMatch[] | null;
     sportStats?: SportStat[];
+    /** null when the user hides their groups from other viewers. */
+    groups?: ProfileGroup[] | null;
     privacySettings?: PrivacySettings;
     ratingAverage?: number | null;
     totalRatings?: number;
@@ -304,7 +314,7 @@ export const usersApi = {
     },
 
     updatePrivacySettings: (
-        data: Partial<Record<'privacyFriends' | 'privacyGames' | 'privacyMessages', PrivacyLevel | null>>,
+        data: Partial<Record<'privacyFriends' | 'privacyGames' | 'privacyMessages', PrivacyLevel | null>> & { hideGroups?: boolean },
         token: string
     ) => {
         return apiClient<PrivacySettings>('/api/users/profile/settings', {

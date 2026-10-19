@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/clerk-expo';
@@ -23,6 +23,7 @@ export default function PrivacySettingsScreen() {
         privacyMessages: 'DEFAULT',
     });
     // Age-based default per field; fixed for the user, so the default option label never changes.
+    const [hideGroups, setHideGroups] = useState(false);
     const [ageDefaults, setAgeDefaults] = useState<PrivacySettings['ageDefaults'] | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -54,6 +55,7 @@ export default function PrivacySettingsScreen() {
                         privacyGames: ps.privacyGames ?? 'DEFAULT',
                         privacyMessages: ps.privacyMessages ?? 'DEFAULT',
                     });
+                    setHideGroups(!!ps.hideGroups);
                     setAgeDefaults(ps.ageDefaults ?? null);
                 }
             } catch (e) {
@@ -71,6 +73,7 @@ export default function PrivacySettingsScreen() {
             if (!token) return;
             const saved = await usersApi.updatePrivacySettings(
                 {
+                    hideGroups,
                     privacyFriends: values.privacyFriends === 'DEFAULT' ? null : values.privacyFriends,
                     privacyGames: values.privacyGames === 'DEFAULT' ? null : values.privacyGames,
                     privacyMessages: values.privacyMessages === 'DEFAULT' ? null : values.privacyMessages,
@@ -126,6 +129,11 @@ export default function PrivacySettingsScreen() {
                             </View>
                         </View>
                     ))}
+
+                    <View className="flex-row items-center justify-between bg-white rounded-2xl border border-gray-100 px-4 py-3 mb-6">
+                        <Text className="font-bold text-gray-800 flex-1">{t('privacy.hideGroups', 'הסתר את הקבוצות שלי בפרופיל')}</Text>
+                        <Switch value={hideGroups} onValueChange={setHideGroups} />
+                    </View>
 
                     <TouchableOpacity
                         onPress={handleSave}

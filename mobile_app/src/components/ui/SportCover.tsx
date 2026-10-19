@@ -144,7 +144,7 @@ export default function SportCover({ sport, height, borderRadius = 0, style, chi
                                 left: (glow - d) / 2,
                                 top: (glow - d) / 2,
                                 backgroundColor: theme.glow,
-                                opacity: 0.12,
+                                opacity: 0.3,
                             }}
                         />
                     );
@@ -172,7 +172,7 @@ export default function SportCover({ sport, height, borderRadius = 0, style, chi
             </View>
 
             {/* Big faint glyph bleeding off the bottom-end corner */}
-            <View pointerEvents="none" style={{ position: 'absolute', bottom: -height * 0.28, end: -height * 0.18, opacity: 0.1 }}>
+            <View pointerEvents="none" style={{ position: 'absolute', bottom: -height * 0.28, end: -height * 0.18, opacity: 0.2 }}>
                 <MaterialCommunityIcons name={SPORT_GLYPH[key]} size={height * 0.95} color="#ffffff" />
             </View>
 

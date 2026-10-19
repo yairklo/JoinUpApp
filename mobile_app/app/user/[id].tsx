@@ -375,6 +375,24 @@ export default function UserProfileScreen() {
                     )}
                 </View>
 
+                {/* Groups (recurring series); absent when the user hides them */}
+                {profile.groups && profile.groups.length > 0 && (
+                    <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
+                        <Text className="font-bold text-gray-900 text-lg mb-3">{t('profile.groups', 'קבוצות')}</Text>
+                        <View className="flex-row flex-wrap gap-2">
+                            {profile.groups.map((g) => (
+                                <TouchableOpacity
+                                    key={g.id}
+                                    onPress={() => router.push(`/series/${g.id}`)}
+                                    className="bg-brand-mist border border-brand-pale rounded-full px-3 py-1.5"
+                                >
+                                    <Text className="text-brand font-bold text-sm">{g.title || g.fieldName}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
                 {/* Friends (privacy-filtered) */}
                 {profile.sections?.friends && profile.friends && (
                     <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">

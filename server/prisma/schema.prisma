@@ -24,6 +24,8 @@ model User {
   privacyFriends            PrivacyLevel?
   privacyGames              PrivacyLevel?
   privacyMessages           PrivacyLevel?
+  /// When true, the user's series (group) memberships are hidden from other viewers' view of their profile.
+  hideGroups                Boolean                    @default(false)
   /// Global block from commenting/reporting on fields (narrower than a full account ban).
   blockedFromFieldSocial    Boolean                    @default(false)
   chatParticipations        ChatParticipant[]

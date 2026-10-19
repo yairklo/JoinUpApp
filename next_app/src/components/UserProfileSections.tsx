@@ -18,6 +18,7 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 const PAGE_SIZE = 5;
@@ -81,10 +82,35 @@ export default function UserProfileSections({ userId }: { userId: string }) {
     const sportStats = profile.sportStats || [];
     const showFriends = profile.sections?.friends && profile.friends;
     const showHistory = profile.sections?.matchHistory && profile.matchHistory;
+    const groups = profile.groups || [];
 
     return (
         <Box>
-            {(showFriends || showHistory) && <Divider sx={{ my: 3 }} />}
+            {(showFriends || showHistory || groups.length > 0) && <Divider sx={{ my: 3 }} />}
+
+            {/* Groups (recurring series) the user belongs to; absent when hidden */}
+            {groups.length > 0 && (
+                <Box mb={4}>
+                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                        קבוצות
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {groups.map((g) => (
+                            <Chip
+                                key={g.id}
+                                component={Link}
+                                href={`/series/${g.id}`}
+                                clickable
+                                icon={<GroupsRoundedIcon />}
+                                label={`${g.sport ? (SPORT_EMOJI[g.sport] || "") + " " : ""}${g.title || g.fieldName}`}
+                                variant="outlined"
+                                color="primary"
+                                sx={{ fontWeight: 600 }}
+                            />
+                        ))}
+                    </Stack>
+                </Box>
+            )}
 
             {/* Friends */}
             {showFriends && (

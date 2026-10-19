@@ -85,7 +85,7 @@ export default function SportCover({
     height = 132,
     children,
     sx,
-    lineOpacity = 0.18,
+    lineOpacity = 0.32,
 }: {
     sport?: string | null;
     height?: number | string | Record<string, number | string>;
@@ -145,7 +145,7 @@ export default function SportCover({
                     insetInlineStart: -34,
                     bottom: -54,
                     color: theme.glow,
-                    opacity: 0.13,
+                    opacity: 0.22,
                     transform: "rotate(-18deg)",
                     pointerEvents: "none",
                 }}

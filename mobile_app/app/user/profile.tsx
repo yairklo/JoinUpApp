@@ -72,7 +72,7 @@ export default function ProfileScreen() {
     const { imageUrl: displayAvatar, hasImage: hasAvatar } = useMyAvatar();
 
     // Form state
-    const [form, setForm] = useState({ city: '', phone: '', gender: '' as GenderValue, sportsData: [] as SportEntry[] });
+    const [form, setForm] = useState({ name: '', city: '', phone: '', gender: '' as GenderValue, sportsData: [] as SportEntry[] });
     // Per-sport free-text input state (keyed by sportId)
     const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
 
@@ -104,6 +104,7 @@ export default function ProfileScreen() {
                 setProfile(data);
 
                 setForm({
+                    name: data?.name || '',
                     city: data?.city || '',
                     phone: data?.phone || '',
                     gender: data?.gender === 'MALE' || data?.gender === 'FEMALE' ? data.gender : '',
@@ -146,6 +147,7 @@ export default function ProfileScreen() {
             if (token) {
                 const updated = await usersApi.updateProfile(user.id, {
                     ...form,
+                    name: form.name.trim() || undefined,
                     gender: form.gender || null,
                 }, token);
                 setProfile(updated);
@@ -199,6 +201,7 @@ export default function ProfileScreen() {
         if (avatarBusy) return;
         setIsEditing(false);
         setForm({
+            name: profile?.name || '',
             city: profile?.city || '',
             phone: profile?.phone || '',
             gender: profile?.gender === 'MALE' || profile?.gender === 'FEMALE' ? profile.gender : '',
@@ -298,7 +301,7 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }} keyboardShouldPersistTaps="handled">
+            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
                 {/* Header details */}
                 <View className="items-center py-6 bg-white rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
                     <TouchableOpacity
@@ -354,6 +357,20 @@ export default function ProfileScreen() {
                             </TouchableOpacity>
                         )}
                     </View>
+
+                    {/* Name */}
+                    {isEditing && (
+                        <View className="mb-4">
+                            <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.name', 'שם')}</Text>
+                            <TextInput
+                                value={form.name}
+                                onChangeText={(val) => setForm(prev => ({ ...prev, name: val }))}
+                                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-right text-sm"
+                                maxLength={60}
+                                placeholderTextColor="#9ca3af"
+                            />
+                        </View>
+                    )}
 
                     {/* City */}
                     <View className="mb-4">
