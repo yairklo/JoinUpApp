@@ -11,7 +11,8 @@ import { SEND_TIMEOUT_MS, markFailed, markPending, discardFailed, applyStatusUpd
 // Mirrors MAX_MESSAGE_LENGTH in server/services/chatSafety.js.
 export const MAX_MESSAGE_LENGTH = 2000;
 const RECONNECT_WAIT_MS = 6000;
-const failedStoreKey = (roomId: string) => `joinup:chat:unsent:${roomId}`;
+// Scoped by user so a shared browser never shows one account's unsent texts to another.
+const failedStoreKey = (userId: string, roomId: string) => `joinup:chat:unsent:${userId}:${roomId}`;
 
 export interface UseChatLogicProps {
     roomId: string;
@@ -49,6 +50,9 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const sendTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     // Room whose locally-saved unsent messages were already merged into `messages`.
     const [restoredRoom, setRestoredRoom] = useState<string | null>(null);
+    // Room whose history is what `messages` currently holds (restore/persist must not run before this
+    // matches roomId, or one room's list would be written under another room's key).
+    const [loadedRoom, setLoadedRoom] = useState<string | null>(null);
 
     // 1. Fetch Chat Details
     useEffect(() => {
@@ -82,6 +86,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         if (!roomId) return;
         if (messagesCache[roomId]) {
             setMessages(messagesCache[roomId]);
+            setLoadedRoom(roomId);
             setIsLoading(false);
             prevMessagesLengthRef.current = messagesCache[roomId].length;
             return;
@@ -99,6 +104,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             try {
                 const msgs = await loadMessages(roomId);
                 setMessages(msgs);
+                setLoadedRoom(roomId);
                 prevMessagesLengthRef.current = msgs.length;
             } catch (e) {
                 console.error("Failed to load messages", e);
@@ -112,10 +118,10 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
     // Unsent messages survive a refresh/navigation: restore them once the history is loaded...
     useEffect(() => {
-        if (isLoading || !roomId || restoredRoom === roomId) return;
+        if (isLoading || !roomId || !user?.id || loadedRoom !== roomId || restoredRoom === roomId) return;
         let saved: ChatMessage[] = [];
         try {
-            const raw = localStorage.getItem(failedStoreKey(roomId));
+            const raw = localStorage.getItem(failedStoreKey(user.id, roomId));
             const parsed = raw ? JSON.parse(raw) : [];
             if (Array.isArray(parsed)) saved = parsed;
         } catch { /* storage unavailable or corrupt: nothing to restore */ }
@@ -127,19 +133,18 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             });
         }
         setRestoredRoom(roomId);
-    }, [isLoading, roomId, restoredRoom]);
+    }, [isLoading, roomId, restoredRoom, loadedRoom, user?.id]);
 
     // ...and are re-saved whenever the list changes (cleared once they are sent or discarded).
     useEffect(() => {
-        if (restoredRoom !== roomId || !roomId || !user?.id) return;
+        if (restoredRoom !== roomId || loadedRoom !== roomId || !roomId || !user?.id) return;
         try {
             const unsent = messages
-                .filter(m => m.userId === user.id && (m.status === 'failed' || m.status === 'pending'))
-                .map(m => ({ ...m, status: 'failed' as MessageStatus }));
-            if (unsent.length) localStorage.setItem(failedStoreKey(roomId), JSON.stringify(unsent));
-            else localStorage.removeItem(failedStoreKey(roomId));
+                .filter(m => m.userId === user.id && m.status === 'failed');
+            if (unsent.length) localStorage.setItem(failedStoreKey(user.id, roomId), JSON.stringify(unsent));
+            else localStorage.removeItem(failedStoreKey(user.id, roomId));
         } catch { /* storage full/blocked: best effort */ }
-    }, [messages, restoredRoom, roomId, user?.id]);
+    }, [messages, restoredRoom, loadedRoom, roomId, user?.id]);
 
     // Helper Props for UI
     const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
@@ -323,7 +328,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         const msg = messagesRef.current.find(m => String(m.id) === String(id));
         if (!msg || msg.status !== 'failed' || msg.retryable === false) return;
         // Flip to pending synchronously so a fast double tap can't send twice.
-        const next = markPending(messagesRef.current, id);
+        const next = markPending(messagesRef.current, id).map(m => String(m.id) === String(id) ? { ...m, failCode: undefined } : m);
         messagesRef.current = next;
         setMessages(next);
         if (!(await waitForConnection())) {
