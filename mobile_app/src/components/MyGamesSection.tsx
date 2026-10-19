@@ -107,7 +107,7 @@ export default function MyGamesSection() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {games.map((game) => (
                     <View key={game.id} className="w-72 mr-4">
-                        <GameCard game={game} isJoined={true}>
+                        <GameCard titleLines={1} game={game} isJoined={true}>
                             <View className="flex-row justify-between items-center w-full">
                                 <LeaveGameButton
                                     gameId={game.id}

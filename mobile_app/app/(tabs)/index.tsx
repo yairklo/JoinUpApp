@@ -66,7 +66,7 @@ export default function HomeScreen() {
     return (
       <View key={item.id} className="px-5 mb-4">
         <GameCard game={item} isJoined={!!isJoined}>
-          <View className="flex-1">
+          <View className="w-full">
             {isJoined ? (
               <LeaveGameButton gameId={item.id} onLeft={() => { }} />
             ) : (

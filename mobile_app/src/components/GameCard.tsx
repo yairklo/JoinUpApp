@@ -13,11 +13,13 @@ interface GameCardProps {
     game: Game;
     isJoined?: boolean;
     children?: React.ReactNode;
+    /** Title lines (ellipsized after). Use 1 for horizontal carousels so cards stay compact and equal height. */
+    titleLines?: 1 | 2;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export default function GameCard({ game, isJoined, children }: GameCardProps) {
+export default function GameCard({ game, isJoined, children, titleLines = 2 }: GameCardProps) {
     const router = useRouter();
     const { t } = useTranslation();
     const sportKey = (game.sport || "DEFAULT").toUpperCase();
@@ -105,10 +107,13 @@ export default function GameCard({ game, isJoined, children }: GameCardProps) {
                         fontSize: 17,
                         fontWeight: '700',
                         lineHeight: 22,
+                        // Always reserve all title lines so cards in a row have equal height
+                        // regardless of title length (see mobile-layout.mdc).
+                        minHeight: titleLines * 22,
                         textAlign,
                         writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr',
                     }}
-                    numberOfLines={2}
+                    numberOfLines={titleLines}
                 >
                     {game.title || game.fieldName || t("search.game", "משחק")}
                 </Text>
