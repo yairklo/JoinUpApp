@@ -2,6 +2,7 @@ const express = require('express');
 const { authenticateToken } = require('../utils/auth');
 const {
   buildPickSessionState,
+  assertCanManagePick,
   updatePickSchedule,
   executePickDraw,
   reorderPickTurnOrder,
@@ -28,7 +29,8 @@ router.get('/:id/pick-session', authenticateToken, async (req, res) => {
     const isManager =
       state.organizerId === req.user.id ||
       (state.managers || []).some((m) => m.id === req.user.id);
-    if (!isManager) return res.status(403).json({ error: 'Managers only' });
+    // Game-role MANAGERs are not draft participants but may still open team management.
+    if (!isManager) await assertCanManagePick(req.params.id, req.user.id);
     return res.json(state);
   } catch (e) {
     return handleError(res, e, 'Failed to load pick session');

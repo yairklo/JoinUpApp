@@ -66,15 +66,22 @@ async function getManagerIdsForGame(gameId, gameRow) {
   return [...ids];
 }
 
+/** Organizer or a MANAGER/CAPTAIN game-role holder may view/manage the pick session. */
+function canManagePickSession(game, userId) {
+  if (!game || !userId) return false;
+  if (game.organizerId === userId) return true;
+  return (game.roles || []).some(
+    (r) => r.userId === userId && (r.role === 'MANAGER' || r.role === 'CAPTAIN')
+  );
+}
+
 async function assertCanManagePick(gameId, userId) {
   const game = await prisma.game.findUnique({
     where: { id: gameId },
     include: { roles: true },
   });
   if (!game) throw httpError('Game not found', 404);
-  const isOrganizer = game.organizerId === userId;
-  const hasRole = game.roles.some(r => r.userId === userId && (r.role === 'MANAGER' || r.role === 'CAPTAIN'));
-  if (!isOrganizer && !hasRole) {
+  if (!canManagePickSession(game, userId)) {
     throw httpError('Managers or Captains only', 403);
   }
   return game;
@@ -717,6 +724,8 @@ module.exports = {
   httpError,
   parseTurnOrder,
   getManagerIdsForGame,
+  canManagePickSession,
+  assertCanManagePick,
   assignManagersToOwnTeams,
   computeBench,
   buildPickSessionState,
