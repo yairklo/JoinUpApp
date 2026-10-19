@@ -32,6 +32,8 @@ export type ChatMessage = {
     status?: MessageStatus;
     /** Only meaningful when status === 'failed': false => no retry (e.g. forbidden). */
     retryable?: boolean;
+    /** Server reason code from messageFailed (MESSAGE_TOO_LONG, RATE_LIMITED, ...). */
+    failCode?: string;
     isEdited?: boolean;
     isDeleted?: boolean;
     content?: string;

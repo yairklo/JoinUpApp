@@ -64,11 +64,15 @@ export default function GameParticipantsList({
   const router = useRouter();
 
   const [managers, setManagers] = useState<Manager[]>(initialManagers);
+  // router.refresh() re-renders with fresh server props; useState alone would keep the stale list
+  // (a promoted manager kept showing as a plain player until promoted a second time).
+  useEffect(() => { setManagers(initialManagers); }, [initialManagers]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<Participant | null>(null);
 
   const openMenu = (event: React.MouseEvent<HTMLElement>, user: Participant) => {
     event.preventDefault();
+    event.currentTarget.blur();
     setAnchorEl(event.currentTarget);
     setSelectedUser(user);
   };
@@ -172,13 +176,14 @@ export default function GameParticipantsList({
 
     try {
       if (isCurrentlyManager) {
-        await fetch(`${API_BASE}/api/games/${gameId}/roles/${selectedUser.id}`, {
+        const res = await fetch(`${API_BASE}/api/games/${gameId}/roles/${selectedUser.id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!res.ok) throw new Error(`Role removal failed (${res.status})`);
         setManagers((prev) => prev.filter((m) => m.id !== selectedUser.id));
       } else {
-        await fetch(`${API_BASE}/api/games/${gameId}/roles`, {
+        const res = await fetch(`${API_BASE}/api/games/${gameId}/roles`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -186,7 +191,11 @@ export default function GameParticipantsList({
           },
           body: JSON.stringify({ userId: selectedUser.id, role: "MANAGER" }),
         });
-        setManagers((prev) => [...prev, { id: selectedUser.id, role: "MANAGER" }]);
+        if (!res.ok) throw new Error(`Role promotion failed (${res.status})`);
+        // The server answers with the authoritative managers list.
+        const data = await res.json().catch(() => null);
+        if (Array.isArray(data?.managers)) setManagers(data.managers);
+        else setManagers((prev) => [...prev.filter((m) => m.id !== selectedUser.id), { id: selectedUser.id, role: "MANAGER" }]);
       }
       router.refresh();
     } catch (error) {
@@ -449,7 +458,7 @@ export default function GameParticipantsList({
                     {isManager(selectedUser.id) ? <PersonIcon fontSize="small" /> : <SecurityIcon fontSize="small" />}
                   </ListItemIcon>
                   <Typography variant="body2">
-                    {isManager(selectedUser.id) ? "Remove Manager Role" : "Promote to Manager"}
+                    {isManager(selectedUser.id) ? "הסר תפקיד מנהל" : "קדם למנהל"}
                   </Typography>
                 </MenuItem>
                 <MenuItem onClick={handleToggleCaptain}>
@@ -457,7 +466,7 @@ export default function GameParticipantsList({
                     {isCaptain(selectedUser.id) ? <PersonIcon fontSize="small" /> : <SecurityIcon fontSize="small" />}
                   </ListItemIcon>
                   <Typography variant="body2">
-                    {isCaptain(selectedUser.id) ? "Remove Captain Role" : "Promote to Captain"}
+                    {isCaptain(selectedUser.id) ? "הסר תפקיד קפטן" : "קדם לקפטן"}
                   </Typography>
                 </MenuItem>
                 <MenuItem onClick={handleRemovePlayer} sx={{ color: "error.main" }}>
@@ -465,7 +474,7 @@ export default function GameParticipantsList({
                     <DeleteForeverIcon fontSize="small" color="error" />
                   </ListItemIcon>
                   <Typography variant="body2">
-                    Remove from Game
+                    הסר מהמשחק
                   </Typography>
                 </MenuItem>
             </Box>

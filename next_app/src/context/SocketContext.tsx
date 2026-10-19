@@ -11,89 +11,104 @@ interface SocketContextProps {
 
 const SocketContext = createContext<SocketContextProps>({ socket: null, isConnected: false });
 
+// Manual reconnect schedule used when socket.io gives up on its own (server-initiated disconnect,
+// or an auth rejection that the built-in reconnection does not retry).
+const MANUAL_RECONNECT_MIN_MS = 1000;
+const MANUAL_RECONNECT_MAX_MS = 30000;
+
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
     const { getToken, isLoaded, isSignedIn } = useAuth();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
-    const socketRef = useRef<Socket | null>(null);
+    // Always call the latest getToken from inside socket callbacks (it is not referentially stable).
+    const getTokenRef = useRef(getToken);
+    getTokenRef.current = getToken;
 
     useEffect(() => {
         // Only attempt connection if clerk is fully loaded and user is signed in
         if (!isLoaded || !isSignedIn) {
-            if (socketRef.current) {
-                socketRef.current.disconnect();
-                socketRef.current = null;
-                setSocket(null);
-                setIsConnected(false);
-            }
+            setSocket(null);
+            setIsConnected(false);
             return;
         }
 
-        let currentSocket: Socket | null = null;
+        const API_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "";
+        let disposed = false;
+        let manualTimer: ReturnType<typeof setTimeout> | null = null;
+        let manualDelay = MANUAL_RECONNECT_MIN_MS;
 
-        const initSocket = async () => {
-            try {
-                const token = await getToken();
-                const API_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || "";
+        const currentSocket: Socket = io(API_URL, {
+            path: "/api/socket",
+            // Match server transport order — Render/proxies need polling before WS upgrade
+            transports: ["polling", "websocket"],
+            withCredentials: true,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 10000,
+            randomizationFactor: 0.5,
+            // A function is re-evaluated on EVERY (re)connect attempt, so a Clerk token that
+            // expired during a long session or an offline period is never reused.
+            auth: (cb) => {
+                getTokenRef.current()
+                    .then((token) => cb({ token }))
+                    .catch(() => cb({ token: null }));
+            },
+        });
 
-                currentSocket = io(API_URL, {
-                    path: "/api/socket",
-                    // Match server transport order — Render/proxies need polling before WS upgrade
-                    transports: ["polling", "websocket"],
-                    withCredentials: true,
-                    auth: { token }
-                });
-
-                socketRef.current = currentSocket;
-
-                currentSocket.on("connect", () => {
-                    console.log("[Global Socket] Connected:", currentSocket?.id);
-                    setIsConnected(true);
-                });
-
-                currentSocket.on("disconnect", () => {
-                    console.log("[Global Socket] Disconnected");
-                    setIsConnected(false);
-                });
-
-                currentSocket.on("connect_error", async (err: any) => {
-                    console.error("[Global Socket] Connection error:", err.message);
-                    if (err.message.includes("Authentication error") || err.message.includes("JWT") || err.message.includes("token")) {
-                        try {
-                            const newToken = await getToken();
-                            if (newToken && currentSocket) {
-                                currentSocket.auth = { token: newToken };
-                                currentSocket.connect();
-                            }
-                        } catch (e) {
-                            console.error("[Global Socket] Token refresh failed", e);
-                        }
-                    }
-                });
-
-                setSocket(currentSocket);
-            } catch (e) {
-                console.error("[Global Socket] Init failed", e);
-            }
+        const scheduleManualReconnect = () => {
+            if (disposed || manualTimer) return;
+            manualTimer = setTimeout(() => {
+                manualTimer = null;
+                if (disposed || currentSocket.connected) return;
+                currentSocket.connect();
+            }, manualDelay);
+            manualDelay = Math.min(manualDelay * 2, MANUAL_RECONNECT_MAX_MS);
         };
 
-        initSocket();
+        currentSocket.on("connect", () => {
+            console.log("[Global Socket] Connected:", currentSocket.id);
+            manualDelay = MANUAL_RECONNECT_MIN_MS;
+            setIsConnected(true);
+        });
 
-        // CLEANUP FUNCTION
+        currentSocket.on("disconnect", (reason) => {
+            console.log("[Global Socket] Disconnected:", reason);
+            setIsConnected(false);
+            // "io server disconnect": socket.io will NOT reconnect by itself.
+            if (reason === "io server disconnect") {
+                scheduleManualReconnect();
+            }
+        });
+
+        currentSocket.on("connect_error", (err: Error) => {
+            console.warn("[Global Socket] Connection error:", err.message);
+            // The auth callback fetches a fresh token on each attempt. If the server rejected the
+            // handshake the built-in reconnection stops, so keep trying with backoff.
+            if (!currentSocket.active) scheduleManualReconnect();
+        });
+
+        // Coming back online / to the foreground: don't wait for the next backoff tick.
+        const kick = () => {
+            if (disposed || currentSocket.connected) return;
+            manualDelay = MANUAL_RECONNECT_MIN_MS;
+            currentSocket.connect();
+        };
+        const onVisible = () => { if (document.visibilityState === "visible") kick(); };
+        window.addEventListener("online", kick);
+        document.addEventListener("visibilitychange", onVisible);
+
+        setSocket(currentSocket);
+
         return () => {
-            if (currentSocket) {
-                console.log("[Global Socket] Disconnecting and cleaning up...");
-                currentSocket.disconnect();
-                socketRef.current = null;
-                setSocket(null);
-                setIsConnected(false);
-            }
+            disposed = true;
+            if (manualTimer) clearTimeout(manualTimer);
+            window.removeEventListener("online", kick);
+            document.removeEventListener("visibilitychange", onVisible);
+            console.log("[Global Socket] Disconnecting and cleaning up...");
+            currentSocket.disconnect();
+            setSocket(null);
+            setIsConnected(false);
         };
-        // getToken is intentionally omitted: it is not guaranteed referentially stable across
-        // renders, and including it was causing a full socket disconnect/reconnect on every
-        // navigation. Token refresh on auth failure is already handled by the connect_error
-        // handler above, which calls getToken() fresh and reconnects in place.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoaded, isSignedIn]);
 
     return (

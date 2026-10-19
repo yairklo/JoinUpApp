@@ -122,7 +122,12 @@ export default function TeamBuilderWrapper({
                 variant="outlined"
                 color="inherit"
                 startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <GroupsIcon />}
-                onClick={() => setIsDialogOpen(true)}
+                onClick={() => {
+                  // MUI hides the rest of the page (aria-hidden) when the dialog opens; drop focus from
+                  // the trigger first so a hidden element never retains focus.
+                  (document.activeElement as HTMLElement | null)?.blur?.();
+                  setIsDialogOpen(true);
+                }}
                 size="small"
                 disabled={saving}
                 sx={{ borderRadius: 2, textTransform: "none" }}

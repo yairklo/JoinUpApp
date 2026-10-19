@@ -37,7 +37,7 @@ import ReportMessageDialog from "./ReportMessageDialog";
 import { chatsApi, type MessageReportReason } from "@/services/api/chats";
 import { usersApi } from "@/services/api/users";
 import { ChatMessage } from "./types";
-import { useChatLogic } from "@/hooks/useChatLogic";
+import { useChatLogic, MAX_MESSAGE_LENGTH } from "@/hooks/useChatLogic";
 
 type ChatProps = {
   roomId?: string;
@@ -318,7 +318,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       onRetry={actions.handleRetryMessage}
                       onDiscard={actions.handleDiscardMessage}
                       avatarUrl={avatarUrl}
-                      displayName={m.sender?.name || u?.name || (m.userId && state.nameByUserId[m.userId]) || (isMine ? (myName || (isRTL ? "אני" : "Me")) : "") || m.senderName || "Unknown"}
+                      displayName={m.sender?.name || u?.name || (m.userId && state.nameByUserId[m.userId]) || (isMine ? (myName || (isRTL ? "אני" : "Me")) : "") || m.senderName || (state.isPrivate && !isMine ? state.otherUserName : undefined) || (isRTL ? "משתמש" : "User")}
                       timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                       showAvatar={!isNextSameSender}
                       showName={!isPrevSameSender && !isMine && !state.isPrivate}
@@ -379,9 +379,13 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             onKeyDown={handleKeyDown}
             onInput={actions.handleTyping}
             onBlur={actions.handleStopTyping}
+            error={state.inputValue.length > MAX_MESSAGE_LENGTH}
+            helperText={state.inputValue.length > MAX_MESSAGE_LENGTH * 0.8
+              ? `${state.inputValue.length}/${MAX_MESSAGE_LENGTH}${state.inputValue.length > MAX_MESSAGE_LENGTH ? (isRTL ? " — ההודעה ארוכה מדי" : " — too long") : ""}`
+              : undefined}
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
           />
-          <IconButton color="primary" onClick={actions.handleSendMessage} disabled={!state.inputValue.trim()} sx={{ mb: 0.5, transform: isRTL ? "scaleX(-1)" : "none" }}>
+          <IconButton color="primary" onClick={actions.handleSendMessage} disabled={!state.inputValue.trim() || state.inputValue.trim().length > MAX_MESSAGE_LENGTH} sx={{ mb: 0.5, transform: isRTL ? "scaleX(-1)" : "none" }}>
             {state.editingMessage ? <CheckIcon /> : <SendIcon />}
           </IconButton>
         </Stack>
