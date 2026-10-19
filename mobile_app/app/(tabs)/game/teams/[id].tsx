@@ -34,7 +34,7 @@ type PickState = {
   }[];
   bench: { id: string; name?: string | null }[];
   managerPickChatId: string | null;
-  game?: { fieldName?: string | null; fieldLat?: number | null; fieldLng?: number | null } | null;
+  game?: { fieldName?: string | null; fieldLat?: number | null; fieldLng?: number | null; managers?: { id: string; role?: string }[] } | null;
   pendingTrades: {
     id: string;
     proposerId: string;
@@ -90,7 +90,8 @@ export default function LiveTeamManagementScreen() {
 
   const userId = user?.id || '';
   const isOrganizer = state?.organizerId === userId;
-  const isManager = (state?.managers || []).some((m) => m.id === userId && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
+  // Roles live on the embedded game (state.managers carries no role); the server only allows MANAGER+ to save teams.
+  const isManager = (state?.game?.managers || []).some((m) => m.id === userId && m.role === 'MANAGER');
   const myTurn =state?.currentTurnManagerId === userId;
   const currentOnline = state?.currentTurnManagerId ? !!presence[state.currentTurnManagerId] : false;
   const pickingActive = state?.pickSessionStatus === 'PICKING';
