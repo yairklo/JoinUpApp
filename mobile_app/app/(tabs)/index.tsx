@@ -14,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import MyGamesSection from '@/components/MyGamesSection';
 import SeriesSection from '@/components/SeriesSection';
+import ManageSection from '@/components/ManageSection';
+import { useManageOverview } from '@/hooks/useManageOverview';
 import GamesByCitySection from '@/components/GamesByCitySection';
 import GamesByFriendsSection from '@/components/GamesByFriendsSection';
 import GlobalSearchOmnibar from '@/components/GlobalSearchOmnibar';
@@ -30,6 +32,7 @@ export default function HomeScreen() {
   const { user } = useUser();
   const myFirstName = useMyName().split(' ')[0];
   const insets = useSafeAreaInsets();
+  const manage = useManageOverview();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSport, setSelectedSport] = useState('ALL');
 
@@ -44,11 +47,11 @@ export default function HomeScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await refreshGames();
+      await Promise.all([refreshGames(), manage.refresh()]);
     } finally {
       setRefreshing(false);
     }
-  }, [refreshGames]);
+  }, [refreshGames, manage.refresh]);
 
   const filteredGames = useMemo(() => {
     if (!games) return [];
@@ -151,6 +154,7 @@ export default function HomeScreen() {
           })}
         </ScrollView>
 
+        <ManageSection overview={manage.data} />
         <MyGamesSection />
         <SeriesSection />
         <GamesByCitySection sportFilter={selectedSport !== 'ALL' ? selectedSport : undefined} />

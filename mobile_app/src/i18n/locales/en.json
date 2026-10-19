@@ -1023,5 +1023,29 @@
     "deleteConfirm": "Delete account",
     "deleteFailedTitle": "Couldn't delete the account",
     "deleteFailedBody": "Check your connection and try again."
+  },
+  "manage": {
+    "title": "My management",
+    "seeAll": "All",
+    "allMine": "My groups and games",
+    "needsAttention": "Needs attention",
+    "attentionBanner": "{{count}} things need your attention",
+    "attentionPending": "{{count}} join requests",
+    "attentionWaitlist": "Waitlist ({{count}})",
+    "badgeGroup": "Group",
+    "badgeGame": "Single game",
+    "roleOrganizer": "Organizer",
+    "roleManager": "Manager",
+    "registered": "{{count}}/{{max}} registered",
+    "pending": "{{count}} awaiting approval",
+    "waitlist": "{{count}} on waitlist",
+    "members": "{{count}} members",
+    "noUpcoming": "No game scheduled",
+    "openNextGame": "Next game",
+    "openGroup": "Manage group",
+    "openGame": "Manage game",
+    "loadFailed": "Could not load. Pull down to retry.",
+    "emptyTitle": "You don't manage anything yet",
+    "emptyDesc": "Create a game or a group and it will show up here."
   }
 }
