@@ -47,6 +47,12 @@ describe('GET /api/manage/overview', () => {
   let soloGame;
   let othersGame;
   let cancelledSolo;
+  let liveSolo;
+  let endedSolo;
+  let bareSeries;
+  let bareSeriesEnded;
+  let inactiveSeries;
+  let inactiveGame;
 
   beforeAll(async () => {
     for (const id of [ownerId, coMgrId, playerId]) {
@@ -76,6 +82,19 @@ describe('GET /api/manage/overview', () => {
     othersGame = await prisma.game.create({ data: { ...base, organizerId: playerId, start: hoursFromNow(10) } });
     await prisma.gameRole.create({ data: { gameId: othersGame.id, userId: ownerId, role: 'MANAGER' } });
 
+    // Live-window boundary: a game still in progress is shown, one that ended hours ago is not.
+    liveSolo = await prisma.game.create({ data: { ...base, start: hoursFromNow(-0.5), duration: 1, title: 'live' } });
+    endedSolo = await prisma.game.create({ data: { ...base, start: hoursFromNow(-3), duration: 1, title: 'ended' } });
+
+    // A group the owner organizes without any SeriesParticipant row, whose only game already ended.
+    const seriesBase = { organizerId: ownerId, fieldName: field.name, fieldLocation: 'רחוב 1', maxPlayers: 10, dayOfWeek: 3, time: '21:00', duration: 1 };
+    bareSeries = await prisma.gameSeries.create({ data: { ...seriesBase, title: 'קבוצה בלי משחקים' } });
+    bareSeriesEnded = await prisma.game.create({ data: { ...base, seriesId: bareSeries.id, start: hoursFromNow(-3), duration: 1 } });
+
+    // A deactivated group's open game is neither a group nor a "single game".
+    inactiveSeries = await prisma.gameSeries.create({ data: { ...seriesBase, title: 'קבוצה לא פעילה', isActive: false } });
+    inactiveGame = await prisma.game.create({ data: { ...base, seriesId: inactiveSeries.id, start: hoursFromNow(20) } });
+
     await prisma.participation.createMany({
       data: [
         { gameId: soonGame.id, userId: ownerId, status: 'CONFIRMED' },
@@ -83,19 +102,21 @@ describe('GET /api/manage/overview', () => {
         { gameId: soonGame.id, userId: playerId, status: 'WAITLISTED' },
         { gameId: laterGame.id, userId: playerId, status: 'PENDING' },
         { gameId: soloGame.id, userId: playerId, status: 'PENDING' },
+        { gameId: soloGame.id, userId: coMgrId, status: 'REJECTED' },
+        { gameId: soloGame.id, userId: ownerId, status: 'CANCELLED' },
       ],
     });
   });
 
   afterAll(async () => {
     try {
-      const ids = [soonGame, laterGame, soloGame, othersGame, cancelledSolo].filter(Boolean).map((g) => g.id);
+      const ids = [soonGame, laterGame, soloGame, othersGame, cancelledSolo, liveSolo, endedSolo, bareSeriesEnded, inactiveGame].filter(Boolean).map((g) => g.id);
       await prisma.participation.deleteMany({ where: { gameId: { in: ids } } });
       await prisma.gameRole.deleteMany({ where: { gameId: { in: ids } } });
       await prisma.game.deleteMany({ where: { id: { in: ids } } });
-      if (series) {
-        await prisma.seriesParticipant.deleteMany({ where: { seriesId: series.id } });
-        await prisma.gameSeries.delete({ where: { id: series.id } });
+      for (const sr of [series, bareSeries, inactiveSeries].filter(Boolean)) {
+        await prisma.seriesParticipant.deleteMany({ where: { seriesId: sr.id } });
+        await prisma.gameSeries.delete({ where: { id: sr.id } });
       }
       if (field?.id) await prisma.field.delete({ where: { id: field.id } });
     } catch (err) {
@@ -150,5 +171,43 @@ describe('GET /api/manage/overview', () => {
     const res = await request(app).get('/api/manage/overview').set('Authorization', playerAuth);
     expect(res.body.groups.find((g) => g.id === series.id)).toBeUndefined();
     expect(res.body.games.map((g) => g.id)).toEqual([othersGame.id]);
+  });
+
+  it('shows a game in progress but not one that ended hours ago', async () => {
+    const res = await request(app).get('/api/manage/overview').set('Authorization', ownerAuth);
+    const ids = res.body.games.map((g) => g.id);
+    expect(ids).toContain(liveSolo.id);
+    expect(ids).not.toContain(endedSolo.id);
+    expect(ids.indexOf(liveSolo.id)).toBeLessThan(ids.indexOf(othersGame.id));
+  });
+
+  it('lists an organizer-only group with no upcoming game last, and ignores ended games', async () => {
+    const res = await request(app).get('/api/manage/overview').set('Authorization', ownerAuth);
+    const ids = res.body.groups.map((g) => g.id);
+    expect(ids).toContain(bareSeries.id);
+    expect(ids.indexOf(series.id)).toBeLessThan(ids.indexOf(bareSeries.id));
+    const bare = res.body.groups.find((g) => g.id === bareSeries.id);
+    expect(bare.nextGame).toBeNull();
+    expect(bare.role).toEqual('ORGANIZER');
+  });
+
+  it('does not surface a deactivated group or its games', async () => {
+    const res = await request(app).get('/api/manage/overview').set('Authorization', ownerAuth);
+    expect(res.body.groups.map((g) => g.id)).not.toContain(inactiveSeries.id);
+    expect(res.body.games.map((g) => g.id)).not.toContain(inactiveGame.id);
+  });
+
+  it('counts only confirmed, waitlisted and pending participations', async () => {
+    const res = await request(app).get('/api/manage/overview').set('Authorization', ownerAuth);
+    const solo = res.body.games.find((g) => g.id === soloGame.id);
+    expect(solo).toMatchObject({ confirmedCount: 0, waitlistCount: 0, pendingCount: 1 });
+  });
+
+  it('labels each attention item with its group or game', async () => {
+    const res = await request(app).get('/api/manage/overview').set('Authorization', ownerAuth);
+    const forGroup = res.body.attention.find((a) => a.gameId === soonGame.id);
+    const forSolo = res.body.attention.find((a) => a.gameId === soloGame.id);
+    expect(forGroup.label).toEqual('קבוצת בדיקה');
+    expect(forSolo.label).toEqual('משחק בודד');
   });
 });

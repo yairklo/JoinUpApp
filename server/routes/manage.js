@@ -4,8 +4,17 @@ const { prisma } = require('../services/gameService');
 
 const router = express.Router();
 
-// A game that started up to this long ago is still "live" for a manager (they may be running it).
-const LIVE_WINDOW_MS = 4 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+// A game stays "live" for a manager until it has ended plus this grace (they may still be wrapping it up).
+const END_GRACE_MS = 1 * HOUR_MS;
+// Longest game we expect; bounds the SQL window, the exact per-game cutoff is applied in JS below.
+const MAX_GAME_HOURS = 12;
+// Group games are only needed for the next game and the pending/attention counts.
+const GROUP_HORIZON_MS = 45 * 24 * HOUR_MS;
+const GROUP_GAMES_CAP = 500;
+const STANDALONE_GAMES_CAP = 50;
+const ATTENTION_CAP = 20;
+
 const GAME_FIELDS = {
   id: true,
   title: true,
@@ -19,6 +28,16 @@ const GAME_FIELDS = {
   field: { select: { name: true } },
   customLocation: true,
 };
+
+function isStillLive(game, now) {
+  const endsAt = game.start.getTime() + (game.duration || 1) * HOUR_MS;
+  return endsAt + END_GRACE_MS >= now;
+}
+
+function compareByStart(a, b) {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
 
 async function countByStatus(gameIds) {
   const counts = new Map();
@@ -61,16 +80,18 @@ function mapGame(game, counts, role) {
  * - groups: recurring groups (GameSeries) they organize or manage, each with its next game.
  * - games: upcoming games they organize / hold a game role on that are NOT already covered
  *   by a group above (standalone games, or a single game of someone else's group).
- * - attention: the items that need action now (join requests, a filled waitlist).
+ * - attention: the items that need action now (join requests, a filled waitlist), labelled so the
+ *   client can say which group or game each one belongs to.
  */
 router.get('/overview', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const cutoff = new Date(Date.now() - LIVE_WINDOW_MS);
+    const nowMs = Date.now();
+    const windowStart = new Date(nowMs - MAX_GAME_HOURS * HOUR_MS);
+    const horizon = new Date(nowMs + GROUP_HORIZON_MS);
 
-    const seriesList = await prisma.gameSeries.findMany({
+    const managedSeries = await prisma.gameSeries.findMany({
       where: {
-        isActive: true,
         OR: [
           { organizerId: userId },
           { subscribers: { some: { userId, role: 'MANAGER' } } },
@@ -78,30 +99,39 @@ router.get('/overview', authenticateToken, async (req, res) => {
       },
       include: { _count: { select: { subscribers: true } } },
     });
-    const seriesIds = seriesList.map((s) => s.id);
+    const seriesList = managedSeries.filter((s) => s.isActive);
+    // Games of a deactivated group the user manages are not "single games": keep them out of both lists.
+    const managedSeriesIds = managedSeries.map((s) => s.id);
+    const activeSeriesIds = seriesList.map((s) => s.id);
 
-    const seriesGames = seriesIds.length
-      ? await prisma.game.findMany({
-          where: { seriesId: { in: seriesIds }, status: 'OPEN', start: { gte: cutoff } },
+    const seriesGames = activeSeriesIds.length
+      ? (await prisma.game.findMany({
+          where: {
+            seriesId: { in: activeSeriesIds },
+            status: 'OPEN',
+            start: { gte: windowStart, lte: horizon },
+          },
           select: GAME_FIELDS,
           orderBy: { start: 'asc' },
-        })
+          take: GROUP_GAMES_CAP,
+        })).filter((g) => isStillLive(g, nowMs))
       : [];
 
-    const individualGames = await prisma.game.findMany({
+    const individualGames = (await prisma.game.findMany({
       where: {
         status: 'OPEN',
-        start: { gte: cutoff },
+        start: { gte: windowStart },
         AND: [
           { OR: [{ organizerId: userId }, { roles: { some: { userId, role: 'MANAGER' } } }] },
           // NOT IN would drop standalone games, because their seriesId is NULL.
-          { OR: [{ seriesId: null }, { seriesId: { notIn: seriesIds } }] },
+          { OR: [{ seriesId: null }, { seriesId: { notIn: managedSeriesIds } }] },
         ],
       },
       select: GAME_FIELDS,
       orderBy: { start: 'asc' },
-      take: 50,
-    });
+      // Over-fetch a little: some rows are dropped by the end-of-game filter below.
+      take: STANDALONE_GAMES_CAP + 20,
+    })).filter((g) => isStillLive(g, nowMs)).slice(0, STANDALONE_GAMES_CAP);
 
     const counts = await countByStatus([...seriesGames, ...individualGames].map((g) => g.id));
 
@@ -133,27 +163,37 @@ router.get('/overview', authenticateToken, async (req, res) => {
     });
     // The group whose next game is soonest comes first; groups with no scheduled game go last.
     groups.sort((a, b) => {
-      const at = a.nextGame ? Date.parse(a.nextGame.start) : Infinity;
-      const bt = b.nextGame ? Date.parse(b.nextGame.start) : Infinity;
-      return at - bt;
+      const at = a.nextGame ? Date.parse(a.nextGame.start) : Number.MAX_SAFE_INTEGER;
+      const bt = b.nextGame ? Date.parse(b.nextGame.start) : Number.MAX_SAFE_INTEGER;
+      return compareByStart(at, bt);
     });
 
     const games = individualGames.map((g) =>
       mapGame(g, counts, g.organizerId === userId ? 'ORGANIZER' : 'MANAGER')
     );
 
+    const seriesNameById = new Map(seriesList.map((s) => [s.id, s.title || `${s.fieldName} • ${s.time}`]));
+    const labelFor = (g) =>
+      (g.seriesId && seriesNameById.get(g.seriesId)) || g.title || g.field?.name || g.customLocation || '';
+
     const attention = [];
     for (const g of [...seriesGames, ...individualGames]) {
       const c = counts.get(g.id);
       if (!c) continue;
-      if (c.pending > 0) attention.push({ type: 'PENDING_REQUESTS', gameId: g.id, seriesId: g.seriesId || null, count: c.pending, start: g.start.toISOString() });
+      const base = {
+        gameId: g.id,
+        seriesId: g.seriesId || null,
+        label: labelFor(g),
+        start: g.start.toISOString(),
+      };
+      if (c.pending > 0) attention.push({ ...base, type: 'PENDING_REQUESTS', count: c.pending });
       if (c.waitlisted > 0 && c.confirmed >= g.maxPlayers) {
-        attention.push({ type: 'WAITLIST', gameId: g.id, seriesId: g.seriesId || null, count: c.waitlisted, start: g.start.toISOString() });
+        attention.push({ ...base, type: 'WAITLIST', count: c.waitlisted });
       }
     }
-    attention.sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+    attention.sort((a, b) => compareByStart(Date.parse(a.start), Date.parse(b.start)));
 
-    res.json({ groups, games, attention });
+    res.json({ groups, games, attention: attention.slice(0, ATTENTION_CAP) });
   } catch (error) {
     console.error('Manage overview error:', error);
     res.status(500).json({ error: 'Failed to load managed groups and games' });
