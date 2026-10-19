@@ -78,6 +78,9 @@ export default function GameParticipantsList({
   };
 
   const closeMenu = () => {
+    // Drop focus from the menu item before MUI aria-hides the popover, otherwise the browser
+    // warns "Blocked aria-hidden on an element because its descendant retained focus".
+    (document.activeElement as HTMLElement | null)?.blur?.();
     setAnchorEl(null);
     setSelectedUser(null);
   };

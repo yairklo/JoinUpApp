@@ -61,6 +61,33 @@ export default function OfflineStatusToast() {
     }
   }, [awaitingSocket, isConnected]);
 
+  // The socket may drop and come back without a matching browser offline/online event pair
+  // (proxy drops, ping timeouts, missed events): announce any real socket reconnect too.
+  const wasConnectedRef = useRef(false);
+  const socketDroppedRef = useRef(false);
+  useEffect(() => {
+    if (isConnected) {
+      if (socketDroppedRef.current) {
+        socketDroppedRef.current = false;
+        setAwaitingSocket(false);
+        setShowBackOnline(true);
+      }
+      wasConnectedRef.current = true;
+    } else if (wasConnectedRef.current) {
+      socketDroppedRef.current = true;
+    }
+  }, [isConnected]);
+
+  // Network is back but the socket is slow/stuck: do not leave the user without confirmation.
+  useEffect(() => {
+    if (!awaitingSocket) return;
+    const t = setTimeout(() => {
+      setAwaitingSocket(false);
+      setShowBackOnline(true);
+    }, 10000);
+    return () => clearTimeout(t);
+  }, [awaitingSocket]);
+
   // Offline again before the socket came back: forget the pending announcement.
   useEffect(() => {
     if (isOffline) setAwaitingSocket(false);
@@ -82,7 +109,11 @@ export default function OfflineStatusToast() {
       <Snackbar
         open={showBackOnline}
         autoHideDuration={3000}
-        onClose={() => setShowBackOnline(false)}
+        onClose={(_, reason) => {
+          // A stray click elsewhere must not dismiss the confirmation before its ~3s are up.
+          if (reason === "clickaway") return;
+          setShowBackOnline(false);
+        }}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert onClose={() => setShowBackOnline(false)} severity="success" variant="filled" sx={{ width: "100%" }}>

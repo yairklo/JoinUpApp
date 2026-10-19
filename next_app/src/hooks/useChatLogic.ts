@@ -55,9 +55,18 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
     // Messages count as "read" only when the user can actually see this chat.
     const suspendedRef = useRef(suspended);
     suspendedRef.current = suspended;
+    // The widget's collapsed content stays mounted with `visibility: hidden`; treat that (and any
+    // other CSS-hidden state) as "not on screen" even if the `suspended` prop lags behind.
+    const isRenderedVisible = () => {
+        const el = scrollContainerRef.current as (HTMLElement & {
+            checkVisibility?: (o?: { checkVisibilityCSS?: boolean; visibilityProperty?: boolean }) => boolean;
+        }) | null;
+        if (!el || typeof el.checkVisibility !== "function") return true;
+        return el.checkVisibility({ checkVisibilityCSS: true, visibilityProperty: true });
+    };
     const canReadNow = () =>
         !suspendedRef.current && typeof document !== "undefined" &&
-        document.visibilityState === "visible";
+        document.visibilityState === "visible" && isRenderedVisible();
     const sendTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     // Room whose locally-saved unsent messages were already merged into `messages`.
     const [restoredRoom, setRestoredRoom] = useState<string | null>(null);
