@@ -201,7 +201,7 @@ export default function AppNavbar() {
                 color="inherit"
                 size="small"
                 aria-label={mode === "dark" ? "מצב בהיר" : "מצב כהה"}
-                sx={{ p: { xs: 0.75, md: 1 }, display: { xs: "none", sm: "inline-flex" } }}
+                sx={{ p: { xs: 0.75, md: 1 } }}
               >
                 {mode === "dark" ? <LightModeOutlinedIcon fontSize="small" /> : <DarkModeOutlinedIcon fontSize="small" />}
               </IconButton>

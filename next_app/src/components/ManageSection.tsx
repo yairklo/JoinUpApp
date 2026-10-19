@@ -15,7 +15,9 @@ export default function ManageSection() {
   const { data } = useManageOverview();
   const items = buildManageItems(data);
   if (items.length === 0) return null;
-  const attentionCount = data?.attention.length ?? 0;
+  const attentionGames = data?.attention.length ?? 0;
+  // Count the requests / waitlisted players themselves, not the games that have them.
+  const attentionCount = data?.attention.reduce((sum, a) => sum + (a.count || 1), 0) ?? 0;
 
   return (
     <Box>
@@ -23,13 +25,13 @@ export default function ManageSection() {
         <Typography variant="h5" fontWeight={700}>
           הניהול שלי
         </Typography>
-        {(items.length > MANAGE_HOME_LIMIT || attentionCount > 0) && (
+        {(items.length > MANAGE_HOME_LIMIT || attentionGames > 0) && (
           <Button component={Link} href="/manage" size="small">
             הכל
           </Button>
         )}
       </Stack>
-      {attentionCount > 0 && (
+      {attentionGames > 0 && (
         <Box
           component={Link}
           href="/manage"
@@ -48,7 +50,7 @@ export default function ManageSection() {
           }}
         >
           <ErrorOutlineRoundedIcon fontSize="small" />
-          {`${attentionCount} דברים מחכים לך`}
+          {attentionCount === 1 ? "דבר אחד מחכה לך" : `${attentionCount} דברים מחכים לך`}
         </Box>
       )}
       <Stack spacing={1.5}>

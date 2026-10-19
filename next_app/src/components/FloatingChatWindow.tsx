@@ -137,7 +137,9 @@ export default function FloatingChatWindow() {
             sx={{
                 position: "fixed",
                 bottom: 0,
-                zIndex: 2000,
+                // Above page content but BELOW MUI modals (1300), so a full-screen dialog (e.g. the
+                // team builder) is never covered by this widget.
+                zIndex: 1250,
                 width: isMobile ? "100%" : 340,
                 left: isMobile ? 0 : 20,
                 borderTopLeftRadius: 8,

@@ -8,6 +8,11 @@ import { ChatMessage, Reaction, MessageStatus } from "@/components/types";
 import { useSocket } from "@/context/SocketContext";
 import { SEND_TIMEOUT_MS, markFailed, markPending, discardFailed, applyStatusUpdate } from "@joinup/shared/chatSend";
 
+// Mirrors MAX_MESSAGE_LENGTH in server/services/chatSafety.js.
+export const MAX_MESSAGE_LENGTH = 2000;
+const RECONNECT_WAIT_MS = 6000;
+const failedStoreKey = (roomId: string) => `joinup:chat:unsent:${roomId}`;
+
 export interface UseChatLogicProps {
     roomId: string;
     chatName?: string;
@@ -42,6 +47,8 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const prevMessagesLengthRef = useRef(0);
     const typingTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
     const sendTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+    // Room whose locally-saved unsent messages were already merged into `messages`.
+    const [restoredRoom, setRestoredRoom] = useState<string | null>(null);
 
     // 1. Fetch Chat Details
     useEffect(() => {
@@ -103,6 +110,37 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roomId, isLoaded, isSignedIn]);
 
+    // Unsent messages survive a refresh/navigation: restore them once the history is loaded...
+    useEffect(() => {
+        if (isLoading || !roomId || restoredRoom === roomId) return;
+        let saved: ChatMessage[] = [];
+        try {
+            const raw = localStorage.getItem(failedStoreKey(roomId));
+            const parsed = raw ? JSON.parse(raw) : [];
+            if (Array.isArray(parsed)) saved = parsed;
+        } catch { /* storage unavailable or corrupt: nothing to restore */ }
+        if (saved.length) {
+            setMessages(prev => {
+                const known = new Set(prev.map(m => String(m.id)));
+                const restored = saved.filter(m => !known.has(String(m.id)));
+                return restored.length ? [...prev, ...restored] : prev;
+            });
+        }
+        setRestoredRoom(roomId);
+    }, [isLoading, roomId, restoredRoom]);
+
+    // ...and are re-saved whenever the list changes (cleared once they are sent or discarded).
+    useEffect(() => {
+        if (restoredRoom !== roomId || !roomId || !user?.id) return;
+        try {
+            const unsent = messages
+                .filter(m => m.userId === user.id && (m.status === 'failed' || m.status === 'pending'))
+                .map(m => ({ ...m, status: 'failed' as MessageStatus }));
+            if (unsent.length) localStorage.setItem(failedStoreKey(roomId), JSON.stringify(unsent));
+            else localStorage.removeItem(failedStoreKey(roomId));
+        } catch { /* storage full/blocked: best effort */ }
+    }, [messages, restoredRoom, roomId, user?.id]);
+
     // Helper Props for UI
     const isPrivate = chatDetails?.type?.toUpperCase() === 'PRIVATE';
     const otherParticipant = isPrivate ? chatDetails?.participants?.find((p: any) => p.userId !== user?.id) : null;
@@ -117,6 +155,8 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         // Emit initial setup
         socketInstance.emit("joinRoom", roomId);
         socketInstance.emit("markAsRead", { roomId, userId: user.id });
+        // Presence is pushed only to subscribers; the server answers with the current state right away.
+        if (otherUserId) socketInstance.emit("subscribePresence", otherUserId);
 
         // Event Handlers
         const handlePresenceUpdate = ({ userId: uid, isOnline }: any) => {
@@ -183,11 +223,12 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         };
 
         // Server could not accept the message (not a moderation block - that arrives as status 'blocked').
-        const handleMessageFailed = (payload: { tempId?: string | number; roomId?: string; retryable?: boolean }) => {
+        const handleMessageFailed = (payload: { tempId?: string | number; roomId?: string; retryable?: boolean; code?: string }) => {
             if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
             if (payload.tempId === undefined || payload.tempId === null) return;
             clearSendTimer(payload.tempId);
-            setMessages(prev => markFailed(prev, payload.tempId as string | number, payload.retryable !== false));
+            setMessages(prev => markFailed(prev, payload.tempId as string | number, payload.retryable !== false)
+                .map(m => String(m.id) === String(payload.tempId) && m.status === 'failed' ? { ...m, failCode: payload.code } : m));
         };
 
         const handleMessageStatusUpdate = (payload: any) => {
@@ -268,12 +309,29 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         socketInstance.emit("message", { text: msg.text, roomId, userId: user?.id, replyTo: msg.replyTo, status: "sent", tempId: msg.id });
     };
 
-    const handleRetryMessage = (id: string | number) => {
+    // Resolves true once the socket is connected, nudging it to reconnect if it is not.
+    const waitForConnection = () => new Promise<boolean>((resolve) => {
+        if (!socketInstance) return resolve(false);
+        if (socketInstance.connected) return resolve(true);
+        const onConnect = () => { clearTimeout(timer); resolve(true); };
+        const timer = setTimeout(() => { socketInstance.off("connect", onConnect); resolve(false); }, RECONNECT_WAIT_MS);
+        socketInstance.once("connect", onConnect);
+        socketInstance.connect();
+    });
+
+    const handleRetryMessage = async (id: string | number) => {
         const msg = messagesRef.current.find(m => String(m.id) === String(id));
         if (!msg || msg.status !== 'failed' || msg.retryable === false) return;
+        // Flip to pending synchronously so a fast double tap can't send twice.
         const next = markPending(messagesRef.current, id);
         messagesRef.current = next;
         setMessages(next);
+        if (!(await waitForConnection())) {
+            setMessages(prev => markFailed(prev, id));
+            return;
+        }
+        // The room join normally follows the "connect" event; make sure we're in it to get the echo.
+        socketInstance?.emit("joinRoom", roomId);
         emitMessage(msg);
     };
 
@@ -286,6 +344,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const handleSendMessage = () => {
         const trimmed = inputValue.trim();
         if (!trimmed || !socketInstance) return;
+        if (trimmed.length > MAX_MESSAGE_LENGTH) return;
 
         if (editingMessage) {
             socketInstance.emit("editMessage", { messageId: editingMessage.id, text: trimmed, roomId });
@@ -322,7 +381,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     return {
         state: {
             messages, isLoading, inputValue, typingUsers, isOtherUserOnline,
-            chatDetails, replyToMessage, editingMessage,
+            chatDetails, replyToMessage, editingMessage, otherUserName: otherParticipant?.user?.name as string | undefined,
             showScrollButton, unreadNewMessages,
             effectiveChatName, otherUserAvatar, isPrivate, otherUserId,
             avatarByUserId, nameByUserId

@@ -386,7 +386,7 @@ export default function TeamBuilderDialog({
             width: "100%",
             px: { xs: 1.5, sm: 3 },
             pt: { xs: 2, sm: 3 },
-            pb: 14,
+            pb: selectedPlayer ? 20 : 14,
             display: "grid",
             gridTemplateColumns: { xs: "1fr", md: "minmax(280px, 340px) 1fr" },
             gap: { xs: 2, md: 3 },
@@ -471,7 +471,8 @@ export default function TeamBuilderDialog({
               </Tooltip>
             </Box>
 
-            {unassignedPlayers.length > 8 && (
+            {/* Search appears from 6 unassigned players up (shorter benches are scannable at a glance). */}
+            {unassignedPlayers.length >= 6 && (
               <Box sx={{ px: 2, pb: 1.5 }}>
                 <TextField
                   size="small"
@@ -1007,7 +1008,7 @@ export default function TeamBuilderDialog({
             {JERSEY_COLORS.map((c) => {
               const active = tempTeamColor === c.hex;
               return (
-                <Tooltip title={c.name} key={c.hex}>
+                <Tooltip title={c.name} key={c.hex} placement="top" arrow disableInteractive>
                   <ButtonBase
                     onClick={() => setTempTeamColor(c.hex)}
                     aria-label={c.name}
@@ -1019,8 +1020,10 @@ export default function TeamBuilderDialog({
                       backgroundImage: teamGradient(c.hex),
                       color: "#fff",
                       boxShadow: active
-                        ? `0 0 0 3px ${t.palette.background.paper}, 0 0 0 5px ${c.hex}`
+                        ? `0 0 0 3px ${t.palette.background.paper}, 0 0 0 5px ${t.palette.mode === "dark" && getLuminance(c.hex) < 0.12 ? lighten(c.hex, 0.55) : c.hex}`
                         : `0 4px 10px ${alpha(c.hex, 0.35)}`,
+                      // Thin outline so dark jerseys (black) stay visible on the dark surface.
+                      border: `1px solid ${alpha(t.palette.mode === "dark" ? "#ffffff" : "#000000", t.palette.mode === "dark" ? 0.45 : 0.12)}`,
                       transform: active ? "scale(1.05)" : "none",
                       transition: "all 160ms cubic-bezier(0.16, 1, 0.3, 1)",
                       "&:hover": { transform: "scale(1.1)" },

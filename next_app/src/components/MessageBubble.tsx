@@ -27,6 +27,7 @@ import FlagIcon from "@mui/icons-material/Flag";
 import BlockIcon from "@mui/icons-material/Block";
 
 import { ChatMessage } from "./types";
+import { MAX_MESSAGE_LENGTH } from "@/hooks/useChatLogic";
 
 interface MessageBubbleProps {
     message: ChatMessage;
@@ -53,6 +54,17 @@ interface MessageBubbleProps {
 }
 
 const COMMON_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+function failureText(code: string | undefined, isRTL: boolean): string {
+    switch (code) {
+        case "MESSAGE_TOO_LONG":
+            return isRTL ? `ההודעה ארוכה מדי (עד ${MAX_MESSAGE_LENGTH} תווים)` : `Message is too long (up to ${MAX_MESSAGE_LENGTH} characters)`;
+        case "RATE_LIMITED":
+            return isRTL ? "שולחים מהר מדי, נסו שוב בעוד רגע" : "You're sending too fast, try again in a moment";
+        default:
+            return isRTL ? "ההודעה לא נשלחה" : "Message not sent";
+    }
+}
 
 export default function MessageBubble({
     message, isMine, isRTL, onReply, onReact, onEdit, onDelete, avatarUrl, displayName, timeStr,
@@ -108,9 +120,11 @@ export default function MessageBubble({
         // Same mapping as mobile (shared messageTickKind). Light blues stay legible on the green bubble.
         switch (messageTickKind(message.status || "sent")) {
             case "error": return <ErrorOutlineIcon sx={{ ...iconSize, color: "#fecaca" }} />;
-            case "read": return <DoneAllIcon sx={{ ...iconSize, color: "#93c5fd" }} />;
-            case "single": return <DoneIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
-            case "double": return <DoneAllIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
+            // Full white for sent/delivered and a saturated cyan for read, so the two states stay
+            // distinguishable on the green bubble in both light and dark themes.
+            case "read": return <DoneAllIcon sx={{ ...iconSize, color: "#00e5ff", filter: "drop-shadow(0 0 1px rgba(0,0,0,0.55))" }} />;
+            case "single": return <DoneIcon sx={{ ...iconSize, color: "#ffffff" }} />;
+            case "double": return <DoneAllIcon sx={{ ...iconSize, color: "#ffffff" }} />;
             default: return null;
         }
     };
@@ -260,7 +274,7 @@ export default function MessageBubble({
                 )}
                 {isMine && message.status === 'failed' && (
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5, px: 1, width: "100%", justifyContent: "flex-start", direction: isRTL ? "rtl" : "ltr" }}>
-                        <Typography variant="caption" sx={{ color: "error.main" }}>{isRTL ? "ההודעה לא נשלחה" : "Message not sent"}</Typography>
+                        <Typography variant="caption" sx={{ color: "error.main" }}>{failureText(message.failCode, isRTL)}</Typography>
                         {message.retryable !== false && onRetry && (
                             <Typography component="button" variant="caption" onClick={() => onRetry(message.id)}
                                 sx={{ color: "primary.main", fontWeight: "bold", cursor: "pointer", background: "none", border: 0, p: 0 }}>

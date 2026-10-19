@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
+import { useSocket } from "@/context/SocketContext";
 
 /**
  * Global offline/online feedback -- mounted once in layout.tsx (unlike
@@ -15,6 +16,12 @@ import Alert from "@mui/material/Alert";
 export default function OfflineStatusToast() {
   const [isOffline, setIsOffline] = useState(false);
   const [showBackOnline, setShowBackOnline] = useState(false);
+  // "online" only means the network interface is up. When the app keeps a realtime socket, wait for it
+  // to actually reconnect before announcing that the connection is back.
+  const [awaitingSocket, setAwaitingSocket] = useState(false);
+  const { socket, isConnected } = useSocket();
+  const hasSocketRef = useRef(false);
+  hasSocketRef.current = !!socket;
   const wasOffline = useRef(false);
 
   useEffect(() => {
@@ -25,7 +32,8 @@ export default function OfflineStatusToast() {
     };
     const handleOnline = () => {
       if (wasOffline.current) {
-        setShowBackOnline(true);
+        if (hasSocketRef.current) setAwaitingSocket(true);
+        else setShowBackOnline(true);
       }
       wasOffline.current = false;
       setIsOffline(false);
@@ -45,6 +53,18 @@ export default function OfflineStatusToast() {
       window.removeEventListener("online", handleOnline);
     };
   }, []);
+
+  useEffect(() => {
+    if (awaitingSocket && isConnected) {
+      setAwaitingSocket(false);
+      setShowBackOnline(true);
+    }
+  }, [awaitingSocket, isConnected]);
+
+  // Offline again before the socket came back: forget the pending announcement.
+  useEffect(() => {
+    if (isOffline) setAwaitingSocket(false);
+  }, [isOffline]);
 
   return (
     <>
