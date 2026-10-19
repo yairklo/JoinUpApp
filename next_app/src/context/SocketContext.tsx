@@ -39,8 +39,11 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
 
         const currentSocket: Socket = io(API_URL, {
             path: "/api/socket",
-            // Match server transport order — Render/proxies need polling before WS upgrade
-            transports: ["polling", "websocket"],
+            // WebSocket first: long-polling through the reverse proxy intermittently 504s (and then
+            // fails CORS because the proxy's error page carries no CORS headers). tryAllTransports
+            // falls back to polling when the WebSocket handshake itself is blocked.
+            transports: ["websocket", "polling"],
+            tryAllTransports: true,
             withCredentials: true,
             reconnection: true,
             reconnectionDelay: 1000,

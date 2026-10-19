@@ -37,6 +37,7 @@ import ReportMessageDialog from "./ReportMessageDialog";
 import { chatsApi, type MessageReportReason } from "@/services/api/chats";
 import { usersApi } from "@/services/api/users";
 import { ChatMessage } from "./types";
+import { useChat } from "@/context/ChatContext";
 import { useChatLogic, MAX_MESSAGE_LENGTH } from "@/hooks/useChatLogic";
 
 type ChatProps = {
@@ -141,7 +142,8 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
   };
 
   // Use the custom hook for all logic
-  const { state, actions, refs } = useChatLogic({ roomId, chatName });
+  const { isMinimized } = useChat();
+  const { state, actions, refs } = useChatLogic({ roomId, chatName, suspended: isWidget && isMinimized });
   const visibleMessages = useMemo(
     () => state.messages.filter((m: ChatMessage) => !(m.userId && blockedIds.has(m.userId))),
     [state.messages, blockedIds]

@@ -661,9 +661,13 @@ io.on('connection', async (socket) => {
 
     // Check active users in room to determine initial status
     if (initialStatus === 'sent') {
+      // Delivered = a socket of ANOTHER user is in the room (the sender's own tabs don't count).
       const clients = io.sockets.adapter.rooms.get(String(roomId));
-      if (clients && clients.size > 1) {
-        initialStatus = 'delivered';
+      if (clients) {
+        for (const sid of clients) {
+          const other = io.sockets.sockets.get(sid);
+          if (other && String(other.userId) !== String(socket.userId)) { initialStatus = 'delivered'; break; }
+        }
       }
     }
     // ---------------------------------
@@ -792,13 +796,20 @@ io.on('connection', async (socket) => {
 
     // Any unexpected throw must reach the sender as a failure (and free the dedupe slot so a
     // retry isn't swallowed) rather than leaving the client on "pending".
-    try {
-      await processMessage();
-    } catch (e) {
-      console.error('[message] unexpected send error:', e);
-      if (dedupeKey && recentTempIds.get(dedupeKey)?.echo) return; // already stored + echoed; don't report a false failure
-      fail('Could not send message', 'SEND_FAILED', true);
-    }
+    // Process one socket's messages strictly in arrival order: processMessage awaits several DB calls,
+    // so without this two quick sends (or a flushed offline queue) could be stored/echoed out of order.
+    const run = async () => {
+      try {
+        await processMessage();
+      } catch (e) {
+        console.error('[message] unexpected send error:', e);
+        if (dedupeKey && recentTempIds.get(dedupeKey)?.echo) return; // already stored + echoed; don't report a false failure
+        fail('Could not send message', 'SEND_FAILED', true);
+      }
+    };
+    const chained = (socket.sendChain || Promise.resolve()).then(run);
+    socket.sendChain = chained.catch(() => {});
+    await chained;
   });
 
   socket.on('addReaction', async ({ messageId, emoji, roomId }) => {

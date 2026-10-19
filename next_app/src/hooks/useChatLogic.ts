@@ -17,9 +17,11 @@ const failedStoreKey = (userId: string, roomId: string) => `joinup:chat:unsent:$
 export interface UseChatLogicProps {
     roomId: string;
     chatName?: string;
+    /** True while the chat is mounted but not on screen (e.g. the floating widget is minimized). */
+    suspended?: boolean;
 }
 
-export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
+export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLogicProps) {
     const { user } = useUser();
     const myName = useMyName();
     const myAvatar = useMyAvatar();
@@ -47,6 +49,12 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
     const isUserAtBottomRef = useRef(true);
     const prevMessagesLengthRef = useRef(0);
     const typingTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+    // Messages count as "read" only when the user can actually see this chat.
+    const suspendedRef = useRef(suspended);
+    suspendedRef.current = suspended;
+    const canReadNow = () =>
+        !suspendedRef.current && typeof document !== "undefined" &&
+        document.visibilityState === "visible" && document.hasFocus();
     const sendTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     // Room whose locally-saved unsent messages were already merged into `messages`.
     const [restoredRoom, setRestoredRoom] = useState<string | null>(null);
@@ -159,7 +167,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
         // Emit initial setup
         socketInstance.emit("joinRoom", roomId);
-        socketInstance.emit("markAsRead", { roomId, userId: user.id });
+        if (canReadNow()) socketInstance.emit("markAsRead", { roomId, userId: user.id });
         // Presence is pushed only to subscribers; the server answers with the current state right away.
         if (otherUserId) socketInstance.emit("subscribePresence", otherUserId);
 
@@ -207,7 +215,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
                     return [...prev, incomingMsg];
                 }
             });
-            if (incomingMsg.userId !== user?.id) socketInstance.emit("markAsRead", { roomId, userId: user?.id });
+            if (incomingMsg.userId !== user?.id && canReadNow()) socketInstance.emit("markAsRead", { roomId, userId: user?.id });
         };
 
         const handleMessageUpdated = (payload: any) => {
@@ -242,6 +250,13 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             }
         };
 
+        // Mark as read once the chat becomes visible/focused again.
+        const markReadIfVisible = () => {
+            if (canReadNow()) socketInstance.emit("markAsRead", { roomId, userId: user.id });
+        };
+        window.addEventListener("focus", markReadIfVisible);
+        document.addEventListener("visibilitychange", markReadIfVisible);
+
         socketInstance.on('presence:update', handlePresenceUpdate);
         socketInstance.on('typing:start', handleTypingStart);
         socketInstance.on('typing:stop', handleTypingStop);
@@ -253,6 +268,8 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         socketInstance.on("messageFailed", handleMessageFailed);
 
         return () => {
+            window.removeEventListener("focus", markReadIfVisible);
+            document.removeEventListener("visibilitychange", markReadIfVisible);
             socketInstance.off('presence:update', handlePresenceUpdate);
             socketInstance.off('typing:start', handleTypingStart);
             socketInstance.off('typing:stop', handleTypingStop);
@@ -264,6 +281,13 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             socketInstance.off("messageFailed", handleMessageFailed);
         };
     }, [socketInstance, isConnected, roomId, user?.id, otherUserId]);
+
+    // Widget maximized again: read what arrived while it was minimized.
+    useEffect(() => {
+        if (suspended || !socketInstance || !isConnected || !roomId || !user?.id) return;
+        if (canReadNow()) socketInstance.emit("markAsRead", { roomId, userId: user.id });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [suspended]);
 
     // 4. Hydrate Users
     useEffect(() => {
@@ -339,6 +363,24 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
         socketInstance?.emit("joinRoom", roomId);
         emitMessage(msg);
     };
+
+    // Back online (or restored after a refresh): send unsent messages automatically, oldest first.
+    // The server handles one socket's messages in order and dedupes by tempId, so a message that
+    // actually went through earlier is simply re-echoed instead of being stored twice.
+    useEffect(() => {
+        if (!socketInstance || !isConnected || restoredRoom !== roomId || loadedRoom !== roomId || !user?.id) return;
+        const queue = messagesRef.current
+            .filter(m => m.userId === user.id && m.status === 'failed' && m.retryable !== false)
+            .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+        if (!queue.length) return;
+        const ids = new Set(queue.map(m => String(m.id)));
+        const next = messagesRef.current.map(m => ids.has(String(m.id)) ? { ...m, status: 'pending' as MessageStatus, failCode: undefined } : m);
+        messagesRef.current = next;
+        setMessages(next);
+        socketInstance.emit("joinRoom", roomId);
+        queue.forEach(emitMessage);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isConnected, socketInstance, restoredRoom, loadedRoom, roomId, user?.id]);
 
     const handleDiscardMessage = (id: string | number) => {
         clearSendTimer(id);
