@@ -47,6 +47,10 @@
     "./legal": {
       "types": "./legal.d.ts",
       "default": "./legal.js"
+    },
+    "./chatSend": {
+      "types": "./chatSend.d.ts",
+      "default": "./chatSend.js"
     }
   },
   "devDependencies": {

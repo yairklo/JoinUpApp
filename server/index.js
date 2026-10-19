@@ -409,8 +409,14 @@ if (enableRedis) {
 
 
 // tempIds of messages accepted/in flight per sender+room, so client retries are idempotent.
-const recentTempIds = new Map();
+const recentTempIds = new Map(); // key -> { t: createdAt, echo: stored message payload | null (in flight) }
 const TEMP_ID_TTL_MS = 5 * 60 * 1000;
+let lastTempIdSweep = 0;
+function sweepRecentTempIds(now) {
+  if (now - lastTempIdSweep < 60 * 1000) return;
+  lastTempIdSweep = now;
+  for (const [k, v] of recentTempIds) if (now - v.t > TEMP_ID_TTL_MS) recentTempIds.delete(k);
+}
 
 io.on('connection', async (socket) => {
   // 1. Auto-join User & City User Rooms & Presence
@@ -561,16 +567,24 @@ io.on('connection', async (socket) => {
       return;
     }
 
-    // Retries reuse the same tempId: ignore a duplicate of a message already accepted/in flight,
-    // otherwise a retry after a lost echo would store the message twice.
+    // Retries reuse the same tempId, so a retry after a lost echo must not store the message twice.
+    // Already stored => re-send the stored echo to this sender (their client was left on "pending");
+    // still in flight => ignore, the original will answer. In-memory and per instance: good enough
+    // for the sticky single-connection retry case, not a cross-instance guarantee.
     if (tempId !== undefined && tempId !== null) {
       const now = Date.now();
-      for (const [k, t] of recentTempIds) if (now - t > TEMP_ID_TTL_MS) recentTempIds.delete(k);
+      sweepRecentTempIds(now);
       dedupeKey = `${socket.userId}:${roomId}:${tempId}`;
-      if (recentTempIds.has(dedupeKey)) return;
-      recentTempIds.set(dedupeKey, now);
+      const seen = recentTempIds.get(dedupeKey);
+      if (seen) {
+        dedupeKey = null; // not ours to clear
+        if (seen.echo) socket.emit('message', seen.echo);
+        return;
+      }
+      recentTempIds.set(dedupeKey, { t: now, echo: null });
     }
 
+    const processMessage = async () => {
     const textError = validateMessageText(text);
     if (textError) {
       fail(textError === 'MESSAGE_TOO_LONG'
@@ -719,6 +733,8 @@ io.on('connection', async (socket) => {
     };
 
 
+    if (dedupeKey) recentTempIds.set(dedupeKey, { t: Date.now(), echo: msg });
+
     if (msg.roomId) {
       if (initialStatus === 'blocked') {
         io.to(`user_${finalUserId}`).emit('message', msg);
@@ -770,6 +786,17 @@ io.on('connection', async (socket) => {
     }
 
     // --- Legacy moderation code removed - now handled earlier in flow (lines 320-375) ---
+    };
+
+    // Any unexpected throw must reach the sender as a failure (and free the dedupe slot so a
+    // retry isn't swallowed) rather than leaving the client on "pending".
+    try {
+      await processMessage();
+    } catch (e) {
+      console.error('[message] unexpected send error:', e);
+      if (dedupeKey && recentTempIds.get(dedupeKey)?.echo) return; // already stored + echoed; don't report a false failure
+      fail('Could not send message', 'SEND_FAILED', true);
+    }
   });
 
   socket.on('addReaction', async ({ messageId, emoji, roomId }) => {

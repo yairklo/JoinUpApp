@@ -6,6 +6,7 @@ import { useChat } from "@/context/ChatContext";
 import { chatsApi, usersApi } from "@/services/api";
 import { ChatMessage, Reaction, MessageStatus } from "@/components/types";
 import { useSocket } from "@/context/SocketContext";
+import { SEND_TIMEOUT_MS, markFailed, markPending, discardFailed, applyStatusUpdate } from "@joinup/shared/chatSend";
 
 export interface UseChatLogicProps {
     roomId: string;
@@ -186,13 +187,12 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             if (payload.roomId && String(payload.roomId) !== String(roomId)) return;
             if (payload.tempId === undefined || payload.tempId === null) return;
             clearSendTimer(payload.tempId);
-            setMessages(prev => prev.map(m => String(m.id) === String(payload.tempId) && m.status === 'pending'
-                ? { ...m, status: 'failed' as MessageStatus, retryable: payload.retryable !== false } : m));
+            setMessages(prev => markFailed(prev, payload.tempId as string | number, payload.retryable !== false));
         };
 
         const handleMessageStatusUpdate = (payload: any) => {
             if (payload.roomId === roomId) {
-                setMessages(prev => prev.map(m => (m.userId === user?.id && m.status !== 'read' && m.status !== 'pending' && m.status !== 'failed' && m.status !== 'blocked') ? { ...m, status: payload.status } : m));
+                setMessages(prev => applyStatusUpdate(prev, user?.id, payload.status));
             }
         };
 
@@ -242,41 +242,44 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
 
 
     // A confirmed message (or a failure) clears the timer; no response at all => mark failed so the
-    // user can retry instead of staring at a single "sending" tick forever.
-    const SEND_TIMEOUT_MS = 15000;
+    // user can retry instead of staring at a single "sending" tick forever. If the server did store
+    // it, the late echo (matched by tempId) replaces the failed state, and a retry is de-duplicated
+    // server-side (which re-sends the stored echo).
     function clearSendTimer(id: string | number) {
         const k = String(id);
         if (sendTimersRef.current[k]) { clearTimeout(sendTimersRef.current[k]); delete sendTimersRef.current[k]; }
     }
-    const startSendTimer = (id: string | number) => {
-        clearSendTimer(id);
-        sendTimersRef.current[String(id)] = setTimeout(() => {
-            delete sendTimersRef.current[String(id)];
-            setMessages(prev => prev.map(m => String(m.id) === String(id) && m.status === 'pending'
-                ? { ...m, status: 'failed' as MessageStatus, retryable: true } : m));
-        }, SEND_TIMEOUT_MS);
-    };
     useEffect(() => () => { Object.values(sendTimersRef.current).forEach(clearTimeout); }, []);
+
+    // Kept in sync synchronously so a fast double tap on "retry" can't send twice (state is async).
+    const messagesRef = useRef<ChatMessage[]>([]);
+    messagesRef.current = messages;
 
     const emitMessage = (msg: ChatMessage) => {
         if (!socketInstance || !socketInstance.connected) {
-            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, status: 'failed' as MessageStatus, retryable: true } : m));
+            setMessages(prev => markFailed(prev, msg.id));
             return;
         }
-        startSendTimer(msg.id);
+        clearSendTimer(msg.id);
+        sendTimersRef.current[String(msg.id)] = setTimeout(() => {
+            delete sendTimersRef.current[String(msg.id)];
+            setMessages(prev => markFailed(prev, msg.id));
+        }, SEND_TIMEOUT_MS);
         socketInstance.emit("message", { text: msg.text, roomId, userId: user?.id, replyTo: msg.replyTo, status: "sent", tempId: msg.id });
     };
 
     const handleRetryMessage = (id: string | number) => {
-        const msg = messages.find(m => String(m.id) === String(id));
+        const msg = messagesRef.current.find(m => String(m.id) === String(id));
         if (!msg || msg.status !== 'failed' || msg.retryable === false) return;
-        setMessages(prev => prev.map(m => String(m.id) === String(id) ? { ...m, status: 'pending' as MessageStatus } : m));
+        const next = markPending(messagesRef.current, id);
+        messagesRef.current = next;
+        setMessages(next);
         emitMessage(msg);
     };
 
     const handleDiscardMessage = (id: string | number) => {
         clearSendTimer(id);
-        setMessages(prev => prev.filter(m => !(String(m.id) === String(id) && m.status === 'failed')));
+        setMessages(prev => discardFailed(prev, id));
     };
 
     // Actions
