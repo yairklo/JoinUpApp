@@ -1,10 +1,10 @@
 const path = require("path");
-const { getDefaultConfig } = require("expo/metro-config");
+const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 const { withNativeWind } = require("nativewind/metro");
 
 const projectRoot = __dirname;
 const sharedRoot = path.resolve(projectRoot, "../shared");
-const config = getDefaultConfig(projectRoot);
+const config = getSentryExpoConfig(projectRoot);
 
 config.watchFolders = [...(config.watchFolders || []), sharedRoot];
 config.resolver.nodeModulesPaths = [
