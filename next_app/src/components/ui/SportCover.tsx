@@ -86,6 +86,7 @@ export default function SportCover({
     children,
     sx,
     lineOpacity = 0.32,
+    image,
 }: {
     sport?: string | null;
     height?: number | string | Record<string, number | string>;
@@ -93,12 +94,18 @@ export default function SportCover({
     sx?: SxProps<Theme>;
     /** Court-marking opacity; raise slightly for large heroes, lower behind dense overlays. */
     lineOpacity?: number;
+    /**
+     * Optional photo (e.g. the field's) shown under a sport-tinted wash. The court markings and ball
+     * glyph stay on top, so the sport is still obvious and cards stay distinguishable by sport.
+     */
+    image?: string | null;
 }) {
     const id = useId().replace(/:/g, "");
     const theme = getSportTheme(sport);
     const key = sport && sport in COURTS ? sport : "SOCCER";
     const Court = COURTS[key];
     const Glyph = GLYPHS[key as keyof typeof GLYPHS];
+    const photo = image && image.trim().length > 0 ? image : null;
 
     return (
         <Box
@@ -113,6 +120,26 @@ export default function SportCover({
                 ...(Array.isArray(sx) ? sx : [sx]),
             ]}
         >
+            {photo && (
+                <>
+                    <Box
+                        component="img"
+                        src={photo}
+                        alt=""
+                        aria-hidden
+                        loading="lazy"
+                        sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                    <Box
+                        aria-hidden
+                        sx={{
+                            position: "absolute",
+                            inset: 0,
+                            background: `linear-gradient(135deg, ${theme.deep}d9 0%, ${theme.ink}cc 100%)`,
+                        }}
+                    />
+                </>
+            )}
             <Box
                 component="svg"
                 aria-hidden
@@ -132,7 +159,7 @@ export default function SportCover({
                     </linearGradient>
                 </defs>
                 <rect width="400" height="200" fill={`url(#g-${id})`} />
-                <g opacity={lineOpacity} transform="translate(200 100) rotate(-9) scale(1.18) translate(-200 -100)">
+                <g opacity={photo ? Math.max(lineOpacity, 0.45) : lineOpacity} transform="translate(200 100) rotate(-9) scale(1.18) translate(-200 -100)">
                     <Court />
                 </g>
                 <rect width="400" height="200" fill={`url(#s-${id})`} />

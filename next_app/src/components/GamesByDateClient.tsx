@@ -69,6 +69,7 @@ export default function GamesByDateClient({
         currentPlayers={g.currentPlayers}
         maxPlayers={g.maxPlayers}
         sport={g.sport}
+        coverImage={g.fieldImage}
         teamSize={g.teamSize}
         price={g.price}
         isJoined={joined}
