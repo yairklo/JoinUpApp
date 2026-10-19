@@ -1,5 +1,5 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
-import type { NextFetchEvent, NextRequest } from "next/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import {
   clerkFrontendApiProxy,
   DEFAULT_CLERK_PROXY_PATH,
@@ -18,7 +18,20 @@ const clerkHandler = clerkMiddleware(
     : undefined,
 );
 
+// /dev/* holds internal design pickers that must only exist in local development.
+// This has to be enforced here rather than only in app/dev/layout.tsx: the root
+// app/loading.tsx wraps every route in a Suspense boundary, so a notFound() thrown
+// from a nested layout streams the not-found UI with HTTP 200. Rewriting to a path no
+// route matches makes Next render its not-found page with a real 404 status.
+function isDevOnlyPath(pathname: string): boolean {
+  return pathname === "/dev" || pathname.startsWith("/dev/");
+}
+
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
+  if (process.env.NODE_ENV === "production" && isDevOnlyPath(request.nextUrl.pathname)) {
+    return NextResponse.rewrite(new URL("/__dev-routes-disabled", request.url));
+  }
+
   // Short-circuit before Clerk auth so /__clerk/* is never a Next.js HTML 404.
   // Required for live keys on *.vercel.app (cannot CNAME clerk.*.vercel.app).
   // @clerk/nextjs@6.39.x has no built-in frontendApiProxy — handle it here.
