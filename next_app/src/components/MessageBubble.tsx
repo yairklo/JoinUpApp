@@ -17,6 +17,7 @@ import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ReplyIcon from "@mui/icons-material/Reply";
 import AddReactionIcon from "@mui/icons-material/AddReaction";
 import DoneIcon from "@mui/icons-material/Done";
+import { messageTickKind } from "@joinup/shared/chatSend";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -103,14 +104,15 @@ export default function MessageBubble({
 
     const renderStatusIcon = () => {
         if (!isMine || message.isDeleted) return null;
-        const status = message.status || "sent";
         const iconSize = { fontSize: 14 };
-        // Mirrors mobile: 1 tick = sending (optimistic), 2 light ticks = server confirmed, 2 blue = read.
-        // Light blues stay legible on the green bubble.
-        if (status === "failed") return <ErrorOutlineIcon sx={{ ...iconSize, color: "#fecaca" }} />;
-        if (status === "read") return <DoneAllIcon sx={{ ...iconSize, color: "#93c5fd" }} />;
-        if (status === "pending") return <DoneIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
-        return <DoneAllIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
+        // Same mapping as mobile (shared messageTickKind). Light blues stay legible on the green bubble.
+        switch (messageTickKind(message.status || "sent")) {
+            case "error": return <ErrorOutlineIcon sx={{ ...iconSize, color: "#fecaca" }} />;
+            case "read": return <DoneAllIcon sx={{ ...iconSize, color: "#93c5fd" }} />;
+            case "single": return <DoneIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
+            case "double": return <DoneAllIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
+            default: return null;
+        }
     };
 
     return (
@@ -253,22 +255,22 @@ export default function MessageBubble({
                 </Paper>
                 {isMine && message.status === 'blocked' && (
                     <Typography variant="caption" sx={{ color: "error.main", mt: 0.5, px: 1, alignSelf: isRTL ? "flex-end" : "flex-start", width: "100%", textAlign: isRTL ? "right" : "left" }}>
-                            ההודעה נחסמה על ידי הסינון האוטומטי ולא נשלחה
+                            {isRTL ? "ההודעה נחסמה על ידי הסינון האוטומטי ולא נשלחה" : "Message was blocked by the automatic filter and was not sent."}
                     </Typography>
                 )}
                 {isMine && message.status === 'failed' && (
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5, px: 1, width: "100%", justifyContent: "flex-start" }}>
-                        <Typography variant="caption" sx={{ color: "error.main" }}>ההודעה לא נשלחה</Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5, px: 1, width: "100%", justifyContent: "flex-start", direction: isRTL ? "rtl" : "ltr" }}>
+                        <Typography variant="caption" sx={{ color: "error.main" }}>{isRTL ? "ההודעה לא נשלחה" : "Message not sent"}</Typography>
                         {message.retryable !== false && onRetry && (
                             <Typography component="button" variant="caption" onClick={() => onRetry(message.id)}
                                 sx={{ color: "primary.main", fontWeight: "bold", cursor: "pointer", background: "none", border: 0, p: 0 }}>
-                                נסה שוב
+                                {isRTL ? "נסה שוב" : "Retry"}
                             </Typography>
                         )}
                         {onDiscard && (
                             <Typography component="button" variant="caption" onClick={() => onDiscard(message.id)}
                                 sx={{ color: "text.secondary", cursor: "pointer", background: "none", border: 0, p: 0 }}>
-                                מחק
+                                {isRTL ? "מחק" : "Delete"}
                             </Typography>
                         )}
                     </Box>

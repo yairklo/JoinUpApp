@@ -4,36 +4,36 @@ import { useState, useEffect, forwardRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import Grid from "@mui/material/Grid";
-import Paper from "@mui/material/Paper";
+import ButtonBase from "@mui/material/ButtonBase";
 import Avatar from "@/components/Avatar";
 import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
-import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
-import AppBar from "@mui/material/AppBar";
-import Toolbar from "@mui/material/Toolbar";
 import Slide from "@mui/material/Slide";
 import { TransitionProps } from "@mui/material/transitions";
-import Stack from "@mui/material/Stack";
 import Zoom from "@mui/material/Zoom";
-import Badge from "@mui/material/Badge";
 import Tooltip from "@mui/material/Tooltip";
+import LinearProgress from "@mui/material/LinearProgress";
+import InputAdornment from "@mui/material/InputAdornment";
+import { alpha, darken } from "@mui/material/styles";
 
 // Icons
 import CloseIcon from "@mui/icons-material/Close";
 import AddIcon from "@mui/icons-material/Add";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CheckIcon from "@mui/icons-material/Check";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditIcon from "@mui/icons-material/Edit";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import SaveIcon from "@mui/icons-material/Save";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
-import ShuffleIcon from "@mui/icons-material/Shuffle";
+import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
+import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import SearchIcon from "@mui/icons-material/Search";
-import InputAdornment from "@mui/material/InputAdornment";
+import CheckroomIcon from "@mui/icons-material/Checkroom";
+import EventSeatOutlinedIcon from "@mui/icons-material/EventSeatOutlined";
+import BalanceIcon from "@mui/icons-material/Balance";
+import TouchAppOutlinedIcon from "@mui/icons-material/TouchAppOutlined";
 import { normalizeName } from "@/utils/normalizeName";
 
 // Types
@@ -57,15 +57,21 @@ const Transition = forwardRef(function Transition(
 
 // Vibrant Jersey Colors
 const JERSEY_COLORS = [
-  { name: "Orange", hex: "#f97316" },
-  { name: "Blue", hex: "#3b82f6" },
-  { name: "Red", hex: "#ef4444" },
-  { name: "Green", hex: "#22c55e" },
-  { name: "Yellow", hex: "#eab308" },
-  { name: "Purple", hex: "#a855f7" },
-  { name: "Black", hex: "#1f2937" },
-  { name: "Teal", hex: "#14b8a6" },
+  { name: "כתום", hex: "#f97316" },
+  { name: "כחול", hex: "#3b82f6" },
+  { name: "אדום", hex: "#ef4444" },
+  { name: "ירוק", hex: "#22c55e" },
+  { name: "צהוב", hex: "#eab308" },
+  { name: "סגול", hex: "#a855f7" },
+  { name: "שחור", hex: "#1f2937" },
+  { name: "טורקיז", hex: "#14b8a6" },
 ];
+
+// Drop target id for dragging a player back to the bench (unassign).
+const BENCH_DROP_ID = "__bench__";
+
+const teamGradient = (color: string) =>
+  `linear-gradient(135deg, ${color} 0%, ${darken(color, 0.28)} 100%)`;
 
 interface TeamBuilderDialogProps {
   open: boolean;
@@ -99,6 +105,8 @@ export default function TeamBuilderDialog({
   // "the button does nothing". These track an inline "tap again to confirm" step instead.
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmRemoveTeamId, setConfirmRemoveTeamId] = useState<string | null>(null);
+  // Desktop drag-and-drop: which drop zone (team id or the bench) the pointer is over.
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // Edit Dialog State
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
@@ -113,6 +121,12 @@ export default function TeamBuilderDialog({
         normalizeName(p.name).toLowerCase().includes(benchSearch.trim().toLowerCase())
       )
     : unassignedPlayers;
+
+  const totalPlayers = participants.length;
+  const assignedCount = totalPlayers - unassignedPlayers.length;
+  const progress = totalPlayers ? Math.round((assignedCount / totalPlayers) * 100) : 0;
+  const teamSizes = teams.map((t) => t.playerIds.length);
+  const isBalanced = teams.length < 2 || Math.max(...teamSizes) - Math.min(...teamSizes) <= 1;
 
   // --- Logic ---
 
@@ -136,21 +150,22 @@ export default function TeamBuilderDialog({
     setSelectedPlayerId(selectedPlayerId === pid ? null : pid);
   };
 
-  const handleAssignToTeam = (teamId: string) => {
-    if (!selectedPlayerId) return;
-
+  const assignPlayer = (pid: string, teamId: string) => {
     setTeams((prev) => {
       // Remove from old teams first
       const clean = prev.map((t) => ({
         ...t,
-        playerIds: t.playerIds.filter((id) => id !== selectedPlayerId),
+        playerIds: t.playerIds.filter((id) => id !== pid),
       }));
       // Add to new team
-      return clean.map((t) =>
-        t.id === teamId ? { ...t, playerIds: [...t.playerIds, selectedPlayerId] } : t
-      );
+      return clean.map((t) => (t.id === teamId ? { ...t, playerIds: [...t.playerIds, pid] } : t));
     });
     setSelectedPlayerId(null);
+  };
+
+  const handleAssignToTeam = (teamId: string) => {
+    if (!selectedPlayerId) return;
+    assignPlayer(selectedPlayerId, teamId);
   };
 
   const handleRemoveFromTeam = (pid: string) => {
@@ -160,6 +175,7 @@ export default function TeamBuilderDialog({
         playerIds: t.playerIds.filter((id) => id !== pid),
       }))
     );
+    if (selectedPlayerId === pid) setSelectedPlayerId(null);
   };
 
   const handleReset = () => {
@@ -192,6 +208,30 @@ export default function TeamBuilderDialog({
     onClose();
   };
 
+  // --- Drag & drop (desktop enhancement; tap-to-select stays the primary flow) ---
+  const onDragStart = (pid: string) => (e: React.DragEvent) => {
+    e.dataTransfer.setData("text/plain", pid);
+    e.dataTransfer.effectAllowed = "move";
+    setSelectedPlayerId(null);
+  };
+
+  const dropZone = (id: string, onDropPlayer: (pid: string) => void) => ({
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (dragOverId !== id) setDragOverId(id);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOverId(null);
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOverId(null);
+      const pid = e.dataTransfer.getData("text/plain");
+      if (pid) onDropPlayer(pid);
+    },
+  });
+
   // --- Edit Logic ---
   const startEdit = (t: Team, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -202,13 +242,21 @@ export default function TeamBuilderDialog({
 
   const saveEdit = () => {
     if (editingTeam) {
-      setTeams(teams.map((t) => (t.id === editingTeam.id ? { ...t, name: tempTeamName, color: tempTeamColor } : t)));
+      setTeams(
+        teams.map((t) =>
+          t.id === editingTeam.id ? { ...t, name: tempTeamName.trim() || t.name, color: tempTeamColor } : t
+        )
+      );
     }
     setEditingTeam(null);
   };
 
   // Helper to find player details
   const getP = (id: string) => participants.find((p) => p.id === id);
+  const selectedPlayer = selectedPlayerId ? getP(selectedPlayerId) : undefined;
+  const selectedTeamId = selectedPlayerId
+    ? teams.find((t) => t.playerIds.includes(selectedPlayerId))?.id ?? null
+    : null;
 
   // Drop any pending "tap again to confirm" state when the dialog closes, so reopening it
   // doesn't leave a stale confirm armed from a previous visit.
@@ -217,6 +265,7 @@ export default function TeamBuilderDialog({
       setConfirmReset(false);
       setConfirmRemoveTeamId(null);
       setBenchSearch("");
+      setSelectedPlayerId(null);
     }
   }, [open]);
 
@@ -227,290 +276,756 @@ export default function TeamBuilderDialog({
         open={open}
         onClose={onClose}
         TransitionComponent={Transition}
-        PaperProps={{ sx: { bgcolor: "#f8fafc" } }} // Light gray background for contrast
+        PaperProps={{
+          dir: "rtl",
+          sx: (t) => ({
+            bgcolor: "background.default",
+            backgroundImage:
+              t.palette.mode === "light"
+                ? "radial-gradient(900px 420px at 100% -10%, rgba(16,185,129,0.12), transparent 60%), radial-gradient(800px 400px at -10% 0%, rgba(99,102,241,0.08), transparent 55%)"
+                : "radial-gradient(900px 420px at 100% -10%, rgba(52,211,153,0.12), transparent 60%), radial-gradient(800px 400px at -10% 0%, rgba(129,140,248,0.10), transparent 55%)",
+          }),
+        }}
       >
         {/* --- Top Bar --- */}
-        <AppBar sx={{ position: "relative", bgcolor: "white", color: "text.primary" }} elevation={1}>
-          <Toolbar>
-            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="סגור">
+        <Box
+          component="header"
+          sx={(t) => ({
+            position: "sticky",
+            top: 0,
+            zIndex: 5,
+            bgcolor: alpha(t.palette.background.paper, 0.82),
+            backdropFilter: "saturate(180%) blur(14px)",
+            borderBottom: `1px solid ${t.palette.divider}`,
+          })}
+        >
+          <Box
+            sx={{
+              maxWidth: 1200,
+              mx: "auto",
+              px: { xs: 1.5, sm: 3 },
+              py: 1.25,
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+            }}
+          >
+            <IconButton
+              onClick={onClose}
+              aria-label="סגור"
+              sx={{ bgcolor: "action.hover", "&:hover": { bgcolor: "action.selected" } }}
+            >
               <CloseIcon />
             </IconButton>
-            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div" fontWeight="bold">
-              שיבוץ קבוצות
-            </Typography>
-            <Button autoFocus variant="contained" onClick={handleSaveTeams} startIcon={<SaveIcon />} sx={{ borderRadius: 2 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography component="h2" sx={{ fontWeight: 800, fontSize: { xs: "1.1rem", sm: "1.3rem" }, lineHeight: 1.2 }}>
+                שיבוץ קבוצות
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25, flexWrap: "wrap" }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  {assignedCount} מתוך {totalPlayers} שובצו
+                </Typography>
+                {teams.length >= 2 && assignedCount > 0 && (
+                  <Box
+                    sx={(t) => ({
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      px: 1,
+                      py: 0.1,
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: isBalanced ? t.palette.primary.main : t.palette.warning.main,
+                      bgcolor: alpha(isBalanced ? t.palette.primary.main : t.palette.warning.main, 0.12),
+                    })}
+                  >
+                    <BalanceIcon sx={{ fontSize: 13 }} />
+                    {isBalanced ? "מאוזן" : "לא מאוזן"}
+                  </Box>
+                )}
+              </Box>
+            </Box>
+            <Button
+              variant="contained"
+              onClick={handleSaveTeams}
+              startIcon={<CheckIcon />}
+              sx={(t) => ({
+                px: { xs: 2, sm: 3 },
+                py: 1,
+                backgroundImage: `linear-gradient(135deg, ${t.palette.primary.light} -30%, ${t.palette.primary.main} 40%, ${t.palette.primary.dark} 100%)`,
+                boxShadow: `0 8px 20px ${alpha(t.palette.primary.main, 0.35)}`,
+                "&:hover": { boxShadow: `0 10px 24px ${alpha(t.palette.primary.main, 0.45)}` },
+              })}
+            >
               שמירה
             </Button>
-          </Toolbar>
-        </AppBar>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={progress}
+            aria-label="התקדמות שיבוץ"
+            sx={{ height: 3, borderRadius: 0, bgcolor: "transparent", "& .MuiLinearProgress-bar": { borderRadius: 0 } }}
+          />
+        </Box>
 
-        <Box dir="rtl" sx={{ p: 2, maxWidth: 1000, mx: "auto", width: "100%" }}>
-
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            בחרו שחקן מהספסל ואז הקישו על קבוצה כדי לשבץ אותו, או השתמשו ב&quot;שיבוץ מהיר&quot; למילוי אוטומטי מאוזן.
-          </Typography>
-
+        <Box
+          sx={{
+            maxWidth: 1200,
+            mx: "auto",
+            width: "100%",
+            px: { xs: 1.5, sm: 3 },
+            pt: { xs: 2, sm: 3 },
+            pb: 14,
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "minmax(280px, 340px) 1fr" },
+            gap: { xs: 2, md: 3 },
+            alignItems: "start",
+          }}
+        >
           {/* --- The Bench (Unassigned) --- */}
-          <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: "1px solid", borderColor: "divider" }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} mb={2}>
-              <Typography variant="subtitle1" fontWeight="bold" color="text.secondary">
-                הספסל ({unassignedPlayers.length})
-              </Typography>
-              <Box display="flex" gap={1}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<ShuffleIcon />}
-                  onClick={handleQuickAssign}
-                  disabled={teams.length === 0 || unassignedPlayers.length === 0}
-                >
-                  שיבוץ מהיר
-                </Button>
-                <Button
-                  size="small"
-                  color="error"
-                  variant={confirmReset ? "contained" : "text"}
-                  startIcon={<RestartAltIcon />}
-                  onClick={handleReset}
-                >
-                  {confirmReset ? "לאשר איפוס?" : "איפוס הכל"}
-                </Button>
+          <Box
+            component="section"
+            aria-label="הספסל"
+            {...dropZone(BENCH_DROP_ID, handleRemoveFromTeam)}
+            sx={(t) => ({
+              position: { md: "sticky" },
+              top: { md: 96 },
+              bgcolor: "background.paper",
+              borderRadius: "20px",
+              border: `1px solid ${dragOverId === BENCH_DROP_ID ? t.palette.primary.main : t.palette.divider}`,
+              boxShadow: dragOverId === BENCH_DROP_ID ? `0 0 0 3px ${alpha(t.palette.primary.main, 0.18)}` : t.shadows[2],
+              overflow: "hidden",
+              transition: "box-shadow 150ms ease, border-color 150ms ease",
+            })}
+          >
+            <Box sx={{ p: 2, pb: 1.5, display: "flex", alignItems: "center", gap: 1.25 }}>
+              <Box
+                sx={(t) => ({
+                  width: 40,
+                  height: 40,
+                  borderRadius: "12px",
+                  display: "grid",
+                  placeItems: "center",
+                  color: "primary.main",
+                  bgcolor: alpha(t.palette.primary.main, 0.12),
+                  flexShrink: 0,
+                })}
+              >
+                <EventSeatOutlinedIcon fontSize="small" />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: "1.05rem", lineHeight: 1.2 }}>הספסל</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {unassignedPlayers.length === 0
+                    ? "כולם שובצו"
+                    : `${unassignedPlayers.length} ממתינים לשיבוץ`}
+                </Typography>
               </Box>
             </Box>
 
-            {unassignedPlayers.length > 8 && (
-              <TextField
-                size="small"
+            <Box sx={{ px: 2, pb: 1.5, display: "flex", gap: 1 }}>
+              <Button
                 fullWidth
-                placeholder="חיפוש בספסל..."
-                value={benchSearch}
-                onChange={(e) => setBenchSearch(e.target.value)}
-                sx={{ mb: 1.5 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+                size="small"
+                variant="contained"
+                color="secondary"
+                startIcon={<AutoAwesomeIcon fontSize="small" />}
+                onClick={handleQuickAssign}
+                disabled={teams.length === 0 || unassignedPlayers.length === 0}
+                sx={(t) => ({
+                  py: 0.9,
+                  backgroundImage:
+                    teams.length === 0 || unassignedPlayers.length === 0
+                      ? "none"
+                      : `linear-gradient(135deg, ${t.palette.secondary.main} 0%, ${t.palette.secondary.dark} 100%)`,
+                })}
+              >
+                שיבוץ מהיר
+              </Button>
+              <Tooltip title={confirmReset ? "" : "החזרת כל השחקנים לספסל"}>
+                <span>
+                  <Button
+                    size="small"
+                    color="error"
+                    variant={confirmReset ? "contained" : "text"}
+                    startIcon={<RestartAltIcon fontSize="small" />}
+                    onClick={handleReset}
+                    onBlur={() => setConfirmReset(false)}
+                    disabled={assignedCount === 0 && !confirmReset}
+                    sx={{ py: 0.9, whiteSpace: "nowrap", flexShrink: 0 }}
+                  >
+                    {confirmReset ? "לאשר?" : "איפוס"}
+                  </Button>
+                </span>
+              </Tooltip>
+            </Box>
+
+            {unassignedPlayers.length > 8 && (
+              <Box sx={{ px: 2, pb: 1.5 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder="חיפוש שחקן..."
+                  value={benchSearch}
+                  onChange={(e) => setBenchSearch(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
             )}
 
-            <Box display="flex" flexWrap="wrap" gap={1} sx={{ maxHeight: 260, overflowY: "auto", pb: 0.5 }}>
+            <Box
+              sx={(t) => ({
+                borderTop: `1px solid ${t.palette.divider}`,
+                bgcolor: alpha(t.palette.text.primary, t.palette.mode === "light" ? 0.015 : 0.03),
+                p: 1.5,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 1,
+                maxHeight: { xs: 220, md: "calc(100dvh - 330px)" },
+                minHeight: 72,
+                overflowY: "auto",
+                alignContent: "flex-start",
+              })}
+            >
               {unassignedPlayers.length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-                  הספסל ריק! כולם משחקים.
-                </Typography>
+                <Box sx={{ width: "100%", py: 1.5, textAlign: "center" }}>
+                  <Typography sx={{ fontSize: 26, lineHeight: 1 }} aria-hidden>
+                    🎉
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, fontWeight: 600 }}>
+                    הספסל ריק — כולם משחקים!
+                  </Typography>
+                </Box>
               )}
               {unassignedPlayers.length > 0 && visibleUnassignedPlayers.length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                <Typography variant="body2" color="text.secondary" sx={{ width: "100%", textAlign: "center", py: 1.5 }}>
                   לא נמצאו שחקנים התואמים לחיפוש
                 </Typography>
               )}
-              {visibleUnassignedPlayers.map((p) => (
-                <Chip
-                  key={p.id}
-                  avatar={<Avatar src={p.avatar} name={normalizeName(p.name) || "?"} alt={normalizeName(p.name) || "?"} size="sm" />}
-                  label={normalizeName(p.name).split(" ")[0]}
-                  onClick={() => handlePlayerSelect(p.id)}
-                  color={selectedPlayerId === p.id ? "primary" : "default"}
-                  variant={selectedPlayerId === p.id ? "filled" : "outlined"}
-                  sx={{
-                    transition: "all 0.2s",
-                    transform: selectedPlayerId === p.id ? "scale(1.05)" : "scale(1)",
-                    borderWidth: selectedPlayerId === p.id ? 0 : 1
-                  }}
-                />
-              ))}
-            </Box>
-          </Paper>
-
-          {/* --- The Teams --- */}
-          <Grid container spacing={2}>
-            {teams.map((team) => {
-              const isTarget = !!selectedPlayerId; // Are we currently moving a player?
-              
-              return (
-                <Grid key={team.id} size={{ xs: 12, md: 6 }}>
-                  <Paper
-                    elevation={isTarget ? 4 : 1}
-                    onClick={() => isTarget && handleAssignToTeam(team.id)}
-                    sx={{
-                      minHeight: team.playerIds.length === 0 ? 140 : "auto",
-                      borderRadius: 3,
-                      position: "relative",
-                      overflow: "hidden",
-                      cursor: isTarget ? "pointer" : "default",
-                      transition: "all 0.2s",
-                      border: isTarget ? "2px dashed" : "1px solid",
-                      borderColor: isTarget ? team.color : "divider",
-                      bgcolor: isTarget ? "rgba(0,0,0,0.02)" : "white",
-                    }}
+              {visibleUnassignedPlayers.map((p) => {
+                const name = normalizeName(p.name) || "?";
+                const selected = selectedPlayerId === p.id;
+                return (
+                  <ButtonBase
+                    key={p.id}
+                    draggable
+                    onDragStart={onDragStart(p.id)}
+                    onDragEnd={() => setDragOverId(null)}
+                    onClick={() => handlePlayerSelect(p.id)}
+                    aria-pressed={selected}
+                    title={name}
+                    sx={(t) => ({
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.75,
+                      paddingInlineStart: "4px",
+                      paddingInlineEnd: "12px",
+                      py: 0.5,
+                      borderRadius: 999,
+                      fontFamily: "inherit",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: "grab",
+                      color: selected ? t.palette.primary.contrastText : t.palette.text.primary,
+                      bgcolor: selected ? t.palette.primary.main : t.palette.background.paper,
+                      backgroundImage: selected
+                        ? `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)`
+                        : "none",
+                      border: `1px solid ${selected ? "transparent" : t.palette.divider}`,
+                      boxShadow: selected ? `0 6px 16px ${alpha(t.palette.primary.main, 0.35)}` : t.shadows[1],
+                      transform: selected ? "translateY(-1px) scale(1.04)" : "none",
+                      transition: "all 160ms cubic-bezier(0.16, 1, 0.3, 1)",
+                      "&:hover": {
+                        borderColor: selected ? "transparent" : alpha(t.palette.primary.main, 0.5),
+                      },
+                      "&:active": { cursor: "grabbing" },
+                    })}
                   >
-                    {/* Colored Header */}
-                    <Box
-                      sx={{
-                        bgcolor: team.color,
-                        p: 1.5,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        color: "#fff", // Text always white on colored header
-                      }}
-                    >
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Typography variant="h6" fontWeight="bold" sx={{ fontSize: "1rem", textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}>
-                          {team.name}
-                        </Typography>
-                        <Chip 
-                            label={team.playerIds.length} 
-                            size="small" 
-                            sx={{ bgcolor: "rgba(255,255,255,0.25)", color: "white", fontWeight: "bold", height: 20 }} 
-                        />
-                      </Box>
-                      <Box>
-                        <IconButton size="small" onClick={(e) => startEdit(team, e)} sx={{ color: "white" }}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <Tooltip title={confirmRemoveTeamId === team.id ? "הקישו שוב כדי לאשר מחיקה" : "מחק קבוצה"}>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => { e.stopPropagation(); handleRemoveTeam(team.id); }}
-                            sx={{ color: confirmRemoveTeamId === team.id ? "#fecaca" : "white" }}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </Box>
-
-                    {/* Player List inside Team */}
-                    <Box p={2}>
-                      {team.playerIds.length === 0 ? (
-                        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height={100} color={isTarget ? team.color : "text.secondary"} gap={1}>
-                            <PersonAddIcon sx={{ opacity: isTarget ? 0.6 : 0.3, fontSize: 40 }} />
-                            <Typography variant="caption" fontWeight={isTarget ? 700 : 400}>
-                                {isTarget ? "הקישו כאן כדי להוסיף שחקן" : "בחרו שחקן מהספסל והקישו כאן"}
-                            </Typography>
+                    <Box sx={{ position: "relative", display: "inline-flex" }}>
+                      <Avatar src={p.avatar} name={name} alt={name} size="sm" />
+                      {selected && (
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            inset: 0,
+                            borderRadius: "50%",
+                            display: "grid",
+                            placeItems: "center",
+                            bgcolor: "rgba(4,47,36,0.55)",
+                            color: "#fff",
+                          }}
+                        >
+                          <CheckIcon sx={{ fontSize: 15 }} />
                         </Box>
-                      ) : (
-                        <Grid container spacing={1}>
-                           {team.playerIds.map(pid => {
-                               const p = getP(pid);
-                               if(!p) return null;
-                               return (
-                                   <Grid key={pid} size={{ xs: 6 }}>
-                                       <Box 
-                                         onClick={(e) => {
-                                             e.stopPropagation();
-                                             // If we click an assigned player, we select them to move
-                                             handlePlayerSelect(pid); 
-                                         }}
-                                         sx={{
-                                             display: 'flex', 
-                                             alignItems: 'center', 
-                                             p: 0.5, 
-                                             borderRadius: 2,
-                                             bgcolor: selectedPlayerId === pid ? 'primary.light' : 'action.hover',
-                                             color: selectedPlayerId === pid ? 'white' : 'text.primary',
-                                             cursor: 'pointer',
-                                             transition: '0.2s'
-                                         }}
-                                       >
-                                           <Avatar src={p.avatar} name={normalizeName(p.name) || "?"} alt="" size="sm" />
-                                           <Typography variant="body2" noWrap sx={{ ml: 1, fontWeight: 500, fontSize: '0.85rem' }}>
-                                               {normalizeName(p.name).split(" ")[0]}
-                                           </Typography>
-                                           {selectedPlayerId === pid && (
-                                                <IconButton 
-                                                    size="small" 
-                                                    sx={{ ml: 'auto', p:0.5, color: 'white' }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleRemoveFromTeam(pid); // Quick remove logic
-                                                    }}
-                                                >
-                                                    <CloseIcon fontSize="small" />
-                                                </IconButton>
-                                           )}
-                                       </Box>
-                                   </Grid>
-                               )
-                           })}
-                        </Grid>
                       )}
                     </Box>
-                  </Paper>
-                </Grid>
+                    {name.split(" ")[0]}
+                  </ButtonBase>
+                );
+              })}
+            </Box>
+
+            <Box sx={{ px: 2, py: 1.25, display: "flex", alignItems: "center", gap: 0.75, color: "text.secondary" }}>
+              <TouchAppOutlinedIcon sx={{ fontSize: 16 }} />
+              <Typography variant="caption" sx={{ lineHeight: 1.4 }}>
+                הקישו על שחקן ואז על קבוצה. במחשב אפשר גם לגרור.
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* --- The Teams --- */}
+          <Box
+            component="section"
+            aria-label="קבוצות"
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(auto-fill, minmax(280px, 1fr))" },
+              gap: 2,
+              alignItems: "start",
+            }}
+          >
+            {teams.map((team) => {
+              // Are we currently moving a player into a team they're not already in?
+              const isTarget = !!selectedPlayerId && selectedTeamId !== team.id;
+              const isDragOver = dragOverId === team.id;
+              const highlighted = isTarget || isDragOver;
+              const confirmingDelete = confirmRemoveTeamId === team.id;
+
+              return (
+                <Box
+                  key={team.id}
+                  role={isTarget ? "button" : undefined}
+                  tabIndex={isTarget ? 0 : undefined}
+                  aria-label={isTarget ? `שיבוץ ל${team.name}` : undefined}
+                  onClick={() => isTarget && handleAssignToTeam(team.id)}
+                  onKeyDown={(e) => {
+                    if (isTarget && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      handleAssignToTeam(team.id);
+                    }
+                  }}
+                  {...dropZone(team.id, (pid) => assignPlayer(pid, team.id))}
+                  sx={(t) => ({
+                    bgcolor: "background.paper",
+                    borderRadius: "20px",
+                    overflow: "hidden",
+                    border: `1px solid ${highlighted ? team.color : t.palette.divider}`,
+                    boxShadow: highlighted
+                      ? `0 0 0 3px ${alpha(team.color, 0.22)}, 0 14px 30px ${alpha(team.color, 0.22)}`
+                      : t.shadows[2],
+                    transform: isDragOver ? "translateY(-3px)" : "none",
+                    cursor: isTarget ? "pointer" : "default",
+                    transition: "all 180ms cubic-bezier(0.16, 1, 0.3, 1)",
+                    "&:hover": isTarget ? { transform: "translateY(-3px)" } : undefined,
+                    outline: "none",
+                    "&:focus-visible": { boxShadow: `0 0 0 3px ${alpha(team.color, 0.5)}` },
+                  })}
+                >
+                  {/* Colored Header */}
+                  <Box
+                    sx={{
+                      position: "relative",
+                      overflow: "hidden",
+                      backgroundImage: teamGradient(team.color),
+                      color: "#fff",
+                      px: 2,
+                      py: 1.5,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.25,
+                    }}
+                  >
+                    <Box aria-hidden className="joinup-grain" sx={{ opacity: 0.35 }} />
+                    <CheckroomIcon
+                      aria-hidden
+                      sx={{
+                        position: "absolute",
+                        insetInlineEnd: -14,
+                        top: -18,
+                        fontSize: 96,
+                        opacity: 0.14,
+                        transform: "rotate(-14deg)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        position: "relative",
+                        width: 38,
+                        height: 38,
+                        borderRadius: "12px",
+                        bgcolor: "rgba(255,255,255,0.22)",
+                        border: "1px solid rgba(255,255,255,0.35)",
+                        display: "grid",
+                        placeItems: "center",
+                        flexShrink: 0,
+                        fontWeight: 800,
+                        fontSize: 18,
+                      }}
+                    >
+                      {team.playerIds.length}
+                    </Box>
+                    <Box sx={{ position: "relative", flex: 1, minWidth: 0 }}>
+                      <Typography
+                        noWrap
+                        sx={{ fontWeight: 800, fontSize: "1.05rem", lineHeight: 1.2, textShadow: "0 1px 2px rgba(0,0,0,0.18)" }}
+                      >
+                        {team.name}
+                      </Typography>
+                      <Typography sx={{ fontSize: 12, opacity: 0.85, fontWeight: 500 }}>
+                        {team.playerIds.length === 1 ? "שחקן אחד" : `${team.playerIds.length} שחקנים`}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ position: "relative", display: "flex", gap: 0.5 }}>
+                      <Tooltip title="עריכת קבוצה">
+                        <IconButton
+                          size="small"
+                          aria-label="עריכת קבוצה"
+                          onClick={(e) => startEdit(team, e)}
+                          sx={{ color: "#fff", bgcolor: "rgba(255,255,255,0.16)", "&:hover": { bgcolor: "rgba(255,255,255,0.28)" } }}
+                        >
+                          <EditOutlinedIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={confirmingDelete ? "הקישו שוב כדי לאשר מחיקה" : "מחיקת קבוצה"}>
+                        <IconButton
+                          size="small"
+                          aria-label={confirmingDelete ? "אישור מחיקת קבוצה" : "מחיקת קבוצה"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveTeam(team.id);
+                          }}
+                          onBlur={() => confirmingDelete && setConfirmRemoveTeamId(null)}
+                          sx={{
+                            color: confirmingDelete ? "#ef4444" : "#fff",
+                            bgcolor: confirmingDelete ? "#fff" : "rgba(255,255,255,0.16)",
+                            "&:hover": { bgcolor: confirmingDelete ? "#fff" : "rgba(255,255,255,0.28)" },
+                          }}
+                        >
+                          <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+
+                  {/* Player List inside Team */}
+                  <Box sx={{ p: 1.5 }}>
+                    {team.playerIds.length === 0 ? (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 1,
+                          minHeight: 120,
+                          borderRadius: "14px",
+                          border: `2px dashed ${alpha(team.color, highlighted ? 0.7 : 0.3)}`,
+                          bgcolor: alpha(team.color, highlighted ? 0.1 : 0.04),
+                          color: highlighted ? darken(team.color, 0.1) : "text.secondary",
+                          transition: "all 160ms ease",
+                          px: 2,
+                          textAlign: "center",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: "50%",
+                            display: "grid",
+                            placeItems: "center",
+                            bgcolor: alpha(team.color, 0.14),
+                            color: team.color,
+                          }}
+                        >
+                          <PersonAddAlt1Icon />
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: highlighted ? 700 : 500 }}>
+                          {highlighted ? "הקישו כדי להוסיף לכאן" : "עדיין אין שחקנים"}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                        {team.playerIds.map((pid) => {
+                          const p = getP(pid);
+                          if (!p) return null;
+                          const name = normalizeName(p.name) || "?";
+                          const selected = selectedPlayerId === pid;
+                          return (
+                            <Box
+                              key={pid}
+                              draggable
+                              onDragStart={onDragStart(pid)}
+                              onDragEnd={() => setDragOverId(null)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Clicking an assigned player selects them to move
+                                handlePlayerSelect(pid);
+                              }}
+                              sx={(t) => ({
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1.25,
+                                px: 1,
+                                py: 0.75,
+                                borderRadius: "12px",
+                                cursor: "pointer",
+                                bgcolor: selected ? alpha(team.color, 0.14) : "transparent",
+                                boxShadow: selected ? `inset 0 0 0 1.5px ${team.color}` : "none",
+                                transition: "background-color 140ms ease, box-shadow 140ms ease",
+                                "&:hover": { bgcolor: selected ? alpha(team.color, 0.18) : t.palette.action.hover },
+                                "&:hover .remove-btn": { opacity: 1 },
+                              })}
+                            >
+                              <Box
+                                sx={{
+                                  borderRadius: "50%",
+                                  boxShadow: `0 0 0 2px ${alpha(team.color, 0.55)}`,
+                                  display: "inline-flex",
+                                }}
+                              >
+                                <Avatar src={p.avatar} name={name} alt="" size="md" />
+                              </Box>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.92rem" }}>
+                                  {name}
+                                </Typography>
+                                {selected && (
+                                  <Typography sx={{ fontSize: 11, color: darken(team.color, 0.1), fontWeight: 600 }}>
+                                    בחרו קבוצה אחרת להעברה
+                                  </Typography>
+                                )}
+                              </Box>
+                              <Tooltip title="החזרה לספסל">
+                                <IconButton
+                                  className="remove-btn"
+                                  size="small"
+                                  aria-label={`החזרת ${name} לספסל`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveFromTeam(pid);
+                                  }}
+                                  sx={{
+                                    opacity: { xs: 1, md: selected ? 1 : 0 },
+                                    color: "text.secondary",
+                                    transition: "opacity 140ms ease",
+                                    "&:focus-visible": { opacity: 1 },
+                                  }}
+                                >
+                                  <PersonRemoveOutlinedIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          );
+                        })}
+                        {highlighted && (
+                          <Box
+                            sx={{
+                              mt: 0.5,
+                              py: 1,
+                              borderRadius: "12px",
+                              border: `2px dashed ${alpha(team.color, 0.6)}`,
+                              bgcolor: alpha(team.color, 0.08),
+                              color: darken(team.color, 0.1),
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 0.75,
+                              fontSize: 13,
+                              fontWeight: 700,
+                            }}
+                          >
+                            <AddIcon sx={{ fontSize: 18 }} />
+                            הוספה לכאן
+                          </Box>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
               );
             })}
 
             {/* Add Team Button */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Button
-                fullWidth
-                variant="outlined"
-                onClick={handleAddTeam}
-                startIcon={<AddIcon />}
-                sx={{
-                  minHeight: 200,
-                  borderRadius: 3,
-                  borderStyle: "dashed",
-                  borderColor: "divider",
-                  color: "text.secondary",
-                  flexDirection: "column",
-                  gap: 1
-                }}
+            <ButtonBase
+              onClick={handleAddTeam}
+              sx={(t) => ({
+                minHeight: { xs: 76, sm: 196 },
+                borderRadius: "20px",
+                border: `2px dashed ${alpha(t.palette.text.secondary, 0.3)}`,
+                color: "text.secondary",
+                fontFamily: "inherit",
+                display: "flex",
+                flexDirection: { xs: "row", sm: "column" },
+                gap: 1.25,
+                transition: "all 160ms ease",
+                "&:hover": {
+                  borderColor: t.palette.primary.main,
+                  color: t.palette.primary.main,
+                  bgcolor: alpha(t.palette.primary.main, 0.05),
+                },
+                "&:hover .add-circle": { bgcolor: t.palette.primary.main, color: t.palette.primary.contrastText, transform: "rotate(90deg)" },
+              })}
+            >
+              <Box
+                className="add-circle"
+                sx={(t) => ({
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  display: "grid",
+                  placeItems: "center",
+                  bgcolor: alpha(t.palette.text.secondary, 0.1),
+                  transition: "all 200ms cubic-bezier(0.16, 1, 0.3, 1)",
+                })}
               >
-                יצירת קבוצה חדשה
-              </Button>
-            </Grid>
-          </Grid>
+                <AddIcon />
+              </Box>
+              <Typography sx={{ fontWeight: 700, fontSize: "0.95rem" }}>קבוצה חדשה</Typography>
+            </ButtonBase>
+          </Box>
         </Box>
+
+        {/* --- Floating "player selected" hint --- */}
+        <Zoom in={!!selectedPlayer}>
+          <Box
+            role="status"
+            sx={{
+              position: "fixed",
+              bottom: "calc(20px + env(safe-area-inset-bottom, 0px))",
+              // insetInline + auto margins centers without left/translate, which the RTL
+              // stylis plugin would flip to right:50% and push the pill off-center.
+              insetInline: 0,
+              mx: "auto",
+              width: "fit-content",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              gap: 1.25,
+              paddingInlineStart: "6px",
+              paddingInlineEnd: "6px",
+              py: 0.75,
+              borderRadius: 999,
+              color: "#fff",
+              bgcolor: "#0f172a",
+              boxShadow: "0 16px 40px rgba(15,23,42,0.35)",
+              maxWidth: "calc(100vw - 32px)",
+            }}
+          >
+            {selectedPlayer && (
+              <>
+                <Avatar
+                  src={selectedPlayer.avatar}
+                  name={normalizeName(selectedPlayer.name) || "?"}
+                  alt=""
+                  size="md"
+                />
+                <Typography noWrap sx={{ fontSize: 14, fontWeight: 600, minWidth: 0 }}>
+                  <Box component="span" sx={{ fontWeight: 800 }}>
+                    {normalizeName(selectedPlayer.name).split(" ")[0]}
+                  </Box>{" "}
+                  · בחרו קבוצה
+                </Typography>
+                <IconButton
+                  size="small"
+                  aria-label="ביטול בחירה"
+                  onClick={() => setSelectedPlayerId(null)}
+                  sx={{ color: "#fff", bgcolor: "rgba(255,255,255,0.12)", "&:hover": { bgcolor: "rgba(255,255,255,0.22)" } }}
+                >
+                  <CloseIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </>
+            )}
+          </Box>
+        </Zoom>
       </Dialog>
 
       {/* --- Edit Team Dialog --- */}
-      <Dialog open={!!editingTeam} onClose={() => setEditingTeam(null)}>
-        <DialogContent sx={{ minWidth: 300 }}>
-          <Typography variant="h6" fontWeight="bold" gutterBottom>
-            עריכת פרטי קבוצה
+      <Dialog
+        open={!!editingTeam}
+        onClose={() => setEditingTeam(null)}
+        PaperProps={{ dir: "rtl", sx: { width: "100%", maxWidth: 400, overflow: "hidden" } }}
+      >
+        {/* Live preview of the team header */}
+        <Box
+          sx={{
+            position: "relative",
+            overflow: "hidden",
+            backgroundImage: teamGradient(tempTeamColor || "#6b7280"),
+            color: "#fff",
+            px: 3,
+            py: 2.5,
+            transition: "background-image 200ms ease",
+          }}
+        >
+          <Box aria-hidden className="joinup-grain" sx={{ opacity: 0.35 }} />
+          <CheckroomIcon
+            aria-hidden
+            sx={{ position: "absolute", insetInlineEnd: -10, top: -14, fontSize: 110, opacity: 0.15, transform: "rotate(-14deg)" }}
+          />
+          <Typography sx={{ position: "relative", fontSize: 12, fontWeight: 600, opacity: 0.85 }}>
+            עריכת קבוצה
           </Typography>
+          <Typography noWrap sx={{ position: "relative", fontSize: "1.35rem", fontWeight: 800 }}>
+            {tempTeamName.trim() || "ללא שם"}
+          </Typography>
+        </Box>
+        <DialogContent sx={{ pt: "20px !important" }}>
           <TextField
             autoFocus
             label="שם הקבוצה"
             fullWidth
             value={tempTeamName}
             onChange={(e) => setTempTeamName(e.target.value)}
-            sx={{ mb: 3, mt: 1 }}
+            onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+            sx={{ mb: 2.5 }}
           />
-          <Typography variant="subtitle2" gutterBottom>
+          <Typography variant="subtitle2" sx={{ mb: 1.25 }}>
             צבע חולצה
           </Typography>
-          <Box display="flex" flexWrap="wrap" gap={1.5}>
-            {JERSEY_COLORS.map((c) => (
-              <Tooltip title={c.name} key={c.hex}>
-                <Box
-                  onClick={() => setTempTeamColor(c.hex)}
-                  sx={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
-                    bgcolor: c.hex,
-                    cursor: "pointer",
-                    border: "3px solid",
-                    borderColor: tempTeamColor === c.hex ? "black" : "transparent",
-                    boxShadow: 2,
-                    transition: "transform 0.1s",
-                    "&:hover": { transform: "scale(1.1)" }
-                  }}
-                />
-              </Tooltip>
-            ))}
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1.5, justifyItems: "center" }}>
+            {JERSEY_COLORS.map((c) => {
+              const active = tempTeamColor === c.hex;
+              return (
+                <Tooltip title={c.name} key={c.hex}>
+                  <ButtonBase
+                    onClick={() => setTempTeamColor(c.hex)}
+                    aria-label={c.name}
+                    aria-pressed={active}
+                    sx={(t) => ({
+                      width: 44,
+                      height: 44,
+                      borderRadius: "50%",
+                      backgroundImage: teamGradient(c.hex),
+                      color: "#fff",
+                      boxShadow: active
+                        ? `0 0 0 3px ${t.palette.background.paper}, 0 0 0 5px ${c.hex}`
+                        : `0 4px 10px ${alpha(c.hex, 0.35)}`,
+                      transform: active ? "scale(1.05)" : "none",
+                      transition: "all 160ms cubic-bezier(0.16, 1, 0.3, 1)",
+                      "&:hover": { transform: "scale(1.1)" },
+                    })}
+                  >
+                    {active && <CheckIcon sx={{ fontSize: 20 }} />}
+                  </ButtonBase>
+                </Tooltip>
+              );
+            })}
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditingTeam(null)}>ביטול</Button>
-          <Button onClick={saveEdit} variant="contained">
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={() => setEditingTeam(null)} color="inherit">
+            ביטול
+          </Button>
+          <Button onClick={saveEdit} variant="contained" sx={{ px: 3 }}>
             עדכון
           </Button>
         </DialogActions>

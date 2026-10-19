@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, Pressable, Animated, PanResponder 
 import { useTranslation } from "react-i18next";
 import { ChatMessage } from "@/types/chat";
 import { Ionicons } from "@expo/vector-icons";
+import { messageTickKind } from "@joinup/shared/chatSend";
 
 interface MessageBubbleProps {
     message: ChatMessage;
@@ -40,6 +41,7 @@ function MessageBubble({
     onDiscard,
 }: MessageBubbleProps) {
     const { t } = useTranslation();
+    const tick = messageTickKind(message.status);
     const reactionsList = Object.entries(message.reactions || {});
     const hasReactions = reactionsList.length > 0;
     const senderId = message.userId || message.senderId || message.sender?.id;
@@ -180,12 +182,12 @@ function MessageBubble({
                             <Text className={`text-[9px] font-medium ${isMe ? 'text-brand-pale' : 'text-gray-400'}`}>
                                 {new Date(message.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </Text>
-                            {isMe && message.status !== 'blocked' && (
+                            {isMe && tick !== 'none' && (
                                 <View className="ml-1">
                                     <Ionicons
-                                        name={message.status === 'failed' ? "alert-circle" : message.status === 'pending' ? "checkmark" : "checkmark-done"}
+                                        name={tick === 'error' ? "alert-circle" : tick === 'single' ? "checkmark" : "checkmark-done"}
                                         size={12}
-                                        color={message.status === 'failed' ? "#fecaca" : message.status === 'read' ? "#93c5fd" : "#bfdbfe"}
+                                        color={tick === 'error' ? "#fecaca" : tick === 'read' ? "#93c5fd" : "#bfdbfe"}
                                     />
                                 </View>
                             )}
