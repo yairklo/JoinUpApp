@@ -680,9 +680,14 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     };
 
     // Groups (recurring series) the user belongs to; hidden from others when they opted out.
-    if (isOwner || !user.hideGroups) {
+    // Follows the same visibility rule as match history (privacyGames, age-based default for minors),
+    // and friends-only groups are only listed for the owner or confirmed friends.
+    if (isOwner || (!user.hideGroups && showGames)) {
       const memberships = await prisma.seriesParticipant.findMany({
-        where: { userId: targetId, series: { isActive: true } },
+        where: {
+          userId: targetId,
+          series: { isActive: true, ...(isOwner || isFriend ? {} : { isFriendsOnly: false }) },
+        },
         select: { series: { select: { id: true, title: true, fieldName: true, sport: true } } },
         orderBy: { createdAt: 'desc' },
         take: 30,
