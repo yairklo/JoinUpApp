@@ -238,6 +238,7 @@ const SEARCH_GAME_SELECT = {
       city: true,
       lat: true,
       lng: true,
+      image: true,
     },
   },
   participants: {
