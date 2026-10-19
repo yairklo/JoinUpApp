@@ -56,7 +56,16 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // UI State
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [isWidgetOpen, setIsWidgetOpen] = useState(false);
-    const [isMinimized, setIsMinimized] = useState(false);
+    // Read the persisted state synchronously: restoring it in an effect left a first render with
+    // isMinimized=false, so a minimized chat mounted "visible" and marked messages as read.
+    // (The widget renders null until isWidgetOpen is set in the effect, so SSR output is unchanged.)
+    const [isMinimized, setIsMinimized] = useState(() => {
+        try {
+            return typeof window !== "undefined" && localStorage.getItem("chatMinimized") === "true";
+        } catch {
+            return false;
+        }
+    });
     const [headerInfo, setHeaderInfo] = useState<HeaderInfo | null>(null);
 
     // Data State

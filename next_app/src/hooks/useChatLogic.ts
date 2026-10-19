@@ -6,6 +6,7 @@ import { useChat } from "@/context/ChatContext";
 import { chatsApi, usersApi } from "@/services/api";
 import { ChatMessage, Reaction, MessageStatus } from "@/components/types";
 import { useSocket } from "@/context/SocketContext";
+import { canMarkRead } from "@/utils/chatRead";
 import { SEND_TIMEOUT_MS, markFailed, markPending, discardFailed, applyStatusUpdate } from "@joinup/shared/chatSend";
 
 // Mirrors MAX_MESSAGE_LENGTH in server/services/chatSafety.js.
@@ -56,8 +57,7 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
     const suspendedRef = useRef(suspended);
     suspendedRef.current = suspended;
     const canReadNow = () =>
-        !suspendedRef.current && typeof document !== "undefined" &&
-        document.visibilityState === "visible";
+        typeof document !== "undefined" && canMarkRead(suspendedRef.current, document.visibilityState);
     const sendTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     // Room whose locally-saved unsent messages were already merged into `messages`.
     const [restoredRoom, setRestoredRoom] = useState<string | null>(null);
