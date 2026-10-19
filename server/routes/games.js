@@ -21,6 +21,7 @@ const {
   getTodayCityGames,
   getGameById,
   getGameRatings,
+  loadGameForImageEdit,
 } = require('../services/gameService');
 const gameRosterRouter = require('./gameRoster');
 const gameTeamsRouter = require('./gameTeams');
@@ -195,22 +196,11 @@ router.post('/:id/cancel', authenticateToken, async (req, res) => {
   }
 });
 
-// Upload / remove a game's own cover photo (organizer or admin). Cards prefer this over the
-// series image and the field photo.
-async function loadGameForImageEdit(req, res) {
-  const game = await prisma.game.findUnique({ where: { id: req.params.id }, select: { id: true, organizerId: true, imageUrl: true } });
-  if (!game) { res.status(404).json({ error: 'Game not found' }); return null; }
-  if (game.organizerId !== req.user.id && !req.user?.isAdmin) {
-    res.status(403).json({ error: 'Only organizer or admin can change the game image' });
-    return null;
-  }
-  return game;
-}
-
+// Upload / remove a game's own cover photo (organizer, MANAGER+ role or admin). Cards prefer this
+// over the series image and the field photo.
 router.post('/:id/image', authenticateToken, handleSingleUpload(gameImageUpload, 'image'), async (req, res) => {
   try {
-    const game = await loadGameForImageEdit(req, res);
-    if (!game) return;
+    const game = await loadGameForImageEdit(req.params.id, req.user.id, !!req.user?.isAdmin, { forUpload: true });
     if (!req.file) return res.status(400).json({ error: 'No image file provided' });
     const imageUrl = absoluteUrlFor(req, 'games', req.file.filename);
     await prisma.game.update({ where: { id: game.id }, data: { imageUrl } });
@@ -223,8 +213,7 @@ router.post('/:id/image', authenticateToken, handleSingleUpload(gameImageUpload,
 
 router.delete('/:id/image', authenticateToken, async (req, res) => {
   try {
-    const game = await loadGameForImageEdit(req, res);
-    if (!game) return;
+    const game = await loadGameForImageEdit(req.params.id, req.user.id, !!req.user?.isAdmin);
     await prisma.game.update({ where: { id: game.id }, data: { imageUrl: null } });
     if (game.imageUrl) deleteUploadedFile(game.imageUrl);
     res.json({ imageUrl: null });

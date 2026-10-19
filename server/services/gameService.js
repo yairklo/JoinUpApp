@@ -160,7 +160,7 @@ function mapGameForClient(game, viewerId) {
     fieldLocation: game.field?.location || '',
     fieldImage: game.field?.image || null,
     imageUrl: game.imageUrl || null,
-    seriesImageUrl: game.series?.imageUrl || null,
+    ...(game.series ? { seriesImageUrl: game.series.imageUrl || null } : {}),
     isFriendsOnly: !!game.isFriendsOnly,
     friendsOnlyUntil: game.friendsOnlyUntil ? new Date(game.friendsOnlyUntil).toISOString() : null,
     joinPolicy: game.joinPolicy || 'INSTANT',
@@ -270,7 +270,7 @@ function mapGameForSearchClient(game, viewerId) {
     fieldLocation: game.field?.location || '',
     fieldImage: game.field?.image || null,
     imageUrl: game.imageUrl || null,
-    seriesImageUrl: game.series?.imageUrl || null,
+    ...(game.series ? { seriesImageUrl: game.series.imageUrl || null } : {}),
     fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
     fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
     customLat: typeof game.customLat === 'number' ? game.customLat : null,
@@ -1523,6 +1523,23 @@ async function resolveFieldUpdateFromBody(body) {
   };
 }
 
+/**
+ * Permission gate for a game's cover photo: same audience as patchGame (organizer or a MANAGER+
+ * role) plus admins. Cancelled games can't gain a new photo, but their photo can still be removed.
+ */
+async function loadGameForImageEdit(gameId, userId, isAdmin, { forUpload = false } = {}) {
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+    select: { id: true, organizerId: true, imageUrl: true, status: true },
+  });
+  if (!game) throw httpError('Game not found', 404);
+  if (!isAdmin && game.organizerId !== userId && (await getRoleLevel(gameId, userId)) < ROLE_LEVEL.MANAGER) {
+    throw httpError('Not allowed', 403);
+  }
+  if (forUpload && game.status === 'CANCELLED') throw httpError('Game was cancelled', 400);
+  return game;
+}
+
 async function patchGame(gameId, body, userId, io) {
   const {
     time, date, start, maxPlayers, sport, registrationOpensAt,
@@ -2066,6 +2083,7 @@ module.exports = {
   prisma,
   notificationService,
   mapGameForClient,
+  loadGameForImageEdit,
   SEARCH_GAME_SELECT,
   mapGameForSearchClient,
   deduplicateSeriesGames,
