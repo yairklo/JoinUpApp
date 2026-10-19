@@ -2,7 +2,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { getLocales } from 'expo-localization';
 import * as SecureStore from 'expo-secure-store';
-import { I18nManager, Platform, DevSettings } from 'react-native';
+import { I18nManager, Platform, Alert } from 'react-native';
 import * as Updates from 'expo-updates';
 
 import en from './locales/en.json';
@@ -53,6 +53,39 @@ const resources = {
   he: { translation: he },
 };
 
+// --- language switching state (drives a visible loading overlay during reload) ---
+let switching = false;
+const switchListeners = new Set<(v: boolean) => void>();
+const setSwitching = (v: boolean) => {
+  switching = v;
+  switchListeners.forEach((l) => l(v));
+};
+export const isLanguageSwitching = () => switching;
+export const subscribeLanguageSwitching = (l: (v: boolean) => void) => {
+  switchListeners.add(l);
+  return () => {
+    switchListeners.delete(l);
+  };
+};
+
+const RELOAD_SAFETY_TIMEOUT_MS = 8000;
+const RTL_RELOAD_KEY = 'rtl_reload_for';
+
+/** Reloads the JS bundle so the native layout direction takes effect. Returns false if it could not. */
+const reloadApp = async (): Promise<boolean> => {
+  if (Platform.OS === 'web') return false;
+  try {
+    await Updates.reloadAsync();
+    // A real reload tears this JS context down; if we are still running shortly after,
+    // reloadAsync resolved without reloading — never leave the overlay stuck.
+    setTimeout(() => setSwitching(false), RELOAD_SAFETY_TIMEOUT_MS);
+    return true;
+  } catch (e) {
+    console.warn('Updates.reloadAsync failed:', e);
+    return false;
+  }
+};
+
 export const initI18n = async () => {
   let savedLanguage = await safeGetLang();
 
@@ -61,13 +94,26 @@ export const initI18n = async () => {
     savedLanguage = deviceLanguage === 'he' ? 'he' : 'en';
   }
 
-  // Handle RTL natively
+  // The native layout direction only applies after a restart. If it does not match the
+  // saved language (e.g. first cold start), set it and reload once (guarded against loops).
   const isRTL = savedLanguage === 'he';
   if (I18nManager.isRTL !== isRTL) {
     I18nManager.allowRTL(isRTL);
     I18nManager.forceRTL(isRTL);
-    // Restart is usually required, but we'll try to let the app handle it dynamically
-    // or rely on a reload if necessary.
+    let alreadyTried = false;
+    try {
+      alreadyTried = memoryStorage.get(RTL_RELOAD_KEY) === savedLanguage ||
+        (await withTimeout(SecureStore.getItemAsync(RTL_RELOAD_KEY), 1000, null)) === savedLanguage;
+    } catch {}
+    if (!alreadyTried) {
+      memoryStorage.set(RTL_RELOAD_KEY, savedLanguage);
+      try { await withTimeout(SecureStore.setItemAsync(RTL_RELOAD_KEY, savedLanguage), 1000, null); } catch {}
+      setSwitching(true);
+      if (!(await reloadApp())) setSwitching(false);
+    }
+  } else {
+    memoryStorage.delete(RTL_RELOAD_KEY);
+    try { await withTimeout(SecureStore.deleteItemAsync(RTL_RELOAD_KEY), 1000, null); } catch {}
   }
 
   await i18n
@@ -86,24 +132,30 @@ export const initI18n = async () => {
 };
 
 export const changeLanguage = async (lang: 'en' | 'he') => {
+  if (switching) return;
   await safeSetLang(lang);
-  await i18n.changeLanguage(lang);
-  
+
   const isRTL = lang === 'he';
-  if (I18nManager.isRTL !== isRTL) {
-    I18nManager.allowRTL(isRTL);
-    I18nManager.forceRTL(isRTL);
-    
-    if (Platform.OS !== 'web') {
-      try {
-        await Updates.reloadAsync();
-      } catch (e) {
-        if (__DEV__) {
-          DevSettings.reload();
-        }
-      }
-    }
+  if (I18nManager.isRTL === isRTL) {
+    await i18n.changeLanguage(lang);
+    return;
   }
+
+  I18nManager.allowRTL(isRTL);
+  I18nManager.forceRTL(isRTL);
+  // Keep the old text until the reload so we never render new text with the old direction.
+  setSwitching(true);
+  if (await reloadApp()) return;
+
+  // Reload unavailable (e.g. updates disabled): apply text now, direction on next launch.
+  setSwitching(false);
+  await i18n.changeLanguage(lang);
+  Alert.alert(
+    lang === 'he' ? 'הפעל מחדש' : 'Restart required',
+    lang === 'he'
+      ? 'סגור ופתח את האפליקציה כדי להחיל את כיוון הכתיבה.'
+      : 'Close and reopen the app to apply the layout direction.'
+  );
 };
 
 export default i18n;

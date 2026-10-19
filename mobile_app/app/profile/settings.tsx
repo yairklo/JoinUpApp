@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getTokenOrThrow } from '@/utils/apiErrors';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -69,8 +70,7 @@ export default function PrivacySettingsScreen() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const token = await getToken();
-            if (!token) return;
+            const token = await getTokenOrThrow(getToken);
             const saved = await usersApi.updatePrivacySettings(
                 {
                     hideGroups,

@@ -135,6 +135,11 @@ export default function TeamBuilderDialog({
 
   // Edit Dialog State
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  // Blur first so the dialog is not aria-hidden while one of its buttons still holds focus (A11Y-01).
+  const closeEditTeam = () => {
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    setEditingTeam(null);
+  };
   const [tempTeamName, setTempTeamName] = useState("");
   const [tempTeamColor, setTempTeamColor] = useState("");
 
@@ -295,7 +300,7 @@ export default function TeamBuilderDialog({
         )
       );
     }
-    setEditingTeam(null);
+    closeEditTeam();
   };
 
   // Helper to find player details
@@ -1072,7 +1077,7 @@ export default function TeamBuilderDialog({
       {/* --- Edit Team Dialog --- */}
       <Dialog
         open={!!editingTeam}
-        onClose={() => setEditingTeam(null)}
+        onClose={closeEditTeam}
         PaperProps={{ dir: "rtl", sx: { width: "100%", maxWidth: 400, overflow: "hidden" } }}
       >
         {/* Live preview of the team header */}
@@ -1116,7 +1121,7 @@ export default function TeamBuilderDialog({
             {JERSEY_COLORS.map((c) => {
               const active = tempTeamColor === c.hex;
               return (
-                <Tooltip title={c.name} key={c.hex} placement="top" arrow disableInteractive>
+                <Tooltip title={c.name} key={c.hex} placement="bottom" arrow disableInteractive>
                   <ButtonBase
                     onClick={() => setTempTeamColor(c.hex)}
                     aria-label={c.name}
@@ -1145,7 +1150,7 @@ export default function TeamBuilderDialog({
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-          <Button onClick={() => setEditingTeam(null)} color="inherit">
+          <Button onClick={closeEditTeam} color="inherit">
             ביטול
           </Button>
           <Button onClick={saveEdit} variant="contained" sx={{ px: 3 }}>

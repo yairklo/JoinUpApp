@@ -4,6 +4,7 @@
 const {
   parseTurnOrder,
   computeBench,
+  canManagePickSession,
 } = require('../services/pickSessionService');
 
 describe('pickSessionService helpers', () => {
@@ -43,5 +44,26 @@ describe('pick session API contract (route module loads)', () => {
     const router = require('../routes/gamePickSession');
     expect(router).toBeTruthy();
     expect(typeof router).toBe('function');
+  });
+});
+
+describe('canManagePickSession', () => {
+  const game = {
+    organizerId: 'org',
+    roles: [
+      { userId: 'mgr', role: 'MANAGER' },
+      { userId: 'cap', role: 'CAPTAIN' },
+      { userId: 'other', role: 'PLAYER' },
+    ],
+  };
+  test('allows organizer, game-role MANAGER and CAPTAIN', () => {
+    expect(canManagePickSession(game, 'org')).toBe(true);
+    expect(canManagePickSession(game, 'mgr')).toBe(true);
+    expect(canManagePickSession(game, 'cap')).toBe(true);
+  });
+  test('rejects others', () => {
+    expect(canManagePickSession(game, 'other')).toBe(false);
+    expect(canManagePickSession(game, 'nobody')).toBe(false);
+    expect(canManagePickSession(null, 'org')).toBe(false);
   });
 });
