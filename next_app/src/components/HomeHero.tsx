@@ -105,11 +105,11 @@ function ReturningHero() {
             }}
         >
             <HeroBackdrop />
-            <Container maxWidth="md" sx={{ position: "relative", py: { xs: 3, md: 5 }, px: { xs: 2.5, sm: 3 } }}>
+            <Container maxWidth="md" sx={{ position: "relative", py: { xs: 3, md: 4 }, px: { xs: 2.5, sm: 3 } }}>
                 <Box className="joinup-hero-item">
                     <Typography
                         suppressHydrationWarning
-                        sx={{ fontSize: { xs: "0.9rem", md: "1rem" }, fontWeight: 600, color: "#a7f3d0", mb: 0.5 }}
+                        sx={{ fontSize: { xs: "0.9rem", md: "1.05rem" }, fontWeight: 600, color: "#a7f3d0", mb: 0.5 }}
                     >
                         {greeting}{firstName ? `, ${firstName}` : ""} 👋
                     </Typography>
@@ -120,14 +120,16 @@ function ReturningHero() {
                             fontSize: { xs: "1.6rem", sm: "2rem", md: "2.5rem" },
                             lineHeight: 1.15,
                             letterSpacing: "-0.02em",
-                            mb: { xs: 2, md: 3 },
+                            mb: { xs: 2, md: 0 },
                         }}
                     >
                         מה משחקים היום?
                     </Typography>
                 </Box>
 
-                <Box className="joinup-hero-item" sx={{ animationDelay: "90ms" }}>
+                {/* Desktop already has the real omnibar in the navbar, so this look-alike
+                    entry point is phone-only (the navbar search is hidden below md). */}
+                <Box className="joinup-hero-item" sx={{ animationDelay: "90ms", display: { xs: "block", md: "none" } }}>
                     <ButtonBase
                         component={Link}
                         href="/search"
