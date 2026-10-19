@@ -1,9 +1,13 @@
-// CORS origin policy shared by the Express `cors` middleware and Socket.IO.
+// CORS origin policy for the Express `cors` middleware and Socket.IO. Same allowlist, but each
+// consumer needs a different way of rejecting:
 //
-// A disallowed origin is rejected with `callback(null, false)`, not an Error: the response simply
-// carries no Access-Control-Allow-* headers, so the browser blocks it. Passing an Error instead
-// sends the request into the global error handler, which answers 500 and reports it to Sentry —
-// any scanner with a random Origin header would then flood Sentry with non-bugs.
+// - Express (default): `callback(null, false)`. The response carries no Access-Control-Allow-*
+//   headers, so the browser blocks it. An Error would go to the global error handler, which
+//   answers 500 and reports to Sentry — any scanner with a random Origin would flood Sentry.
+// - Socket.IO (`rejectWithError: true`): engine.io only aborts the handshake (400) when the cors
+//   middleware errors; `false` lets polling AND WebSocket handshakes through. Browsers don't
+//   enforce CORS on WebSockets, so this is the only origin gate there. engine.io never forwards
+//   the Error to the Express error handler, so it doesn't reach Sentry.
 
 const LOCAL_DEV_ORIGIN_PATTERNS = [
   /^https?:\/\/localhost(:\d+)?$/i,
@@ -21,7 +25,19 @@ function isLocalDevOrigin(origin) {
   return LOCAL_DEV_ORIGIN_PATTERNS.some((re) => re.test(origin));
 }
 
-function createCorsOriginCallback({ allowedOrigins, permissive }) {
+// Warn once per distinct rejected origin, so scanners can't flood the logs. Bounded so a stream
+// of random origins can't grow it forever.
+const MAX_WARNED_ORIGINS = 500;
+const warnedOrigins = new Set();
+
+function warnRejectedOrigin(origin, details) {
+  if (warnedOrigins.has(origin)) return;
+  if (warnedOrigins.size >= MAX_WARNED_ORIGINS) warnedOrigins.clear();
+  warnedOrigins.add(origin);
+  console.warn('[CORS] Rejected origin:', origin, details);
+}
+
+function createCorsOriginCallback({ allowedOrigins, permissive, rejectWithError = false }) {
   function isOriginAllowed(origin) {
     if (!origin) return true;
     if (allowedOrigins.includes(origin)) return true;
@@ -39,11 +55,14 @@ function createCorsOriginCallback({ allowedOrigins, permissive }) {
       return callback(null, origin);
     }
 
-    console.warn('[CORS] Rejected origin:', origin, {
+    warnRejectedOrigin(origin, {
       NODE_ENV: process.env.NODE_ENV,
       corsPermissive: permissive,
       allowedOrigins,
     });
+    if (rejectWithError) {
+      return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
+    }
     return callback(null, false);
   };
 }

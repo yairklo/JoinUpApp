@@ -98,6 +98,12 @@ const corsPermissive =
   process.env.CORS_PERMISSIVE === 'true' || process.env.CORS_PERMISSIVE === '1' || !isProduction;
 
 const corsOriginCallback = createCorsOriginCallback({ allowedOrigins, permissive: corsPermissive });
+// Socket.IO must abort disallowed handshakes with an Error — see utils/corsOrigin.js.
+const socketCorsOriginCallback = createCorsOriginCallback({
+  allowedOrigins,
+  permissive: corsPermissive,
+  rejectWithError: true,
+});
 
 app.use(
   cors({
@@ -159,7 +165,7 @@ const io = new Server(server, {
   pingTimeout: 60000,
   pingInterval: 25000,
   cors: {
-    origin: corsOriginCallback,
+    origin: socketCorsOriginCallback,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
