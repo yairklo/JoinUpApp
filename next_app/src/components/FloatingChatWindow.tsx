@@ -235,7 +235,7 @@ export default function FloatingChatWindow() {
             <Collapse in={!isMinimized}>
                 <Box sx={{ height: 450, width: "100%" }}>
                     {activeChatId ? (
-                        <Chat roomId={activeChatId} isWidget={true} />
+                        <Chat roomId={activeChatId} isWidget={true} suspended={isMinimized} />
                     ) : (
                         <ChatList userId={user.id} onChatSelect={() => { }} isWidget={true} />
                     )}

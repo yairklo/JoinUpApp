@@ -413,6 +413,7 @@ if (enableRedis) {
 // tempIds of messages accepted/in flight per sender+room, so client retries are idempotent.
 const recentTempIds = new Map(); // key -> { t: createdAt, echo: stored message payload | null (in flight) }
 const TEMP_ID_TTL_MS = 5 * 60 * 1000;
+const SEND_PROCESS_TIMEOUT_MS = 20000;
 let lastTempIdSweep = 0;
 function sweepRecentTempIds(now) {
   if (now - lastTempIdSweep < 60 * 1000) return;
@@ -800,7 +801,21 @@ io.on('connection', async (socket) => {
     // so without this two quick sends (or a flushed offline queue) could be stored/echoed out of order.
     const run = async () => {
       try {
-        await processMessage();
+        // A stuck DB/moderation call must not freeze this socket's whole send queue. On timeout the
+        // sender gets a retryable failure; the dedupe slot is kept so a retry can't double-store if
+        // the original does finish (it then answers with the stored echo).
+        let timer;
+        const timedOut = await Promise.race([
+          processMessage().then(() => false),
+          new Promise((resolve) => { timer = setTimeout(() => resolve(true), SEND_PROCESS_TIMEOUT_MS); }),
+        ]);
+        clearTimeout(timer);
+        if (timedOut) {
+          socket.emit('error', 'Could not send message');
+          if (tempId !== undefined && tempId !== null) {
+            socket.emit('messageFailed', { tempId, roomId: String(roomId), code: 'SEND_FAILED', retryable: true });
+          }
+        }
       } catch (e) {
         console.error('[message] unexpected send error:', e);
         if (dedupeKey && recentTempIds.get(dedupeKey)?.echo) return; // already stored + echoed; don't report a false failure
