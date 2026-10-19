@@ -36,6 +36,7 @@ const supportRoutes = require('./routes/support');
 const { verifyToken } = require('@clerk/backend');
 const { isPrivateChatBlocked, getBlockersAmong } = require('./utils/blocks');
 const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
+const { canSubscribePresence } = require('./utils/presenceAuth');
 const { mapUserToSender } = require('./utils/chatMappers');
 const { NotificationService } = require('./services/notificationService');
 const { broadcastCounters } = require('./services/counterService');
@@ -429,8 +430,10 @@ io.on('connection', async (socket) => {
     }
   });
 
-  socket.on('subscribePresence', (targetUserId) => {
-    if (!targetUserId) return;
+  // Presence is private: only friends, chat partners or pick-session co-managers may watch it.
+  socket.on('subscribePresence', async (targetUserId) => {
+    if (!targetUserId || !socket.userId) return;
+    if (!(await canSubscribePresence(socket.userId, targetUserId))) return;
     socket.join(`presence_listener_${targetUserId}`);
     // Emit initial status
     // Check if target user has any active sockets in their "user_ID" room
