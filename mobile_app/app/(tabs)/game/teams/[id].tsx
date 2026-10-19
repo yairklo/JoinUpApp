@@ -90,7 +90,8 @@ export default function LiveTeamManagementScreen() {
 
   const userId = user?.id || '';
   const isOrganizer = state?.organizerId === userId;
-  const myTurn = state?.currentTurnManagerId === userId;
+  const isManager = (state?.managers || []).some((m) => m.id === userId && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
+  const myTurn =state?.currentTurnManagerId === userId;
   const currentOnline = state?.currentTurnManagerId ? !!presence[state.currentTurnManagerId] : false;
   const pickingActive = state?.pickSessionStatus === 'PICKING';
   const showOfflineControls =
@@ -357,6 +358,20 @@ export default function LiveTeamManagementScreen() {
               />
             </MapView>
           </View>
+        )}
+
+        {(isOrganizer || isManager) && (
+          <TouchableOpacity
+            onPress={() => router.push(`/game/teams/quick/${id}`)}
+            style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+          >
+            <FontAwesome name="users" size={18} color="#2563eb" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: '700', fontSize: 16 }}>{t('teams.quickEdit')}</Text>
+              <Text style={{ color: '#6b7280', fontSize: 12 }}>{t('teams.quickEditOpen')}</Text>
+            </View>
+            <FontAwesome name="angle-left" size={20} color="#9ca3af" />
+          </TouchableOpacity>
         )}
 
         {isOrganizer && (
