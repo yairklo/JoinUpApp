@@ -1,28 +1,81 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Image, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Image, Modal, ActivityIndicator, type ViewStyle } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { gamesApi } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import BackButton from '@/components/ui/BackButton';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import { useColorMode } from '@/theme/ColorModeContext';
 import type { Team } from '@joinup/shared/types/game';
 
 type Player = { id: string; name?: string | null; avatar?: string | null };
 
 const JERSEY_COLORS = ['#f97316', '#3b82f6', '#ef4444', '#22c55e', '#eab308', '#a855f7', '#1f2937', '#14b8a6'];
 
+// Mirrors next_app's TeamBuilderDialog look: emerald brand, indigo quick-assign, cyber dark surfaces.
+const PALETTE = {
+  light: { bg: '#f6f8fa', card: '#ffffff', border: '#e8ecf1', text: '#0f172a', muted: '#64748b', subtle: '#f1f5f9', primary: '#059669', primaryDeep: '#047857', primarySoft: '#ecfdf5', danger: '#ef4444' },
+  dark: { bg: '#0b1220', card: '#111a2c', border: '#1e293b', text: '#f1f5f9', muted: '#94a3b8', subtle: '#0f1828', primary: '#34d399', primaryDeep: '#10b981', primarySoft: 'rgba(52,211,153,0.12)', danger: '#f87171' },
+};
+
+// --- small hex color helpers (no MUI on native) ---
+const hexToRgb = (hex: string) => {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map((x) => x + x).join('') : h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+const rgbToHex = (r: number, g: number, b: number) =>
+  '#' + [r, g, b].map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const alpha = (hex: string, a: number) => {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${a})`;
+};
+const darken = (hex: string, amt: number) => rgbToHex(...(hexToRgb(hex).map((v) => v * (1 - amt)) as [number, number, number]));
+const lighten = (hex: string, amt: number) => rgbToHex(...(hexToRgb(hex).map((v) => v + (255 - v) * amt) as [number, number, number]));
+const luminance = (hex: string) => {
+  const [r, g, b] = hexToRgb(hex).map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+// Jersey colors like black vanish on the dark surface, so outlines/tints use a lightened variant.
+const isVeryDark = (hex: string) => luminance(hex) < 0.12;
+
 const firstName = (name?: string | null) => (name || '?').trim().split(' ')[0] || '?';
 
-function PlayerAvatar({ p, size = 28 }: { p: Player; size?: number }) {
+const AVATAR_FALLBACK = ['#059669', '#6366f1', '#f59e0b', '#0ea5e9', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316'];
+const initials = (name?: string | null) => {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2);
+  return parts[0][0] + parts[parts.length - 1][0];
+};
+const fallbackColor = (name: string) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return AVATAR_FALLBACK[Math.abs(hash) % AVATAR_FALLBACK.length];
+};
+
+function PlayerAvatar({ p, size = 28, ring }: { p: Player; size?: number; ring?: string }) {
+  const ringStyle = ring ? { borderWidth: 2, borderColor: ring } : null;
+  if (p.avatar) {
+    return <Image source={{ uri: p.avatar }} style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#e5e7eb' }, ringStyle]} />;
+  }
   return (
-    <Image
-      source={{ uri: p.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || '?')}` }}
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#e5e7eb' }}
-    />
+    <View
+      style={[
+        { width: size, height: size, borderRadius: size / 2, backgroundColor: fallbackColor(p.name || p.id), alignItems: 'center', justifyContent: 'center' },
+        ringStyle,
+      ]}
+    >
+      <Text style={{ color: '#fff', fontWeight: '700', fontSize: size * 0.38 }}>{initials(p.name)}</Text>
+    </View>
   );
 }
 
@@ -37,6 +90,9 @@ export default function QuickTeamEditScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation();
+  const { colorMode } = useColorMode();
+  const isDark = colorMode === 'dark';
+  const c = PALETTE[colorMode];
   const isRtl = i18n.language === 'he';
   const row = isRtl ? 'row-reverse' : 'row';
   const align = isRtl ? 'right' : 'left';
@@ -127,7 +183,7 @@ export default function QuickTeamEditScreen() {
 
   const addTeam = () => {
     const used = new Set(teams.map((tm) => tm.color));
-    const color = JERSEY_COLORS.find((c) => !used.has(c)) || '#6b7280';
+    const color = JERSEY_COLORS.find((col) => !used.has(col)) || '#6b7280';
     setTeams([
       ...teams,
       { id: `t${Date.now()}`, name: t('teams.newTeamName', { n: teams.length + 1 }), color, playerIds: [] },
@@ -176,119 +232,283 @@ export default function QuickTeamEditScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: c.bg }}>
         <Stack.Screen options={{ headerShown: false }} />
         <LoadingMotif id="passing-lane" label={t('teams.loadingTeamsSelection')} />
       </SafeAreaView>
     );
   }
 
+  const total = participants.length;
+  const assignedCount = total - bench.length;
+  const progress = total ? assignedCount / total : 0;
+  const sizes = teams.map((tm) => tm.playerIds.length);
+  const isBalanced = teams.length < 2 || Math.max(...sizes) - Math.min(...sizes) <= 1;
+  const balanceColor = isBalanced ? c.primary : '#f59e0b';
+  const selectedPlayer = selectedId ? byId.get(selectedId) : undefined;
+  const selectedTeamId = selectedId ? teams.find((tm) => tm.playerIds.includes(selectedId))?.id ?? null : null;
+  const quickDisabled = teams.length === 0 || bench.length === 0;
+  const headerColor = (col: string) => (isDark && isVeryDark(col) ? lighten(col, 0.18) : col);
+  const accentFor = (col: string) => (isDark && isVeryDark(col) ? lighten(col, 0.55) : col);
+  const accentTextFor = (col: string) => (isDark ? lighten(accentFor(col), 0.3) : darken(col, 0.1));
+  const cardShadow = isDark
+    ? null
+    : { shadowColor: '#0f172a', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 };
+
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View
-        className="bg-white border-b border-gray-100"
-        style={{ flexDirection: row, alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}
-      >
-        <BackButton />
-        <Text style={{ flex: 1, fontSize: 20, fontWeight: '700', color: '#111827', textAlign: align }}>
-          {t('teams.quickEdit')}
-        </Text>
-        <TouchableOpacity
-          onPress={save}
-          disabled={saving}
-          style={{ backgroundColor: '#2563eb', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, opacity: saving ? 0.6 : 1 }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '700' }}>{t('teams.save')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: Math.max(insets.bottom, 16) + 32 }}>
-        <Text style={{ color: '#6b7280', fontSize: 13, textAlign: align }}>{t('teams.quickEditHint')}</Text>
-
-        {/* Bench */}
-        <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', padding: 12 }}>
-          <View style={{ flexDirection: row, justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <Text style={{ fontWeight: '700', color: '#4b5563' }}>{t('teams.benchTitle', { count: bench.length })}</Text>
-            <View style={{ flexDirection: row, gap: 8 }}>
-              <TouchableOpacity
-                onPress={quickAssign}
-                disabled={teams.length === 0 || bench.length === 0}
-                style={{ flexDirection: row, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#2563eb', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, opacity: teams.length === 0 || bench.length === 0 ? 0.4 : 1 }}
-              >
-                <FontAwesome name="random" size={12} color="#2563eb" />
-                <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 12 }}>{t('teams.quickAssign')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={resetAll}
-                style={{ borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: confirmReset ? '#dc2626' : 'transparent' }}
-              >
-                <Text style={{ color: confirmReset ? '#fff' : '#dc2626', fontWeight: '600', fontSize: 12 }}>
-                  {confirmReset ? t('teams.confirmReset') : t('teams.resetAll')}
-                </Text>
-              </TouchableOpacity>
+      {/* --- Header --- */}
+      <View style={{ backgroundColor: c.card, borderBottomWidth: 1, borderBottomColor: c.border }}>
+        <View style={{ flexDirection: row, alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 }}>
+          <BackButton />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 19, fontWeight: '800', color: c.text, textAlign: align }}>{t('teams.quickEdit')}</Text>
+            <View style={{ flexDirection: row, alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: c.muted }}>
+                {t('teams.assignedOf', { assigned: assignedCount, total })}
+              </Text>
+              {teams.length >= 2 && assignedCount > 0 && (
+                <View
+                  style={{ flexDirection: row, alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 1, borderRadius: 999, backgroundColor: alpha(balanceColor, 0.14) }}
+                >
+                  <MaterialCommunityIcons name="scale-balance" size={11} color={balanceColor} />
+                  <Text style={{ fontSize: 10.5, fontWeight: '700', color: balanceColor }}>
+                    {isBalanced ? t('teams.balanced') : t('teams.unbalanced')}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
-          <View style={{ flexDirection: row, flexWrap: 'wrap', gap: 8 }}>
-            {bench.length === 0 && <Text style={{ color: '#6b7280', fontStyle: 'italic' }}>{t('teams.benchEmpty')}</Text>}
+          <TouchableOpacity onPress={save} disabled={saving} activeOpacity={0.85} accessibilityRole="button">
+            <LinearGradient
+              colors={isDark ? ['#34d399', '#10b981'] : ['#10b981', '#047857']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                flexDirection: row,
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 18,
+                paddingVertical: 10,
+                borderRadius: 999,
+                opacity: saving ? 0.7 : 1,
+              }}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={isDark ? '#052e16' : '#fff'} />
+              ) : (
+                <Ionicons name="checkmark" size={17} color={isDark ? '#052e16' : '#fff'} />
+              )}
+              <Text style={{ color: isDark ? '#052e16' : '#fff', fontWeight: '800', fontSize: 14 }}>{t('teams.save')}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+        {/* Progress bar: fills from the reading-start edge */}
+        <View style={{ height: 3, flexDirection: row }}>
+          <View style={{ width: `${progress * 100}%`, backgroundColor: c.primary }} />
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: Math.max(insets.bottom, 16) + 96 }}>
+        {/* --- Bench --- */}
+        <View style={[{ backgroundColor: c.card, borderRadius: 20, borderWidth: 1, borderColor: c.border, overflow: 'hidden' }, cardShadow]}>
+          <View style={{ flexDirection: row, alignItems: 'center', gap: 10, padding: 14, paddingBottom: 12 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.primarySoft }}>
+              <MaterialCommunityIcons name="seat-outline" size={20} color={c.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: c.text, textAlign: align }}>{t('teams.bench')}</Text>
+              <Text style={{ fontSize: 12, color: c.muted, textAlign: align }}>
+                {bench.length === 0 ? t('teams.allAssigned') : t('teams.benchWaiting', { count: bench.length })}
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: row, gap: 8, paddingHorizontal: 14, paddingBottom: 12 }}>
+            <TouchableOpacity onPress={quickAssign} disabled={quickDisabled} activeOpacity={0.85} style={{ flex: 1 }}>
+              <LinearGradient
+                colors={quickDisabled ? [c.border, c.border] : ['#6366f1', '#4f46e5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ flexDirection: row, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 999 }}
+              >
+                <Ionicons name="sparkles" size={15} color={quickDisabled ? c.muted : '#fff'} />
+                <Text style={{ color: quickDisabled ? c.muted : '#fff', fontWeight: '700', fontSize: 14 }}>{t('teams.quickAssign')}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={resetAll}
+              disabled={assignedCount === 0 && !confirmReset}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: row,
+                alignItems: 'center',
+                gap: 5,
+                paddingHorizontal: 14,
+                borderRadius: 999,
+                backgroundColor: confirmReset ? c.danger : 'transparent',
+                opacity: assignedCount === 0 && !confirmReset ? 0.4 : 1,
+              }}
+            >
+              <Ionicons name="refresh" size={15} color={confirmReset ? '#fff' : c.danger} />
+              <Text style={{ color: confirmReset ? '#fff' : c.danger, fontWeight: '700', fontSize: 13 }}>
+                {confirmReset ? t('teams.confirmReset') : t('teams.resetAll')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={{ borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.subtle, padding: 12, flexDirection: row, flexWrap: 'wrap', gap: 8, minHeight: 64 }}
+          >
+            {bench.length === 0 && (
+              <View style={{ width: '100%', alignItems: 'center', paddingVertical: 8 }}>
+                <Text style={{ fontSize: 24 }}>🎉</Text>
+                <Text style={{ color: c.muted, fontWeight: '600', marginTop: 4 }}>{t('teams.benchEmpty')}</Text>
+              </View>
+            )}
             {bench.map((p) => {
               const sel = selectedId === p.id;
+              const content = (
+                <>
+                  <View>
+                    <PlayerAvatar p={p} size={26} />
+                    {sel && (
+                      <View
+                        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 13, backgroundColor: 'rgba(4,47,36,0.55)', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Ionicons name="checkmark" size={15} color="#fff" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={{ color: sel ? (isDark ? '#052e16' : '#fff') : c.text, fontSize: 14, fontWeight: '600' }}>{firstName(p.name)}</Text>
+                </>
+              );
+              const pillStyle: ViewStyle = { flexDirection: row, alignItems: 'center', gap: 6, paddingStart: 4, paddingEnd: 12, paddingVertical: 4, borderRadius: 999 };
               return (
-                <TouchableOpacity
-                  key={p.id}
-                  onPress={() => setSelectedId(sel ? null : p.id)}
-                  style={{ flexDirection: row, alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: sel ? '#2563eb' : '#d1d5db', backgroundColor: sel ? '#2563eb' : '#fff' }}
-                >
-                  <PlayerAvatar p={p} size={24} />
-                  <Text style={{ color: sel ? '#fff' : '#111827', fontSize: 13 }}>{firstName(p.name)}</Text>
+                <TouchableOpacity key={p.id} onPress={() => setSelectedId(sel ? null : p.id)} activeOpacity={0.8} accessibilityState={{ selected: sel }}>
+                  {sel ? (
+                    <LinearGradient
+                      colors={isDark ? ['#34d399', '#10b981'] : ['#059669', '#047857']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={[pillStyle, { borderWidth: 1, borderColor: 'transparent', transform: [{ scale: 1.04 }] }]}
+                    >
+                      {content}
+                    </LinearGradient>
+                  ) : (
+                    <View style={[pillStyle, { borderWidth: 1, borderColor: c.border, backgroundColor: c.card }]}>{content}</View>
+                  )}
                 </TouchableOpacity>
               );
             })}
           </View>
+
+          <View style={{ flexDirection: row, alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10 }}>
+            <MaterialCommunityIcons name="gesture-tap" size={15} color={c.muted} />
+            <Text style={{ flex: 1, fontSize: 12, color: c.muted, textAlign: align }}>{t('teams.quickEditHint')}</Text>
+          </View>
         </View>
 
-        {/* Teams */}
+        {/* --- Teams --- */}
         {teams.map((team) => {
-          const isTarget = !!selectedId;
+          const isTarget = !!selectedId && selectedTeamId !== team.id;
+          const accent = accentFor(team.color);
+          const accentText = accentTextFor(team.color);
+          const confirmingDelete = confirmRemoveId === team.id;
+          const count = team.playerIds.length;
           return (
             <TouchableOpacity
               key={team.id}
-              activeOpacity={isTarget ? 0.7 : 1}
+              activeOpacity={isTarget ? 0.8 : 1}
               onPress={() => isTarget && assignTo(team.id)}
-              style={{ backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', borderWidth: isTarget ? 2 : 1, borderStyle: isTarget ? 'dashed' : 'solid', borderColor: isTarget ? team.color : '#e5e7eb' }}
+              accessibilityRole={isTarget ? 'button' : undefined}
+              style={[
+                { backgroundColor: c.card, borderRadius: 20, overflow: 'hidden', borderWidth: isTarget ? 2 : 1, borderColor: isTarget ? accent : c.border },
+                isTarget
+                  ? { shadowColor: accent, shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 6 }
+                  : cardShadow,
+              ]}
             >
-              <View style={{ backgroundColor: team.color, padding: 10, flexDirection: row, alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flexDirection: row, alignItems: 'center', gap: 8 }}>
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{team.name}</Text>
-                  <View style={{ backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 1 }}>
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{team.playerIds.length}</Text>
-                  </View>
+              {/* Gradient jersey header */}
+              <LinearGradient
+                colors={[headerColor(team.color), darken(headerColor(team.color), 0.28)]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ flexDirection: row, alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, overflow: 'hidden' }}
+              >
+                <MaterialCommunityIcons
+                  name="tshirt-crew"
+                  size={92}
+                  color="rgba(255,255,255,0.13)"
+                  style={{ position: 'absolute', top: -20, [isRtl ? 'left' : 'right']: -12, transform: [{ rotate: '-14deg' }] }}
+                />
+                <View
+                  style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.22)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 17 }}>{count}</Text>
                 </View>
-                <View style={{ flexDirection: row, gap: 4 }}>
-                  <TouchableOpacity onPress={() => startEdit(team)} style={{ padding: 8 }} accessibilityLabel={t('teams.editTeam')}>
-                    <FontAwesome name="pencil" size={16} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => removeTeam(team.id)}
-                    style={{ padding: 8, flexDirection: row, alignItems: 'center', gap: 4 }}
-                    accessibilityLabel={t('teams.deleteTeam')}
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '800', fontSize: 16, textAlign: align }}>
+                    {team.name}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '500', textAlign: align }}>
+                    {count === 1 ? t('teams.onePlayer') : t('teams.playersCount', { count })}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => startEdit(team)}
+                  accessibilityLabel={t('teams.editTeam')}
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons name="pencil" size={15} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => removeTeam(team.id)}
+                  accessibilityLabel={t('teams.deleteTeam')}
+                  style={{
+                    height: 34,
+                    minWidth: 34,
+                    paddingHorizontal: confirmingDelete ? 10 : 0,
+                    borderRadius: 17,
+                    backgroundColor: confirmingDelete ? '#fff' : 'rgba(255,255,255,0.18)',
+                    flexDirection: row,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={15} color={confirmingDelete ? '#ef4444' : '#fff'} />
+                  {confirmingDelete && <Text style={{ color: '#ef4444', fontSize: 11, fontWeight: '700' }}>{t('teams.confirmDeleteTeam')}</Text>}
+                </TouchableOpacity>
+              </LinearGradient>
+
+              {/* Players */}
+              <View style={{ padding: 10 }}>
+                {count === 0 ? (
+                  <View
+                    style={{
+                      minHeight: 112,
+                      borderRadius: 14,
+                      borderWidth: 2,
+                      borderStyle: 'dashed',
+                      borderColor: alpha(accent, isTarget ? 0.7 : 0.3),
+                      backgroundColor: alpha(accent, isTarget ? 0.1 : 0.04),
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}
                   >
-                    {confirmRemoveId === team.id && <Text style={{ color: '#fecaca', fontSize: 11 }}>{t('teams.confirmDeleteTeam')}</Text>}
-                    <FontAwesome name="trash-o" size={16} color={confirmRemoveId === team.id ? '#fecaca' : '#fff'} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <View style={{ padding: 12 }}>
-                {team.playerIds.length === 0 ? (
-                  <View style={{ height: 80, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <FontAwesome name="user-plus" size={28} color={isTarget ? team.color : '#d1d5db'} />
-                    <Text style={{ fontSize: 12, color: isTarget ? team.color : '#6b7280', fontWeight: isTarget ? '700' : '400' }}>
-                      {isTarget ? t('teams.tapToAdd') : t('teams.selectFromBench')}
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: alpha(accent, 0.14), alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="person-add" size={20} color={accent} />
+                    </View>
+                    <Text style={{ fontSize: 13, color: isTarget ? accentText : c.muted, fontWeight: isTarget ? '700' : '500' }}>
+                      {isTarget ? t('teams.tapToAdd') : t('teams.noPlayersYet')}
                     </Text>
                   </View>
                 ) : (
-                  <View style={{ flexDirection: row, flexWrap: 'wrap', gap: 8 }}>
+                  <View style={{ gap: 4 }}>
                     {team.playerIds.map((pid) => {
                       const p = byId.get(pid);
                       if (!p) return null;
@@ -297,20 +517,59 @@ export default function QuickTeamEditScreen() {
                         <TouchableOpacity
                           key={pid}
                           onPress={() => setSelectedId(sel ? null : pid)}
-                          style={{ width: '48%', flexDirection: row, alignItems: 'center', gap: 6, padding: 6, borderRadius: 10, backgroundColor: sel ? '#2563eb' : '#f3f4f6' }}
+                          activeOpacity={0.75}
+                          style={{
+                            flexDirection: row,
+                            alignItems: 'center',
+                            gap: 10,
+                            paddingHorizontal: 8,
+                            paddingVertical: 6,
+                            borderRadius: 12,
+                            backgroundColor: sel ? alpha(accent, 0.14) : 'transparent',
+                            borderWidth: 1.5,
+                            borderColor: sel ? accent : 'transparent',
+                          }}
                         >
-                          <PlayerAvatar p={p} />
-                          <Text numberOfLines={1} style={{ flex: 1, color: sel ? '#fff' : '#111827', fontSize: 13, textAlign: align }}>
-                            {firstName(p.name)}
-                          </Text>
-                          {sel && (
-                            <TouchableOpacity onPress={() => removeFromTeam(pid)} hitSlop={8}>
-                              <FontAwesome name="times" size={14} color="#fff" />
-                            </TouchableOpacity>
-                          )}
+                          <PlayerAvatar p={p} size={36} ring={alpha(accent, 0.55)} />
+                          <View style={{ flex: 1 }}>
+                            <Text numberOfLines={1} style={{ color: c.text, fontSize: 15, fontWeight: '600', textAlign: align }}>
+                              {p.name || '?'}
+                            </Text>
+                            {sel && (
+                              <Text style={{ color: accentText, fontSize: 11, fontWeight: '600', textAlign: align }}>{t('teams.moveHint')}</Text>
+                            )}
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => removeFromTeam(pid)}
+                            hitSlop={8}
+                            accessibilityLabel={t('teams.returnToBench')}
+                            style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <Ionicons name="person-remove-outline" size={17} color={c.muted} />
+                          </TouchableOpacity>
                         </TouchableOpacity>
                       );
                     })}
+                    {isTarget && (
+                      <View
+                        style={{
+                          marginTop: 4,
+                          paddingVertical: 9,
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderStyle: 'dashed',
+                          borderColor: alpha(accent, 0.6),
+                          backgroundColor: alpha(accent, 0.08),
+                          flexDirection: row,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <Ionicons name="add" size={17} color={accentText} />
+                        <Text style={{ color: accentText, fontWeight: '700', fontSize: 13 }}>{t('teams.addHere')}</Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -318,42 +577,132 @@ export default function QuickTeamEditScreen() {
           );
         })}
 
+        {/* --- Add team --- */}
         <TouchableOpacity
           onPress={addTeam}
-          style={{ minHeight: 80, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: '#9ca3af', alignItems: 'center', justifyContent: 'center', flexDirection: row, gap: 8 }}
+          activeOpacity={0.75}
+          style={{
+            minHeight: 76,
+            borderRadius: 20,
+            borderWidth: 2,
+            borderStyle: 'dashed',
+            borderColor: alpha(isDark ? '#94a3b8' : '#64748b', 0.3),
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: row,
+            gap: 10,
+          }}
         >
-          <FontAwesome name="plus" size={14} color="#6b7280" />
-          <Text style={{ color: '#6b7280', fontWeight: '600' }}>{t('teams.addTeam')}</Text>
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: alpha(isDark ? '#94a3b8' : '#64748b', 0.12), alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="add" size={22} color={c.muted} />
+          </View>
+          <Text style={{ color: c.muted, fontWeight: '700', fontSize: 15 }}>{t('teams.addTeam')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
+      {/* --- Floating "player selected" pill --- */}
+      {selectedPlayer && (
+        <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom, 12) + 12, alignItems: 'center' }}>
+          <View
+            accessibilityLiveRegion="polite"
+            style={{
+              flexDirection: row,
+              alignItems: 'center',
+              gap: 10,
+              paddingHorizontal: 6,
+              paddingVertical: 6,
+              borderRadius: 999,
+              backgroundColor: isDark ? '#f1f5f9' : '#0f172a',
+              maxWidth: '90%',
+              shadowColor: '#000',
+              shadowOpacity: 0.3,
+              shadowRadius: 16,
+              shadowOffset: { width: 0, height: 8 },
+              elevation: 10,
+            }}
+          >
+            <PlayerAvatar p={selectedPlayer} size={34} />
+            <Text numberOfLines={1} style={{ flexShrink: 1, color: isDark ? '#0f172a' : '#fff', fontSize: 14, fontWeight: '700' }}>
+              {t('teams.pickTeamFor', { name: firstName(selectedPlayer.name) })}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setSelectedId(null)}
+              accessibilityLabel={t('teams.cancelSelection')}
+              style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: isDark ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.14)' }}
+            >
+              <Ionicons name="close" size={17} color={isDark ? '#0f172a' : '#fff'} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* --- Edit team sheet --- */}
       <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 12 }}>
-            <Text style={{ fontWeight: '700', fontSize: 18, textAlign: align }}>{t('teams.editTeam')}</Text>
-            <TextInput
-              value={tempName}
-              onChangeText={setTempName}
-              placeholder={t('teams.teamName')}
-              textAlign={align}
-              style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10 }}
-            />
-            <Text style={{ fontWeight: '600', textAlign: align }}>{t('teams.teamColor')}</Text>
-            <View style={{ flexDirection: row, flexWrap: 'wrap', gap: 12 }}>
-              {JERSEY_COLORS.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => setTempColor(c)}
-                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c, borderWidth: 3, borderColor: tempColor === c ? '#000' : 'transparent' }}
-                />
-              ))}
+        <View style={{ flex: 1, backgroundColor: 'rgba(2,6,23,0.55)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: c.card, borderRadius: 20, overflow: 'hidden' }}>
+            {/* Live preview of the team header */}
+            <LinearGradient
+              colors={[headerColor(tempColor || '#6b7280'), darken(headerColor(tempColor || '#6b7280'), 0.28)]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ paddingHorizontal: 20, paddingVertical: 18, overflow: 'hidden' }}
+            >
+              <MaterialCommunityIcons
+                name="tshirt-crew"
+                size={104}
+                color="rgba(255,255,255,0.14)"
+                style={{ position: 'absolute', top: -18, [isRtl ? 'left' : 'right']: -10, transform: [{ rotate: '-14deg' }] }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600', textAlign: align }}>{t('teams.editTeam')}</Text>
+              <Text numberOfLines={1} style={{ color: '#fff', fontSize: 22, fontWeight: '800', textAlign: align }}>
+                {tempName.trim() || t('teams.untitled')}
+              </Text>
+            </LinearGradient>
+
+            <View style={{ padding: 20, gap: 12 }}>
+              <Text style={{ fontWeight: '600', color: c.muted, fontSize: 13, textAlign: align }}>{t('teams.teamName')}</Text>
+              <TextInput
+                value={tempName}
+                onChangeText={setTempName}
+                placeholder={t('teams.teamName')}
+                placeholderTextColor={c.muted}
+                textAlign={align}
+                onSubmitEditing={saveEdit}
+                style={{ borderWidth: 1, borderColor: c.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: c.text, backgroundColor: c.subtle, fontSize: 15 }}
+              />
+              <Text style={{ fontWeight: '600', color: c.muted, fontSize: 13, textAlign: align, marginTop: 4 }}>{t('teams.teamColor')}</Text>
+              <View style={{ flexDirection: row, flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14 }}>
+                {JERSEY_COLORS.map((col) => {
+                  const active = tempColor === col;
+                  return (
+                    <TouchableOpacity
+                      key={col}
+                      onPress={() => setTempColor(col)}
+                      accessibilityState={{ selected: active }}
+                      style={{ width: '25%', alignItems: 'center' }}
+                    >
+                      <View style={{ padding: 3, borderRadius: 26, borderWidth: 2, borderColor: active ? accentFor(col) : 'transparent' }}>
+                        <LinearGradient
+                          colors={[col, darken(col, 0.28)]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          {active && <Ionicons name="checkmark" size={20} color="#fff" />}
+                        </LinearGradient>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-            <View style={{ flexDirection: row, justifyContent: 'flex-end', gap: 8 }}>
-              <TouchableOpacity onPress={() => setEditing(null)} style={{ padding: 10 }}>
-                <Text style={{ color: '#6b7280', fontWeight: '600' }}>{t('teams.cancel')}</Text>
+
+            <View style={{ flexDirection: row, justifyContent: 'flex-end', gap: 8, paddingHorizontal: 20, paddingBottom: 18 }}>
+              <TouchableOpacity onPress={() => setEditing(null)} style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999 }}>
+                <Text style={{ color: c.muted, fontWeight: '700' }}>{t('teams.cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={saveEdit} style={{ backgroundColor: '#2563eb', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}>
-                <Text style={{ color: '#fff', fontWeight: '700' }}>{t('teams.update')}</Text>
+              <TouchableOpacity onPress={saveEdit} style={{ backgroundColor: c.primary, paddingHorizontal: 22, paddingVertical: 10, borderRadius: 999 }}>
+                <Text style={{ color: isDark ? '#052e16' : '#fff', fontWeight: '800' }}>{t('teams.update')}</Text>
               </TouchableOpacity>
             </View>
           </View>
