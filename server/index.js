@@ -1146,17 +1146,28 @@ async function runWeeklySeriesGeneration() {
 
         if (pendingCreates.length) {
           const { createGroupChatForGame } = require('./services/gameService');
-          const created = await prisma.$transaction(async (tx) => {
-            const games = [];
-            for (const occ of pendingCreates) {
-              const game = await tx.game.create({ data: occ.data });
-              await createGroupChatForGame(tx, game.id, occ.participantIds);
-              games.push(game);
+          // One transaction per occurrence (game + its group chat stay atomic). Game has a unique
+          // (seriesId, start): if another job process already created this slot, the P2002 only
+          // aborts that occurrence and the rest are still generated.
+          let createdCount = 0;
+          for (const occ of pendingCreates) {
+            try {
+              const game = await prisma.$transaction(async (tx) => {
+                const g = await tx.game.create({ data: occ.data });
+                await createGroupChatForGame(tx, g.id, occ.participantIds);
+                return g;
+              }, { timeout: 30000, maxWait: 10000 });
+              gameScheduler.resyncGame(game);
+              createdCount += 1;
+            } catch (occErr) {
+              if (occErr && occErr.code === 'P2002') {
+                console.warn(`Series ${s.id} occurrence at ${occ.start.toISOString()} already exists; skipping.`);
+                continue;
+              }
+              throw occErr;
             }
-            return games;
-          }, { timeout: 30000, maxWait: 10000 });
-          for (const g of created) gameScheduler.resyncGame(g);
-          console.log(`🗓️  Generated ${pendingCreates.length} weekly instances for series ${s.id}`);
+          }
+          if (createdCount) console.log(`🗓️  Generated ${createdCount} weekly instances for series ${s.id}`);
         }
       } catch (seriesErr) {
         // Isolate failures per series so one bad series doesn't abort the whole batch.
@@ -1242,4 +1253,4 @@ if (!process.env.JEST_WORKER_ID) {
   });
 }
 
-module.exports = { app, server, startServer, socketAuthMiddleware };
+module.exports = { app, server, startServer, socketAuthMiddleware, runWeeklySeriesGeneration };

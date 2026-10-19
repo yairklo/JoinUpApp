@@ -1752,6 +1752,10 @@ async function updateGame(gameId, body, userId, io) {
       ...pickScheduleUpdates,
     },
     include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true },
+  }).catch((e) => {
+    // Game (seriesId, start) is unique: moving an occurrence onto another one's slot.
+    if (e && e.code === 'P2002') throw httpError('Another game in this series already starts at that time', 409);
+    throw e;
   });
   gameScheduler.resyncGame(updated);
   broadcastGameUpdate(io, gameId, updated).catch(err =>
