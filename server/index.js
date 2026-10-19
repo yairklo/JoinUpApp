@@ -19,6 +19,7 @@ const fs = require('fs').promises;
 const http = require('http');
 const { Server } = require('socket.io');
 const { prisma } = require('./lib/prisma');
+const { setChatView, canSocketMarkRead } = require('./utils/chatViewState');
 
 // Import routes
 const fieldsRoutes = require('./routes/fields');
@@ -509,9 +510,16 @@ io.on('connection', async (socket) => {
   socket.on('joinPickSession', async (gameId) => {
     try {
       if (!socket.userId || !gameId) return;
-      const { getManagerIdsForGame, buildPickSessionState } = require('./services/pickSessionService');
-      const managerIds = await getManagerIdsForGame(String(gameId));
-      if (!managerIds.includes(String(socket.userId))) {
+      const { buildPickSessionState, canAccessPickSession } = require('./services/pickSessionService');
+      const allowed = await canAccessPickSession(String(gameId), String(socket.userId));
+      if (!allowed) {
+        const g = await prisma.game.findUnique({
+          where: { id: String(gameId) },
+          select: { organizerId: true, roles: { select: { userId: true, role: true } } },
+        });
+        allowed = canManagePickSession(g, String(socket.userId));
+      }
+      if (!allowed) {
         socket.emit('error', 'Unauthorized: managers only');
         return;
       }
@@ -928,8 +936,17 @@ io.on('connection', async (socket) => {
     }
   });
 
+  // Web clients report whether a chat is really on screen (see utils/chatViewState.js).
+  socket.on('chatView', (payload) => {
+    const { roomId, visible } = payload || {};
+    if (!roomId || !socket.userId) return;
+    setChatView(socket.data, roomId, !!visible);
+  });
+
   socket.on('markAsRead', async ({ roomId }) => {
     if (!roomId || !socket.userId) return;
+    // A minimized widget / hidden chat must not turn the sender's ticks to "read".
+    if (!canSocketMarkRead(socket.data, roomId)) return;
     const userId = String(socket.userId);
     if (!(await checkChatPermission(userId, String(roomId)))) return;
 

@@ -56,7 +56,16 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     // UI State
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [isWidgetOpen, setIsWidgetOpen] = useState(false);
-    const [isMinimized, setIsMinimized] = useState(false);
+    // Seed from localStorage synchronously (harmless belt-and-braces; not the W1 root cause).
+    // Hydration-safe only because FloatingChatWindow renders null until isWidgetOpen is set in the
+    // mount effect below, so server and first client render produce the same markup.
+    const [isMinimized, setIsMinimized] = useState(() => {
+        try {
+            return typeof window !== "undefined" && localStorage.getItem("chatMinimized") === "true";
+        } catch {
+            return false;
+        }
+    });
     const [headerInfo, setHeaderInfo] = useState<HeaderInfo | null>(null);
 
     // Data State

@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Image, Modal, ActivityIndicator, type ViewStyle } from 'react-native';
+import { getTokenOrThrow } from '@/utils/apiErrors';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useLocalSearchParams, useNavigation, Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
@@ -238,8 +239,7 @@ export default function QuickTeamEditScreen() {
   const save = async () => {
     setSaving(true);
     try {
-      const token = await getToken();
-      if (!token) return;
+      const token = await getTokenOrThrow(getToken);
       await gamesApi.saveTeams(id, teams, token);
       snapshotRef.current = JSON.stringify(teams);
       dirtyRef.current = false;

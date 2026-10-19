@@ -1,7 +1,7 @@
 import { Slot, SplashScreen, Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
-import { LogBox, View, Text, AppState, AppStateStatus, Platform } from "react-native";
+import { LogBox, ActivityIndicator, View, Text, AppState, AppStateStatus, Platform } from "react-native";
 import * as Sentry from "@sentry/react-native";
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
@@ -23,7 +23,7 @@ import { NotificationProvider } from "@/context/NotificationContext";
 import { NotificationCountersProvider } from "@/context/NotificationCountersContext";
 import { GameUpdateProvider } from "@/context/GameUpdateContext";
 import { I18nextProvider, useTranslation } from 'react-i18next';
-import i18n, { initI18n } from "@/i18n";
+import i18n, { initI18n, isLanguageSwitching, subscribeLanguageSwitching } from "@/i18n";
 import { SocketManager } from "@/services/socketManager";
 import AgeGate from "@/components/AgeGate";
 import { ColorModeProvider, useColorMode } from "@/theme/ColorModeContext";
@@ -90,6 +90,9 @@ function RootLayout() {
 function RootLayoutInner() {
   const [i18nLoaded, setI18nLoaded] = useState(false);
   const { colorMode } = useColorMode();
+  const [switchingLang, setSwitchingLang] = useState(isLanguageSwitching());
+
+  useEffect(() => subscribeLanguageSwitching(setSwitchingLang), []);
 
   useEffect(() => {
     const timeout = new Promise((resolve) => setTimeout(resolve, 2000));
@@ -109,7 +112,7 @@ function RootLayoutInner() {
     }
   }, [i18nLoaded]);
 
-  if (!i18nLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>Loading i18n...</Text></View>;
+  if (!i18nLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><ActivityIndicator size="large" color="#10b981" /></View>;
 
   return (
     <I18nextProvider i18n={i18n}>
@@ -123,6 +126,14 @@ function RootLayoutInner() {
                     <GameUpdateProvider>
                       <Stack screenOptions={{ headerShown: false }} />
                       <AgeGate />
+                      {switchingLang && (
+                        <View
+                          pointerEvents="auto"
+                          style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: colorMode === 'dark' ? '#0b1220' : '#ffffff', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <ActivityIndicator size="large" color="#10b981" />
+                        </View>
+                      )}
                     </GameUpdateProvider>
                   </NotificationCountersProvider>
                 </NotificationProvider>

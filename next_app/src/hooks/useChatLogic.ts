@@ -6,6 +6,7 @@ import { useChat } from "@/context/ChatContext";
 import { chatsApi, usersApi } from "@/services/api";
 import { ChatMessage, Reaction, MessageStatus } from "@/components/types";
 import { useSocket } from "@/context/SocketContext";
+import { canMarkRead, syncReadState } from "@/utils/chatRead";
 import { SEND_TIMEOUT_MS, markFailed, markPending, discardFailed, applyStatusUpdate } from "@joinup/shared/chatSend";
 
 // Mirrors MAX_MESSAGE_LENGTH in server/services/chatSafety.js.
@@ -56,8 +57,7 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
     const suspendedRef = useRef(suspended);
     suspendedRef.current = suspended;
     const canReadNow = () =>
-        !suspendedRef.current && typeof document !== "undefined" &&
-        document.visibilityState === "visible";
+        typeof document !== "undefined" && canMarkRead(suspendedRef.current, document.visibilityState);
     const sendTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     // Room whose locally-saved unsent messages were already merged into `messages`.
     const [restoredRoom, setRestoredRoom] = useState<string | null>(null);
@@ -170,7 +170,7 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
 
         // Emit initial setup
         socketInstance.emit("joinRoom", roomId);
-        if (canReadNow()) socketInstance.emit("markAsRead", { roomId, userId: user.id });
+        syncReadState(socketInstance, roomId, user.id, canReadNow());
         // Presence is pushed only to subscribers; the server answers with the current state right away.
         if (otherUserId) socketInstance.emit("subscribePresence", otherUserId);
 
@@ -218,7 +218,7 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
                     return [...prev, incomingMsg];
                 }
             });
-            if (incomingMsg.userId !== user?.id && canReadNow()) socketInstance.emit("markAsRead", { roomId, userId: user?.id });
+            if (incomingMsg.userId !== user?.id) syncReadState(socketInstance, roomId, user?.id, canReadNow());
         };
 
         const handleMessageUpdated = (payload: any) => {
@@ -255,7 +255,7 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
 
         // Mark as read once the chat becomes visible/focused again.
         const markReadIfVisible = () => {
-            if (canReadNow()) socketInstance.emit("markAsRead", { roomId, userId: user.id });
+            syncReadState(socketInstance, roomId, user.id, canReadNow());
         };
         window.addEventListener("focus", markReadIfVisible);
         document.addEventListener("visibilitychange", markReadIfVisible);
@@ -285,12 +285,20 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
         };
     }, [socketInstance, isConnected, roomId, user?.id, otherUserId]);
 
-    // Widget maximized again: read what arrived while it was minimized.
+    // Report visibility to the server and read what arrived while hidden. Re-runs when the widget
+    // is minimized/maximized and whenever the socket (re)connects, so un-minimizing, a reconnect
+    // and a hidden->visible tab all end up marking read once the chat is really on screen.
     useEffect(() => {
-        if (suspended || !socketInstance || !isConnected || !roomId || !user?.id) return;
-        if (canReadNow()) socketInstance.emit("markAsRead", { roomId, userId: user.id });
+        if (!socketInstance || !isConnected || !roomId || !user?.id) return;
+        syncReadState(socketInstance, roomId, user.id, canReadNow());
+        const sock = socketInstance;
+        const uid = user.id;
+        return () => {
+            // Chat unmounted / room switched: it is no longer on screen.
+            syncReadState(sock, roomId, uid, false);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [suspended]);
+    }, [suspended, socketInstance, isConnected, roomId, user?.id]);
 
     // 4. Hydrate Users
     useEffect(() => {
