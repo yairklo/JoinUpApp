@@ -30,11 +30,13 @@ interface RequestConfig extends RequestInit {
     data?: any;
     silent?: boolean;
     signal?: AbortSignal;
-    /** Abort the request after this many ms (default 20s) so dead connections surface as errors. */
+    /** Abort the request after this many ms (default 20s for GET, 60s for mutations) so dead connections surface as errors. */
     timeoutMs?: number;
 }
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
+/** Mutations/uploads can be slow on a cold backend and may already be applied server-side, so allow longer. */
+export const MUTATION_REQUEST_TIMEOUT_MS = 60000;
 
 /** Combine a caller's abort signal with a timeout. `cleanup` must be called when the request settles. */
 function withRequestTimeout(signal: AbortSignal | undefined, timeoutMs: number) {
@@ -59,13 +61,15 @@ function withRequestTimeout(signal: AbortSignal | undefined, timeoutMs: number) 
     };
 }
 
-export async function apiClient<T>(endpoint: string, { token, data, signal, silent, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, ...customConfig }: RequestConfig = {}): Promise<T> {
+export async function apiClient<T>(endpoint: string, { token, data, signal, silent, timeoutMs: timeoutOverride, ...customConfig }: RequestConfig = {}): Promise<T> {
     const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...customConfig.headers,
     };
 
+    const method = String(customConfig.method || (data ? 'POST' : 'GET')).toUpperCase();
+    const timeoutMs = timeoutOverride ?? (method === 'GET' ? DEFAULT_REQUEST_TIMEOUT_MS : MUTATION_REQUEST_TIMEOUT_MS);
     const timeout = withRequestTimeout(signal, timeoutMs);
     const config: RequestInit = {
         method: data ? 'POST' : 'GET',

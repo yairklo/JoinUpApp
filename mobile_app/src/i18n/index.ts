@@ -68,6 +68,7 @@ export const subscribeLanguageSwitching = (l: (v: boolean) => void) => {
   };
 };
 
+const RELOAD_SAFETY_TIMEOUT_MS = 8000;
 const RTL_RELOAD_KEY = 'rtl_reload_for';
 
 /** Reloads the JS bundle so the native layout direction takes effect. Returns false if it could not. */
@@ -75,6 +76,9 @@ const reloadApp = async (): Promise<boolean> => {
   if (Platform.OS === 'web') return false;
   try {
     await Updates.reloadAsync();
+    // A real reload tears this JS context down; if we are still running shortly after,
+    // reloadAsync resolved without reloading — never leave the overlay stuck.
+    setTimeout(() => setSwitching(false), RELOAD_SAFETY_TIMEOUT_MS);
     return true;
   } catch (e) {
     console.warn('Updates.reloadAsync failed:', e);

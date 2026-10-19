@@ -75,6 +75,25 @@ function canManagePickSession(game, userId) {
   );
 }
 
+/**
+ * Single authorization check for viewing the live pick session (REST + socket): organizer,
+ * MANAGER/CAPTAIN role holders, or captain participants. Does not change who drafts
+ * (see getManagerIdsForGame).
+ */
+async function canAccessPickSession(gameId, userId) {
+  const game = await prisma.game.findUnique({
+    where: { id: String(gameId) },
+    select: {
+      organizerId: true,
+      roles: { select: { userId: true, role: true } },
+      participants: { where: { isCaptain: true }, select: { userId: true } },
+    },
+  });
+  if (!game) return false;
+  if (canManagePickSession(game, userId)) return true;
+  return game.participants.some((p) => p.userId === userId);
+}
+
 async function assertCanManagePick(gameId, userId) {
   const game = await prisma.game.findUnique({
     where: { id: gameId },
@@ -725,6 +744,7 @@ module.exports = {
   parseTurnOrder,
   getManagerIdsForGame,
   canManagePickSession,
+  canAccessPickSession,
   assertCanManagePick,
   assignManagersToOwnTeams,
   computeBench,

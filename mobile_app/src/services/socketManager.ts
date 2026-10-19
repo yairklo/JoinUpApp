@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { AppState } from 'react-native';
 import { SOCKET_BASE } from './api/client';
 
 let socket: Socket | null = null;
@@ -22,12 +23,14 @@ const STUCK_CONNECTING_MS = 50_000;
  * After airplane mode / long offline the socket can sit in `isConnecting` forever, exhaust its
  * reconnection attempts, or be in cooldown. This restarts the connection attempt regardless.
  */
-function kickReconnect(ignoreCooldown: boolean) {
+function kickReconnect(opts: { resetCooldown: boolean }) {
   if (!socket || socket.connected) return;
   if (isConnecting && Date.now() - connectingSince < STUCK_CONNECTING_MS) return;
-  if (!ignoreCooldown && isInCooldown()) return;
-  reconnectCooldownUntil = 0;
-  consecutiveFailures = 0;
+  if (!opts.resetCooldown && isInCooldown()) return;
+  if (opts.resetCooldown) {
+    reconnectCooldownUntil = 0;
+    consecutiveFailures = 0;
+  }
   socket.io.reconnection(true);
   isConnecting = true;
   connectingSince = Date.now();
@@ -36,9 +39,15 @@ function kickReconnect(ignoreCooldown: boolean) {
   });
 }
 
+/** Watchdog only runs while signed in (authRefresher set) and the app is in the foreground. */
+function watchdogTick() {
+  if (!authRefresher || AppState.currentState !== 'active') return;
+  kickReconnect({ resetCooldown: false });
+}
+
 function startWatchdog() {
   if (watchdog) return;
-  watchdog = setInterval(() => kickReconnect(false), WATCHDOG_INTERVAL_MS);
+  watchdog = setInterval(watchdogTick, WATCHDOG_INTERVAL_MS);
 }
 
 /**
@@ -249,12 +258,12 @@ export const SocketManager = {
   },
 
   ensureConnected() {
-    kickReconnect(false);
+    kickReconnect({ resetCooldown: false });
   },
 
   /** Call when the app returns to the foreground / network may have returned: skips cooldown. */
   reconnectNow() {
-    kickReconnect(true);
+    kickReconnect({ resetCooldown: true });
   },
 
   disconnect() {

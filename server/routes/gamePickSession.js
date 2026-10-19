@@ -2,7 +2,7 @@ const express = require('express');
 const { authenticateToken } = require('../utils/auth');
 const {
   buildPickSessionState,
-  assertCanManagePick,
+  canAccessPickSession,
   updatePickSchedule,
   executePickDraw,
   reorderPickTurnOrder,
@@ -25,12 +25,11 @@ function handleError(res, error, fallback) {
 // GET /api/games/:id/pick-session
 router.get('/:id/pick-session', authenticateToken, async (req, res) => {
   try {
+    // Authorize first so non-managers never trigger the self-healing writes in buildPickSessionState.
+    if (!(await canAccessPickSession(req.params.id, req.user.id))) {
+      return res.status(403).json({ error: 'Managers only' });
+    }
     const state = await buildPickSessionState(req.params.id, req.user.id);
-    const isManager =
-      state.organizerId === req.user.id ||
-      (state.managers || []).some((m) => m.id === req.user.id);
-    // Game-role MANAGERs are not draft participants but may still open team management.
-    if (!isManager) await assertCanManagePick(req.params.id, req.user.id);
     return res.json(state);
   } catch (e) {
     return handleError(res, e, 'Failed to load pick session');

@@ -78,16 +78,6 @@ export default function OfflineStatusToast() {
     }
   }, [isConnected]);
 
-  // Network is back but the socket is slow/stuck: do not leave the user without confirmation.
-  useEffect(() => {
-    if (!awaitingSocket) return;
-    const t = setTimeout(() => {
-      setAwaitingSocket(false);
-      setShowBackOnline(true);
-    }, 10000);
-    return () => clearTimeout(t);
-  }, [awaitingSocket]);
-
   // Offline again before the socket came back: forget the pending announcement.
   useEffect(() => {
     if (isOffline) setAwaitingSocket(false);

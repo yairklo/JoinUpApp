@@ -509,9 +509,8 @@ io.on('connection', async (socket) => {
   socket.on('joinPickSession', async (gameId) => {
     try {
       if (!socket.userId || !gameId) return;
-      const { getManagerIdsForGame, buildPickSessionState, canManagePickSession } = require('./services/pickSessionService');
-      const managerIds = await getManagerIdsForGame(String(gameId));
-      let allowed = managerIds.includes(String(socket.userId));
+      const { buildPickSessionState, canAccessPickSession } = require('./services/pickSessionService');
+      const allowed = await canAccessPickSession(String(gameId), String(socket.userId));
       if (!allowed) {
         const g = await prisma.game.findUnique({
           where: { id: String(gameId) },

@@ -258,6 +258,16 @@ export default function GameDetailsScreen() {
     const isOrganizer = game.organizerId === user?.id;
     const isManager = game.managers?.some(m => m.id === user?.id && (m.role === 'MANAGER' || m.role === 'MODERATOR')) || false;
     const canManage = isOrganizer || isManager;
+    // Must match the server (assertCanManagePick): organizer, MANAGER or CAPTAIN roles only.
+    const canManageTeams = isOrganizer
+        || (game.managers?.some(m => m.id === user?.id && (m.role === 'MANAGER' || m.role === 'CAPTAIN')) || false);
+    const manageTeamsAction = (
+        <SecondaryAction
+            label={t('game.manageTeams', 'נהל קבוצות')}
+            icon="users"
+            onPress={() => router.push(`/game/teams/${game.id}`)}
+        />
+    );
     const isWaitlistOfferPending = hasWaitlistOffer(game);
     // Never show a dead-end "ממתין לאישור" for PENDING — offer CTAs always win.
     // Organizer-approval-only is handled inside offer error handling if confirm fails.
@@ -584,11 +594,7 @@ export default function GameDetailsScreen() {
                             icon="pencil"
                             onPress={() => router.push(`/game/edit/${game.id}`)}
                         />
-                        <SecondaryAction
-                            label={t('game.manageTeams', 'נהל קבוצות')}
-                            icon="users"
-                            onPress={() => router.push(`/game/teams/${game.id}`)}
-                        />
+                        {manageTeamsAction}
                         {/* Series Management */}
                         {game.seriesId ? (
                             <SecondaryAction
@@ -615,13 +621,9 @@ export default function GameDetailsScreen() {
                 )}
 
                 {/* Game-role managers (not the organizer) get team management only */}
-                {!isOrganizer && isManager && (
+                {!isOrganizer && canManageTeams && (
                     <View className="px-4 pt-2 pb-4">
-                        <SecondaryAction
-                            label={t('game.manageTeams', 'נהל קבוצות')}
-                            icon="users"
-                            onPress={() => router.push(`/game/teams/${game.id}`)}
-                        />
+                        {manageTeamsAction}
                     </View>
                 )}
 
