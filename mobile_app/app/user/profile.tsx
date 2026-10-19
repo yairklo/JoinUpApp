@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList, KeyboardAvoidingView } from 'react-native';
 import { gameStartMs } from '@/utils/timezone';
 import React, { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
@@ -301,6 +301,8 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
             </View>
 
+            {/* Edge-to-edge Android does not resize for the keyboard, so pad explicitly on both platforms. */}
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
             <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
                 {/* Header details */}
                 <View className="items-center py-6 bg-white rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
@@ -727,6 +729,7 @@ export default function ProfileScreen() {
                     <Text className="text-red-600 font-bold text-lg">{t("profile.signOut", "התנתק")}</Text>
                 </TouchableOpacity>
             </ScrollView>
+            </KeyboardAvoidingView>
 
             {/* Sport Picker Modal */}
             <Modal
