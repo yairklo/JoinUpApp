@@ -179,7 +179,7 @@ function MessageBubble({
                             {isMe && message.status !== 'blocked' && (
                                 <View className="ml-1">
                                     <Ionicons
-                                        name={message.status === 'read' ? "checkmark-done" : "checkmark"}
+                                        name={message.status === 'pending' ? "checkmark" : "checkmark-done"}
                                         size={12}
                                         color={message.status === 'read' ? "#93c5fd" : "#bfdbfe"}
                                     />

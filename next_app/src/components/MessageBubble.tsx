@@ -102,9 +102,11 @@ export default function MessageBubble({
         if (!isMine || message.isDeleted) return null;
         const status = message.status || "sent";
         const iconSize = { fontSize: 14 };
-        // Mirrors mobile: one tick until read, two ticks once read. Light blues stay legible on the green bubble.
+        // Mirrors mobile: 1 tick = sending (optimistic), 2 light ticks = server confirmed, 2 blue = read.
+        // Light blues stay legible on the green bubble.
         if (status === "read") return <DoneAllIcon sx={{ ...iconSize, color: "#93c5fd" }} />;
-        return <DoneIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
+        if (status === "pending") return <DoneIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
+        return <DoneAllIcon sx={{ ...iconSize, color: "#bfdbfe" }} />;
     };
 
     return (

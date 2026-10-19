@@ -241,7 +241,7 @@ export function useChatLogic({ roomId, chatName }: UseChatLogicProps) {
             const optimisticMessage: ChatMessage & { content: string } = {
                 id: optimisticId, text: trimmed, content: trimmed, roomId,
                 userId: user?.id || "anon", senderId: user?.id || "anon", senderName: myName || "Me",
-                ts: new Date().toISOString(), status: "sent",
+                ts: new Date().toISOString(), status: "pending",
                 sender: { id: user?.id, name: myName || undefined, image: myAvatar || undefined },
                 replyTo: replyToMessage ? {
                     id: replyToMessage.id, text: replyToMessage.text,

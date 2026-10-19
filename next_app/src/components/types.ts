@@ -17,7 +17,7 @@ export type ReplyInfo = {
     };
 };
 
-export type MessageStatus = "sent" | "delivered" | "read" | "rejected" | "blocked";
+export type MessageStatus = "pending" | "sent" | "delivered" | "read" | "rejected" | "blocked";
 
 export type ChatMessage = {
     id: number | string;

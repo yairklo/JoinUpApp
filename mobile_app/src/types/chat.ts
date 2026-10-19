@@ -28,4 +28,4 @@ export interface Reaction {
     ts?: string;
 }
 
-export type MessageStatus = 'sent' | 'delivered' | 'read' | 'rejected' | string;
+export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'rejected' | string;
