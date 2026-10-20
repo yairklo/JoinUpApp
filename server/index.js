@@ -22,6 +22,7 @@ const { Server } = require('socket.io');
 const { prisma } = require('./lib/prisma');
 const { createClient, closeSharedRedis, isRedisHealthy } = require('./lib/redis');
 const { attachSocketAdapter } = require('./socket/adapter');
+const { isUserOnline, hasOtherUserInRoom } = require('./utils/socketPresence');
 const { setChatView, canSocketMarkRead } = require('./utils/chatViewState');
 
 // Import routes
@@ -303,12 +304,6 @@ async function socketAuthMiddleware(socket, next) {
 
 io.use(socketAuthMiddleware);
 
-// A user is "online" if they have at least one active socket in their personal room
-function isUserOnline(userId) {
-  const room = io.sockets.adapter.rooms.get(`user_${userId}`);
-  return !!(room && room.size > 0);
-}
-
 // Redis: moderation fan-out + optional worker→API socket bridge
 const { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent, localTarget } = require('./utils/socketBridge');
 if (enableRedis) {
@@ -414,18 +409,17 @@ io.on('connection', async (socket) => {
     }
   }
 
-  socket.on('disconnect', () => {
-    // Check if user has other connections? 
-    // For simplicity in this scale: if specific socket disconnects, check if user still has connected sockets
-    // io.sockets.adapter.rooms.get(`user_${socket.userId}`) might be empty now?
-    // Actually, socket.io rooms are accurate.
-    // If `user_${socket.userId}` room is empty, user is offline.
+  socket.on('disconnect', async () => {
+    // The socket has already left its rooms. If `user_<id>` is now empty on EVERY instance
+    // (cluster-wide via fetchSockets), the user is offline. Two last tabs on different nodes
+    // closing in the same instant can both still see the other; accepted (presence is approximate).
     if (socket.userId) {
-      // Allow a small delay to handle page refreshes without flickering?
-      // For now, immediate.
-      const room = io.sockets.adapter.rooms.get(`user_${socket.userId}`);
-      if (!room || room.size === 0) {
-        io.to(`presence_listener_${socket.userId}`).emit('presence:update', { userId: socket.userId, isOnline: false });
+      try {
+        if (!(await isUserOnline(io, socket.userId))) {
+          io.to(`presence_listener_${socket.userId}`).emit('presence:update', { userId: socket.userId, isOnline: false });
+        }
+      } catch (e) {
+        console.error('[presence] disconnect check failed:', e && e.message);
       }
     }
   });
@@ -442,9 +436,8 @@ io.on('connection', async (socket) => {
       socket.join(listenerRoom);
     }
     // Emit initial status
-    // Check if target user has any active sockets in their "user_ID" room
-    const room = io.sockets.adapter.rooms.get(`user_${targetUserId}`);
-    const isOnline = !!(room && room.size > 0);
+    // Check if target user has any active sockets (on any instance) in their "user_ID" room
+    const isOnline = await isUserOnline(io, targetUserId);
     socket.emit('presence:update', { userId: targetUserId, isOnline });
   });
 
@@ -644,13 +637,7 @@ io.on('connection', async (socket) => {
     // Check active users in room to determine initial status
     if (initialStatus === 'sent') {
       // Delivered = a socket of ANOTHER user is in the room (the sender's own tabs don't count).
-      const clients = io.sockets.adapter.rooms.get(String(roomId));
-      if (clients) {
-        for (const sid of clients) {
-          const other = io.sockets.sockets.get(sid);
-          if (other && String(other.userId) !== String(socket.userId)) { initialStatus = 'delivered'; break; }
-        }
-      }
+      if (await hasOtherUserInRoom(io, String(roomId), socket.userId)) initialStatus = 'delivered';
     }
     // ---------------------------------
 
