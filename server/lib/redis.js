@@ -69,12 +69,17 @@ function getRedis() {
   return shared;
 }
 
-/** pub + sub pair for @socket.io/redis-adapter. The adapter manages its own subscriptions. */
+/**
+ * pub + sub pair for @socket.io/redis-adapter.
+ * - pub is fail-fast: with Redis down a publish rejects at once instead of queueing and flooding
+ *   stale events on reconnect (local delivery already happened; clients refetch on reconnect).
+ * - sub queues its (re)subscribe commands until connected and never gives up, so a Redis that is
+ *   down at boot still gets subscribed to as soon as it comes back.
+ */
 function createAdapterClients(url = getUrl()) {
   if (!url) return null;
-  const pub = createClient({ url, label: 'adapter-pub' });
-  const sub = pub.duplicate();
-  attachLogging(sub, 'adapter-sub');
+  const pub = createClient({ url, label: 'adapter-pub', failFast: true, commandTimeout: 2000 });
+  const sub = createClient({ url, label: 'adapter-sub', maxRetriesPerRequest: null });
   return { pub, sub };
 }
 
