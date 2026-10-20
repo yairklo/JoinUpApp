@@ -145,7 +145,7 @@ cmd_deploy() {
     if [ -n "$prev" ] && [ "$prev" != "$sha" ]; then echo "$prev" > "$STATE_DIR/previous"; fi
     echo "$sha" > "$STATE_DIR/current"
     echo ">> OK: $sha is live"
-    [ ! -s "$STATE_DIR/old_containers" ] || echo ">> old containers remain stopped (not removed): $(tr '\n' ' ' < "$STATE_DIR/old_containers")"
+    [ "$first" != 1 ] || [ ! -s "$STATE_DIR/old_containers" ] || echo ">> old containers remain stopped (not removed): $(tr '\n' ' ' < "$STATE_DIR/old_containers")"
     prune_images
     return 0
   fi
