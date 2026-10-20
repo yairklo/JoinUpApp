@@ -113,9 +113,9 @@ describe('Friends-only games: link policy', () => {
       expect(res.body.joinPolicy).toBe('REQUIRES_APPROVAL');
     });
 
-    test('an anonymous viewer can view it', async () => {
+    test('an anonymous viewer must sign in first', async () => {
       const res = await request(app).get(`/api/games/${game.id}`);
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode).toBe(401);
     });
 
     test('the organizer sees the real join policy', async () => {
@@ -176,9 +176,9 @@ describe('Friends-only games: link policy', () => {
       expect(res.body.participants).toBeUndefined();
     });
 
-    test('an anonymous viewer cannot view it', async () => {
+    test('an anonymous viewer cannot view it (401)', async () => {
       const res = await request(app).get(`/api/games/${game.id}`);
-      expect(res.statusCode).toBe(403);
+      expect(res.statusCode).toBe(401);
     });
 
     test('a stranger cannot join it, and nothing is written', async () => {

@@ -137,7 +137,7 @@ describe('Friends-only series (groups)', () => {
       const res = await request(app).get(`/api/series/${blocked.id}`).set(auth('tok_stranger'));
       expect(res.statusCode).toBe(403);
       expect(res.body.code).toBe('SERIES_FRIENDS_ONLY');
-      expect((await request(app).get(`/api/series/${blocked.id}`)).statusCode).toBe(403);
+      expect((await request(app).get(`/api/series/${blocked.id}`)).statusCode).toBe(401);
       for (const tok of ['tok_friend', 'tok_member', 'tok_org']) {
         const ok = await request(app).get(`/api/series/${blocked.id}`).set(auth(tok));
         expect(ok.statusCode).toBe(200);

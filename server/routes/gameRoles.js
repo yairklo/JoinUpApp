@@ -14,7 +14,7 @@ const { getAgeInJerusalem } = require('../shared/ageGate');
 const router = express.Router();
 
 // List roles for a game
-router.get('/:id/roles', attachOptionalUser, async (req, res) => {
+router.get('/:id/roles', authenticateToken, async (req, res) => {
   try {
     const game = await prisma.game.findUnique({
       where: { id: req.params.id },

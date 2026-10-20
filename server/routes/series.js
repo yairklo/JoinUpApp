@@ -193,7 +193,7 @@ router.get('/active', attachOptionalUser, async (req, res) => {
 });
 
 // Public: series details (organizer, subscribers, upcoming games)
-router.get('/:seriesId', attachOptionalUser, async (req, res) => {
+router.get('/:seriesId', authenticateToken, async (req, res) => {
   try {
     const { seriesId: rawId } = req.params;
     let seriesId = rawId;

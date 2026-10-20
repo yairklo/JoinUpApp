@@ -135,7 +135,7 @@ describe('Group (series) default settings', () => {
     });
 
     test('GET /api/series/:id exposes the group defaults', async () => {
-      const res = await request(app).get(`/api/series/${seriesId}`);
+      const res = await request(app).get(`/api/series/${seriesId}`).set('Authorization', orgAuth);
       expect(res.statusCode).toEqual(200);
       expect(res.body).toMatchObject({
         maxPlayers: 12,
@@ -152,7 +152,7 @@ describe('Group (series) default settings', () => {
     });
 
     test('GET /api/series/:id returns each upcoming game with its Jerusalem start time', async () => {
-      const res = await request(app).get(`/api/series/${seriesId}`);
+      const res = await request(app).get(`/api/series/${seriesId}`).set('Authorization', orgAuth);
       expect(res.statusCode).toEqual(200);
       expect(res.body.upcomingGames.length).toBeGreaterThan(0);
       for (const g of res.body.upcomingGames) {
@@ -303,7 +303,7 @@ describe('Group (series) default settings', () => {
     });
 
     test('is not listed among the series upcoming games', async () => {
-      const res = await request(app).get(`/api/series/${seriesId}`);
+      const res = await request(app).get(`/api/series/${seriesId}`).set('Authorization', orgAuth);
       expect(res.statusCode).toEqual(200);
       expect(res.body.upcomingGames.length).toBeGreaterThan(0);
       expect(res.body.upcomingGames.map((g) => g.id)).not.toContain(cancelledId);

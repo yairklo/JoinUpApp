@@ -107,6 +107,34 @@ describe('Q-01: blocked private messages never reach a minor', () => {
     expect(asAuthor.body.find((m) => m.id === clean.id).replyTo.text).toBe('זונה');
   });
 
+  test('the one-off script puts already-exposed blocked messages back to blocked', async () => {
+    const { restoreBlockedMessages } = require('../scripts/restoreBlockedMessages');
+    await prisma.message.deleteMany({ where: { chatRoomId: roomId } });
+    await prisma.flaggedMessage.deleteMany({ where: { userId: 'qp_adult' } });
+    const exposed = await prisma.message.create({ data: { chatRoomId: roomId, userId: 'qp_adult', text: 'שרמוטה', status: 'read' } });
+    const harmless = await prisma.message.create({ data: { chatRoomId: roomId, userId: 'qp_adult', text: 'שלום', status: 'read' } });
+    await prisma.flaggedMessage.create({
+      data: {
+        content: 'שרמוטה', userId: 'qp_adult', status: 'PENDING_REVIEW',
+        aiTriggers: { source: 'blocked_attempt', reason: 'severe_slur', roomId },
+      },
+    });
+
+    const dry = await restoreBlockedMessages(prisma);
+    expect(dry.ids).toContain(exposed.id);
+    expect(dry.ids).not.toContain(harmless.id);
+    expect((await prisma.message.findUnique({ where: { id: exposed.id } })).status).toBe('read');
+
+    const applied = await restoreBlockedMessages(prisma, { apply: true });
+    expect(applied.restored).toBeGreaterThanOrEqual(1);
+    expect((await prisma.message.findUnique({ where: { id: exposed.id } })).status).toBe('blocked');
+    expect((await prisma.message.findUnique({ where: { id: harmless.id } })).status).toBe('read');
+
+    const history = await request(app).get('/api/messages').query({ roomId }).set(auth('qp_minor'));
+    expect(history.body.map((m) => m.text)).toEqual(['שלום']);
+    expect((await restoreBlockedMessages(prisma, { apply: true })).restored).toBe(0);
+  });
+
   test('blocked messages are not counted as unread and not shown as the last message', async () => {
     await prisma.message.updateMany({ where: { chatRoomId: roomId, status: 'read' }, data: { status: 'sent' } });
     await prisma.message.deleteMany({ where: { chatRoomId: roomId, status: { not: 'blocked' } } });
@@ -181,19 +209,23 @@ describe('Q-02: friends-only game details for logged-out and outsider viewers', 
     expect(res.body.managers).toEqual([]);
   }
 
-  test('anonymous request (no auth header) gets no roster, no minors, no email', async () => {
-    const res = await request(app).get(`/api/games/${game.id}`);
+  test('logged-out requests are rejected with 401 and carry no game data', async () => {
+    for (const url of [`/api/games/${game.id}`, `/api/games/${publicGame.id}`, `/api/games/${game.id}/roles`]) {
+      const res = await request(app).get(url);
+      expect(res.statusCode).toBe(401);
+      const raw = JSON.stringify(res.body);
+      expect(raw).not.toContain('qp_g_');
+      expect(raw).not.toContain(EMAIL);
+    }
+  });
+
+  test('a logged-in outsider gets no roster, no minors, no email, no address', async () => {
+    const res = await request(app).get(`/api/games/${game.id}`).set(auth('qp_stranger'));
     expect(res.statusCode).toBe(200);
     expectNoLeak(res);
     expect(res.body.viewerJoinRequiresApproval).toBe(true);
     expect(res.body.confirmedCount).toBe(3); // counts survive redaction
     expect(res.body.fieldLocation).toBe('');
-  });
-
-  test('a logged-in outsider is redacted the same way', async () => {
-    const res = await request(app).get(`/api/games/${game.id}`).set(auth('qp_stranger'));
-    expect(res.statusCode).toBe(200);
-    expectNoLeak(res);
   });
 
   test('the organizer still sees the roster, with the email shown as a neutral name', async () => {
@@ -223,11 +255,9 @@ describe('Q-02: friends-only game details for logged-out and outsider viewers', 
         { gameId: publicGame.id, userId: 'qp_g_minor', role: 'MANAGER' },
       ],
     });
-    const anonRoles = await request(app).get(`/api/games/${game.id}/roles`);
-    expect(anonRoles.statusCode).toBe(200);
-    expect(anonRoles.body.managers).toEqual([]);
-    const anonPublic = await request(app).get(`/api/games/${publicGame.id}/roles`);
-    expect(JSON.stringify(anonPublic.body)).not.toContain('qp_g_minor');
+    const outsiderRoles = await request(app).get(`/api/games/${game.id}/roles`).set(auth('qp_stranger'));
+    expect(outsiderRoles.statusCode).toBe(200);
+    expect(outsiderRoles.body.managers).toEqual([]);
     const authedPublic = await request(app).get(`/api/games/${publicGame.id}/roles`).set(auth('qp_stranger'));
     expect(authedPublic.body.managers.map((m) => m.id)).toContain('qp_g_minor');
 
@@ -237,12 +267,10 @@ describe('Q-02: friends-only game details for logged-out and outsider viewers', 
     expectNoLeak(leave);
   });
 
-  test('public game, anonymous: minors are hidden, adults shown, no email as a name', async () => {
-    const res = await request(app).get(`/api/games/${publicGame.id}`);
+  test('public game, signed in: roster visible, no email shown as a name', async () => {
+    const res = await request(app).get(`/api/games/${publicGame.id}`).set(auth('qp_stranger'));
     expect(res.statusCode).toBe(200);
-    const raw = JSON.stringify(res.body);
-    expect(raw).not.toContain(EMAIL);
-    expect(raw).not.toContain('qp_g_minor');
+    expect(JSON.stringify(res.body)).not.toContain(EMAIL);
     const byId = Object.fromEntries(res.body.participants.map((p) => [p.id, p.name]));
     expect(byId.qp_g_org).toBe('Org QA');
     expect(byId.qp_g_emailer).toBe('משתמש');
@@ -346,13 +374,14 @@ describe('Q-02 follow-ups: game lists and group pages for outsiders', () => {
     expect(row.participants.length).toBe(2);
   });
 
-  test('group page: outsiders get no member list, logged-out viewers never see minors', async () => {
+  test('group page: logged-out is 401, outsiders get no member list', async () => {
     const outsider = await request(app).get(`/api/series/${series.id}`).set(auth('qp_stranger'));
     expect(outsider.statusCode).toBe(200);
     expect(outsider.body.subscribers).toEqual([]);
 
     const anon = await request(app).get(`/api/series/${series.id}`);
-    expect(JSON.stringify(anon.body.subscribers)).not.toContain('qp_g_minor');
+    expect(anon.statusCode).toBe(401);
+    expect(JSON.stringify(anon.body)).not.toContain('qp_g_minor');
 
     const org = await request(app).get(`/api/series/${series.id}`).set(auth('qp_g_org'));
     expect(org.body.subscribers.map((s) => s.userId)).toContain('qp_g_minor');

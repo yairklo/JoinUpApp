@@ -173,7 +173,7 @@ router.get('/:id/ratings', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/:id', attachOptionalUser, async (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     res.json(await getGameById(req.params.id, req.user?.id, { isAdmin: !!req.user?.isAdmin }));
   } catch (error) {
