@@ -78,7 +78,8 @@ async function sendAutoWelcomeMessage(game, newPlayerId) {
 }
 
 const { prisma } = require('../lib/prisma');
-const { notificationName } = require('../utils/publicName');
+const { notificationName, publicDisplayName } = require('../utils/publicName');
+const { getAgeInJerusalem } = require('../shared/ageGate');
 const notificationService = new NotificationService(prisma);
 
 function httpError(message, status, details) {
@@ -118,16 +119,22 @@ function mapGameForClient(game, viewerId) {
   const lotteryAtIso = game.lotteryAt ? new Date(game.lotteryAt).toISOString() : null;
   const lotteryPending = !!game.lotteryEnabled && !game.lotteryExecutedAt && !!game.lotteryAt && now < new Date(game.lotteryAt);
   const overbooked = !!game.lotteryEnabled && !game.lotteryExecutedAt && totalSignups > game.maxPlayers;
-  const participants = confirmed.map(p => ({
+  // Anonymous viewers never see minors on a roster (counts stay accurate); emails never show as names.
+  const hiddenFromViewer = (p) => {
+    if (viewerId) return false;
+    const age = getAgeInJerusalem(p.user?.birthDate);
+    return age !== null && age < 18;
+  };
+  const participants = confirmed.filter(p => !hiddenFromViewer(p)).map(p => ({
     id: p.userId,
-    name: p.user?.name || null,
+    name: publicDisplayName(p.user?.name),
     avatar: p.user?.imageUrl || null,
     teamId: p.teamId || null,
     isCaptain: !!p.isCaptain
   }));
-  const waitlistParticipants = waitlisted.map(p => ({
+  const waitlistParticipants = waitlisted.filter(p => !hiddenFromViewer(p)).map(p => ({
     id: p.userId,
-    name: p.user?.name || null,
+    name: publicDisplayName(p.user?.name),
     avatar: p.user?.imageUrl || null,
     isCaptain: !!p.isCaptain
   }));
@@ -135,7 +142,7 @@ function mapGameForClient(game, viewerId) {
     .filter(r => r.role !== 'ORGANIZER')
     .map(r => ({
       id: r.userId,
-      name: r.user?.name || null,
+      name: publicDisplayName(r.user?.name),
       avatar: r.user?.imageUrl || null,
       role: r.role
     }));
@@ -146,7 +153,7 @@ function mapGameForClient(game, viewerId) {
   ].filter(Boolean).map(String));
   const teams = (game?.teams ? game.teams : []).map(t => {
     const playerIds = allParts
-      .filter(p => p && p.teamId === t.id)
+      .filter(p => p && p.teamId === t.id && !hiddenFromViewer(p))
       .map(p => p.userId)
       .filter(Boolean);
     // Display safety: if a team has a managerId, ensure they appear on the roster

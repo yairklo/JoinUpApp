@@ -184,6 +184,7 @@ app.use((req, res, next) => {
 app.set('io', io);
 
 // Routes — legacy JSON /api/auth is intentionally unmounted (Clerk is the only IdP)
+app.use('/api', require('./middleware/scrubEmailNames').scrubEmailNames);
 app.use('/api/fields', fieldsRoutes);
 app.use('/api/games', gamesRoutes);
 app.use('/api/series', seriesRoutes);
@@ -701,7 +702,7 @@ io.on('connection', async (socket) => {
       text: String(text),
       // Use DB data if available (Source of Truth), else optimistic params
       senderId: savedMsg?.userId || (finalUserId ? String(finalUserId) : String(socket.id)),
-      senderName: publicDisplayName(savedMsg?.user?.name, null) || publicDisplayName(senderName, null) || "Unknown",
+      senderName: publicDisplayName(savedMsg?.user?.name, null) || publicDisplayName(senderName, null) || "משתמש",
       ts: savedMsg ? savedMsg.createdAt.toISOString() : new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
       userId: savedMsg?.userId || (finalUserId ? String(finalUserId) : undefined),
@@ -936,7 +937,7 @@ io.on('connection', async (socket) => {
         where: {
           chatRoomId: String(roomId),
           userId: { not: String(userId) }, // Don't mark my own messages as read by me
-          status: { not: 'read' } // Only update if not already read
+          status: { notIn: ['read', 'blocked'] } // blocked stays blocked: never promote a moderated message to visible
         },
         data: {
           status: 'read'

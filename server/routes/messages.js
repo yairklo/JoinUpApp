@@ -25,7 +25,10 @@ router.get('/', authenticateToken, async (req, res) => {
     // Fetch the newest `take` messages, then flip back to chronological order for clients.
     // Ordering asc + take returned the OLDEST messages, hiding recent ones in busy rooms.
     const newestFirst = await prisma.message.findMany({
-      where: { chatRoomId: String(roomId) },
+      where: {
+        chatRoomId: String(roomId),
+        OR: [{ status: { not: 'blocked' } }, { userId: req.user.id }],
+      },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take,
       include: {

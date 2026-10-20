@@ -80,7 +80,22 @@ async function getGameAccess(prisma, game, viewerId, { isAdmin = false } = {}) {
 /** Per-viewer DTO tweak: an outsider sees the game as approval-gated (existing "request to join" UI). */
 function applyViewerAccess(dto, access) {
   dto.viewerJoinRequiresApproval = access === 'REQUEST';
-  if (access === 'REQUEST') dto.joinPolicy = 'REQUIRES_APPROVAL';
+  if (access === 'REQUEST') {
+    dto.joinPolicy = 'REQUIRES_APPROVAL';
+    // An outsider holding the link can ask to join, but must not see who plays or exactly where:
+    // that is the friends-only promise. Counts stay so the card still reads correctly.
+    dto.participants = [];
+    dto.waitlistParticipants = [];
+    dto.managers = [];
+    dto.teams = (dto.teams || []).map((t) => ({ ...t, managerId: null, playerIds: [] }));
+    dto.draftingManagerIds = dto.organizerId ? [String(dto.organizerId)] : [];
+    dto.customLocation = null;
+    dto.customLat = null;
+    dto.customLng = null;
+    dto.fieldLat = null;
+    dto.fieldLng = null;
+    dto.fieldLocation = '';
+  }
   return dto;
 }
 

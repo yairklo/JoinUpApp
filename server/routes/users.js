@@ -1202,7 +1202,7 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
         where: {
           chatRoomId: { in: chatIds },
           userId: { not: userId },
-          status: { not: 'read' }
+          status: { notIn: ['read', 'blocked'] }
         },
         _count: { id: true }
       });
@@ -1223,7 +1223,7 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
       // Determine Chat Name
       let chatName = 'Group Chat';
       if (chat.type === 'PRIVATE') {
-        chatName = publicDisplayName(otherParticipant?.name, null) || 'Unknown';
+        chatName = publicDisplayName(otherParticipant?.name);
       } else {
         // GROUP: Use Game Title if available
         const g = gameMap[chat.id];
