@@ -8,6 +8,17 @@ import { notificationsApi } from '@/services/api/notifications';
 import { useMyAvatar, useMyName } from '@/hooks/useMyAvatar';
 import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
+
+// "1.0.0 · preview · a1b2c3d4" — which store build and which OTA update is running. The update id
+// is only present when the running JS came from EAS Update rather than the bundle embedded in the build.
+function buildInfoLabel(): string {
+    const parts = [Constants.expoConfig?.version || '—'];
+    if (Updates.channel) parts.push(Updates.channel);
+    parts.push(Updates.isEmbeddedLaunch || !Updates.updateId ? 'embedded' : Updates.updateId.slice(0, 8));
+    return parts.join(' · ');
+}
 
 export default function SettingsScreen() {
     const { t } = useTranslation();
@@ -116,7 +127,7 @@ export default function SettingsScreen() {
                 {/* General Settings */}
                 <View className="bg-white mx-4 rounded-xl mb-4 shadow-sm overflow-hidden">
                     <TouchableOpacity
-                        className="p-4 flex-row justify-between items-center"
+                        className="p-4 flex-row justify-between items-center border-b border-gray-100"
                         onPress={() => router.push('/settings/notifications' as any)}
                     >
                         <View className="flex-row items-center flex-1">
@@ -127,6 +138,18 @@ export default function SettingsScreen() {
                                 <Text className="text-base text-gray-800 font-medium">{t('notificationSettings.title')}</Text>
                                 {!!notifSummary && <Text className="text-sm text-gray-500">{notifSummary}</Text>}
                             </View>
+                        </View>
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        className="p-4 flex-row justify-between items-center"
+                        onPress={() => router.push('/profile/settings' as any)}
+                    >
+                        <View className="flex-row items-center flex-1">
+                            <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
+                                <FontAwesome name="lock" size={15} color="#059669" />
+                            </View>
+                            <Text className="text-base text-gray-800 font-medium flex-1">{t('privacy.settings', 'הגדרות פרטיות')}</Text>
                         </View>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" />
                     </TouchableOpacity>
@@ -157,7 +180,7 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
                     <View className="p-4 flex-row items-center justify-between bg-gray-50">
                         <Text className="text-sm text-gray-500">{t('settings.version', 'Version')}</Text>
-                        <Text className="text-sm text-gray-500 font-bold">1.0.0 (Beta)</Text>
+                        <Text className="text-sm text-gray-500 font-bold">{buildInfoLabel()}</Text>
                     </View>
                 </View>
 
