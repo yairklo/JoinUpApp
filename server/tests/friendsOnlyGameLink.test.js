@@ -138,6 +138,22 @@ describe('Friends-only games: link policy', () => {
       expect((await participation(game.id, FRIEND)).status).toBe('CONFIRMED');
     });
 
+    test('a rejected outsider cannot re-join instantly', async () => {
+      await request(app).post(`/api/games/${game.id}/join`).set(auth('tok_stranger2'));
+      expect((await participation(game.id, STRANGER2)).status).toBe('PENDING');
+      const rej = await request(app)
+        .post(`/api/games/${game.id}/join-requests/${STRANGER2}/reject`).set(auth('tok_org'));
+      expect(rej.statusCode).toBe(200);
+
+      const view = await request(app).get(`/api/games/${game.id}`).set(auth('tok_stranger2'));
+      expect(view.statusCode).toBe(200);
+      expect(view.body.joinPolicy).toBe('REQUIRES_APPROVAL');
+
+      const again = await request(app).post(`/api/games/${game.id}/join`).set(auth('tok_stranger2'));
+      expect(again.statusCode).toBe(400);
+      expect((await participation(game.id, STRANGER2)).status).toBe('REJECTED');
+    });
+
     test('approving a non-lottery request confirms the player', async () => {
       const res = await request(app)
         .post(`/api/games/${game.id}/join-requests/${STRANGER}/approve`).set(auth('tok_org'));

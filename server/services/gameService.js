@@ -19,7 +19,9 @@ const { sanitizeFreeText } = require('../utils/sanitize');
 const { prismaFieldCityFilter } = require('../utils/cityAliases');
 const { cityMatchKeys } = require('../utils/notificationPrefs');
 const { getFriendIds: getFriendIdsFor } = require('../utils/friends');
-const { getGameAccess, normalizeLinkPolicy } = require('../utils/friendsOnlyAccess');
+const {
+  getGameAccess, applyViewerAccess, normalizeLinkPolicy, organizerIsFriendWhere, isGameFriendsOnlyNow,
+} = require('../utils/friendsOnlyAccess');
 const gameScheduler = require('./gameScheduler');
 
 // Defense-in-depth limits for free-text fields written by end users. React auto-escapes these
@@ -362,14 +364,7 @@ function buildVisibilityWhere(viewerId) {
       { friendsOnlyUntil: { lte: new Date() } },
       { organizerId: viewerId },
       { participants: { some: { userId: viewerId } } },
-      {
-        organizer: {
-          OR: [
-            { friendshipsA: { some: { userBId: viewerId } } },
-            { friendshipsB: { some: { userAId: viewerId } } },
-          ],
-        },
-      },
+      organizerIsFriendWhere(viewerId),
     ],
   };
 }
@@ -605,8 +600,23 @@ async function broadcastGameUpdate(io, gameId, preFetchedGame) {
   (game.participants || []).forEach(p => recipients.add(p.userId));
   (game.roles || []).forEach(r => recipients.add(r.userId));
 
+  // Friends-only: a pending/rejected outsider on the roster must keep seeing the game as
+  // approval-gated (same per-viewer view getGameById returns), or the live update flips their
+  // join button back to an instant join. Only those few rows need an access check.
+  const accessByUser = new Map();
+  if (isGameFriendsOnlyNow(game)) {
+    const outsiders = (game.participants || [])
+      .filter(p => ['PENDING', 'REJECTED'].includes(p.status) && p.userId !== game.organizerId)
+      .map(p => p.userId);
+    await Promise.all(outsiders.map(async (uid) => {
+      accessByUser.set(uid, await getGameAccess(prisma, game, uid));
+    }));
+  }
+
   recipients.forEach(uid => {
-    io.to(`user_${uid}`).emit('game:updated', mapGameForClient(game, uid));
+    const dto = mapGameForClient(game, uid);
+    if (accessByUser.has(uid)) applyViewerAccess(dto, accessByUser.get(uid));
+    io.to(`user_${uid}`).emit('game:updated', dto);
   });
 }
 
@@ -2090,12 +2100,9 @@ async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
     }
   }
 
-  const dto = mapGameForClient(game, viewerId);
   // Per-viewer response: an outsider sees the game as approval-gated, so the existing
   // "request to join" UI kicks in on web and mobile.
-  dto.viewerJoinRequiresApproval = access === 'REQUEST';
-  if (access === 'REQUEST') dto.joinPolicy = 'REQUIRES_APPROVAL';
-  return dto;
+  return applyViewerAccess(mapGameForClient(game, viewerId), access);
 }
 
 async function getGameRatings(gameId, viewerId) {

@@ -17,7 +17,9 @@ function makePrisma({ friends = [], participants = [], roles = [], members = [] 
     },
     participation: {
       findFirst: jest.fn(async ({ where }) =>
-        participants.some((p) => p.gameId === where.gameId && p.userId === where.userId) ? { id: 'p' } : null),
+        participants.find((p) => p.gameId === where.gameId && p.userId === where.userId)
+          ? { status: participants.find((p) => p.gameId === where.gameId && p.userId === where.userId).status || 'CONFIRMED' }
+          : null),
     },
     gameRole: {
       findFirst: jest.fn(async ({ where }) =>
@@ -93,14 +95,22 @@ describe('getGameAccess', () => {
     expect(await getGameAccess(prisma, game({ friendsOnlyLinkPolicy: 'BLOCKED' }), 'friend')).toBe('FULL');
   });
 
-  test('any roster row counts, from loaded participants or a query', async () => {
+  test('a non-rejected roster row counts, from loaded participants or a query', async () => {
     const blocked = game({ friendsOnlyLinkPolicy: 'BLOCKED' });
     const prisma = makePrisma();
-    expect(await getGameAccess(prisma, { ...blocked, participants: [{ userId: 'rej', status: 'REJECTED' }] }, 'rej')).toBe('FULL');
+    expect(await getGameAccess(prisma, { ...blocked, participants: [{ userId: 'wl', status: 'WAITLISTED' }] }, 'wl')).toBe('FULL');
     expect(prisma.participation.findFirst).not.toHaveBeenCalled();
 
     const queried = makePrisma({ participants: [{ gameId: 'g1', userId: 'inv' }] });
     expect(await getGameAccess(queried, blocked, 'inv')).toBe('FULL');
+  });
+
+  test('a REJECTED row keeps the game viewable but forces approval again', async () => {
+    const blocked = game({ friendsOnlyLinkPolicy: 'BLOCKED' });
+    const loaded = { ...blocked, participants: [{ userId: 'rej', status: 'REJECTED' }], roles: [] };
+    expect(await getGameAccess(makePrisma(), loaded, 'rej')).toBe('REQUEST');
+    // A rejected friend of the organizer is still an insider.
+    expect(await getGameAccess(makePrisma({ friends: [['rej', 'org']] }), loaded, 'rej')).toBe('FULL');
   });
 
   test('game role holder is FULL', async () => {

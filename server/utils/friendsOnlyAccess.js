@@ -42,36 +42,58 @@ async function getGameAccess(prisma, game, viewerId, { isAdmin = false } = {}) {
   if (!viewerId) return outsiderAccess(game.friendsOnlyLinkPolicy);
   if (game.organizerId === viewerId) return 'FULL';
 
-  // Any roster row counts (invited, pending request, waitlisted, even rejected): they already
-  // know the game, and hiding it now would only break their notification links.
-  const onRoster = Array.isArray(game.participants)
-    ? game.participants.some((p) => p.userId === viewerId)
-    : !!(await prisma.participation.findFirst({
+  // A roster row means they already know the game (invited, pending, waitlisted), so they keep
+  // full access. A REJECTED row only keeps the game viewable: joining must still go through
+  // approval, or a declined outsider could re-join instantly.
+  const row = Array.isArray(game.participants)
+    ? game.participants.find((p) => p.userId === viewerId)
+    : await prisma.participation.findFirst({
         where: { gameId: game.id, userId: viewerId },
-        select: { id: true },
-      }));
-  if (onRoster) return 'FULL';
+        select: { status: true },
+      });
+  if (row && row.status !== 'REJECTED') return 'FULL';
 
-  const hasRole = Array.isArray(game.roles)
-    ? game.roles.some((r) => r.userId === viewerId)
-    : !!(await prisma.gameRole.findFirst({
-        where: { gameId: game.id, userId: viewerId },
-        select: { id: true },
-      }));
-  if (hasRole) return 'FULL';
+  const hasLoadedRole = Array.isArray(game.roles) && game.roles.some((r) => r.userId === viewerId);
+  if (hasLoadedRole) return 'FULL';
 
-  // Group members can join every game of their group, including the ones generated before they
-  // were approved into it.
-  if (game.seriesId) {
-    const member = await prisma.seriesParticipant.findUnique({
-      where: { seriesId_userId: { seriesId: game.seriesId, userId: viewerId } },
-      select: { id: true },
-    });
-    if (member) return 'FULL';
-  }
+  // Independent checks, run together: a game role (when roles weren't loaded), membership of the
+  // game's group (members can join every game of it, including ones generated before they were
+  // approved), and friendship with the organizer.
+  const [role, member, friend] = await Promise.all([
+    Array.isArray(game.roles)
+      ? null
+      : prisma.gameRole.findFirst({ where: { gameId: game.id, userId: viewerId }, select: { id: true } }),
+    game.seriesId
+      ? prisma.seriesParticipant.findUnique({
+          where: { seriesId_userId: { seriesId: game.seriesId, userId: viewerId } },
+          select: { id: true },
+        })
+      : null,
+    areFriends(prisma, game.organizerId, viewerId),
+  ]);
+  if (role || member || friend) return 'FULL';
 
-  if (await areFriends(prisma, game.organizerId, viewerId)) return 'FULL';
+  if (row) return 'REQUEST';
   return outsiderAccess(game.friendsOnlyLinkPolicy);
+}
+
+/** Per-viewer DTO tweak: an outsider sees the game as approval-gated (existing "request to join" UI). */
+function applyViewerAccess(dto, access) {
+  dto.viewerJoinRequiresApproval = access === 'REQUEST';
+  if (access === 'REQUEST') dto.joinPolicy = 'REQUIRES_APPROVAL';
+  return dto;
+}
+
+/** Prisma `where` fragment: the organizer is a friend of `viewerId` (Friendship stores each pair once). */
+function organizerIsFriendWhere(viewerId) {
+  return {
+    organizer: {
+      OR: [
+        { friendshipsA: { some: { userBId: viewerId } } },
+        { friendshipsB: { some: { userAId: viewerId } } },
+      ],
+    },
+  };
 }
 
 async function getSeriesAccess(prisma, series, viewerId, { isAdmin = false } = {}) {
@@ -98,14 +120,7 @@ function seriesVisibilityWhere(viewerId) {
       { isFriendsOnly: false },
       { organizerId: viewerId },
       { subscribers: { some: { userId: viewerId } } },
-      {
-        organizer: {
-          OR: [
-            { friendshipsA: { some: { userBId: viewerId } } },
-            { friendshipsB: { some: { userAId: viewerId } } },
-          ],
-        },
-      },
+      organizerIsFriendWhere(viewerId),
     ],
   };
 }
@@ -116,6 +131,8 @@ module.exports = {
   areFriends,
   isGameFriendsOnlyNow,
   getGameAccess,
+  applyViewerAccess,
+  organizerIsFriendWhere,
   getSeriesAccess,
   seriesVisibilityWhere,
 };
