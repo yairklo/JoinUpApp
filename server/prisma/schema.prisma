@@ -49,6 +49,7 @@ model User {
   notifications             Notification[]             @relation("UserNotifications")
   participations            Participation[]
   seriesSubscriptions       SeriesParticipant[]
+  seriesJoinRequests        SeriesJoinRequest[]
   devices                   UserDevice[]               @relation("UserDevices")
   notificationSettings      UserNotificationSettings?  @relation("UserNotificationSettings")
   notificationMutes         NotificationMute[]         @relation("UserNotificationMutes")
@@ -359,6 +360,11 @@ model Game {
   customLocation       String?
   isFriendsOnly        Boolean           @default(false)
   friendsOnlyUntil     DateTime?
+  /// What a friends-only game's link does for people who aren't the organizer's friends (and
+  /// aren't on the roster / series): REQUEST_TO_JOIN lets them view it but turns their join into
+  /// a request the managers approve; BLOCKED hides it from them entirely. Ignored once the game
+  /// is public (not friends-only, or friendsOnlyUntil has passed).
+  friendsOnlyLinkPolicy FriendsOnlyLinkPolicy @default(REQUEST_TO_JOIN)
   lotteryAt            DateTime?
   lotteryEnabled       Boolean           @default(false)
   lotteryExecutedAt    DateTime?
@@ -645,6 +651,9 @@ model GameSeries {
   imageUrl                  String?
   isOpenToJoin              Boolean             @default(true)
   isFriendsOnly             Boolean             @default(false)
+  /// Same meaning as Game.friendsOnlyLinkPolicy, for the group page and its subscribe button.
+  /// Copied to the group's games (generated and propagated on PATCH).
+  friendsOnlyLinkPolicy     FriendsOnlyLinkPolicy @default(REQUEST_TO_JOIN)
   joinPolicy                JoinPolicy          @default(INSTANT)
   lotteryEnabled            Boolean             @default(false)
   organizerInLottery        Boolean             @default(false)
@@ -653,6 +662,7 @@ model GameSeries {
   organizer                 User                @relation("OrganizerSeries", fields: [organizerId], references: [id])
   games                     Game[]
   subscribers               SeriesParticipant[]
+  joinRequests              SeriesJoinRequest[]
 
   @@index([isActive])
   @@index([organizerId])
@@ -668,6 +678,22 @@ model SeriesParticipant {
   user      User           @relation(fields: [userId], references: [id])
 
   @@unique([seriesId, userId])
+}
+
+/// A non-friend's pending (or declined) request to join a friends-only group. Kept apart from
+/// SeriesParticipant so every subscriber query keeps meaning "real member"; approving creates
+/// the SeriesParticipant row and deletes this one.
+model SeriesJoinRequest {
+  id        String                  @id @default(cuid())
+  seriesId  String
+  userId    String
+  status    SeriesJoinRequestStatus @default(PENDING)
+  createdAt DateTime                @default(now())
+  series    GameSeries              @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  user      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([seriesId, userId])
+  @@index([seriesId, status])
 }
 
 model FlaggedMessage {
@@ -837,6 +863,16 @@ enum TradeStatus {
 enum JoinPolicy {
   INSTANT
   REQUIRES_APPROVAL
+}
+
+enum FriendsOnlyLinkPolicy {
+  REQUEST_TO_JOIN
+  BLOCKED
+}
+
+enum SeriesJoinRequestStatus {
+  PENDING
+  REJECTED
 }
 
 enum MessageStatus {
