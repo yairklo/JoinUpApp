@@ -7,16 +7,19 @@ export default function FilterPill({
     selected,
     onPress,
     size = 'md',
+    testID,
 }: {
     label: string;
     selected: boolean;
     onPress: () => void;
     size?: 'sm' | 'md';
+    testID?: string;
 }) {
     const padding = size === 'sm' ? 'px-4 py-1.5' : 'px-5 py-2.5';
     const margin = size === 'sm' ? 'mr-2' : 'mr-3';
     return (
         <TouchableOpacity
+            testID={testID}
             onPress={onPress}
             className={`${margin} ${padding} rounded-full border ${selected ? 'bg-brand border-brand' : 'bg-white border-gray-100'}`}
         >

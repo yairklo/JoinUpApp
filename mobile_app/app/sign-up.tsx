@@ -115,7 +115,7 @@ export default function SignUpScreen() {
                                     className="flex-row items-center mt-2"
                                     activeOpacity={0.7}
                                 >
-                                    <View className={`w-6 h-6 rounded-md border-2 items-center justify-center mr-2 ${agreedToTerms ? 'bg-brand border-brand' : 'border-gray-300'}`}>
+                                    <View testID="sign-up-terms-box" className={`w-6 h-6 rounded-md border-2 items-center justify-center mr-2 ${agreedToTerms ? 'bg-brand border-brand' : 'border-gray-300'}`}>
                                         {agreedToTerms && <FontAwesome name="check" size={12} color="white" />}
                                     </View>
                                     <Text className="text-gray-600 flex-1 text-sm">

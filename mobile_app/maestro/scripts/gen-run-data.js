@@ -9,3 +9,9 @@ output.emailB = 'e2e-b-' + runId + '+clerk_test@example.com';
 output.password = 'Jn-E2e-7qLx!42vz-' + runId.slice(-4);
 output.gameTitle = 'E2E Game ' + runId;
 output.chatMessage = 'hello e2e ' + runId;
+// The form's default time is "today, next hour", which is already past between 23:00 and midnight.
+// Always book tomorrow at 12:00 so the slot is in the future on both the device and the API.
+var slot = new Date();
+slot.setDate(slot.getDate() + 1);
+output.slotDay = String(slot.getDate());
+output.slotRollMonth = slot.getDate() === 1 ? '1' : '0';

@@ -23,6 +23,13 @@ tags:
     env:
       EMAIL: ${output.emailB}
       PASSWORD: ${output.password}
+# The game is booked for tomorrow (see pick-future-slot); the home list opens on today.
+- scrollUntilVisible:
+    element:
+      id: home-date-1
+    timeout: 30000
+- tapOn:
+    id: home-date-1
 - scrollUntilVisible:
     element: ${output.gameTitle}
     timeout: 60000
@@ -33,6 +40,13 @@ tags:
     timeout: 30000
 - tapOn:
     id: game-join-button
+# Join confirms with a native alert that covers the chat button until it is dismissed.
+- extendedWaitUntil:
+    visible:
+      id: "android:id/button1"
+    timeout: 30000
+- tapOn:
+    id: "android:id/button1"
 # A joined player gets the chat entry point instead of the join button.
 - extendedWaitUntil:
     visible:

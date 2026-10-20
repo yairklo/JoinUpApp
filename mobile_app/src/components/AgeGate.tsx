@@ -17,7 +17,7 @@ const formatHe = (d: Date) => `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYea
 function CheckRow({ checked, onToggle, children, testID }: { checked: boolean; onToggle: () => void; children: React.ReactNode; testID?: string }) {
     return (
         <Pressable testID={testID} onPress={onToggle} className="flex-row items-start gap-3 py-2" accessibilityRole="checkbox" accessibilityState={{ checked }}>
-            <View className={`w-6 h-6 rounded-md border-2 items-center justify-center mt-0.5 ${checked ? 'bg-brand border-brand' : 'border-gray-400 dark:border-gray-500'}`}>
+            <View testID={testID ? `${testID}-box` : undefined} className={`w-6 h-6 rounded-md border-2 items-center justify-center mt-0.5 ${checked ? 'bg-brand border-brand' : 'border-gray-400 dark:border-gray-500'}`}>
                 {checked && <Ionicons name="checkmark" size={16} color="#fff" />}
             </View>
             <View className="flex-1">{children}</View>

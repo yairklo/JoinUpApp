@@ -69,8 +69,19 @@ mobile_app/maestro/
 
 ## Verification status
 
-Written without a Maestro CLI, Clerk dev keys or an E2E backend, so **none of the YAML flows were run**.
-Verified: `tsc --noEmit` for `mobile_app` passes with the testIDs. Assumptions to confirm on first run:
-the organizer is an auto-participant of their own game (flow 4 relies on `game-open-chat`); the home list shows the new game for
-today (flow 3); `Link testID` reaches the native view; `android:id/button1` dismisses the date dialog; the release build +
-manifest patch works on Windows; the server boots in CI with only the listed env vars.
+Ran on a Windows host against the local E2E backend (Docker Postgres `:5544`, API `:3005`), an Android 34
+emulator (`e2e34`, `Asia/Jerusalem`), and an x86_64 release APK. All four smoke flows passed
+(JUnit under `mobile_app/maestro/.reports/`, device `e2e34`):
+
+| Flow | Result | Time |
+| --- | --- | --- |
+| Sign up a new user | PASS | 1m 43s |
+| Create a game | PASS | 2m 48s |
+| Join a game created by another user | PASS | 4m 54s |
+| Send a chat message in a game chat | PASS | 3m 14s |
+
+Confirmed on that run: the organizer is a participant of their own game (`game-open-chat`); booking tomorrow at 12:00
+and opening `home-date-1` shows the game to the second user; `android:id/button1` dismisses the date dialog and the
+join-success alert; the release build + cleartext patch works on Windows. The release socket client must keep
+`http://10.0.2.2` / localhost on http, or chat sends fail while REST still works. CI with only the listed env vars
+is still unrun.

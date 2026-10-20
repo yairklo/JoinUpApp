@@ -31,6 +31,10 @@ tags:
 - inputText: ${output.chatMessage}
 - tapOn:
     id: chat-send
+# The bubble is drawn before the server ack. chat-message-ok appears only once the send is confirmed
+# (sent / delivered / read), so a local "not sent" bubble does not pass.
 - extendedWaitUntil:
-    visible: ${output.chatMessage}
+    visible:
+      id: chat-message-ok
     timeout: 20000
+- assertVisible: ${output.chatMessage}

@@ -21,9 +21,11 @@ appId: com.yairklo.joinupapp
 - hideKeyboard
 - scrollUntilVisible:
     element:
-      id: sign-up-terms-checkbox
+      id: sign-up-terms-box
+# Tap the box itself. The row's centre sits on the Terms/Privacy links; those routes are outside
+# the auth group, so AuthGuard sends a signed-out user straight back to sign-in.
 - tapOn:
-    id: sign-up-terms-checkbox
+    id: sign-up-terms-box
 - tapOn:
     id: sign-up-submit
 # Clerk dev instance: "+clerk_test" addresses always accept code 424242.
@@ -47,8 +49,16 @@ appId: com.yairklo.joinupapp
 # Native Android date dialog opens on 2008-01-01 (adult); "OK" keeps that date.
 - tapOn:
     id: "android:id/button1"
-- tapOn:
-    id: age-gate-terms-checkbox
+# The row centre sits on the terms links. Tap the box, and only when it is still unchecked —
+# AgeGate stays mounted across a sign-out, so a second user in the same session can already be ticked.
+- runFlow:
+    when:
+      visible:
+        id: age-gate-terms-checkbox
+        checked: false
+    commands:
+      - tapOn:
+          id: age-gate-terms-checkbox-box
 - tapOn:
     id: age-gate-continue
 - extendedWaitUntil:

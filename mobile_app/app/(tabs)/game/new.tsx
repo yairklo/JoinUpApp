@@ -658,6 +658,7 @@ export default function NewGameScreen() {
                     <Text className="text-lg font-bold mb-4 text-gray-800">{t('newGame.when', 'מתי?')}</Text>
                     <View className="flex-row justify-between">
                         <TouchableOpacity
+                            testID="new-game-date"
                             onPress={() => setShowDatePicker(true)}
                             className="flex-1 bg-gray-100 p-3 rounded-lg mr-2 items-center"
                         >
@@ -666,6 +667,7 @@ export default function NewGameScreen() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
+                            testID="new-game-time"
                             onPress={() => setShowTimePicker(true)}
                             className="flex-1 bg-gray-100 p-3 rounded-lg ml-2 items-center"
                         >

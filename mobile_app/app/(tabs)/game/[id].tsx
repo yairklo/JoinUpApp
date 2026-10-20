@@ -710,6 +710,7 @@ export default function GameDetailsScreen() {
                         </View>
                     ) : (
                         <TouchableOpacity
+                            testID="game-join-button"
                             onPress={handleJoin}
                             disabled={actionLoading}
                             className={`h-[52px] rounded-2xl items-center justify-center ${actionLoading ? 'bg-brand-soft' : 'bg-brand'}`}

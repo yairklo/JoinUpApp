@@ -1,6 +1,9 @@
 # Signs the current user out via the profile screen; ends on the sign-in screen.
 appId: com.yairklo.joinupapp
 ---
+# Game screens hide the profile shortcut; it lives in the tab headers.
+- tapOn:
+    id: tab-home
 - tapOn:
     id: header-profile
 - scrollUntilVisible:
