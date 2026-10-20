@@ -19,6 +19,7 @@ const { sanitizeFreeText } = require('../utils/sanitize');
 const { prismaFieldCityFilter } = require('../utils/cityAliases');
 const { cityMatchKeys } = require('../utils/notificationPrefs');
 const { getFriendIds: getFriendIdsFor } = require('../utils/friends');
+const { getGameAccess, normalizeLinkPolicy } = require('../utils/friendsOnlyAccess');
 const gameScheduler = require('./gameScheduler');
 
 // Defense-in-depth limits for free-text fields written by end users. React auto-escapes these
@@ -175,6 +176,7 @@ function mapGameForClient(game, viewerId) {
     ...(game.series ? { seriesImageUrl: game.series.imageUrl || null } : {}),
     isFriendsOnly: !!game.isFriendsOnly,
     friendsOnlyUntil: game.friendsOnlyUntil ? new Date(game.friendsOnlyUntil).toISOString() : null,
+    friendsOnlyLinkPolicy: game.friendsOnlyLinkPolicy || 'REQUEST_TO_JOIN',
     joinPolicy: game.joinPolicy || 'INSTANT',
     pendingRequestCount,
     viewerParticipationStatus,
@@ -608,14 +610,18 @@ async function broadcastGameUpdate(io, gameId, preFetchedGame) {
   });
 }
 
-function notifyRequesterOfDecision(game, requesterId, approved, io) {
+function notifyRequesterOfDecision(game, requesterId, approved, io, { enteredLottery = false } = {}) {
+  let body = 'בקשתך להצטרף למשחק נדחתה על ידי המארגן';
+  if (approved) {
+    body = enteredLottery
+      ? 'בקשתך אושרה ונרשמת להגרלה על המקומות במשחק'
+      : 'בקשתך להצטרף למשחק אושרה על ידי המארגן';
+  }
   notificationService.sendNotification(
     requesterId,
     approved ? 'GAME_JOIN_APPROVED' : 'GAME_JOIN_REJECTED',
     approved ? 'הבקשה שלך אושרה' : 'הבקשה שלך נדחתה',
-    approved
-      ? `בקשתך להצטרף למשחק אושרה על ידי המארגן`
-      : `בקשתך להצטרף למשחק נדחתה על ידי המארגן`,
+    body,
     { gameId: game.id, link: `/game/${game.id}` },
     io
   ).catch(err => console.error('[NOTIFICATIONS] Failed to notify requester of decision', game.id, err));
@@ -693,6 +699,7 @@ async function createGame(payload, creatorUser, io) {
     maxPlayers: rawMaxPlayers,
     isOpenToJoin,
     isFriendsOnly,
+    friendsOnlyLinkPolicy,
     lotteryEnabled,
     lotteryAt,
     organizerInLottery,
@@ -773,6 +780,9 @@ async function createGame(payload, creatorUser, io) {
   const effectiveIsFriendsOnly = typeof isFriendsOnly === 'undefined'
     ? (series ? series.isFriendsOnly : false)
     : !!isFriendsOnly;
+  const effectiveLinkPolicy = normalizeLinkPolicy(friendsOnlyLinkPolicy)
+    || (series ? series.friendsOnlyLinkPolicy : null)
+    || 'REQUEST_TO_JOIN';
   const effectiveLotteryEnabled = typeof lotteryEnabled === 'undefined'
     ? (series ? series.lotteryEnabled : false)
     : !!lotteryEnabled;
@@ -887,6 +897,7 @@ async function createGame(payload, creatorUser, io) {
         // through the group (and the group settings screen) start from the same values.
         isOpenToJoin: effectiveIsOpenToJoin,
         isFriendsOnly: effectiveIsFriendsOnly,
+        friendsOnlyLinkPolicy: effectiveLinkPolicy,
         joinPolicy: effectiveJoinPolicy,
         lotteryEnabled: effectiveLotteryEnabled,
         organizerInLottery: effectiveOrganizerInLottery,
@@ -938,6 +949,7 @@ async function createGame(payload, creatorUser, io) {
               maxPlayers: Number(maxPlayers),
               isOpenToJoin: isOpenToJoin !== false,
               isFriendsOnly: !!isFriendsOnly,
+              friendsOnlyLinkPolicy: effectiveLinkPolicy,
               joinPolicy: joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT',
               lotteryEnabled: !!lotteryEnabled,
               ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
@@ -985,6 +997,7 @@ async function createGame(payload, creatorUser, io) {
               maxPlayers: Number(maxPlayers),
               isOpenToJoin: isOpenToJoin !== false,
               isFriendsOnly: !!isFriendsOnly,
+              friendsOnlyLinkPolicy: effectiveLinkPolicy,
               joinPolicy: joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT',
               lotteryEnabled: !!lotteryEnabled,
               ...(lotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
@@ -1078,6 +1091,7 @@ async function createGame(payload, creatorUser, io) {
         price: price ? parseInt(price) : null,
         isOpenToJoin: effectiveIsOpenToJoin,
         isFriendsOnly: effectiveIsFriendsOnly,
+        friendsOnlyLinkPolicy: effectiveLinkPolicy,
         joinPolicy: effectiveJoinPolicy,
         lotteryEnabled: effectiveLotteryEnabled,
         ...(effectiveLotteryEnabled && lotteryAt ? { lotteryAt: new Date(String(lotteryAt)) } : {}),
@@ -1346,6 +1360,7 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
       sport: existing.sport,
       isOpenToJoin: existing.isOpenToJoin,
       isFriendsOnly: existing.isFriendsOnly,
+      friendsOnlyLinkPolicy: existing.friendsOnlyLinkPolicy,
       joinPolicy: existing.joinPolicy,
       lotteryEnabled: existing.lotteryEnabled,
       organizerInLottery: existing.organizerInLottery,
@@ -1417,6 +1432,7 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
         customLocation: existing.customLocation,
         isOpenToJoin: existing.isOpenToJoin,
         isFriendsOnly: existing.isFriendsOnly,
+        friendsOnlyLinkPolicy: existing.friendsOnlyLinkPolicy,
         joinPolicy: existing.joinPolicy,
         welcomeMessage: existing.welcomeMessage,
         lotteryEnabled: existing.lotteryEnabled,
@@ -1561,7 +1577,7 @@ async function loadGameForImageEdit(gameId, userId, isAdmin, { forUpload = false
 async function patchGame(gameId, body, userId, io) {
   const {
     time, date, start, maxPlayers, sport, registrationOpensAt,
-    title, friendsOnlyUntil, isFriendsOnly, teamSize, joinPolicy,
+    title, friendsOnlyUntil, isFriendsOnly, friendsOnlyLinkPolicy, teamSize, joinPolicy,
     pickDrawAt, pickingStartsAt, duration, description, welcomeMessage, price,
   } = body || {};
 
@@ -1630,6 +1646,7 @@ async function patchGame(gameId, body, userId, io) {
     updates.friendsOnlyUntil = friendsOnlyUntil ? new Date(friendsOnlyUntil) : null;
   }
   if (typeof isFriendsOnly === 'boolean') updates.isFriendsOnly = isFriendsOnly;
+  if (normalizeLinkPolicy(friendsOnlyLinkPolicy)) updates.friendsOnlyLinkPolicy = friendsOnlyLinkPolicy;
   if (joinPolicy === 'INSTANT' || joinPolicy === 'REQUIRES_APPROVAL') {
     updates.joinPolicy = joinPolicy;
   }
@@ -1700,7 +1717,7 @@ async function updateGame(gameId, body, userId, io) {
   const {
     description: rawDescription, welcomeMessage: rawWelcomeMessage, isOpenToJoin, maxPlayers, lotteryEnabled, lotteryAt,
     organizerInLottery, title: rawTitle, sport, duration, teamSize, price,
-    isFriendsOnly, joinPolicy, registrationOpensAt, friendsOnlyUntil, start,
+    isFriendsOnly, friendsOnlyLinkPolicy, joinPolicy, registrationOpensAt, friendsOnlyUntil, start,
     pickDrawAt, pickingStartsAt,
   } = body || {};
 
@@ -1759,6 +1776,7 @@ async function updateGame(gameId, body, userId, io) {
       ...(typeof teamSize !== 'undefined' ? { teamSize: teamSize ? Number(teamSize) : null } : {}),
       ...(typeof price !== 'undefined' ? { price: price ? Number(price) : null } : {}),
       ...(typeof isFriendsOnly !== 'undefined' ? { isFriendsOnly: !!isFriendsOnly } : {}),
+      ...(normalizeLinkPolicy(friendsOnlyLinkPolicy) ? { friendsOnlyLinkPolicy } : {}),
       ...(typeof joinPolicy !== 'undefined' ? { joinPolicy } : {}),
       ...(typeof registrationOpensAt !== 'undefined'
         ? { registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null }
@@ -2040,12 +2058,21 @@ async function getTodayCityGames(city, viewerId) {
   );
 }
 
-async function getGameById(gameId, viewerId) {
+async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
   const game = await prisma.game.findUnique({
     where: { id: gameId },
     include: GAME_DETAIL_INCLUDE,
   });
   if (!game) throw httpError('Game not found', 404);
+
+  // Friends-only games: a BLOCKED link hides the game from outsiders; REQUEST_TO_JOIN shows it
+  // but their join goes to the managers for approval (see POST /:id/join).
+  const access = await getGameAccess(prisma, game, viewerId, { isAdmin });
+  if (access === 'NONE') {
+    const err = httpError('This game is for friends only', 403);
+    err.code = 'GAME_FRIENDS_ONLY';
+    throw err;
+  }
 
   const chatRoom = await prisma.chatRoom.findUnique({ where: { id: game.id } });
   if (!chatRoom) {
@@ -2063,7 +2090,12 @@ async function getGameById(gameId, viewerId) {
     }
   }
 
-  return mapGameForClient(game, viewerId);
+  const dto = mapGameForClient(game, viewerId);
+  // Per-viewer response: an outsider sees the game as approval-gated, so the existing
+  // "request to join" UI kicks in on web and mobile.
+  dto.viewerJoinRequiresApproval = access === 'REQUEST';
+  if (access === 'REQUEST') dto.joinPolicy = 'REQUIRES_APPROVAL';
+  return dto;
 }
 
 async function getGameRatings(gameId, viewerId) {

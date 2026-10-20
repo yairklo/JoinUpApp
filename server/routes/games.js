@@ -41,6 +41,7 @@ function handleRouteError(res, error, fallbackMessage) {
   return res.status(status).json({
     error: error.status ? (error.message || fallbackMessage) : fallbackMessage,
     ...(error.details ? { details: error.details } : {}),
+    ...(error.status && error.code ? { code: error.code } : {}),
   });
 }
 
@@ -174,7 +175,7 @@ router.get('/:id/ratings', authenticateToken, async (req, res) => {
 
 router.get('/:id', attachOptionalUser, async (req, res) => {
   try {
-    res.json(await getGameById(req.params.id, req.user?.id));
+    res.json(await getGameById(req.params.id, req.user?.id, { isAdmin: !!req.user?.isAdmin }));
   } catch (error) {
     handleRouteError(res, error, 'Failed to get game');
   }
