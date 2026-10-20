@@ -102,10 +102,10 @@ export default function ManageItemCard({ item }: { item: ManageItem }) {
                 ) : null}
                 <TouchableOpacity
                     onPress={() => router.push(mainPath as any)}
-                    className={`flex-1 py-2.5 rounded-xl items-center border ${hasNextGame ? 'border-brand-pale bg-brand-mist' : 'border-brand bg-brand'}`}
+                    className={`flex-1 py-2.5 rounded-xl items-center border ${hasNextGame ? 'border-brand-pale bg-brand-mist dark:bg-cyber-border dark:border-cyber-border' : 'border-brand bg-brand'}`}
                     accessibilityRole="button"
                 >
-                    <Text className={`font-bold text-sm ${hasNextGame ? 'text-brand-dark' : 'text-white'}`}>
+                    <Text className={`font-bold text-sm ${hasNextGame ? 'text-brand-dark dark:text-brand-light' : 'text-white'}`}>
                         {isGroup ? t('manage.openGroup') : t('manage.openGame')}
                     </Text>
                 </TouchableOpacity>
