@@ -7,19 +7,34 @@ const {
   getRoleLevel,
 } = require('../services/gameService');
 
+const { getGameAccess } = require('../utils/friendsOnlyAccess');
+const { publicDisplayName } = require('../utils/publicName');
+const { getAgeInJerusalem } = require('../shared/ageGate');
+
 const router = express.Router();
 
 // List roles for a game
-router.get('/:id/roles', attachOptionalUser, async (req, res) => {
+router.get('/:id/roles', authenticateToken, async (req, res) => {
   try {
     const game = await prisma.game.findUnique({
       where: { id: req.params.id },
       include: { roles: { include: { user: true } } }
     });
     if (!game) return res.status(404).json({ error: 'Game not found' });
-    const managers = (game.roles || [])
+    // Same friends-only rules as GET /api/games/:id: outsiders get no manager list, and
+    // logged-out viewers never see minors.
+    const access = await getGameAccess(prisma, game, req.user?.id, { isAdmin: !!req.user?.isAdmin });
+    if (access === 'NONE') {
+      return res.status(403).json({ error: 'This game is for friends only', code: 'GAME_FRIENDS_ONLY' });
+    }
+    const managers = access === 'REQUEST' ? [] : (game.roles || [])
       .filter(r => r.role !== 'ORGANIZER')
-      .map(r => ({ id: r.userId, name: r.user?.name || null, avatar: r.user?.imageUrl || null, role: r.role }));
+      .filter(r => {
+        if (req.user?.id) return true;
+        const age = getAgeInJerusalem(r.user?.birthDate);
+        return !(age !== null && age < 18);
+      })
+      .map(r => ({ id: r.userId, name: publicDisplayName(r.user?.name), avatar: r.user?.imageUrl || null, role: r.role }));
     return res.json({ organizerId: game.organizerId, managers });
   } catch (e) {
     return res.status(500).json({ error: 'Failed to get roles' });

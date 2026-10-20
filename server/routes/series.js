@@ -13,6 +13,7 @@ const gameScheduler = require('../services/gameScheduler');
 const { isSeriesSlotConflict, SERIES_SLOT_CONFLICT_MESSAGE, notificationService } = require('../services/gameService');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
+const { getAgeInJerusalem } = require('../shared/ageGate');
 const { getSeriesAccess, seriesVisibilityWhere, normalizeLinkPolicy } = require('../utils/friendsOnlyAccess');
 
 const WELCOME_MESSAGE_MAX_LENGTH = 2000;
@@ -192,7 +193,7 @@ router.get('/active', attachOptionalUser, async (req, res) => {
 });
 
 // Public: series details (organizer, subscribers, upcoming games)
-router.get('/:seriesId', attachOptionalUser, async (req, res) => {
+router.get('/:seriesId', authenticateToken, async (req, res) => {
   try {
     const { seriesId: rawId } = req.params;
     let seriesId = rawId;
@@ -251,7 +252,7 @@ router.get('/:seriesId', attachOptionalUser, async (req, res) => {
       }),
       prisma.seriesParticipant.findMany({
         where: { seriesId },
-        include: { user: { select: { id: true, name: true, imageUrl: true } } }
+        include: { user: { select: { id: true, name: true, imageUrl: true, birthDate: true } } }
       }),
       prisma.game.findMany(gameQueryArgs),
       series.fieldId
@@ -269,6 +270,13 @@ router.get('/:seriesId', attachOptionalUser, async (req, res) => {
         currentPlayers: confirmed,
         maxPlayers: g.maxPlayers
       };
+    });
+
+    // Outsiders of a friends-only group get no member list; logged-out viewers never see minors.
+    const visibleSubscribers = viewerAccess === 'REQUEST' ? [] : (subscribers || []).filter((s) => {
+      if (viewerId) return true;
+      const age = getAgeInJerusalem(s.user?.birthDate);
+      return !(age !== null && age < 18);
     });
 
     const payload = {
@@ -308,7 +316,8 @@ router.get('/:seriesId', attachOptionalUser, async (req, res) => {
         name: organizer?.name || '',
         avatar: organizer?.imageUrl || ''
       },
-      subscribers: (subscribers || []).map(s => ({
+      subscriberCount: (subscribers || []).length,
+      subscribers: visibleSubscribers.map(s => ({
         userId: s.userId,
         role: s.role || 'MEMBER',
         user: {

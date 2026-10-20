@@ -78,7 +78,8 @@ async function sendAutoWelcomeMessage(game, newPlayerId) {
 }
 
 const { prisma } = require('../lib/prisma');
-const { notificationName } = require('../utils/publicName');
+const { notificationName, publicDisplayName } = require('../utils/publicName');
+const { getAgeInJerusalem } = require('../shared/ageGate');
 const notificationService = new NotificationService(prisma);
 
 function httpError(message, status, details) {
@@ -100,7 +101,7 @@ function isSeriesSlotConflict(e) {
 
 const SERIES_SLOT_CONFLICT_MESSAGE = 'Another game in this series already starts at that time';
 
-function mapGameForClient(game, viewerId) {
+function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
   if (!game) return game;
   const allParts = Array.isArray(game?.participants) ? game.participants : [];
   const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
@@ -118,24 +119,33 @@ function mapGameForClient(game, viewerId) {
   const lotteryAtIso = game.lotteryAt ? new Date(game.lotteryAt).toISOString() : null;
   const lotteryPending = !!game.lotteryEnabled && !game.lotteryExecutedAt && !!game.lotteryAt && now < new Date(game.lotteryAt);
   const overbooked = !!game.lotteryEnabled && !game.lotteryExecutedAt && totalSignups > game.maxPlayers;
-  const participants = confirmed.map(p => ({
+  // Anonymous viewers never see minors on a roster (counts stay accurate); emails never show as names.
+  const hiddenFromViewer = (p) => {
+    if (!anonymous) return false;
+    const age = getAgeInJerusalem(p.user?.birthDate);
+    return age !== null && age < 18;
+  };
+  const hiddenUserIds = new Set(
+    [...allParts, ...(game.roles || [])].filter(hiddenFromViewer).map((p) => p.userId)
+  );
+  const participants = confirmed.filter(p => !hiddenFromViewer(p)).map(p => ({
     id: p.userId,
-    name: p.user?.name || null,
+    name: publicDisplayName(p.user?.name),
     avatar: p.user?.imageUrl || null,
     teamId: p.teamId || null,
     isCaptain: !!p.isCaptain
   }));
-  const waitlistParticipants = waitlisted.map(p => ({
+  const waitlistParticipants = waitlisted.filter(p => !hiddenFromViewer(p)).map(p => ({
     id: p.userId,
-    name: p.user?.name || null,
+    name: publicDisplayName(p.user?.name),
     avatar: p.user?.imageUrl || null,
     isCaptain: !!p.isCaptain
   }));
   const managers = (game.roles || [])
-    .filter(r => r.role !== 'ORGANIZER')
+    .filter(r => r.role !== 'ORGANIZER' && !hiddenFromViewer(r))
     .map(r => ({
       id: r.userId,
-      name: r.user?.name || null,
+      name: publicDisplayName(r.user?.name),
       avatar: r.user?.imageUrl || null,
       role: r.role
     }));
@@ -146,19 +156,20 @@ function mapGameForClient(game, viewerId) {
   ].filter(Boolean).map(String));
   const teams = (game?.teams ? game.teams : []).map(t => {
     const playerIds = allParts
-      .filter(p => p && p.teamId === t.id)
+      .filter(p => p && p.teamId === t.id && !hiddenFromViewer(p))
       .map(p => p.userId)
       .filter(Boolean);
     // Display safety: if a team has a managerId, ensure they appear on the roster
     // even if a stale participation row has not been healed yet.
-    if (t.managerId && !playerIds.includes(t.managerId)) {
+    const managerHidden = !!t.managerId && hiddenUserIds.has(t.managerId);
+    if (t.managerId && !managerHidden && !playerIds.includes(t.managerId)) {
       playerIds.unshift(t.managerId);
     }
     return {
       id: t.id,
       name: t.name,
       color: t.color,
-      managerId: t.managerId || null,
+      managerId: managerHidden ? null : (t.managerId || null),
       playerIds: playerIds || []
     };
   });
@@ -251,6 +262,8 @@ const SEARCH_GAME_SELECT = {
   status: true,
   isOpenToJoin: true,
   isFriendsOnly: true,
+  friendsOnlyUntil: true,
+  friendsOnlyLinkPolicy: true,
   field: {
     select: {
       id: true,
@@ -263,7 +276,7 @@ const SEARCH_GAME_SELECT = {
     },
   },
   participants: {
-    select: { userId: true, status: true },
+    select: { userId: true, status: true, isWaitlistOffer: true },
   },
 };
 
@@ -336,7 +349,65 @@ async function fetchMappedListGames(where, viewerId, { orderBy = { start: 'asc' 
     ...(take ? { take } : {}),
   });
   const list = dedupe ? deduplicateSeriesGames(games) : games;
-  return list.map((g) => mapGameForSearchClient(g, viewerId));
+  return mapListForViewer(list, viewerId);
+}
+
+/**
+ * Maps list rows and blanks the address / coordinates / roster of friends-only games the viewer
+ * only knows through a pending or rejected join request (same rule as the detail endpoint:
+ * outsiders see the card, not who plays or where exactly). Friends, group members, role
+ * holders and organizers keep the full row.
+ */
+async function mapListForViewer(list, viewerId) {
+  const dtos = list.map((g) => mapGameForSearchClient(g, viewerId));
+  if (!viewerId) return dtos;
+
+  const suspects = list.filter((g) => {
+    if (!isGameFriendsOnlyNow(g) || g.organizerId === viewerId || g.friendsOnlyLinkPolicy === 'BLOCKED') return false;
+    const mine = (g.participants || []).find((p) => p.userId === viewerId);
+    return !!mine && (mine.status === 'REJECTED' || (mine.status === 'PENDING' && !mine.isWaitlistOffer));
+  });
+  if (!suspects.length) return dtos;
+
+  const organizerIds = [...new Set(suspects.map((g) => g.organizerId).filter(Boolean))];
+  const seriesIds = [...new Set(suspects.map((g) => g.seriesId).filter(Boolean))];
+  const [friendRows, memberRows, roleRows] = await Promise.all([
+    prisma.friendship.findMany({
+      where: { OR: [
+        { userAId: viewerId, userBId: { in: organizerIds } },
+        { userBId: viewerId, userAId: { in: organizerIds } },
+      ] },
+      select: { userAId: true, userBId: true },
+    }),
+    seriesIds.length
+      ? prisma.seriesParticipant.findMany({ where: { userId: viewerId, seriesId: { in: seriesIds } }, select: { seriesId: true } })
+      : [],
+    prisma.gameRole.findMany({ where: { userId: viewerId, gameId: { in: suspects.map((g) => g.id) } }, select: { gameId: true } }),
+  ]);
+  const friendOrganizers = new Set(friendRows.map((f) => (f.userAId === viewerId ? f.userBId : f.userAId)));
+  const memberSeries = new Set(memberRows.map((m) => m.seriesId));
+  const roleGames = new Set(roleRows.map((r) => r.gameId));
+  const outsiderIds = new Set(
+    suspects
+      .filter((g) => !friendOrganizers.has(g.organizerId) && !(g.seriesId && memberSeries.has(g.seriesId)) && !roleGames.has(g.id))
+      .map((g) => g.id)
+  );
+  if (!outsiderIds.size) return dtos;
+
+  return dtos.map((d) => {
+    if (!outsiderIds.has(d.id)) return d;
+    return {
+      ...d,
+      fieldLocation: '',
+      fieldLat: null,
+      fieldLng: null,
+      customLat: null,
+      customLng: null,
+      customLocation: null,
+      participants: [],
+      field: d.field ? { ...d.field, location: '', lat: null, lng: null } : d.field,
+    };
+  });
 }
 
 // Deduplicate games by seriesId, keeping the first occurrence (nearest upcoming)
@@ -1157,7 +1228,8 @@ async function createGame(payload, creatorUser, io) {
   // Socket Notifications (Targeted Delta Update)
   if (io) {
     // 1. Notify City (live update for anyone currently connected & subscribed to the city room)
-    if (created.field?.city) {
+    // A friends-only game's roster and address must not go to the whole city room.
+    if (created.field?.city && !isGameFriendsOnlyNow(created)) {
       io.to(`city_${created.field.city}`).emit('game:created', gamePayload);
     }
 
@@ -1321,7 +1393,7 @@ async function searchGames(queryParams, viewerId, { dedupe = true } = {}) {
   });
 
   const deduped = dedupe ? deduplicateSeriesGames(games) : games;
-  return deduped.map((g) => mapGameForSearchClient(g, viewerId));
+  return mapListForViewer(deduped, viewerId);
 }
 
 const GAME_FULL_INCLUDE = {
@@ -1906,7 +1978,7 @@ async function deleteGame(gameId, userId, isAdmin, io) {
           orderBy: { start: 'asc' },
           include: GAME_FULL_INCLUDE,
         });
-        if (nextGame) {
+        if (nextGame && !isGameFriendsOnlyNow(nextGame)) {
           io.emit('game:created', mapGameForClient(nextGame));
         }
       } catch (heirError) {
@@ -2107,7 +2179,7 @@ async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
 
   // Per-viewer response: an outsider sees the game as approval-gated, so the existing
   // "request to join" UI kicks in on web and mobile.
-  return applyViewerAccess(mapGameForClient(game, viewerId), access);
+  return applyViewerAccess(mapGameForClient(game, viewerId, { anonymous: !viewerId }), access);
 }
 
 async function getGameRatings(gameId, viewerId) {
@@ -2158,6 +2230,7 @@ module.exports = {
   loadGameForImageEdit,
   SEARCH_GAME_SELECT,
   mapGameForSearchClient,
+  mapListForViewer,
   deduplicateSeriesGames,
   buildVisibilityWhere,
   ROLE_LEVEL,

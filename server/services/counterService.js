@@ -23,7 +23,7 @@ async function getUnreadMessageCount(prisma, userId) {
     where: {
       chatRoomId: { in: joinedRoomIds },
       userId: { not: userId },
-      status: { not: 'read' }
+      status: { notIn: ['read', 'blocked'] }
     },
     _count: { id: true }
   });

@@ -37,6 +37,8 @@ interface WrapperProps {
   organizerId: string;
   initialManagers: Manager[];
   maxPlayers: number;
+  /** Server count; the roster itself can be shorter (hidden for outsiders / minors for guests). */
+  confirmedCount?: number;
   currentUserId: string;
   initialTeams?: Team[];
   lotteryData?: {
@@ -56,6 +58,7 @@ export default function TeamBuilderWrapper({
   organizerId,
   initialManagers,
   maxPlayers,
+  confirmedCount,
   currentUserId,
   initialTeams = [],
   lotteryData,
@@ -189,6 +192,7 @@ export default function TeamBuilderWrapper({
         organizerId={organizerId}
         initialManagers={initialManagers}
         maxPlayers={maxPlayers}
+        confirmedCount={confirmedCount}
         teams={initialTeams}
       />
 

@@ -18,7 +18,7 @@ const {
 } = require('../services/gameService');
 const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 const { isBlockedEitherWay } = require('../utils/blocks');
-const { getGameAccess } = require('../utils/friendsOnlyAccess');
+const { getGameAccess, applyViewerAccess } = require('../utils/friendsOnlyAccess');
 
 const router = express.Router();
 
@@ -74,7 +74,9 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         include: { field: true, participants: { include: { user: true } } }
       });
       broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
-      return res.json({ ...mapGameForClient(updated, req.user.id), ...extra });
+      // Re-resolve access: a fresh PENDING request must not unlock the roster of a friends-only game.
+      const viewerAccess = access === 'REQUEST' ? await getGameAccess(prisma, updated, req.user.id, { isAdmin: !!req.user?.isAdmin }) : 'FULL';
+      return res.json({ ...applyViewerAccess(mapGameForClient(updated, req.user.id), viewerAccess), ...extra });
     };
 
     // Idempotent re-join: resync roster for the client without DB profile writes or duplicate notifications
@@ -449,6 +451,9 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
 
     const targetParticipation = participants.find(p => p.userId === req.user.id);
     const wasConfirmed = targetParticipation && targetParticipation.status === 'CONFIRMED';
+    // Resolve access while the viewer's row still exists: a leaving outsider (pending/rejected
+    // request) must not get the roster back in the response.
+    const leaverAccess = await getGameAccess(prisma, { ...game, participants, roles: undefined }, req.user.id, { isAdmin: !!req.user?.isAdmin });
 
     // Normal leave logic
     await prisma.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
@@ -476,7 +481,7 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
       include: { field: true, participants: { include: { user: true } } }
     });
     broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
-    res.json(mapGameForClient(updated, req.user.id));
+    res.json(applyViewerAccess(mapGameForClient(updated, req.user.id), leaverAccess));
   } catch (error) {
     console.error('Leave game error:', error);
     res.status(500).json({ error: 'Failed to leave game' });

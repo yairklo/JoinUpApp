@@ -105,6 +105,19 @@ describe('getGameAccess', () => {
     expect(await getGameAccess(queried, blocked, 'inv')).toBe('FULL');
   });
 
+  test('a self-requested PENDING row does not unlock a REQUEST_TO_JOIN game', async () => {
+    const open = { ...game(), roles: [] };
+    const pending = { ...open, participants: [{ userId: 'p', status: 'PENDING', isWaitlistOffer: false }] };
+    expect(await getGameAccess(makePrisma(), pending, 'p')).toBe('REQUEST');
+    // A friend with a pending row is still an insider; a waitlist offer is known to the organizer.
+    expect(await getGameAccess(makePrisma({ friends: [['p', 'org']] }), pending, 'p')).toBe('FULL');
+    const offer = { ...open, participants: [{ userId: 'p', status: 'PENDING', isWaitlistOffer: true }] };
+    expect(await getGameAccess(makePrisma(), offer, 'p')).toBe('FULL');
+    // On a BLOCKED game a row can only have been created by a manager.
+    const blocked = { ...pending, friendsOnlyLinkPolicy: 'BLOCKED' };
+    expect(await getGameAccess(makePrisma(), blocked, 'p')).toBe('FULL');
+  });
+
   test('a REJECTED row keeps the game viewable but forces approval again', async () => {
     const blocked = game({ friendsOnlyLinkPolicy: 'BLOCKED' });
     const loaded = { ...blocked, participants: [{ userId: 'rej', status: 'REJECTED' }], roles: [] };

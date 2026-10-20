@@ -461,6 +461,7 @@ export default function GameLiveSection({
             organizerId={game.organizerId}
             initialManagers={game.managers || []}
             maxPlayers={game.maxPlayers}
+            confirmedCount={game.currentPlayers}
             currentUserId={viewerId}
             initialTeams={game.teams || []}
             lotteryData={{

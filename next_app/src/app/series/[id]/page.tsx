@@ -1,5 +1,6 @@
 import Avatar from "@/components/Avatar";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import SeriesSubscribeButton from "@/components/SeriesSubscribeButton";
 import MuteNotificationsButton from "@/components/notifications/MuteNotificationsButton";
@@ -109,6 +110,8 @@ async function fetchSeries(id: string, token?: string | null): Promise<FetchSeri
 export default async function SeriesPage(props: { params: Promise<{ id: string }> }) {
     const { id } = await props.params;
     const { userId, getToken } = await auth();
+    // Group details (members, schedule) are for signed-in users only.
+    if (!userId) redirect(`/sign-in?redirect_url=/series/${id}`);
     const token = await getToken().catch(() => null);
     const result = await fetchSeries(id, token);
 

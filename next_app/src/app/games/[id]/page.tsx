@@ -1,5 +1,6 @@
 import GameLiveSection from "@/components/GameLiveSection";
 import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import GameActions from "@/components/GameActions";
 import GuestJoinBar from "@/components/GuestJoinBar";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
@@ -104,6 +105,8 @@ export default async function GameDetails(props: {
 }) {
   const { id } = await props.params;
   const { getToken, userId: authUserId } = await auth();
+  // Game details (roster, location) are for signed-in users only.
+  if (!authUserId) redirect(`/sign-in?redirect_url=/games/${id}`);
   const token = await getToken().catch(() => null);
   const result = await fetchGame(id, token);
   const userId = authUserId || "";
