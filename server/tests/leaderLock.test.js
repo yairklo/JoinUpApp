@@ -230,3 +230,33 @@ test('a SET NX whose reply timed out is recognised as our own lock on the next t
   expect(hooks.onAcquire).toHaveBeenCalledTimes(1);
   await la.stop();
 });
+
+test('stop() after a lapsed-lease demotion still releases our key so the hand-over is immediate', async () => {
+  const redis = new FakeRedis();
+  const hooks = { onAcquire: jest.fn(), onLose: jest.fn() };
+  const la = make(redis, 'A', hooks);
+  la.start();
+  await advance(1);
+  redis.down = true;           // renewals fail
+  await advance(26_000);       // lease (25s) lapsed => demoted, but the key (30s TTL) is still ours
+  expect(la.isLeader()).toBe(false);
+  expect(hooks.onLose).toHaveBeenCalledTimes(1);
+  redis.down = false;
+  expect(redis.holder(KEY)).toBe('A');
+  await la.stop();
+  expect(redis.holder(KEY)).toBeNull();
+  expect(hooks.onLose).toHaveBeenCalledTimes(1); // no second onLose
+});
+
+test('stop() never deletes a key now held by someone else', async () => {
+  const redis = new FakeRedis();
+  const la = make(redis, 'A');
+  la.start();
+  await advance(1);
+  redis.down = true;
+  await advance(26_000);
+  redis.down = false;
+  redis.store.set(KEY, { val: 'B', exp: Date.now() + 30_000 });
+  await la.stop();
+  expect(redis.holder(KEY)).toBe('B');
+});

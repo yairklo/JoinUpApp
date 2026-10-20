@@ -187,9 +187,13 @@ function createLeaderLock({
       const wasLeader = leader;
       leader = false;
       await chain;
-      if (wasLeader) {
-        await enqueue(async () => { await onLose(); });
+      if (wasLeader) await enqueue(async () => { await onLose(); });
+      // Also release after a lapsed-lease demotion / lost acquire reply (maybeHeld): the key may
+      // still carry our id and would otherwise block a hand-over until its TTL. Compare-and-delete
+      // only removes OUR id, so this is safe when someone else holds it.
+      if (wasLeader || maybeHeld) {
         try { await op(client.eval(RELEASE_LUA, 1, lockKey, instanceId)); } catch (_) { /* expires by TTL */ }
+        maybeHeld = false;
       }
     },
     status: () => ({ role: leader ? 'leader' : 'standby', instanceId }),
