@@ -157,3 +157,34 @@ describe('review queue serialization', () => {
     jest.dontMock('../workers/reviewWorker');
   });
 });
+
+describe('run guard (frozen or deposed leader)', () => {
+  afterEach(() => { jest.useRealTimers(); });
+
+  test('a due timer does not run its handler when the guard says we are not the leader', async () => {
+    jest.useFakeTimers();
+    const handler = jest.fn();
+    gameScheduler.init({ prisma: {}, io: null, notificationService: null });
+    let leader = true;
+    gameScheduler.setRunGuard(() => leader);
+    gameScheduler._arm('k1', new Date(Date.now() + 1000), handler);
+    gameScheduler._arm('k2', new Date(Date.now() + 1000), handler);
+    leader = false; // lease passed while the process was frozen; demotion not processed yet
+    await jest.advanceTimersByTimeAsync(1500);
+    expect(handler).not.toHaveBeenCalled();
+
+    leader = true;
+    gameScheduler._arm('k3', new Date(Date.now() + 1000), handler);
+    await jest.advanceTimersByTimeAsync(1500);
+    expect(handler).toHaveBeenCalledTimes(1);
+    gameScheduler.setRunGuard(null);
+  });
+
+  test('triggerReviewQueue does nothing when the guard denies', () => {
+    gameScheduler.init({ prisma: {}, io: null, notificationService: null });
+    gameScheduler.setRunGuard(() => false);
+    gameScheduler.triggerReviewQueue();
+    expect(gameScheduler.reviewRunning).toBe(false);
+    gameScheduler.setRunGuard(null);
+  });
+});

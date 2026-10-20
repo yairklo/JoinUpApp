@@ -32,6 +32,17 @@ class GameScheduler {
     this.publish = null;
     this.reviewRunning = false;
     this.reviewPending = false;
+    // Optional extra permission check (leader lock): consulted right before any job runs, so a
+    // process that was frozen past its lease cannot fire timers before its demotion is processed.
+    this.runGuard = null;
+  }
+
+  setRunGuard(fn) {
+    this.runGuard = fn;
+  }
+
+  _mayRun() {
+    return this.enabled && (!this.runGuard || !!this.runGuard());
   }
 
   // Must be called once at boot (gated the same way as the old setIntervals, so Jest never
@@ -81,6 +92,10 @@ class GameScheduler {
 
     const timeout = setTimeout(() => {
       this.timers.delete(key);
+      if (!this._mayRun()) {
+        console.warn(`[SCHEDULER] Skipping ${key}: not (or no longer) the job leader`);
+        return;
+      }
       Promise.resolve().then(handler).catch(err => {
         console.error(`[SCHEDULER] Handler failed for ${key}:`, err);
       });
@@ -337,18 +352,19 @@ class GameScheduler {
       if (this.publish) this.publish({ type: 'reviewQueue' });
       return;
     }
+    if (!this._mayRun()) return;
     // One run at a time per process; triggers arriving mid-run coalesce into a single re-run.
     // (Overlapping runs would double-apply AI retries and reputation penalties.)
     if (this.reviewRunning) { this.reviewPending = true; return; }
     this.reviewRunning = true;
     const { processReviewQueue } = require('../workers/reviewWorker');
-    processReviewQueue({ isActive: () => this.enabled })
+    processReviewQueue({ isActive: () => this._mayRun() })
       .catch(err => console.error('[SCHEDULER] Review queue trigger failed:', err))
       .finally(() => {
         this.reviewRunning = false;
         if (this.reviewPending) {
           this.reviewPending = false;
-          if (this.enabled) this.triggerReviewQueue();
+          if (this._mayRun()) this.triggerReviewQueue();
         }
       });
   }

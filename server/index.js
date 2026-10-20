@@ -58,6 +58,7 @@ const { applyMessageEdit, applyMessageDelete } = require('./services/messageEvid
 const { startCleanupWorker, stopCleanupWorker } = require('./workers/cleanupWorker');
 const gameScheduler = require('./services/gameScheduler');
 const { createLeaderLock } = require('./services/leaderLock');
+const { createJobsRuntime } = require('./services/jobsRuntime');
 
 // Jest skips timers so --detectOpenHandles stays clean. This flag means "this process MAY host
 // the background jobs". Without JOBS_LEADER_LOCK=redis every such process runs them, so extra
@@ -211,6 +212,14 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/field-suggestions', require('./routes/fieldSuggestions'));
 
+// 'on' = jobs running here, 'standby' = waiting for the leader lock, 'off' = disabled.
+function jobsStatus() {
+  const st = jobsRuntime.state();
+  if (st.mode === 'off') return 'off';
+  if (st.mode === 'leader-lock') return st.active ? 'on' : 'standby';
+  return 'on';
+}
+
 // Health check
 let redisReady = false;
 let redisPub = null;
@@ -223,7 +232,7 @@ let redisSub = null;
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
-    jobs: jobsActive ? 'on' : (enableBackgroundSchedulers && leaderLock ? 'standby' : (enableBackgroundSchedulers ? 'on' : 'off')),
+    jobs: jobsStatus(),
     http: enableHttpServer ? 'on' : 'off',
     message: 'Football Fields API is running',
     requestId: req.requestId,
@@ -253,8 +262,8 @@ app.get('/api/health/deep', async (req, res) => {
       db: 'up',
       redis,
       socketAdapter: !socketAdapter.enabled ? 'off' : (isRedisHealthy() ? 'up' : 'down'),
-      jobs: jobsActive ? 'on' : (enableBackgroundSchedulers && leaderLock ? 'standby' : (enableBackgroundSchedulers ? 'on' : 'off')),
-      jobLeader: leaderLock ? leaderLock.status() : null,
+      jobs: jobsStatus(),
+      jobLeader: jobsRuntime.state().lock,
       http: enableHttpServer ? 'on' : 'off',
       message: 'Football Fields API is running',
       requestId: req.requestId,
@@ -1287,41 +1296,9 @@ if (!process.env.JEST_WORKER_ID) {
   process.on('SIGINT', () => { gracefulShutdown('SIGINT'); });
 }
 
-// --- Background jobs lifecycle -------------------------------------------------------------
-// startJobsNow/stopJobsNow are the only places jobs begin/end, whether this process is the sole
-// job runner (default) or the Redis lock holder (JOBS_LEADER_LOCK=redis).
-let jobsActive = false;
-let seriesTimer = null;
-let leaderLock = null;
-
-async function startJobsNow(jobIo) {
-  gameScheduler.init({ prisma, io: jobIo, notificationService });
-  jobsActive = true;
-  await gameScheduler.loadAll();
-  startCleanupWorker();
-  // Weekly series generation: daily, plus once now (non-blocking). Duplicate runs are also
-  // absorbed by the Game (seriesId, start) unique constraint.
-  seriesTimer = setInterval(
-    () => runWeeklySeriesGeneration({ shouldContinue: () => jobsActive }).catch(() => { }),
-    24 * 60 * 60 * 1000,
-  );
-  runWeeklySeriesGeneration({ shouldContinue: () => jobsActive }).catch(() => { });
-  // Drain any review backlog left by a crash/redeploy/previous leader.
-  gameScheduler.triggerReviewQueue();
-  console.log('🔔 Notification workers started');
-}
-
-async function stopJobsNow() {
-  jobsActive = false;
-  if (seriesTimer) { clearInterval(seriesTimer); seriesTimer = null; }
-  if (typeof stopCleanupWorker === 'function') stopCleanupWorker();
-  gameScheduler.stop();
-  console.log('⏹️  Background jobs stopped');
-}
-
-// io used by jobs. A leader on an HTTP instance emits straight into the (clustered) io when the
-// Redis adapter is on; otherwise it publishes over the bridge so EVERY instance delivers to its
-// own sockets, regardless of which instance happens to be leader.
+// --- Background jobs lifecycle (see services/jobsRuntime.js) -------------------------------
+// io used by jobs when they must go over the bridge: publish so EVERY instance delivers to its
+// own sockets, regardless of which instance happens to be the job runner.
 function makeBridgeIo() {
   return createPublisherIo((msg) => {
     if (!redisPub) {
@@ -1332,27 +1309,25 @@ function makeBridgeIo() {
   });
 }
 
-async function startJobs(jobIo) {
-  if (!enableBackgroundSchedulers) {
-    console.log('⏸️  Background jobs disabled (RUN_BACKGROUND_JOBS=false)');
-    return;
-  }
-  if (!useLeaderLock) {
-    shutdownHooks.push(['jobs', stopJobsNow]);
-    await startJobsNow(jobIo);
-    return;
-  }
-  const ttlMs = Number(process.env.JOBS_LEADER_TTL_MS) || 30000;
-  leaderLock = createLeaderLock({
-    client: getRedis(),
-    ttlMs,
-    onAcquire: () => startJobsNow(enableHttpServer && !socketAdapter.enabled ? makeBridgeIo() : jobIo),
-    onLose: stopJobsNow,
-  });
-  shutdownHooks.push(['job leader lock', () => leaderLock.stop()]);
-  leaderLock.start();
-  console.log(`[JOBS] leader lock enabled (instance ${leaderLock.instanceId}); jobs run only on the lock holder`);
-}
+const jobsRuntime = createJobsRuntime({
+  enabled: enableBackgroundSchedulers,
+  httpEnabled: enableHttpServer,
+  useLeaderLock,
+  gameScheduler,
+  prisma,
+  notificationService,
+  startCleanupWorker,
+  stopCleanupWorker,
+  runWeeklySeriesGeneration,
+  createLeaderLock,
+  getRedis,
+  adapterEnabled: () => socketAdapter.enabled,
+  makeBridgeIo,
+  addShutdownHook: (hook) => shutdownHooks.push(hook),
+  ttlMs: Number(process.env.JOBS_LEADER_TTL_MS) || 30000,
+});
+
+const startJobs = (jobIo) => jobsRuntime.start(jobIo);
 
 async function startServer() {
   await initializeDataFiles();
