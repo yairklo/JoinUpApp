@@ -84,6 +84,18 @@ function httpError(message, status, details) {
   return err;
 }
 
+// True only for the Game (seriesId, start) unique constraint — another occurrence of the same
+// series already occupies that slot. Other P2002s (e.g. the paired group chat) are not this.
+// With the pg driver adapter, meta.target lists the columns, possibly quoted: ['"seriesId"', 'start'].
+function isSeriesSlotConflict(e) {
+  if (!e || e.code !== 'P2002') return false;
+  const target = e.meta && e.meta.target;
+  const cols = (Array.isArray(target) ? target : [target]).map((t) => String(t || '').replace(/"/g, ''));
+  return cols.includes('seriesId') || cols.some((c) => c.includes('Game_seriesId_start_key'));
+}
+
+const SERIES_SLOT_CONFLICT_MESSAGE = 'Another game in this series already starts at that time';
+
 function mapGameForClient(game, viewerId) {
   if (!game) return game;
   const allParts = Array.isArray(game?.participants) ? game.participants : [];
@@ -949,9 +961,12 @@ async function createGame(payload, creatorUser, io) {
       if (!dateStrs.length) {
         throw httpError('CUSTOM recurrence requires dates[]', 400);
       }
+      // The same instant twice would collide on Game (seriesId, start); create each slot once.
+      const seenStarts = new Set();
       for (const ds of dateStrs) {
         const occStart = new Date(String(ds));
-        if (isNaN(occStart.getTime())) continue;
+        if (isNaN(occStart.getTime()) || seenStarts.has(occStart.getTime())) continue;
+        seenStarts.add(occStart.getTime());
         const participantsCreate = buildOccurrenceParticipants({
           organizerId: creatorUser.id,
           organizerInLottery,
@@ -998,7 +1013,10 @@ async function createGame(payload, creatorUser, io) {
         games.push(game);
       }
       return games;
-    }, { timeout: 30000, maxWait: 10000 });
+    }, { timeout: 30000, maxWait: 10000 }).catch((e) => {
+      if (isSeriesSlotConflict(e)) throw httpError(SERIES_SLOT_CONFLICT_MESSAGE, 409);
+      throw e;
+    });
     for (const g of createdGames) gameScheduler.resyncGame(g);
     const firstGame = createdGames[0];
     // Notify invited friends about the first occurrence (same copy as single-game create).
@@ -1659,6 +1677,10 @@ async function patchGame(gameId, body, userId, io) {
     where: { id: gameId },
     data: updates,
     include: GAME_DETAIL_INCLUDE,
+  }).catch((e) => {
+    // PATCH is the path both apps use to edit a game; moving an occurrence onto another one's slot.
+    if (isSeriesSlotConflict(e)) throw httpError(SERIES_SLOT_CONFLICT_MESSAGE, 409);
+    throw e;
   });
   gameScheduler.resyncGame(updated);
   broadcastGameUpdate(io, gameId, updated).catch(err =>
@@ -1754,7 +1776,7 @@ async function updateGame(gameId, body, userId, io) {
     include: { field: true, participants: { include: { user: true } }, roles: { include: { user: true } }, teams: true },
   }).catch((e) => {
     // Game (seriesId, start) is unique: moving an occurrence onto another one's slot.
-    if (e && e.code === 'P2002') throw httpError('Another game in this series already starts at that time', 409);
+    if (isSeriesSlotConflict(e)) throw httpError(SERIES_SLOT_CONFLICT_MESSAGE, 409);
     throw e;
   });
   gameScheduler.resyncGame(updated);
@@ -2086,6 +2108,8 @@ async function getGameRatings(gameId, viewerId) {
 module.exports = {
   prisma,
   notificationService,
+  isSeriesSlotConflict,
+  SERIES_SLOT_CONFLICT_MESSAGE,
   mapGameForClient,
   loadGameForImageEdit,
   SEARCH_GAME_SELECT,

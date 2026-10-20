@@ -10,6 +10,7 @@ const {
   isValidRegistrationOpenTime,
 } = require('../utils/seriesRegistrationRule');
 const gameScheduler = require('../services/gameScheduler');
+const { isSeriesSlotConflict, SERIES_SLOT_CONFLICT_MESSAGE } = require('../services/gameService');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
 
@@ -472,6 +473,30 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     }
     // dayOfWeek intentionally blocked when updating existing weekly series (see above)
 
+    // Game (seriesId, start) is unique, and only OPEN future games move below. A changed time can
+    // land an OPEN game on a slot still held by a cancelled/completed occurrence of the same day.
+    // Refuse before writing anything — the series row included — so series and games stay in sync.
+    if (updateFutureGames && typeof time === 'string' && series.type === 'WEEKLY') {
+      const openFuture = await prisma.game.findMany({
+        where: { seriesId, start: { gte: new Date() }, status: 'OPEN' },
+        select: { id: true, start: true },
+      });
+      const targetStarts = openFuture.map((g) => parseJerusalemTimeToUTC(formatJerusalemDate(g.start), String(time)));
+      if (targetStarts.length) {
+        const blocking = await prisma.game.findMany({
+          where: { seriesId, start: { in: targetStarts }, id: { notIn: openFuture.map((g) => g.id) } },
+          select: { start: true },
+        });
+        if (blocking.length) {
+          return res.status(409).json({
+            error: SERIES_SLOT_CONFLICT_MESSAGE,
+            code: 'SERIES_SLOT_TAKEN',
+            conflicts: blocking.map((g) => g.start.toISOString()),
+          });
+        }
+      }
+    }
+
     const updatedSeries = await prisma.gameSeries.update({
       where: { id: seriesId },
       data
@@ -550,6 +575,8 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
 
     return res.json({ series: updatedSeries, updatedGames: updates.length });
   } catch (e) {
+    // Race with a concurrent write after the pre-check above.
+    if (isSeriesSlotConflict(e)) return res.status(409).json({ error: SERIES_SLOT_CONFLICT_MESSAGE, code: 'SERIES_SLOT_TAKEN' });
     console.error('Series update error:', e);
     return res.status(500).json({ error: 'Failed to update series' });
   }

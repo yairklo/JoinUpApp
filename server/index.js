@@ -433,8 +433,14 @@ io.on('connection', async (socket) => {
   // Presence is private: only friends, chat partners or pick-session co-managers may watch it.
   socket.on('subscribePresence', async (targetUserId) => {
     if (!targetUserId || !socket.userId) return;
-    if (!(await canSubscribePresence(socket.userId, targetUserId))) return;
-    socket.join(`presence_listener_${targetUserId}`);
+    const listenerRoom = `presence_listener_${targetUserId}`;
+    // Clients re-emit this for the same targets on every state change (e.g. each pick in a live
+    // team-pick session). Already-authorized sockets skip the DB check; access is revoked by
+    // removing them from the room (block/unfriend in routes/users.js), not by re-checking here.
+    if (!socket.rooms.has(listenerRoom)) {
+      if (!(await canSubscribePresence(socket.userId, targetUserId))) return;
+      socket.join(listenerRoom);
+    }
     // Emit initial status
     // Check if target user has any active sockets in their "user_ID" room
     const room = io.sockets.adapter.rooms.get(`user_${targetUserId}`);
@@ -1145,7 +1151,7 @@ async function runWeeklySeriesGeneration() {
         }
 
         if (pendingCreates.length) {
-          const { createGroupChatForGame } = require('./services/gameService');
+          const { createGroupChatForGame, isSeriesSlotConflict } = require('./services/gameService');
           // One transaction per occurrence (game + its group chat stay atomic). Game has a unique
           // (seriesId, start): if another job process already created this slot, the P2002 only
           // aborts that occurrence and the rest are still generated.
@@ -1160,7 +1166,9 @@ async function runWeeklySeriesGeneration() {
               gameScheduler.resyncGame(game);
               createdCount += 1;
             } catch (occErr) {
-              if (occErr && occErr.code === 'P2002') {
+              // Only the (seriesId, start) slot constraint means "already generated"; any other
+              // unique violation is a real error and must surface.
+              if (isSeriesSlotConflict(occErr)) {
                 console.warn(`Series ${s.id} occurrence at ${occ.start.toISOString()} already exists; skipping.`);
                 continue;
               }
