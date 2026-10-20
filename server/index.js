@@ -579,7 +579,7 @@ io.on('connection', async (socket) => {
       return;
     }
 
-    if (!sendRateLimiter.allow(socket.userId)) {
+    if (!(await sendRateLimiter.allow(socket.userId))) {
       fail('You are sending messages too fast', 'RATE_LIMITED', true);
       return;
     }
@@ -975,7 +975,7 @@ io.on('connection', async (socket) => {
       if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
       // Edits go through the same AI/limits as sends, so they share the send budget.
-      if (!sendRateLimiter.allow(socket.userId)) {
+      if (!(await sendRateLimiter.allow(socket.userId))) {
         socket.emit('error', 'You are sending messages too fast');
         return;
       }

@@ -283,3 +283,46 @@ describe('createSendRateLimiter', () => {
     expect(limiter.allow('u1', t + 1002)).toBe(true);
   });
 });
+
+describe('createSendRateLimiter with a Redis client', () => {
+  const { createSendRateLimiter: make } = require('../services/chatSafety');
+
+  function fakeRedis(windowMs, max) {
+    const log = [];
+    return {
+      fail: false,
+      calls: 0,
+      async eval() {
+        this.calls += 1;
+        if (this.fail) throw new Error('ECONNREFUSED');
+        const now = Date.now();
+        while (log.length && now - log[0] >= windowMs) log.shift();
+        if (log.length >= max) return 0;
+        log.push(now);
+        return 1;
+      },
+    };
+  }
+
+  test('shares the budget through the client and denies past max', async () => {
+    const client = fakeRedis(10_000, 3);
+    const a = make({ windowMs: 10_000, max: 3, client });
+    const b = make({ windowMs: 10_000, max: 3, client }); // second "instance"
+    expect(await a.allow('u1')).toBe(true);
+    expect(await b.allow('u1')).toBe(true);
+    expect(await a.allow('u1')).toBe(true);
+    expect(await b.allow('u1')).toBe(false);
+  });
+
+  test('fails open to the local window on Redis errors and opens the breaker', async () => {
+    const client = fakeRedis(10_000, 3);
+    client.fail = true;
+    const l = make({ windowMs: 10_000, max: 2, client, breakerThreshold: 2 });
+    expect(await l.allow('u1')).toBe(true);
+    expect(await l.allow('u1')).toBe(true);
+    expect(await l.allow('u1')).toBe(false); // local window enforced
+    const before = client.calls;
+    await l.allow('u2'); // breaker open: no Redis call
+    expect(client.calls).toBe(before);
+  });
+});
