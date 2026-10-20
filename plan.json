@@ -1,65 +1,181 @@
 [
   {
     "id": 1,
-    "title": "Game hero: real cover photo, countdown pill, status badge, colorful stat tiles",
-    "area": "web",
+    "title": "Schema: FriendsOnlyLinkPolicy on Game + GameSeries, SeriesJoinRequest model, data fix",
+    "area": "server",
     "files": [
-      "next_app/src/components/GameHero.tsx",
-      "next_app/src/components/GameLiveSection.tsx",
-      "next_app/src/app/games/[id]/page.tsx"
+      "server/prisma/schema.prisma",
+      "server/prisma/migrations/20261020120000_friends_only_link_policy/migration.sql"
     ],
-    "description": "Visual refresh of the game page header (young/fresh style), same data, no behavior change.\n\n(a) page.tsx: add `fieldImage?: string | null` and `seriesImageUrl?: string | null` to the local Game type and pass `coverImage: game.imageUrl || game.seriesImageUrl || game.fieldImage` into GameLiveSection's initialGame (the API already returns all three, see server/services/gameService.js:161-163; the feed cards already use this exact fallback, e.g. GamesByDateClient.tsx:72). Today the detail hero ignores the per-game/series/field photo entirely.\n(b) GameLiveSection.tsx: add `coverImage?: string | null` to LiveGame, include it in the initialGame sync effect deps, pass it to GameHero as `coverImage`, and pass a new `viewerState` prop: 'joined' | 'waitlisted' | 'pending' | null (from `joined`, viewerParticipationStatus).\n(c) GameHero.tsx: pass `image={coverImage}` to SportCover; taller hero (xs 240, md 300); top row = sport chip + teamSize chip on one side, a status pill on the other ('אתה בפנים ✓' white pill with sport-ink text when joined, 'ברשימת המתנה' / 'ממתין לאישור' glass pill, 'מלא' red pill / 'מקום אחרון!' amber pill otherwise); under the title add a bright countdown pill (sport glow bg, ink text) computed from date+time: 'היום · 20:00', 'מחר · 20:00', 'בעוד N ימים', 'הסתיים' (pure helper in the same file, Jerusalem-agnostic string math on the DD/MM/YYYY date the component already receives). Replace the bordered 3-column stat strip with three rounded tinted tiles (gap 1.5, radius 3, bg = alpha(sport base, 0.08) in light / 0.14 dark, icon in a 32px circle filled with sport base and white icon). Players tile keeps the progressbar (height 8, gradient from sport base to glow) and the spots-left caption. Actions footer: no grey band; actions sit in a padded row, full-width on xs (children container `width: {xs: '100%', sm: 'auto'}`). Keep the series link row but restyle as a rounded pill link inside the card padding instead of a full-bleed band. Card radius 6, softer shadow. Keep all aria/progressbar semantics and RTL (dir) handling as-is.",
-    "status": "verify"
+    "description": "Product rule (from the user): a friends-only game/series has exactly two link modes, chosen by the manager — REQUEST_TO_JOIN (default): anyone with the link can VIEW it, but a non-friend's join becomes a request the manager must approve; BLOCKED: anyone who isn't a friend of the organizer (or already on it) can't even view it. Today's behavior (friends-only but fully open by link) must no longer exist.\nSchema:\n- `enum FriendsOnlyLinkPolicy { REQUEST_TO_JOIN BLOCKED }`.\n- `Game.friendsOnlyLinkPolicy FriendsOnlyLinkPolicy @default(REQUEST_TO_JOIN)` after `friendsOnlyUntil` (~361), with a `///` comment stating the rule above and that it only matters while the game is friends-only (isFriendsOnly && friendsOnlyUntil not passed).\n- `GameSeries.friendsOnlyLinkPolicy FriendsOnlyLinkPolicy @default(REQUEST_TO_JOIN)` after `isFriendsOnly` (~645).\n- `enum SeriesJoinRequestStatus { PENDING REJECTED }` and `model SeriesJoinRequest { id String @id @default(cuid()); seriesId String; userId String; status SeriesJoinRequestStatus @default(PENDING); createdAt DateTime @default(now()); series GameSeries @relation(fields:[seriesId], references:[id], onDelete: Cascade); user User @relation(fields:[userId], references:[id], onDelete: Cascade); @@unique([seriesId, userId]); @@index([seriesId, status]) }` plus back-relation fields `joinRequests SeriesJoinRequest[]` on GameSeries and `seriesJoinRequests SeriesJoinRequest[]` on User. A separate table (not a PENDING status on SeriesParticipant) on purpose: every existing subscriber query (game generation in index.js, notifications, member counts in manage.js, profile groups in users.js) keeps meaning 'real member' without changes.\nMigration SQL: CREATE TYPE for both enums, ADD COLUMN to \"Game\" and \"GameSeries\" (NOT NULL DEFAULT 'REQUEST_TO_JOIN'), CREATE TABLE \"SeriesJoinRequest\" with FKs (ON DELETE CASCADE), unique + index. Data fix in the same migration: the weekly generator in server/index.js has always created games with isFriendsOnly=false even for friends-only series (step 7 fixes the code), so: `UPDATE \"Game\" g SET \"isFriendsOnly\" = true FROM \"GameSeries\" s WHERE g.\"seriesId\" = s.id AND s.\"isFriendsOnly\" = true AND g.\"start\" >= now() AND g.\"isFriendsOnly\" = false AND g.\"friendsOnlyUntil\" IS NULL;`. Then `npx prisma generate`. Follow prisma-db.mdc (directUrl for migrate, enum sync).",
+    "status": "todo"
   },
   {
     "id": 2,
-    "title": "Map + nav/share actions as one rounded location card",
-    "area": "web",
+    "title": "Access helper: getGameAccess / getSeriesAccess + unit tests",
+    "area": "server",
     "files": [
-      "next_app/src/components/GameActions.tsx"
+      "server/utils/friendsOnlyAccess.js",
+      "server/tests/friendsOnlyAccess.test.js"
     ],
-    "description": "Restyle GameActions (no logic change to navHref/share): wrap everything in one Card (radius 5, border divider, no elevation) with a small header row: PlaceRounded icon in a tinted circle + 'מיקום' + fieldName (noWrap). Map below it (height 200, no inner card/radius, borderTop). Navigation and share become two pill buttons (borderRadius 999, size medium) in a footer row: 'ניווט' contained (primary, disableElevation), 'שיתוף' outlined; on xs they split 50/50 (flex: 1). When there is no location, render the same card with only the header + share button (no empty map). Keep ShareDialog wiring unchanged.",
-    "status": "verify"
+    "description": "New CommonJS module, takes `prisma` as first arg (same style as utils/friends.js), returns one of 'FULL' | 'REQUEST' | 'NONE'.\n`areFriends(prisma, a, b)`: `prisma.friendship.findFirst({ where: { OR: [{ userAId: a, userBId: b }, { userAId: b, userBId: a }] }, select: { id: true } })`.\n`isGameFriendsOnlyNow(game)`: `game.isFriendsOnly && !(game.friendsOnlyUntil && new Date(game.friendsOnlyUntil) <= new Date())` (mirrors gameService.isPubliclyVisible).\n`getGameAccess(prisma, game, viewerId, { isAdmin = false } = {})`: not friends-only-now => 'FULL'. Otherwise 'FULL' if isAdmin, viewer is organizer, viewer has ANY Participation row on the game (any status, incl. PENDING/REJECTED — use `game.participants` if loaded, else query), viewer has a GameRole on the game (use `game.roles` if loaded), viewer is a SeriesParticipant of `game.seriesId` (if set), or viewer is a friend of the organizer. Else `game.friendsOnlyLinkPolicy === 'BLOCKED' ? 'NONE' : 'REQUEST'`. Anonymous viewer (no viewerId) on a friends-only-now game => 'NONE' if BLOCKED else 'REQUEST'. Short-circuit in cheap-first order so most calls do zero extra queries.\n`getSeriesAccess(prisma, series, viewerId, { isAdmin = false } = {})`: `!series.isFriendsOnly` => 'FULL'. Else 'FULL' if isAdmin, organizer, SeriesParticipant of the series (any role), or friend of the organizer; else BLOCKED ? 'NONE' : 'REQUEST'.\nAlso export `seriesVisibilityWhere(viewerId)` for list queries: no viewer => `{ isFriendsOnly: false }`; else `{ OR: [{ isFriendsOnly: false }, { organizerId: viewerId }, { subscribers: { some: { userId: viewerId } } }, { organizer: { OR: [{ friendshipsA: { some: { userBId: viewerId } } }, { friendshipsB: { some: { userAId: viewerId } } }] } }] }` (same shape as gameService.buildVisibilityWhere; verify the GameSeries.organizer relation name).\nUnit tests with a hand-rolled prisma mock (no DB): every branch of both functions, incl. friendsOnlyUntil in the past => FULL, anonymous + REQUEST_TO_JOIN => REQUEST, anonymous + BLOCKED => NONE, participant with status REJECTED => FULL, series member => FULL on the series' game.\nSeries members (SeriesParticipant of game.seriesId) get FULL on every game of that series, including the ~4 future games that already exist when they are approved into the series: joining the series never adds them to games, but they can then join any series game like a friend (the game's own joinPolicy applies, no forced request).",
+    "status": "todo"
   },
   {
     "id": 3,
-    "title": "Roster: player tiles grid with open-slot placeholders, Hebrew empty states",
-    "area": "web",
+    "title": "Game read + settings: gate GET /games/:id, viewer-specific approval, editable policy",
+    "area": "server",
     "files": [
-      "next_app/src/components/GameParticipantsList.tsx"
+      "server/services/gameService.js",
+      "server/routes/games.js"
     ],
-    "description": "Visual refresh of the participants card, same actions/menus/API calls.\n(a) Card: elevation 0, border divider, radius 5. Header: 'השחקנים' h6 800 + a count pill 'N/M' (dir=ltr isolate) in primary tint; drop the AvatarGroup and Divider (the tiles show everyone already).\n(b) Flat mode (no teams): replace the full-width ListItem rows with a responsive CSS grid (`gridTemplateColumns: repeat(auto-fill, minmax(150px, 1fr))` on sm+, 2 columns on xs). Each tile: radius 3, border divider, avatar size md + name (noWrap, 700) + role caption; organizer tile gets a primary ring and a small StarIcon badge on the avatar corner, manager gets an info AdminPanelSettings badge; the viewer's own tile gets 'את/ה' caption suffix and a success border. MoreVert menu button stays in the tile corner, only when canEditUser (unchanged rule). Tile links to /users/:id exactly as today (keep stopPropagation-free structure: the menu button must NOT be inside the link).\n(c) After the real players, render `Math.max(0, maxPlayers - participants.length)` dashed open-slot tiles (cap at 6, then a '+K מקומות פנויים' tile) with a dashed 40px circle + 'מקום פנוי' caption — read-only, not clickable.\n(d) Team mode: same tiles inside each team section; team header = left color bar (6px, team.color) + name + count pill instead of the full colored band. Unassigned heading becomes 'לא שובצו (N)'.\n(e) Replace English strings: 'No participants yet. Be the first to join!' -> 'עוד אין שחקנים — היו הראשונים להצטרף!', 'No players assigned yet' -> 'עדיין אין שחקנים בקבוצה', 'Not Assigned' -> 'לא שובצו'.\n(f) Manager-only invite box ('צרף חברים נוספים'): wrap in a tinted rounded box (alpha primary 0.06, radius 3, p 1.5) with PersonAddAlt icon, so it reads as an admin tool distinct from the roster.",
-    "status": "verify"
+    "description": "(a) `getGameById(gameId, viewerId, { isAdmin } = {})` (~2017): after the 404, `const access = await getGameAccess(prisma, game, viewerId, { isAdmin });`. 'NONE' => `throw httpError('This game is for friends only', 403, { code: 'GAME_FRIENDS_ONLY' })` BEFORE the chat self-heal (check httpError ~80 + handleRouteError so `code` ends up in the JSON body). Otherwise `const dto = mapGameForClient(game, viewerId)`; when access === 'REQUEST' set `dto.joinPolicy = 'REQUIRES_APPROVAL'` and `dto.viewerJoinRequiresApproval = true` (this response is per-viewer, so existing web/mobile UI already shows 'request to join' instead of 'join'); else `dto.viewerJoinRequiresApproval = false`.\n(b) `mapGameForClient` (~164): add `friendsOnlyLinkPolicy: game.friendsOnlyLinkPolicy || 'REQUEST_TO_JOIN'`.\n(c) Accept `friendsOnlyLinkPolicy` in `patchGame` (~1546/1614) and `updateGame` (~1681/1739); only accept the two enum strings, ignore anything else.\n(d) `createGame` (~683): destructure `friendsOnlyLinkPolicy`; effective value = valid payload value, else `series?.friendsOnlyLinkPolicy`, else 'REQUEST_TO_JOIN' (same pattern as effectiveIsFriendsOnly ~761). Write it on every `prisma.game.create` that sets isFriendsOnly (~877, ~928, ~972, ~1062) and on the series created there (~887 area: wherever the GameSeries row is created with isFriendsOnly). `convertGameToSeries` (~1330, ~1401): copy `existing.friendsOnlyLinkPolicy` to the series and its games.\n(e) routes/games.js ~177: pass `{ isAdmin: !!req.user?.isAdmin }`.\nDo NOT touch buildVisibilityWhere — feeds already hide friends-only games and that stays as is.",
+    "status": "todo"
   },
   {
     "id": 4,
-    "title": "Manager view: admin bar under hero + chat card polish",
-    "area": "web",
+    "title": "Game join: block (BLOCKED) or force a join request (REQUEST_TO_JOIN) for non-friends + tests",
+    "area": "server",
     "files": [
-      "next_app/src/components/GameLiveSection.tsx"
+      "server/routes/gameRoster.js",
+      "server/tests/friendsOnlyGameLink.test.js"
     ],
-    "description": "Managers (canManageSeries) currently get a 'נהל משחק' outlined button mixed into the player CTA row. Replace with a dedicated admin bar rendered between the hero and PendingJoinRequests, only when canManageSeries: a rounded (radius 4) strip with a dark ink background (`#0f172a` light / alpha white 0.06 dark), white text, a 'מצב מנהל' pill with AdminPanelSettingsRounded icon in amber, and horizontally scrollable pill buttons (glass style): 'עריכת פרטים' (scrollToManage), 'ניהול קבוצות חי' (NextLink to /games/:id/team-management), 'בקשות ממתינות' only when `pendingRequestCount > 0` if present on the live game (add optional `pendingRequestCount?: number` to LiveGame; server already returns it, gameService.js:166) with a count badge, scrolling to PendingJoinRequests (give it a wrapper id `game-requests`). Remove the two 'נהל משחק' buttons from the hero children (joined + not-joined manager branches) so the hero CTA is identical to the player view; keep JoinGameButton/LeaveGameButton exactly as wired. Chat card: radius 5, header gets a ChatBubbleRounded icon in a sport-tinted circle and a small green 'live' dot next to the title. No change to the refresh/socket logic.",
-    "status": "verify"
+    "description": "POST /:id/join (~38): load the game with `participants` and `roles`. After the CANCELLED check, `const access = await getGameAccess(prisma, game, req.user.id, { isAdmin: !!req.user?.isAdmin })`. 'NONE' => 403 `{ error: 'This game is for friends only', code: 'GAME_FRIENDS_ONLY' }` before any write. `const forceApproval = access === 'REQUEST';` Change the approval branch condition (~87) to `(forceApproval || (game.joinPolicy === 'REQUIRES_APPROVAL' && !game.lotteryEnabled)) && game.organizerId !== req.user.id` so a non-friend always lands in PENDING, also on lottery games (lottery handling on approval is below). The existing-row handling above it stays as is (a REJECTED non-friend gets the existing 'declined' error).\nIntegration test (supertest + dev DB, pattern from testing-jest.mdc / friendsFlow.test.js): organizer O, friend F, stranger S. Friends-only game, REQUEST_TO_JOIN: GET as S => 200 with `viewerJoinRequiresApproval: true` and joinPolicy REQUIRES_APPROVAL; GET anonymous => 200; S joins => response `pending: true`, Participation is PENDING; F joins => CONFIRMED (game joinPolicy INSTANT). BLOCKED: GET as S => 403 GAME_FRIENDS_ONLY; anonymous => 403; S join => 403 and no Participation row; F => 200; O => 200; a stranger with an existing Participation row => 200. friendsOnlyUntil in the past + BLOCKED => S gets 200 and joins instantly. Public game => unchanged. PATCH by O with `{ friendsOnlyLinkPolicy: 'BLOCKED' }` persists and is echoed. Clean up in afterAll. Run: `cd server && PORT=3099 npx jest tests/friendsOnlyGameLink.test.js --runInBand --detectOpenHandles --forceExit`.\nLottery rule (from the user): if the game has a pending lottery, an approved request must ENTER THE LOTTERY, not take a seat directly. (1) In the join route, for forceApproval on a lottery game with `!game.lotteryExecutedAt`, apply the same window checks the lottery-join path already does (~104-112: no lotteryAt => 400, now >= lotteryAt => 400 \"Lottery window is closed\") BEFORE creating the PENDING row. (2) In POST /:id/join-requests/:userId/approve (~251-283): `const lotteryPending = game.lotteryEnabled && !game.lotteryExecutedAt;` then `newStatus = lotteryPending ? 'WAITLISTED' : (confirmedCount < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED')`. WAITLISTED is the lottery pool: gameScheduler._runLottery (~178-204) shuffles WAITLISTED into the remaining seats. Skip sendAutoWelcomeMessage when not CONFIRMED (already the case). Still add them to the chat as today. This also applies to an existing REQUIRES_APPROVAL+lottery game, which is correct. Tests: non-friend requests on a lottery game before lotteryAt => PENDING; approve => WAITLISTED even with free seats; request after lotteryAt (not executed) => 400; after the lottery ran, approve => CONFIRMED when there is room. Also: a series member (SeriesParticipant) who is not a friend joins an already-existing friends-only BLOCKED series game => 200 with the game's normal joinPolicy.",
+    "status": "todo"
   },
   {
     "id": 5,
-    "title": "Manager control panel: tiles instead of plain Paper; roster admin header",
-    "area": "web",
+    "title": "Series read/list/settings: hide friends-only series, gate GET /series/:id, editable policy",
+    "area": "server",
     "files": [
-      "next_app/src/app/games/[id]/page.tsx",
-      "next_app/src/components/TeamBuilderWrapper.tsx",
-      "next_app/src/components/GameDetailsEditor.tsx",
-      "next_app/src/components/GameManagePanel.tsx"
+      "server/routes/series.js",
+      "server/tests/friendsOnlySeriesView.test.js"
     ],
-    "description": "(a) page.tsx #game-manage: replace the outlined Paper with a Card (radius 5, border) whose header is a slim gradient band (primary.dark -> primary.main) with TuneRounded icon, 'לוח ניהול' title and the existing helper sentence in white/0.8 shortened to 'עריכת פרטים, קבוצה שבועית וביטול המשחק'. Body: GameDetailsEditor trigger, CancelGameButton (same visibility condition) and SeriesManager, separated by Divider as today. Keep id=\"game-manage\" on the outer Card (scrollToManage relies on it). Keep GameActions where it is.\n(b) GameDetailsEditor.tsx: only the trigger button changes — not fullWidth outlined; instead a full-width tile-like Button (variant contained, color primary, disableElevation, borderRadius 3, py 1.25, justifyContent space-between, EditRounded start icon, ChevronLeft end icon). Dialog untouched.\n(c) TeamBuilderWrapper.tsx: the manager header ('סגל המשחק' + two buttons + caption) becomes a compact tinted admin box (alpha primary 0.06, radius 3, p 1.5, mb 2) titled 'ניהול קבוצות' with the two buttons as pills (borderRadius 999); caption kept but shortened to one line. Lottery-pending alert and waitlist card: radius 3, waitlist ListItemButtons become the same tile look as step 3 (border, radius 3). No change to save/route logic.\n\n(d) Implementation note: the panel shell moved into a new client component GameManagePanel.tsx, because its header uses a theme sx callback that a server component (page.tsx) cannot pass to a client component (it would have crashed the page for managers only).",
-    "status": "verify"
+    "description": "Today GET /series/active lists friends-only series to everyone, and GET /series/:seriesId has no auth middleware at all.\n(a) GET /active (~126): add `...seriesVisibilityWhere(req.user?.id)` to the where (combine with `isActive: true` via AND).\n(b) GET /:seriesId (~184): add `attachOptionalUser`. After resolving the series (incl. the gameId fallback), `const access = await getSeriesAccess(prisma, series, req.user?.id, { isAdmin: !!req.user?.isAdmin })`; 'NONE' => 403 `{ error: 'This group is for friends only', code: 'SERIES_FRIENDS_ONLY' }`. Add to the payload: `friendsOnlyLinkPolicy`, `viewerAccess` ('FULL' | 'REQUEST'), `viewerJoinRequestStatus` (PENDING/REJECTED/null from SeriesJoinRequest for the viewer), and for viewers who pass `canManageSeries` a `pendingJoinRequestCount`.\n(c) PATCH /:seriesId (~339): accept `friendsOnlyLinkPolicy` (two enum values only) into `data` (~463), and propagate to future games `gd.friendsOnlyLinkPolicy` next to `gd.isFriendsOnly` (~536).\nTest (supertest + dev DB): friends-only series by O, BLOCKED: /active as S does not include it, as F does, anonymous doesn't; GET /:id as S => 403 SERIES_FRIENDS_ONLY, as F/O/member => 200. REQUEST_TO_JOIN: /active as S still excludes it (hidden from lists exactly like games), GET /:id as S => 200 with viewerAccess 'REQUEST'. Public series unchanged. PATCH policy persists and propagates to a future game. Run only this file.",
+    "status": "todo"
   },
   {
     "id": 6,
-    "title": "Quality gates + visual check (player and manager views, light/dark, mobile width)",
+    "title": "Series join requests: subscribe => request for non-friends, approve/reject endpoints + tests",
+    "area": "server",
+    "files": [
+      "server/routes/series.js",
+      "server/tests/seriesJoinRequests.test.js"
+    ],
+    "description": "POST /:seriesId/subscribe (~299): compute getSeriesAccess. 'NONE' => 403 SERIES_FRIENDS_ONLY. Already a SeriesParticipant => `{ ok: true }` (idempotent, as today). 'REQUEST' => if a REJECTED SeriesJoinRequest exists => 400 `{ error: 'Your request to join this group was declined', code: 'SERIES_JOIN_DECLINED' }`; else upsert a PENDING SeriesJoinRequest, notify the organizer (notificationService.sendNotification, type GAME_JOIN_REQUEST, Hebrew title/body like 'בקשת הצטרפות לקבוצה' / '<name> ביקש/ה להצטרף לקבוצה <title>', data `{ seriesId, userId, actorId, link: '/series/<id>' }`; first check how web + mobile route a tapped notification — if they route by `data.link`, reusing the existing type is enough; if they route GAME_JOIN_REQUEST by gameId, add a `seriesId` branch there instead and flag it as an extra step) and return `{ ok: true, pending: true }`. 'FULL' => existing behavior.\nDELETE /:seriesId/subscribe (~324): also delete the viewer's PENDING request (lets them cancel it).\nNew endpoints (all `authenticateToken` + `canManageSeries`, 403 otherwise): GET /:seriesId/join-requests => `{ pending: [...], rejected: [...] }` each `{ userId, name, avatar, createdAt }`; POST /:seriesId/join-requests/:userId/approve => in one `prisma.$transaction`: upsert SeriesParticipant MEMBER + delete the request; notify the requester (GAME_JOIN_APPROVED, link to the series); POST /:seriesId/join-requests/:userId/reject => set status REJECTED, notify (GAME_JOIN_REJECTED). Approving NEVER adds them to any game (series membership never does). Because getGameAccess treats series members as FULL, an approved member can join every game of the series, including the ~4 already-generated future ones. No lottery logic here: series have no seat limit.\nTest: S subscribes to REQUEST_TO_JOIN series => pending, no SeriesParticipant; F subscribes => member immediately; O approves S => member, request gone; reject path => S re-subscribe gets SERIES_JOIN_DECLINED; non-manager calling approve => 403; BLOCKED series => S subscribe 403. Mock notificationService as other tests do. Run only this file. Extra test: after approval, S can join an already-existing future game of that series (BLOCKED or REQUEST_TO_JOIN) without a forced request.",
+    "status": "todo"
+  },
+  {
+    "id": 7,
+    "title": "Weekly series game generator: copy friends-only settings from the series",
+    "area": "server",
+    "files": [
+      "server/index.js"
+    ],
+    "description": "The occurrence generator (~1155-1170) hardcodes `isFriendsOnly: false`, so every auto-generated game of a friends-only group was public. Replace with `isFriendsOnly: !!s.isFriendsOnly`, add `friendsOnlyLinkPolicy: s.friendsOnlyLinkPolicy || 'REQUEST_TO_JOIN'` and `joinPolicy: s.joinPolicy || 'INSTANT'`. Leave the other hardcoded fields (lottery etc.) alone — out of scope. Verify the series query that feeds this loop selects those columns (if it uses `select`, add them). No new test file (index.js boots the server); the column copy is covered by reading the diff, and the gate is the existing server test run for files touched in steps 2-6.",
+    "status": "todo"
+  },
+  {
+    "id": 8,
+    "title": "Shared types + web API clients",
+    "area": "shared",
+    "files": [
+      "shared/types/game.ts",
+      "next_app/src/services/api/series.ts",
+      "next_app/src/services/api/games.ts"
+    ],
+    "description": "shared/types/game.ts: `export type FriendsOnlyLinkPolicy = 'REQUEST_TO_JOIN' | 'BLOCKED';`, add `friendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;` and `viewerJoinRequiresApproval?: boolean;` to the game type (~74). Follow shared-types.mdc (shared/ is the source of truth; don't redeclare in next_app/mobile_app).\nnext_app series.ts: add `friendsOnlyLinkPolicy`, `viewerAccess`, `viewerJoinRequestStatus`, `pendingJoinRequestCount` to the series details type; subscribe returns `{ ok, pending? }`; add `getSeriesJoinRequests(id)`, `approveSeriesJoinRequest(id, userId)`, `rejectSeriesJoinRequest(id, userId)` using the existing apiClient pattern.\nnext_app games.ts: make sure the create/update payload types accept `friendsOnlyLinkPolicy` (only if they are explicitly typed).",
+    "status": "todo"
+  },
+  {
+    "id": 9,
+    "title": "Web: friends-only mode picker in the game editor + locked state on the game page",
     "area": "web",
-    "files": [],
-    "description": "Run `cd next_app && npx tsc --noEmit` and `npm run lint` (PROMPT.md quality gate). Visually check /games/:id at 375px and desktop, light and dark, as (1) a guest, (2) a joined player, (3) the organizer. NOTE: the local server currently 500s on every games query because the shared dev DB is missing the Game.imageUrl column added on this branch (commit 00c16c3) — the migration must be applied to the dev DB (or verification done against a DB that has it) before the page renders at all; that is a user decision, not part of this plan.",
+    "files": [
+      "next_app/src/hooks/useGameEditor.ts",
+      "next_app/src/components/GameDetailsEditor.tsx",
+      "next_app/src/app/games/[id]/page.tsx"
+    ],
+    "description": "useGameEditor: `initialFriendsOnlyLinkPolicy` (default 'REQUEST_TO_JOIN'), state + setter, send `friendsOnlyLinkPolicy` in both save payloads next to isFriendsOnly (~236, ~303).\nGameDetailsEditor: inside `<Collapse in={state.isFriendsOnly}>` (~339), above 'make public later', a RadioGroup with two options:\n  • 'קישור פתוח, הצטרפות באישור' (default) — 'מי שמקבל את הקישור יכול לראות את המשחק ולבקש להצטרף. חברים שלך מצטרפים כרגיל.'\n  • 'קישור חסום למי שאינו חבר' — 'רק חברים שלך ומי שכבר במשחק יוכלו לפתוח את הקישור.'\nMatch the Paper/FormControlLabel styling already there.\npage.tsx: add the two fields to the local Game type (~58), pass `initialFriendsOnlyLinkPolicy` next to `initialIsFriendsOnly` (~198). `fetchGame` (~71) returns null on any non-ok: make it return a discriminated result so a 403 with `code === 'GAME_FRIENDS_ONLY'` renders an info Alert 'המשחק הזה פתוח לחברים של המארגן בלבד' (+ for signed-out viewers: 'אם אתה חבר של המארגן, התחבר כדי לראות אותו'), keeping 'המשחק לא נמצא' for everything else. If the page has generateMetadata, it must handle the forbidden result without leaking the title. When `viewerJoinRequiresApproval` is true, check the join CTA shows the request-to-join wording (it should, since joinPolicy comes back REQUIRES_APPROVAL); fix only if it doesn't, and only within these files.",
+    "status": "todo"
+  },
+  {
+    "id": 10,
+    "title": "Web: mode picker when creating a game",
+    "area": "web",
+    "files": [
+      "next_app/src/hooks/useGameCreator.ts",
+      "next_app/src/components/NewGameInline.tsx",
+      "next_app/src/app/games/new/page.tsx"
+    ],
+    "description": "Wherever the create flow shows the friends-only switch, show the same two-option RadioGroup (same copy as step 9) when it's on, default 'REQUEST_TO_JOIN', and send `friendsOnlyLinkPolicy` in the create payload next to isFriendsOnly. When creating a game inside a series and the user didn't touch it, omit the field so the server inherits the series value. If NewGameInline or games/new/page.tsx turn out not to render the friends-only switch, leave that file untouched.",
+    "status": "todo"
+  },
+  {
+    "id": 11,
+    "title": "Web: series settings mode picker + series page locked state",
+    "area": "web",
+    "files": [
+      "next_app/src/hooks/useSeriesSettingsEditor.ts",
+      "next_app/src/components/SeriesSettingsEditor.tsx",
+      "next_app/src/app/series/[id]/page.tsx"
+    ],
+    "description": "useSeriesSettingsEditor/SeriesSettingsEditor: same two-option picker shown when the group is friends-only (copy as step 9 with 'קבוצה' instead of 'משחק', e.g. 'מי שמקבל את הקישור יכול לראות את הקבוצה ולבקש להצטרף'), send `friendsOnlyLinkPolicy` in the PATCH, note it applies to future games too (the server propagates).\nseries/[id]/page.tsx: `fetchSeries` (~81) currently sends no token — use Clerk `auth().getToken()` like games/[id]/page.tsx so friends/members are recognized. 403 `SERIES_FRIENDS_ONLY` => info Alert 'הקבוצה הזו פתוחה לחברים של המארגן בלבד' (+ sign-in hint when signed out); keep not-found for the rest. Pass `initialFriendsOnlyLinkPolicy` next to `initialIsFriendsOnly` (~183) and pass `viewerAccess` / `viewerJoinRequestStatus` / `pendingJoinRequestCount` down to the components step 12 updates.",
+    "status": "todo"
+  },
+  {
+    "id": 12,
+    "title": "Web: series subscribe button pending state + manager join-request list",
+    "area": "web",
+    "files": [
+      "next_app/src/components/SeriesSubscribeButton.tsx",
+      "next_app/src/components/SeriesMembersPanel.tsx"
+    ],
+    "description": "SeriesSubscribeButton: when `viewerAccess === 'REQUEST'` label is 'בקשת הצטרפות'; after subscribing with `pending: true`, or when `viewerJoinRequestStatus === 'PENDING'`, show disabled 'הבקשה נשלחה' with a 'ביטול בקשה' action (DELETE subscribe); REJECTED => disabled 'הבקשה נדחתה'.\nSeriesMembersPanel (managers only): a 'בקשות הצטרפות' section above the members list, using getSeriesJoinRequests, each row avatar + name + 'אשר' / 'דחה' buttons; on approve, refresh the members list. Hide the section when there are no pending requests. Reuse the visual pattern of the game join-requests list if one exists in next_app (grep 'join-requests').",
+    "status": "todo"
+  },
+  {
+    "id": 13,
+    "title": "Mobile: API clients + i18n strings",
+    "area": "mobile",
+    "files": [
+      "mobile_app/src/services/api/series.ts",
+      "mobile_app/src/i18n/locales/he.json",
+      "mobile_app/src/i18n/locales/en.json"
+    ],
+    "description": "series.ts: same additions as web step 8 (fields, `{ ok, pending? }`, getSeriesJoinRequests / approve / reject). Check mobile_app/src/services/api/games.ts; if its create/update payloads are explicitly typed, the type comes from shared (step 8), no edit needed there.\ni18n keys (he + en): `friendsOnly.linkPolicyTitle` 'מי יכול להיכנס דרך קישור?'; `friendsOnly.requestToJoin` 'קישור פתוח, הצטרפות באישור'; `friendsOnly.requestToJoinHint` 'מי שמקבל את הקישור יכול לראות ולבקש להצטרף. חברים שלך מצטרפים כרגיל.'; `friendsOnly.blocked` 'קישור חסום למי שאינו חבר'; `friendsOnly.blockedHint` 'רק חברים שלך ומי שכבר בפנים יוכלו לפתוח את הקישור.'; `friendsOnly.gameLocked` 'המשחק הזה פתוח לחברים של המארגן בלבד'; `friendsOnly.seriesLocked` 'הקבוצה הזו פתוחה לחברים של המארגן בלבד'; `series.requestToJoin` 'בקשת הצטרפות'; `series.requestSent` 'הבקשה נשלחה'; `series.cancelRequest` 'ביטול בקשה'; `series.requestDeclined` 'הבקשה נדחתה'; `series.joinRequests` 'בקשות הצטרפות'; `common.approve`/`common.reject` only if they don't already exist. Natural English equivalents in en.json.",
+    "status": "todo"
+  },
+  {
+    "id": 14,
+    "title": "Mobile: mode picker in game edit + game create",
+    "area": "mobile",
+    "files": [
+      "mobile_app/app/(tabs)/game/edit/[id].tsx",
+      "mobile_app/src/hooks/useGameCreator.ts",
+      "mobile_app/app/(tabs)/game/new.tsx"
+    ],
+    "description": "edit/[id].tsx: `friendsOnlyLinkPolicy` state (default 'REQUEST_TO_JOIN'), load from data next to `setIsPrivate` (~237), two selectable rows (title + hint, using the step-13 keys) shown only when `isPrivate`, styled like the existing make-public-later block, and send it next to `isFriendsOnly: isPrivate` (~463).\nuseGameCreator + new.tsx: same picker when friends-only is on at creation, send `friendsOnlyLinkPolicy` (omit when creating into a series and untouched, so the series value is inherited). mobile_app/src/hooks/useGameEditor.ts: only if edit/[id].tsx actually saves through it — then it's a 4th file, split it into its own step instead of growing this one.",
+    "status": "todo"
+  },
+  {
+    "id": 15,
+    "title": "Mobile: locked state on the game screen",
+    "area": "mobile",
+    "files": [
+      "mobile_app/app/(tabs)/game/[id].tsx"
+    ],
+    "description": "`fetchGame` (~99): when the API answers 403 with `code === 'GAME_FRIENDS_ONLY'`, set a `forbidden` flag and render `t('friendsOnly.gameLocked')` instead of the not-found text (~250). Check how the mobile api client surfaces status/body on errors before writing the check. Verify that `viewerJoinRequiresApproval` / joinPolicy REQUIRES_APPROVAL makes the join CTA show request-to-join wording and the pending state after tapping; fix within this file only if not.",
+    "status": "todo"
+  },
+  {
+    "id": 16,
+    "title": "Mobile: series screen — settings picker, locked state, request-to-join, manager requests",
+    "area": "mobile",
+    "files": [
+      "mobile_app/app/series/[id].tsx"
+    ],
+    "description": "fetchSeries (~84): 403 `SERIES_FRIENDS_ONLY` => locked message (`friendsOnly.seriesLocked`). Settings (~58/96/159): add `friendsOnlyLinkPolicy` state loaded from data, two-row picker shown when isFriendsOnly is on, include it in `changes` when it differs. Note the existing code sets `changes.isOpenToJoin = !isFriendsOnly` (~161) — leave that behavior alone. Subscribe button: same states as web step 12 (request / sent + cancel / declined). For managers (pendingJoinRequestCount > 0 or canManage): a 'בקשות הצטרפות' list with approve/reject using the step-13 client. If this file grows unwieldy, extracting a `SeriesJoinRequests` component into mobile_app/src/components/ is fine but makes it a 2-file step.",
     "status": "todo"
   }
 ]
