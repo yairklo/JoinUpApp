@@ -15,6 +15,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import Switch from "@mui/material/Switch";
 import Collapse from "@mui/material/Collapse";
+import FriendsOnlyLinkPolicyPicker from "@/components/FriendsOnlyLinkPolicyPicker";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -265,6 +266,14 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                         }
                         label="אישור ידני להצטרפות"
                       />
+                      <Collapse in={state.form.isFriendsOnly}>
+                        <Box mt={1}>
+                          <FriendsOnlyLinkPolicyPicker
+                            value={state.form.friendsOnlyLinkPolicy}
+                            onChange={(v) => actions.update("friendsOnlyLinkPolicy", v)}
+                          />
+                        </Box>
+                      </Collapse>
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 2 }}>

@@ -32,6 +32,7 @@ import type { FieldOption } from "@/hooks/useGameCreator";
 import { formatHebrewDate } from "@/utils/hebrewDate";
 import { HebrewDateField, HebrewTimeField } from "@/components/HebrewDateTimeField";
 import ImageUploadField from "@/components/ImageUploadField";
+import FriendsOnlyLinkPolicyPicker from "@/components/FriendsOnlyLinkPolicyPicker";
 
 export const SPORTS = Object.entries(SPORT_MAPPING).map(([value, label]) => ({
   value,
@@ -338,6 +339,12 @@ export default function GameDetailsEditor(props: ComponentProps) {
 
                   <Collapse in={state.isFriendsOnly}>
                     <Box mt={2} p={2} bgcolor="grey.50" borderRadius={1} border={1} borderColor="divider">
+                      <Box mb={1.5}>
+                        <FriendsOnlyLinkPolicyPicker
+                          value={state.friendsOnlyLinkPolicy}
+                          onChange={actions.setFriendsOnlyLinkPolicy}
+                        />
+                      </Box>
                       <FormControlLabel
                         control={<Switch checked={state.makePublicLater} onChange={(e) => actions.setMakePublicLater(e.target.checked)} />}
                         label="פתח לציבור במועד מאוחר יותר"

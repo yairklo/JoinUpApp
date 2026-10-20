@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { gamesApi, UpdateGameDTO, fieldsApi } from "@/services/api";
+import type { FriendsOnlyLinkPolicy } from "@/types/game";
 import type { FieldOption } from "@/hooks/useGameCreator";
 import { toIsoDateInput } from "@/utils/hebrewDate";
 import { formatJerusalemDate, formatJerusalemTime, parseJerusalemTimeToUTC } from "@/utils/timezone";
@@ -29,6 +30,7 @@ export interface GameEditorProps {
     initialRegistrationOpensAt?: string | null;
     initialFriendsOnlyUntil?: string | null;
     initialIsFriendsOnly: boolean;
+    initialFriendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;
     initialJoinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     initialTitle?: string | null;
     initialTeamSize?: number | null;
@@ -51,6 +53,7 @@ export function useGameEditor({
     initialRegistrationOpensAt,
     initialFriendsOnlyUntil,
     initialIsFriendsOnly,
+    initialFriendsOnlyLinkPolicy = 'REQUEST_TO_JOIN',
     initialJoinPolicy = 'INSTANT',
     initialTitle,
     initialTeamSize,
@@ -78,6 +81,7 @@ export function useGameEditor({
     const [teamSize, setTeamSize] = useState<number | null>(initialTeamSize ?? null);
     const [price, setPrice] = useState<number | null>(initialPrice ?? null);
     const [isFriendsOnly, setIsFriendsOnly] = useState(initialIsFriendsOnly);
+    const [friendsOnlyLinkPolicy, setFriendsOnlyLinkPolicy] = useState<FriendsOnlyLinkPolicy>(initialFriendsOnlyLinkPolicy);
     const [requiresApproval, setRequiresApproval] = useState(initialJoinPolicy === 'REQUIRES_APPROVAL');
     const [duration, setDuration] = useState<number>(initialDuration);
     const [description, setDescription] = useState<string>(initialDescription || "");
@@ -234,6 +238,7 @@ export function useGameEditor({
                 teamSize: teamSize || undefined,
                 price,
                 isFriendsOnly,
+                friendsOnlyLinkPolicy,
                 joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 registrationOpensAt: futureRegEnabled ? registrationOpensAt : null,
                 friendsOnlyUntil: (isFriendsOnly && makePublicLater) ? friendsOnlyUntil : null,
@@ -300,14 +305,14 @@ export function useGameEditor({
     return {
         state: {
             open, loading,
-            time, date, maxPlayers, sport, title, teamSize, price, isFriendsOnly, requiresApproval,
+            time, date, maxPlayers, sport, title, teamSize, price, isFriendsOnly, friendsOnlyLinkPolicy, requiresApproval,
             futureRegEnabled, regDate, regTime,
             makePublicLater, publicDate, publicTime,
             duration, description, welcomeMessage, imageUrl,
             fields, selectedField, newFieldMode, newField,
         },
         actions: {
-            setOpen, setTime, setDate, setMaxPlayers, setSport, setTitle, setTeamSize, setPrice, setIsFriendsOnly, setRequiresApproval,
+            setOpen, setTime, setDate, setMaxPlayers, setSport, setTitle, setTeamSize, setPrice, setIsFriendsOnly, setFriendsOnlyLinkPolicy, setRequiresApproval,
             setFutureRegEnabled, setRegDate, setRegTime,
             setMakePublicLater, setPublicDate, setPublicTime,
             setDuration, setDescription, setWelcomeMessage,
