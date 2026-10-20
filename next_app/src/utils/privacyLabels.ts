@@ -9,13 +9,15 @@ export function privacyLevelLabel(level: PrivacyLevel): string {
 }
 
 /**
- * Label of the "default" option: always the age default's own text, independent of the
- * stored/edited value. The generic fallback is only for older servers without ageDefaults.
+ * Label of the "default" option: the age default's own text plus "(ברירת מחדל)", e.g.
+ * "כולם (ברירת מחדל)" — without the suffix it reads exactly like the explicit "כולם" option below
+ * it. Independent of the stored/edited value. The bare generic label is only for older servers
+ * without ageDefaults.
  */
 export function defaultOptionLabel(
     ageDefaults: PrivacySettings["ageDefaults"] | null | undefined,
     key: keyof NonNullable<PrivacySettings["ageDefaults"]>
 ): string {
     const level = ageDefaults?.[key];
-    return level ? privacyLevelLabel(level) : PRIVACY_LABEL_DEFAULT_FALLBACK;
+    return level ? `${privacyLevelLabel(level)} (${PRIVACY_LABEL_DEFAULT_FALLBACK})` : PRIVACY_LABEL_DEFAULT_FALLBACK;
 }
