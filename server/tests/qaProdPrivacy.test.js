@@ -89,6 +89,24 @@ describe('Q-01: blocked private messages never reach a minor', () => {
     expect(own.body.map((m) => m.text)).toEqual(expect.arrayContaining(['זונה', 'שרמוטה']));
   });
 
+  test('a blocked message is not quoted back through replyTo', async () => {
+    await prisma.message.deleteMany({ where: { chatRoomId: roomId } });
+    const blocked = await request(app).post('/api/messages').set(auth('qp_adult')).send({ roomId, text: 'זונה' });
+    expect(blocked.body.status).toBe('blocked');
+    const clean = await prisma.message.create({
+      data: { chatRoomId: roomId, userId: 'qp_adult', text: 'היי', status: 'sent', replyToId: blocked.body.id },
+    });
+
+    const asMinor = await request(app).get('/api/messages').query({ roomId }).set(auth('qp_minor'));
+    const row = asMinor.body.find((m) => m.id === clean.id);
+    expect(row).toBeTruthy();
+    expect(row.replyTo).toBeUndefined();
+    expect(JSON.stringify(asMinor.body)).not.toContain('זונה');
+
+    const asAuthor = await request(app).get('/api/messages').query({ roomId }).set(auth('qp_adult'));
+    expect(asAuthor.body.find((m) => m.id === clean.id).replyTo.text).toBe('זונה');
+  });
+
   test('blocked messages are not counted as unread and not shown as the last message', async () => {
     await prisma.message.updateMany({ where: { chatRoomId: roomId, status: 'read' }, data: { status: 'sent' } });
     await prisma.message.deleteMany({ where: { chatRoomId: roomId, status: { not: 'blocked' } } });
@@ -187,6 +205,17 @@ describe('Q-02: friends-only game details for logged-out and outsider viewers', 
     expect(JSON.stringify(res.body)).not.toContain(EMAIL);
   });
 
+  test('requesting to join does not unlock the roster (join response and later GETs)', async () => {
+    const join = await request(app).post(`/api/games/${game.id}/join`).set(auth('qp_stranger'));
+    expect(join.statusCode).toBe(200);
+    expect(join.body.pending).toBe(true);
+    expectNoLeak(join);
+
+    const after = await request(app).get(`/api/games/${game.id}`).set(auth('qp_stranger'));
+    expect(after.statusCode).toBe(200);
+    expectNoLeak(after);
+  });
+
   test('public game, anonymous: minors are hidden, adults shown, no email as a name', async () => {
     const res = await request(app).get(`/api/games/${publicGame.id}`);
     expect(res.statusCode).toBe(200);
@@ -211,5 +240,12 @@ describe('Q-04: emails are never returned as names', () => {
     expect(body.user.email).toBe(EMAIL);
     expect(body.list[0].senderName).toBe('משתמש');
     expect(body.list[1].name).toBe('דנה');
+  });
+
+  test("the viewer's own record keeps its stored name (profile forms must not save the label)", () => {
+    const body = { me: { id: 'u1', name: EMAIL }, other: { id: 'u2', name: EMAIL } };
+    scrub(body, 0, 'u1');
+    expect(body.me.name).toBe(EMAIL);
+    expect(body.other.name).toBe('משתמש');
   });
 });

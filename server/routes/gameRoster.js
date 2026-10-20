@@ -18,7 +18,7 @@ const {
 } = require('../services/gameService');
 const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 const { isBlockedEitherWay } = require('../utils/blocks');
-const { getGameAccess } = require('../utils/friendsOnlyAccess');
+const { getGameAccess, applyViewerAccess } = require('../utils/friendsOnlyAccess');
 
 const router = express.Router();
 
@@ -74,7 +74,9 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         include: { field: true, participants: { include: { user: true } } }
       });
       broadcastGameUpdate(req.io, game.id, updated).catch(err => console.error('[SOCKET] Failed to broadcast game update', game.id, err));
-      return res.json({ ...mapGameForClient(updated, req.user.id), ...extra });
+      // Re-resolve access: a fresh PENDING request must not unlock the roster of a friends-only game.
+      const viewerAccess = access === 'REQUEST' ? await getGameAccess(prisma, updated, req.user.id, { isAdmin: !!req.user?.isAdmin }) : 'FULL';
+      return res.json({ ...applyViewerAccess(mapGameForClient(updated, req.user.id), viewerAccess), ...extra });
     };
 
     // Idempotent re-join: resync roster for the client without DB profile writes or duplicate notifications

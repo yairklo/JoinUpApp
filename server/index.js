@@ -660,14 +660,24 @@ io.on('connection', async (socket) => {
     // 4. Atomic Creation with Forced Deep Include
     let savedMsg = null;
     let persistFailed = false;
+    let safeReplyToId;
     try {
       if (roomId && (process.env.DB_HOST || process.env.DATABASE_URL)) {
+        // Only quote a message of this room that is not moderated: quoting a blocked message
+        // would deliver its text to the recipient inside a clean reply.
+        if (replyTo && replyTo.id) {
+          const target = await prisma.message.findUnique({
+            where: { id: String(replyTo.id) },
+            select: { id: true, chatRoomId: true, status: true },
+          });
+          if (target && target.chatRoomId === String(roomId) && target.status !== 'blocked') safeReplyToId = target.id;
+        }
         savedMsg = await prisma.message.create({
           data: {
             text: String(text),
             chatRoomId: String(roomId),
             userId: finalUserId,
-            replyToId: replyTo && replyTo.id ? String(replyTo.id) : undefined,
+            replyToId: safeReplyToId,
             status: initialStatus
           },
           // CRITICAL: Force Deep Include immediately upon creation
@@ -720,7 +730,7 @@ io.on('connection', async (socket) => {
         // CRITICAL FIX: Explicit name mapping
         senderName: publicDisplayName(savedMsg.replyTo.user?.name, null) || "User",
         sender: mapUserToSender(savedMsg.replyTo.user)
-      } : (replyTo || undefined)
+      } : (replyTo && !safeReplyToId && savedMsg ? undefined : (replyTo || undefined))
     };
 
 
@@ -933,7 +943,7 @@ io.on('connection', async (socket) => {
 
     try {
       // 1. Update in DB: Mark all messages in this room NOT sent by me as 'read'
-      await prisma.message.updateMany({
+      const marked = await prisma.message.updateMany({
         where: {
           chatRoomId: String(roomId),
           userId: { not: String(userId) }, // Don't mark my own messages as read by me
@@ -946,11 +956,15 @@ io.on('connection', async (socket) => {
 
       // 2. Notify everyone in the room that messages are read
       // This will turn the grey ticks to blue ticks for the sender
-      io.to(String(roomId)).emit('messageStatusUpdate', {
-        roomId: String(roomId),
-        status: 'read',
-        readByUserId: String(userId)
-      });
+      // Skipped when nothing changed (e.g. only blocked messages are pending), so the sender is
+      // never told that a message the recipient cannot see was "read".
+      if (marked.count > 0) {
+        io.to(String(roomId)).emit('messageStatusUpdate', {
+          roomId: String(roomId),
+          status: 'read',
+          readByUserId: String(userId)
+        });
+      }
 
       // 3. Refresh the reader's own Navbar/Tab unread-messages badge
       broadcastCounters(io, prisma, String(userId)).catch(() => {});

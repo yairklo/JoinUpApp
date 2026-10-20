@@ -44,6 +44,8 @@ interface GameParticipantsListProps {
   organizerId: string;
   initialManagers: Manager[];
   maxPlayers: number;
+  /** Server count; falls back to the roster length. The roster can be hidden for outsiders. */
+  confirmedCount?: number;
   teams?: Team[]; // Added teams prop
 }
 
@@ -53,6 +55,7 @@ export default function GameParticipantsList({
   organizerId,
   initialManagers,
   maxPlayers,
+  confirmedCount,
   teams = [],
 }: GameParticipantsListProps) {
   const { userId, getToken } = useAuth();
@@ -329,7 +332,8 @@ export default function GameParticipantsList({
   } as const;
 
   // Open seats are drawn as dashed placeholders so a half-empty game reads as "room for you".
-  const openSlots = Math.max(0, maxPlayers - participants.length);
+  const filledCount = confirmedCount ?? participants.length;
+  const openSlots = Math.max(0, maxPlayers - filledCount);
   const shownSlots = Math.min(openSlots, 6);
   const renderOpenSlots = () =>
     Array.from({ length: shownSlots }, (_, i) => {
@@ -414,7 +418,7 @@ export default function GameParticipantsList({
               bgcolor: alpha(t.palette.primary.main, 0.1),
             })}
           >
-            {participants.length}/{maxPlayers}
+            {filledCount}/{maxPlayers}
           </Box>
         </Box>
 

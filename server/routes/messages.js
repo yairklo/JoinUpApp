@@ -70,7 +70,7 @@ router.get('/', authenticateToken, async (req, res) => {
         ts: m.createdAt,
         senderName: publicDisplayName(m.user?.name, null) || undefined,
         sender: mapUserToSender(m.user),
-        replyTo: m.replyTo ? {
+        replyTo: m.replyTo && !(m.replyTo.status === 'blocked' && m.replyTo.userId !== req.user.id) ? {
           id: m.replyTo.id,
           text: m.replyTo.text,
           userId: m.replyTo.userId,

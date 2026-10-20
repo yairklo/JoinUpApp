@@ -49,9 +49,16 @@ async function getGameAccess(prisma, game, viewerId, { isAdmin = false } = {}) {
     ? game.participants.find((p) => p.userId === viewerId)
     : await prisma.participation.findFirst({
         where: { gameId: game.id, userId: viewerId },
-        select: { status: true },
+        select: { status: true, isWaitlistOffer: true },
       });
-  if (row && row.status !== 'REJECTED') return 'FULL';
+  // A self-requested PENDING row is just an outsider waiting for approval: it must not unlock
+  // the roster. Only a PENDING waitlist offer (the organizer reached out) counts as known.
+  // On a BLOCKED-link game outsiders cannot request at all, so any row there was created by a manager.
+  const isOutsiderRequest = !!row && (
+    row.status === 'REJECTED' ||
+    (row.status === 'PENDING' && !row.isWaitlistOffer && game.friendsOnlyLinkPolicy !== BLOCKED)
+  );
+  if (row && !isOutsiderRequest) return 'FULL';
 
   const hasLoadedRole = Array.isArray(game.roles) && game.roles.some((r) => r.userId === viewerId);
   if (hasLoadedRole) return 'FULL';
@@ -82,8 +89,9 @@ function applyViewerAccess(dto, access) {
   dto.viewerJoinRequiresApproval = access === 'REQUEST';
   if (access === 'REQUEST') {
     dto.joinPolicy = 'REQUIRES_APPROVAL';
-    // An outsider holding the link can ask to join, but must not see who plays or exactly where:
-    // that is the friends-only promise. Counts stay so the card still reads correctly.
+    // An outsider holding the link can ask to join, but must not see who plays or the custom /
+    // exact address in this payload. The venue itself (fieldId/name, a public field record) stays
+    // so the card still reads correctly; counts stay too.
     dto.participants = [];
     dto.waitlistParticipants = [];
     dto.managers = [];

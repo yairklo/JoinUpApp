@@ -101,7 +101,7 @@ function isSeriesSlotConflict(e) {
 
 const SERIES_SLOT_CONFLICT_MESSAGE = 'Another game in this series already starts at that time';
 
-function mapGameForClient(game, viewerId) {
+function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
   if (!game) return game;
   const allParts = Array.isArray(game?.participants) ? game.participants : [];
   const confirmed = allParts.filter(p => p.status === 'CONFIRMED');
@@ -121,10 +121,13 @@ function mapGameForClient(game, viewerId) {
   const overbooked = !!game.lotteryEnabled && !game.lotteryExecutedAt && totalSignups > game.maxPlayers;
   // Anonymous viewers never see minors on a roster (counts stay accurate); emails never show as names.
   const hiddenFromViewer = (p) => {
-    if (viewerId) return false;
+    if (!anonymous) return false;
     const age = getAgeInJerusalem(p.user?.birthDate);
     return age !== null && age < 18;
   };
+  const hiddenUserIds = new Set(
+    [...allParts, ...(game.roles || [])].filter(hiddenFromViewer).map((p) => p.userId)
+  );
   const participants = confirmed.filter(p => !hiddenFromViewer(p)).map(p => ({
     id: p.userId,
     name: publicDisplayName(p.user?.name),
@@ -139,7 +142,7 @@ function mapGameForClient(game, viewerId) {
     isCaptain: !!p.isCaptain
   }));
   const managers = (game.roles || [])
-    .filter(r => r.role !== 'ORGANIZER')
+    .filter(r => r.role !== 'ORGANIZER' && !hiddenFromViewer(r))
     .map(r => ({
       id: r.userId,
       name: publicDisplayName(r.user?.name),
@@ -158,14 +161,15 @@ function mapGameForClient(game, viewerId) {
       .filter(Boolean);
     // Display safety: if a team has a managerId, ensure they appear on the roster
     // even if a stale participation row has not been healed yet.
-    if (t.managerId && !playerIds.includes(t.managerId)) {
+    const managerHidden = !!t.managerId && hiddenUserIds.has(t.managerId);
+    if (t.managerId && !managerHidden && !playerIds.includes(t.managerId)) {
       playerIds.unshift(t.managerId);
     }
     return {
       id: t.id,
       name: t.name,
       color: t.color,
-      managerId: t.managerId || null,
+      managerId: managerHidden ? null : (t.managerId || null),
       playerIds: playerIds || []
     };
   });
@@ -2114,7 +2118,7 @@ async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
 
   // Per-viewer response: an outsider sees the game as approval-gated, so the existing
   // "request to join" UI kicks in on web and mobile.
-  return applyViewerAccess(mapGameForClient(game, viewerId), access);
+  return applyViewerAccess(mapGameForClient(game, viewerId, { anonymous: !viewerId }), access);
 }
 
 async function getGameRatings(gameId, viewerId) {
