@@ -1,7 +1,7 @@
 # JoinUp production stack. Run from this directory (or via deploy.sh).
 #   api    : Express + Socket.IO (server/Dockerfile, port 3005, internal only)
 #   worker : optional dedicated background-jobs process (profile "worker")
-#   web    : optional Next.js app (profile "web") - skip if the web app is hosted elsewhere (e.g. Vercel)
+#   (the web app is hosted on Vercel, not here)
 #   redis  : Socket.IO fan-out / rate limits
 #   caddy  : TLS + reverse proxy, the only service publishing ports
 # Image tags come from IMAGE_TAG (a git short SHA, set by deploy.sh) so rollback = re-run with an older tag.
@@ -30,6 +30,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3005"
+      # Set API_RUN_BACKGROUND_JOBS=false in .env when the worker profile is on (deploy.sh enforces it).
+      RUN_BACKGROUND_JOBS: ${API_RUN_BACKGROUND_JOBS:-true}
       REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379
     depends_on:
       redis:
@@ -44,8 +46,8 @@ services:
       start_period: 30s
     logging: *logging
 
-  # Use on a second server, or when you want jobs off the HTTP process. If you enable this,
-  # set RUN_BACKGROUND_JOBS=false for `api` (in api.env) so jobs do not run twice.
+  # Dedicated jobs process. Enabling it REQUIRES API_RUN_BACKGROUND_JOBS=false in .env so jobs do not
+  # run twice (deploy.sh refuses otherwise). PR #370 adds a Redis leader lock (JOBS_LEADER_LOCK); align then.
   worker:
     image: joinup-api:${IMAGE_TAG:-latest}
     profiles: ["worker"]
@@ -54,47 +56,11 @@ services:
     env_file: api.env
     environment:
       NODE_ENV: production
+      RUN_BACKGROUND_JOBS: "true"
       REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379
     depends_on:
       redis:
         condition: service_healthy
-    logging: *logging
-
-  web:
-    image: joinup-web:${IMAGE_TAG:-latest}
-    profiles: ["web"]
-    build:
-      context: ..
-      dockerfile: deploy/web.Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
-        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-}
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
-        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
-        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
-        NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: ${NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID:-}
-        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
-        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-}
-        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
-        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
-        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}
-        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}
-        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID:-}
-        NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID:-}
-        NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${NEXT_PUBLIC_FIREBASE_VAPID_KEY:-}
-    restart: *restart
-    env_file: web.env
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-    expose:
-      - "3000"
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-      start_period: 40s
     logging: *logging
 
   redis:
@@ -120,7 +86,6 @@ services:
       - "443:443/udp"
     environment:
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
-      WEB_DOMAIN: ${WEB_DOMAIN:-web.invalid}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro

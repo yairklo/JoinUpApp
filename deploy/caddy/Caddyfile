@@ -1,21 +1,24 @@
 {
 	email {$ACME_EMAIL}
-}
 
-# Shared snippet: compression + baseline headers. Next.js already sets CSP/HSTS etc. for the web
-# app (next_app/next.config.ts), so we only harden what the API does not set itself.
-(common) {
-	encode zstd gzip
-	header {
-		-Server
-		X-Content-Type-Options nosniff
+	servers {
+		timeouts {
+			# Slow-loris protection; no read_body/write timeout so WebSockets and uploads are not cut.
+			read_header 10s
+			idle 5m
+		}
 	}
 }
 
 # ---- API + Socket.IO (server, port 3005, Socket.IO path /api/socket) ----
+# The web app is NOT served from here (it is hosted on Vercel).
 {$API_DOMAIN} {
-	import common
-	header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	encode zstd gzip
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	}
 
 	# Caddy proxies WebSocket upgrades transparently, so Socket.IO needs no extra config.
 	# flush_interval -1 disables buffering (long-polling fallback, streamed responses).
@@ -25,9 +28,14 @@
 		flush_interval -1
 		health_uri /api/health
 		health_interval 15s
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 60s
+		}
 	}
 
-	# MULTIPLE API SERVERS (when api1/api2 exist): replace the reverse_proxy above with e.g.
+	# MULTIPLE API SERVERS (when api1/api2 exist; needs PR #370 for cross-instance realtime):
+	# replace the reverse_proxy above with e.g.
 	#   reverse_proxy api1:3005 api2:3005 {
 	#       lb_policy cookie          # sticky sessions: Socket.IO long-polling needs them
 	#       lb_try_duration 5s        # retry another upstream on failure
@@ -39,14 +47,9 @@
 	#       flush_interval -1
 	#   }
 
+	# Largest legitimate body: one image upload, capped at 5 MB in shared/upload.js (MAX_IMAGE_FILE_SIZE)
+	# plus multipart overhead. JSON bodies are far smaller (express.json default 100 kb).
 	request_body {
-		max_size 25MB
+		max_size 8MB
 	}
-}
-
-# ---- Web app (Next.js, port 3000) - only used when the `web` compose profile is enabled ----
-# If the web app is hosted elsewhere (Vercel etc.), delete this block.
-{$WEB_DOMAIN} {
-	import common
-	reverse_proxy web:3000
 }

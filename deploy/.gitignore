@@ -1,5 +1,4 @@
 # Real env files and deploy state never go in git (examples are allowed).
 .env
 api.env
-web.env
 .state/
