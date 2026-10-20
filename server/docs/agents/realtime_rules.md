@@ -55,6 +55,11 @@ A second instance needs only `REDIS_URL` + the flags below (and a proxy with sti
 | `JOBS_LEADER_LOCK=redis` | Background jobs run only on the Redis lock holder (see below). | off |
 | `JOBS_LEADER_TTL_MS` | Leader lock TTL (renew every TTL/3). | `30000` |
 | `RUN_BACKGROUND_JOBS=false` | This process never hosts jobs (opt-out). | on |
+| `GRACEFUL_SHUTDOWN=false` | Disable the SIGTERM/SIGINT drain (on by default: release the job lock, close sockets/Redis, disconnect Prisma, exit within 10 s). | on |
+
+The shared tempId in-flight marker lives 25 s (just above the 20 s send timeout) so a retry is not
+ignored for minutes if an instance dies mid-send; only the stored echo keeps 5 minutes. Presence and
+dedupe lookups are local-first with a circuit breaker (`utils/circuitBreaker.js`).
 
 **Redis down is never fatal.** The adapter delivers locally first and drops only the cross-instance
 copy; limiters, dedupe and presence fall back to per-instance memory / the local socket view;
@@ -95,6 +100,12 @@ not under Jest).
 - **Signals**: `gameScheduler.resyncGame()` / `triggerReviewQueue()` on a non-leader publish on
   `joinup:scheduler_events`; every job-capable instance subscribes and `gameScheduler.handleSignal`
   acts only on the leader (a standby must never re-publish: that would loop).
+- **Lease enforcement**: the lease is measured from the moment a renew/acquire was *sent* (minus TTL/6
+  margin) and a dedicated timer demotes the leader exactly at the deadline, independent of the renew
+  tick. Scheduler timers, the review queue and series generation also consult `lock.isLeader()` right
+  before acting (`gameScheduler.setRunGuard`), so a frozen process waking up late runs nothing. A
+  timed-out acquire whose reply was lost is recognised on the next tick (compare-and-renew). The
+  lifecycle lives in `services/jobsRuntime.js` (tested with fakes and with two runtimes on real Redis).
 - **Fail-safe policy**: no `REDIS_URL` => the lock cannot work, jobs run directly (single-instance
   behaviour, warning logged). `REDIS_URL` set but Redis unreachable => a standby does NOT run jobs
   (delay instead of duplicates); a leader keeps running until `lastRenew + TTL - TTL/6`, then stops
