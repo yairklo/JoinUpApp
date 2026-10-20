@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import withPWAInit from "next-pwa";
 import { withSentryConfig } from "@sentry/nextjs/config";
+import { buildCsp } from "./src/lib/csp";
 
 const withPWA = withPWAInit({
   dest: "public",
@@ -12,9 +13,8 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   transpilePackages: ['@joinup/shared'],
   eslint: {
-    // Allow production builds to successfully complete even if
-    // there are ESLint errors. We still see them in logs.
-    ignoreDuringBuilds: true,
+    // ESLint errors fail the build (warnings don't). src/ had 0 errors when this was turned on.
+    ignoreDuringBuilds: false,
   },
   typescript: {
     // If type errors appear in CI, you can temporarily allow builds to proceed.
@@ -30,9 +30,10 @@ const nextConfig: NextConfig = {
     // file propagate within a day instead of caching it away for a year.
     // sw.js/workbox-*.js/manifest.json are deliberately left untouched:
     // the service worker must keep revalidating on every load to roll out.
-    // Baseline security headers on every route. No CSP yet: Clerk, Sentry, Firebase
-    // and Cloudinary need a tested allowlist first, or the app breaks silently.
+    // Baseline security headers on every route. The CSP is Report-Only for now (see src/lib/csp.ts):
+    // violations are reported to Sentry without blocking, until the allowlist is confirmed.
     const securityHeaders = [
+      { key: "Content-Security-Policy-Report-Only", value: buildCsp() },
       { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "X-Frame-Options", value: "DENY" },
