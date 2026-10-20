@@ -37,7 +37,8 @@ export default function PrivacySettingsScreen() {
 
     const levelLabel = (level: PrivacyLevel) => (level === 'EVERYONE' ? t('privacy.everyone') : t('privacy.friendsOnly'));
     const optionsFor = (key: FieldKey): { value: FieldValue; label: string }[] => [
-        { value: 'DEFAULT', label: ageDefaults?.[key] ? levelLabel(ageDefaults[key]) : t('privacy.default') },
+        // "כולם (ברירת מחדל)": without the suffix the default option reads exactly like the explicit one below it.
+        { value: 'DEFAULT', label: ageDefaults?.[key] ? `${levelLabel(ageDefaults[key])} (${t('privacy.default')})` : t('privacy.default') },
         { value: 'EVERYONE', label: t('privacy.everyone') },
         { value: 'FRIENDS_ONLY', label: t('privacy.friendsOnly') },
     ];
