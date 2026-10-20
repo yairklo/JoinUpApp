@@ -46,6 +46,7 @@ const { moderator } = require('./moderationInstance');
 const { isAgeGateEnforced } = require('./utils/ageGatePolicy');
 const { getAgeGateStatus, AGE_GATE_STATUS } = require('./shared/ageGate');
 const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('./services/chatSafety');
+const { notificationName, publicDisplayName } = require('./utils/publicName');
 const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Notification Workers
@@ -699,7 +700,7 @@ io.on('connection', async (socket) => {
       text: String(text),
       // Use DB data if available (Source of Truth), else optimistic params
       senderId: savedMsg?.userId || (finalUserId ? String(finalUserId) : String(socket.id)),
-      senderName: savedMsg?.user?.name || senderName || "Unknown",
+      senderName: publicDisplayName(savedMsg?.user?.name, null) || publicDisplayName(senderName, null) || "Unknown",
       ts: savedMsg ? savedMsg.createdAt.toISOString() : new Date().toISOString(),
       roomId: roomId ? String(roomId) : undefined,
       userId: savedMsg?.userId || (finalUserId ? String(finalUserId) : undefined),
@@ -715,7 +716,7 @@ io.on('connection', async (socket) => {
         text: savedMsg.replyTo.text,
         senderId: savedMsg.replyTo.userId,
         // CRITICAL FIX: Explicit name mapping
-        senderName: savedMsg.replyTo.user?.name || "User",
+        senderName: publicDisplayName(savedMsg.replyTo.user?.name, null) || "User",
         sender: mapUserToSender(savedMsg.replyTo.user)
       } : (replyTo || undefined)
     };
@@ -740,6 +741,11 @@ io.on('connection', async (socket) => {
         if (blockers.size) recipientIds = recipientIds.filter(id => !blockers.has(String(id)));
 
         const messagePreview = text.length > 80 ? `${text.slice(0, 77)}...` : text;
+        const pushTitle = await notificationName(
+          prisma,
+          { id: finalUserId, name: senderUser?.name || senderName },
+          'הודעה חדשה',
+        );
 
         recipientIds.forEach(recipientId => {
 
@@ -763,7 +769,7 @@ io.on('connection', async (socket) => {
           notificationService.sendPushOnly(
             recipientId,
             'NEW_MESSAGE',
-            senderUser?.name || senderName || 'הודעה חדשה',
+            pushTitle,
             messagePreview,
             { chatId: roomId, senderId: finalUserId, actorId: finalUserId, link: `/chat/${roomId}` }
           ).catch(err => console.error('[NOTIFICATIONS] Failed to send offline message push:', err));
@@ -965,6 +971,55 @@ io.on('connection', async (socket) => {
         return;
       }
       if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
+
+      const textError = validateMessageText(String(text));
+      if (textError) {
+        socket.emit('error', textError === 'MESSAGE_TOO_LONG' ? 'Message is too long' : 'Message is empty');
+        return;
+      }
+
+      const editor = await prisma.user.findUnique({
+        where: { id: String(socket.userId) },
+        select: { id: true, birthDate: true, gender: true },
+      });
+      let verdict;
+      try {
+        verdict = await assessOutgoingMessage({
+          moderator,
+          sender: editor || { id: String(socket.userId) },
+          roomId: exists.chatRoomId,
+          text: String(text),
+          onFlagged: () => gameScheduler.triggerReviewQueue(),
+        });
+      } catch (e) {
+        console.error('[MODERATION] Edit recipient/age lookup failed:', e.message);
+        socket.emit('error', 'Could not send message');
+        return;
+      }
+      if (verdict.status === 'blocked') {
+        // Keep the original message. The attempted text is stored only as a
+        // blocked row the sender can see, with the same status the send path uses.
+        const blocked = await prisma.message.create({
+          data: {
+            text: String(text),
+            chatRoomId: exists.chatRoomId,
+            userId: String(socket.userId),
+            status: 'blocked',
+          },
+        });
+        const echo = {
+          id: blocked.id,
+          text: blocked.text,
+          senderId: String(socket.userId),
+          userId: String(socket.userId),
+          roomId: exists.chatRoomId,
+          status: 'blocked',
+          ts: blocked.createdAt.toISOString(),
+        };
+        io.to(`user_${socket.userId}`).emit('message', echo);
+        io.to(`user_${socket.userId}`).emit('message:received', { ...echo, chatId: exists.chatRoomId, content: echo.text });
+        return;
+      }
 
       await prisma.message.update({
         where: { id: String(messageId) },

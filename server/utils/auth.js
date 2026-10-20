@@ -75,10 +75,13 @@ function clearClerkUserCache() {
 }
 
 function displayName(user, userId) {
-  return [user.firstName, user.lastName].filter(Boolean).join(' ')
-    || user.username
-    || user.emailAddresses?.[0]?.emailAddress
-    || userId;
+  // Never fall back to the account email. Notifications and other people-facing
+  // copy used to render that fallback ("qa@… הצטרף/ה למשחק שלך").
+  const full = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+  if (full && !full.includes('@')) return full;
+  const username = typeof user.username === 'string' ? user.username.trim() : '';
+  if (username && !username.includes('@') && username !== userId) return username;
+  return null;
 }
 
 function mapAuthenticatedUser(userId, clerkUser) {

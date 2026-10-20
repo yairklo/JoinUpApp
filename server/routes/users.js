@@ -17,6 +17,7 @@ const {
   validateScore,
 } = require('../utils/ratings');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
+const { notificationName, publicDisplayName } = require('../utils/publicName');
 const {
   MIN_AGE,
   ADULT_AGE,
@@ -999,15 +1000,17 @@ router.post('/requests', authenticateToken, async (req, res) => {
 
       // Send notification to receiver
       const requester = await prisma.user.findUnique({ where: { id: requesterId } });
+      const requesterLabel = await notificationName(prisma, requester || { id: requesterId, name: req.user.name }, 'משתמש');
       await notificationService.sendNotification(
         receiverId,
         'FRIEND_REQUEST',
         'בקשת חברות חדשה',
-        `${requester?.name || 'משתמש'} שלח/ה לך בקשת חברות`,
+        `${requesterLabel} שלח/ה לך בקשת חברות`,
         {
           friendRequestId: fr.id,
           requesterId,
-          requesterName: requester?.name,
+          actorId: requesterId,
+          requesterName: requesterLabel,
           link: '/friends'
         },
         req.app.get('io') // Get Socket.IO instance from app
@@ -1063,14 +1066,16 @@ router.post('/requests/:id/accept', authenticateToken, async (req, res) => {
 
     // Send notification to requester
     const accepter = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const accepterLabel = await notificationName(prisma, accepter || { id: req.user.id, name: req.user.name }, 'משתמש');
     await notificationService.sendNotification(
       reqRow.requesterId,
       'FRIEND_ACCEPTED',
       'בקשת חברות אושרה',
-      `${accepter?.name || 'משתמש'} אישר/ה את בקשת החברות שלך`,
+      `${accepterLabel} אישר/ה את בקשת החברות שלך`,
       {
         userId: req.user.id,
-        userName: accepter?.name,
+        actorId: req.user.id,
+        userName: accepterLabel,
         link: `/user/${req.user.id}`
       },
       req.app.get('io')
@@ -1216,7 +1221,7 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
       // Determine Chat Name
       let chatName = 'Group Chat';
       if (chat.type === 'PRIVATE') {
-        chatName = otherParticipant?.name || 'Unknown';
+        chatName = publicDisplayName(otherParticipant?.name, null) || 'Unknown';
       } else {
         // GROUP: Use Game Title if available
         const g = gameMap[chat.id];

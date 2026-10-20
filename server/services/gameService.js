@@ -75,6 +75,7 @@ async function sendAutoWelcomeMessage(game, newPlayerId) {
 }
 
 const { prisma } = require('../lib/prisma');
+const { notificationName } = require('../utils/publicName');
 const notificationService = new NotificationService(prisma);
 
 function httpError(message, status, details) {
@@ -423,14 +424,14 @@ async function offerSpotToNextWaitlistUser(gameId, io) {
 
 function notifyOrganizerOfInstantJoin(game, joiningUser, io) {
   if (game.organizerId === joiningUser.id) return;
-  notificationService.sendNotification(
+  notificationName(prisma, joiningUser, 'משתמש').then((name) => notificationService.sendNotification(
     game.organizerId,
     'GAME_JOIN_REQUEST',
     'מישהו הצטרף למשחק שלך',
-    `${joiningUser.name || 'משתמש'} הצטרף/ה למשחק שלך`,
+    `${name} הצטרף/ה למשחק שלך`,
     { gameId: game.id, userId: joiningUser.id, actorId: joiningUser.id, link: `/game/${game.id}` },
     io
-  ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));
+  )).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of join', game.id, err));
   notifyFriendsOfJoin(game, joiningUser, io)
     .catch(err => console.error('[NOTIFICATIONS] Failed to notify friends of join', game.id, err));
 }
@@ -482,10 +483,11 @@ async function notifyFriendsOfJoin(game, joiningUser, io) {
   if (friendIds.length === 0) return;
 
   const full = game.field ? game : await prisma.game.findUnique({ where: { id: game.id }, include: { field: true } });
+  const name = await notificationName(prisma, joiningUser, 'חבר/ה');
   await notificationService.sendNotificationToMany(
     friendIds,
     'FRIEND_JOINED_GAME',
-    `${joiningUser.name || 'חבר/ה'} הצטרף/ה למשחק`,
+    `${name} הצטרף/ה למשחק`,
     describeGameForNotification(full || game) || (game.title || 'משחק'),
     { gameId: game.id, actorId: joiningUser.id, sport: game.sport, link: `/game/${game.id}` },
     io
@@ -531,7 +533,10 @@ async function findCityGameRecipients(game, excludeIds) {
  * Each recipient's category switches and mutes are enforced in NotificationService.
  */
 async function notifyNetworkOfNewGame(game, creatorUser, io, { excludeIds = [], includeCity = true } = {}) {
-  const friendIds = await getFriendIds(creatorUser.id);
+  const [friendIds, resolvedName] = await Promise.all([
+    getFriendIds(creatorUser.id),
+    notificationName(prisma, creatorUser, null),
+  ]);
   const exclude = new Set([creatorUser.id, ...excludeIds]);
   const details = describeGameForNotification(game);
   const baseData = { gameId: game.id, actorId: creatorUser.id, sport: game.sport, link: `/game/${game.id}` };
@@ -541,7 +546,7 @@ async function notifyNetworkOfNewGame(game, creatorUser, io, { excludeIds = [], 
     await notificationService.sendNotificationToMany(
       friendRecipients,
       'FRIEND_NEW_GAME',
-      `${creatorUser.name || 'חבר/ה'} פתח/ה משחק חדש`,
+      `${resolvedName || 'חבר/ה'} פתח/ה משחק חדש`,
       details || (game.title || 'משחק חדש'),
       baseData,
       io
@@ -557,33 +562,33 @@ async function notifyNetworkOfNewGame(game, creatorUser, io, { excludeIds = [], 
       cityRecipients,
       'NEW_GAME_IN_CITY',
       `משחק חדש ב${game.field.city}`,
-      `${creatorUser.name || 'מישהו'} פתח/ה משחק חדש ב${game.field.name || 'מגרש חדש'}`,
+      `${resolvedName || 'מישהו'} פתח/ה משחק חדש ב${game.field.name || 'מגרש חדש'}`,
       { ...baseData, city: game.field.city },
       io
     );
   }
 }
 function notifyOrganizerOfPendingRequest(game, requestingUser, io) {
-  notificationService.sendNotification(
+  notificationName(prisma, requestingUser, 'משתמש').then((name) => notificationService.sendNotification(
     game.organizerId,
     'GAME_JOIN_REQUEST',
     'בקשת הצטרפות חדשה',
-    `${requestingUser.name || 'משתמש'} ביקש/ה להצטרף למשחק שלך וממתין/ה לאישורך`,
+    `${name} ביקש/ה להצטרף למשחק שלך וממתין/ה לאישורך`,
     { gameId: game.id, userId: requestingUser.id, actorId: requestingUser.id, link: `/game/${game.id}` },
     io
-  ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of pending request', game.id, err));
+  )).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of pending request', game.id, err));
 }
 
 function notifyOrganizerOfWaitlistJoin(game, joiningUser, io) {
   if (game.organizerId === joiningUser.id) return;
-  notificationService.sendNotification(
+  notificationName(prisma, joiningUser, 'משתמש').then((name) => notificationService.sendNotification(
     game.organizerId,
     'GAME_JOIN_REQUEST',
     'מישהו נוסף לרשימת ההמתנה',
-    `${joiningUser.name || 'משתמש'} הצטרף/ה לרשימת ההמתנה של המשחק שלך`,
+    `${name} הצטרף/ה לרשימת ההמתנה של המשחק שלך`,
     { gameId: game.id, userId: joiningUser.id, actorId: joiningUser.id, link: `/game/${game.id}`, waitlisted: true },
     io
-  ).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of waitlist join', game.id, err));
+  )).catch(err => console.error('[NOTIFICATIONS] Failed to notify organizer of waitlist join', game.id, err));
 }
 
 async function broadcastGameUpdate(io, gameId, preFetchedGame) {

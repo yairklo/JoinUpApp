@@ -2,6 +2,7 @@ const admin = require('firebase-admin');
 const { Expo } = require('expo-server-sdk');
 const { Logger } = require('../utils/logger');
 const { decideDelivery, toClientSettings, isMuteActive } = require('../utils/notificationPrefs');
+const { redactNotificationFields } = require('../utils/publicName');
 
 // Fan-out batch size: keeps a city-wide send from opening thousands of parallel queries.
 const FANOUT_CHUNK = 50;
@@ -147,12 +148,13 @@ class NotificationService {
      */
     async sendPushOnly(userId, type, title, body, data = {}) {
         try {
-            const decision = await this.decideFor(userId, type, data);
+            const clean = await redactNotificationFields(this.prisma, title, body, data);
+            const decision = await this.decideFor(userId, type, clean.data);
             if (!decision.push) {
                 Logger.info('NotificationService', `Push suppressed for ${userId} (${type}: ${decision.reason})`);
                 return;
             }
-            await this.sendPushToAllDevices(userId, type, title, body, data);
+            await this.sendPushToAllDevices(userId, type, clean.title, clean.body, clean.data);
         } catch (error) {
             Logger.error('NotificationService', 'Failed to send push-only notification:', error);
             throw error;
@@ -172,8 +174,9 @@ class NotificationService {
      */
     async sendNotification(userId, type, title, body, data = {}, io = null) {
         try {
-            const decision = await this.decideFor(userId, type, data);
-            return await this.deliver(userId, type, title, body, data, io, decision);
+            const clean = await redactNotificationFields(this.prisma, title, body, data);
+            const decision = await this.decideFor(userId, type, clean.data);
+            return await this.deliver(userId, type, clean.title, clean.body, clean.data, io, decision);
         } catch (error) {
             Logger.error('NotificationService', 'Failed to send notification:', error);
             throw error;
@@ -190,6 +193,11 @@ class NotificationService {
         const ids = Array.from(new Set((userIds || []).filter(Boolean)));
         const stats = { stored: 0, pushed: 0, skipped: 0, failed: 0 };
         if (ids.length === 0) return stats;
+
+        const clean = await redactNotificationFields(this.prisma, title, body, data);
+        title = clean.title;
+        body = clean.body;
+        data = clean.data;
 
         const ctx = NotificationService.contextFromData(data || {});
         const prefs = await this.loadPreferences(ids, ctx);

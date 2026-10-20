@@ -3,13 +3,14 @@ jest.mock('firebase-admin', () => ({ apps: [], initializeApp: jest.fn(), credent
 
 const { NotificationService } = require('../services/notificationService');
 
-function makePrisma({ settings = [], mutes = [] } = {}) {
+function makePrisma({ settings = [], mutes = [], userName = undefined } = {}) {
   let n = 0;
   return {
     userNotificationSettings: { findMany: jest.fn(async ({ where }) => settings.filter(s => where.userId.in.includes(s.userId))) },
     notificationMute: { findMany: jest.fn(async ({ where }) => mutes.filter(m => where.userId.in.includes(m.userId) && where.targetId.in.includes(m.targetId))) },
     notification: { create: jest.fn(async ({ data }) => ({ id: `n${++n}`, createdAt: new Date(), ...data })) },
     userDevice: { findMany: jest.fn(async () => []) },
+    user: { findUnique: jest.fn(async () => (userName === undefined ? null : { name: userName })) },
   };
 }
 
@@ -86,5 +87,63 @@ describe('NotificationService preference gate', () => {
     expect(stats.failed).toBe(1); // u7
     expect(stats.stored).toBe(118); // 121 recipients - u3 skipped - u7 failed
     expect(prisma.notification.create).toHaveBeenCalledTimes(119); // includes u7's failed attempt
+  });
+});
+
+describe('NotificationService identity redaction', () => {
+  test('in-app row, socket payload, and push use the display name instead of an email', async () => {
+    const prisma = makePrisma({ userName: 'נועה' });
+    const svc = new NotificationService(prisma);
+    const push = jest.spyOn(svc, 'sendPushToAllDevices').mockResolvedValue();
+    const { io, emit } = makeIo();
+    const row = await svc.sendNotification(
+      'org',
+      'GAME_JOIN_REQUEST',
+      'מישהו הצטרף למשחק שלך',
+      'qa.minor.20oct@mailinator.com הצטרף/ה למשחק שלך',
+      { gameId: 'g1', actorId: 'minor1', link: '/game/g1', titleEn: 'qa.minor.20oct@mailinator.com joined' },
+      io,
+    );
+    expect(row.body).toBe('נועה הצטרף/ה למשחק שלך');
+    expect(row.data.titleEn).toBe('נועה joined');
+    expect(JSON.stringify(row)).not.toMatch(/@/);
+    expect(emit).toHaveBeenCalledWith('notification', expect.objectContaining({
+      body: 'נועה הצטרף/ה למשחק שלך',
+    }));
+    expect(push).toHaveBeenCalledWith(
+      'org',
+      'GAME_JOIN_REQUEST',
+      'מישהו הצטרף למשחק שלך',
+      'נועה הצטרף/ה למשחק שלך',
+      expect.objectContaining({ titleEn: 'נועה joined' }),
+    );
+  });
+
+  test('request copy falls back to משתמש when no public name exists', async () => {
+    const prisma = makePrisma({ userName: 'qa.minor.20oct@mailinator.com' });
+    const svc = new NotificationService(prisma);
+    jest.spyOn(svc, 'sendPushToAllDevices').mockResolvedValue();
+    const row = await svc.sendNotification(
+      'org',
+      'GAME_JOIN_REQUEST',
+      'בקשת הצטרפות חדשה',
+      'qa.minor.20oct@mailinator.com ביקש/ה להצטרף למשחק שלך וממתין/ה לאישורך',
+      { gameId: 'g1', actorId: 'minor1' },
+    );
+    expect(row.body).toBe('משתמש ביקש/ה להצטרף למשחק שלך וממתין/ה לאישורך');
+    expect(JSON.stringify(row)).not.toMatch(/@/);
+  });
+
+  test('chat push title does not keep an email sender name', async () => {
+    const prisma = makePrisma({ userName: 'דני' });
+    const svc = new NotificationService(prisma);
+    const push = jest.spyOn(svc, 'sendPushToAllDevices').mockResolvedValue();
+    await svc.sendPushOnly('u1', 'NEW_MESSAGE', 'qa.minor.20oct@mailinator.com', 'בוא נשחק', {
+      chatId: 'c1', actorId: 'minor1', senderId: 'minor1',
+    });
+    expect(push).toHaveBeenCalledWith(
+      'u1', 'NEW_MESSAGE', 'דני', 'בוא נשחק',
+      expect.objectContaining({ senderId: 'minor1' }),
+    );
   });
 });

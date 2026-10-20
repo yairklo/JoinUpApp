@@ -28,6 +28,7 @@ const ADULT = yearsAgo(30);
 const MINOR = yearsAgo(14);
 
 const sender = { id: 'sender', birthDate: ADULT, gender: 'MALE' };
+const minorSender = { id: 'sender', birthDate: MINOR, gender: 'MALE' };
 
 function room(...userIds) {
   mockChatRoomFindUnique.mockResolvedValue({
@@ -156,6 +157,54 @@ describe('assessOutgoingMessage', () => {
     users({ p1: ADULT, p2: ADULT });
     const res = await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: true }), sender, roomId: 'game123', text: 'hi' });
     expect(res.recipientIds).toEqual(['p1', 'p2']);
+  });
+
+  test('minor → adult private chat: profanity is blocked and not delivered', async () => {
+    room('bob');
+    users({ bob: ADULT });
+    const moderator = moderatorReturning({ isSafe: true, source: 'openai_clean' });
+    const res = await assessOutgoingMessage({ moderator, sender: minorSender, roomId: 'r1', text: 'זונה' });
+    expect(res.status).toBe('blocked');
+    expect(res.reason).toBe('profanity');
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
+  });
+
+  test('adult → minor private chat: the same word is blocked even if AI would allow it', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    const moderator = moderatorReturning({ isSafe: true, source: 'openai_clean' });
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'r1', text: 'זונה' });
+    expect(res.status).toBe('blocked');
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
+  });
+
+  test('game chat that includes a minor: profanity from an adult is blocked', async () => {
+    mockChatRoomFindUnique.mockResolvedValue(null);
+    mockParticipationFindMany.mockResolvedValue([{ userId: 'kid' }, { userId: 'bob' }]);
+    users({ kid: MINOR, bob: ADULT });
+    const moderator = moderatorReturning({ isSafe: true });
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'game123', text: 'שלום זונה' });
+    expect(res.status).toBe('blocked');
+    expect(res.recipientIds).toEqual(['kid', 'bob']);
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
+  });
+
+  test('adult-only chat: profanity stays unfiltered', async () => {
+    room('bob');
+    users({ bob: ADULT });
+    const moderator = moderatorReturning({ isSafe: false });
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'r1', text: 'זונה' });
+    expect(res.status).toBe('sent');
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
+  });
+
+  test('minor → adult: a normal message is still delivered', async () => {
+    room('bob');
+    users({ bob: ADULT });
+    const moderator = moderatorReturning({ isSafe: false });
+    const res = await assessOutgoingMessage({ moderator, sender: minorSender, roomId: 'r1', text: 'בוא נשחק' });
+    expect(res.status).toBe('sent');
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
   });
 });
 

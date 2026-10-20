@@ -2,9 +2,11 @@
 // `sender` shape every chat client reads (`sender.image`), so the socket path
 // (server/index.js) and the REST history path (server/routes/messages.js)
 // can't drift out of sync the way they did before.
+const { publicDisplayName } = require('./publicName');
+
 function mapUserToSender(user) {
   if (!user) return undefined;
-  return { id: user.id, name: user.name, image: user.imageUrl };
+  return { id: user.id, name: publicDisplayName(user.name, null), image: user.imageUrl };
 }
 
 module.exports = { mapUserToSender };

@@ -29,4 +29,20 @@ describe('mapAuthenticatedUser ban flag', () => {
     const user = mapAuthenticatedUser('user_1', null);
     expect(user.isBanned).toEqual(false);
   });
+
+  test('does not use the account email as the display name', () => {
+    const user = mapAuthenticatedUser('user_1', {
+      emailAddresses: [{ emailAddress: 'qa.minor.20oct@mailinator.com' }],
+    });
+    expect(user.name).toBeNull();
+    expect(user.email).toBe('qa.minor.20oct@mailinator.com');
+  });
+
+  test('keeps a real first name even when an email exists', () => {
+    const user = mapAuthenticatedUser('user_1', {
+      firstName: 'נועה',
+      emailAddresses: [{ emailAddress: 'qa.minor.20oct@mailinator.com' }],
+    });
+    expect(user.name).toBe('נועה');
+  });
 });

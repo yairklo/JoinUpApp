@@ -364,22 +364,20 @@ class ContentModerator {
             safetyTier = "STRICT_PROTECTION";
             systemInstruction = `
             MODE: ADULT_TALKING_TO_MINOR.
-            1. ZERO TOLERANCE (BLOCK): Grooming, sexual innuendo, asking for photos, meeting requests, or manipulation.
+            1. ZERO TOLERANCE (BLOCK): Grooming, sexual innuendo, asking for photos, meeting requests, manipulation, sexual slurs, and profanity (זונה, זין, כוסאמק, חרא, fuck, shit, bitch, whore).
             2. BLOCK: Severe hostility, threats, or bullying from the adult.
-            3. ALLOW WITH FLAG: Casual Hebrew slang and mild profanity (e.g., "איזה זין", "חרא", "לעזאזל") - mark as reviewNeeded: true but isSafe: true.
-            4. ALLOW: Normal game coordination, mild frustration, casual conversation.
-            
-            IMPORTANT: Distinguish between harmful sexual content (BLOCK) and casual slang expressions (ALLOW but FLAG for review).
+            3. Do not treat profanity as "allow with flag". isSafe must be false for slurs and swear words.
+            4. ALLOW: Normal game coordination and mild frustration that is not a slur (for example "אוף" or "לעזאזל").
             `;
         } else {
             // SCENARIO 3: Minor to Minor / Public Game
             safetyTier = "TEEN_GAMER";
             systemInstruction = `
             MODE: TEEN_GAMING_CHAT.
-            1. ALLOW: Casual swearing ("shit", "fuck", "damn"), gaming trash-talk, and slang.
-            2. IGNORE: Words like "פיפי" (funny), "הומו" (often used as slang, flag only if malicious bullying).
-            3. BLOCK: Sexual solicitation, severe bullying/boycotting (חרם), suicide threats, doxxing.
-            4. DISTINCTION: "You suck at this game" is SAFE. "Go kill yourself" is UNSAFE.
+            1. BLOCK: Profanity and sexual slurs (זונה, זין, fuck, shit, bitch, whore), sexual solicitation, severe bullying/boycotting (חרם), suicide threats, doxxing.
+            2. IGNORE: Words like "פיפי" (funny). "הומו" is often slang — flag only if it is malicious bullying.
+            3. ALLOW: Normal game coordination and mild frustration that is not a slur.
+            4. DISTINCTION: "You suck at this game" is SAFE. "Go kill yourself" is UNSAFE. A slur is UNSAFE in either direction.
             `;
         }
 

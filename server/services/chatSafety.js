@@ -1,17 +1,24 @@
 /**
  * Chat send-path safety: message validation, per-user send rate limit, and the
- * minor-protection moderation policy shared by the socket and REST write paths.
+ * minor-protection moderation policy shared by the socket and REST write paths
+ * (including edits).
  *
  * Policy:
- * - AI moderation runs only when at least one recipient is a known minor (< 18).
- *   Adult-only chats (and unknown ages, matching getDefaultPrivacyForAge) skip it.
- * - If moderation says unsafe -> blocked.
- * - If moderation could not actually check the message (error, AI down, AI rate
- *   limit) -> blocked only when a minor recipient is NOT a confirmed friend of the
- *   sender; otherwise delivered.
+ * - A chat involves a minor when the sender is a known minor (< 18) OR any
+ *   recipient is. Unknown ages stay "adult", matching getDefaultPrivacyForAge.
+ * - Profanity in a chat that involves a minor is blocked in both directions
+ *   (adult→minor, minor→adult, and any group/game chat that includes a minor).
+ *   Adult-only chats stay unfiltered: no lexicon and no AI.
+ * - AI moderation still runs only when at least one recipient is a known minor,
+ *   for grooming/threats the lexicon does not cover.
+ * - If AI says unsafe -> blocked.
+ * - If AI could not actually check the message (error, AI down, AI rate limit)
+ *   -> blocked only when a minor recipient is NOT a confirmed friend of the
+ *   sender; otherwise delivered. A lexicon hit is blocked even when AI is down.
  */
 const { prisma } = require('../lib/prisma');
 const { getAgeInJerusalem } = require('../utils/privacy');
+const { containsProfanity } = require('./profanityFilter');
 
 const MAX_MESSAGE_LENGTH = 2000;
 const SEND_RATE_WINDOW_MS = 10_000;
@@ -121,10 +128,17 @@ async function assessOutgoingMessage({ moderator, sender, roomId, text, onFlagge
   const senderId = String(sender.id);
   const recipientIds = await resolveRecipientIds(roomId, senderId);
   const { minorIds, nonFriendMinorIds, youngestAge } = await getMinorRecipients(senderId, recipientIds);
+  const senderAge = getAgeInJerusalem(sender.birthDate);
+  const senderIsMinor = senderAge !== null && senderAge < 18;
+
+  // Lexicon first, both directions. AI used to skip minor→adult entirely and to
+  // allow this class of word on the adult→minor prompt.
+  if ((senderIsMinor || minorIds.length > 0) && containsProfanity(text)) {
+    console.log(`[MODERATION] Blocked profanity in room ${roomId}`);
+    return { status: 'blocked', recipientIds, reason: 'profanity' };
+  }
 
   if (!minorIds.length) return { status: 'sent', recipientIds };
-
-  const senderAge = getAgeInJerusalem(sender.birthDate);
   let modResult = null;
   try {
     modResult = await moderator.checkMessage(text, [], {}, {

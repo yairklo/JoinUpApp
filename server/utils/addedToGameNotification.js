@@ -2,6 +2,8 @@
  * Builds bilingual copy + sends GAME_INVITATION when a manager/organizer
  * manually adds a friend to a game (create-time invite or POST /participants).
  */
+const { prisma } = require('../lib/prisma');
+const { notificationName } = require('./publicName');
 
 function formatGameWhen(start, locale) {
   const d = start instanceof Date ? start : new Date(start);
@@ -77,7 +79,8 @@ function buildAddedToGameCopy({ adderName, game }) {
 async function notifyUserAddedToGame(notificationService, { userId, adderName, game, io, adderId }) {
   if (!notificationService || !userId || !game?.id) return null;
 
-  const copy = buildAddedToGameCopy({ adderName, game });
+  const resolvedName = await notificationName(prisma, { id: adderId, name: adderName }, null);
+  const copy = buildAddedToGameCopy({ adderName: resolvedName || '', game });
   const gameId = game.id;
 
   try {
@@ -91,7 +94,7 @@ async function notifyUserAddedToGame(notificationService, { userId, adderName, g
         link: `/game/${gameId}`,
         adderId: adderId || undefined,
         actorId: adderId || undefined,
-        adderName: adderName || undefined,
+        adderName: resolvedName || undefined,
         titleEn: copy.titleEn,
         bodyEn: copy.bodyEn,
       },

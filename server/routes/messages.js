@@ -3,6 +3,7 @@ const { authenticateToken } = require('../utils/auth');
 const { checkChatPermission } = require('../utils/chatAuth');
 const { prisma } = require('../lib/prisma');
 const { mapUserToSender } = require('../utils/chatMappers');
+const { publicDisplayName } = require('../utils/publicName');
 const { getBlockedByMe, isPrivateChatBlocked } = require('../utils/blocks');
 const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('../services/chatSafety');
 const { moderator } = require('../moderationInstance');
@@ -64,13 +65,13 @@ router.get('/', authenticateToken, async (req, res) => {
         roomId: m.chatRoomId, // Map back to roomId for client compatibility
         userId: m.userId || null,
         ts: m.createdAt,
-        senderName: m.user?.name || undefined,
+        senderName: publicDisplayName(m.user?.name, null) || undefined,
         sender: mapUserToSender(m.user),
         replyTo: m.replyTo ? {
           id: m.replyTo.id,
           text: m.replyTo.text,
           userId: m.replyTo.userId,
-          senderName: m.replyTo.user?.name || "User",
+          senderName: publicDisplayName(m.replyTo.user?.name, null) || "User",
           sender: mapUserToSender(m.replyTo.user)
         } : undefined,
         reactions: reactions,
