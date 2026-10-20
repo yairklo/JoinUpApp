@@ -9,10 +9,14 @@
  *  - standby : keeps retrying to acquire every `renewMs`
  *
  * Safety rule (no double leaders): a leader that cannot reach Redis keeps running only until its
- * local lease runs out (lastSuccessfulRenew + ttl - margin), i.e. strictly before the key can
- * expire and be taken by someone else; then it stops its jobs. Short Redis blips therefore do not
- * interrupt jobs, long outages pause them (they catch up from the DB when a leader is elected:
- * overdue timers fire immediately on loadAll()).
+ * local lease runs out, i.e. strictly before the key can expire and be taken by someone else; then
+ * it stops its jobs. The lease is measured from the moment the renew/acquire command was SENT
+ * (the key cannot expire earlier than sent + ttl, however long the round trip took) minus a margin
+ * for clock drift, and a DEDICATED timer fires at the deadline, so enforcement does not depend on
+ * the renew tick cadence. Job entry points can also consult isLeader() (checks the lease) so a
+ * frozen process that wakes up late does not run anything before the timer demotes it.
+ * Short Redis blips do not interrupt jobs, long outages pause them (a new leader catches up from
+ * the DB: overdue timers fire immediately on loadAll()).
  *
  * onAcquire/onLose are serialised, so a hand-over never overlaps a start.
  */
@@ -57,6 +61,12 @@ function createLeaderLock({
   let leaseDeadline = 0;
   let stopped = true;
   let timer = null;
+  let leaseTimer = null;
+  // True when this instance's id may still sit in the lock key although we are not leading: an
+  // acquire whose reply timed out, or a lease we gave up while the key was still ours. The next
+  // tick then tries a compare-and-renew first, so we recognise our own lock instead of waiting
+  // out its TTL.
+  let maybeHeld = false;
   let chain = Promise.resolve(); // serialises onAcquire / onLose
 
   function op(p) {
@@ -74,9 +84,24 @@ function createLeaderLock({
     return chain;
   }
 
-  function promote() {
+  function armLease() {
+    if (leaseTimer) clearTimeout(leaseTimer);
+    leaseTimer = setTimeout(() => {
+      if (leader && now() >= leaseDeadline) demote('lease expired (no successful renewal)');
+      else if (leader) armLease();
+    }, Math.max(0, leaseDeadline - now()) + 1);
+    if (leaseTimer.unref) leaseTimer.unref();
+  }
+
+  function extendLease(sentAt) {
+    leaseDeadline = sentAt + ttlMs - marginMs;
+    armLease();
+  }
+
+  function promote(sentAt) {
     leader = true;
-    leaseDeadline = now() + ttlMs - marginMs;
+    maybeHeld = false;
+    extendLease(sentAt);
     logger.log(`[leader-lock] ${instanceId} acquired job leadership`);
     enqueue(async () => {
       try {
@@ -85,6 +110,7 @@ function createLeaderLock({
         // Could not start the jobs: step down and free the lock for someone who can.
         logger.error('[leader-lock] onAcquire failed, releasing leadership:', err && err.message);
         leader = false;
+        if (leaseTimer) clearTimeout(leaseTimer);
         try { await onLose(); } catch (_) { /* best effort */ }
         try { await op(client.eval(RELEASE_LUA, 1, lockKey, instanceId)); } catch (_) { /* expires by TTL */ }
       }
@@ -94,6 +120,8 @@ function createLeaderLock({
   function demote(reason) {
     if (!leader) return;
     leader = false;
+    if (leaseTimer) { clearTimeout(leaseTimer); leaseTimer = null; }
+    maybeHeld = !/taken over/.test(reason);
     logger.warn(`[leader-lock] ${instanceId} lost job leadership: ${reason}`);
     enqueue(async () => { await onLose(); });
   }
@@ -102,21 +130,32 @@ function createLeaderLock({
     if (stopped) return;
     try {
       if (leader) {
+        const sentAt = now();
         let res;
         try {
           res = Number(await op(client.eval(RENEW_LUA, 1, lockKey, instanceId, String(ttlMs))));
         } catch (_) {
-          res = null; // Redis unreachable: judge by the local lease
+          res = null; // Redis unreachable: the lease timer enforces the deadline
         }
-        if (res === 1) leaseDeadline = now() + ttlMs - marginMs;
+        if (res === 1 && leader) extendLease(sentAt);
         else if (res === 0) demote('lock taken over or expired');
         else if (now() >= leaseDeadline) demote('lease expired while Redis was unreachable');
       } else {
+        const sentAt = now();
         let acquired = false;
         try {
-          acquired = (await op(client.set(lockKey, instanceId, 'PX', ttlMs, 'NX'))) === 'OK';
-        } catch (_) { /* Redis down: stay standby, retry next tick */ }
-        if (acquired && !stopped) promote();
+          if (maybeHeld) {
+            // Is the key still ours (timed-out SET NX / lease we gave up on)? Renew recognises it.
+            acquired = Number(await op(client.eval(RENEW_LUA, 1, lockKey, instanceId, String(ttlMs)))) === 1;
+            if (!acquired) maybeHeld = false;
+          }
+          if (!acquired) {
+            acquired = (await op(client.set(lockKey, instanceId, 'PX', ttlMs, 'NX'))) === 'OK';
+          }
+        } catch (_) {
+          maybeHeld = true; // the command may have been applied although the reply was lost
+        }
+        if (acquired && !stopped) promote(sentAt);
       }
     } catch (err) {
       logger.error('[leader-lock] tick failed:', err && err.message);
@@ -144,6 +183,7 @@ function createLeaderLock({
     async stop() {
       stopped = true;
       if (timer) clearTimeout(timer);
+      if (leaseTimer) { clearTimeout(leaseTimer); leaseTimer = null; }
       const wasLeader = leader;
       leader = false;
       await chain;

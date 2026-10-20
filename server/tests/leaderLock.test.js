@@ -13,10 +13,12 @@ class FakeRedis {
     if (this.down) throw new Error('ECONNREFUSED');
     if (nx === 'NX' && this._live(key)) return null;
     this.store.set(key, { val, exp: Date.now() + Number(ttl) });
+    if (this.dropNextSetReply) { this.dropNextSetReply = false; throw new Error('redis timeout'); }
     return 'OK';
   }
   async eval(script, _n, key, id, ttl) {
     if (this.down) throw new Error('ECONNREFUSED');
+    if (this.hangEval && script.includes('pexpire')) return new Promise(() => {});
     const e = this._live(key);
     if (!e || e.val !== id) return 0;
     if (script.includes('pexpire')) { e.exp = Date.now() + Number(ttl); return 1; }
@@ -29,9 +31,9 @@ class FakeRedis {
 const quiet = { log: jest.fn(), warn: jest.fn(), error: jest.fn() };
 const KEY = 'test:leader';
 
-function make(redis, id, hooks = {}) {
+function make(redis, id, hooks = {}, extra = {}) {
   return createLeaderLock({
-    client: redis, lockKey: KEY, instanceId: id, ttlMs: 30_000, renewMs: 10_000, marginMs: 5_000,
+    client: redis, lockKey: KEY, instanceId: id, ttlMs: 30_000, renewMs: 10_000, marginMs: 5_000, ...extra,
     logger: quiet, onAcquire: hooks.onAcquire || jest.fn(), onLose: hooks.onLose || jest.fn(),
   });
 }
@@ -187,4 +189,44 @@ test('onAcquire failure steps down and releases the lock for another instance', 
 
 test('requires a client', () => {
   expect(() => createLeaderLock({})).toThrow();
+});
+
+test('a renewal that hangs forever cannot extend leadership: the dedicated lease timer demotes at the deadline', async () => {
+  const redis = new FakeRedis();
+  const hooks = { onAcquire: jest.fn(), onLose: jest.fn() };
+  // opTimeout so large that the tick itself would never come back; only the lease timer can act.
+  const la = make(redis, 'A', hooks, { opTimeoutMs: 1e9 });
+  la.start();
+  await advance(1);
+  redis.hangEval = true;
+  await advance(24_000);
+  expect(la.isLeader()).toBe(true);
+  await advance(2_000); // t = 26s, lease (30s - 5s margin = 25s) is over
+  expect(la.isLeader()).toBe(false);
+  expect(hooks.onLose).toHaveBeenCalledTimes(1);
+});
+
+test('isLeader() is false the instant the lease passes, even before any timer or tick ran', async () => {
+  const redis = new FakeRedis();
+  const la = make(redis, 'A');
+  la.start();
+  await advance(1);
+  expect(la.isLeader()).toBe(true);
+  jest.setSystemTime(Date.now() + 26_000); // frozen process wakes up late: no timer has fired yet
+  expect(la.isLeader()).toBe(false);
+});
+
+test('a SET NX whose reply timed out is recognised as our own lock on the next tick (no TTL wait)', async () => {
+  const redis = new FakeRedis();
+  redis.dropNextSetReply = true;
+  const hooks = { onAcquire: jest.fn(), onLose: jest.fn() };
+  const la = make(redis, 'A', hooks);
+  la.start();
+  await advance(1);
+  expect(la.isLeader()).toBe(false);
+  expect(redis.holder(KEY)).toBe('A'); // applied although the reply was lost
+  await advance(10_001); // next tick: well inside the 30s TTL
+  expect(la.isLeader()).toBe(true);
+  expect(hooks.onAcquire).toHaveBeenCalledTimes(1);
+  await la.stop();
 });
