@@ -30,7 +30,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3005"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379
     depends_on:
       redis:
         condition: service_healthy
@@ -54,7 +54,7 @@ services:
     env_file: api.env
     environment:
       NODE_ENV: production
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379
     depends_on:
       redis:
         condition: service_healthy
@@ -100,11 +100,12 @@ services:
   redis:
     image: redis:7-alpine
     restart: *restart
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
-    volumes:
-      - redis-data:/data
+    # Redis only holds ephemeral data (pub/sub, rate limits): no persistence, evict volatile keys.
+    command: ["redis-server", "--appendonly", "no", "--save", "", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lru", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$REDIS_PASSWORD redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -131,6 +132,5 @@ services:
     logging: *logging
 
 volumes:
-  redis-data:
   caddy-data:
   caddy-config:

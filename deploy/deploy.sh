@@ -60,6 +60,7 @@ cmd_deploy() {
     echo ">> OK: $sha is live"
   else
     echo "!! $sha did not become healthy"
+    echo "$sha" > "$STATE_DIR/failed"
     if [ -n "$prev" ]; then
       echo "!! rolling containers back to $prev (database NOT reverted)"
       IMAGE_TAG="$prev" wait_healthy || echo "!! previous version also unhealthy - see: deploy.sh logs"
@@ -88,10 +89,12 @@ cmd_rollback() {
 cmd_status() {
   echo "current : $(read_state current)"
   echo "previous: $(read_state previous)"
+  echo "failed  : $(read_state failed)"
   IMAGE_TAG="$(read_state current)" dc ps
   docker run --rm --network joinup_default curlimages/curl -fsS http://api:3005/api/health 2>/dev/null && echo || echo "health: unreachable"
 }
 
+main() {
 case "${1:-}" in
   deploy)   shift; cmd_deploy "$@" ;;
   rollback) shift; cmd_rollback "$@" ;;
@@ -100,3 +103,7 @@ case "${1:-}" in
   migrate)  IMAGE_TAG="$(read_state current)" run_migrations ;;
   *) sed -n '2,12p' "${BASH_SOURCE[0]}"; exit 1 ;;
 esac
+}
+# `exit` stops bash reading the file again: `git checkout` inside deploy rewrites this very script.
+main "$@"
+exit $?

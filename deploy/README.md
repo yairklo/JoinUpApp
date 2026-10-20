@@ -30,11 +30,23 @@ Internet -> Caddy (:80/:443, TLS, gzip/zstd) -> api:3005  (Express + Socket.IO a
 1. **Web hosting**: `VERCEL_URL` is referenced in `next_app`, so the web app may be on Vercel, not the VPS. The `web` profile is therefore opt-in and `web.Dockerfile` is **untested** here. If web stays on Vercel, delete the `WEB_DOMAIN` block in the Caddyfile.
 2. **API domain**: `joinup-api.duckdns.org` is inferred from a test file; set the real `API_DOMAIN`.
 3. **Postgres is external** (Neon is mentioned in repo docs/comments). No DB container is provided. TODO: record the provider, backup/PITR policy and how to restore.
-4. **Redis** is a fresh container; the existing VPS may already run one with a different setup/persistence.
+4. **Redis** is a fresh password-protected, non-persistent container (data is ephemeral: pub/sub, rate limits); the existing VPS may run one differently.
 5. **Cloudflare / DNS-proxy**: not known. If the API is behind Cloudflare, set `TRUST_CF_CONNECTING_IP=true` and note that `trust proxy = 1` then sees Cloudflare, not Caddy, as the client hop; verify real client IPs in logs.
 6. Existing VPS firewall, Docker version, volume names and any current compose file are unknown; compare with the live server before cutover (`docker ps`, `docker inspect`, current Caddyfile) and reconcile differences here.
 7. Memory limits in the prod override assume ~2 GB RAM.
 8. Image tags are built **on the server** (no registry). TODO: add a CI build+push to GHCR and switch `image:` to the registry path for faster, reproducible deploys.
+
+## Cutover from the existing hand-built VPS
+Ports 80/443 and container names will clash with the running stack, so do this in a maintenance window (a few minutes of downtime).
+1. **Inspect the live setup first**: `docker ps -a`, `docker volume ls`, `docker inspect <caddy>` (mounts, networks), the live Caddyfile and any compose file / `docker run` flags (`history | grep docker`), and the env of the API container. Reconcile differences into `deploy/` (domains, paths, extra services).
+2. Clone the repo on the server; create `.env`, `api.env` (copy values from the live API container: `docker inspect <api> --format '{{json .Config.Env}}'`; never paste them into chat or git) and a new `REDIS_PASSWORD`.
+3. **Keep TLS certs** by copying the old Caddy data volume into the new one (compose project name is `joinup`):
+   `docker volume create joinup_caddy-data && docker run --rm -v <old_caddy_data_volume>:/from -v joinup_caddy-data:/to alpine cp -a /from/. /to/`
+4. Build without starting: `cd deploy && IMAGE_TAG=cutover docker compose build`; validate with `docker compose config -q`.
+5. Note the old container names/run commands, then stop the old stack (`docker stop <caddy> <api> ...`; do not `rm` or prune, keep volumes and images).
+6. `./deploy.sh deploy`; verify `/api/health`, `/api/health/deep`, a WebSocket chat, the web app.
+7. **Fail back** if it does not work: `docker compose down` in `deploy/` (keeps volumes), then `docker start <old containers>` and investigate while the old stack serves.
+8. After a stable period (days), remove the old containers and volumes.
 
 ## First-time provisioning of a new server
 1. Ubuntu LTS VPS; create a non-root sudo user; SSH keys only; `ufw allow 22,80,443/tcp` and `443/udp`, then enable.
@@ -53,7 +65,7 @@ cd /opt/joinup/deploy
 ./deploy.sh deploy            # origin/main
 ./deploy.sh deploy <sha|tag>  # a specific commit
 ```
-It fetches, checks out the commit detached, builds images tagged with the 12-char SHA, runs `prisma migrate deploy`, runs `docker compose up -d --wait`, and records `.state/current` and `.state/previous`. If the new containers are not healthy it restarts the previous tag automatically (database not reverted). Pre-deploy checklist: CI green, new migrations reviewed (see below), DB backup/branch taken if a migration is destructive.
+It fetches, checks out the commit detached, builds images tagged with the 12-char SHA, runs `prisma migrate deploy`, runs `docker compose up -d --wait`, and records `.state/current` and `.state/previous` (a failed sha goes to `.state/failed`). If the new containers are not healthy it restarts the previous tag automatically (database not reverted). Pre-deploy checklist: CI green, new migrations reviewed (see below), DB backup/branch taken if a migration is destructive.
 
 ## Rollback
 ```bash
@@ -75,7 +87,7 @@ Prisma has no "down" migrations. Rolling code back leaves the newer schema in pl
 Both servers share the same external Postgres and **the same Redis** (Socket.IO fan-out and rate limits need one Redis).
 1. Provision as above. Point both servers' `REDIS_URL` at one Redis: either keep the Redis on server A, exposed only over a private network/firewall allow-list, or use a managed Redis. Edit `REDIS_URL` in `docker-compose.yml` (or move it to `api.env`) and remove/disable the local `redis` service on server B. TODO: this is not parameterised yet.
 2. Put a load balancer or DNS round-robin in front. Socket.IO with polling transport needs sticky sessions; with WebSocket-only clients it does not. Check the client transport config before enabling round-robin.
-3. Run background jobs on exactly one box: set `RUN_BACKGROUND_JOBS=false` in `api.env` on server B (or run `COMPOSE_PROFILES=worker` on one server and disable jobs in all `api` containers). Job claims are idempotent per the code, but avoid duplicates anyway.
+3. **Worker profile**: when `COMPOSE_PROFILES` includes `worker`, every `api` instance must set `RUN_BACKGROUND_JOBS=false` (otherwise jobs run twice), and the worker needs `REDIS_URL` (compose sets it) so live socket events reach the API. For several API instances (api1/api2) see the commented sticky-session `reverse_proxy` example in `caddy/Caddyfile`. Run background jobs on exactly one box: set `RUN_BACKGROUND_JOBS=false` in `api.env` on server B (or run `COMPOSE_PROFILES=worker` on one server and disable jobs in all `api` containers). Job claims are idempotent per the code, but avoid duplicates anyway.
 4. Deploy servers sequentially (`deploy.sh deploy <same sha>`), checking health between them.
 
 ## Troubleshooting
@@ -86,6 +98,7 @@ Both servers share the same external Postgres and **the same Redis** (Socket.IO 
 | API restarts in a loop | `docker compose logs --tail=100 api`; missing `CLOUDINARY_URL`, bad `DATABASE_URL`, Redis down. |
 | `ECONNREFUSED` / DB timeouts | Neon compute may be waking up; retry after ~30 s. Check `/api/health/deep`; check IP allow-list. |
 | Realtime/chat not updating | Redis container healthy? `/api/health/deep` shows `redis`. WebSocket blocked by a proxy/CDN in front? Path is `/api/socket`. |
+| Redis auth errors | `REDIS_PASSWORD` in `.env` is used for both Redis and the `REDIS_URL` compose builds for api/worker. |
 | Rate limiting hits everyone | Wrong client IP: `trust proxy` hop count vs Cloudflare (see assumption 5). |
 | Migration fails on deploy | Output of `deploy.sh migrate`; see "Database migrations and rollback". |
 | Disk full | `docker system df`; `docker image prune -a` (keep the current + previous tags!). Logs are capped at 5x10 MB per container. |

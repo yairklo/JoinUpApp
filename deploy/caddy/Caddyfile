@@ -27,6 +27,18 @@
 		health_interval 15s
 	}
 
+	# MULTIPLE API SERVERS (when api1/api2 exist): replace the reverse_proxy above with e.g.
+	#   reverse_proxy api1:3005 api2:3005 {
+	#       lb_policy cookie          # sticky sessions: Socket.IO long-polling needs them
+	#       lb_try_duration 5s        # retry another upstream on failure
+	#       lb_try_interval 250ms
+	#       fail_duration 30s
+	#       health_uri /api/health
+	#       health_interval 10s
+	#       health_timeout 3s
+	#       flush_interval -1
+	#   }
+
 	request_body {
 		max_size 25MB
 	}
