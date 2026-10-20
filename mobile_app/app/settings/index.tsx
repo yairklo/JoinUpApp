@@ -8,6 +8,17 @@ import { notificationsApi } from '@/services/api/notifications';
 import { useMyAvatar, useMyName } from '@/hooks/useMyAvatar';
 import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
+
+// "1.0.0 · preview · a1b2c3d4" — which store build and which OTA update is running. The update id
+// is only present when the running JS came from EAS Update rather than the bundle embedded in the build.
+function buildInfoLabel(): string {
+    const parts = [Constants.expoConfig?.version || '—'];
+    if (Updates.channel) parts.push(Updates.channel);
+    parts.push(Updates.isEmbeddedLaunch || !Updates.updateId ? 'embedded' : Updates.updateId.slice(0, 8));
+    return parts.join(' · ');
+}
 
 export default function SettingsScreen() {
     const { t } = useTranslation();
@@ -157,7 +168,7 @@ export default function SettingsScreen() {
                     </TouchableOpacity>
                     <View className="p-4 flex-row items-center justify-between bg-gray-50">
                         <Text className="text-sm text-gray-500">{t('settings.version', 'Version')}</Text>
-                        <Text className="text-sm text-gray-500 font-bold">1.0.0 (Beta)</Text>
+                        <Text className="text-sm text-gray-500 font-bold">{buildInfoLabel()}</Text>
                     </View>
                 </View>
 
