@@ -19,6 +19,7 @@ import { SocketProvider } from "@/context/SocketContext";
 import { NotificationCountersProvider } from "@/context/NotificationCountersContext";
 import { resolveClerkProxyUrl } from "@/lib/clerkFrontendApiProxy";
 import ClerkDevKeyGuard from "@/components/ClerkDevKeyGuard";
+import { SITE_URL } from "@/lib/siteUrl";
 
 const clerkProxyUrl = resolveClerkProxyUrl();
 
@@ -37,6 +38,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "JoinUp",
   description: "קהילת הספורט של ישראל – מצאו משחקים, הצטרפו וקבעו בעצמכם",
   manifest: "/manifest.json",
