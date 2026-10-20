@@ -37,6 +37,7 @@ import {
 } from '@joinup/shared/notificationPrefs';
 import { useAuth } from '@clerk/nextjs';
 import { useNotifications } from '@/hooks/useNotifications';
+import { replaceEmails } from '@/utils/publicName';
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import { Notification, notificationsApi } from '@/services/api/notifications';
 import { chatsApi } from '@/services/api/chats';
@@ -277,7 +278,7 @@ export default function NotificationPanel() {
                                                         maxWidth: '250px'
                                                     }}
                                                 >
-                                                    {notif.title}
+                                                    {replaceEmails(notif.title || "")}
                                                 </Typography>
                                                 <Stack direction="row" alignItems="center" sx={{ ml: 1 }}>
                                                     <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
@@ -303,7 +304,7 @@ export default function NotificationPanel() {
                                         secondary={
                                             <>
                                                 <Typography variant="body2" color="text.secondary">
-                                                    {notif.body}
+                                                    {replaceEmails(notif.body || "")}
                                                 </Typography>
                                                 {notif.data?.userId && (
                                                     <Box sx={{ mt: 1 }}>

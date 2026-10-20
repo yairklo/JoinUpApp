@@ -2,6 +2,7 @@ const {
   publicDisplayName,
   notificationName,
   redactNotificationFields,
+  scrubNotificationRecord,
   isEmailAddress,
 } = require('../utils/publicName');
 
@@ -78,5 +79,22 @@ describe('redactNotificationFields', () => {
     const out = await redactNotificationFields(prisma, 'מישהו הצטרף', 'נועה הצטרף/ה למשחק שלך', { actorId: 'user_1' });
     expect(out.body).toBe('נועה הצטרף/ה למשחק שלך');
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe('scrubNotificationRecord', () => {
+  test('replaces stored emails with משתמש and drops a raw email field', () => {
+    const row = scrubNotificationRecord({
+      id: 'n1',
+      title: 'test2@gmail.com פתח/ה משחק',
+      body: 'qa.minor.20oct@mailinator.com ביקש/ה להצטרף',
+      data: { actorName: 'test2@gmail.com', email: 'test2@gmail.com', link: '/games/1' },
+    });
+    expect(row.title).toBe('משתמש פתח/ה משחק');
+    expect(row.body).toBe('משתמש ביקש/ה להצטרף');
+    expect(row.data.actorName).toBe('משתמש');
+    expect(row.data.email).toBeUndefined();
+    expect(row.data.link).toBe('/games/1');
+    expect(JSON.stringify(row)).not.toMatch(/@/);
   });
 });

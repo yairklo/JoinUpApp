@@ -15,6 +15,7 @@ const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
 const { getAgeInJerusalem } = require('../shared/ageGate');
 const { getSeriesAccess, seriesVisibilityWhere, normalizeLinkPolicy } = require('../utils/friendsOnlyAccess');
+const { publicDisplayName } = require('../utils/publicName');
 
 const WELCOME_MESSAGE_MAX_LENGTH = 2000;
 const DESCRIPTION_MAX_LENGTH = 2000;
@@ -176,7 +177,7 @@ router.get('/active', attachOptionalUser, async (req, res) => {
         type: s.type,
         organizer: {
           id: org?.id || s.organizerId,
-          name: org?.name || '',
+          name: publicDisplayName(org?.name, 'משתמש'),
           avatar: org?.imageUrl || ''
         },
         subscriberCount: s._count.subscribers,
@@ -313,7 +314,7 @@ router.get('/:seriesId', authenticateToken, async (req, res) => {
       imageUrl: series.imageUrl || null,
       organizer: {
         id: organizer?.id || series.organizerId,
-        name: organizer?.name || '',
+        name: publicDisplayName(organizer?.name, 'משתמש'),
         avatar: organizer?.imageUrl || ''
       },
       subscriberCount: (subscribers || []).length,
@@ -322,7 +323,7 @@ router.get('/:seriesId', authenticateToken, async (req, res) => {
         role: s.role || 'MEMBER',
         user: {
           id: s.user?.id || s.userId,
-          name: s.user?.name || '',
+          name: publicDisplayName(s.user?.name, 'משתמש'),
           avatar: s.user?.imageUrl || ''
         }
       })),

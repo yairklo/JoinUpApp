@@ -5,6 +5,7 @@ import { usersApi, chatsApi } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
 import { Alert, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
 
 export type FriendStatus = 'FRIEND' | 'REQUEST_SENT' | 'REQUEST_RECEIVED' | 'NONE' | 'SELF' | 'LOADING';
 
@@ -87,14 +88,12 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
             await checkStatus();
         } catch (e) {
             console.error(e);
-            // The server refuses a repeat request for a few days after a decline.
-            Alert.alert(
-                t('common.error', 'שגיאה'),
-                e instanceof Error && /declined/i.test(e.message)
-                    ? t('profile.requestDeclinedRecently', 'הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים.')
-                    : t('profile.failedToSendRequest', 'שליחת בקשת החברות נכשלה.')
-            );
-            await checkStatus();
+            Alert.alert(t('common.error', 'שגיאה'), mapFriendRequestError(e));
+            // Only an incoming request should resync the button. A generic failure must not
+            // look like "request sent" just because a pending row already exists.
+            if (getErrorCode(e) === 'INCOMING_REQUEST_EXISTS') {
+                await checkStatus();
+            }
         } finally {
             setLoading(false);
         }

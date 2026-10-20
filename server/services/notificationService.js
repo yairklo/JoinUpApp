@@ -2,7 +2,7 @@ const admin = require('firebase-admin');
 const { Expo } = require('expo-server-sdk');
 const { Logger } = require('../utils/logger');
 const { decideDelivery, toClientSettings, isMuteActive } = require('../utils/notificationPrefs');
-const { redactNotificationFields } = require('../utils/publicName');
+const { redactNotificationFields, scrubNotificationRecord } = require('../utils/publicName');
 
 // Fan-out batch size: keeps a city-wide send from opening thousands of parallel queries.
 const FANOUT_CHUNK = 50;
@@ -444,7 +444,7 @@ class NotificationService {
      * Get user notifications
      */
     async getNotifications(userId, limit = 50, offset = 0) {
-        return this.prisma.notification.findMany({
+        const rows = await this.prisma.notification.findMany({
             where: {
                 userId,
                 // Chat messages use chat:sync + counters — never belong in the general feed
@@ -454,6 +454,8 @@ class NotificationService {
             take: limit,
             skip: offset
         });
+        // Stored copy can still contain an email from before write-time redaction.
+        return rows.map((row) => scrubNotificationRecord(row));
     }
 
     /**

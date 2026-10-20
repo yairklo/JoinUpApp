@@ -27,6 +27,7 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import { formatDistanceToNow } from "date-fns";
 import { he } from "date-fns/locale";
 import { useSocket } from "@/context/SocketContext";
+import { publicDisplayName } from "@/utils/publicName";
 
 interface ChatListProps {
     userId: string;
@@ -190,7 +191,7 @@ export default function ChatList({ userId, onChatSelect, isWidget = false }: Cha
                                 >
                                     <ListItemAvatar>
                                         <Badge badgeContent={chat.unreadCount} color="error" overlap="circular">
-                                            <Avatar src={chat.image || undefined} alt={chat.name}>
+                                            <Avatar src={chat.image || undefined} alt={publicDisplayName(chat.name, "משתמש")}>
                                                 {chat.name.charAt(0)}
                                             </Avatar>
                                         </Badge>

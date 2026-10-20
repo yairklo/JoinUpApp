@@ -6,6 +6,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import { mapFriendRequestError } from '@/utils/apiError';
 
 /**
  * Inline player search + add-friend list, embedded directly in the friends page
@@ -68,7 +69,7 @@ export default function PlayerSearch() {
             )));
         } catch (error) {
             console.error('Failed to send friend request:', error);
-            Alert.alert(t('common.error', 'שגיאה'), t('profile.failedToSendRequest', 'שליחת הבקשה נכשלה.'));
+            Alert.alert(t('common.error', 'שגיאה'), mapFriendRequestError(error));
         } finally {
             setActionLoadingId(null);
         }

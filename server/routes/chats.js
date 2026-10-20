@@ -4,6 +4,7 @@ const { prisma } = require('../lib/prisma');
 const { authenticateToken } = require('../utils/auth');
 const { resolvePrivacyLevel, areConfirmedFriends } = require('../utils/privacy');
 const { isBlockedEitherWay } = require('../utils/blocks');
+const { publicDisplayName } = require('../utils/publicName');
 
 // POST /api/chats/private - Get or Create a Private Chat
 router.post('/private', authenticateToken, async (req, res) => {
@@ -102,7 +103,15 @@ router.get('/:chatId', authenticateToken, async (req, res) => {
         const isParticipant = await checkChatPermission(userId, chatId);
         if (!isParticipant) return res.status(403).json({ error: 'Access denied' });
 
-        res.json(chat);
+        res.json({
+            ...chat,
+            participants: (chat.participants || []).map((p) => ({
+                ...p,
+                user: p.user
+                    ? { ...p.user, name: publicDisplayName(p.user.name, 'משתמש') }
+                    : p.user,
+            })),
+        });
     } catch (err) {
         console.error("Get Chat Details Error:", err);
         res.status(500).json({ error: 'Server error' });

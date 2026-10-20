@@ -298,20 +298,30 @@ router.delete('/:id/favorites/:fieldId', authenticateToken, async (req, res) => 
 
 const VALID_GENDERS = ['MALE', 'FEMALE'];
 
-function mapUserPublic(u, { includeContact = false } = {}) {
+function calculatedAge(birthDate) {
+  if (!birthDate) return null;
+  const diff = Date.now() - new Date(birthDate).getTime();
+  const ageDt = new Date(diff);
+  return Math.abs(ageDt.getUTCFullYear() - 1970);
+}
+
+function mapUserPublic(u, { includeContact = false, hideDetails = false } = {}) {
   if (!u) return u;
-  return {
+  const base = {
     id: u.id,
-    name: u.name,
-    ...(includeContact ? { email: u.email, phone: u.phone, birthDate: u.birthDate } : {}),
+    // Other people must never see an email stored in the name column.
+    name: includeContact ? u.name : publicDisplayName(u.name, 'משתמש'),
     imageUrl: u.imageUrl,
+  };
+  if (hideDetails) {
+    return { ...base, sports: [], positions: [] };
+  }
+  return {
+    ...base,
+    ...(includeContact ? { email: u.email, phone: u.phone, birthDate: u.birthDate } : {}),
     city: u.city,
     gender: u.gender || null,
-    age: u.birthDate ? (() => {
-      const diff = Date.now() - new Date(u.birthDate).getTime();
-      const ageDt = new Date(diff);
-      return Math.abs(ageDt.getUTCFullYear() - 1970);
-    })() : null,
+    age: calculatedAge(u.birthDate),
     sports: (u.sports || []).map(us => ({
       id: us.sport.id,
       name: us.sport.name,
@@ -668,6 +678,14 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
 
     const effFriends = resolvePrivacyLevel(user.privacyFriends, user.birthDate);
     const effGames = resolvePrivacyLevel(user.privacyGames, user.birthDate);
+    const effMessages = resolvePrivacyLevel(user.privacyMessages, user.birthDate);
+
+    const age = getAgeInJerusalem(user.birthDate);
+    const isMinor = age !== null && age < ADULT_AGE;
+    // Minor profiles default to friends-only. Non-friends do not get age or the
+    // rest of the about section (city, gender, sports), even if a row was stored
+    // before that default existed.
+    const profileRestricted = !isOwner && !isFriend && isMinor;
 
     const showFriends = canViewSection({ effectivePrivacy: effFriends, isOwner, isFriend });
     const showGames = canViewSection({ effectivePrivacy: effGames, isOwner, isFriend });
@@ -675,7 +693,12 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     const ratingSummary = await getUserRatingSummary(targetId);
 
     const payload = {
-      ...mapUserPublic(user, { includeContact: isOwner }),
+      ...mapUserPublic(user, { includeContact: isOwner, hideDetails: profileRestricted }),
+      profileRestricted,
+      canMessage: isOwner || isFriend || effMessages === 'EVERYONE',
+      // A minor on the friends-only default cannot be contacted by a stranger.
+      // An explicit EVERYONE choice still allows a friend request.
+      canAddFriend: isOwner || isFriend || !isMinor || effFriends === 'EVERYONE',
       ratingAverage: ratingSummary.ratingAverage,
       totalRatings: ratingSummary.totalRatings,
       sections: { friends: showFriends, matchHistory: showGames },
@@ -704,12 +727,15 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     // Friends list (id/name/imageUrl only) when visible.
     if (showFriends) {
       const friendIds = await getFriendIds(targetId);
-      payload.friends = friendIds.length
-        ? await prisma.user.findMany({
+        payload.friends = friendIds.length
+        ? (await prisma.user.findMany({
             where: { id: { in: friendIds } },
             select: { id: true, name: true, imageUrl: true },
             take: 20,
-          })
+          })).map((friend) => ({
+            ...friend,
+            name: publicDisplayName(friend.name, 'משתמש'),
+          }))
         : [];
     }
 
@@ -967,6 +993,48 @@ router.get('/:id/friends', attachOptionalUser, async (req, res) => {
   }
 });
 
+// A pending request with no bell (notification create failed, or a later retry hit the
+// old "already exists" 400) must be repairable. Look the row up in JS — Prisma JSON
+// path filters are not reliable for `data.friendRequestId`.
+async function ensureFriendRequestNotification(req, fr) {
+  const receiverId = fr.receiverId;
+  const requesterId = fr.requesterId;
+  const recent = await prisma.notification.findMany({
+    where: { userId: receiverId, type: 'FRIEND_REQUEST' },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    select: { data: true },
+  });
+  const already = recent.some((n) => n.data && n.data.friendRequestId === fr.id);
+  if (already) return;
+
+  const requester = await prisma.user.findUnique({ where: { id: requesterId } });
+  const requesterLabel = await notificationName(
+    prisma,
+    requester || { id: requesterId, name: req.user.name },
+    'משתמש'
+  );
+  await notificationService.sendNotification(
+    receiverId,
+    'FRIEND_REQUEST',
+    'בקשת חברות חדשה',
+    `${requesterLabel} שלח/ה לך בקשת חברות`,
+    {
+      friendRequestId: fr.id,
+      requesterId,
+      actorId: requesterId,
+      requesterName: requesterLabel,
+      link: '/friends',
+    },
+    req.app.get('io')
+  );
+}
+
+function notifyFailure(res, err) {
+  console.error('[NOTIFICATION] Failed to send friend request notification:', err);
+  return res.status(500).json({ error: 'Failed to notify the recipient', code: 'NOTIFICATION_FAILED' });
+}
+
 // Send friend request
 router.post('/requests', authenticateToken, async (req, res) => {
   try {
@@ -975,56 +1043,96 @@ router.post('/requests', authenticateToken, async (req, res) => {
     if (!receiverId || receiverId === requesterId) return res.status(400).json({ error: 'Invalid receiver' });
     // Ensure the requester exists; never invent a placeholder row for an unknown receiver
     await safeUpsertUserFromAuth(prisma, req.user);
-    const rx = await prisma.user.findUnique({ where: { id: String(receiverId) }, select: { id: true } });
+    const rx = await prisma.user.findUnique({
+      where: { id: String(receiverId) },
+      select: { id: true, birthDate: true, privacyFriends: true },
+    });
     if (!rx) return res.status(404).json({ error: 'User not found' });
-    // already friends?
     if (await isBlockedEitherWay(requesterId, receiverId)) {
       return res.status(403).json({ error: 'Cannot send a request to this user', code: 'USER_BLOCKED' });
     }
     const [a, b] = orderPair(requesterId, receiverId);
     const existingFriend = await prisma.friendship.findFirst({ where: { OR: [{ userAId: a, userBId: b }, { userAId: b, userBId: a }] } });
     if (existingFriend) return res.status(400).json({ error: 'Already friends' });
-    // existing request either way
-    const existingReq = await prisma.friendRequest.findFirst({ where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] } });
-    if (existingReq && existingReq.status === 'DECLINED') {
-      const sameDirection = existingReq.requesterId === requesterId;
-      if (sameDirection && Date.now() - new Date(existingReq.createdAt).getTime() < DECLINED_RESEND_COOLDOWN_MS) {
-        return res.status(400).json({ error: 'Your previous request was declined; you can send a new one later', code: 'REQUEST_DECLINED_RECENTLY' });
+
+    const existingReq = await prisma.friendRequest.findFirst({
+      where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] },
+    });
+
+    if (existingReq && existingReq.status === 'PENDING') {
+      if (existingReq.requesterId !== requesterId) {
+        return res.status(400).json({
+          error: 'This user already sent you a friend request',
+          code: 'INCOMING_REQUEST_EXISTS',
+        });
       }
-      // Otherwise a declined request must not block the pair forever.
+      // Same-direction pending is idempotent: the row is already there, so make sure the bell is too.
+      try {
+        await ensureFriendRequestNotification(req, existingReq);
+      } catch (err) {
+        return notifyFailure(res, err);
+      }
+      broadcastCounters(req.app.get('io'), prisma, receiverId).catch(() => {});
+      return res.status(200).json(existingReq);
+    }
+
+    if (
+      existingReq &&
+      existingReq.status === 'DECLINED' &&
+      existingReq.requesterId === requesterId &&
+      Date.now() - new Date(existingReq.createdAt).getTime() < DECLINED_RESEND_COOLDOWN_MS
+    ) {
+      return res.status(400).json({
+        error: 'Your previous request was declined; you can send a new one later',
+        code: 'REQUEST_DECLINED_RECENTLY',
+      });
+    }
+
+    const age = getAgeInJerusalem(rx.birthDate);
+    const isMinor = age !== null && age < ADULT_AGE;
+    const effFriends = resolvePrivacyLevel(rx.privacyFriends, rx.birthDate);
+    // Default minor profiles are friends-only. A stranger cannot open a request;
+    // an explicit EVERYONE choice still can. Confirmed friends already returned above.
+    if (isMinor && effFriends !== 'EVERYONE') {
+      return res.status(403).json({
+        error: 'This profile only accepts friend requests from friends',
+        code: 'PROFILE_FRIENDS_ONLY',
+      });
+    }
+
+    if (existingReq && existingReq.status === 'DECLINED') {
+      // A declined request must not block the pair forever.
       // deleteMany: two concurrent re-sends must not make the second one fail with P2025 (a 500)
       await prisma.friendRequest.deleteMany({ where: { id: existingReq.id } });
-    } else if (existingReq) {
-      return res.status(400).json({ error: 'Request already exists' });
     }
+
+    let fr;
     try {
-      const fr = await prisma.friendRequest.create({ data: { requesterId, receiverId } });
-
-      // Send notification to receiver
-      const requester = await prisma.user.findUnique({ where: { id: requesterId } });
-      const requesterLabel = await notificationName(prisma, requester || { id: requesterId, name: req.user.name }, 'משתמש');
-      await notificationService.sendNotification(
-        receiverId,
-        'FRIEND_REQUEST',
-        'בקשת חברות חדשה',
-        `${requesterLabel} שלח/ה לך בקשת חברות`,
-        {
-          friendRequestId: fr.id,
-          requesterId,
-          actorId: requesterId,
-          requesterName: requesterLabel,
-          link: '/friends'
-        },
-        req.app.get('io') // Get Socket.IO instance from app
-      ).catch(err => console.error('[NOTIFICATION] Failed to send friend request notification:', err));
-
-      broadcastCounters(req.app.get('io'), prisma, receiverId).catch(() => {});
-
-      res.status(201).json(fr);
+      fr = await prisma.friendRequest.create({ data: { requesterId, receiverId } });
     } catch (err) {
-      // handle unique race condition
-      return res.status(400).json({ error: 'Request already exists' });
+      if (err && err.code === 'P2002') {
+        const pending = await prisma.friendRequest.findFirst({
+          where: { requesterId, receiverId, status: 'PENDING' },
+        });
+        if (!pending) return res.status(400).json({ error: 'Request already exists' });
+        try {
+          await ensureFriendRequestNotification(req, pending);
+        } catch (notifyErr) {
+          return notifyFailure(res, notifyErr);
+        }
+        broadcastCounters(req.app.get('io'), prisma, receiverId).catch(() => {});
+        return res.status(200).json(pending);
+      }
+      throw err;
     }
+
+    try {
+      await ensureFriendRequestNotification(req, fr);
+    } catch (err) {
+      return notifyFailure(res, err);
+    }
+    broadcastCounters(req.app.get('io'), prisma, receiverId).catch(() => {});
+    return res.status(201).json(fr);
   } catch (e) {
     console.error('Send request error:', e);
     res.status(500).json({ error: 'Failed to send request' });

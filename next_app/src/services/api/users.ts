@@ -66,6 +66,10 @@ export interface UserProfile {
     privacySettings?: PrivacySettings;
     ratingAverage?: number | null;
     totalRatings?: number;
+    /** True when a non-friend is looking at a minor: age and about-details are omitted. */
+    profileRestricted?: boolean;
+    canMessage?: boolean;
+    canAddFriend?: boolean;
 }
 
 export interface NotificationCounters {

@@ -7,6 +7,7 @@ import { chatsApi, usersApi } from "@/services/api";
 import { ChatMessage, Reaction, MessageStatus } from "@/components/types";
 import { useSocket } from "@/context/SocketContext";
 import { canMarkRead, syncReadState } from "@/utils/chatRead";
+import { publicDisplayName } from "@/utils/publicName";
 import { SEND_TIMEOUT_MS, markFailed, markPending, discardFailed, applyStatusUpdate } from "@joinup/shared/chatSend";
 
 // Mirrors MAX_MESSAGE_LENGTH in server/services/chatSafety.js.
@@ -162,7 +163,11 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
     const otherParticipant = isPrivate ? chatDetails?.participants?.find((p: any) => p.userId !== user?.id) : null;
     const otherUserId = otherParticipant?.userId;
     const otherUserAvatar = otherParticipant?.user?.imageUrl;
-    const effectiveChatName = chatName || (isPrivate ? otherParticipant?.user?.name : "Game Chat") || (roomId === "global" ? "Global Chat" : "Chat");
+    const rawChatName = chatName || (isPrivate ? otherParticipant?.user?.name : null);
+    const effectiveChatName = publicDisplayName(
+        rawChatName,
+        roomId === "global" ? "Global Chat" : (isPrivate ? "משתמש" : "Game Chat")
+    );
 
     // 3. Socket Logic
     useEffect(() => {
@@ -311,7 +316,8 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
                 try {
                     const u = await usersApi.getProfile(uid, token || undefined);
                     setAvatarByUserId((prev) => ({ ...prev, [uid]: u?.imageUrl || null }));
-                    if (u?.name) setNameByUserId((prev) => ({ ...prev, [uid]: String(u.name) }));
+                    const safeName = publicDisplayName(u?.name, "");
+                    if (safeName) setNameByUserId((prev) => ({ ...prev, [uid]: safeName }));
                 } catch {
                     setAvatarByUserId((prev) => ({ ...prev, [uid]: null }));
                 }
@@ -448,7 +454,7 @@ export function useChatLogic({ roomId, chatName, suspended = false }: UseChatLog
     return {
         state: {
             messages, isLoading, inputValue, typingUsers, isOtherUserOnline,
-            chatDetails, replyToMessage, editingMessage, otherUserName: otherParticipant?.user?.name as string | undefined,
+            chatDetails, replyToMessage, editingMessage, otherUserName: publicDisplayName(otherParticipant?.user?.name, "") || undefined,
             showScrollButton, unreadNewMessages,
             effectiveChatName, otherUserAvatar, isPrivate, otherUserId,
             avatarByUserId, nameByUserId

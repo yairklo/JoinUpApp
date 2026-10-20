@@ -91,10 +91,34 @@ async function redactNotificationFields(prisma, title, body, data = {}) {
   };
 }
 
+/**
+ * Serve-time scrub for a stored notification row. Old rows were written before
+ * names were redacted; replace any email token with `משתמש` without a lookup.
+ */
+function scrubNotificationRecord(row, replacement = 'משתמש') {
+  if (!row || typeof row !== 'object') return row;
+  const data = row.data;
+  let nextData = data;
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    nextData = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'email') continue;
+      nextData[key] = replaceEmails(value, replacement);
+    }
+  }
+  return {
+    ...row,
+    title: replaceEmails(row.title, replacement),
+    body: replaceEmails(row.body, replacement),
+    data: nextData,
+  };
+}
+
 module.exports = {
   isEmailAddress,
   publicDisplayName,
   notificationName,
   redactNotificationFields,
   replaceEmails,
+  scrubNotificationRecord,
 };

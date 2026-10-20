@@ -22,11 +22,15 @@ import MuteNotificationsButton from "@/components/notifications/MuteNotification
 export default function UserProfileActions({
     targetUserId,
     targetUserName = "משתמש",
-    targetUserImage
+    targetUserImage,
+    canMessage = true,
+    canAddFriend = true,
 }: {
     targetUserId: string;
     targetUserName?: string;
     targetUserImage?: string | null;
+    canMessage?: boolean;
+    canAddFriend?: boolean;
 }) {
     const {
         status,
@@ -136,7 +140,7 @@ export default function UserProfileActions({
                             דחה
                         </Button>
                     </>
-                ) : (
+                ) : canAddFriend ? (
                     <Button
                         variant="contained"
                         color="primary"
@@ -146,9 +150,9 @@ export default function UserProfileActions({
                     >
                         הוסף חבר
                     </Button>
-                )}
+                ) : null}
 
-                {!isBlocked && (
+                {!isBlocked && canMessage && (
                     <Button
                         variant="outlined"
                         color="primary"

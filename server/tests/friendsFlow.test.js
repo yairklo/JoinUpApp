@@ -128,7 +128,7 @@ describe('friend request edge cases', () => {
     expect(await prisma.notification.count({ where: { userId: bob, type: 'FRIEND_REQUEST' } })).toEqual(notificationsBefore);
   });
 
-  test('after the cooldown the same person may ask again; a still-pending request is rejected', async () => {
+  test('after the cooldown the same person may ask again; a still-pending request resends the bell', async () => {
     const first = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     await request(app).post(`/api/users/requests/${first.body.id}/decline`).set('Authorization', bobAuth);
     await prisma.friendRequest.update({
@@ -138,8 +138,13 @@ describe('friend request edge cases', () => {
 
     const again = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     expect(again.statusCode).toEqual(201);
+    await prisma.notification.deleteMany({ where: { userId: bob, type: 'FRIEND_REQUEST' } });
     const dup = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
-    expect(dup.statusCode).toEqual(400);
+    expect(dup.statusCode).toEqual(200);
+    expect(dup.body.id).toEqual(again.body.id);
+    const note = await prisma.notification.findFirst({ where: { userId: bob, type: 'FRIEND_REQUEST' }, orderBy: { createdAt: 'desc' } });
+    expect(note).toBeTruthy();
+    expect(note.data.friendRequestId).toEqual(again.body.id);
   });
 
   test('the cooldown counts from the decline, not from when the request was first sent', async () => {
@@ -161,8 +166,8 @@ describe('friend request edge cases', () => {
       request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob }),
       request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob }),
     ]);
-    for (const r of results) expect([201, 400]).toContain(r.statusCode);
-    expect(results.some((r) => r.statusCode === 201)).toBe(true);
+    for (const r of results) expect([200, 201]).toContain(r.statusCode);
+    expect(results.some((r) => r.statusCode === 201 || r.statusCode === 200)).toBe(true);
   });
 
   test('the other side can request after being declined', async () => {
