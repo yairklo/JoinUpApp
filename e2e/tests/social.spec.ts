@@ -23,9 +23,16 @@ test("a stranger does not see a minor's private profile sections or email", asyn
   await page.goto(`/users/${seed.users.minorC.id}`);
   await expect(page.getByTestId("profile-name")).toHaveText(seed.users.minorC.name);
   expect(await page.getByTestId("profile-name").innerText()).not.toMatch(EMAIL_SHAPED);
+  // PR #375 drops profile-email for non-owners. Older builds keep the row and
+  // show a placeholder. Either way a stranger must not see an address.
   const email = page.getByTestId("profile-email");
-  await expect(email).toHaveText("אימייל לא זמין");
-  expect(await email.innerText()).not.toContain(seed.users.minorC.email);
+  if ((await email.count()) === 0) {
+    await expect(email).toHaveCount(0);
+  } else {
+    await expect(email).not.toContainText("@");
+    await expect(email).not.toContainText(seed.users.minorC.email);
+  }
+  await expect(page.locator("main")).not.toContainText(seed.users.minorC.email);
   const sections = page.getByTestId("profile-sections");
   await expect(sections).toBeAttached();
   await expect(sections).not.toContainText("חברים");

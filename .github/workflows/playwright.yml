@@ -1,11 +1,12 @@
 name: Playwright
 
-# PRs into dev / Dev. A failed job fails the check. Marking "web regression"
+# PRs into dev / Dev / main, and into the dev-seed stack this suite is built on,
+# plus a manual run. A failed job fails the check. Marking "web regression"
 # as a required status check (GitHub branch protection) is an owner click —
 # this file cannot set that.
 on:
   pull_request:
-    branches: [dev, Dev]
+    branches: [dev, Dev, main, cursor/dev-seed-2100]
   workflow_dispatch:
 
 permissions:
@@ -39,7 +40,10 @@ jobs:
       API_URL: http://127.0.0.1:3005
       DATABASE_URL: postgresql://joinup:joinup@localhost:5432/joinup_e2e?schema=public
       DIRECT_DATABASE_URL: postgresql://joinup:joinup@localhost:5432/joinup_e2e?schema=public
-      JOINUP_SEED_CONFIRM: dev
+      # Throwaway Postgres. Localhost is already a recognized dev host; the
+      # allowlist is set so a seed guard that requires SEED_ALLOWED_DB_HOST
+      # still matches both URLs.
+      SEED_ALLOWED_DB_HOST: localhost
       CLERK_SECRET_KEY: ${{ secrets.CLERK_TEST_SECRET_KEY }}
       CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_TEST_PUBLISHABLE_KEY }}
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_TEST_PUBLISHABLE_KEY }}
@@ -49,8 +53,9 @@ jobs:
       PORT: "3005"
       E2E_SERVER_NODE_ENV: development
       ALLOW_DISK_UPLOADS: "true"
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      # Dev/CI stub. The API refuses this when NODE_ENV=production.
+      MODERATION_PROVIDER: stub
+      E2E_MODERATION_READY: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -76,11 +81,13 @@ jobs:
             pk_live_*) echo "CLERK_TEST_PUBLISHABLE_KEY is a live key. Refusing."; exit 1 ;;
             *) echo "Set repository secret CLERK_TEST_PUBLISHABLE_KEY (pk_test_)."; exit 1 ;;
           esac
-          if [ -n "${OPENAI_API_KEY}" ] || [ -n "${GOOGLE_API_KEY}" ]; then
-            echo "E2E_MODERATION_READY=1" >> "$GITHUB_ENV"
-          else
-            echo "E2E_MODERATION_READY=0" >> "$GITHUB_ENV"
-            echo "No moderation key. Meeting/phone/link chat tests will skip."
+          if [ "$MODERATION_PROVIDER" != "stub" ]; then
+            echo "CI must set MODERATION_PROVIDER=stub (no paid moderation model)."
+            exit 1
+          fi
+          if [ "$E2E_SERVER_NODE_ENV" = "production" ]; then
+            echo "The moderation stub cannot run when NODE_ENV=production."
+            exit 1
           fi
 
       - name: Install server

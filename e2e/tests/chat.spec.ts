@@ -41,7 +41,7 @@ test("private adult to minor: slur blocked, ordinary message delivered", async (
 test("meeting request, phone, and link are delivered when moderation is configured", async ({ page }) => {
   test.skip(
     !moderationReady,
-    "Set OPENAI_API_KEY or GOOGLE_API_KEY on the API and E2E_MODERATION_READY=1. Adult A is not friends with minor C, so gated messages fail closed without a model."
+    "Set MODERATION_PROVIDER=stub (dev/CI only; the API refuses it when NODE_ENV=production) or E2E_MODERATION_READY=1 with a model key. Adult A is not friends with minor C, so gated messages fail closed without a provider."
   );
   const seed = loadFixture();
   const room = `/chat/${seed.chats.adultMinor.id}`;

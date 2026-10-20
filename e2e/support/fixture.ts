@@ -48,5 +48,9 @@ export const API_URL = process.env.API_URL || "http://127.0.0.1:3005";
 
 export const EMAIL_SHAPED = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
-/** Gated adult→minor messages are fail-closed unless the API has a moderation model key. */
-export const moderationReady = process.env.E2E_MODERATION_READY === "1";
+/**
+ * Meeting / phone / link checks run when the API is on the dev stub
+ * (MODERATION_PROVIDER=stub, refused in production) or a real model is configured.
+ */
+export const moderationReady =
+  process.env.MODERATION_PROVIDER === "stub" || process.env.E2E_MODERATION_READY === "1";
