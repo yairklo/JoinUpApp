@@ -17,6 +17,7 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "import:fields": "node scripts/importFieldsFromCsv.js ..\\weplay_courts_export.csv",
     "seed": "node prisma/seed.js",
+    "seed:dev": "node scripts/seedDev.js",
     "clear-seed": "node prisma/clearSeed.js"
   },
   "keywords": [

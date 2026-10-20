@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "verificationCode": "424242",
+  "users": {
+    "adultA": {
+      "key": "adultA",
+      "id": "user_REPLACE_AFTER_SEED",
+      "email": "adult-a+clerk_test@example.com",
+      "name": "נועה כהן",
+      "role": "adult",
+      "birthDate": "1992-04-15",
+      "code": "424242"
+    },
+    "adultB": {
+      "key": "adultB",
+      "id": "user_REPLACE_AFTER_SEED",
+      "email": "adult-b+clerk_test@example.com",
+      "name": "יונתן לוי",
+      "role": "adult",
+      "code": "424242"
+    },
+    "minorC": {
+      "key": "minorC",
+      "id": "user_REPLACE_AFTER_SEED",
+      "email": "minor-c+clerk_test@example.com",
+      "name": "מאיה אביב",
+      "role": "minor",
+      "birthDate": "2012-06-01",
+      "code": "424242"
+    },
+    "organizerO": {
+      "key": "organizerO",
+      "id": "user_REPLACE_AFTER_SEED",
+      "email": "organizer-o+clerk_test@example.com",
+      "name": "עומר דהן",
+      "role": "organizer",
+      "code": "424242"
+    }
+  },
+  "friends": [{ "a": "adultA", "b": "adultB" }],
+  "games": {
+    "tlvSoccer": { "id": "seed_game_tlv_soccer", "title": "כדורגל תל אביב", "city": "תל אביב-יפו", "sport": "SOCCER" },
+    "haifaBasketball": { "id": "seed_game_haifa_basketball", "title": "כדורסל חיפה", "sport": "BASKETBALL" },
+    "jerusalemSoccer": { "id": "seed_game_jerusalem_soccer", "title": "כדורגל ירושלים", "sport": "SOCCER" },
+    "beerShevaBasketball": { "id": "seed_game_beer_sheva_basketball", "title": "כדורסל באר שבע", "sport": "BASKETBALL" },
+    "friendsRequest": { "id": "seed_game_friends_request", "friendsOnlyLinkPolicy": "REQUEST_TO_JOIN", "isFriendsOnly": true },
+    "friendsBlocked": { "id": "seed_game_friends_blocked", "friendsOnlyLinkPolicy": "BLOCKED", "isFriendsOnly": true },
+    "approval": { "id": "seed_game_approval", "joinPolicy": "REQUIRES_APPROVAL" },
+    "groupChat": { "id": "seed_game_group" },
+    "weeklyOccurrence": { "id": "seed_game_series_next" }
+  },
+  "series": {
+    "weekly": { "id": "seed_series_weekly", "title": "קבוצה שבועית תל אביב" },
+    "blocked": { "id": "seed_series_blocked", "title": "קבוצה סגורה לחברים" }
+  },
+  "chats": {
+    "adultMinor": { "id": "seed_chat_a_c", "between": ["adultA", "minorC"] },
+    "group": { "id": "seed_game_group" }
+  }
+}
