@@ -464,24 +464,41 @@ model ChatParticipant {
 }
 
 model Message {
-  id         String        @id @default(cuid())
-  userId     String?
-  text       String
-  createdAt  DateTime      @default(now())
-  replyToId  String?
-  status     MessageStatus @default(sent)
-  chatRoomId String
-  isDeleted  Boolean       @default(false)
-  isEdited   Boolean       @default(false)
-  chatRoom   ChatRoom      @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-  replyTo    Message?      @relation("ReplyTo", fields: [replyToId], references: [id])
-  replies    Message[]     @relation("ReplyTo")
-  user       User?         @relation(fields: [userId], references: [id])
-  reactions  Reaction[]
+  id          String        @id @default(cuid())
+  userId      String?
+  text        String
+  createdAt   DateTime      @default(now())
+  replyToId   String?
+  status      MessageStatus @default(sent)
+  chatRoomId  String
+  isDeleted   Boolean       @default(false)
+  isEdited    Boolean       @default(false)
+  /// Original text kept when the sender deletes a message (`text` is blanked). Never sent to
+  /// clients; lets a late report and the admin queue still see what was written.
+  deletedText String?
+  deletedAt   DateTime?
+  chatRoom    ChatRoom      @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  replyTo     Message?      @relation("ReplyTo", fields: [replyToId], references: [id])
+  replies     Message[]     @relation("ReplyTo")
+  user        User?         @relation(fields: [userId], references: [id])
+  reactions   Reaction[]
+  edits       MessageEdit[]
 
   @@index([chatRoomId])
   @@index([chatRoomId, createdAt])
   @@index([chatRoomId, status, userId])
+}
+
+/// One row per edit, holding the text as it was BEFORE the edit, so editing a message
+/// cannot erase what was originally written (moderation evidence).
+model MessageEdit {
+  id           String   @id @default(cuid())
+  messageId    String
+  previousText String
+  editedAt     DateTime @default(now())
+  message      Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId, editedAt])
 }
 
 model Reaction {
