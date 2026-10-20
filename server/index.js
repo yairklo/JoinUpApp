@@ -20,6 +20,8 @@ const fs = require('fs').promises;
 const http = require('http');
 const { Server } = require('socket.io');
 const { prisma } = require('./lib/prisma');
+const { createClient, closeSharedRedis, isRedisHealthy } = require('./lib/redis');
+const { attachSocketAdapter } = require('./socket/adapter');
 const { setChatView, canSocketMarkRead } = require('./utils/chatViewState');
 
 // Import routes
@@ -175,6 +177,10 @@ const io = new Server(server, {
   },
 });
 
+// Cross-instance delivery (SOCKET_ADAPTER=redis + REDIS_URL). No-op otherwise. Rooms are plain
+// strings so every existing io.to(room).emit() call site works cluster-wide unchanged.
+const socketAdapter = attachSocketAdapter(io);
+
 app.use((req, res, next) => {
   req.io = io;
   next();
@@ -201,6 +207,7 @@ app.use('/api/field-suggestions', require('./routes/fieldSuggestions'));
 // Health check
 let redisReady = false;
 let redisPub = null;
+let redisSub = null;
 
 // Liveness probe: the container platform's healthcheck hits this every few seconds to
 // decide whether to restart the container. It must stay instant and dependency-free —
@@ -238,6 +245,7 @@ app.get('/api/health/deep', async (req, res) => {
       status: 'OK',
       db: 'up',
       redis,
+      socketAdapter: !socketAdapter.enabled ? 'off' : (isRedisHealthy() ? 'up' : 'down'),
       jobs: enableBackgroundSchedulers ? 'on' : 'off',
       http: enableHttpServer ? 'on' : 'off',
       message: 'Football Fields API is running',
@@ -269,6 +277,9 @@ async function socketAuthMiddleware(socket, next) {
     if (!socket.userId) {
       return next(new Error('Unauthorized'));
     }
+    // socket.data survives fetchSockets()/RemoteSocket, so other instances can see who is online.
+    socket.data = socket.data || {};
+    socket.data.userId = String(socket.userId);
     try {
       const { getClerkUserCached, isAccountDeleted } = require('./utils/auth');
       const { resolveIsBanned } = require('./utils/admin');
@@ -301,28 +312,13 @@ function isUserOnline(userId) {
 // Redis: moderation fan-out + optional worker→API socket bridge
 const { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent, localTarget } = require('./utils/socketBridge');
 if (enableRedis) {
-  const Redis = require("ioredis");
   const { Logger } = require('./utils/logger');
 
-  const redisSub = new Redis(process.env.REDIS_URL, {
-    retryStrategy: (times) => {
-      if (times > 3) return null;
-      return Math.min(times * 500, 2000);
-    }
-  });
-  redisPub = new Redis(process.env.REDIS_URL, {
-    retryStrategy: (times) => {
-      if (times > 3) return null;
-      return Math.min(times * 500, 2000);
-    }
-  });
+  // Retry forever (capped backoff): the bridge carries worker->API socket events and scheduler
+  // signals, so one Redis blip must not end it permanently. ioredis re-subscribes on reconnect.
+  redisSub = createClient({ label: 'bridge-sub' });
+  redisPub = createClient({ label: 'bridge-pub' });
 
-  redisSub.on('error', (err) => {
-    Logger.warn("REDIS SUB", `Connection error: ${err.message}`);
-  });
-  redisPub.on('error', (err) => {
-    Logger.warn("REDIS PUB", `Connection error: ${err.message}`);
-  });
   redisSub.on('ready', () => { redisReady = true; });
   redisPub.on('ready', () => { redisReady = true; });
 
@@ -1273,6 +1269,39 @@ app.use((err, req, res, next) => {
   if (process.env.NODE_ENV !== 'production') payload.message = err.message;
   res.status(500).json(payload);
 });
+
+// Graceful shutdown: rolling deploys must drain sockets (clients fail over to the other
+// instance) and release anything cluster-visible (job leadership) instead of being cut off.
+// Never registered under Jest.
+const shutdownHooks = [];
+let shuttingDown = false;
+async function gracefulShutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[SHUTDOWN] ${signal} received, draining...`);
+  const force = setTimeout(() => {
+    console.error('[SHUTDOWN] timed out, forcing exit');
+    process.exit(1);
+  }, 10000);
+  if (force.unref) force.unref();
+  const step = async (name, fn) => {
+    try { await fn(); } catch (e) { console.error(`[SHUTDOWN] ${name} failed:`, e && e.message); }
+  };
+  for (const [name, fn] of shutdownHooks) await step(name, fn);
+  await step('socket.io', () => new Promise((resolve) => { io.close(() => resolve()); }));
+  await step('socket adapter', () => socketAdapter.close());
+  await step('redis bridge', async () => {
+    for (const c of [redisSub, redisPub]) if (c) { try { await c.quit(); } catch { c.disconnect(); } }
+  });
+  await step('redis shared', () => closeSharedRedis());
+  await step('prisma', () => prisma.$disconnect());
+  console.log('[SHUTDOWN] done');
+  process.exit(0);
+}
+if (!process.env.JEST_WORKER_ID) {
+  process.on('SIGTERM', () => { gracefulShutdown('SIGTERM'); });
+  process.on('SIGINT', () => { gracefulShutdown('SIGINT'); });
+}
 
 async function startJobs(jobIo) {
   if (!enableBackgroundSchedulers) {
