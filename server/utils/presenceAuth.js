@@ -61,4 +61,21 @@ async function canSubscribePresence(viewerId, targetId) {
   }
 }
 
-module.exports = { canSubscribePresence };
+/**
+ * Drops existing presence subscriptions between two users once the relationship that allowed them
+ * may be gone (block, unfriend). A subscription is only checked when it is created, so without
+ * this a newly blocked user would keep receiving presence:update until their socket disconnects.
+ * `force` (block) removes both directions unconditionally; otherwise each direction is removed only
+ * if canSubscribePresence no longer allows it (e.g. they still share a chat after an unfriend).
+ */
+async function revokePresenceSubscriptions(io, userA, userB, { force = false } = {}) {
+  if (!io || !userA || !userB) return;
+  const a = String(userA);
+  const b = String(userB);
+  for (const [viewer, target] of [[a, b], [b, a]]) {
+    if (!force && (await canSubscribePresence(viewer, target))) continue;
+    io.in(`user_${viewer}`).socketsLeave(`presence_listener_${target}`);
+  }
+}
+
+module.exports = { canSubscribePresence, revokePresenceSubscriptions };

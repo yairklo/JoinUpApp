@@ -35,6 +35,7 @@ const notificationService = new NotificationService(prisma);
 const { SPORT_KEYS } = require('../utils/sports');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { isBlockedEitherWay, getBlockedEitherWayIds } = require('../utils/blocks');
+const { revokePresenceSubscriptions } = require('../utils/presenceAuth');
 
 // After a decline the same requester must wait before asking the same person again, so a declined
 // request cannot be re-sent (and re-notified) over and over. The person who declined can always ask.
@@ -447,6 +448,8 @@ router.post('/:id/block', authenticateToken, async (req, res) => {
         where: { OR: [{ requesterId: blockerId, receiverId: blockedId }, { requesterId: blockedId, receiverId: blockerId }] },
       }),
     ]);
+    await revokePresenceSubscriptions(req.app.get('io'), blockerId, blockedId, { force: true })
+      .catch((e) => console.error('[presence] revoke after block failed:', e.message));
     res.status(201).json({ ok: true });
   } catch (error) {
     console.error('Block user error:', error);
@@ -1124,6 +1127,8 @@ router.delete('/:id/friends/:friendId', authenticateToken, async (req, res) => {
     if (req.params.id !== req.user.id) return res.status(403).json({ error: 'Access denied' });
     const [a, b] = orderPair(req.user.id, req.params.friendId);
     await prisma.friendship.delete({ where: { userAId_userBId: { userAId: a, userBId: b } } });
+    await revokePresenceSubscriptions(req.app.get('io'), req.user.id, req.params.friendId)
+      .catch((e) => console.error('[presence] revoke after unfriend failed:', e.message));
     res.json({ ok: true });
   } catch (e) {
     console.error('Remove friend error:', e);

@@ -93,3 +93,43 @@ describe('canSubscribePresence', () => {
     console.error.mockRestore();
   });
 });
+
+describe('revokePresenceSubscriptions', () => {
+  const { revokePresenceSubscriptions } = require('../utils/presenceAuth');
+
+  // Records io.in(room).socketsLeave(room2) calls.
+  const fakeIo = () => {
+    const calls = [];
+    return { calls, in: (room) => ({ socketsLeave: (leave) => calls.push([room, leave]) }) };
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prisma.userBlock.findFirst.mockResolvedValue(null);
+    prisma.friendship.findUnique.mockResolvedValue(null);
+    prisma.chatParticipant.findFirst.mockResolvedValue(null);
+    prisma.game.findFirst.mockResolvedValue(null);
+  });
+
+  test('force (block) removes both directions without any permission lookup', async () => {
+    const io = fakeIo();
+    await revokePresenceSubscriptions(io, 'a', 'b', { force: true });
+    expect(io.calls).toEqual([
+      ['user_a', 'presence_listener_b'],
+      ['user_b', 'presence_listener_a'],
+    ]);
+    expect(prisma.userBlock.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('after an unfriend, removes a direction only when no other relationship still allows it', async () => {
+    const io = fakeIo();
+    // a and b still share a chat from a's side only (mock returns a row for the first lookup).
+    prisma.chatParticipant.findFirst.mockResolvedValueOnce({ id: 'cp' }).mockResolvedValue(null);
+    await revokePresenceSubscriptions(io, 'a', 'b');
+    expect(io.calls).toEqual([['user_b', 'presence_listener_a']]);
+  });
+
+  test('no-ops without an io instance', async () => {
+    await expect(revokePresenceSubscriptions(null, 'a', 'b', { force: true })).resolves.toBeUndefined();
+  });
+});
