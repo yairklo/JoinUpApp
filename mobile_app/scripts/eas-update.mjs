@@ -84,22 +84,33 @@ function run(label, args) {
 
 const environment = profile.environment || profileName;
 console.log(`[eas-update] profile=${profileName} channel=${profile.channel} environment=${environment} api=${profileEnv.EXPO_PUBLIC_API_URL}`);
-const published = run(`${EAS_CLI} update --channel ${profile.channel}`, [
-  npxCli, "--yes", EAS_CLI, "update",
-  "--channel", profile.channel,
-  "--environment", environment,
-  "--clear-cache",
-  "--non-interactive",
-  ...easArgs,
-]);
-if (published !== 0) process.exit(published);
 
-if (!env.SENTRY_AUTH_TOKEN) {
-  console.warn("[eas-update] SENTRY_AUTH_TOKEN not set: source maps for this update were NOT uploaded; Sentry stack traces from it will be minified.");
-} else {
-  const upload = run("sentry-expo-upload-sourcemaps dist", [
+// `eas update` defaults to every platform in app.json, which includes "web" — and the native app
+// doesn't bundle for web (react-native-maps). The website is next_app, so publish native only,
+// one platform at a time, unless the caller picked one with --platform.
+const platformIdx = easArgs.findIndex((a) => a === "--platform" || a === "-p" || a.startsWith("--platform="));
+const platforms = platformIdx === -1 ? ["android", "ios"] : [null];
+
+for (const platform of platforms) {
+  const label = platform || "requested platform";
+  const published = run(`${EAS_CLI} update --channel ${profile.channel} (${label})`, [
+    npxCli, "--yes", EAS_CLI, "update",
+    "--channel", profile.channel,
+    "--environment", environment,
+    ...(platform ? ["--platform", platform] : []),
+    "--clear-cache",
+    "--non-interactive",
+    ...easArgs,
+  ]);
+  if (published !== 0) fail(`publishing failed for ${label}${platform === "ios" ? " (android was already published)" : ""}`);
+
+  if (!env.SENTRY_AUTH_TOKEN) {
+    console.warn(`[eas-update] SENTRY_AUTH_TOKEN not set: source maps for the ${label} update were NOT uploaded; its Sentry stack traces will be minified.`);
+    continue;
+  }
+  const upload = run(`sentry-expo-upload-sourcemaps dist (${label})`, [
     require.resolve("@sentry/react-native/scripts/expo-upload-sourcemaps.js"),
     "dist",
   ]);
-  if (upload !== 0) fail("the update IS published, but uploading its source maps to Sentry failed (re-run: npx sentry-expo-upload-sourcemaps dist)");
+  if (upload !== 0) fail(`the ${label} update IS published, but uploading its source maps to Sentry failed (re-run: npx sentry-expo-upload-sourcemaps dist)`);
 }
