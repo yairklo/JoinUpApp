@@ -17,6 +17,7 @@ Vercel (web) --> https://API_DOMAIN --> Caddy (:80/:443, TLS) --> api:3005 (Expr
 | `caddy/Caddyfile` | TLS, reverse proxy, WebSocket, compression, headers, timeouts |
 | `deploy.sh` | deploy / rollback / status / logs / migrate (lock, auto-rollback, image pruning) |
 | `.env.example`, `api.env.example` | every variable name the code reads |
+| `import-env.sh` | builds `api.env` from the old API container (only the known names) |
 
 **Always run compose from `deploy/`.** `.env` sets `COMPOSE_FILE` so plain `docker compose ...` uses the same files (incl. resource limits) as `deploy.sh`; without it containers get recreated without limits.
 
@@ -43,13 +44,14 @@ Used for moderation/revocation fan-out, the worker -> API socket bridge and sche
 ## Cutover from the existing hand-built VPS
 Ports 80/443 and container names clash with the running stack: do this in a short maintenance window.
 1. **Inspect the live setup first**: `docker ps -a`, `docker volume ls`, `docker inspect <caddy>`, the live Caddyfile and any compose file / run flags, and the env of the API container. Write down the old container names. Reconcile differences into `deploy/`.
-2. Clone the repo, create `deploy/.env` and `deploy/api.env` (copy values across on the server: `docker inspect <api> --format '{{range .Config.Env}}{{println .}}{{end}}' > deploy/api.env`, then delete the entries that compose sets: NODE_ENV, PORT, REDIS_URL, RUN_BACKGROUND_JOBS. This prints secrets to the file only; never paste them anywhere). Add a new `REDIS_PASSWORD`. `chmod 600 .env api.env`.
-3. **Keep TLS certificates** so Let's Encrypt is not hit again. Detect where the old Caddy keeps its data: `docker inspect <caddy> --format '{{json .Mounts}}'` and look for the `/data` mount.
-   - Named volume (`"Type":"volume"`): `docker volume create joinup_caddy-data && docker run --rm -v <old_volume>:/from:ro -v joinup_caddy-data:/to alpine cp -a /from/. /to/`
-   - Bind mount (`"Type":"bind"`, a host path): same command with `-v /host/path:/from:ro`.
-   - Caddy installed on the host (systemd): data is in `/var/lib/caddy/.local/share/caddy`; copy it the same way, then `systemctl disable --now caddy`.
-   - No mount at all: certs live inside the old container; copy out with `docker cp <caddy>:/data ./caddy-data-old` and in with the bind-mount command. If unsure, accept a reissue (Let's Encrypt allows ~5 duplicate certs/week).
-   The volume must contain `caddy/certificates/` and `caddy/acme/` at its root.
+2. Clone the repo and create `deploy/.env`. For `deploy/api.env` do **not** dump `docker inspect` (it includes PATH, NODE_VERSION, ... and breaks on multi-line or `$` values). Use the helper, which copies only the variable names listed in `api.env.example`, single-quoted so `$` is safe, and never prints values: `./import-env.sh <old-api-container>`. Names reported as "needs manual review" (multi-line such as `FIREBASE_PRIVATE_KEY`, or values with a single quote) and "missing" must be set by hand in an editor. Add a new `REDIS_PASSWORD` to `.env`. Both files `chmod 600`. Do not paste their content anywhere.
+3. **Keep TLS certificates** so Let's Encrypt is not hit again. Find where the old Caddy keeps its data: `docker inspect <caddy> --format '{{json .Mounts}}'` and look at the mount whose destination is `/data`. The new volume must end up with this layout (the official Caddy image stores data in `/data/caddy`): `joinup_caddy-data/caddy/certificates/...` and `joinup_caddy-data/caddy/acme/...`.
+   - Named volume (`"Type":"volume"`, root already contains `caddy/`): `docker volume create joinup_caddy-data && docker run --rm -v <old_volume>:/from:ro -v joinup_caddy-data:/to alpine cp -a /from/. /to/`
+   - Bind mount (`"Type":"bind"`, a host dir that contains `caddy/`): same command with `-v /host/path:/from:ro`.
+   - Caddy on the host (systemd): its data dir is `/var/lib/caddy/.local/share/caddy` and *is* the `caddy/` directory itself (it contains `certificates/`), so copy it one level down: `docker volume create joinup_caddy-data && docker run --rm -v /var/lib/caddy/.local/share/caddy:/from:ro -v joinup_caddy-data:/to alpine sh -c 'mkdir -p /to/caddy && cp -a /from/. /to/caddy/'`; stop it later in the cutover (`systemctl disable --now caddy`).
+   - No mount: certs live inside the old container. `docker cp <caddy>:/data ./caddy-old` gives `./caddy-old` containing `caddy/`; copy it in with the bind-mount command (`-v "$PWD/caddy-old":/from:ro`).
+   - **Verify before starting anything**: `docker run --rm -v joinup_caddy-data:/d:ro alpine ls /d/caddy/certificates/*/` must list a directory for your domain (e.g. `acme-v02.api.letsencrypt.org-directory/<domain>`). If it is empty or missing, fix the copy first: a new Caddy that finds no certs requests new ones.
+   - **Do not repeat failed cutovers blindly.** Let's Encrypt allows 5 duplicate certificates per week and 5 failed validations per hour per domain. For rehearsals add `acme_ca https://acme-staging-v02.api.letsencrypt.org/directory` to the global block of the Caddyfile (remove it for the real run), and use a copy of the volume.
 4. Validate: `cd deploy && docker compose config -q` (never print `docker compose config` into logs or chats: it expands every secret).
 5. Deploy with takeover: `TAKEOVER=1 ./deploy.sh deploy`. The script builds and migrates first, then stops (not removes) whatever container publishes 80/443, then starts the new stack. The stopped names are saved in `.state/old_containers`.
 6. Verify: `curl -fsS https://$API_DOMAIN/api/health`, `/api/health/deep`, log in from the Vercel app, open a game chat (WebSocket).
@@ -91,7 +93,7 @@ Prisma has no down migrations, and `deploy.sh` migrates **before** swapping cont
 
 ### Backups
 - **Database**: Neon branches/point-in-time restore (check retention on your plan) or a dump that keeps the URL out of the command line:
-  `docker run --rm --env-file api.env postgres:16-alpine sh -c 'pg_dump "$DIRECT_DATABASE_URL" -Fc' > backup-$(date +%F).dump` (note: `docker run --env-file` does not interpolate `$$`; if the password contains `$`, write it once in a private file instead). Restore: `pg_restore --clean --if-exists -d <target-url> backup.dump` into a scratch DB first.
+  `set -a; . ./api.env; set +a; docker run --rm -e DIRECT_DATABASE_URL postgres:16-alpine sh -c 'pg_dump "$DIRECT_DATABASE_URL" -Fc' > backup-$(date +%F).dump` (sourcing works because `import-env.sh` single-quotes values; if you wrote `$` by hand, sourcing would expand it to a PID, so use a plain URL there). Restore: `pg_restore --clean --if-exists -d <target-url> backup.dump` into a scratch DB first.
 - **Caddy data** (certs, ACME account): `docker run --rm -v joinup_caddy-data:/d:ro -v "$PWD":/b alpine tar czf /b/caddy-data-$(date +%F).tgz -C /d .` weekly, stored off-server. Redis needs no backup.
 - `.env`, `api.env`: keep a copy in the password manager.
 
@@ -111,7 +113,7 @@ External uptime check (UptimeRobot, healthchecks.io, ...) on `https://API_DOMAIN
 
 ## Secrets handling
 - `docker compose config` and `docker inspect <container>` print every secret, including the Redis password. Use `docker compose config -q` for validation; never paste their output into tickets, chats or CI logs.
-- Keep real values out of shell history: edit the env files with an editor, not `echo SECRET=... >>`; don't put secrets on command lines (`pg_dump` example above uses `--env-file`).
+- Keep real values out of shell history: edit the env files with an editor, not `echo SECRET=... >>`; don't put secrets on command lines (the `pg_dump` example above passes the URL through the environment).
 - Compose interpolates `$` in `.env` and in `env_file` files: write a literal `$` as `$$` (e.g. a password inside `DATABASE_URL`), or use URL-safe passwords. Percent-encode special characters in connection URLs.
 - Env files are `chmod 600` and git-ignored; the `docker` group can read all container env. TODO: move to Docker/Compose `secrets:` if the stack grows (the app reads env vars only, so a file-to-env wrapper would be needed).
 
@@ -125,6 +127,6 @@ External uptime check (UptimeRobot, healthchecks.io, ...) on `https://API_DOMAIN
 | Realtime/chat not updating | Redis healthy? `/api/health/deep` shows `redis`. A proxy/CDN blocking WebSocket? Path `/api/socket`. More than one active API server (see Second server)? |
 | Everyone rate-limited | Wrong client IP: `trust proxy` hop count vs Cloudflare (assumption 4). |
 | Redis auth errors | `REDIS_PASSWORD` is used for both Redis and the `REDIS_URL` compose builds; `$` needs `$$`. |
-| Deploy says "another deploy is running" | `.state/lock` (flock) is held by a live deploy; with no flock installed remove `.state/lock.d` if stale. |
+| Deploy says "another deploy is running" | `.state/lock` (flock) is held by a live deploy; without flock a stale lock (dead PID or reboot) is detected and removed automatically. |
 | Disk full | `docker system df`; `deploy.sh` already prunes old tags. Logs capped at 5x10 MB per container. |
 | Validate Caddy | `docker run --rm -e API_DOMAIN=api.example.com -e ACME_EMAIL=a@b.c -v "$PWD/caddy:/c:ro" caddy:2-alpine caddy validate --config /c/Caddyfile` |

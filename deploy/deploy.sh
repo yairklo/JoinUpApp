@@ -47,8 +47,18 @@ acquire_lock() {
     exec 9>"$STATE_DIR/lock"
     flock -n 9 || die "another deploy/rollback is running (lock: $STATE_DIR/lock)"
   else
-    mkdir "$STATE_DIR/lock.d" 2>/dev/null || die "another deploy/rollback is running (remove $STATE_DIR/lock.d if stale)"
-    trap 'rmdir "$STATE_DIR/lock.d" 2>/dev/null || true' EXIT
+    # No flock (e.g. Git Bash): mkdir lock holding our PID and boot id, so a lock left by a crash or a
+    # reboot mid-deploy is detected as stale instead of blocking forever.
+    local lock="$STATE_DIR/lock.d" boot
+    boot="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo none)"
+    if [ -d "$lock" ]; then
+      if [ "$(cat "$lock/boot" 2>/dev/null)" != "$boot" ] || ! kill -0 "$(cat "$lock/pid" 2>/dev/null || echo 0)" 2>/dev/null; then
+        echo ">> removing stale lock"; rm -rf "$lock"
+      fi
+    fi
+    mkdir "$lock" 2>/dev/null || die "another deploy/rollback is running (lock: $lock)"
+    echo $$ > "$lock/pid"; echo "$boot" > "$lock/boot"
+    trap 'rm -rf "$STATE_DIR/lock.d"' EXIT
   fi
 }
 
@@ -68,25 +78,45 @@ require_clean_tree() {
   git_ diff --quiet && git_ diff --cached --quiet || die "tracked files in the checkout are modified; commit/stash them (deploys check out other commits)"
 }
 
+# Explicit health verification (does not trust `up --wait` alone): api container healthy, a real
+# /api/health answer, caddy running. Polls until HEALTH_TIMEOUT.
+verify_health() {
+  local deadline=$(( $(date +%s) + ${HEALTH_TIMEOUT:-120} )) api caddy st
+  while :; do
+    api="$(dc ps -q api 2>/dev/null | head -1)"; caddy="$(dc ps -q caddy 2>/dev/null | head -1)"
+    if [ -n "$api" ] && [ -n "$caddy" ]; then
+      st="$(docker inspect -f '{{.State.Health.Status}}' "$api" 2>/dev/null || true)"
+      if [ "$st" = "healthy" ]          && dc exec -T api curl -fsS --max-time 5 http://127.0.0.1:3005/api/health >/dev/null 2>&1          && [ "$(docker inspect -f '{{.State.Running}}' "$caddy" 2>/dev/null)" = "true" ]; then
+        return 0
+      fi
+    fi
+    [ "$(date +%s)" -lt "$deadline" ] || return 1
+    sleep 2
+  done
+}
+
 wait_healthy() {
-  # `up --wait` blocks until services with healthchecks are healthy (or fails). --no-build: never build here.
-  dc up -d --no-build --remove-orphans --wait --wait-timeout "${HEALTH_TIMEOUT:-120}"
+  # `up --wait` blocks until services with healthchecks are healthy; verify_health double-checks.
+  # --no-build: never build here.
+  dc up -d --no-build --remove-orphans --wait --wait-timeout "${HEALTH_TIMEOUT:-120}" || return 1
+  verify_health
 }
 
 ensure_image() {
   local tag="$1"
   if ! docker image inspect "joinup-api:$tag" >/dev/null 2>&1; then
     echo ">> image joinup-api:$tag not present; building it from the (checked out) matching commit"
-    IMAGE_TAG="$tag" dc build api
+    IMAGE_TAG="$tag" dc build api || return 1
   fi
 }
 
 # Check out <tag> (so compose files/Caddyfile match it), make sure its image exists, start it.
+# Every step is checked explicitly: callers use it inside `if`, where errexit is disabled.
 switch_to() {
   local tag="$1"
-  git_ checkout -q --detach "$tag"
-  ensure_image "$tag"
-  IMAGE_TAG="$tag" wait_healthy
+  git_ checkout -q --detach "$tag" || { echo "!! git checkout $tag failed"; return 1; }
+  ensure_image "$tag" || { echo "!! could not build/find image for $tag"; return 1; }
+  IMAGE_TAG="$tag" wait_healthy || return 1
 }
 
 run_migrations() {
@@ -97,10 +127,17 @@ run_migrations() {
   dc run --rm --no-deps api npx prisma migrate deploy
 }
 
-# Containers (not ours) publishing host ports 80/443: the hand-built stack we are replacing.
+# Containers publishing host ports 80/443 that are not THIS stack: the hand-built stack being replaced.
+# Identified by what they do (publish 80/443) and by the compose working_dir label, never by name:
+# the old stack may itself be called joinup-*.
 foreign_web_containers() {
-  { docker ps --filter publish=80 --format '{{.Names}}'; docker ps --filter publish=443 --format '{{.Names}}'; } \
-    | sort -u | grep -v '^joinup-' || true
+  local alt n wd
+  alt="$(cygpath -w "$DEPLOY_DIR" 2>/dev/null || echo "$DEPLOY_DIR")"
+  { docker ps --filter publish=80 --format '{{.Names}}|{{.Label "com.docker.compose.project.working_dir"}}'
+    docker ps --filter publish=443 --format '{{.Names}}|{{.Label "com.docker.compose.project.working_dir"}}'; } \
+    | sort -u | while IFS='|' read -r n wd; do
+        if [ "$wd" != "$DEPLOY_DIR" ] && [ "$wd" != "$alt" ]; then echo "$n"; fi
+      done
 }
 
 prune_images() {
@@ -154,7 +191,10 @@ cmd_deploy() {
   echo "$sha" > "$STATE_DIR/failed"
   if [ -n "$prev" ]; then
     echo "!! rolling back to $prev (database NOT reverted; migrations of $sha stay applied)"
-    switch_to "$prev" || echo "!! previous version also unhealthy - see: deploy.sh logs"
+    if ! switch_to "$prev"; then
+      echo "!! ROLLBACK TO $prev FAILED. The site may be down and the checkout may be on the failed commit ($sha)."
+      echo "!! Inspect: deploy.sh logs / status; then: deploy.sh rollback <known-good-sha>"
+    fi
   elif [ -s "$STATE_DIR/old_containers" ]; then
     echo "!! first deploy failed: stopping the new stack and restarting the old containers"
     dc down || true

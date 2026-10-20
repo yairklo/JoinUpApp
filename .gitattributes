@@ -10,4 +10,3 @@ mobile_app/fingerprint.config.js text eol=lf
 deploy/*.sh text eol=lf
 deploy/caddy/Caddyfile text eol=lf
 deploy/*.yml text eol=lf
-deploy/*.Dockerfile text eol=lf

@@ -30,7 +30,10 @@
 		health_interval 15s
 		transport http {
 			dial_timeout 5s
-			response_header_timeout 60s
+			# Time to first response byte. Slowest routes: AI/moderation calls (Gemini/OpenAI, no client
+			# timeout in server/) and Cloudinary uploads of up to 5 MB; Prisma transactions cap at 30 s.
+			# 120 s covers these with margin; WebSockets are unaffected (the upgrade answers at once).
+			response_header_timeout 120s
 		}
 	}
 
