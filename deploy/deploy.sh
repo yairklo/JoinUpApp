@@ -8,7 +8,7 @@
 #   deploy/deploy.sh logs [service]     tail logs
 #   deploy/deploy.sh migrate            run `prisma migrate deploy` only
 #
-# Env knobs: HEALTH_TIMEOUT (s, default 120), KEEP_TAGS (old image tags to keep, default 5),
+# Env knobs: HEALTH_TIMEOUT (s, default 120; the auto-rollback uses ROLLBACK_HEALTH_TIMEOUT, default 120), KEEP_TAGS (old image tags to keep, default 5),
 #            TAKEOVER=1 (first deploy only: stop the old non-JoinUp stack holding ports 80/443, see README).
 #
 # Rollback swaps CONTAINERS and the compose/Caddy files of the target commit. It never reverts the
@@ -191,7 +191,7 @@ cmd_deploy() {
   echo "$sha" > "$STATE_DIR/failed"
   if [ -n "$prev" ]; then
     echo "!! rolling back to $prev (database NOT reverted; migrations of $sha stay applied)"
-    if ! switch_to "$prev"; then
+    if ! HEALTH_TIMEOUT="${ROLLBACK_HEALTH_TIMEOUT:-120}" switch_to "$prev"; then
       echo "!! ROLLBACK TO $prev FAILED. The site may be down and the checkout may be on the failed commit ($sha)."
       echo "!! Inspect: deploy.sh logs / status; then: deploy.sh rollback <known-good-sha>"
     fi
