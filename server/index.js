@@ -1382,4 +1382,4 @@ if (!process.env.JEST_WORKER_ID) {
   });
 }
 
-module.exports = { app, server, startServer, socketAuthMiddleware, runWeeklySeriesGeneration };
+module.exports = { app, server, io, socketAdapter, startServer, socketAuthMiddleware, runWeeklySeriesGeneration };
