@@ -1,13 +1,12 @@
 // Starts the full local E2E backend: throwaway Postgres (Docker) -> migrate -> seed fields -> API on :3005.
 //   node maestro/local/start-backend.mjs          # start (foreground, Ctrl+C to stop)
 //   node maestro/local/start-backend.mjs --reset  # wipe DB first (tmpfs: `docker compose down`)
-// Clerk DEVELOPMENT keys are read from maestro/local/.env.e2e (gitignored) or the environment:
-//   CLERK_SECRET_KEY=sk_test_...   CLERK_PUBLISHABLE_KEY=pk_test_...
+// Clerk DEVELOPMENT keys: see maestro/scripts/clerk-keys.mjs (env, E2E_CLERK_KEYS_FILE, or local/.env.e2e).
 // The Android emulator reaches this server at http://10.0.2.2:3005.
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadClerkKeys } from '../scripts/clerk-keys.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '..', '..', '..');
@@ -15,21 +14,7 @@ const server = join(repo, 'server');
 const compose = join(here, 'docker-compose.yml');
 const sh = process.platform === 'win32';
 
-const fileEnv = {};
-const envFile = join(here, '.env.e2e');
-if (existsSync(envFile)) {
-  for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
-    if (m && !line.trim().startsWith('#')) fileEnv[m[1]] = m[2];
-  }
-}
-const clerkSecret = process.env.CLERK_SECRET_KEY || fileEnv.CLERK_SECRET_KEY || '';
-const clerkPub = process.env.CLERK_PUBLISHABLE_KEY || fileEnv.CLERK_PUBLISHABLE_KEY || '';
-if (!clerkSecret.startsWith('sk_test_') || !clerkPub.startsWith('pk_test_')) {
-  console.error('Need Clerk DEVELOPMENT keys (sk_test_... / pk_test_...) in maestro/local/.env.e2e or the environment. '
-    + 'Refusing to run against a live Clerk instance.');
-  process.exit(1);
-}
+const { pub: clerkPub, secret: clerkSecret } = loadClerkKeys();
 
 const dbUrl = 'postgresql://joinup:joinup@localhost:5544/joinup_e2e?schema=public';
 const env = {

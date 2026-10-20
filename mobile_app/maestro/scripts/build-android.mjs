@@ -6,20 +6,20 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadClerkKeys } from './clerk-keys.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const key = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
-if (!key.startsWith('pk_test_')) {
-  console.error('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must be a Clerk DEVELOPMENT key (pk_test_...). '
-    + 'Refusing to build an E2E app against the live Clerk instance (it would create real accounts).');
-  process.exit(1);
-}
+const { pub: key } = loadClerkKeys();
 
 const env = {
   ...process.env,
   // 10.0.2.2 is the host machine as seen from the Android emulator.
   EXPO_PUBLIC_API_URL: process.env.E2E_API_URL || 'http://10.0.2.2:3005',
   EXPO_PUBLIC_SENTRY_DSN: '',
+  SENTRY_DISABLE_AUTO_UPLOAD: 'true',
+  // Skip the OTA runtime fingerprint (breaks on subst paths) and make sure no real OTA update matches this build.
+  EXPO_UPDATES_FINGERPRINT_OVERRIDE: 'e2e',
+  EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: key,
   NODE_ENV: 'production',
 };
 
@@ -38,8 +38,8 @@ if (!xml.includes('usesCleartextTraffic')) {
   writeFileSync(manifest, xml);
 }
 
-const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
-run(gradlew, ['assembleRelease', '-x', 'lint'], join(root, 'android'));
+const gradlew = process.platform === 'win32' ? `"${join(root, 'android', 'gradlew.bat')}"` : './gradlew';
+run(gradlew, ['assembleRelease', '-x', 'lint', '-PreactNativeArchitectures=x86_64'], join(root, 'android'));
 
 const built = join(root, 'android', 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
 if (!existsSync(built)) {
