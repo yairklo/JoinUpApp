@@ -1,30 +1,21 @@
 /**
- * Deterministic profanity check for chats that include a minor.
+ * Deterministic check for severe sexual/degrading slurs, used only for private
+ * chats where an adult writes to a minor (see chatSafety.js).
  *
- * AI moderation is not enough on its own: OpenAI often misses Hebrew slurs, and
- * the adult→minor prompt used to allow this class of word. Adult-only chats do
- * not call this — see chatSafety.js.
+ * Ordinary swearing (חרא, shit, fuck, ...) is intentionally NOT here: teens
+ * swear and that is not what we moderate. Group/game chats never use this list.
  */
 
-// Strong slurs and swear words. Bare "כוס" is a cup and is intentionally absent.
+// Bare "כוס" is a cup and is intentionally absent.
 const TERMS = [
   'זונה', 'זונות',
-  'זין', 'זיין', 'מזדיין', 'מזדיינת', 'זדיין', 'תזדיין', 'תזדייני',
   'כוסאמק', 'כוסעמק', 'כוסאמא', 'קוסאמק', 'קוסעמק', 'כוסאומק',
   'שרמוטה', 'שרמוט',
-  'מניאק', 'מניאקית',
-  'חרא',
   'בן זונה', 'בת זונה',
-  'fuck', 'fucking', 'fucker', 'fucked', 'motherfucker',
-  'shit', 'shitty', 'bullshit',
-  'bitch', 'bitches',
   'whore', 'whores',
   'slut', 'sluts',
   'cunt', 'cunts',
-  'asshole', 'assholes',
-  'dick', 'dicks',
-  'pussy',
-  'bastard',
+  'bitch', 'bitches',
   'zona',
 ];
 
@@ -39,7 +30,7 @@ function termToPattern(term) {
   return `(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])`;
 }
 
-const PROFANITY_RE = new RegExp(TERMS.map(termToPattern).join('|'), 'iu');
+const SLUR_RE = new RegExp(TERMS.map(termToPattern).join('|'), 'iu');
 
 function normalizeForProfanity(text) {
   return String(text || '')
@@ -49,9 +40,9 @@ function normalizeForProfanity(text) {
     .toLowerCase();
 }
 
-function containsProfanity(text) {
+function containsSevereSlur(text) {
   if (typeof text !== 'string' || !text.trim()) return false;
-  return PROFANITY_RE.test(normalizeForProfanity(text));
+  return SLUR_RE.test(normalizeForProfanity(text));
 }
 
-module.exports = { containsProfanity, normalizeForProfanity };
+module.exports = { containsSevereSlur, normalizeForProfanity };
