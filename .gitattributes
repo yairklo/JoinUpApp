@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# EAS Update runtime fingerprint hashes these files byte-for-byte: keep them LF on every OS
+# (a CRLF checkout on Windows would compute a different runtime version than Linux/CI).
+mobile_app/google-services.json text eol=lf
+mobile_app/fingerprint.config.js text eol=lf
