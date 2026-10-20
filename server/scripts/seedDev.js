@@ -7,11 +7,16 @@
  * titled "e2e …" created by these users) and writes them again. It does not
  * drop unrelated rows.
  *
- * Usage (from server/):
- *   JOINUP_SEED_CONFIRM=dev npm run seed:dev
+ * Usage (from server/), with both URLs already exported in the shell
+ * (this script does not read server/.env or server/.env.development):
+ *   SEED_ALLOWED_DB_HOST=ep-….neon.tech npm run seed:dev
+ *   npm run seed:dev -- --env-file /absolute/path/to/dev.env
  *
- * Requires CLERK_SECRET_KEY=sk_test_… and DATABASE_URL / DIRECT_DATABASE_URL
- * for the Neon dev branch (or local Postgres). Writes server/fixtures/devSeed.json.
+ * Requires CLERK_SECRET_KEY=sk_test_…, DATABASE_URL (pooled) and
+ * DIRECT_DATABASE_URL (direct, no -pooler) for the same Neon dev endpoint
+ * or local Postgres, plus SEED_ALLOWED_DB_HOST for any remote host.
+ * A remote database must already contain joinup_dev_seed_marker — see
+ * docs/dev-seed.md. Writes server/fixtures/devSeed.json.
  *
  * Clerk dev test mode: emails below sign in with code 424242.
  * Do not call the recurring group a «סדרה» — the product word is «קבוצה».
@@ -19,10 +24,7 @@
 const path = require('path');
 const fs = require('fs');
 
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-require('dotenv').config({ path: path.join(__dirname, '..', '.env.development') });
-
-const { assertSafeToSeed } = require('./seedDevGuard');
+const { assertSafeToSeed, assertDevDatabaseMarker } = require('./seedDevGuard');
 
 const VERIFICATION_CODE = '424242';
 const FIXTURE_PATH = path.join(__dirname, '..', 'fixtures', 'devSeed.json');
@@ -53,7 +55,7 @@ const ACCOUNTS = [
     email: 'minor-c+clerk_test@example.com',
     firstName: 'מאיה',
     lastName: 'אביב',
-    birthDate: '2012-06-01',
+    birthDate: minorBirthDate(14),
     city: 'ירושלים',
     role: 'minor',
   },
@@ -68,6 +70,14 @@ const ACCOUNTS = [
   },
 ];
 
+const ADULT_MINOR_CHAT_ID = 'seed_chat_a_c';
+// A is not C's friend on purpose. C's privacy columns stay null, so the minor
+// resolves to FRIENDS_ONLY. The private chat still exists so tests can hit the
+// adult→minor profanity filter (chatSafety.js) without a friendship.
+const ADULT_MINOR_CHAT_PURPOSE = 'Deliberate private chat for the adult→minor profanity filter. adultA is not minorC\'s friend; minorC privacy stays the FRIENDS_ONLY default.';
+
+const SERIES_IDS = ['seed_series_weekly', 'seed_series_blocked'];
+
 const FIELDS = [
   { id: 'seed_field_tlv', name: 'מגרש סיד תל אביב', location: 'פארק הירקון, תל אביב-יפו', city: 'תל אביב-יפו', lat: 32.0853, lng: 34.7818, sports: ['SOCCER'] },
   { id: 'seed_field_haifa', name: 'מגרש סיד חיפה', location: 'הדר, חיפה', city: 'חיפה', lat: 32.794, lng: 34.9896, sports: ['BASKETBALL'] },
@@ -77,6 +87,27 @@ const FIELDS = [
 
 function fullName(account) {
   return `${account.firstName} ${account.lastName}`;
+}
+
+/**
+ * Birth date of someone who is `years` old today on the Asia/Jerusalem calendar.
+ * A fixed year (2012-06-01) stops being a minor in 2030.
+ * Feb 29 clamps to Feb 28 in non-leap birth years.
+ */
+function minorBirthDate(years = 14, now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const pick = (type) => Number(parts.find((part) => part.type === type).value);
+  const year = pick('year') - years;
+  const month = pick('month');
+  const day = pick('day');
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const safeDay = Math.min(day, lastDay);
+  return `${year}-${String(month).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
 }
 
 function jerusalemDatePlus(days) {
@@ -130,18 +161,65 @@ async function upsertClerkUser(clerk, account) {
   return created.id;
 }
 
+const FIELD_IDS = FIELDS.map((field) => field.id);
+
+function isClerkTestEmail(email) {
+  return /^[a-z0-9.+_-]+\+clerk_test@example\.com$/i.test(String(email || ''));
+}
+
+/**
+ * Loads env files only when the operator passes `--env-file <path>`.
+ * Shell exports already in process.env win. server/.env is never implied.
+ */
+function loadExplicitEnv(argv = process.argv) {
+  const args = argv.slice(2);
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] !== '--env-file') continue;
+    const file = args[index + 1];
+    if (!file || file.startsWith('--')) {
+      throw new Error('--env-file requires a path');
+    }
+    const result = require('dotenv').config({ path: path.resolve(file), override: false });
+    if (result.error) throw result.error;
+    index += 1;
+  }
+}
+
+async function queryDevDatabase(sql, params) {
+  let Client;
+  try {
+    ({ Client } = require('pg'));
+  } catch (error) {
+    throw new Error(`Dev seed marker check needs the pg package (${error.message})`);
+  }
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query(sql, params);
+    return result.rows;
+  } finally {
+    await client.end();
+  }
+}
+
 async function resetSeed(prisma, userIds) {
   const seedGames = await prisma.game.findMany({
     where: {
       OR: [
         { id: { startsWith: 'seed_' } },
+        { fieldId: { in: FIELD_IDS } },
+        { seriesId: { in: SERIES_IDS } },
         ...(userIds.length ? [{ organizerId: { in: userIds }, title: { startsWith: 'e2e ' } }] : []),
       ],
     },
-    select: { id: true },
+    select: { id: true, managerPickChatId: true },
   });
   const gameIds = seedGames.map((game) => game.id);
-  const chatIds = [...new Set([...gameIds, 'seed_chat_a_c'])];
+  const chatIds = [...new Set([
+    ...gameIds,
+    ...seedGames.map((game) => game.managerPickChatId).filter(Boolean),
+    ADULT_MINOR_CHAT_ID,
+  ])];
 
   if (chatIds.length) {
     await prisma.reaction.deleteMany({ where: { message: { chatRoomId: { in: chatIds } } } });
@@ -174,11 +252,63 @@ async function resetSeed(prisma, userIds) {
     await prisma.game.deleteMany({ where: { id: { in: gameIds } } });
   }
 
-  const seriesIds = ['seed_series_weekly', 'seed_series_blocked'];
-  await prisma.seriesJoinRequest.deleteMany({ where: { seriesId: { in: seriesIds } } });
-  await prisma.seriesParticipant.deleteMany({ where: { seriesId: { in: seriesIds } } });
-  await prisma.gameSeries.deleteMany({ where: { id: { in: seriesIds } } });
-  await prisma.field.deleteMany({ where: { id: { in: FIELDS.map((field) => field.id) } } });
+  await prisma.favoriteField.deleteMany({ where: { fieldId: { in: FIELD_IDS } } });
+  await prisma.seriesJoinRequest.deleteMany({ where: { seriesId: { in: SERIES_IDS } } });
+  await prisma.seriesParticipant.deleteMany({ where: { seriesId: { in: SERIES_IDS } } });
+  await prisma.gameSeries.deleteMany({ where: { id: { in: SERIES_IDS } } });
+  await prisma.field.deleteMany({ where: { id: { in: FIELD_IDS } } });
+}
+
+/**
+ * Clerk test users are recreated with a new id sometimes. The old row still
+ * owns the example.com email (unique), which used to abort the seed.
+ * Re-point the primary key when the new id is free (FKs are ON UPDATE CASCADE).
+ * When the new id already exists, drop the stale clerk-test row after moving
+ * organizer references onto the new id.
+ */
+async function adoptClerkUserId(prisma, email, clerkId) {
+  if (!isClerkTestEmail(email)) {
+    throw new Error(`Refusing to reassign ${email}; only +clerk_test@example.com seed users can be re-pointed`);
+  }
+  const stale = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
+  });
+  if (!stale || stale.id === clerkId) return { action: 'none' };
+
+  const occupied = await prisma.user.findUnique({ where: { id: clerkId } });
+  if (!occupied) {
+    const previousId = stale.id;
+    await prisma.$executeRawUnsafe(
+      'UPDATE "User" SET "id" = $1 WHERE "id" = $2',
+      clerkId,
+      previousId,
+    );
+    console.log(`[seed:dev] re-pointed ${email} from ${previousId} to ${clerkId}`);
+    return { action: 'repoint', from: previousId, to: clerkId };
+  }
+
+  await prisma.game.updateMany({
+    where: { organizerId: stale.id },
+    data: { organizerId: clerkId },
+  });
+  await prisma.gameSeries.updateMany({
+    where: { organizerId: stale.id },
+    data: { organizerId: clerkId },
+  });
+  await prisma.favoriteField.deleteMany({ where: { userId: stale.id } });
+  await prisma.friendship.deleteMany({
+    where: { OR: [{ userAId: stale.id }, { userBId: stale.id }] },
+  });
+  await prisma.friendRequest.deleteMany({
+    where: { OR: [{ requesterId: stale.id }, { receiverId: stale.id }] },
+  });
+  await prisma.userSport.deleteMany({ where: { userId: stale.id } });
+  await prisma.userPosition.deleteMany({ where: { userId: stale.id } });
+  await prisma.gameRole.deleteMany({ where: { userId: stale.id } });
+  await prisma.seriesParticipant.deleteMany({ where: { userId: stale.id } });
+  await prisma.user.delete({ where: { id: stale.id } });
+  console.log(`[seed:dev] deleted stale ${email} row ${stale.id}; Clerk id ${clerkId} already exists`);
+  return { action: 'delete', id: stale.id };
 }
 
 async function upsertDbUser(prisma, account, id) {
@@ -244,12 +374,19 @@ async function createGame(prisma, spec) {
   });
 }
 
-async function main() {
+async function main(argv = process.argv) {
+  // Before any require() of lib/prisma.js, which would otherwise load server/.env.
+  process.env.JOINUP_SKIP_DOTENV = '1';
+  loadExplicitEnv(argv);
   assertSafeToSeed(process.env);
+  await assertDevDatabaseMarker(process.env, queryDevDatabase);
 
   const { execSync } = require('child_process');
   const serverDir = path.join(__dirname, '..');
   if (process.env.SEED_SKIP_MIGRATE !== '1') {
+    // Both URLs are already in process.env. Prisma CLI loads server/.env but
+    // does not override variables that are set, so migrate cannot swap in a
+    // different DIRECT_DATABASE_URL from that file.
     execSync('npx prisma generate && npx prisma migrate deploy', {
       cwd: serverDir,
       stdio: 'inherit',
@@ -265,6 +402,10 @@ async function main() {
     const ids = {};
     for (const account of ACCOUNTS) {
       ids[account.key] = await upsertClerkUser(clerk, account);
+    }
+
+    for (const account of ACCOUNTS) {
+      await adoptClerkUserId(prisma, account.email, ids[account.key]);
     }
 
     const emails = ACCOUNTS.map((account) => account.email);
@@ -463,9 +604,10 @@ async function main() {
       },
     });
 
+    // Not a friendship. See ADULT_MINOR_CHAT_PURPOSE.
     await prisma.chatRoom.create({
       data: {
-        id: 'seed_chat_a_c',
+        id: ADULT_MINOR_CHAT_ID,
         type: 'PRIVATE',
         participants: { create: [{ userId: a }, { userId: c }] },
         messages: {
@@ -492,6 +634,10 @@ async function main() {
       verificationCode: VERIFICATION_CODE,
       users,
       friends: [{ a: 'adultA', b: 'adultB' }],
+      notes: {
+        minorBirthDate: 'minorC.birthDate is 14 years before this seed run on the Asia/Jerusalem calendar, not a fixed year.',
+        adultMinorChat: ADULT_MINOR_CHAT_PURPOSE,
+      },
       fields: Object.fromEntries(FIELDS.map((field) => [field.id, {
         id: field.id,
         name: field.name,
@@ -511,7 +657,12 @@ async function main() {
         blocked: { id: 'seed_series_blocked', title: blockedSeriesTitle },
       },
       chats: {
-        adultMinor: { id: 'seed_chat_a_c', between: ['adultA', 'minorC'] },
+        adultMinor: {
+          id: ADULT_MINOR_CHAT_ID,
+          between: ['adultA', 'minorC'],
+          friends: false,
+          purpose: ADULT_MINOR_CHAT_PURPOSE,
+        },
         group: { id: 'seed_game_group', between: ['organizerO', 'adultA', 'minorC'] },
       },
     };
@@ -533,4 +684,16 @@ if (require.main === module) {
   });
 }
 
-module.exports = { ACCOUNTS, VERIFICATION_CODE };
+module.exports = {
+  ACCOUNTS,
+  VERIFICATION_CODE,
+  FIELD_IDS,
+  SERIES_IDS,
+  ADULT_MINOR_CHAT_ID,
+  ADULT_MINOR_CHAT_PURPOSE,
+  minorBirthDate,
+  loadExplicitEnv,
+  resetSeed,
+  adoptClerkUserId,
+  isClerkTestEmail,
+};

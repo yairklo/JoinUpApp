@@ -4,8 +4,12 @@
 // index.js runs its own loadEnv() would silently get an undefined connection
 // string, causing every query to fail with ECONNREFUSED no matter how correct
 // the actual .env file is. loadEnv() is a no-op for variables already set, so
-// calling it again from index.js is harmless. JOINUP_SKIP_DOTENV=1 skips the
-// file entirely (Playwright passes the database URLs in the process environment).
+// calling it again from index.js is harmless.
+//
+// JOINUP_SKIP_DOTENV=1 skips server/.env entirely. The dev seed sets that
+// before requiring this module, and Playwright passes database URLs in the
+// process environment with the same flag. Without it, a server/.env pointed
+// at production would fill any URL the operator forgot to export.
 require('./loadEnv').loadEnv();
 
 const { PrismaClient } = require('@prisma/client');

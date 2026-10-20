@@ -25,7 +25,7 @@
       "email": "minor-c+clerk_test@example.com",
       "name": "מאיה אביב",
       "role": "minor",
-      "birthDate": "2012-06-01",
+      "birthDate": "2012-10-20",
       "code": "424242"
     },
     "organizerO": {
@@ -38,6 +38,10 @@
     }
   },
   "friends": [{ "a": "adultA", "b": "adultB" }],
+  "notes": {
+    "minorBirthDate": "Example shape only. The live fixture sets minorC.birthDate to 14 years before the seed run on the Asia/Jerusalem calendar, not a fixed year such as 2012-06-01.",
+    "adultMinorChat": "Deliberate private chat for the adult→minor profanity filter. adultA is not minorC's friend; minorC privacy stays the FRIENDS_ONLY default."
+  },
   "games": {
     "tlvSoccer": { "id": "seed_game_tlv_soccer", "title": "כדורגל תל אביב", "city": "תל אביב-יפו", "sport": "SOCCER" },
     "haifaBasketball": { "id": "seed_game_haifa_basketball", "title": "כדורסל חיפה", "sport": "BASKETBALL" },
@@ -54,7 +58,12 @@
     "blocked": { "id": "seed_series_blocked", "title": "קבוצה סגורה לחברים" }
   },
   "chats": {
-    "adultMinor": { "id": "seed_chat_a_c", "between": ["adultA", "minorC"] },
+    "adultMinor": {
+      "id": "seed_chat_a_c",
+      "between": ["adultA", "minorC"],
+      "friends": false,
+      "purpose": "Deliberate private chat for the adult→minor profanity filter. adultA is not minorC's friend; minorC privacy stays the FRIENDS_ONLY default."
+    },
     "group": { "id": "seed_game_group" }
   }
 }
