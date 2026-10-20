@@ -1,5 +1,6 @@
 import { Slot, SplashScreen, Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { LogBox, ActivityIndicator, View, Text, AppState, AppStateStatus, Platform } from "react-native";
 import * as Sentry from "@sentry/react-native";
@@ -124,6 +125,9 @@ function RootLayoutInner() {
                 <NotificationProvider>
                   <NotificationCountersProvider>
                     <GameUpdateProvider>
+                      {/* Icons follow the APP's mode, not the OS: without this, Android picks them from the
+                          system theme, so a phone in dark mode drew white icons over the light app. */}
+                      <StatusBar style={colorMode === 'dark' ? 'light' : 'dark'} />
                       <Stack screenOptions={{ headerShown: false }} />
                       <AgeGate />
                       {switchingLang && (

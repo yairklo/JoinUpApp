@@ -70,7 +70,7 @@ export default function GlobalSearchOmnibar() {
 
     return (
         <View className="px-6 mb-4" style={{ zIndex: 50 }}>
-            <View className="flex-row items-center bg-white dark:bg-cyber-surface rounded-2xl px-4 py-3 border border-gray-100 dark:border-gray-800 shadow-sm">
+            <View className="flex-row items-center bg-white dark:bg-cyber-card rounded-2xl px-4 py-3 border border-gray-100 dark:border-cyber-border shadow-sm">
                 <FontAwesome name="search" size={16} color="#9ca3af" style={{ marginRight: 10 }} />
                 <TextInput
                     placeholder={t('omnibar.placeholder')}
@@ -86,7 +86,7 @@ export default function GlobalSearchOmnibar() {
 
             {showDropdown && (
                 <View
-                    className="mt-2 bg-white dark:bg-cyber-surface rounded-2xl border border-gray-100 dark:border-gray-800 shadow-lg overflow-hidden"
+                    className="mt-2 bg-white dark:bg-cyber-card rounded-2xl border border-gray-100 dark:border-cyber-border shadow-lg overflow-hidden"
                     style={{ maxHeight: 340 }}
                 >
                     {!hasResults && !loading ? (
