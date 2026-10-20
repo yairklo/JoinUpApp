@@ -99,9 +99,9 @@ const TERMS = {
       heading: '7. מודרציה, דיווח ואכיפה',
       blocks: [
         { ul: [
-          'כדי להגן על קטינים, הודעות צ\'אט הנשלחות לשיחה שמשתתף בה קטין נבדקות באופן אוטומטי, בין היתר באמצעות שירותי בינה מלאכותית של צדדים שלישיים. הודעה שנמצאה פוגענית עלולה שלא להישלח. אם הבדיקה האוטומטית אינה זמינה, הודעה לקטין שאינו חבר מאושר של השולח עלולה שלא להישלח.',
-          'הודעות שסומנו עשויות להיבדק על ידי צוות המפעיל.',
-          'אפשר לדווח על הודעה או על משתמש ולחסום משתמש מתוך השירות.',
+          'כדי להגן על קטינים, הודעה שבגיר שולח בשיחה שמשתתף בה קטין עוברת תחילה בדיקה אוטומטית ראשונית. רק הודעה שהבדיקה הראשונית סימנה כחשודה נשלחת למודרציה בשירותי בינה מלאכותית של צדדים שלישיים. הודעה שנמצאה פוגענית עלולה שלא להישלח. אם הבדיקה אינה זמינה להודעה שסומנה, הודעה לקטין שאינו חבר מאושר של השולח עלולה שלא להישלח.',
+          'הודעות שדווחו או שסומנו נשמרות לבדיקה של צוות המפעיל.',
+          'אפשר לדווח מתוך הצ\'אט על הודעה פוגענית או בלתי הולמת, וכן לדווח על משתמש ולחסום משתמש מתוך השירות.',
           'המפעיל רשאי, לפי שיקול דעתו ובלי חובת הודעה מוקדמת, להסיר תוכן, להגביל פעולות, להשעות חשבון או לסגור אותו כאשר יש חשד להפרת התנאים או לסיכון למשתמשים.',
           'המפעיל ישתף פעולה עם רשויות אכיפת החוק כאשר הדבר נדרש על פי דין, או כאשר הדבר דרוש לדעתו כדי למנוע פגיעה בגוף, ובפרט פגיעה בקטינים.',
         ] },
@@ -366,9 +366,9 @@ const TERMS_EN = {
       heading: '7. Moderation, Reporting, and Enforcement',
       blocks: [
         { ul: [
-          'To protect minors, chat messages sent to a conversation involving a minor are automatically checked, inter alia, using third-party artificial intelligence services. Messages found to be offensive may be blocked from sending. If automated checking is unavailable, messages to a minor from someone who is not an approved friend of the sender may be blocked.',
-          'Flagged messages may be reviewed by the Operator\'s team.',
-          'You can report a message or user, and block users directly within the Service.',
+          'To protect minors, a message that an adult sends in a conversation involving a minor first undergoes an automatic initial check. Only a message flagged as suspicious by that check is sent for moderation by third-party artificial intelligence services. A message found to be offensive may be blocked from sending. If the check is unavailable for a flagged message, a message to a minor who is not an approved friend of the sender may be blocked.',
+          'Reported and flagged messages are retained for review by the Operator team.',
+          'You may report an offensive or inappropriate message from the chat, report a user, and block a user from within the Service.',
           'The Operator may, at its discretion and without prior notice, remove content, restrict actions, suspend an account, or terminate it when there is suspicion of a breach of these Terms or risk to users.',
           'The Operator will cooperate with law enforcement authorities when required by law, or when necessary in its opinion to prevent bodily harm, specifically harm to minors.',
         ] },
