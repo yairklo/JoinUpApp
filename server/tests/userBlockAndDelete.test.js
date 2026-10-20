@@ -61,6 +61,10 @@ describe('user block + account deletion', () => {
   afterAll(async () => {
     try {
       await prisma.userBlock.deleteMany({ where: { OR: [{ blockerId: { in: ids } }, { blockedId: { in: ids } }] } });
+      await prisma.notification.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.friendRequest.deleteMany({
+        where: { OR: [{ requesterId: { in: ids } }, { receiverId: { in: ids } }] },
+      });
       await prisma.message.deleteMany({ where: { chatRoomId: roomId } });
       await prisma.chatParticipant.deleteMany({ where: { chatId: roomId } });
       await prisma.chatRoom.deleteMany({ where: { id: roomId } });
@@ -91,12 +95,76 @@ describe('user block + account deletion', () => {
     expect(asC.body.map((m) => m.text).sort()).toEqual(['from B', 'from C']);
   });
 
-  test('blocked pair cannot open a private chat in either direction', async () => {
-    const fromA = await request(app).post('/api/chats/private').set('Authorization', 'Bearer mock_token_a').send({ targetUserId: 'blk_user_b' });
+  test('blocked pair cannot open a private chat, and the response matches friends-only', async () => {
+    await prisma.user.update({ where: { id: 'blk_user_c' }, data: { privacyMessages: 'FRIENDS_ONLY' } });
+    let friendsOnly;
+    let fromA;
+    let fromB;
+    try {
+      friendsOnly = await request(app).post('/api/chats/private').set('Authorization', 'Bearer mock_token_a').send({ targetUserId: 'blk_user_c' });
+      fromA = await request(app).post('/api/chats/private').set('Authorization', 'Bearer mock_token_a').send({ targetUserId: 'blk_user_b' });
+      fromB = await request(app).post('/api/chats/private').set('Authorization', 'Bearer mock_token_b').send({ targetUserId: 'blk_user_a' });
+    } finally {
+      await prisma.user.update({ where: { id: 'blk_user_c' }, data: { privacyMessages: null } });
+    }
+
+    expect(friendsOnly.statusCode).toEqual(403);
     expect(fromA.statusCode).toEqual(403);
-    const fromB = await request(app).post('/api/chats/private').set('Authorization', 'Bearer mock_token_b').send({ targetUserId: 'blk_user_a' });
     expect(fromB.statusCode).toEqual(403);
-    expect(fromB.body.code).toEqual('USER_BLOCKED');
+    expect(fromA.body).toEqual(friendsOnly.body);
+    expect(fromB.body).toEqual(friendsOnly.body);
+    expect(fromB.body.code).toBeUndefined();
+    expect(JSON.stringify(fromB.body).toLowerCase()).not.toMatch(/block/);
+
+    const privateRooms = await prisma.chatRoom.findMany({
+      where: {
+        type: 'PRIVATE',
+        participants: { some: { userId: 'blk_user_a' } },
+      },
+    });
+    expect(privateRooms).toHaveLength(0);
+  });
+
+  test('a blocked friend request looks like a normal send and stores nothing', async () => {
+    await prisma.userBlock.upsert({
+      where: { blockerId_blockedId: { blockerId: 'blk_user_a', blockedId: 'blk_user_b' } },
+      update: {},
+      create: { blockerId: 'blk_user_a', blockedId: 'blk_user_b' },
+    });
+
+    const real = await request(app).post('/api/users/requests').set('Authorization', 'Bearer mock_token_a').send({ receiverId: 'blk_user_c' });
+    expect(real.statusCode).toEqual(201);
+
+    const fromBlocked = await request(app).post('/api/users/requests').set('Authorization', 'Bearer mock_token_b').send({ receiverId: 'blk_user_a' });
+    const fromBlocker = await request(app).post('/api/users/requests').set('Authorization', 'Bearer mock_token_a').send({ receiverId: 'blk_user_b' });
+
+    for (const res of [fromBlocked, fromBlocker]) {
+      expect(res.statusCode).toEqual(201);
+      expect(Object.keys(res.body).sort()).toEqual(Object.keys(real.body).sort());
+      expect(res.body.status).toEqual('PENDING');
+      expect(res.body.code).toBeUndefined();
+      expect(JSON.stringify(res.body).toLowerCase()).not.toMatch(/block/);
+    }
+    expect(fromBlocked.body.requesterId).toEqual('blk_user_b');
+    expect(fromBlocked.body.receiverId).toEqual('blk_user_a');
+    expect(fromBlocker.body.requesterId).toEqual('blk_user_a');
+    expect(fromBlocker.body.receiverId).toEqual('blk_user_b');
+
+    const stored = await prisma.friendRequest.findMany({
+      where: { OR: [{ requesterId: 'blk_user_b', receiverId: 'blk_user_a' }, { requesterId: 'blk_user_a', receiverId: 'blk_user_b' }] },
+    });
+    expect(stored).toHaveLength(0);
+    const notes = await prisma.notification.findMany({
+      where: { userId: { in: ['blk_user_a', 'blk_user_b'] }, type: 'FRIEND_REQUEST' },
+    });
+    expect(notes).toHaveLength(0);
+
+    const outgoing = await request(app).get('/api/users/blk_user_b/requests/outgoing').set('Authorization', 'Bearer mock_token_b');
+    expect(outgoing.statusCode).toEqual(200);
+    expect(outgoing.body).toEqual([]);
+
+    await prisma.friendRequest.deleteMany({ where: { OR: [{ requesterId: 'blk_user_a' }, { receiverId: 'blk_user_a' }] } });
+    await prisma.notification.deleteMany({ where: { userId: { in: ids } } });
   });
 
   test('list and unblock', async () => {

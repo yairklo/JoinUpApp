@@ -62,20 +62,20 @@ function mapGameForClient(game) {
   const overbooked = !!game.lotteryEnabled && !game.lotteryExecutedAt && totalSignups > game.maxPlayers;
   const participants = confirmed.map(p => ({
     id: p.userId,
-    name: p.user?.name || null,
+    name: publicDisplayName(p.user?.name, 'משתמש'),
     avatar: p.user?.imageUrl || null,
     teamId: p.teamId || null
   }));
   const waitlistParticipants = waitlisted.map(p => ({
     id: p.userId,
-    name: p.user?.name || null,
+    name: publicDisplayName(p.user?.name, 'משתמש'),
     avatar: p.user?.imageUrl || null
   }));
   const managers = (game.roles || [])
     .filter(r => r.role !== 'ORGANIZER')
     .map(r => ({
       id: r.userId,
-      name: r.user?.name || null,
+      name: publicDisplayName(r.user?.name, 'משתמש'),
       avatar: r.user?.imageUrl || null,
       role: r.role
     }));
@@ -715,7 +715,7 @@ router.get('/:seriesId/join-requests', authenticateToken, async (req, res) => {
     });
     const toDTO = (r) => ({
       userId: r.userId,
-      name: r.user?.name || '',
+      name: publicDisplayName(r.user?.name, 'משתמש'),
       avatar: r.user?.imageUrl || null,
       createdAt: r.createdAt.toISOString(),
     });
@@ -992,5 +992,6 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.mapGameForClient = mapGameForClient;
 
 

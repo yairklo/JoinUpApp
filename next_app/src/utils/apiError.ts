@@ -58,7 +58,8 @@ export function mapFriendRequestError(error: unknown): string {
   const status = getErrorStatus(error);
   const code = getErrorCode(error);
   if (status === 429) return "יותר מדי בקשות, נסה שוב בעוד רגע";
-  if (code === "USER_BLOCKED") return "לא ניתן לשלוח בקשה למשתמש זה";
+  // A block must look like any other failed send. A distinct sentence tells the sender they were blocked.
+  if (code === "USER_BLOCKED") return "שליחת הבקשה נכשלה, נסה שוב";
   if (code === "PROFILE_FRIENDS_ONLY") return "הפרופיל הזה פתוח לחברים בלבד";
   if (code === "REQUEST_DECLINED_RECENTLY") return "הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים";
   if (code === "INCOMING_REQUEST_EXISTS") return "המשתמש כבר שלח לך בקשת חברות";

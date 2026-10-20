@@ -60,6 +60,17 @@ function orderPair(a, b) {
   return a < b ? [a, b] : [b, a];
 }
 
+// A fixed 2012 birthdate turns 18 in 2030 and breaks the minor assertions.
+// Day 15 of the month 14 years ago is always age 13 or 14 in Jerusalem.
+function minorBirthDate(now = new Date()) {
+  const [year, month] = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+  }).format(now).split('-').map(Number);
+  return new Date(Date.UTC(year - 14, month - 1, 15));
+}
+
 async function cleanup() {
   await prisma.notification.deleteMany({ where: { userId: { in: ids } } }).catch(() => {});
   await prisma.userSport.deleteMany({ where: { userId: { in: ids } } }).catch(() => {});
@@ -98,7 +109,8 @@ describe('QA privacy and notification fixes', () => {
       data: {
         id: minor,
         name: 'qa.minor.20oct@mailinator.com',
-        birthDate: new Date('2012-03-15T00:00:00.000Z'),
+        // 14 years before today, so "age < 18" still holds after 2030.
+        birthDate: minorBirthDate(),
         city: 'תל אביב',
         gender: 'MALE',
         sports: { create: [{ sportId: 'qa_r_soccer', positionDescription: 'שוער' }] },

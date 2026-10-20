@@ -37,6 +37,7 @@ const { SPORT_KEYS } = require('../utils/sports');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { isBlockedEitherWay, getBlockedEitherWayIds } = require('../utils/blocks');
 const { revokePresenceSubscriptions } = require('../utils/presenceAuth');
+const crypto = require('crypto');
 
 // After a decline the same requester must wait before asking the same person again, so a declined
 // request cannot be re-sent (and re-notified) over and over. The person who declined can always ask.
@@ -1035,6 +1036,22 @@ function notifyFailure(res, err) {
   return res.status(500).json({ error: 'Failed to notify the recipient', code: 'NOTIFICATION_FAILED' });
 }
 
+// Same JSON shape as a created FriendRequest, but no row and no notification.
+// Prisma cuid() is 25 chars starting with "c"; match that so the id is not a tell.
+function silentFriendRequest(requesterId, receiverId) {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = crypto.randomBytes(24);
+  let id = 'c';
+  for (let i = 0; i < 24; i++) id += alphabet[bytes[i] % alphabet.length];
+  return {
+    id,
+    requesterId,
+    receiverId,
+    status: 'PENDING',
+    createdAt: new Date(),
+  };
+}
+
 // Send friend request
 router.post('/requests', authenticateToken, async (req, res) => {
   try {
@@ -1049,7 +1066,7 @@ router.post('/requests', authenticateToken, async (req, res) => {
     });
     if (!rx) return res.status(404).json({ error: 'User not found' });
     if (await isBlockedEitherWay(requesterId, receiverId)) {
-      return res.status(403).json({ error: 'Cannot send a request to this user', code: 'USER_BLOCKED' });
+      return res.status(201).json(silentFriendRequest(requesterId, receiverId));
     }
     const [a, b] = orderPair(requesterId, receiverId);
     const existingFriend = await prisma.friendship.findFirst({ where: { OR: [{ userAId: a, userBId: b }, { userAId: b, userBId: a }] } });
