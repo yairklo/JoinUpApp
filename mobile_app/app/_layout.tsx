@@ -3,6 +3,8 @@ import { useFonts } from "expo-font";
 import { useEffect, useState } from "react";
 import { LogBox, ActivityIndicator, View, Text, AppState, AppStateStatus, Platform } from "react-native";
 import * as Sentry from "@sentry/react-native";
+import * as NavigationBar from "expo-navigation-bar";
+import * as SystemUI from "expo-system-ui";
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
 
@@ -90,6 +92,16 @@ function RootLayout() {
 function RootLayoutInner() {
   const [i18nLoaded, setI18nLoaded] = useState(false);
   const { colorMode } = useColorMode();
+
+  // Android system navigation bar follows the APP's mode (not the OS). With edge-to-edge it is
+  // transparent, so its colour is the window background behind it — matched to the tab bar right
+  // above it — and its buttons get the contrasting style.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const dark = colorMode === 'dark';
+    SystemUI.setBackgroundColorAsync(dark ? '#111a2c' : '#ffffff').catch(() => {});
+    NavigationBar.setStyle(dark ? 'dark' : 'light');
+  }, [colorMode]);
   const [switchingLang, setSwitchingLang] = useState(isLanguageSwitching());
 
   useEffect(() => subscribeLanguageSwitching(setSwitchingLang), []);
