@@ -127,7 +127,7 @@ export default function SettingsScreen() {
                 {/* General Settings */}
                 <View className="bg-white mx-4 rounded-xl mb-4 shadow-sm overflow-hidden">
                     <TouchableOpacity
-                        className="p-4 flex-row justify-between items-center"
+                        className="p-4 flex-row justify-between items-center border-b border-gray-100"
                         onPress={() => router.push('/settings/notifications' as any)}
                     >
                         <View className="flex-row items-center flex-1">
@@ -138,6 +138,18 @@ export default function SettingsScreen() {
                                 <Text className="text-base text-gray-800 font-medium">{t('notificationSettings.title')}</Text>
                                 {!!notifSummary && <Text className="text-sm text-gray-500">{notifSummary}</Text>}
                             </View>
+                        </View>
+                        <FontAwesome name="angle-right" size={16} color="#9ca3af" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        className="p-4 flex-row justify-between items-center"
+                        onPress={() => router.push('/profile/settings' as any)}
+                    >
+                        <View className="flex-row items-center flex-1">
+                            <View className="w-8 h-8 rounded-full bg-brand-pale items-center justify-center mr-3">
+                                <FontAwesome name="lock" size={15} color="#059669" />
+                            </View>
+                            <Text className="text-base text-gray-800 font-medium flex-1">{t('privacy.settings', 'הגדרות פרטיות')}</Text>
                         </View>
                         <FontAwesome name="angle-right" size={16} color="#9ca3af" />
                     </TouchableOpacity>

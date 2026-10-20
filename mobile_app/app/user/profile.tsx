@@ -293,9 +293,11 @@ export default function ProfileScreen() {
                         <FontAwesome name="shield" size={19} color="#374151" />
                     </TouchableOpacity>
                 )}
+                {/* Main settings hub: notifications, privacy, blocked users, sign out, account deletion. */}
                 <TouchableOpacity
-                    onPress={() => router.push('/profile/settings')}
+                    onPress={() => router.push('/settings' as any)}
                     className="w-10 h-10 items-center justify-center"
+                    accessibilityLabel={t('settings.title', 'הגדרות')}
                 >
                     <FontAwesome name="cog" size={20} color="#374151" />
                 </TouchableOpacity>
