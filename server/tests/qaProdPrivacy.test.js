@@ -216,6 +216,27 @@ describe('Q-02: friends-only game details for logged-out and outsider viewers', 
     expectNoLeak(after);
   });
 
+  test('/roles and /leave do not hand outsiders the roster either', async () => {
+    await prisma.gameRole.createMany({
+      data: [
+        { gameId: game.id, userId: 'qp_g_minor', role: 'MANAGER' },
+        { gameId: publicGame.id, userId: 'qp_g_minor', role: 'MANAGER' },
+      ],
+    });
+    const anonRoles = await request(app).get(`/api/games/${game.id}/roles`);
+    expect(anonRoles.statusCode).toBe(200);
+    expect(anonRoles.body.managers).toEqual([]);
+    const anonPublic = await request(app).get(`/api/games/${publicGame.id}/roles`);
+    expect(JSON.stringify(anonPublic.body)).not.toContain('qp_g_minor');
+    const authedPublic = await request(app).get(`/api/games/${publicGame.id}/roles`).set(auth('qp_stranger'));
+    expect(authedPublic.body.managers.map((m) => m.id)).toContain('qp_g_minor');
+
+    // qp_stranger has a PENDING request from the previous test.
+    const leave = await request(app).post(`/api/games/${game.id}/leave`).set(auth('qp_stranger'));
+    expect(leave.statusCode).toBe(200);
+    expectNoLeak(leave);
+  });
+
   test('public game, anonymous: minors are hidden, adults shown, no email as a name', async () => {
     const res = await request(app).get(`/api/games/${publicGame.id}`);
     expect(res.statusCode).toBe(200);

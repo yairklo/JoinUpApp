@@ -1168,7 +1168,8 @@ async function createGame(payload, creatorUser, io) {
   // Socket Notifications (Targeted Delta Update)
   if (io) {
     // 1. Notify City (live update for anyone currently connected & subscribed to the city room)
-    if (created.field?.city) {
+    // A friends-only game's roster and address must not go to the whole city room.
+    if (created.field?.city && !isGameFriendsOnlyNow(created)) {
       io.to(`city_${created.field.city}`).emit('game:created', gamePayload);
     }
 
@@ -1917,7 +1918,7 @@ async function deleteGame(gameId, userId, isAdmin, io) {
           orderBy: { start: 'asc' },
           include: GAME_FULL_INCLUDE,
         });
-        if (nextGame) {
+        if (nextGame && !isGameFriendsOnlyNow(nextGame)) {
           io.emit('game:created', mapGameForClient(nextGame));
         }
       } catch (heirError) {

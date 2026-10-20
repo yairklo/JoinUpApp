@@ -97,6 +97,8 @@ function applyViewerAccess(dto, access) {
     dto.managers = [];
     dto.teams = (dto.teams || []).map((t) => ({ ...t, managerId: null, playerIds: [] }));
     dto.draftingManagerIds = dto.organizerId ? [String(dto.organizerId)] : [];
+    dto.pickTurnOrder = [];
+    dto.managerPickChatId = null;
     dto.customLocation = null;
     dto.customLat = null;
     dto.customLng = null;
