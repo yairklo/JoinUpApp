@@ -53,14 +53,16 @@ const { getAgeGateStatus, AGE_GATE_STATUS } = require('./shared/ageGate');
 const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('./services/chatSafety');
 const { notificationName, publicDisplayName } = require('./utils/publicName');
 const { applyMessageEdit, applyMessageDelete } = require('./services/messageEvidence');
-const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Notification Workers
-const { startCleanupWorker } = require('./workers/cleanupWorker');
+const { startCleanupWorker, stopCleanupWorker } = require('./workers/cleanupWorker');
 const gameScheduler = require('./services/gameScheduler');
+const { createLeaderLock } = require('./services/leaderLock');
 
-// Jest skips timers so --detectOpenHandles stays clean. A second Render API instance
-// should set RUN_BACKGROUND_JOBS=false; lottery/reminder claims stay idempotent either way.
+// Jest skips timers so --detectOpenHandles stays clean. This flag means "this process MAY host
+// the background jobs". Without JOBS_LEADER_LOCK=redis every such process runs them, so extra
+// API instances must set RUN_BACKGROUND_JOBS=false. With JOBS_LEADER_LOCK=redis any number of
+// processes may leave it on: only the Redis lock holder actually runs the jobs.
 const enableBackgroundSchedulers =
   process.env.NODE_ENV !== 'test'
   && !process.env.JEST_WORKER_ID
@@ -77,11 +79,13 @@ const enableRedis =
   && !process.env.JEST_WORKER_ID
   && process.env.NODE_ENV !== 'test';
 
-// Start Review Worker
-if (enableBackgroundSchedulers) {
-  // Run immediately on startup to process any backlog (crash/redeploy recovery). Ongoing
-  // items are triggered on insert and via gameScheduler.armReviewRetry — no polling interval.
-  processReviewQueue().catch(err => console.error("Worker Startup Error:", err));
+// JOBS_LEADER_LOCK=redis: elect a single job runner among all job-capable processes.
+// If REDIS_URL is missing the lock cannot work: run jobs directly (single-instance behaviour
+// as before) and say so loudly.
+const wantsLeaderLock = process.env.JOBS_LEADER_LOCK === 'redis';
+const useLeaderLock = wantsLeaderLock && enableRedis;
+if (wantsLeaderLock && !useLeaderLock && !process.env.JEST_WORKER_ID) {
+  console.warn('[JOBS] JOBS_LEADER_LOCK=redis but REDIS_URL is not set: running jobs without a lock (single instance only)');
 }
 
 const app = express();
@@ -219,7 +223,7 @@ let redisSub = null;
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
-    jobs: enableBackgroundSchedulers ? 'on' : 'off',
+    jobs: jobsActive ? 'on' : (enableBackgroundSchedulers && leaderLock ? 'standby' : (enableBackgroundSchedulers ? 'on' : 'off')),
     http: enableHttpServer ? 'on' : 'off',
     message: 'Football Fields API is running',
     requestId: req.requestId,
@@ -249,7 +253,8 @@ app.get('/api/health/deep', async (req, res) => {
       db: 'up',
       redis,
       socketAdapter: !socketAdapter.enabled ? 'off' : (isRedisHealthy() ? 'up' : 'down'),
-      jobs: enableBackgroundSchedulers ? 'on' : 'off',
+      jobs: jobsActive ? 'on' : (enableBackgroundSchedulers && leaderLock ? 'standby' : (enableBackgroundSchedulers ? 'on' : 'off')),
+      jobLeader: leaderLock ? leaderLock.status() : null,
       http: enableHttpServer ? 'on' : 'off',
       message: 'Football Fields API is running',
       requestId: req.requestId,
@@ -327,6 +332,8 @@ if (enableRedis) {
 
   const channels = ['moderation_events'];
   if (enableHttpServer) channels.push(SOCKET_CHANNEL);
+  // Every job-capable process listens; only the one whose scheduler is enabled (the leader, or
+  // the sole job runner) acts on a signal. See gameScheduler.handleSignal.
   if (enableBackgroundSchedulers) channels.push(SCHEDULER_CHANNEL);
   redisSub.subscribe(...channels, (err, count) => {
     if (err) Logger.error("REDIS SUB", "Failed to subscribe:", err);
@@ -344,12 +351,8 @@ if (enableRedis) {
     }
     if (channel === SCHEDULER_CHANNEL) {
       try {
-        const msg = JSON.parse(message);
-        if (msg.type === 'resync') {
-          gameScheduler.resyncGameById(msg.gameId).catch(err => Logger.error('SCHEDULER', 'resyncGameById failed:', err));
-        } else if (msg.type === 'reviewQueue') {
-          gameScheduler.triggerReviewQueue();
-        }
+        gameScheduler.handleSignal(JSON.parse(message))
+          .catch(err => Logger.error('SCHEDULER', 'signal handling failed:', err));
       } catch (e) {
         Logger.error("REDIS SUB", "Error parsing scheduler bridge message:", e);
       }
@@ -1091,8 +1094,9 @@ function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
 const { resolveSeriesRegistrationOpensAt } = require('./utils/seriesRegistrationRule');
 
 let seriesGenRunning = false;
-async function runWeeklySeriesGeneration() {
-  if (seriesGenRunning) return;
+// `shouldContinue` lets a deposed job leader stop between series/occurrences.
+async function runWeeklySeriesGeneration({ shouldContinue = () => true } = {}) {
+  if (seriesGenRunning || !shouldContinue()) return;
   seriesGenRunning = true;
   try {
     const now = new Date();
@@ -1102,6 +1106,7 @@ async function runWeeklySeriesGeneration() {
     });
 
     for (const s of seriesList) {
+      if (!shouldContinue()) break;
       try {
         if (typeof s.dayOfWeek !== 'number' || !s.time || !s.fieldId) continue;
 
@@ -1195,6 +1200,7 @@ async function runWeeklySeriesGeneration() {
           // aborts that occurrence and the rest are still generated.
           let createdCount = 0;
           for (const occ of pendingCreates) {
+            if (!shouldContinue()) break;
             try {
               const game = await prisma.$transaction(async (tx) => {
                 const g = await tx.game.create({ data: occ.data });
@@ -1227,12 +1233,6 @@ async function runWeeklySeriesGeneration() {
   }
 }
 
-if (enableBackgroundSchedulers) {
-  // Run every 24 hours
-  setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
-  // Kick once on boot (non-blocking)
-  runWeeklySeriesGeneration().catch(() => { });
-}
 
 // 404 handler (must be after all routes, before error handler)
 app.use((req, res) => {
@@ -1287,28 +1287,78 @@ if (!process.env.JEST_WORKER_ID) {
   process.on('SIGINT', () => { gracefulShutdown('SIGINT'); });
 }
 
+// --- Background jobs lifecycle -------------------------------------------------------------
+// startJobsNow/stopJobsNow are the only places jobs begin/end, whether this process is the sole
+// job runner (default) or the Redis lock holder (JOBS_LEADER_LOCK=redis).
+let jobsActive = false;
+let seriesTimer = null;
+let leaderLock = null;
+
+async function startJobsNow(jobIo) {
+  gameScheduler.init({ prisma, io: jobIo, notificationService });
+  jobsActive = true;
+  await gameScheduler.loadAll();
+  startCleanupWorker();
+  // Weekly series generation: daily, plus once now (non-blocking). Duplicate runs are also
+  // absorbed by the Game (seriesId, start) unique constraint.
+  seriesTimer = setInterval(
+    () => runWeeklySeriesGeneration({ shouldContinue: () => jobsActive }).catch(() => { }),
+    24 * 60 * 60 * 1000,
+  );
+  runWeeklySeriesGeneration({ shouldContinue: () => jobsActive }).catch(() => { });
+  // Drain any review backlog left by a crash/redeploy/previous leader.
+  gameScheduler.triggerReviewQueue();
+  console.log('🔔 Notification workers started');
+}
+
+async function stopJobsNow() {
+  jobsActive = false;
+  if (seriesTimer) { clearInterval(seriesTimer); seriesTimer = null; }
+  if (typeof stopCleanupWorker === 'function') stopCleanupWorker();
+  gameScheduler.stop();
+  console.log('⏹️  Background jobs stopped');
+}
+
+// io used by jobs. A leader on an HTTP instance emits straight into the (clustered) io when the
+// Redis adapter is on; otherwise it publishes over the bridge so EVERY instance delivers to its
+// own sockets, regardless of which instance happens to be leader.
+function makeBridgeIo() {
+  return createPublisherIo((msg) => {
+    if (!redisPub) {
+      console.warn('[WORKER] REDIS_URL is not set — live socket events will not reach the API');
+      return;
+    }
+    return redisPub.publish(SOCKET_CHANNEL, JSON.stringify(msg));
+  });
+}
+
 async function startJobs(jobIo) {
   if (!enableBackgroundSchedulers) {
     console.log('⏸️  Background jobs disabled (RUN_BACKGROUND_JOBS=false)');
     return;
   }
-  gameScheduler.init({ prisma, io: jobIo, notificationService });
-  await gameScheduler.loadAll();
-  startCleanupWorker();
-  console.log('🔔 Notification workers started');
+  if (!useLeaderLock) {
+    shutdownHooks.push(['jobs', stopJobsNow]);
+    await startJobsNow(jobIo);
+    return;
+  }
+  const ttlMs = Number(process.env.JOBS_LEADER_TTL_MS) || 30000;
+  leaderLock = createLeaderLock({
+    client: getRedis(),
+    ttlMs,
+    onAcquire: () => startJobsNow(enableHttpServer && !socketAdapter.enabled ? makeBridgeIo() : jobIo),
+    onLose: stopJobsNow,
+  });
+  shutdownHooks.push(['job leader lock', () => leaderLock.stop()]);
+  leaderLock.start();
+  console.log(`[JOBS] leader lock enabled (instance ${leaderLock.instanceId}); jobs run only on the lock holder`);
 }
 
 async function startServer() {
   await initializeDataFiles();
 
   if (!enableHttpServer) {
-    const jobIo = createPublisherIo((msg) => {
-      if (!redisPub) {
-        console.warn('[WORKER] REDIS_URL is not set — live socket events will not reach the API');
-        return;
-      }
-      return redisPub.publish(SOCKET_CHANNEL, JSON.stringify(msg));
-    });
+    const jobIo = makeBridgeIo();
     await startJobs(jobIo);
     console.log('[WORKER] background jobs running (HTTP bind skipped)');
     return null;
