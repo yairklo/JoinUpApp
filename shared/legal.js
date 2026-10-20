@@ -8,13 +8,13 @@ const { MIN_AGE, ADULT_AGE, LEGAL_VERSION } = require('./ageGate');
 
 /** Shows an "under legal review" note on the legal pages while true. */
 const LEGAL_IS_DRAFT = false;
-const LEGAL_LAST_UPDATED = '18.10.2026';
-const LEGAL_LAST_UPDATED_EN = 'October 18, 2026';
+const LEGAL_LAST_UPDATED = '20.10.2026';
+const LEGAL_LAST_UPDATED_EN = 'October 20, 2026';
 
 const OPERATOR = {
   name: 'יאיר קלאוזנר',
   nameEn: 'Yair Klausner',
-  email: 'support@joinup.co.il',
+  email: 'joinupapp.support@gmail.com',
 };
 
 const TERMS_ACCEPT_LABEL = 'קראתי ואני מסכים/ה לתנאי השימוש ולמדיניות הפרטיות';
@@ -214,7 +214,7 @@ const PRIVACY = {
     {
       heading: '5. מודרציה אוטומטית ובינה מלאכותית',
       blocks: [
-        { p: 'כדי להגן על קטינים, הודעות הנשלחות לשיחה שמשתתף בה קטין נבדקות באופן אוטומטי. לצורך הבדיקה, טקסט ההודעה נשלח לשירותי הבינה המלאכותית של OpenAI ושל Google (תוך שימוש במסלולים העסקיים המאובטחים שאינם משתמשים בנתונים לאימון מודלים), לאחר הסרה אוטומטית של מספרי טלפון וכתובות דוא"ל. יחד עם הטקסט נשלחים נתוני גיל ומגדר כלליים, לצורך כיול הבדיקה. הודעות בשיחות שכל משתתפיהן בגירים אינן נשלחות לבדיקה כזו. הודעות שסומנו נשמרות לבדיקה של צוות המפעיל.' },
+        { p: 'כדי להגן על קטינים, הודעה שבגיר שולח בשיחה שמשתתף בה קטין עוברת תחילה בדיקה אוטומטית ראשונית. רק הודעה שהבדיקה הראשונית סימנה כחשודה נשלחת לשירותי הבינה המלאכותית של OpenAI ושל Google (Gemini), תוך שימוש במסלולים העסקיים המאובטחים שאינם משתמשים בנתונים לאימון מודלים, ולאחר הסרה אוטומטית של מספרי טלפון וכתובות דוא"ל. יחד עם הטקסט נשלחים נתוני גיל ומגדר כלליים, לצורך כיול הבדיקה. שיחות שכל משתתפיהן בגירים אינן נבדקות. משתמש רשאי לדווח מתוך הצ\'אט על הודעה פוגענית או בלתי הולמת. הודעות שדווחו או שסומנו נשמרות לבדיקה של צוות המפעיל.' },
       ],
     },
     {
@@ -481,7 +481,7 @@ const PRIVACY_EN = {
     {
       heading: '5. Automated Moderation and Artificial Intelligence',
       blocks: [
-        { p: 'To protect minors, messages sent to conversations involving a minor are checked automatically. For this purpose, message text is sent to OpenAI and Google Gemini artificial intelligence services (using secure business tiers that do not use data to train models), following the automatic removal of phone numbers and email addresses. General age and gender metadata are sent alongside the text to calibrate moderation. Conversations where all participants are adults are not sent for such checks. Flagged messages are saved for Operator team review.' },
+        { p: 'To protect minors, a message that an adult sends in a conversation involving a minor first undergoes an automatic initial check. Only a message flagged as suspicious by that check is sent to the artificial intelligence services of OpenAI and Google Gemini (using secure business tiers that do not use data to train models), following the automatic removal of phone numbers and email addresses. General age and gender metadata are sent alongside the text to calibrate moderation. Conversations where all participants are adults are not checked. A user may report an offensive or inappropriate message from the chat. Reported and flagged messages are retained for review by the Operator team.' },
       ],
     },
     {
