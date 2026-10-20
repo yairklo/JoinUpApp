@@ -36,6 +36,7 @@ const supportRoutes = require('./routes/support');
 const { verifyToken } = require('@clerk/backend');
 const { isPrivateChatBlocked, getBlockersAmong } = require('./utils/blocks');
 const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
+const { canSubscribePresence } = require('./utils/presenceAuth');
 const { mapUserToSender } = require('./utils/chatMappers');
 const { NotificationService } = require('./services/notificationService');
 const { broadcastCounters } = require('./services/counterService');
@@ -429,9 +430,17 @@ io.on('connection', async (socket) => {
     }
   });
 
-  socket.on('subscribePresence', (targetUserId) => {
-    if (!targetUserId) return;
-    socket.join(`presence_listener_${targetUserId}`);
+  // Presence is private: only friends, chat partners or pick-session co-managers may watch it.
+  socket.on('subscribePresence', async (targetUserId) => {
+    if (!targetUserId || !socket.userId) return;
+    const listenerRoom = `presence_listener_${targetUserId}`;
+    // Clients re-emit this for the same targets on every state change (e.g. each pick in a live
+    // team-pick session). Already-authorized sockets skip the DB check; access is revoked by
+    // removing them from the room (block/unfriend in routes/users.js), not by re-checking here.
+    if (!socket.rooms.has(listenerRoom)) {
+      if (!(await canSubscribePresence(socket.userId, targetUserId))) return;
+      socket.join(listenerRoom);
+    }
     // Emit initial status
     // Check if target user has any active sockets in their "user_ID" room
     const room = io.sockets.adapter.rooms.get(`user_${targetUserId}`);
@@ -1142,18 +1151,31 @@ async function runWeeklySeriesGeneration() {
         }
 
         if (pendingCreates.length) {
-          const { createGroupChatForGame } = require('./services/gameService');
-          const created = await prisma.$transaction(async (tx) => {
-            const games = [];
-            for (const occ of pendingCreates) {
-              const game = await tx.game.create({ data: occ.data });
-              await createGroupChatForGame(tx, game.id, occ.participantIds);
-              games.push(game);
+          const { createGroupChatForGame, isSeriesSlotConflict } = require('./services/gameService');
+          // One transaction per occurrence (game + its group chat stay atomic). Game has a unique
+          // (seriesId, start): if another job process already created this slot, the P2002 only
+          // aborts that occurrence and the rest are still generated.
+          let createdCount = 0;
+          for (const occ of pendingCreates) {
+            try {
+              const game = await prisma.$transaction(async (tx) => {
+                const g = await tx.game.create({ data: occ.data });
+                await createGroupChatForGame(tx, g.id, occ.participantIds);
+                return g;
+              }, { timeout: 30000, maxWait: 10000 });
+              gameScheduler.resyncGame(game);
+              createdCount += 1;
+            } catch (occErr) {
+              // Only the (seriesId, start) slot constraint means "already generated"; any other
+              // unique violation is a real error and must surface.
+              if (isSeriesSlotConflict(occErr)) {
+                console.warn(`Series ${s.id} occurrence at ${occ.start.toISOString()} already exists; skipping.`);
+                continue;
+              }
+              throw occErr;
             }
-            return games;
-          }, { timeout: 30000, maxWait: 10000 });
-          for (const g of created) gameScheduler.resyncGame(g);
-          console.log(`🗓️  Generated ${pendingCreates.length} weekly instances for series ${s.id}`);
+          }
+          if (createdCount) console.log(`🗓️  Generated ${createdCount} weekly instances for series ${s.id}`);
         }
       } catch (seriesErr) {
         // Isolate failures per series so one bad series doesn't abort the whole batch.
@@ -1239,4 +1261,4 @@ if (!process.env.JEST_WORKER_ID) {
   });
 }
 
-module.exports = { app, server, startServer, socketAuthMiddleware };
+module.exports = { app, server, startServer, socketAuthMiddleware, runWeeklySeriesGeneration };

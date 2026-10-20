@@ -111,9 +111,13 @@ describe('PATCH /api/series/:id registration-open rule', () => {
     spy(prisma.gameSeries, 'findUnique').mockResolvedValue({ ...baseSeries });
     spy(prisma.seriesParticipant, 'findUnique').mockResolvedValue(null);
     seriesUpdate = spy(prisma.gameSeries, 'update').mockImplementation(async ({ data }) => ({ ...baseSeries, ...data }));
-    gameFindMany = spy(prisma.game, 'findMany').mockResolvedValue(
-      futureStarts.map((start, i) => ({ id: `srr_game_${i}`, seriesId: 'srr_series', start, fieldId: 'f1' }))
-    );
+    const futureGames = futureStarts.map((start, i) => ({ id: `srr_game_${i}`, seriesId: 'srr_series', start, fieldId: 'f1' }));
+    // Honors `id: { notIn }` like the DB: the slot-conflict pre-check on a time change looks for
+    // OTHER games of the series at the target starts, which must exclude the games being moved.
+    gameFindMany = spy(prisma.game, 'findMany').mockImplementation(async (args) => {
+      const notIn = args?.where?.id?.notIn;
+      return notIn ? futureGames.filter((g) => !notIn.includes(g.id)) : futureGames;
+    });
     gameUpdate = spy(prisma.game, 'update').mockImplementation(({ where, data }) => ({ id: where.id, ...data }));
     spy(prisma, '$transaction').mockImplementation(async (ops) => Promise.all(ops));
     spy(gameScheduler, 'resyncGame').mockImplementation(() => {});

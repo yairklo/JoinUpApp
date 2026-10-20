@@ -394,6 +394,8 @@ model Game {
   teams                Team[]
   ratings              UserRating[]
 
+  /// One occurrence per series slot — guards weekly generation against a second job process.
+  @@unique([seriesId, start])
   @@index([start, status])
   @@index([status, start])
   @@index([sport])

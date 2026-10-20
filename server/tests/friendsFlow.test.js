@@ -97,6 +97,19 @@ describe('friend request edge cases', () => {
   const aliceAuth = 'Bearer mock_token_alice';
   const bobAuth = 'Bearer mock_token_bob';
 
+  // Requests to unknown receivers 404, so both users must really exist (the block above deletes them).
+  beforeAll(async () => {
+    for (const id of [alice, bob]) {
+      await prisma.user.upsert({ where: { id }, update: {}, create: { id, name: id, imageUrl: null } });
+    }
+  });
+
+  afterAll(async () => {
+    await prisma.notification.deleteMany({ where: { userId: { in: [alice, bob] } } }).catch(() => {});
+    await prisma.friendship.deleteMany({ where: { OR: [{ userAId: { in: [alice, bob] } }, { userBId: { in: [alice, bob] } }] } });
+    await prisma.friendRequest.deleteMany({ where: { OR: [{ requesterId: { in: [alice, bob] } }, { receiverId: { in: [alice, bob] } }] } });
+  });
+
   beforeEach(async () => {
     await prisma.friendship.deleteMany({ where: { OR: [{ userAId: { in: [alice, bob] } }, { userBId: { in: [alice, bob] } }] } });
     await prisma.friendRequest.deleteMany({ where: { OR: [{ requesterId: { in: [alice, bob] } }, { receiverId: { in: [alice, bob] } }] } });
@@ -159,6 +172,15 @@ describe('friend request edge cases', () => {
     expect(reverse.statusCode).toEqual(201);
   });
 
+  test('a request to an unknown user 404s and never creates a placeholder user row', async () => {
+    const ghost = 'ff_test_ghost_never_signed_up';
+    await prisma.user.deleteMany({ where: { id: ghost } });
+    const res = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: ghost });
+    expect(res.statusCode).toEqual(404);
+    expect(await prisma.user.findUnique({ where: { id: ghost } })).toBeNull();
+    expect(await prisma.friendRequest.count({ where: { receiverId: ghost } })).toEqual(0);
+  });
+
   test('friend request notification and accepted notification carry usable links', async () => {
     const sent = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     const n = await prisma.notification.findFirst({ where: { userId: bob, type: 'FRIEND_REQUEST' }, orderBy: { createdAt: 'desc' } });
@@ -175,6 +197,14 @@ describe('friend request edge cases', () => {
 describe('profile name validation and reserved user ids', () => {
   const alice = 'ff_test_alice';
   const aliceAuth = 'Bearer mock_token_alice';
+
+  beforeAll(async () => {
+    await prisma.user.upsert({ where: { id: alice }, update: {}, create: { id: alice, name: alice, imageUrl: null } });
+  });
+
+  afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: { in: [alice, 'ff_test_bob'] } } }).catch(() => {});
+  });
 
   test.each(['', '   ', 'a', null, 42])('rejects an empty/too short display name (%p)', async (bad) => {
     const before = await prisma.user.findUnique({ where: { id: alice } });
