@@ -31,3 +31,16 @@ Reports: `maestro/.reports/` (JUnit + debug output). CI: `.github/workflows/mobi
 * Nav: `tab-fields|search|home|chats|friends`, `header-profile`, `profile-sign-out`
 * Games: `home-create-game`, `new-game-title|field-<i>|submit`, `game-card-<id>`, `game-join-button`, `game-open-chat`
 * Chat: `chat-input`, `chat-send`
+
+## Local backend (no shared DB, no cloud)
+```bash
+# one-time: put Clerk DEVELOPMENT keys in mobile_app/maestro/local/.env.e2e (gitignored):
+#   CLERK_SECRET_KEY=sk_test_...
+#   CLERK_PUBLISHABLE_KEY=pk_test_...
+cd mobile_app
+node maestro/local/start-backend.mjs            # Docker Postgres :5544 -> migrate -> seed 955 fields -> API :3005
+node maestro/local/start-backend.mjs --reset    # same, from an empty DB
+```
+Verified on Windows (without Clerk keys, using placeholder keys): Postgres container, `prisma migrate deploy`,
+field import and the API (`/api/health`, `/api/fields/cities`) all come up. Authenticated routes need real Clerk dev keys.
+Notes: the API needs `ALLOW_DISK_UPLOADS=true` locally (set by the script) because no Cloudinary URL is configured.
