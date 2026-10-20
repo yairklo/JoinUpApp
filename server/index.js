@@ -20,11 +20,10 @@ const fs = require('fs').promises;
 const http = require('http');
 const { Server } = require('socket.io');
 const { prisma } = require('./lib/prisma');
-const { createClient, closeSharedRedis, isRedisHealthy } = require('./lib/redis');
+const { createClient, closeSharedRedis, isRedisHealthy, getRedis } = require('./lib/redis');
 const { attachSocketAdapter } = require('./socket/adapter');
 const { isUserOnline, hasOtherUserInRoom } = require('./utils/socketPresence');
 const { createTempIdDedupe } = require('./utils/tempIdDedupe');
-const { getRedis } = require('./lib/redis');
 const { setChatView, canSocketMarkRead } = require('./utils/chatViewState');
 
 // Import routes
@@ -327,8 +326,11 @@ if (enableRedis) {
 
   // Retry forever (capped backoff): the bridge carries worker->API socket events and scheduler
   // signals, so one Redis blip must not end it permanently. ioredis re-subscribes on reconnect.
-  redisSub = createClient({ label: 'bridge-sub' });
-  redisPub = createClient({ label: 'bridge-pub' });
+  // sub: its (re)subscribe commands queue until connected and never give up.
+  // pub: fail-fast, no offline queue — events published while Redis is down are dropped instead of
+  // being replayed minutes later as stale socket events / scheduler signals.
+  redisSub = createClient({ label: 'bridge-sub', maxRetriesPerRequest: null });
+  redisPub = createClient({ label: 'bridge-pub', failFast: true, commandTimeout: 2000 });
 
   redisSub.on('ready', () => { redisReady = true; });
   redisPub.on('ready', () => { redisReady = true; });
@@ -337,7 +339,10 @@ if (enableRedis) {
   // handler even if its own scheduler isn't enabled (e.g. the web API split from a
   // dedicated `worker.js` jobs process) — forward the signal to whichever process is
   // actually subscribed to SCHEDULER_CHANNEL below.
-  gameScheduler.setPublisher((msg) => redisPub.publish(SCHEDULER_CHANNEL, JSON.stringify(msg)));
+  gameScheduler.setPublisher((msg) => {
+    Promise.resolve(redisPub.publish(SCHEDULER_CHANNEL, JSON.stringify(msg)))
+      .catch((err) => Logger.warn('SCHEDULER', `signal publish failed: ${err.message}`));
+  });
 
   const channels = ['moderation_events'];
   if (enableHttpServer) channels.push(SOCKET_CHANNEL);
@@ -1291,7 +1296,10 @@ async function gracefulShutdown(signal) {
   console.log('[SHUTDOWN] done');
   process.exit(0);
 }
-if (!process.env.JEST_WORKER_ID) {
+// Graceful drain is on by default (Node as PID 1 otherwise ignores SIGTERM until the platform
+// SIGKILLs it). GRACEFUL_SHUTDOWN=false restores the old behaviour.
+const gracefulShutdownEnabled = process.env.GRACEFUL_SHUTDOWN !== 'false' && process.env.GRACEFUL_SHUTDOWN !== '0';
+if (!process.env.JEST_WORKER_ID && gracefulShutdownEnabled) {
   process.on('SIGTERM', () => { gracefulShutdown('SIGTERM'); });
   process.on('SIGINT', () => { gracefulShutdown('SIGINT'); });
 }

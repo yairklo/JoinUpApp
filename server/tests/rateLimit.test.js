@@ -168,7 +168,7 @@ describe('Redis-backed rate limit store (fake client)', () => {
     for (let i = 0; i < 3; i++) expect((await request(a).get('/ok')).statusCode).toBe(200);
     const blocked = await request(a).get('/ok');
     expect(blocked.statusCode).toBe(429);
-    expect(blocked.headers['retry-after']).toBe('30');
+    expect(['30', '31']).toContain(blocked.headers['retry-after']); // TTL 30s (+ a ms of skew)
   });
 
   test('two apps sharing one store share one budget', async () => {

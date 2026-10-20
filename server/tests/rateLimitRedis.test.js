@@ -8,7 +8,7 @@ const { createRateLimiter } = require('../middleware/rateLimit');
 const { createRedisStore, createMemoryStore } = require('../middleware/rateLimitStore');
 const { createSendRateLimiter } = require('../services/chatSafety');
 const { createTempIdDedupe } = require('../utils/tempIdDedupe');
-const { describeRedis, newClient, uniqueId, deleteByPattern, sleep } = require('./helpers/redisTest');
+const { describeRedis, newClient, uniqueId, deleteByPattern, waitFor } = require('./helpers/redisTest');
 
 function appWith(store, max) {
   const a = express();
@@ -23,14 +23,15 @@ describeRedis('rate limiting and chat dedupe shared across instances (real Redis
 
   beforeAll(() => { client = newClient(); });
   afterAll(async () => {
-    await deleteByPattern(client, '*jest-*');
+    // Every key this file creates carries the unique run id; nothing else is touched.
+    await deleteByPattern(client, `*${run}*`);
     client.disconnect();
   });
 
   test('HTTP limit is global across two apps (memory control only trips at 2x)', async () => {
     // The limiter key is the client IP, so make it unique per run.
-    const storeA = createRedisStore({ windowMs: 60_000, client });
-    const storeB = createRedisStore({ windowMs: 60_000, client });
+    const storeA = createRedisStore({ windowMs: 60_000, client, keyPrefix: run });
+    const storeB = createRedisStore({ windowMs: 60_000, client, keyPrefix: run });
     const a = appWith(storeA, 3);
     const b = appWith(storeB, 3);
     const ip = `10.${Math.floor(Math.random() * 200)}.0.1`;
@@ -55,7 +56,7 @@ describeRedis('rate limiting and chat dedupe shared across instances (real Redis
   });
 
   test('Retry-After comes from the Redis TTL and the window expires', async () => {
-    const store = createRedisStore({ windowMs: 700, client });
+    const store = createRedisStore({ windowMs: 700, client, keyPrefix: run });
     const a = appWith(store, 1);
     a.set('trust proxy', 1);
     const ip = `12.${Math.floor(Math.random() * 200)}.0.1`;
@@ -63,8 +64,7 @@ describeRedis('rate limiting and chat dedupe shared across instances (real Redis
     const blocked = await request(a).get('/ok').set('X-Forwarded-For', ip);
     expect(blocked.statusCode).toBe(429);
     expect(Number(blocked.headers['retry-after'])).toBeGreaterThanOrEqual(1);
-    await sleep(800);
-    expect((await request(a).get('/ok').set('X-Forwarded-For', ip)).statusCode).toBe(200);
+    await waitFor(async () => (await request(a).get('/ok').set('X-Forwarded-For', ip)).statusCode === 200, { timeout: 4000, interval: 100 });
   });
 
   test('chat send limiter: 10 allowed in total across two instances, the 11th is denied', async () => {
@@ -85,14 +85,13 @@ describeRedis('rate limiting and chat dedupe shared across instances (real Redis
     expect(await a.allow(user)).toBe(true);
     expect(await a.allow(user)).toBe(true);
     expect(await a.allow(user)).toBe(false);
-    await sleep(500);
-    expect(await a.allow(user)).toBe(true);
+    await waitFor(() => a.allow(user), { timeout: 4000, interval: 50 });
   });
 
   test('tempId dedupe is shared: a retry on another instance is not stored twice', async () => {
     const a = createTempIdDedupe({ client });
     const b = createTempIdDedupe({ client });
-    const key = `${run}:room:tmp1`;
+    const key = `${run}:room:tmp1`; // tempid keys end up as joinup:tempid:<run>:...
     expect((await a.claim(key)).claimed).toBe(true);
     expect(await b.claim(key)).toEqual({ claimed: false, echo: null });
     await a.storeEcho(key, { id: 'm1', text: 'hello' });

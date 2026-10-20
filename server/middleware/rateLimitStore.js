@@ -40,6 +40,7 @@ function createRedisStore({
   timeoutMs = 80,
   breakerThreshold = 3,
   breakerOpenMs = 5000,
+  keyPrefix = '',   // namespace inside joinup:rl: (tests use a unique one and clean up by it)
   fallback = createMemoryStore({ windowMs }),
   now = Date.now,
 }) {
@@ -61,7 +62,7 @@ function createRedisStore({
       const t = now();
       if (t < openUntil) return fallback.hit(key, t);
       try {
-        const res = await withTimeout(client.eval(HIT_LUA, 1, redisKey('rl', key), String(windowMs)));
+        const res = await withTimeout(client.eval(HIT_LUA, 1, redisKey('rl', ...(keyPrefix ? [keyPrefix] : []), key), String(windowMs)));
         failures = 0;
         const count = Number(res[0]);
         const ttl = Math.max(0, Number(res[1]));

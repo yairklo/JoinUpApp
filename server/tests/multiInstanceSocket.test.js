@@ -52,7 +52,11 @@ describeRedis('multi-instance Socket.IO over a real Redis', () => {
     A = await makeNode(TEST_REDIS_URL, key);
     B = await makeNode(TEST_REDIS_URL, key);
     await waitFor(() => A.adapter.sub.status === 'ready' && B.adapter.sub.status === 'ready');
-    await sleep(150); // subscriptions settle
+    // Deterministic readiness: a server-side event from A must be heard by B (and back) before tests run.
+    let heardByB = false; let heardByA = false;
+    B.io.on('probe', () => { heardByB = true; });
+    A.io.on('probe', () => { heardByA = true; });
+    await waitFor(() => { A.io.serverSideEmit('probe'); B.io.serverSideEmit('probe'); return heardByA && heardByB; }, { timeout: 8000, interval: 100 });
   });
 
   afterAll(async () => {
@@ -157,6 +161,9 @@ describeRedis('Socket.IO adapter with Redis unreachable', () => {
     const unhandled = [];
     const onUnhandled = (r) => unhandled.push(r);
     process.on('unhandledRejection', onUnhandled);
+    // ioredis logs reconnect errors via console.warn (deduped); keep them out of the test output
+    // and make sure nothing logs after teardown.
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const C = await makeNode('redis://127.0.0.1:1', uniqueId('down'));
     try {
       expect(C.adapter.enabled).toBe(true);
@@ -179,6 +186,8 @@ describeRedis('Socket.IO adapter with Redis unreachable', () => {
       await new Promise((r) => C.io.close(() => r()));
       C.adapter.pub.disconnect();
       C.adapter.sub.disconnect();
+      await sleep(50);
+      warnSpy.mockRestore();
     }
   }, 30000);
 });
