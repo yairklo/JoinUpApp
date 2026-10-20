@@ -185,6 +185,7 @@ import { SPORT_MAPPING, getSportName, getSportKey } from '@/utils/sports';
 | סביבה | כתובת |
 |--------|--------|
 | שרת Production | `https://joinup-api.duckdns.org` |
+| שרת Dev (Coolify) | `https://joinup-dev-api.duckdns.org` — ראו `docs/dev-environment.md` |
 | שרת Staging (Render) | `https://my-app-staging-ijyp.onrender.com` |
 | Web Production | Vercel |
 | Mobile Dev | Expo Go + `.env` עם `EXPO_PUBLIC_API_URL` |
