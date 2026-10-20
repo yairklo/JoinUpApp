@@ -5,7 +5,13 @@
 // undefined connection string, causing every query to fail with ECONNREFUSED
 // no matter how correct the actual .env file is. dotenv.config() is a no-op
 // for variables already set, so calling it again from index.js is harmless.
-require('dotenv').config();
+//
+// The dev seed sets JOINUP_SKIP_DOTENV=1 before requiring this module. Without
+// that, a server/.env pointed at production would be applied to any URL the
+// operator forgot to export, and the seed guard would never see the real target.
+if (process.env.JOINUP_SKIP_DOTENV !== '1') {
+  require('dotenv').config();
+}
 
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
