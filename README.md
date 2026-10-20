@@ -198,7 +198,13 @@ cd mobile_app
 npm run update:production -- --message "תיאור קצר של התיקון"
 ```
 
-- **תמיד דרך הסקריפט, לא `eas update` ישירות:** `eas update` לא קורא את ה-`env` של פרופילי ה-build ב-`eas.json`. בלי הסקריפט, העדכון יוצא בלי `EXPO_PUBLIC_API_URL` (כלומר האפליקציה פונה ל-localhost), בלי מפתח Clerk ובלי Sentry. הסקריפט `scripts/eas-update.mjs` לוקח את ה-env מהפרופיל ומפרסם לערוץ שלו.
-- **`runtimeVersion` הוא `fingerprint`:** עדכון מגיע רק לבילדים עם אותו קוד native. שינוי בתלות native, ב-plugin או ב-`app.json` דורש בילד חדש לחנות, ו-OTA לא יגיע לבילדים הישנים. זה בכוונה, כדי שעדכון לא יקריס בילד שלא מתאים לו.
-- **Source maps:** כש-`SENTRY_AUTH_TOKEN` מוגדר בסביבה, הסקריפט מעלה את ה-source maps של העדכון ל-Sentry.
+- **תמיד דרך הסקריפט, לא `eas update` ישירות:** `eas update` לא קורא את ה-`env` של פרופילי ה-build ב-`eas.json`. בלי הסקריפט, העדכון ייקח ערכים מקובץ `.env` מקומי של המפתח, או ייצא בלי כתובת שרת, בלי מפתח Clerk ובלי Sentry. הסקריפט `scripts/eas-update.mjs`:
+  - לוקח את ה-env מהפרופיל, ולא נותן לשום `EXPO_PUBLIC_*` מקומי (מ-`.env` או מהטרמינל) להיכנס לבאנדל;
+  - מנקה את ה-cache של Metro, כי בלי זה עדכון יכול לצאת עם הערכים של הרצה קודמת;
+  - מפרסם לערוץ ולסביבת ה-EAS של הפרופיל, בגרסה נעולה של `eas-cli`;
+  - מסרב לפרסם כשיש שינויים שלא נעשה להם קומיט (אפשר לעקוף עם `--allow-dirty`).
+- **`runtimeVersion` הוא `fingerprint`:** עדכון מגיע רק לבילדים עם אותו קוד native. שינוי בתלות native, ב-plugin או בשדות native של `app.json` דורש בילד חדש לחנות, ו-OTA לא יגיע לבילדים הישנים. זה בכוונה, כדי שעדכון לא יקריס בילד שלא מתאים לו.
+  - `eas.json`, `.easignore`, `.gitignore` וה-npm scripts לא נכנסים ל-fingerprint (ראו `fingerprint.config.js`). לכן שינוי כתובת שרת ב-`eas.json` כן יכול להגיע לבילדים קיימים ב-OTA. מצד שני, שינוי native ב-`eas.json` (למשל `buildType`) לא מחייב בילד חדש לבד, אז צריך לזכור לשחרר בילד.
+  - `google-services.json` נשמר תמיד עם סופי שורה LF (`.gitattributes`), כדי שבילד מ-Windows ועדכון מ-Linux/CI יחשבו אותו fingerprint.
+- **Source maps:** כש-`SENTRY_AUTH_TOKEN` מוגדר בסביבה המקומית, הסקריפט מעלה את ה-source maps של העדכון ל-Sentry. ב-EAS הטוקן זמין רק לשרתי ה-build, אז לעדכון מקומי צריך להגדיר אותו בטרמינל.
 - **בדיקה לפני פרודקשן:** `npm run update:preview -- --message "..."` שולח לבילדים של פרופיל `preview`.
