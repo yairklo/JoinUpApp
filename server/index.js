@@ -47,6 +47,7 @@ const { isAgeGateEnforced } = require('./utils/ageGatePolicy');
 const { getAgeGateStatus, AGE_GATE_STATUS } = require('./shared/ageGate');
 const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('./services/chatSafety');
 const { notificationName, publicDisplayName } = require('./utils/publicName');
+const { applyMessageEdit, applyMessageDelete } = require('./services/messageEvidence');
 const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Notification Workers
@@ -970,6 +971,7 @@ io.on('connection', async (socket) => {
         socket.emit('error', 'Unauthorized');
         return;
       }
+      if (exists.isDeleted) return;
       if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
       const textError = validateMessageText(String(text));
@@ -1021,13 +1023,8 @@ io.on('connection', async (socket) => {
         return;
       }
 
-      await prisma.message.update({
-        where: { id: String(messageId) },
-        data: {
-          text: String(text),
-          isEdited: true
-        }
-      });
+      // Keep the pre-edit text so editing cannot erase what a reporter/moderator needs to see.
+      await applyMessageEdit(prisma, exists, text);
 
       const payload = { id: messageId, text, isEdited: true, roomId: roomId ? String(roomId) : undefined };
       if (roomId) {
@@ -1054,13 +1051,7 @@ io.on('connection', async (socket) => {
       }
       if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
-      await prisma.message.update({
-        where: { id: String(messageId) },
-        data: {
-          isDeleted: true,
-          text: ""
-        }
-      });
+      await applyMessageDelete(prisma, exists);
 
       const payload = { id: messageId, roomId: roomId ? String(roomId) : undefined };
       if (roomId) {

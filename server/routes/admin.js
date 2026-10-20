@@ -46,12 +46,37 @@ router.get('/flagged-messages', authenticateToken, requireAdmin, async (req, res
       : [];
     const byId = new Map(users.map((u) => [u.id, u]));
 
+    // Edit / delete state of the live message, so a moderator can see when the sender changed
+    // or removed it (the row's `content` is the text at report time; earlier text is in edits).
+    const messageIds = [...new Set(rows.map((r) => r.messageId).filter(Boolean))];
+    const liveMessages = messageIds.length
+      ? await prisma.message.findMany({
+          where: { id: { in: messageIds } },
+          select: {
+            id: true, text: true, isEdited: true, isDeleted: true, deletedAt: true, deletedText: true,
+            edits: { orderBy: { editedAt: 'asc' }, select: { previousText: true, editedAt: true } },
+          },
+        })
+      : [];
+    const messageById = new Map(liveMessages.map((m) => [m.id, m]));
+
     res.json(rows.map((row) => {
       const reporterId = reporterIdOf(row);
+      const live = row.messageId ? messageById.get(row.messageId) : null;
       return {
         ...row,
         sender: byId.get(row.userId) || null,
         reporter: reporterId ? byId.get(reporterId) || null : null,
+        messageState: live
+          ? {
+              isEdited: live.isEdited,
+              isDeleted: live.isDeleted,
+              deletedAt: live.deletedAt,
+              currentText: live.isDeleted ? null : live.text,
+              originalText: live.isDeleted ? live.deletedText : (live.edits[0]?.previousText ?? null),
+              edits: live.edits,
+            }
+          : null,
       };
     }));
   } catch (error) {

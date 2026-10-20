@@ -138,6 +138,8 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
+// A sender can delete a message right after sending it; keep it reportable for a while.
+const DELETED_REPORT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const REPORT_REASONS = new Set(['OFFENSIVE', 'HARASSMENT', 'SPAM', 'INAPPROPRIATE', 'OTHER']);
 
 // POST /api/messages/:id/report  { reason, details? }
@@ -152,7 +154,7 @@ router.post('/:id/report', authenticateToken, async (req, res) => {
 
     const message = await prisma.message.findUnique({
       where: { id: String(req.params.id) },
-      select: { id: true, text: true, userId: true, chatRoomId: true, isDeleted: true },
+      select: { id: true, text: true, userId: true, chatRoomId: true, isDeleted: true, deletedText: true, deletedAt: true },
     });
     if (!message) return res.status(404).json({ error: 'Message not found' });
 
@@ -163,7 +165,13 @@ router.post('/:id/report', authenticateToken, async (req, res) => {
     if (!message.userId || message.userId === reporterId) {
       return res.status(400).json({ error: 'You cannot report this message' });
     }
-    if (message.isDeleted) {
+    // Deleted messages stay reportable for a week (the original text is kept server-side).
+    const reportedText = message.isDeleted ? message.deletedText : message.text;
+    if (message.isDeleted && (
+      !reportedText ||
+      !message.deletedAt ||
+      Date.now() - message.deletedAt.getTime() > DELETED_REPORT_WINDOW_MS
+    )) {
       return res.status(400).json({ error: 'Message was already removed' });
     }
 
@@ -181,11 +189,12 @@ router.post('/:id/report', authenticateToken, async (req, res) => {
     await prisma.flaggedMessage.create({
       data: {
         messageId: message.id,
-        content: message.text,
+        content: reportedText,
         userId: message.userId,
         status: 'PENDING_REVIEW',
         aiTriggers: {
           source: 'user_report',
+          messageDeleted: message.isDeleted,
           reason,
           details,
           reporterId,
