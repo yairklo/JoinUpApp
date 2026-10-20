@@ -270,3 +270,91 @@ describe('Q-04: emails are never returned as names', () => {
     expect(body.other.name).toBe('משתמש');
   });
 });
+
+describe('Q-02 follow-ups: game lists and group pages for outsiders', () => {
+  let field;
+  let game;
+  let series;
+
+  beforeAll(async () => {
+    await prisma.user.upsert({ where: { id: 'qp_stranger' }, update: {}, create: { id: 'qp_stranger', name: 'Stranger QA' } });
+    await prisma.user.upsert({ where: { id: 'qp_g_org' }, update: { birthDate: yearsAgo(30) }, create: { id: 'qp_g_org', name: 'Org QA', birthDate: yearsAgo(30) } });
+    await prisma.user.upsert({ where: { id: 'qp_g_minor' }, update: { birthDate: yearsAgo(15) }, create: { id: 'qp_g_minor', name: 'Kid QA', birthDate: yearsAgo(15) } });
+    field = await prisma.field.create({
+      data: { name: 'מגרש רשימות פרטיות', location: 'רחוב הרשימות 2', price: 0, available: false, type: 'OPEN' },
+    });
+    game = await prisma.game.create({
+      data: {
+        fieldId: field.id,
+        organizerId: 'qp_g_org',
+        start: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+        maxPlayers: 10,
+        isFriendsOnly: true,
+        customLocation: 'כתובת סודית 7',
+        customLat: 32.1,
+        customLng: 34.8,
+        roles: { create: { userId: 'qp_g_org', role: 'ORGANIZER' } },
+        participants: {
+          create: [
+            { userId: 'qp_g_org', status: 'CONFIRMED' },
+            { userId: 'qp_g_minor', status: 'CONFIRMED' },
+            { userId: 'qp_stranger', status: 'PENDING' },
+          ],
+        },
+      },
+    });
+    series = await prisma.gameSeries.create({
+      data: {
+        organizerId: 'qp_g_org', fieldName: 'x', fieldLocation: 'y', maxPlayers: 10, time: '20:00',
+        duration: 1, dayOfWeek: 1, type: 'WEEKLY', isFriendsOnly: true,
+      },
+    });
+    await prisma.seriesParticipant.create({ data: { seriesId: series.id, userId: 'qp_g_minor', role: 'MEMBER' } });
+  });
+
+  afterAll(async () => {
+    try {
+      await prisma.chatParticipant.deleteMany({ where: { chatId: game.id } });
+      await prisma.chatRoom.deleteMany({ where: { id: game.id } });
+      await prisma.participation.deleteMany({ where: { gameId: game.id } });
+      await prisma.gameRole.deleteMany({ where: { gameId: game.id } });
+      await prisma.game.delete({ where: { id: game.id } });
+      await prisma.seriesParticipant.deleteMany({ where: { seriesId: series.id } });
+      await prisma.gameSeries.delete({ where: { id: series.id } });
+      await prisma.field.delete({ where: { id: field.id } });
+    } catch (err) {
+      console.warn('qaProdPrivacy list cleanup skipped:', err.message);
+    }
+  });
+
+  test('a pending outsider sees the card in lists without address or roster', async () => {
+    const res = await request(app).get('/api/games/search').set(auth('qp_stranger'));
+    expect(res.statusCode).toBe(200);
+    const row = res.body.find((g) => g.id === game.id);
+    expect(row).toBeTruthy();
+    expect(row.customLocation).toBeNull();
+    expect(row.customLat).toBeNull();
+    expect(row.fieldLocation).toBe('');
+    expect(row.participants).toEqual([]);
+    expect(row.currentPlayers).toBe(2);
+  });
+
+  test('the organizer keeps the full list row', async () => {
+    const res = await request(app).get('/api/games/search').set(auth('qp_g_org'));
+    const row = res.body.find((g) => g.id === game.id);
+    expect(row.customLocation).toBe('כתובת סודית 7');
+    expect(row.participants.length).toBe(2);
+  });
+
+  test('group page: outsiders get no member list, logged-out viewers never see minors', async () => {
+    const outsider = await request(app).get(`/api/series/${series.id}`).set(auth('qp_stranger'));
+    expect(outsider.statusCode).toBe(200);
+    expect(outsider.body.subscribers).toEqual([]);
+
+    const anon = await request(app).get(`/api/series/${series.id}`);
+    expect(JSON.stringify(anon.body.subscribers)).not.toContain('qp_g_minor');
+
+    const org = await request(app).get(`/api/series/${series.id}`).set(auth('qp_g_org'));
+    expect(org.body.subscribers.map((s) => s.userId)).toContain('qp_g_minor');
+  });
+});

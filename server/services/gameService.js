@@ -262,6 +262,8 @@ const SEARCH_GAME_SELECT = {
   status: true,
   isOpenToJoin: true,
   isFriendsOnly: true,
+  friendsOnlyUntil: true,
+  friendsOnlyLinkPolicy: true,
   field: {
     select: {
       id: true,
@@ -274,7 +276,7 @@ const SEARCH_GAME_SELECT = {
     },
   },
   participants: {
-    select: { userId: true, status: true },
+    select: { userId: true, status: true, isWaitlistOffer: true },
   },
 };
 
@@ -347,7 +349,65 @@ async function fetchMappedListGames(where, viewerId, { orderBy = { start: 'asc' 
     ...(take ? { take } : {}),
   });
   const list = dedupe ? deduplicateSeriesGames(games) : games;
-  return list.map((g) => mapGameForSearchClient(g, viewerId));
+  return mapListForViewer(list, viewerId);
+}
+
+/**
+ * Maps list rows and blanks the address / coordinates / roster of friends-only games the viewer
+ * only knows through a pending or rejected join request (same rule as the detail endpoint:
+ * outsiders see the card, not who plays or where exactly). Friends, group members, role
+ * holders and organizers keep the full row.
+ */
+async function mapListForViewer(list, viewerId) {
+  const dtos = list.map((g) => mapGameForSearchClient(g, viewerId));
+  if (!viewerId) return dtos;
+
+  const suspects = list.filter((g) => {
+    if (!isGameFriendsOnlyNow(g) || g.organizerId === viewerId || g.friendsOnlyLinkPolicy === 'BLOCKED') return false;
+    const mine = (g.participants || []).find((p) => p.userId === viewerId);
+    return !!mine && (mine.status === 'REJECTED' || (mine.status === 'PENDING' && !mine.isWaitlistOffer));
+  });
+  if (!suspects.length) return dtos;
+
+  const organizerIds = [...new Set(suspects.map((g) => g.organizerId).filter(Boolean))];
+  const seriesIds = [...new Set(suspects.map((g) => g.seriesId).filter(Boolean))];
+  const [friendRows, memberRows, roleRows] = await Promise.all([
+    prisma.friendship.findMany({
+      where: { OR: [
+        { userAId: viewerId, userBId: { in: organizerIds } },
+        { userBId: viewerId, userAId: { in: organizerIds } },
+      ] },
+      select: { userAId: true, userBId: true },
+    }),
+    seriesIds.length
+      ? prisma.seriesParticipant.findMany({ where: { userId: viewerId, seriesId: { in: seriesIds } }, select: { seriesId: true } })
+      : [],
+    prisma.gameRole.findMany({ where: { userId: viewerId, gameId: { in: suspects.map((g) => g.id) } }, select: { gameId: true } }),
+  ]);
+  const friendOrganizers = new Set(friendRows.map((f) => (f.userAId === viewerId ? f.userBId : f.userAId)));
+  const memberSeries = new Set(memberRows.map((m) => m.seriesId));
+  const roleGames = new Set(roleRows.map((r) => r.gameId));
+  const outsiderIds = new Set(
+    suspects
+      .filter((g) => !friendOrganizers.has(g.organizerId) && !(g.seriesId && memberSeries.has(g.seriesId)) && !roleGames.has(g.id))
+      .map((g) => g.id)
+  );
+  if (!outsiderIds.size) return dtos;
+
+  return dtos.map((d) => {
+    if (!outsiderIds.has(d.id)) return d;
+    return {
+      ...d,
+      fieldLocation: '',
+      fieldLat: null,
+      fieldLng: null,
+      customLat: null,
+      customLng: null,
+      customLocation: null,
+      participants: [],
+      field: d.field ? { ...d.field, location: '', lat: null, lng: null } : d.field,
+    };
+  });
 }
 
 // Deduplicate games by seriesId, keeping the first occurrence (nearest upcoming)
@@ -1333,7 +1393,7 @@ async function searchGames(queryParams, viewerId, { dedupe = true } = {}) {
   });
 
   const deduped = dedupe ? deduplicateSeriesGames(games) : games;
-  return deduped.map((g) => mapGameForSearchClient(g, viewerId));
+  return mapListForViewer(deduped, viewerId);
 }
 
 const GAME_FULL_INCLUDE = {
@@ -2170,6 +2230,7 @@ module.exports = {
   loadGameForImageEdit,
   SEARCH_GAME_SELECT,
   mapGameForSearchClient,
+  mapListForViewer,
   deduplicateSeriesGames,
   buildVisibilityWhere,
   ROLE_LEVEL,
