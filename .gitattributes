@@ -5,3 +5,9 @@
 # (a CRLF checkout on Windows would compute a different runtime version than Linux/CI).
 mobile_app/google-services.json text eol=lf
 mobile_app/fingerprint.config.js text eol=lf
+
+# Deploy files run on Linux: always LF
+deploy/*.sh text eol=lf
+deploy/caddy/Caddyfile text eol=lf
+deploy/*.yml text eol=lf
+deploy/*.Dockerfile text eol=lf
