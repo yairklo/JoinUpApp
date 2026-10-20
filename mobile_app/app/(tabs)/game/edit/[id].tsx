@@ -6,7 +6,8 @@ import { gamesApi, fieldsApi, usersApi } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Game } from '@/types/game';
+import { Game, FriendsOnlyLinkPolicy } from '@/types/game';
+import FriendsOnlyLinkPolicyPicker from '@/components/FriendsOnlyLinkPolicyPicker';
 import { useTranslation } from 'react-i18next';
 import { jerusalemInstantToPickerDate, pickerToJerusalemUTC } from '@/utils/timezone';
 import { SPORT_MAPPING } from '@/utils/sports';
@@ -118,6 +119,7 @@ export default function EditGameScreen() {
     const [description, setDescription] = useState('');
     const [welcomeMessage, setWelcomeMessage] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
+    const [friendsOnlyLinkPolicy, setFriendsOnlyLinkPolicy] = useState<FriendsOnlyLinkPolicy>('REQUEST_TO_JOIN');
     const [requiresApproval, setRequiresApproval] = useState(false);
 
     // Location / field selection (same mechanism as create)
@@ -235,6 +237,7 @@ export default function EditGameScreen() {
             setDescription(data.description || '');
             setWelcomeMessage(data.welcomeMessage || '');
             setIsPrivate(data.isFriendsOnly || false);
+            setFriendsOnlyLinkPolicy(data.friendsOnlyLinkPolicy === 'BLOCKED' ? 'BLOCKED' : 'REQUEST_TO_JOIN');
             setRequiresApproval(data.joinPolicy === 'REQUIRES_APPROVAL');
 
             // Advanced Options
@@ -461,6 +464,7 @@ export default function EditGameScreen() {
                 description,
                 welcomeMessage,
                 isFriendsOnly: isPrivate,
+                friendsOnlyLinkPolicy,
                 joinPolicy: (requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT') as 'REQUIRES_APPROVAL' | 'INSTANT',
                 title: title || undefined,
                 sport,
@@ -731,6 +735,12 @@ export default function EditGameScreen() {
                         <Text className="text-gray-700 font-bold">{t('editGame.privateGame', 'Private Game')}</Text>
                         <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#059669' }} />
                     </View>
+
+                    {isPrivate && (
+                        <View className="mb-4">
+                            <FriendsOnlyLinkPolicyPicker value={friendsOnlyLinkPolicy} onChange={setFriendsOnlyLinkPolicy} />
+                        </View>
+                    )}
 
                     <View className={`flex-row items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <Text className="text-gray-700 font-bold">{t('editGame.requiresApproval', 'Requires Approval to Join')}</Text>

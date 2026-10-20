@@ -18,6 +18,8 @@ import { DEFAULT_MAP_REGION, MapBounds, MapCoordinate, MapMarkerItem, MapRegion,
 import { getFieldSportTags } from '@/utils/mapSport';
 import * as Location from 'expo-location';
 import SuggestFieldModal from '@/components/SuggestFieldModal';
+import FriendsOnlyLinkPolicyPicker from '@/components/FriendsOnlyLinkPolicyPicker';
+import type { FriendsOnlyLinkPolicy } from '@/types/game';
 
 function filterFieldsWithCoords(fields: Field[]): Field[] {
     return fields.filter((f) => f.lat != null && f.lng != null);
@@ -81,6 +83,7 @@ export default function NewGameScreen() {
     const [welcomeMessage, setWelcomeMessage] = useState('');
     const [whatsappLink, setWhatsappLink] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
+    const [friendsOnlyLinkPolicy, setFriendsOnlyLinkPolicy] = useState<FriendsOnlyLinkPolicy>('REQUEST_TO_JOIN');
     const [requiresApproval, setRequiresApproval] = useState(false);
 
     // Advanced Options State
@@ -334,7 +337,9 @@ export default function NewGameScreen() {
     // Prefill field/location/time/duration from a series' defaults, keeping every field editable.
     const loadSeriesDefaults = async (seriesId: string, cityList: string[]) => {
         try {
-            const series: any = await seriesApi.getById(seriesId);
+            // Signed in: a friends-only group with a blocked link answers 403 to anonymous calls.
+            const token = await getToken().catch(() => null);
+            const series: any = await seriesApi.getById(seriesId, token || undefined);
 
             if (series.fieldId) {
                 try {
@@ -376,6 +381,7 @@ export default function NewGameScreen() {
             if (typeof series.teamSize === 'number') setTeamSize(String(series.teamSize));
             if (series.welcomeMessage) setWelcomeMessage(series.welcomeMessage);
             if (typeof series.isFriendsOnly === 'boolean') setIsPrivate(series.isFriendsOnly);
+            if (series.friendsOnlyLinkPolicy === 'BLOCKED') setFriendsOnlyLinkPolicy('BLOCKED');
             if (series.joinPolicy) setRequiresApproval(series.joinPolicy === 'REQUIRES_APPROVAL');
             if (typeof series.lotteryEnabled === 'boolean') setLotteryEnabled(series.lotteryEnabled);
             if (typeof series.organizerInLottery === 'boolean') setOrganizerInLottery(series.organizerInLottery);
@@ -497,6 +503,7 @@ export default function NewGameScreen() {
                 welcomeMessage,
                 whatsappLink,
                 isFriendsOnly: isPrivate,
+                friendsOnlyLinkPolicy,
                 joinPolicy: requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT',
                 sport,
                 title: title || undefined,
@@ -722,6 +729,12 @@ export default function NewGameScreen() {
                         <Text className="text-gray-700 font-bold">{t('newGame.privateGame', 'משחק פרטי (לחברים בלבד)')}</Text>
                         <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: '#059669' }} />
                     </View>
+
+                    {isPrivate && (
+                        <View className="mb-4">
+                            <FriendsOnlyLinkPolicyPicker value={friendsOnlyLinkPolicy} onChange={setFriendsOnlyLinkPolicy} />
+                        </View>
+                    )}
 
                     <View className="flex-row items-center justify-between">
                         <Text className="text-gray-700 font-bold">{t('newGame.requiresApproval', 'דורש אישור הצטרפות')}</Text>

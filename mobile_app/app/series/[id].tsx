@@ -18,6 +18,9 @@ import SeriesRegistrationRule, {
 import DeleteSeriesModal from '@/components/series/DeleteSeriesModal';
 import MuteNotificationsButton from '@/components/MuteNotificationsButton';
 import BackButton from '@/components/ui/BackButton';
+import FriendsOnlyLinkPolicyPicker from '@/components/FriendsOnlyLinkPolicyPicker';
+import SeriesJoinRequests from '@/components/series/SeriesJoinRequests';
+import type { FriendsOnlyLinkPolicy } from '@/types/game';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,6 +32,10 @@ export default function SeriesScreen() {
 
     const [series, setSeries] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    // Friends-only group whose link is blocked for this viewer (403 SERIES_FRIENDS_ONLY).
+    const [friendsOnlyLocked, setFriendsOnlyLocked] = useState(false);
+    // Outsider of a friends-only group: their subscribe became a join request.
+    const [requestStatus, setRequestStatus] = useState<'PENDING' | 'REJECTED' | null>(null);
 
     // Settings State
     const [updating, setUpdating] = useState(false);
@@ -56,6 +63,7 @@ export default function SeriesScreen() {
     const [price, setPrice] = useState('');
     const [sport, setSport] = useState('SOCCER');
     const [isFriendsOnly, setIsFriendsOnly] = useState(false);
+    const [friendsOnlyLinkPolicy, setFriendsOnlyLinkPolicy] = useState<FriendsOnlyLinkPolicy>('REQUEST_TO_JOIN');
     const [requiresApproval, setRequiresApproval] = useState(false);
     const [lotteryEnabled, setLotteryEnabled] = useState(false);
     const [organizerInLottery, setOrganizerInLottery] = useState(false);
@@ -87,6 +95,8 @@ export default function SeriesScreen() {
             if (!token) return;
             const data = await seriesApi.getById(id, token);
             setSeries(data);
+            setFriendsOnlyLocked(false);
+            setRequestStatus(data.viewerJoinRequestStatus ?? null);
             setTime(data.time || "20:00");
             setTitle(data.title || data.fieldName || "");
             setDescription(data.description || "");
@@ -94,6 +104,7 @@ export default function SeriesScreen() {
             setPrice(data.price ? String(data.price) : '');
             setSport(data.sport || 'SOCCER');
             setIsFriendsOnly(!!data.isFriendsOnly);
+            setFriendsOnlyLinkPolicy(data.friendsOnlyLinkPolicy === 'BLOCKED' ? 'BLOCKED' : 'REQUEST_TO_JOIN');
             setRequiresApproval(data.joinPolicy === 'REQUIRES_APPROVAL');
             setLotteryEnabled(!!data.lotteryEnabled);
             setOrganizerInLottery(!!data.organizerInLottery);
@@ -112,7 +123,12 @@ export default function SeriesScreen() {
 
             const isSub = data.subscribers?.some((s: any) => s.userId === user?.id);
             setIsSubscribed(isSub || false);
-        } catch (error) {
+        } catch (error: any) {
+            if (error?.status === 403 && error?.code === 'SERIES_FRIENDS_ONLY') {
+                setSeries(null);
+                setFriendsOnlyLocked(true);
+                return;
+            }
             console.error("Failed to load series", error);
             Alert.alert(t('common.error', 'שגיאה'), t('series.loadError', 'Failed to load group details'));
         } finally {
@@ -158,7 +174,12 @@ export default function SeriesScreen() {
             if (sport !== (series.sport || 'SOCCER')) changes.sport = sport;
             if (isFriendsOnly !== !!series.isFriendsOnly) {
                 changes.isFriendsOnly = isFriendsOnly;
-                changes.isOpenToJoin = !isFriendsOnly;
+                // Friends-only is not "closed": friends (and approved requests) must still be able
+                // to join, so never close joining when turning it on.
+                if (!isFriendsOnly) changes.isOpenToJoin = true;
+            }
+            if (friendsOnlyLinkPolicy !== (series.friendsOnlyLinkPolicy || 'REQUEST_TO_JOIN')) {
+                changes.friendsOnlyLinkPolicy = friendsOnlyLinkPolicy;
             }
             if (requiresApproval !== (series.joinPolicy === 'REQUIRES_APPROVAL')) {
                 changes.joinPolicy = requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT';
@@ -281,14 +302,22 @@ export default function SeriesScreen() {
 
     const toggleSubscribe = async () => {
         const prev = isSubscribed;
-        setIsSubscribed(!prev);
+        // Cancelling a pending request uses the same call as leaving (DELETE subscribe).
+        const leaving = prev || requestStatus === 'PENDING';
+        if (leaving) setIsSubscribed(false);
+        else if (series?.viewerAccess !== 'REQUEST') setIsSubscribed(true);
         try {
             const token = await getToken();
             if (!token) return;
-            await seriesApi.toggleSubscribe(id, prev, token);
+            const res = await seriesApi.toggleSubscribe(id, leaving, token);
+            if (res?.pending) setRequestStatus('PENDING');
             fetchSeries();
-        } catch (e) {
+        } catch (e: any) {
             setIsSubscribed(prev);
+            if (e?.code === 'SERIES_JOIN_DECLINED') {
+                setRequestStatus('REJECTED');
+                return;
+            }
             Alert.alert(t('common.error', 'שגיאה'), t('series.subscribeError', 'Failed to update subscription'));
         }
     };
@@ -314,8 +343,10 @@ export default function SeriesScreen() {
                     <BackButton className="me-3" />
                     <Text className="text-xl font-bold text-gray-900">{t('series.details', 'Group Details')}</Text>
                 </View>
-                <View className="flex-1 justify-center items-center">
-                    <Text className="text-gray-500">{t('series.notFound', 'Group not found')}</Text>
+                <View className="flex-1 justify-center items-center px-6">
+                    <Text className="text-gray-500 text-center">
+                        {friendsOnlyLocked ? t('friendsOnly.seriesLocked') : t('series.notFound', 'Group not found')}
+                    </Text>
                 </View>
             </SafeAreaView>
         );
@@ -421,21 +452,41 @@ export default function SeriesScreen() {
                         </View>
                     )}
 
-                    {/* Subscribe button */}
-                    <TouchableOpacity
-                        onPress={toggleSubscribe}
-                        className={`py-4 rounded-xl items-center flex-row justify-center ${isSubscribed ? 'bg-brand-mist border border-brand-pale' : 'bg-brand'}`}
-                    >
-                        <FontAwesome
-                            name={isSubscribed ? "check" : "bell"}
-                            size={16}
-                            color={isSubscribed ? "#059669" : "white"}
-                            style={{ marginRight: 8 }}
-                        />
-                        <Text className={`font-bold text-base ${isSubscribed ? 'text-brand-dark' : 'text-white'}`}>
-                            {isSubscribed ? t('series.subscribed', 'Subscribed ✓') : t('series.subscribe', 'Subscribe to Group')}
-                        </Text>
-                    </TouchableOpacity>
+                    {/* Subscribe button (a join request for outsiders of a friends-only group) */}
+                    {!isSubscribed && requestStatus === 'REJECTED' ? (
+                        <View className="py-4 rounded-xl items-center bg-gray-100">
+                            <Text className="font-bold text-base text-gray-500">{t('series.requestDeclined')}</Text>
+                        </View>
+                    ) : !isSubscribed && requestStatus === 'PENDING' ? (
+                        <View className="flex-row gap-2">
+                            <View className="flex-1 py-4 rounded-xl items-center flex-row justify-center bg-gray-100">
+                                <FontAwesome name="hourglass-half" size={16} color="#6b7280" style={{ marginRight: 8 }} />
+                                <Text className="font-bold text-base text-gray-600">{t('series.requestSent')}</Text>
+                            </View>
+                            <TouchableOpacity onPress={toggleSubscribe} className="py-4 px-4 rounded-xl items-center justify-center border border-gray-200">
+                                <Text className="font-bold text-gray-700">{t('series.cancelRequest')}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            onPress={toggleSubscribe}
+                            className={`py-4 rounded-xl items-center flex-row justify-center ${isSubscribed ? 'bg-brand-mist border border-brand-pale' : 'bg-brand'}`}
+                        >
+                            <FontAwesome
+                                name={isSubscribed ? "check" : "bell"}
+                                size={16}
+                                color={isSubscribed ? "#059669" : "white"}
+                                style={{ marginRight: 8 }}
+                            />
+                            <Text className={`font-bold text-base ${isSubscribed ? 'text-brand-dark' : 'text-white'}`}>
+                                {isSubscribed
+                                    ? t('series.subscribed', 'Subscribed ✓')
+                                    : series.viewerAccess === 'REQUEST'
+                                        ? t('series.requestToJoin')
+                                        : t('series.subscribe', 'Subscribe to Group')}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                     {isSubscribed && typeof id === 'string' && (
                         <MuteNotificationsButton
                             targetType="SERIES"
@@ -508,6 +559,10 @@ export default function SeriesScreen() {
                         </View>
                     )}
                 </View>
+
+                {canManage && (series.pendingJoinRequestCount ?? 0) > 0 && typeof id === 'string' && (
+                    <SeriesJoinRequests seriesId={id} onApproved={fetchSeries} />
+                )}
 
                 {canManage && (
                     <View className="bg-white p-6 mb-4 shadow-sm">
@@ -720,6 +775,12 @@ export default function SeriesScreen() {
                                         thumbColor={isFriendsOnly ? '#059669' : '#f3f4f6'}
                                     />
                                 </View>
+
+                                {isFriendsOnly && (
+                                    <View className="mb-4">
+                                        <FriendsOnlyLinkPolicyPicker value={friendsOnlyLinkPolicy} onChange={setFriendsOnlyLinkPolicy} />
+                                    </View>
+                                )}
 
                                 <View className="flex-row justify-between items-center mb-4">
                                     <Text className="text-gray-700 font-bold w-3/4">{t('series.requiresApproval', 'Requires approval to join')}</Text>

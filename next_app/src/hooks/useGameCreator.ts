@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { fieldsApi, gamesApi } from '@/services/api';
 import { formatJerusalemDate, parseJerusalemTimeToUTC } from '@/utils/timezone';
+import type { FriendsOnlyLinkPolicy } from '@/types/game';
 
 export type FieldOption = { id: string; name: string; location?: string | null; inputValue?: string };
 
@@ -33,6 +34,7 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
         maxPlayers: 10,
         description: "",
         isFriendsOnly: false,
+        friendsOnlyLinkPolicy: "REQUEST_TO_JOIN" as FriendsOnlyLinkPolicy,
         joinPolicy: "INSTANT" as "INSTANT" | "REQUIRES_APPROVAL",
         lotteryEnabled: false,
         organizerInLottery: false,
@@ -143,7 +145,6 @@ export function useGameCreator(initialFieldId?: string, onCreated?: (fieldId: st
                 ...(newFieldMode
                     ? { newField: { name: newField.name.trim(), location: newField.location.trim(), type: newField.type } }
                     : {}),
-                isOpenToJoin: !form.isFriendsOnly,
                 title: form.title || null,
                 lotteryAt: form.lotteryEnabled ? parseJerusalemTimeToUTC(form.lotteryDate, form.lotteryTime).toISOString() : undefined,
                 pickDrawAt,

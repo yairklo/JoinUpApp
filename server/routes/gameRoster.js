@@ -18,6 +18,7 @@ const {
 } = require('../services/gameService');
 const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 const { isBlockedEitherWay } = require('../utils/blocks');
+const { getGameAccess } = require('../utils/friendsOnlyAccess');
 
 const router = express.Router();
 
@@ -39,7 +40,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
   try {
     const game = await prisma.game.findUnique({
       where: { id: req.params.id },
-      include: { participants: true }
+      include: { participants: true, roles: true }
     });
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
@@ -47,6 +48,14 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
     if (game.status === 'CANCELLED') {
       return res.status(400).json({ error: 'Game was cancelled' });
     }
+
+    // Friends-only: outsiders can't join a BLOCKED-link game at all, and on a REQUEST_TO_JOIN
+    // game their join always becomes a request the managers approve.
+    const access = await getGameAccess(prisma, game, req.user.id, { isAdmin: !!req.user?.isAdmin });
+    if (access === 'NONE') {
+      return res.status(403).json({ error: 'This game is for friends only', code: 'GAME_FRIENDS_ONLY' });
+    }
+    const forceApproval = access === 'REQUEST';
     if (!game.isOpenToJoin) {
       return res.status(400).json({ error: 'Game is not open for joining' });
     }
@@ -84,9 +93,20 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 
     // Approval-gated games (non-lottery only, for now): create a PENDING request instead of
     // an instant CONFIRMED participation. The organizer bypasses approval on their own game.
-    if (game.joinPolicy === 'REQUIRES_APPROVAL' && !game.lotteryEnabled && game.organizerId !== req.user.id) {
+    // Friends-only outsiders (forceApproval) always go through here, lottery or not; approving
+    // them puts them into the lottery draw (see /join-requests/:userId/approve).
+    const needsApproval = forceApproval || (game.joinPolicy === 'REQUIRES_APPROVAL' && !game.lotteryEnabled);
+    if (needsApproval && game.organizerId !== req.user.id) {
       if (existing?.status === 'REJECTED') {
         return res.status(400).json({ error: 'Your request to join this game was declined' });
+      }
+      if (game.lotteryEnabled && !game.lotteryExecutedAt) {
+        if (!game.lotteryAt) {
+          return res.status(400).json({ error: 'Lottery time is not set for this game' });
+        }
+        if (new Date() >= new Date(game.lotteryAt)) {
+          return res.status(400).json({ error: 'Lottery window is closed for this game' });
+        }
       }
 
       await safeUpsertUserFromAuth(prisma, req.user);
@@ -266,8 +286,11 @@ router.post('/:id/join-requests/:userId/approve', authenticateToken, rejectIfCan
     });
     if (!request) return res.status(404).json({ error: 'No pending or rejected request found for this user' });
 
+    // While the lottery hasn't run, an approved request joins the draw (WAITLISTED is the
+    // lottery pool, see gameScheduler._runLottery) instead of taking a seat directly.
+    const lotteryPending = game.lotteryEnabled && !game.lotteryExecutedAt;
     const confirmedCount = await prisma.participation.count({ where: { gameId, status: 'CONFIRMED' } });
-    const newStatus = confirmedCount < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
+    const newStatus = !lotteryPending && confirmedCount < game.maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
 
     await prisma.participation.update({ where: { id: request.id }, data: { status: newStatus } });
 
@@ -277,7 +300,7 @@ router.post('/:id/join-requests/:userId/approve', authenticateToken, rejectIfCan
       // Ignore if already a chat participant
     }
 
-    notifyRequesterOfDecision(game, targetUserId, true, req.io);
+    notifyRequesterOfDecision(game, targetUserId, true, req.io, { enteredLottery: lotteryPending });
     if (newStatus === 'CONFIRMED') {
       sendAutoWelcomeMessage(game, targetUserId);
     }

@@ -48,8 +48,9 @@ export async function apiClient<T>(endpoint: string, { token, data, ...customCon
 
         if (!response.ok) {
             const errorBody = await response.json().catch(() => ({}));
-            const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number };
+            const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number; code?: string };
             err.status = response.status;
+            if (typeof errorBody.code === 'string') err.code = errorBody.code;
             throw err;
         }
 

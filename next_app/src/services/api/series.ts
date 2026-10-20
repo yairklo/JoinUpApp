@@ -1,4 +1,12 @@
 import { apiClient, API_BASE } from './client';
+import type { FriendsOnlyLinkPolicy } from '@/types/game';
+
+export interface SeriesJoinRequest {
+    userId: string;
+    name: string;
+    avatar: string | null;
+    createdAt: string;
+}
 
 export interface SeriesPayload {
     type: 'WEEKLY' | 'CUSTOM';
@@ -18,6 +26,7 @@ export interface UpdateSeriesDTO {
     /** Fixed weekly registration-open rule (Asia/Jerusalem); set together, or both null. */
     registrationOpenDayOfWeek?: number | null;
     registrationOpenTime?: string | null;
+    friendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;
     updateFutureGames?: boolean;
 }
 
@@ -39,9 +48,31 @@ export const seriesApi = {
     },
 
     toggleSubscribe: (seriesId: string, isSubscribed: boolean, token: string) => {
-        return apiClient<{ ok?: boolean }>(`/api/series/${seriesId}/subscribe`, {
+        // POST answers `pending: true` when an outsider's subscribe became a join request.
+        return apiClient<{ ok?: boolean; pending?: boolean }>(`/api/series/${seriesId}/subscribe`, {
             method: isSubscribed ? 'DELETE' : 'POST',
             token
+        });
+    },
+
+    getJoinRequests: (seriesId: string, token: string) => {
+        return apiClient<{ pending: SeriesJoinRequest[]; rejected: SeriesJoinRequest[] }>(
+            `/api/series/${seriesId}/join-requests`,
+            { token }
+        );
+    },
+
+    approveJoinRequest: (seriesId: string, userId: string, token: string) => {
+        return apiClient<{ ok: boolean }>(`/api/series/${seriesId}/join-requests/${userId}/approve`, {
+            method: 'POST',
+            token,
+        });
+    },
+
+    rejectJoinRequest: (seriesId: string, userId: string, token: string) => {
+        return apiClient<{ ok: boolean }>(`/api/series/${seriesId}/join-requests/${userId}/reject`, {
+            method: 'POST',
+            token,
         });
     },
 

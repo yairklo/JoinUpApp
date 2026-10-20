@@ -18,6 +18,8 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import Switch from "@mui/material/Switch";
 import Collapse from "@mui/material/Collapse";
+import FriendsOnlyLinkPolicyPicker from "@/components/FriendsOnlyLinkPolicyPicker";
+import type { FriendsOnlyLinkPolicy } from "@/types/game";
 import Alert from "@mui/material/Alert";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -146,6 +148,7 @@ function NewGamePageInner() {
     description: "",
     welcomeMessage: "",
     isFriendsOnly: false,
+    friendsOnlyLinkPolicy: "REQUEST_TO_JOIN" as FriendsOnlyLinkPolicy,
     joinPolicy: "INSTANT" as "INSTANT" | "REQUIRES_APPROVAL",
     lotteryEnabled: false,
     organizerInLottery: false,
@@ -226,7 +229,12 @@ function NewGamePageInner() {
     let ignore = false;
     async function fetchSeries() {
       try {
-        const res = await fetch(`${API_BASE}/api/series/${urlSeriesId}`, { cache: "no-store" });
+        // Signed-in request: a friends-only group with a blocked link answers 403 to anonymous calls.
+        const token = await getToken().catch(() => null);
+        const res = await fetch(`${API_BASE}/api/series/${urlSeriesId}`, {
+          cache: "no-store",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (!res.ok || ignore) return;
         const series = await res.json();
 
@@ -257,6 +265,7 @@ function NewGamePageInner() {
           teamSize: typeof series.teamSize === "number" ? series.teamSize : prev.teamSize,
           welcomeMessage: series.welcomeMessage || prev.welcomeMessage,
           isFriendsOnly: typeof series.isFriendsOnly === "boolean" ? series.isFriendsOnly : prev.isFriendsOnly,
+          friendsOnlyLinkPolicy: series.friendsOnlyLinkPolicy === "BLOCKED" ? "BLOCKED" : prev.friendsOnlyLinkPolicy,
           joinPolicy: series.joinPolicy === "REQUIRES_APPROVAL" ? "REQUIRES_APPROVAL" : prev.joinPolicy,
           lotteryEnabled: typeof series.lotteryEnabled === "boolean" ? series.lotteryEnabled : prev.lotteryEnabled,
           organizerInLottery: typeof series.organizerInLottery === "boolean" ? series.organizerInLottery : prev.organizerInLottery,
@@ -265,7 +274,7 @@ function NewGamePageInner() {
     }
     fetchSeries();
     return () => { ignore = true; };
-  }, [urlSeriesId]);
+  }, [urlSeriesId, getToken]);
 
   // 2. Auto-set time
   useEffect(() => {
@@ -796,6 +805,12 @@ function NewGamePageInner() {
                       </Stack>
                       <Collapse in={form.isFriendsOnly}>
                         <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50', borderColor: 'grey.300', mt: 1 }}>
+                          <Box mb={1.5}>
+                            <FriendsOnlyLinkPolicyPicker
+                              value={form.friendsOnlyLinkPolicy}
+                              onChange={(v) => update("friendsOnlyLinkPolicy", v)}
+                            />
+                          </Box>
                           <FormControlLabel
                             control={<Switch checked={form.makePublicLater} onChange={(e) => update("makePublicLater", e.target.checked)} />}
                             label="פתח לציבור במועד מאוחר יותר"

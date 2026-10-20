@@ -10,9 +10,10 @@ const {
   isValidRegistrationOpenTime,
 } = require('../utils/seriesRegistrationRule');
 const gameScheduler = require('../services/gameScheduler');
-const { isSeriesSlotConflict, SERIES_SLOT_CONFLICT_MESSAGE } = require('../services/gameService');
+const { isSeriesSlotConflict, SERIES_SLOT_CONFLICT_MESSAGE, notificationService } = require('../services/gameService');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
+const { getSeriesAccess, seriesVisibilityWhere, normalizeLinkPolicy } = require('../utils/friendsOnlyAccess');
 
 const WELCOME_MESSAGE_MAX_LENGTH = 2000;
 const DESCRIPTION_MAX_LENGTH = 2000;
@@ -22,6 +23,14 @@ const FIELD_LOCATION_MAX_LENGTH = 300;
 
 const router = express.Router();
 const seriesImageUpload = createImageUpload('series');
+
+function seriesFriendsOnly(res) {
+  return res.status(403).json({ error: 'This group is for friends only', code: 'SERIES_FRIENDS_ONLY' });
+}
+
+function seriesDisplayName(series) {
+  return series.title || series.fieldName || 'הקבוצה';
+}
 
 // Organizer, a MANAGER participant, or an admin may manage a series's settings/image.
 async function canManageSeries(series, user) {
@@ -126,8 +135,9 @@ function mapGameForClient(game) {
 // List all active series
 router.get('/active', attachOptionalUser, async (req, res) => {
   try {
+    // Friends-only groups stay out of lists for anyone outside them, like friends-only games.
     const seriesList = await prisma.gameSeries.findMany({
-      where: { isActive: true },
+      where: { AND: [{ isActive: true }, seriesVisibilityWhere(req.user?.id)] },
       include: {
         _count: { select: { subscribers: true } },
         subscribers: {
@@ -182,7 +192,7 @@ router.get('/active', attachOptionalUser, async (req, res) => {
 });
 
 // Public: series details (organizer, subscribers, upcoming games)
-router.get('/:seriesId', async (req, res) => {
+router.get('/:seriesId', attachOptionalUser, async (req, res) => {
   try {
     const { seriesId: rawId } = req.params;
     let seriesId = rawId;
@@ -202,8 +212,25 @@ router.get('/:seriesId', async (req, res) => {
 
     if (!series) return res.status(404).json({ error: 'Series not found' });
 
+    const viewerId = req.user?.id;
+    const viewerAccess = await getSeriesAccess(prisma, series, viewerId, { isAdmin: !!req.user?.isAdmin });
+    if (viewerAccess === 'NONE') return seriesFriendsOnly(res);
+
     // Use the actual series.id for all related queries
     seriesId = series.id;
+
+    const [viewerRequest, canManage] = await Promise.all([
+      viewerId
+        ? prisma.seriesJoinRequest.findUnique({
+            where: { seriesId_userId: { seriesId, userId: viewerId } },
+            select: { status: true },
+          })
+        : null,
+      req.user ? canManageSeries(series, req.user) : false,
+    ]);
+    const pendingJoinRequestCount = canManage
+      ? await prisma.seriesJoinRequest.count({ where: { seriesId, status: 'PENDING' } })
+      : undefined;
 
     const { includeAll } = req.query;
     const gameQueryArgs = {
@@ -262,6 +289,10 @@ router.get('/:seriesId', async (req, res) => {
       price: series.price,
       isOpenToJoin: series.isOpenToJoin,
       isFriendsOnly: series.isFriendsOnly,
+      friendsOnlyLinkPolicy: series.friendsOnlyLinkPolicy,
+      viewerAccess,
+      viewerJoinRequestStatus: viewerRequest?.status || null,
+      ...(canManage ? { pendingJoinRequestCount } : {}),
       joinPolicy: series.joinPolicy,
       lotteryEnabled: series.lotteryEnabled,
       organizerInLottery: series.organizerInLottery,
@@ -305,6 +336,30 @@ router.post('/:seriesId/subscribe', authenticateToken, async (req, res) => {
     const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
     if (!series) return res.status(404).json({ error: 'Series not found' });
 
+    const access = await getSeriesAccess(prisma, series, userId, { isAdmin: !!req.user?.isAdmin });
+    if (access === 'NONE') return seriesFriendsOnly(res);
+    if (access === 'REQUEST') {
+      // Outsider on a friends-only group: the managers approve the membership first.
+      const existing = await prisma.seriesJoinRequest.findUnique({
+        where: { seriesId_userId: { seriesId, userId } },
+      });
+      if (existing?.status === 'REJECTED') {
+        return res.status(400).json({ error: 'Your request to join this group was declined', code: 'SERIES_JOIN_DECLINED' });
+      }
+      if (!existing) {
+        await prisma.seriesJoinRequest.create({ data: { seriesId, userId } });
+        notificationService.sendNotification(
+          series.organizerId,
+          'GAME_JOIN_REQUEST',
+          'בקשת הצטרפות לקבוצה',
+          `${req.user.name || 'משתמש'} ביקש/ה להצטרף לקבוצה ${seriesDisplayName(series)}`,
+          { seriesId, userId, actorId: userId, link: `/series/${seriesId}` },
+          req.io
+        ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series join request', seriesId, err));
+      }
+      return res.json({ ok: true, pending: true });
+    }
+
     await prisma.seriesParticipant.upsert({
       where: { seriesId_userId: { seriesId, userId } },
       update: {},
@@ -328,6 +383,10 @@ router.delete('/:seriesId/subscribe', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     await prisma.seriesParticipant.deleteMany({
       where: { seriesId, userId }
+    });
+    // Also withdraws a pending join request (a declined one stays declined).
+    await prisma.seriesJoinRequest.deleteMany({
+      where: { seriesId, userId, status: 'PENDING' }
     });
     return res.json({ ok: true });
   } catch (e) {
@@ -358,6 +417,7 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       sport,
       isOpenToJoin,
       isFriendsOnly,
+      friendsOnlyLinkPolicy: rawLinkPolicy,
       joinPolicy,
       lotteryEnabled,
       organizerInLottery,
@@ -462,6 +522,8 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     if (typeof sport !== 'undefined') data.sport = sport;
     if (typeof isOpenToJoin !== 'undefined') data.isOpenToJoin = !!isOpenToJoin;
     if (typeof isFriendsOnly !== 'undefined') data.isFriendsOnly = !!isFriendsOnly;
+    const friendsOnlyLinkPolicy = normalizeLinkPolicy(rawLinkPolicy);
+    if (friendsOnlyLinkPolicy) data.friendsOnlyLinkPolicy = friendsOnlyLinkPolicy;
     if (typeof joinPolicy !== 'undefined') data.joinPolicy = joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT';
     if (typeof lotteryEnabled !== 'undefined') data.lotteryEnabled = !!lotteryEnabled;
     if (typeof organizerInLottery !== 'undefined') data.organizerInLottery = !!organizerInLottery;
@@ -559,6 +621,7 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       if (typeof sport !== 'undefined') gd.sport = sport;
       if (typeof isOpenToJoin !== 'undefined') gd.isOpenToJoin = !!isOpenToJoin;
       if (typeof isFriendsOnly !== 'undefined') gd.isFriendsOnly = !!isFriendsOnly;
+      if (friendsOnlyLinkPolicy) gd.friendsOnlyLinkPolicy = friendsOnlyLinkPolicy;
       if (typeof joinPolicy !== 'undefined') gd.joinPolicy = joinPolicy === 'REQUIRES_APPROVAL' ? 'REQUIRES_APPROVAL' : 'INSTANT';
       if (typeof lotteryEnabled !== 'undefined') gd.lotteryEnabled = !!lotteryEnabled;
       if (typeof organizerInLottery !== 'undefined') gd.organizerInLottery = !!organizerInLottery;
@@ -623,6 +686,106 @@ router.delete('/:seriesId/image', authenticateToken, async (req, res) => {
   } catch (e) {
     console.error('Series image remove error:', e);
     res.status(500).json({ error: 'Failed to remove series image' });
+  }
+});
+
+// Pending / declined join requests from outsiders of a friends-only group (managers only)
+router.get('/:seriesId/join-requests', authenticateToken, async (req, res) => {
+  try {
+    const { seriesId } = req.params;
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+    if (!(await canManageSeries(series, req.user))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+    const rows = await prisma.seriesJoinRequest.findMany({
+      where: { seriesId },
+      orderBy: { createdAt: 'asc' },
+      include: { user: { select: { id: true, name: true, imageUrl: true } } },
+    });
+    const toDTO = (r) => ({
+      userId: r.userId,
+      name: r.user?.name || '',
+      avatar: r.user?.imageUrl || null,
+      createdAt: r.createdAt.toISOString(),
+    });
+    return res.json({
+      pending: rows.filter((r) => r.status === 'PENDING').map(toDTO),
+      rejected: rows.filter((r) => r.status === 'REJECTED').map(toDTO),
+    });
+  } catch (e) {
+    console.error('Series join requests error:', e);
+    return res.status(500).json({ error: 'Failed to load join requests' });
+  }
+});
+
+// Approve: the requester becomes a regular member. Membership never adds anyone to games, but
+// members can join every game of the group (see utils/friendsOnlyAccess.getGameAccess).
+router.post('/:seriesId/join-requests/:userId/approve', authenticateToken, async (req, res) => {
+  try {
+    const { seriesId, userId } = req.params;
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+    if (!(await canManageSeries(series, req.user))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+    const request = await prisma.seriesJoinRequest.findUnique({
+      where: { seriesId_userId: { seriesId, userId } },
+    });
+    if (!request) return res.status(404).json({ error: 'No join request found for this user' });
+
+    await prisma.$transaction([
+      prisma.seriesParticipant.upsert({
+        where: { seriesId_userId: { seriesId, userId } },
+        update: {},
+        create: { seriesId, userId, role: 'MEMBER' },
+      }),
+      prisma.seriesJoinRequest.delete({ where: { id: request.id } }),
+    ]);
+
+    notificationService.sendNotification(
+      userId,
+      'GAME_JOIN_APPROVED',
+      'הבקשה שלך אושרה',
+      `הצטרפת לקבוצה ${seriesDisplayName(series)}`,
+      { seriesId, link: `/series/${seriesId}` },
+      req.io
+    ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series join approval', seriesId, err));
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('Series approve join request error:', e);
+    return res.status(500).json({ error: 'Failed to approve join request' });
+  }
+});
+
+router.post('/:seriesId/join-requests/:userId/reject', authenticateToken, async (req, res) => {
+  try {
+    const { seriesId, userId } = req.params;
+    const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
+    if (!series) return res.status(404).json({ error: 'Series not found' });
+    if (!(await canManageSeries(series, req.user))) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+    const updated = await prisma.seriesJoinRequest.updateMany({
+      where: { seriesId, userId, status: 'PENDING' },
+      data: { status: 'REJECTED' },
+    });
+    if (updated.count === 0) return res.status(404).json({ error: 'No pending join request found for this user' });
+
+    notificationService.sendNotification(
+      userId,
+      'GAME_JOIN_REJECTED',
+      'הבקשה שלך נדחתה',
+      `בקשתך להצטרף לקבוצה ${seriesDisplayName(series)} נדחתה`,
+      { seriesId, link: `/series/${seriesId}` },
+      req.io
+    ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series join rejection', seriesId, err));
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('Series reject join request error:', e);
+    return res.status(500).json({ error: 'Failed to reject join request' });
   }
 });
 

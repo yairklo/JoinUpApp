@@ -1188,7 +1188,10 @@ async function runWeeklySeriesGeneration() {
               maxPlayers: Number(s.maxPlayers),
               price: s.price ?? 0,
               isOpenToJoin: true,
-              isFriendsOnly: false,
+              // A friends-only group's games must stay friends-only (and follow its link policy).
+              isFriendsOnly: !!s.isFriendsOnly,
+              friendsOnlyLinkPolicy: s.friendsOnlyLinkPolicy || 'REQUEST_TO_JOIN',
+              joinPolicy: s.joinPolicy || 'INSTANT',
               lotteryEnabled: false,
               organizerInLottery: false,
               description: '',

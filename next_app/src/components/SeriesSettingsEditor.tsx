@@ -21,6 +21,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Collapse from "@mui/material/Collapse";
+import FriendsOnlyLinkPolicyPicker from "@/components/FriendsOnlyLinkPolicyPicker";
 import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
@@ -409,6 +410,15 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                                         label="משחקים לחברים בלבד"
                                         sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
                                     />
+                                    <Collapse in={state.isFriendsOnly}>
+                                        <Box my={1} p={2} bgcolor="grey.50" borderRadius={1} border={1} borderColor="divider">
+                                            <FriendsOnlyLinkPolicyPicker
+                                                kind="series"
+                                                value={state.friendsOnlyLinkPolicy}
+                                                onChange={actions.setFriendsOnlyLinkPolicy}
+                                            />
+                                        </Box>
+                                    </Collapse>
                                     <FormControlLabel
                                         control={
                                             <Switch

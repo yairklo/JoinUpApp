@@ -5,6 +5,8 @@ import SeriesSubscribeButton from "@/components/SeriesSubscribeButton";
 import MuteNotificationsButton from "@/components/notifications/MuteNotificationsButton";
 import SeriesSettingsEditor from "@/components/SeriesSettingsEditor";
 import SeriesMembersPanel from "@/components/SeriesMembersPanel";
+import SeriesJoinRequestsPanel from "@/components/SeriesJoinRequestsPanel";
+import type { FriendsOnlyLinkPolicy } from "@/types/game";
 import GameLocationMap from "@/components/GameLocationMap";
 
 // MUI Imports
@@ -57,6 +59,12 @@ type SeriesDetails = {
     sport: string;
     isOpenToJoin: boolean;
     isFriendsOnly: boolean;
+    friendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;
+    /** REQUEST: a friends-only group seen by an outsider (joining sends a request). */
+    viewerAccess?: 'FULL' | 'REQUEST';
+    viewerJoinRequestStatus?: 'PENDING' | 'REJECTED' | null;
+    /** Managers only. */
+    pendingJoinRequestCount?: number;
     joinPolicy: 'INSTANT' | 'REQUIRES_APPROVAL';
     lotteryEnabled: boolean;
     organizerInLottery: boolean;
@@ -78,11 +86,21 @@ type SeriesDetails = {
     }[];
 };
 
-async function fetchSeries(id: string): Promise<SeriesDetails | null> {
+type FetchSeriesResult = { series: SeriesDetails } | { friendsOnly: true } | null;
+
+async function fetchSeries(id: string, token?: string | null): Promise<FetchSeriesResult> {
     try {
-        const res = await fetch(`${API_BASE}/api/series/${id}`, { cache: "no-store" });
+        // Signed in, so friends and members of a friends-only group are recognized.
+        const res = await fetch(`${API_BASE}/api/series/${id}`, {
+            cache: "no-store",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.status === 403) {
+            const body = await res.json().catch(() => ({}));
+            return body?.code === "SERIES_FRIENDS_ONLY" ? { friendsOnly: true } : null;
+        }
         if (!res.ok) return null;
-        return res.json();
+        return { series: await res.json() };
     } catch (e) {
         return null;
     }
@@ -90,9 +108,22 @@ async function fetchSeries(id: string): Promise<SeriesDetails | null> {
 
 export default async function SeriesPage(props: { params: Promise<{ id: string }> }) {
     const { id } = await props.params;
-    const series = await fetchSeries(id);
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
+    const token = await getToken().catch(() => null);
+    const result = await fetchSeries(id, token);
 
+    if (result && "friendsOnly" in result) {
+        return (
+            <Container sx={{ py: 4 }}>
+                <Alert severity="info">
+                    הקבוצה הזו פתוחה לחברים של המארגן בלבד.
+                    {!userId && " אם אתה חבר של המארגן, התחבר כדי לראות אותה."}
+                </Alert>
+            </Container>
+        );
+    }
+
+    const series = result?.series;
     if (!series) {
         return (
             <Container sx={{ py: 4 }}>
@@ -181,6 +212,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     initialPrice={series.price}
                                     initialSport={series.sport}
                                     initialIsFriendsOnly={series.isFriendsOnly}
+                                    initialFriendsOnlyLinkPolicy={series.friendsOnlyLinkPolicy}
                                     initialJoinPolicy={series.joinPolicy}
                                     initialLotteryEnabled={series.lotteryEnabled}
                                     initialOrganizerInLottery={series.organizerInLottery}
@@ -192,6 +224,8 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                             <SeriesSubscribeButton
                                 seriesId={series.id}
                                 initialSubscribed={isSubscribed}
+                                viewerAccess={series.viewerAccess}
+                                initialRequestStatus={series.viewerJoinRequestStatus ?? null}
                             />
                             {isSubscribed && (
                                 <MuteNotificationsButton targetType="SERIES" targetId={series.id} muteLabel="השתק התראות קבוצה" />
@@ -217,6 +251,9 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                     </Typography>
                     <Card elevation={2}>
                         <CardContent>
+                            {canManage && (series.pendingJoinRequestCount ?? 0) > 0 && (
+                                <SeriesJoinRequestsPanel seriesId={series.id} />
+                            )}
                             {series.subscribers.length > 0 ? (
                                 <Grid container spacing={2}>
                                     {series.subscribers.map((sub) => (

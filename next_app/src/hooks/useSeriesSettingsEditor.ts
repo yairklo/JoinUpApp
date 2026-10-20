@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { fieldsApi, seriesApi } from "@/services/api";
 import type { FieldOption } from "@/hooks/useGameCreator";
+import type { FriendsOnlyLinkPolicy } from "@/types/game";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -26,6 +27,7 @@ export interface SeriesSettingsEditorHookProps {
     initialPrice?: number | null;
     initialSport?: string | null;
     initialIsFriendsOnly?: boolean | null;
+    initialFriendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy | null;
     initialJoinPolicy?: "INSTANT" | "REQUIRES_APPROVAL" | null;
     initialLotteryEnabled?: boolean | null;
     initialOrganizerInLottery?: boolean | null;
@@ -74,6 +76,7 @@ export function useSeriesSettingsEditor({
     initialPrice,
     initialSport,
     initialIsFriendsOnly,
+    initialFriendsOnlyLinkPolicy,
     initialJoinPolicy,
     initialLotteryEnabled,
     initialOrganizerInLottery,
@@ -104,6 +107,7 @@ export function useSeriesSettingsEditor({
     const [price, setPrice] = useState<number | null>(initialPrice ?? null);
     const [sport, setSport] = useState<string>(initialSport || "SOCCER");
     const [isFriendsOnly, setIsFriendsOnly] = useState<boolean>(!!initialIsFriendsOnly);
+    const [friendsOnlyLinkPolicy, setFriendsOnlyLinkPolicy] = useState<FriendsOnlyLinkPolicy>(initialFriendsOnlyLinkPolicy || "REQUEST_TO_JOIN");
     const [requiresApproval, setRequiresApproval] = useState<boolean>(initialJoinPolicy === "REQUIRES_APPROVAL");
     const [lotteryEnabled, setLotteryEnabled] = useState<boolean>(!!initialLotteryEnabled);
     const [organizerInLottery, setOrganizerInLottery] = useState<boolean>(!!initialOrganizerInLottery);
@@ -166,6 +170,7 @@ export function useSeriesSettingsEditor({
         setPrice(initialPrice ?? null);
         setSport(initialSport || "SOCCER");
         setIsFriendsOnly(!!initialIsFriendsOnly);
+        setFriendsOnlyLinkPolicy(initialFriendsOnlyLinkPolicy || "REQUEST_TO_JOIN");
         setRequiresApproval(initialJoinPolicy === "REQUIRES_APPROVAL");
         setLotteryEnabled(!!initialLotteryEnabled);
         setOrganizerInLottery(!!initialOrganizerInLottery);
@@ -214,7 +219,12 @@ export function useSeriesSettingsEditor({
                 if (sport !== (initialSport || "SOCCER")) changed.sport = sport;
                 if (isFriendsOnly !== !!initialIsFriendsOnly) {
                     changed.isFriendsOnly = isFriendsOnly;
-                    changed.isOpenToJoin = !isFriendsOnly;
+                    // Friends-only is not "closed": friends (and approved requests) must still be
+                    // able to join, so never close joining when turning it on.
+                    if (!isFriendsOnly) changed.isOpenToJoin = true;
+                }
+                if (friendsOnlyLinkPolicy !== (initialFriendsOnlyLinkPolicy || "REQUEST_TO_JOIN")) {
+                    changed.friendsOnlyLinkPolicy = friendsOnlyLinkPolicy;
                 }
                 if (requiresApproval !== (initialJoinPolicy === "REQUIRES_APPROVAL")) {
                     changed.joinPolicy = requiresApproval ? "REQUIRES_APPROVAL" : "INSTANT";
@@ -317,13 +327,13 @@ export function useSeriesSettingsEditor({
         state: {
             open, loading, deleteDialogOpen,
             title, description, imageUrl, hours, regMode, regDay, regTime, time, duration, updateFutureGames,
-            maxPlayers, price, sport, isFriendsOnly, requiresApproval, lotteryEnabled, organizerInLottery, teamSize, welcomeMessage,
+            maxPlayers, price, sport, isFriendsOnly, friendsOnlyLinkPolicy, requiresApproval, lotteryEnabled, organizerInLottery, teamSize, welcomeMessage,
             fields, selectedField, newFieldMode, newField,
             seriesType, initialDayOfWeek,
         },
         actions: {
             setTitle, setDescription, setImageUrl, setHours, setRegMode, setRegDay, setRegTime, setTime, setDuration, setUpdateFutureGames,
-            setMaxPlayers, setPrice, setSport, setIsFriendsOnly, setRequiresApproval, setLotteryEnabled, setOrganizerInLottery, setTeamSize, setWelcomeMessage,
+            setMaxPlayers, setPrice, setSport, setIsFriendsOnly, setFriendsOnlyLinkPolicy, setRequiresApproval, setLotteryEnabled, setOrganizerInLottery, setTeamSize, setWelcomeMessage,
             setSelectedField, setNewFieldMode, setNewField, setDeleteDialogOpen,
             handleOpen, handleClose, handleSave, handleDeleteSuccess,
             uploadImage, removeImage, handleImageUploaded, handleImageRemoved,

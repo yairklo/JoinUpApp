@@ -7,6 +7,7 @@ import CancelGameButton from "@/components/CancelGameButton";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
+import type { FriendsOnlyLinkPolicy } from "@/types/game";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -56,6 +57,8 @@ type Game = {
   title?: string | null;
   friendsOnlyUntil?: string | null;
   isFriendsOnly?: boolean;
+  friendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;
+  viewerJoinRequiresApproval?: boolean;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
   viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
   waitlistOfferPending?: boolean;
@@ -68,12 +71,19 @@ type Game = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-async function fetchGame(id: string, token?: string | null): Promise<Game | null> {
+type FetchGameResult = { game: Game } | { friendsOnly: true } | null;
+
+async function fetchGame(id: string, token?: string | null): Promise<FetchGameResult> {
   try {
     const res = await fetch(`${API_BASE}/api/games/${id}`, {
       cache: "no-store",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
+    if (res.status === 403) {
+      // A friends-only game whose link is blocked for this viewer.
+      const body = await res.json().catch(() => ({}));
+      return body?.code === "GAME_FRIENDS_ONLY" ? { friendsOnly: true } : null;
+    }
     if (!res.ok) return null;
     const game = await res.json();
     if (game && game.start) {
@@ -83,7 +93,7 @@ async function fetchGame(id: string, token?: string | null): Promise<Game | null
       game.date = isoDate.split('-').reverse().join('/');
       game.time = formatJerusalemTime(game.start);
     }
-    return game;
+    return { game };
   } catch (e) {
     return null;
   }
@@ -95,9 +105,21 @@ export default async function GameDetails(props: {
   const { id } = await props.params;
   const { getToken, userId: authUserId } = await auth();
   const token = await getToken().catch(() => null);
-  const game = await fetchGame(id, token);
+  const result = await fetchGame(id, token);
   const userId = authUserId || "";
 
+  if (result && "friendsOnly" in result) {
+    return (
+      <Container sx={{ py: 4 }}>
+        <Alert severity="info">
+          המשחק הזה פתוח לחברים של המארגן בלבד.
+          {!userId && " אם אתה חבר של המארגן, התחבר כדי לראות אותו."}
+        </Alert>
+      </Container>
+    );
+  }
+
+  const game = result?.game;
   if (!game) {
     return (
       <Container sx={{ py: 4 }}>
@@ -196,6 +218,7 @@ export default async function GameDetails(props: {
                     initialRegistrationOpensAt={game.registrationOpensAt}
                     initialFriendsOnlyUntil={game.friendsOnlyUntil}
                     initialIsFriendsOnly={!!game.isFriendsOnly}
+                    initialFriendsOnlyLinkPolicy={game.friendsOnlyLinkPolicy}
                     initialJoinPolicy={game.joinPolicy}
                     initialTitle={game.title}
                     initialTeamSize={game.teamSize}

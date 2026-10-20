@@ -1,3 +1,9 @@
+/**
+ * Friends-only games/groups: what their link does for people who aren't the organizer's friends.
+ * REQUEST_TO_JOIN (default) shows it and turns joining into a request; BLOCKED hides it.
+ */
+export type FriendsOnlyLinkPolicy = 'REQUEST_TO_JOIN' | 'BLOCKED';
+
 export type GameParticipant = {
     id: string;
     name?: string | null;
@@ -73,6 +79,10 @@ export type Game = {
     customLocation?: string | null;
     isFriendsOnly?: boolean;
     friendsOnlyUntil?: string | null;
+    /** What the link does for non-friends while the game is friends-only. */
+    friendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;
+    /** Per-viewer: true when this viewer's join becomes a request (friends-only outsider). */
+    viewerJoinRequiresApproval?: boolean;
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     pendingRequestCount?: number;
     viewerParticipationStatus?: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'REJECTED' | null;

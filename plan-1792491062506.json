@@ -1,0 +1,65 @@
+[
+  {
+    "id": 1,
+    "title": "Game hero: real cover photo, countdown pill, status badge, colorful stat tiles",
+    "area": "web",
+    "files": [
+      "next_app/src/components/GameHero.tsx",
+      "next_app/src/components/GameLiveSection.tsx",
+      "next_app/src/app/games/[id]/page.tsx"
+    ],
+    "description": "Visual refresh of the game page header (young/fresh style), same data, no behavior change.\n\n(a) page.tsx: add `fieldImage?: string | null` and `seriesImageUrl?: string | null` to the local Game type and pass `coverImage: game.imageUrl || game.seriesImageUrl || game.fieldImage` into GameLiveSection's initialGame (the API already returns all three, see server/services/gameService.js:161-163; the feed cards already use this exact fallback, e.g. GamesByDateClient.tsx:72). Today the detail hero ignores the per-game/series/field photo entirely.\n(b) GameLiveSection.tsx: add `coverImage?: string | null` to LiveGame, include it in the initialGame sync effect deps, pass it to GameHero as `coverImage`, and pass a new `viewerState` prop: 'joined' | 'waitlisted' | 'pending' | null (from `joined`, viewerParticipationStatus).\n(c) GameHero.tsx: pass `image={coverImage}` to SportCover; taller hero (xs 240, md 300); top row = sport chip + teamSize chip on one side, a status pill on the other ('אתה בפנים ✓' white pill with sport-ink text when joined, 'ברשימת המתנה' / 'ממתין לאישור' glass pill, 'מלא' red pill / 'מקום אחרון!' amber pill otherwise); under the title add a bright countdown pill (sport glow bg, ink text) computed from date+time: 'היום · 20:00', 'מחר · 20:00', 'בעוד N ימים', 'הסתיים' (pure helper in the same file, Jerusalem-agnostic string math on the DD/MM/YYYY date the component already receives). Replace the bordered 3-column stat strip with three rounded tinted tiles (gap 1.5, radius 3, bg = alpha(sport base, 0.08) in light / 0.14 dark, icon in a 32px circle filled with sport base and white icon). Players tile keeps the progressbar (height 8, gradient from sport base to glow) and the spots-left caption. Actions footer: no grey band; actions sit in a padded row, full-width on xs (children container `width: {xs: '100%', sm: 'auto'}`). Keep the series link row but restyle as a rounded pill link inside the card padding instead of a full-bleed band. Card radius 6, softer shadow. Keep all aria/progressbar semantics and RTL (dir) handling as-is.",
+    "status": "verify"
+  },
+  {
+    "id": 2,
+    "title": "Map + nav/share actions as one rounded location card",
+    "area": "web",
+    "files": [
+      "next_app/src/components/GameActions.tsx"
+    ],
+    "description": "Restyle GameActions (no logic change to navHref/share): wrap everything in one Card (radius 5, border divider, no elevation) with a small header row: PlaceRounded icon in a tinted circle + 'מיקום' + fieldName (noWrap). Map below it (height 200, no inner card/radius, borderTop). Navigation and share become two pill buttons (borderRadius 999, size medium) in a footer row: 'ניווט' contained (primary, disableElevation), 'שיתוף' outlined; on xs they split 50/50 (flex: 1). When there is no location, render the same card with only the header + share button (no empty map). Keep ShareDialog wiring unchanged.",
+    "status": "verify"
+  },
+  {
+    "id": 3,
+    "title": "Roster: player tiles grid with open-slot placeholders, Hebrew empty states",
+    "area": "web",
+    "files": [
+      "next_app/src/components/GameParticipantsList.tsx"
+    ],
+    "description": "Visual refresh of the participants card, same actions/menus/API calls.\n(a) Card: elevation 0, border divider, radius 5. Header: 'השחקנים' h6 800 + a count pill 'N/M' (dir=ltr isolate) in primary tint; drop the AvatarGroup and Divider (the tiles show everyone already).\n(b) Flat mode (no teams): replace the full-width ListItem rows with a responsive CSS grid (`gridTemplateColumns: repeat(auto-fill, minmax(150px, 1fr))` on sm+, 2 columns on xs). Each tile: radius 3, border divider, avatar size md + name (noWrap, 700) + role caption; organizer tile gets a primary ring and a small StarIcon badge on the avatar corner, manager gets an info AdminPanelSettings badge; the viewer's own tile gets 'את/ה' caption suffix and a success border. MoreVert menu button stays in the tile corner, only when canEditUser (unchanged rule). Tile links to /users/:id exactly as today (keep stopPropagation-free structure: the menu button must NOT be inside the link).\n(c) After the real players, render `Math.max(0, maxPlayers - participants.length)` dashed open-slot tiles (cap at 6, then a '+K מקומות פנויים' tile) with a dashed 40px circle + 'מקום פנוי' caption — read-only, not clickable.\n(d) Team mode: same tiles inside each team section; team header = left color bar (6px, team.color) + name + count pill instead of the full colored band. Unassigned heading becomes 'לא שובצו (N)'.\n(e) Replace English strings: 'No participants yet. Be the first to join!' -> 'עוד אין שחקנים — היו הראשונים להצטרף!', 'No players assigned yet' -> 'עדיין אין שחקנים בקבוצה', 'Not Assigned' -> 'לא שובצו'.\n(f) Manager-only invite box ('צרף חברים נוספים'): wrap in a tinted rounded box (alpha primary 0.06, radius 3, p 1.5) with PersonAddAlt icon, so it reads as an admin tool distinct from the roster.",
+    "status": "verify"
+  },
+  {
+    "id": 4,
+    "title": "Manager view: admin bar under hero + chat card polish",
+    "area": "web",
+    "files": [
+      "next_app/src/components/GameLiveSection.tsx"
+    ],
+    "description": "Managers (canManageSeries) currently get a 'נהל משחק' outlined button mixed into the player CTA row. Replace with a dedicated admin bar rendered between the hero and PendingJoinRequests, only when canManageSeries: a rounded (radius 4) strip with a dark ink background (`#0f172a` light / alpha white 0.06 dark), white text, a 'מצב מנהל' pill with AdminPanelSettingsRounded icon in amber, and horizontally scrollable pill buttons (glass style): 'עריכת פרטים' (scrollToManage), 'ניהול קבוצות חי' (NextLink to /games/:id/team-management), 'בקשות ממתינות' only when `pendingRequestCount > 0` if present on the live game (add optional `pendingRequestCount?: number` to LiveGame; server already returns it, gameService.js:166) with a count badge, scrolling to PendingJoinRequests (give it a wrapper id `game-requests`). Remove the two 'נהל משחק' buttons from the hero children (joined + not-joined manager branches) so the hero CTA is identical to the player view; keep JoinGameButton/LeaveGameButton exactly as wired. Chat card: radius 5, header gets a ChatBubbleRounded icon in a sport-tinted circle and a small green 'live' dot next to the title. No change to the refresh/socket logic.",
+    "status": "verify"
+  },
+  {
+    "id": 5,
+    "title": "Manager control panel: tiles instead of plain Paper; roster admin header",
+    "area": "web",
+    "files": [
+      "next_app/src/app/games/[id]/page.tsx",
+      "next_app/src/components/TeamBuilderWrapper.tsx",
+      "next_app/src/components/GameDetailsEditor.tsx",
+      "next_app/src/components/GameManagePanel.tsx"
+    ],
+    "description": "(a) page.tsx #game-manage: replace the outlined Paper with a Card (radius 5, border) whose header is a slim gradient band (primary.dark -> primary.main) with TuneRounded icon, 'לוח ניהול' title and the existing helper sentence in white/0.8 shortened to 'עריכת פרטים, קבוצה שבועית וביטול המשחק'. Body: GameDetailsEditor trigger, CancelGameButton (same visibility condition) and SeriesManager, separated by Divider as today. Keep id=\"game-manage\" on the outer Card (scrollToManage relies on it). Keep GameActions where it is.\n(b) GameDetailsEditor.tsx: only the trigger button changes — not fullWidth outlined; instead a full-width tile-like Button (variant contained, color primary, disableElevation, borderRadius 3, py 1.25, justifyContent space-between, EditRounded start icon, ChevronLeft end icon). Dialog untouched.\n(c) TeamBuilderWrapper.tsx: the manager header ('סגל המשחק' + two buttons + caption) becomes a compact tinted admin box (alpha primary 0.06, radius 3, p 1.5, mb 2) titled 'ניהול קבוצות' with the two buttons as pills (borderRadius 999); caption kept but shortened to one line. Lottery-pending alert and waitlist card: radius 3, waitlist ListItemButtons become the same tile look as step 3 (border, radius 3). No change to save/route logic.\n\n(d) Implementation note: the panel shell moved into a new client component GameManagePanel.tsx, because its header uses a theme sx callback that a server component (page.tsx) cannot pass to a client component (it would have crashed the page for managers only).",
+    "status": "verify"
+  },
+  {
+    "id": 6,
+    "title": "Quality gates + visual check (player and manager views, light/dark, mobile width)",
+    "area": "web",
+    "files": [],
+    "description": "Run `cd next_app && npx tsc --noEmit` and `npm run lint` (PROMPT.md quality gate). Visually check /games/:id at 375px and desktop, light and dark, as (1) a guest, (2) a joined player, (3) the organizer. NOTE: the local server currently 500s on every games query because the shared dev DB is missing the Game.imageUrl column added on this branch (commit 00c16c3) — the migration must be applied to the dev DB (or verification done against a DB that has it) before the page renders at all; that is a user decision, not part of this plan.",
+    "status": "todo"
+  }
+]

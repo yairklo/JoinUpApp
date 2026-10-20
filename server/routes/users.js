@@ -493,6 +493,8 @@ router.delete('/me', authenticateToken, async (req, res) => {
         prisma.userPosition.deleteMany({ where: { userId } }),
         prisma.gameRole.deleteMany({ where: { userId } }),
         prisma.seriesParticipant.deleteMany({ where: { userId } }),
+        // The user row is kept (anonymized), so its join requests don't cascade away on their own.
+        prisma.seriesJoinRequest.deleteMany({ where: { userId } }),
         prisma.friendship.deleteMany({ where: { OR: [{ userAId: userId }, { userBId: userId }] } }),
         prisma.friendRequest.deleteMany({ where: { OR: [{ requesterId: userId }, { receiverId: userId }] } }),
         prisma.userBlock.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } }),
