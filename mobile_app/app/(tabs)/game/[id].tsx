@@ -665,6 +665,7 @@ export default function GameDetailsScreen() {
                     ) : isParticipant ? (
                         <View className="flex-row gap-3">
                             <TouchableOpacity
+                                testID="game-open-chat"
                                 onPress={() => router.push({
                                     pathname: '/chat/[id]',
                                     params: {
