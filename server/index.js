@@ -23,6 +23,8 @@ const { prisma } = require('./lib/prisma');
 const { createClient, closeSharedRedis, isRedisHealthy } = require('./lib/redis');
 const { attachSocketAdapter } = require('./socket/adapter');
 const { isUserOnline, hasOtherUserInRoom } = require('./utils/socketPresence');
+const { createTempIdDedupe } = require('./utils/tempIdDedupe');
+const { getRedis } = require('./lib/redis');
 const { setChatView, canSocketMarkRead } = require('./utils/chatViewState');
 
 // Import routes
@@ -372,15 +374,12 @@ if (enableRedis) {
 
 
 // tempIds of messages accepted/in flight per sender+room, so client retries are idempotent.
-const recentTempIds = new Map(); // key -> { t: createdAt, echo: stored message payload | null (in flight) }
-const TEMP_ID_TTL_MS = 5 * 60 * 1000;
+// CHAT_DEDUPE_STORE=redis also shares the claim across instances (retry after failover);
+// default is per-process memory.
+const tempIdDedupe = createTempIdDedupe({
+  client: process.env.CHAT_DEDUPE_STORE === 'redis' ? getRedis() : null,
+});
 const SEND_PROCESS_TIMEOUT_MS = 20000;
-let lastTempIdSweep = 0;
-function sweepRecentTempIds(now) {
-  if (now - lastTempIdSweep < 60 * 1000) return;
-  lastTempIdSweep = now;
-  for (const [k, v] of recentTempIds) if (now - v.t > TEMP_ID_TTL_MS) recentTempIds.delete(k);
-}
 
 io.on('connection', async (socket) => {
   // 1. Auto-join User & City User Rooms & Presence
@@ -532,7 +531,7 @@ io.on('connection', async (socket) => {
     // Moderation blocks are NOT failures: they come back as a normal echo with status 'blocked'.
     let dedupeKey = null;
     const fail = (error, code, retryable) => {
-      if (dedupeKey) recentTempIds.delete(dedupeKey);
+      if (dedupeKey) tempIdDedupe.release(dedupeKey);
       socket.emit('error', error);
       if (tempId !== undefined && tempId !== null) {
         socket.emit('messageFailed', { tempId, roomId: String(roomId), code, retryable });
@@ -546,19 +545,17 @@ io.on('connection', async (socket) => {
 
     // Retries reuse the same tempId, so a retry after a lost echo must not store the message twice.
     // Already stored => re-send the stored echo to this sender (their client was left on "pending");
-    // still in flight => ignore, the original will answer. In-memory and per instance: good enough
-    // for the sticky single-connection retry case, not a cross-instance guarantee.
+    // still in flight => ignore, the original will answer. Per instance by default; shared via
+    // Redis when CHAT_DEDUPE_STORE=redis (see utils/tempIdDedupe.js).
+    let echoStored = false;
     if (tempId !== undefined && tempId !== null) {
-      const now = Date.now();
-      sweepRecentTempIds(now);
-      dedupeKey = `${socket.userId}:${roomId}:${tempId}`;
-      const seen = recentTempIds.get(dedupeKey);
-      if (seen) {
-        dedupeKey = null; // not ours to clear
-        if (seen.echo) socket.emit('message', seen.echo);
+      const key = `${socket.userId}:${roomId}:${tempId}`;
+      const claim = await tempIdDedupe.claim(key);
+      if (!claim.claimed) {
+        if (claim.echo) socket.emit('message', claim.echo);
         return;
       }
-      recentTempIds.set(dedupeKey, { t: now, echo: null });
+      dedupeKey = key;
     }
 
     const processMessage = async () => {
@@ -708,7 +705,7 @@ io.on('connection', async (socket) => {
     };
 
 
-    if (dedupeKey) recentTempIds.set(dedupeKey, { t: Date.now(), echo: msg });
+    if (dedupeKey) { echoStored = true; tempIdDedupe.storeEcho(dedupeKey, msg); }
 
     if (msg.roomId) {
       if (initialStatus === 'blocked') {
@@ -791,7 +788,7 @@ io.on('connection', async (socket) => {
         }
       } catch (e) {
         console.error('[message] unexpected send error:', e);
-        if (dedupeKey && recentTempIds.get(dedupeKey)?.echo) return; // already stored + echoed; don't report a false failure
+        if (dedupeKey && echoStored) return; // already stored + echoed; don't report a false failure
         fail('Could not send message', 'SEND_FAILED', true);
       }
     };
