@@ -1,0 +1,16 @@
+# Cold start with wiped app data so every flow begins signed out.
+appId: com.yairklo.joinupapp
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+    permissions:
+      notifications: allow
+      location: allow
+# Safety net if a runtime permission prompt still appears (OS-level ids, stable across locales).
+- tapOn:
+    id: "com.android.permissioncontroller:id/permission_allow_foreground_only_button"
+    optional: true
+- tapOn:
+    id: "com.android.permissioncontroller:id/permission_allow_button"
+    optional: true

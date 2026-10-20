@@ -1,0 +1,57 @@
+# Creates a brand-new Clerk test user and gets through the age gate to the signed-in home screen.
+# Requires env: EMAIL, PASSWORD.  App must be signed out (use common/launch-clean first).
+appId: com.yairklo.joinupapp
+---
+- extendedWaitUntil:
+    visible:
+      id: sign-in-to-sign-up
+    timeout: 60000
+- tapOn:
+    id: sign-in-to-sign-up
+- extendedWaitUntil:
+    visible:
+      id: sign-up-email
+    timeout: 15000
+- tapOn:
+    id: sign-up-email
+- inputText: ${EMAIL}
+- tapOn:
+    id: sign-up-password
+- inputText: ${PASSWORD}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: sign-up-terms-checkbox
+- tapOn:
+    id: sign-up-terms-checkbox
+- tapOn:
+    id: sign-up-submit
+# Clerk dev instance: "+clerk_test" addresses always accept code 424242.
+- extendedWaitUntil:
+    visible:
+      id: sign-up-code
+    timeout: 30000
+- tapOn:
+    id: sign-up-code
+- inputText: "424242"
+- hideKeyboard
+- tapOn:
+    id: sign-up-verify
+# Age gate overlay (new user has no birth date / accepted terms yet).
+- extendedWaitUntil:
+    visible:
+      id: age-gate-birthdate
+    timeout: 60000
+- tapOn:
+    id: age-gate-birthdate
+# Native Android date dialog opens on 2008-01-01 (adult); "OK" keeps that date.
+- tapOn:
+    id: "android:id/button1"
+- tapOn:
+    id: age-gate-terms-checkbox
+- tapOn:
+    id: age-gate-continue
+- extendedWaitUntil:
+    visible:
+      id: tab-home
+    timeout: 30000
