@@ -1,5 +1,8 @@
-# Coolify (dev and prod): set the application base directory to /server, the
-# exposed port to 3005, and the health check to GET /api/health.
+# Coolify (dev and prod): base directory /server and Dockerfile location
+# /Dockerfile. Coolify resolves that path relative to the base directory, so
+# /server plus /server/Dockerfile looks for server/server/Dockerfile. Mirror
+# the pair the production resource already uses. Port 3005. Health check
+# GET /api/health.
 # Leave the start command empty so this image's CMD runs. `npm start`
 # (scripts/render-start.js) applies Prisma migrations and then listens.
 # Do not point the health check at /api/health/deep — that query keeps Neon awake.

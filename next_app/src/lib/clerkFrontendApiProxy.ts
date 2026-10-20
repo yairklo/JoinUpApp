@@ -74,12 +74,23 @@ function getClientIp(request: Request): string | undefined {
   return undefined;
 }
 
-/** Relative proxy path for live keys; env override wins. Dev (pk_test_) returns undefined. */
+/**
+ * Proxy path for the Clerk Frontend API.
+ * `pk_live_` defaults to `/__clerk` (required on `*.vercel.app`). An explicit
+ * `NEXT_PUBLIC_CLERK_PROXY_URL` overrides that for live keys only.
+ * `pk_test_` always returns undefined, even when that variable is set: a
+ * Preview/Development key must not follow the production proxy (it would send
+ * test traffic to the live Frontend API).
+ */
 export function resolveClerkProxyUrl(): string | undefined {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
+  if (publishableKey.startsWith("pk_test_")) {
+    return undefined;
+  }
+
   const fromEnv = process.env.NEXT_PUBLIC_CLERK_PROXY_URL?.trim();
   if (fromEnv) return fromEnv;
 
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
   if (publishableKey.startsWith("pk_live_")) {
     return DEFAULT_CLERK_PROXY_PATH;
   }

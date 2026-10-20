@@ -34,8 +34,10 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
 
   // Short-circuit before Clerk auth so /__clerk/* is never a Next.js HTML 404.
   // Required for live keys on *.vercel.app (cannot CNAME clerk.*.vercel.app).
+  // pk_test_ resolves no proxy URL, so those deploys do not forward /__clerk
+  // to the production Frontend API.
   // @clerk/nextjs@6.39.x has no built-in frontendApiProxy — handle it here.
-  if (matchClerkProxyPath(request.nextUrl.pathname, DEFAULT_CLERK_PROXY_PATH)) {
+  if (proxyUrl && matchClerkProxyPath(request.nextUrl.pathname, DEFAULT_CLERK_PROXY_PATH)) {
     return clerkFrontendApiProxy(request, {
       proxyPath: DEFAULT_CLERK_PROXY_PATH,
       publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
