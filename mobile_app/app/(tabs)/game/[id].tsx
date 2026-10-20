@@ -85,6 +85,8 @@ export default function GameDetailsScreen() {
 
     const [game, setGame] = useState<Game | null>(null);
     const [loading, setLoading] = useState(true);
+    // Friends-only game whose link is blocked for this viewer (403 GAME_FRIENDS_ONLY).
+    const [friendsOnlyLocked, setFriendsOnlyLocked] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
 
     // Provide default values to hook, will update when game loads
@@ -113,8 +115,15 @@ export default function GameDetailsScreen() {
             }
             const data = await gamesApi.getById(id, token || undefined);
             setGame(data);
+            setFriendsOnlyLocked(false);
             setLoading(false);
-        } catch (err) {
+        } catch (err: any) {
+            if (err?.status === 403 && err?.code === 'GAME_FRIENDS_ONLY') {
+                setGame(null);
+                setFriendsOnlyLocked(true);
+                setLoading(false);
+                return;
+            }
             console.error("Failed to load game", err);
             Alert.alert(t('common.error', 'שגיאה'), t('game.loadFailed', 'לא הצלחנו לטעון את פרטי המשחק'));
             setLoading(false);
@@ -246,8 +255,10 @@ export default function GameDetailsScreen() {
 
     if (!game) {
         return (
-            <View className="flex-1 justify-center items-center bg-white">
-                <Text className="text-gray-500">{t('game.notFound', 'המשחק לא נמצא')}</Text>
+            <View className="flex-1 justify-center items-center bg-white px-6">
+                <Text className="text-gray-500 text-center">
+                    {friendsOnlyLocked ? t('friendsOnly.gameLocked') : t('game.notFound', 'המשחק לא נמצא')}
+                </Text>
             </View>
         );
     }

@@ -621,7 +621,13 @@
     "clearSelection": "Clear selection",
     "selectAll": "Select all",
     "confirmDelete": "Confirm deletion",
-    "deleteLoadError": "Couldn't load the upcoming games. You can delete everything or keep the games, but not pick specific ones."
+    "deleteLoadError": "Couldn't load the upcoming games. You can delete everything or keep the games, but not pick specific ones.",
+    "requestToJoin": "Ask to join",
+    "requestSent": "Request sent",
+    "cancelRequest": "Cancel request",
+    "requestDeclined": "Request declined",
+    "joinRequests": "Join requests",
+    "requestError": "Action failed"
   },
   "editGame": {
     "title": "Edit Game",
@@ -1064,5 +1070,14 @@
     "loadFailed": "Could not load. Pull down to retry.",
     "emptyTitle": "You don't manage anything yet",
     "emptyDesc": "Create a game or a group and it will show up here."
+  },
+  "friendsOnly": {
+    "linkPolicyTitle": "Who can get in with the link?",
+    "requestToJoin": "Open link, joining needs approval",
+    "requestToJoinHint": "Anyone with the link can see it and ask to join. Your friends join as usual.",
+    "blocked": "Link blocked for non-friends",
+    "blockedHint": "Only your friends and people already in can open the link.",
+    "gameLocked": "This game is for the organizer's friends only",
+    "seriesLocked": "This group is for the organizer's friends only"
   }
 }

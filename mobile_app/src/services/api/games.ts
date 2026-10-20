@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { Game, JoinRequest } from '@/types/game';
+import { Game, JoinRequest, FriendsOnlyLinkPolicy } from '@/types/game';
 
 export interface UpdateGameDTO {
     time?: string;
@@ -10,6 +10,7 @@ export interface UpdateGameDTO {
     teamSize?: number | null;
     price?: number | null;
     isFriendsOnly?: boolean;
+    friendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     registrationOpensAt?: string | null;
     friendsOnlyUntil?: string | null;

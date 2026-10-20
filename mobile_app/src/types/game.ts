@@ -5,4 +5,5 @@ export type {
   Team,
   Manager,
   JoinRequest,
+  FriendsOnlyLinkPolicy,
 } from '@joinup/shared/types/game';
