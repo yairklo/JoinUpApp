@@ -8,7 +8,7 @@ const { Server } = require('socket.io');
 const { io: connectClient } = require('socket.io-client');
 const { attachSocketAdapter } = require('../socket/adapter');
 const { applySocketEvent } = require('../utils/socketBridge');
-const { isUserOnline, hasOtherUserInRoom } = require('../utils/socketPresence');
+const { isUserOnline, hasOtherUserInRoom, resetPresenceBreaker } = require('../utils/socketPresence');
 const { describeRedis, TEST_REDIS_URL, uniqueId, sleep, waitFor, newClient } = require('./helpers/redisTest');
 
 const quiet = { log: jest.fn(), warn: jest.fn(), error: jest.fn() };
@@ -65,6 +65,7 @@ describeRedis('multi-instance Socket.IO over a real Redis', () => {
   });
 
   beforeEach(async () => {
+    resetPresenceBreaker();
     X = await connect(A, 'u1');
     Y = await connect(B, 'u2');
     X.socket.emit('join', 'r1');
@@ -109,13 +110,13 @@ describeRedis('multi-instance Socket.IO over a real Redis', () => {
   test('fetchSockets and the presence helpers see sockets on the other instance', async () => {
     expect(await isUserOnline(A.io, 'u2')).toBe(true); // u2 is only connected to B
     expect(await isUserOnline(B.io, 'u1')).toBe(true);
-    expect(await isUserOnline(A.io, 'nobody')).toBe(false);
+    expect(await isUserOnline(A.io, 'nobody', 5000)).toBe(false); // generous soft timeout: unknown would read as online
     expect(await hasOtherUserInRoom(A.io, 'r1', 'u1')).toBe(true); // u2 on B counts
     Y.socket.emit('leaveRoom');
     const solo = await connect(A, 'u3');
     solo.socket.emit('join', 'solo');
     await waitFor(async () => (await A.io.in('solo').fetchSockets()).length === 1);
-    expect(await hasOtherUserInRoom(B.io, 'solo', 'u3')).toBe(false); // only the sender's own socket
+    expect(await hasOtherUserInRoom(B.io, 'solo', 'u3', 5000)).toBe(false); // only the sender's own socket
     solo.socket.close();
   });
 

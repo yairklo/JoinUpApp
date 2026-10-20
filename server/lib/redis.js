@@ -26,6 +26,9 @@ function attachLogging(client, label) {
   client.on('error', (err) => {
     state.lastError = err && err.message;
     state.healthy = false;
+    // A client that was quit/disconnected on purpose must not keep logging (late console output
+    // after a test run / process teardown).
+    if (client.status === 'end') return;
     const now = Date.now();
     // Dedupe: a down Redis emits an error per reconnect attempt.
     if (now - errorLog.at > 30_000) {

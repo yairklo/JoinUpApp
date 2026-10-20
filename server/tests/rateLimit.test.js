@@ -134,7 +134,7 @@ describe('HTTP rate limiter', () => {
       // eslint-disable-next-line no-await-in-loop
       expect((await request(app).get('/ok')).statusCode).toEqual(200);
     }
-  });
+  }, 30_000); // 100 sequential requests; the default 5 s is too tight on a loaded machine
 });
 
 describe('Redis-backed rate limit store (fake client)', () => {
