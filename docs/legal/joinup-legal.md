@@ -2,7 +2,7 @@
 
 ## תנאי שימוש
 
-עדכון אחרון: 18.10.2026 · 2026-10-18
+עדכון אחרון: 20.10.2026 · 2026-10-18
 
 ברוכים הבאים ל-JoinUp. תנאי שימוש אלה ("התנאים") מסדירים את השימוש באפליקציית JoinUp ובאתר הנלווה לה (יחד: "השירות"), המופעלים על ידי יאיר קלאוזנר ("המפעיל", "אנחנו").
 
@@ -64,9 +64,9 @@ JoinUp היא פלטפורמה קהילתית לתיאום משחקי ספורט
 
 ### 7. מודרציה, דיווח ואכיפה
 
-- כדי להגן על קטינים, הודעות צ'אט הנשלחות לשיחה שמשתתף בה קטין נבדקות באופן אוטומטי, בין היתר באמצעות שירותי בינה מלאכותית של צדדים שלישיים. הודעה שנמצאה פוגענית עלולה שלא להישלח. אם הבדיקה האוטומטית אינה זמינה, הודעה לקטין שאינו חבר מאושר של השולח עלולה שלא להישלח.
-- הודעות שסומנו עשויות להיבדק על ידי צוות המפעיל.
-- אפשר לדווח על הודעה או על משתמש ולחסום משתמש מתוך השירות.
+- כדי להגן על קטינים, הודעה שבגיר שולח בשיחה שמשתתף בה קטין עוברת תחילה בדיקה אוטומטית ראשונית. רק הודעה שהבדיקה הראשונית סימנה כחשודה נשלחת למודרציה בשירותי בינה מלאכותית של צדדים שלישיים. הודעה שנמצאה פוגענית עלולה שלא להישלח. אם הבדיקה אינה זמינה להודעה שסומנה, הודעה לקטין שאינו חבר מאושר של השולח עלולה שלא להישלח.
+- הודעות שדווחו או שסומנו נשמרות לבדיקה של צוות המפעיל.
+- אפשר לדווח מתוך הצ'אט על הודעה פוגענית או בלתי הולמת, וכן לדווח על משתמש ולחסום משתמש מתוך השירות.
 - המפעיל רשאי, לפי שיקול דעתו ובלי חובת הודעה מוקדמת, להסיר תוכן, להגביל פעולות, להשעות חשבון או לסגור אותו כאשר יש חשד להפרת התנאים או לסיכון למשתמשים.
 - המפעיל ישתף פעולה עם רשויות אכיפת החוק כאשר הדבר נדרש על פי דין, או כאשר הדבר דרוש לדעתו כדי למנוע פגיעה בגוף, ובפרט פגיעה בקטינים.
 
@@ -104,11 +104,11 @@ JoinUp היא פלטפורמה קהילתית לתיאום משחקי ספורט
 
 ### 15. יצירת קשר
 
-לשאלות, לבירורים ולתלונות: דרך מסך התמיכה באפליקציה, או בדוא"ל support@joinup.co.il.
+לשאלות, לבירורים ולתלונות: דרך מסך התמיכה באפליקציה, או בדוא"ל joinupapp.support@gmail.com.
 
 ## מדיניות פרטיות
 
-עדכון אחרון: 18.10.2026 · 2026-10-18
+עדכון אחרון: 20.10.2026 · 2026-10-18
 
 מדיניות זו מסבירה איזה מידע יאיר קלאוזנר ("המפעיל", "אנחנו") אוסף על משתמשי אפליקציית JoinUp והאתר הנלווה לה ("השירות"), למה המידע משמש, עם מי הוא משותף, ומה הזכויות שלך לגביו. המדיניות היא חלק מתנאי השימוש.
 
@@ -147,7 +147,7 @@ JoinUp היא פלטפורמה קהילתית לתיאום משחקי ספורט
 
 ### 5. מודרציה אוטומטית ובינה מלאכותית
 
-כדי להגן על קטינים, הודעות הנשלחות לשיחה שמשתתף בה קטין נבדקות באופן אוטומטי. לצורך הבדיקה, טקסט ההודעה נשלח לשירותי הבינה המלאכותית של OpenAI ושל Google (תוך שימוש במסלולים העסקיים המאובטחים שאינם משתמשים בנתונים לאימון מודלים), לאחר הסרה אוטומטית של מספרי טלפון וכתובות דוא"ל. יחד עם הטקסט נשלחים נתוני גיל ומגדר כלליים, לצורך כיול הבדיקה. הודעות בשיחות שכל משתתפיהן בגירים אינן נשלחות לבדיקה כזו. הודעות שסומנו נשמרות לבדיקה של צוות המפעיל.
+כדי להגן על קטינים, הודעה שבגיר שולח בשיחה שמשתתף בה קטין עוברת תחילה בדיקה אוטומטית ראשונית. רק הודעה שהבדיקה הראשונית סימנה כחשודה נשלחת לשירותי הבינה המלאכותית של OpenAI ושל Google (Gemini), תוך שימוש במסלולים העסקיים המאובטחים שאינם משתמשים בנתונים לאימון מודלים, ולאחר הסרה אוטומטית של מספרי טלפון וכתובות דוא"ל. יחד עם הטקסט נשלחים נתוני גיל ומגדר כלליים, לצורך כיול הבדיקה. שיחות שכל משתתפיהן בגירים אינן נבדקות. משתמש רשאי לדווח מתוך הצ'אט על הודעה פוגענית או בלתי הולמת. הודעות שדווחו או שסומנו נשמרות לבדיקה של צוות המפעיל.
 
 ### 6. שיתוף מידע עם צדדים שלישיים
 
@@ -189,7 +189,7 @@ JoinUp היא פלטפורמה קהילתית לתיאום משחקי ספורט
 - מחיקת חשבון: אפשר למחוק את החשבון בעצמך בכל עת ממסך ההגדרות.
 - התראות: אפשר לכבות התראות או סוגי התראות בהגדרות האפליקציה ובהגדרות המכשיר.
 
-לפנייה בעניין זכויותיך: דרך מסך התמיכה באפליקציה או בדוא"ל support@joinup.co.il. נשיב לפנייה בתוך הזמנים הקבועים בדין.
+לפנייה בעניין זכויותיך: דרך מסך התמיכה באפליקציה או בדוא"ל joinupapp.support@gmail.com. נשיב לפנייה בתוך הזמנים הקבועים בדין.
 
 ### 12. עוגיות ואחסון מקומי
 
@@ -201,7 +201,7 @@ JoinUp היא פלטפורמה קהילתית לתיאום משחקי ספורט
 
 ### 14. יצירת קשר
 
-בעל מאגר המידע: יאיר קלאוזנר. לשאלות או לתלונות בנושא פרטיות: דרך מסך התמיכה באפליקציה או בדוא"ל support@joinup.co.il.
+בעל מאגר המידע: יאיר קלאוזנר. לשאלות או לתלונות בנושא פרטיות: דרך מסך התמיכה באפליקציה או בדוא"ל joinupapp.support@gmail.com.
 
 ## נוסחי ההסכמה במסך ההרשמה
 
@@ -214,7 +214,7 @@ JoinUp היא פלטפורמה קהילתית לתיאום משחקי ספורט
 
 ## Terms of Service
 
-Last updated: October 18, 2026 · 2026-10-18
+Last updated: October 20, 2026 · 2026-10-18
 
 Welcome to JoinUp. These Terms of Service ("Terms") govern your use of the JoinUp mobile application and its companion website (collectively: the "Service"), operated by Yair Klausner ("the Operator", "we", "us", or "our").
 
@@ -276,9 +276,9 @@ By publishing content, you grant the Operator a non-exclusive, worldwide, royalt
 
 ### 7. Moderation, Reporting, and Enforcement
 
-- To protect minors, chat messages sent to a conversation involving a minor are automatically checked, inter alia, using third-party artificial intelligence services. Messages found to be offensive may be blocked from sending. If automated checking is unavailable, messages to a minor from someone who is not an approved friend of the sender may be blocked.
-- Flagged messages may be reviewed by the Operator's team.
-- You can report a message or user, and block users directly within the Service.
+- To protect minors, a message that an adult sends in a conversation involving a minor first undergoes an automatic initial check. Only a message flagged as suspicious by that check is sent for moderation by third-party artificial intelligence services. A message found to be offensive may be blocked from sending. If the check is unavailable for a flagged message, a message to a minor who is not an approved friend of the sender may be blocked.
+- Reported and flagged messages are retained for review by the Operator team.
+- You may report an offensive or inappropriate message from the chat, report a user, and block a user from within the Service.
 - The Operator may, at its discretion and without prior notice, remove content, restrict actions, suspend an account, or terminate it when there is suspicion of a breach of these Terms or risk to users.
 - The Operator will cooperate with law enforcement authorities when required by law, or when necessary in its opinion to prevent bodily harm, specifically harm to minors.
 
@@ -316,11 +316,11 @@ These Terms and the use of the Service shall be governed solely by the laws of t
 
 ### 15. Contact
 
-For questions, inquiries, and complaints: via the support screen in the app, or by email at support@joinup.co.il.
+For questions, inquiries, and complaints: via the support screen in the app, or by email at joinupapp.support@gmail.com.
 
 ## Privacy Policy
 
-Last updated: October 18, 2026 · 2026-10-18
+Last updated: October 20, 2026 · 2026-10-18
 
 This policy explains what information Yair Klausner ("the Operator", "we", "us") collects about users of the JoinUp application and its companion website (the "Service"), what the information is used for, with whom it is shared, and what your rights are regarding it. This policy is part of the Terms of Service.
 
@@ -359,7 +359,7 @@ We do not sell personal information, and we do not use it for third-party target
 
 ### 5. Automated Moderation and Artificial Intelligence
 
-To protect minors, messages sent to conversations involving a minor are checked automatically. For this purpose, message text is sent to OpenAI and Google Gemini artificial intelligence services (using secure business tiers that do not use data to train models), following the automatic removal of phone numbers and email addresses. General age and gender metadata are sent alongside the text to calibrate moderation. Conversations where all participants are adults are not sent for such checks. Flagged messages are saved for Operator team review.
+To protect minors, a message that an adult sends in a conversation involving a minor first undergoes an automatic initial check. Only a message flagged as suspicious by that check is sent to the artificial intelligence services of OpenAI and Google Gemini (using secure business tiers that do not use data to train models), following the automatic removal of phone numbers and email addresses. General age and gender metadata are sent alongside the text to calibrate moderation. Conversations where all participants are adults are not checked. A user may report an offensive or inappropriate message from the chat. Reported and flagged messages are retained for review by the Operator team.
 
 ### 6. Sharing Information with Third Parties
 
@@ -401,7 +401,7 @@ Backups and system log copies may be retained for a limited period of up to 30 d
 - Account Deletion: You may delete your account yourself at any time from the settings screen.
 - Notifications: You can disable notifications or specific notification types in app settings and device settings.
 
-To exercise your rights: via the support screen in the app or by email at support@joinup.co.il. We will respond within the timeframes prescribed by law.
+To exercise your rights: via the support screen in the app or by email at joinupapp.support@gmail.com. We will respond within the timeframes prescribed by law.
 
 ### 12. Cookies and Local Storage
 
@@ -413,7 +413,7 @@ We may update this policy from time to time. Material changes will be notified v
 
 ### 14. Contact
 
-Database Owner: Yair Klausner. For questions or privacy complaints: via the support screen in the app or by email at support@joinup.co.il.
+Database Owner: Yair Klausner. For questions or privacy complaints: via the support screen in the app or by email at joinupapp.support@gmail.com.
 
 ## Registration consent texts
 

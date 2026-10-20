@@ -69,7 +69,7 @@ export default function Footer() {
             ))}
             <Typography
               component="a"
-              href="mailto:support@joinup.co.il"
+              href="mailto:joinupapp.support@gmail.com"
               variant="body2"
               sx={{
                 color: "text.secondary",
