@@ -1,17 +1,25 @@
 /**
  * Chat send-path safety: message validation, per-user send rate limit, and the
- * minor-protection moderation policy shared by the socket and REST write paths.
+ * minor-protection moderation policy shared by the socket and REST write paths
+ * (including edits).
  *
- * Policy:
- * - AI moderation runs only when at least one recipient is a known minor (< 18).
- *   Adult-only chats (and unknown ages, matching getDefaultPrivacyForAge) skip it.
- * - If moderation says unsafe -> blocked.
- * - If moderation could not actually check the message (error, AI down, AI rate
- *   limit) -> blocked only when a minor recipient is NOT a confirmed friend of the
+ * Policy (teens swear; that is not what we moderate):
+ * - Minor senders are never filtered, in any chat. Reports are the safety net.
+ * - Group / game chats have no lexicon filter, even with minors present.
+ * - Private adult→minor: a short lexicon of severe sexual slurs is blocked.
+ * - AI moderation runs only when the sender is an adult and at least one
+ *   recipient is a known minor (private or group), and only for messages that
+ *   trip the cheap deterministic gate (moderationGate.js).
+ * - Unknown ages stay "adult", matching getDefaultPrivacyForAge.
+ * - If AI says unsafe -> blocked.
+ * - If AI could not actually check a gated message (error, AI down, rate limit)
+ *   -> blocked only when a minor recipient is NOT a confirmed friend of the
  *   sender; otherwise delivered.
  */
 const { prisma } = require('../lib/prisma');
 const { getAgeInJerusalem } = require('../utils/privacy');
+const { containsSevereSlur } = require('./profanityFilter');
+const { needsAiReview } = require('./moderationGate');
 
 const MAX_MESSAGE_LENGTH = 2000;
 const SEND_RATE_WINDOW_MS = 10_000;
@@ -50,8 +58,11 @@ function createSendRateLimiter({ windowMs = SEND_RATE_WINDOW_MS, max = SEND_RATE
   };
 }
 
-/** Everyone in the room except the sender. */
-async function resolveRecipientIds(roomId, senderId) {
+/**
+ * Everyone in the room except the sender, plus whether it is a group chat
+ * (game chat, or a chat room that is not a 1:1).
+ */
+async function resolveRoom(roomId, senderId) {
   const room = String(roomId);
   const sender = String(senderId);
 
@@ -60,13 +71,15 @@ async function resolveRecipientIds(roomId, senderId) {
     include: { participants: true },
   });
   if (chatRoom) {
-    return chatRoom.participants.map((p) => p.userId).filter((id) => id !== sender);
+    const recipientIds = chatRoom.participants.map((p) => p.userId).filter((id) => id !== sender);
+    const isGroup = (chatRoom.type && chatRoom.type !== 'PRIVATE') || chatRoom.participants.length > 2;
+    return { recipientIds, isGroup };
   }
 
   // Web's legacy "private_ID1_ID2" room ids
   if (room.startsWith('private_')) {
     const otherId = room.replace('private_', '').split('_').find((id) => id !== sender);
-    return otherId ? [otherId] : [];
+    return { recipientIds: otherId ? [otherId] : [], isGroup: false };
   }
 
   // Group chat whose room id is the game id
@@ -74,7 +87,12 @@ async function resolveRecipientIds(roomId, senderId) {
     where: { gameId: room, status: 'CONFIRMED', userId: { not: sender } },
     select: { userId: true },
   });
-  return participations.map((p) => p.userId);
+  return { recipientIds: participations.map((p) => p.userId), isGroup: true };
+}
+
+/** Everyone in the room except the sender. */
+async function resolveRecipientIds(roomId, senderId) {
+  return (await resolveRoom(roomId, senderId)).recipientIds;
 }
 
 /** Known-minor recipients, and which of them are not confirmed friends of the sender. */
@@ -112,6 +130,31 @@ async function getMinorRecipients(senderId, recipientIds) {
   return { minorIds, nonFriendMinorIds: minorIds.filter((id) => !friendIds.has(id)), youngestAge };
 }
 
+/** Moderator trail for a blocked adult→minor attempt (never throws). */
+async function recordBlockedAttempt({ text, senderId, roomId, senderAge, youngestAge, reason, onFlagged }) {
+  try {
+    await prisma.flaggedMessage.create({
+      data: {
+        content: text,
+        userId: senderId,
+        status: 'PENDING_REVIEW',
+        resolution: null,
+        aiTriggers: {
+          source: 'blocked_attempt',
+          reason,
+          roomId: String(roomId),
+          senderAge,
+          receiverAge: youngestAge,
+          chatMode: 'ADULT_TO_MINOR',
+        },
+      },
+    });
+    if (onFlagged) onFlagged();
+  } catch (dbError) {
+    console.error('[MODERATION] Failed to record blocked attempt:', dbError.message);
+  }
+}
+
 /**
  * Decides whether a message is delivered or blocked.
  * @returns {Promise<{ status: 'sent'|'blocked', recipientIds: string[] }>}
@@ -119,12 +162,24 @@ async function getMinorRecipients(senderId, recipientIds) {
  */
 async function assessOutgoingMessage({ moderator, sender, roomId, text, onFlagged }) {
   const senderId = String(sender.id);
-  const recipientIds = await resolveRecipientIds(roomId, senderId);
+  const { recipientIds, isGroup } = await resolveRoom(roomId, senderId);
   const { minorIds, nonFriendMinorIds, youngestAge } = await getMinorRecipients(senderId, recipientIds);
-
-  if (!minorIds.length) return { status: 'sent', recipientIds };
-
   const senderAge = getAgeInJerusalem(sender.birthDate);
+  const senderIsMinor = senderAge !== null && senderAge < 18;
+
+  // Only an adult writing to a minor is moderated at all.
+  if (senderIsMinor || !minorIds.length) return { status: 'sent', recipientIds };
+
+  // Private adult→minor: severe sexual slurs only. Groups rely on AI + reports.
+  if (!isGroup && containsSevereSlur(text)) {
+    console.log(`[MODERATION] Blocked slur in room ${roomId}`);
+    await recordBlockedAttempt({ text, senderId, roomId, senderAge, youngestAge, reason: 'severe_slur', onFlagged });
+    return { status: 'blocked', recipientIds, reason: 'profanity' };
+  }
+
+  // Ordinary messages never reach the (paid) AI.
+  if (!needsAiReview(text)) return { status: 'sent', recipientIds };
+
   let modResult = null;
   try {
     modResult = await moderator.checkMessage(text, [], {}, {
@@ -144,6 +199,15 @@ async function assessOutgoingMessage({ moderator, sender, roomId, text, onFlagge
 
   if (status === 'blocked') {
     console.log(`[MODERATION] Blocked message in room ${roomId} (${unverified ? 'moderation unavailable' : 'unsafe'})`);
+  }
+
+  if (status === 'blocked' && !modResult?.reviewNeeded) {
+    // reviewNeeded already writes a row below; otherwise leave a trail so repeated
+    // attempts by an adult towards a minor are visible to moderators.
+    await recordBlockedAttempt({
+      text, senderId, roomId, senderAge, youngestAge, onFlagged,
+      reason: unverified ? 'blocked_unverified' : 'blocked_unsafe',
+    });
   }
 
   if (modResult?.reviewNeeded) {

@@ -110,6 +110,17 @@ export interface FlaggedMessage {
         details?: string | null;
         reporterId?: string;
         roomId?: string;
+        messageDeleted?: boolean;
+    } | null;
+    /** Live state of the reported message; null for AI rows with no message or if it is gone. */
+    messageState?: {
+        isEdited: boolean;
+        isDeleted: boolean;
+        deletedAt?: string | null;
+        currentText: string | null;
+        /** Text before the first edit, or the text at deletion. */
+        originalText: string | null;
+        edits: { previousText: string; editedAt: string }[];
     } | null;
     /** Resolved by the admin list endpoint; null if the user no longer exists. */
     sender?: FlaggedMessageUser | null;

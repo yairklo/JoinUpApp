@@ -1,3 +1,10 @@
+jest.mock('../lib/prisma', () => ({
+  prisma: {
+    user: { findUnique: jest.fn(async () => null) },
+  },
+}));
+
+const { prisma } = require('../lib/prisma');
 const {
   buildAddedToGameCopy,
   formatGameWhen,
@@ -78,7 +85,40 @@ describe('addedToGameNotification helpers', () => {
     expect(data.link).toBe('/game/game_abc');
     expect(data.titleEn).toBe('You were added to a game by Organizer');
     expect(data.bodyEn).toContain('Field A');
+    expect(data.adderName).toBe('Organizer');
     expect(data.adderId).toBe('user_org_123');
+  });
+
+  test('notifyUserAddedToGame uses the profile name instead of an email', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({ name: 'נועה' });
+    const sendNotification = jest.fn().mockResolvedValue({ id: 'n2' });
+    await notifyUserAddedToGame({ sendNotification }, {
+      userId: 'user_play_1',
+      adderName: 'qa.minor.20oct@mailinator.com',
+      adderId: 'user_minor',
+      game: { id: 'game_abc', start: sampleStart, title: 'Game' },
+    });
+    const [, , title, , data] = sendNotification.mock.calls[0];
+    expect(title).toBe('צורפת למשחק על ידי נועה');
+    expect(data.adderName).toBe('נועה');
+    expect(data.titleEn).toBe('You were added to a game by נועה');
+    expect(JSON.stringify(sendNotification.mock.calls[0])).not.toMatch(/@/);
+  });
+
+  test('notifyUserAddedToGame falls back when the only name is an email', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({ name: 'qa.minor.20oct@mailinator.com' });
+    const sendNotification = jest.fn().mockResolvedValue({ id: 'n3' });
+    await notifyUserAddedToGame({ sendNotification }, {
+      userId: 'user_play_1',
+      adderName: 'qa.minor.20oct@mailinator.com',
+      adderId: 'user_minor',
+      game: { id: 'game_abc', start: sampleStart, title: 'Game' },
+    });
+    const [, , title, , data] = sendNotification.mock.calls[0];
+    expect(title).toContain('מנהל המשחק');
+    expect(title).not.toMatch(/@/);
+    expect(data.titleEn).toContain('a game manager');
+    expect(JSON.stringify(sendNotification.mock.calls[0])).not.toMatch(/@/);
   });
 
   test('notifyUserAddedToGame no-ops without userId/game', async () => {

@@ -310,6 +310,8 @@ export default function AdminModerationPage() {
                     label={`דיווח משתמש: ${MESSAGE_REPORT_REASON_LABELS[row.aiTriggers.reason || ""] || row.aiTriggers.reason || "—"}`}
                   />
                 )}
+                {row.messageState?.isEdited && <Chip size="small" color="info" label="נערכה לאחר השליחה" />}
+                {row.messageState?.isDeleted && <Chip size="small" color="error" label="נמחקה על ידי השולח" />}
               </Stack>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 0.5, sm: 3 }} mb={1}>
                 <UserLink label="נכתב על ידי:" user={row.sender} fallbackId={row.userId} />
@@ -321,6 +323,21 @@ export default function AdminModerationPage() {
                 <Typography variant="body2" color="text.secondary" mb={1}>הערת המדווח: {row.aiTriggers.details}</Typography>
               )}
               <Typography sx={{ whiteSpace: "pre-wrap" }}>{row.content}</Typography>
+              {row.messageState && row.messageState.edits.length > 0 && (
+                <Box mt={1.5} p={1.5} sx={{ bgcolor: "action.hover", borderRadius: 1 }}>
+                  <Typography variant="caption" fontWeight={700}>עריכות: הטקסט שהוחלף בכל עריכה (הראשון הוא המקור)</Typography>
+                  {row.messageState.edits.map((edit, i) => (
+                    <Typography key={i} variant="body2" sx={{ whiteSpace: "pre-wrap" }} mt={0.5}>
+                      {new Date(edit.editedAt).toLocaleString("he-IL")}: {edit.previousText}
+                    </Typography>
+                  ))}
+                  {row.messageState.currentText && (
+                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }} mt={0.5}>
+                      נוכחי: {row.messageState.currentText}
+                    </Typography>
+                  )}
+                </Box>
+              )}
               {row.failureReason && (
                 <Typography variant="body2" color="error" mt={1}>{row.failureReason}</Typography>
               )}

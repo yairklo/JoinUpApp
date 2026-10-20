@@ -28,6 +28,8 @@ const ADULT = yearsAgo(30);
 const MINOR = yearsAgo(14);
 
 const sender = { id: 'sender', birthDate: ADULT, gender: 'MALE' };
+const GATED = 'שלח לי תמונה'; // trips the pre-gate, so AI moderation runs
+const minorSender = { id: 'sender', birthDate: MINOR, gender: 'MALE' };
 
 function room(...userIds) {
   mockChatRoomFindUnique.mockResolvedValue({
@@ -76,7 +78,7 @@ describe('assessOutgoingMessage', () => {
     room('kid', 'bob');
     users({ kid: MINOR, bob: ADULT });
     const moderator = moderatorReturning({ isSafe: false, source: 'gemini_decision' });
-    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'r1', text: 'bad' });
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'r1', text: GATED });
     expect(res.status).toBe('blocked');
     expect(moderator.checkMessage.mock.calls[0][3]).toMatchObject({ userId: 'sender', userAge: 30, receiverAge: 14 });
   });
@@ -85,14 +87,14 @@ describe('assessOutgoingMessage', () => {
     room('kid');
     users({ kid: MINOR });
     friendsWith('kid');
-    const res = await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: false }), sender, roomId: 'r1', text: 'bad' });
+    const res = await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: false }), sender, roomId: 'r1', text: GATED });
     expect(res.status).toBe('blocked');
   });
 
   test('minor recipient, safe verdict -> sent', async () => {
     room('kid');
     users({ kid: MINOR });
-    const res = await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: true, source: 'openai_clean' }), sender, roomId: 'r1', text: 'hi' });
+    const res = await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: true, source: 'openai_clean' }), sender, roomId: 'r1', text: GATED });
     expect(res.status).toBe('sent');
   });
 
@@ -102,7 +104,7 @@ describe('assessOutgoingMessage', () => {
   ])('%s + minor non-friend -> blocked (fail closed)', async (_label, make) => {
     room('kid');
     users({ kid: MINOR });
-    const res = await assessOutgoingMessage({ moderator: make(), sender, roomId: 'r1', text: 'hi' });
+    const res = await assessOutgoingMessage({ moderator: make(), sender, roomId: 'r1', text: GATED });
     expect(res.status).toBe('blocked');
   });
 
@@ -113,7 +115,7 @@ describe('assessOutgoingMessage', () => {
     room('kid');
     users({ kid: MINOR });
     friendsWith('kid');
-    const res = await assessOutgoingMessage({ moderator: make(), sender, roomId: 'r1', text: 'hi' });
+    const res = await assessOutgoingMessage({ moderator: make(), sender, roomId: 'r1', text: GATED });
     expect(res.status).toBe('sent');
   });
 
@@ -121,7 +123,7 @@ describe('assessOutgoingMessage', () => {
     room('kidFriend', 'kidStranger');
     users({ kidFriend: MINOR, kidStranger: MINOR });
     friendsWith('kidFriend');
-    const res = await assessOutgoingMessage({ moderator: moderatorThrowing(), sender, roomId: 'r1', text: 'hi' });
+    const res = await assessOutgoingMessage({ moderator: moderatorThrowing(), sender, roomId: 'r1', text: GATED });
     expect(res.status).toBe('blocked');
   });
 
@@ -130,9 +132,9 @@ describe('assessOutgoingMessage', () => {
     users({ kid: MINOR });
     friendsWith('kid');
     const onFlagged = jest.fn();
-    await assessOutgoingMessage({ moderator: moderatorReturning(UNVERIFIED), sender, roomId: 'r1', text: 'hi', onFlagged });
+    await assessOutgoingMessage({ moderator: moderatorReturning(UNVERIFIED), sender, roomId: 'r1', text: GATED, onFlagged });
     expect(mockFlaggedCreate).toHaveBeenCalledTimes(1);
-    expect(mockFlaggedCreate.mock.calls[0][0].data).toMatchObject({ content: 'hi', userId: 'sender', status: 'PENDING_REVIEW' });
+    expect(mockFlaggedCreate.mock.calls[0][0].data).toMatchObject({ content: GATED, userId: 'sender', status: 'PENDING_REVIEW' });
     expect(onFlagged).toHaveBeenCalled();
   });
 
@@ -156,6 +158,106 @@ describe('assessOutgoingMessage', () => {
     users({ p1: ADULT, p2: ADULT });
     const res = await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: true }), sender, roomId: 'game123', text: 'hi' });
     expect(res.recipientIds).toEqual(['p1', 'p2']);
+  });
+
+  test('minor sender is never moderated, in private or group chats', async () => {
+    const moderator = moderatorReturning({ isSafe: false });
+    room('bob');
+    users({ bob: ADULT });
+    let res = await assessOutgoingMessage({ moderator, sender: minorSender, roomId: 'r1', text: 'זונה שלח לי תמונה' });
+    expect(res.status).toBe('sent');
+    mockChatRoomFindUnique.mockResolvedValue(null);
+    mockParticipationFindMany.mockResolvedValue([{ userId: 'kid' }, { userId: 'bob' }]);
+    users({ kid: MINOR, bob: ADULT });
+    res = await assessOutgoingMessage({ moderator, sender: minorSender, roomId: 'game123', text: 'fuck this shit' });
+    expect(res.status).toBe('sent');
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
+  });
+
+  test('private adult → minor: a severe slur is blocked without calling AI', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    const moderator = moderatorReturning({ isSafe: true, source: 'openai_clean' });
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'r1', text: 'זונה' });
+    expect(res.status).toBe('blocked');
+    expect(res.reason).toBe('profanity');
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
+  });
+
+  test('private adult → minor: ordinary swearing is not blocked and skips AI', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    const moderator = moderatorReturning({ isSafe: false });
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'r1', text: 'איזה חרא של משחק' });
+    expect(res.status).toBe('sent');
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
+  });
+
+  test('game chat with a minor: an adult slur is not lexicon-blocked', async () => {
+    mockChatRoomFindUnique.mockResolvedValue(null);
+    mockParticipationFindMany.mockResolvedValue([{ userId: 'kid' }, { userId: 'bob' }]);
+    users({ kid: MINOR, bob: ADULT });
+    const moderator = moderatorReturning({ isSafe: true });
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'game123', text: 'שלום זונה' });
+    expect(res.status).toBe('sent');
+  });
+
+  test('game chat with a minor: a grooming-signal message from an adult still goes to AI', async () => {
+    mockChatRoomFindUnique.mockResolvedValue(null);
+    mockParticipationFindMany.mockResolvedValue([{ userId: 'kid' }, { userId: 'bob' }]);
+    users({ kid: MINOR, bob: ADULT });
+    const moderator = moderatorReturning({ isSafe: false, source: 'gemini_decision' });
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'game123', text: GATED });
+    expect(res.status).toBe('blocked');
+    expect(moderator.checkMessage).toHaveBeenCalledTimes(1);
+  });
+
+  test('adult → minor: an ordinary message never reaches AI, even if AI is down', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    const moderator = moderatorThrowing();
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'r1', text: 'מגיע ב-8' });
+    expect(res.status).toBe('sent');
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
+  });
+
+  test('a blocked slur leaves a moderator trail', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: true }), sender, roomId: 'r1', text: 'זונה' });
+    expect(mockFlaggedCreate).toHaveBeenCalledTimes(1);
+    expect(mockFlaggedCreate.mock.calls[0][0].data).toMatchObject({
+      content: 'זונה', userId: 'sender', status: 'PENDING_REVIEW',
+      aiTriggers: { source: 'blocked_attempt', reason: 'severe_slur', chatMode: 'ADULT_TO_MINOR' },
+    });
+  });
+
+  test('an AI-blocked message leaves a trail, but not a duplicate when reviewNeeded already writes one', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: false, source: 'gemini_decision' }), sender, roomId: 'r1', text: GATED });
+    expect(mockFlaggedCreate).toHaveBeenCalledTimes(1);
+    expect(mockFlaggedCreate.mock.calls[0][0].data.aiTriggers).toMatchObject({ source: 'blocked_attempt', reason: 'blocked_unsafe' });
+
+    mockFlaggedCreate.mockClear();
+    await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: false, reviewNeeded: true, source: 'gemini_decision' }), sender, roomId: 'r1', text: GATED });
+    expect(mockFlaggedCreate).toHaveBeenCalledTimes(1);
+  });
+
+  test('a sent message leaves no trail', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: true, source: 'openai_clean' }), sender, roomId: 'r1', text: GATED });
+    expect(mockFlaggedCreate).not.toHaveBeenCalled();
+  });
+
+  test('adult-only chat: nothing is filtered', async () => {
+    room('bob');
+    users({ bob: ADULT });
+    const moderator = moderatorReturning({ isSafe: false });
+    const res = await assessOutgoingMessage({ moderator, sender, roomId: 'r1', text: 'זונה' });
+    expect(res.status).toBe('sent');
+    expect(moderator.checkMessage).not.toHaveBeenCalled();
   });
 });
 

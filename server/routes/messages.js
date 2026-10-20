@@ -3,6 +3,7 @@ const { authenticateToken } = require('../utils/auth');
 const { checkChatPermission } = require('../utils/chatAuth');
 const { prisma } = require('../lib/prisma');
 const { mapUserToSender } = require('../utils/chatMappers');
+const { publicDisplayName } = require('../utils/publicName');
 const { getBlockedByMe, isPrivateChatBlocked } = require('../utils/blocks');
 const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('../services/chatSafety');
 const { moderator } = require('../moderationInstance');
@@ -64,13 +65,13 @@ router.get('/', authenticateToken, async (req, res) => {
         roomId: m.chatRoomId, // Map back to roomId for client compatibility
         userId: m.userId || null,
         ts: m.createdAt,
-        senderName: m.user?.name || undefined,
+        senderName: publicDisplayName(m.user?.name, null) || undefined,
         sender: mapUserToSender(m.user),
         replyTo: m.replyTo ? {
           id: m.replyTo.id,
           text: m.replyTo.text,
           userId: m.replyTo.userId,
-          senderName: m.replyTo.user?.name || "User",
+          senderName: publicDisplayName(m.replyTo.user?.name, null) || "User",
           sender: mapUserToSender(m.replyTo.user)
         } : undefined,
         reactions: reactions,
@@ -137,6 +138,8 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
+// A sender can delete a message right after sending it; keep it reportable for a while.
+const DELETED_REPORT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const REPORT_REASONS = new Set(['OFFENSIVE', 'HARASSMENT', 'SPAM', 'INAPPROPRIATE', 'OTHER']);
 
 // POST /api/messages/:id/report  { reason, details? }
@@ -151,7 +154,7 @@ router.post('/:id/report', authenticateToken, async (req, res) => {
 
     const message = await prisma.message.findUnique({
       where: { id: String(req.params.id) },
-      select: { id: true, text: true, userId: true, chatRoomId: true, isDeleted: true },
+      select: { id: true, text: true, userId: true, chatRoomId: true, isDeleted: true, deletedText: true, deletedAt: true },
     });
     if (!message) return res.status(404).json({ error: 'Message not found' });
 
@@ -162,7 +165,13 @@ router.post('/:id/report', authenticateToken, async (req, res) => {
     if (!message.userId || message.userId === reporterId) {
       return res.status(400).json({ error: 'You cannot report this message' });
     }
-    if (message.isDeleted) {
+    // Deleted messages stay reportable for a week (the original text is kept server-side).
+    const reportedText = message.isDeleted ? message.deletedText : message.text;
+    if (message.isDeleted && (
+      !reportedText ||
+      !message.deletedAt ||
+      Date.now() - message.deletedAt.getTime() > DELETED_REPORT_WINDOW_MS
+    )) {
       return res.status(400).json({ error: 'Message was already removed' });
     }
 
@@ -180,11 +189,12 @@ router.post('/:id/report', authenticateToken, async (req, res) => {
     await prisma.flaggedMessage.create({
       data: {
         messageId: message.id,
-        content: message.text,
+        content: reportedText,
         userId: message.userId,
         status: 'PENDING_REVIEW',
         aiTriggers: {
           source: 'user_report',
+          messageDeleted: message.isDeleted,
           reason,
           details,
           reporterId,
