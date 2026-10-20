@@ -1,0 +1,13 @@
+# Optional override: docker compose -f docker-compose.yml -f docker-compose.prod.yml ...
+# Resource ceilings so a runaway process cannot take the whole VPS (and Caddy) down.
+# TODO: tune to the real VPS size; values below assume ~2 GB RAM.
+services:
+  api:
+    mem_limit: 768m
+    cpus: 1.5
+  worker:
+    mem_limit: 384m
+  web:
+    mem_limit: 512m
+  redis:
+    mem_limit: 192m

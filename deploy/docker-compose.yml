@@ -1,0 +1,136 @@
+# JoinUp production stack. Run from this directory (or via deploy.sh).
+#   api    : Express + Socket.IO (server/Dockerfile, port 3005, internal only)
+#   worker : optional dedicated background-jobs process (profile "worker")
+#   web    : optional Next.js app (profile "web") - skip if the web app is hosted elsewhere (e.g. Vercel)
+#   redis  : Socket.IO fan-out / rate limits
+#   caddy  : TLS + reverse proxy, the only service publishing ports
+# Image tags come from IMAGE_TAG (a git short SHA, set by deploy.sh) so rollback = re-run with an older tag.
+
+name: joinup
+
+x-restart: &restart unless-stopped
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  api:
+    image: joinup-api:${IMAGE_TAG:-latest}
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    # The image CMD runs `prisma migrate deploy` on boot. Migrations are a deliberate step in
+    # deploy.sh instead, so a rollback never re-runs them: start the server directly.
+    command: ["node", "index.js"]
+    restart: *restart
+    env_file: api.env
+    environment:
+      NODE_ENV: production
+      PORT: "3005"
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    expose:
+      - "3005"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3005/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *logging
+
+  # Use on a second server, or when you want jobs off the HTTP process. If you enable this,
+  # set RUN_BACKGROUND_JOBS=false for `api` (in api.env) so jobs do not run twice.
+  worker:
+    image: joinup-api:${IMAGE_TAG:-latest}
+    profiles: ["worker"]
+    command: ["node", "worker.js"]
+    restart: *restart
+    env_file: api.env
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging: *logging
+
+  web:
+    image: joinup-web:${IMAGE_TAG:-latest}
+    profiles: ["web"]
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
+        NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: ${NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID:-}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID:-}
+        NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID:-}
+        NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${NEXT_PUBLIC_FIREBASE_VAPID_KEY:-}
+    restart: *restart
+    env_file: web.env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: *restart
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: *restart
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
+      WEB_DOMAIN: ${WEB_DOMAIN:-web.invalid}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data   # TLS certs + ACME account: keep/back up, or you hit Let's Encrypt rate limits
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  redis-data:
+  caddy-data:
+  caddy-config:
