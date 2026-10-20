@@ -88,3 +88,9 @@ Mission_report*.txt
 # never meant to be committed, only regenerated fresh per task. Note: this
 # does NOT ignore .claude/rules/ -- those files are real repo content.
 .claude/plan.json
+
+# Playwright output
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
+e2e/.auth/

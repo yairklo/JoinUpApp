@@ -170,7 +170,7 @@ export default function NotificationPanel() {
 
     return (
         <>
-            <IconButton onClick={handleClick} color="inherit" aria-label="התראות">
+            <IconButton onClick={handleClick} color="inherit" aria-label="התראות" data-testid="notifications-bell">
                 <Badge badgeContent={unreadCount} color="error">
                     <NotificationsIcon />
                 </Badge>
@@ -254,6 +254,7 @@ export default function NotificationPanel() {
                             {notifications.map((notif) => (
                                 <ListItemButton
                                     key={notif.id}
+                                    data-testid="notification-item"
                                     onClick={() => handleNotificationClick(notif)}
                                     sx={{
                                         bgcolor: !notif.read ? 'action.hover' : 'transparent',

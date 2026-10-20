@@ -98,7 +98,7 @@ export default async function UserPublicPage(props: {
 
                         {/* Name & Location */}
                         <Box mt={2} mb={3}>
-                            <Typography variant="h4" fontWeight="bold" gutterBottom>
+                            <Typography variant="h4" fontWeight="bold" gutterBottom data-testid="profile-name">
                                 {normalizeName(u.name) || "משתמש"}
                             </Typography>
 
@@ -137,7 +137,7 @@ export default async function UserPublicPage(props: {
                                 </Typography>
                                 <Stack direction="row" alignItems="center" gap={1.5} mt={1}>
                                     <EmailIcon color="action" fontSize="small" />
-                                    <Typography variant="body1">{u.email || "אימייל לא זמין"}</Typography>
+                                    <Typography variant="body1" data-testid="profile-email">{u.email || "אימייל לא זמין"}</Typography>
                                 </Stack>
                             </Box>
 

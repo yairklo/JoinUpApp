@@ -85,7 +85,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
     const groups = profile.groups || [];
 
     return (
-        <Box>
+        <Box data-testid="profile-sections">
             {(showFriends || showHistory || groups.length > 0) && <Divider sx={{ my: 3 }} />}
 
             {/* Groups (recurring series) the user belongs to; absent when hidden */}

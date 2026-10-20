@@ -122,7 +122,7 @@ export default function JoinGameButton({
     <Box display="flex" flexDirection="column" alignItems="flex-end">
       <SignedOut>
         <SignInButton mode="modal">
-          <Button variant="contained" color="primary" size="small" startIcon={<LoginIcon />}>
+          <Button variant="contained" color="primary" size="small" startIcon={<LoginIcon />} data-testid="join-sign-in">
             התחבר כדי להצטרף
           </Button>
         </SignInButton>
@@ -171,7 +171,7 @@ export default function JoinGameButton({
             </Button>
           </Box>
         ) : viewerParticipationStatus === "CONFIRMED" ? (
-          <Button disabled variant="outlined" color="success" size="small">
+          <Button disabled variant="outlined" color="success" size="small" data-testid="join-confirmed">
             אתה בפנים
           </Button>
         ) : pending ? (
@@ -180,6 +180,7 @@ export default function JoinGameButton({
             variant="outlined"
             color="warning"
             size="small"
+            data-testid="join-pending"
           >
             ממתין לאישור המארגן
           </Button>
@@ -219,6 +220,7 @@ export default function JoinGameButton({
             variant="contained"
             color="primary"
             size="small"
+            data-testid="join-game"
             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <AddIcon />}
             sx={{
               backgroundImage: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)`,
