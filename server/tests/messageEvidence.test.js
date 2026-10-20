@@ -41,42 +41,79 @@ function makeApp() {
 }
 
 describe('applyMessageEdit / applyMessageDelete', () => {
-  const makePrisma = () => ({
-    messageEdit: { create: jest.fn((x) => ({ op: 'create', ...x })) },
-    message: { update: jest.fn((x) => ({ op: 'update', ...x })) },
-    $transaction: jest.fn().mockResolvedValue([]),
+  // Interactive-transaction fake: `row` is the current DB row; updateMany honours its where.
+  function makePrisma(row) {
+    const tx = {
+      message: {
+        findUnique: jest.fn(async () => (row ? { ...row } : null)),
+        updateMany: jest.fn(async ({ where, data }) => {
+          if (!row || row.isDeleted !== where.isDeleted || row.text !== where.text) return { count: 0 };
+          Object.assign(row, data);
+          return { count: 1 };
+        }),
+      },
+      messageEdit: { create: jest.fn(async () => ({})) },
+    };
+    return { tx, $transaction: jest.fn(async (fn) => fn(tx)) };
+  }
+
+  test('edit stores the previous text and applies the new one', async () => {
+    const row = { id: 'm1', text: 'original', isDeleted: false };
+    const prisma = makePrisma(row);
+    expect(await applyMessageEdit(prisma, { id: 'm1' }, 'edited')).toBe('edited');
+    expect(prisma.tx.messageEdit.create).toHaveBeenCalledWith({ data: { messageId: 'm1', previousText: 'original' } });
+    expect(row).toMatchObject({ text: 'edited', isEdited: true });
   });
 
-  test('edit stores the previous text, then updates', async () => {
-    const prisma = makePrisma();
-    const changed = await applyMessageEdit(prisma, { id: 'm1', text: 'original' }, 'edited');
-    expect(changed).toBe(true);
-    expect(prisma.messageEdit.create).toHaveBeenCalledWith({ data: { messageId: 'm1', previousText: 'original' } });
-    expect(prisma.message.update).toHaveBeenCalledWith({ where: { id: 'm1' }, data: { text: 'edited', isEdited: true } });
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  test('edit with identical text is unchanged and writes nothing', async () => {
+    const prisma = makePrisma({ id: 'm1', text: 'same', isDeleted: false });
+    expect(await applyMessageEdit(prisma, { id: 'm1' }, 'same')).toBe('unchanged');
+    expect(prisma.tx.messageEdit.create).not.toHaveBeenCalled();
   });
 
-  test('edit with identical text is a no-op', async () => {
-    const prisma = makePrisma();
-    expect(await applyMessageEdit(prisma, { id: 'm1', text: 'same' }, 'same')).toBe(false);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+  test('edit of a message deleted concurrently is a conflict and does not resurrect it', async () => {
+    const row = { id: 'm1', text: '', isDeleted: true, deletedText: 'bad words' };
+    const prisma = makePrisma(row);
+    expect(await applyMessageEdit(prisma, { id: 'm1', text: 'bad words' }, 'new')).toBe('conflict');
+    expect(row.text).toBe('');
+    expect(prisma.tx.messageEdit.create).not.toHaveBeenCalled();
+  });
+
+  test('edit loses the race when the text changed after it was read: conflict, no history row', async () => {
+    const row = { id: 'm1', text: 'v1', isDeleted: false };
+    const prisma = makePrisma(row);
+    prisma.tx.message.findUnique.mockResolvedValueOnce({ ...row });
+    prisma.tx.message.updateMany.mockImplementationOnce(async () => ({ count: 0 }));
+    expect(await applyMessageEdit(prisma, { id: 'm1' }, 'v2')).toBe('conflict');
+    expect(prisma.tx.messageEdit.create).not.toHaveBeenCalled();
   });
 
   test('delete blanks text but keeps the original in deletedText', async () => {
-    const prisma = makePrisma();
-    await applyMessageDelete(prisma, { id: 'm1', text: 'bad words', isDeleted: false });
-    const data = prisma.message.update.mock.calls[0][0].data;
-    expect(data).toMatchObject({ isDeleted: true, text: '', deletedText: 'bad words' });
-    expect(data.deletedAt).toBeInstanceOf(Date);
+    const row = { id: 'm1', text: 'bad words', isDeleted: false };
+    const prisma = makePrisma(row);
+    expect(await applyMessageDelete(prisma, { id: 'm1' })).toBe(true);
+    expect(row).toMatchObject({ isDeleted: true, text: '', deletedText: 'bad words' });
+    expect(row.deletedAt).toBeInstanceOf(Date);
   });
 
   test('deleting twice does not overwrite the saved original', async () => {
-    const prisma = makePrisma();
-    const at = new Date('2026-10-01T00:00:00Z');
-    await applyMessageDelete(prisma, { id: 'm1', text: '', isDeleted: true, deletedText: 'bad words', deletedAt: at });
-    const data = prisma.message.update.mock.calls[0][0].data;
-    expect(data.deletedText).toBe('bad words');
-    expect(data.deletedAt).toBe(at);
+    const row = { id: 'm1', text: '', isDeleted: true, deletedText: 'bad words' };
+    const prisma = makePrisma(row);
+    expect(await applyMessageDelete(prisma, { id: 'm1' })).toBe(true);
+    expect(row.deletedText).toBe('bad words');
+    expect(prisma.tx.message.updateMany).not.toHaveBeenCalled();
+  });
+
+  test('delete retries when an edit lands between read and write, and keeps the latest text', async () => {
+    const row = { id: 'm1', text: 'v1', isDeleted: false };
+    const prisma = makePrisma(row);
+    prisma.tx.message.findUnique.mockImplementationOnce(async () => {
+      const stale = { ...row };
+      row.text = 'v2'; // concurrent edit after the read
+      return stale;
+    });
+    expect(await applyMessageDelete(prisma, { id: 'm1' })).toBe(true);
+    expect(row).toMatchObject({ isDeleted: true, deletedText: 'v2' });
   });
 });
 

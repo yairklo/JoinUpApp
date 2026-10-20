@@ -16,7 +16,9 @@ const TERMS = [
   'slut', 'sluts',
   'cunt', 'cunts',
   'bitch', 'bitches',
-  'zona',
+  'zona', 'zonah', 'zoona',
+  'sharmuta', 'sharmoota', 'sharmouta',
+  'kusemek', 'kusamak', 'kosemek', 'kus emak',
 ];
 
 function escapeChar(ch) {
@@ -26,7 +28,8 @@ function escapeChar(ch) {
 /** Letters of the term, allowing spaces / punctuation stuffed between them. */
 function termToPattern(term) {
   const chars = [...term.normalize('NFKC').toLowerCase()];
-  const body = chars.map((ch) => escapeChar(ch)).join('[\\s._*\\-]*');
+  // Each letter may repeat ("זוווונה"), with separators stuffed in between.
+  const body = chars.map((ch) => `${escapeChar(ch)}+`).join('[\\s._*\\-]*');
   return `(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])`;
 }
 

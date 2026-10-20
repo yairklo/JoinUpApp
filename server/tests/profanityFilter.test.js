@@ -10,6 +10,13 @@ describe('containsSevereSlur', () => {
     expect(containsSevereSlur('you WHORE')).toBe(true);
   });
 
+  test('catches transliterations and stretched letters', () => {
+    expect(containsSevereSlur('zonah')).toBe(true);
+    expect(containsSevereSlur('you sharmuta')).toBe(true);
+    expect(containsSevereSlur('זוווונה')).toBe(true);
+    expect(containsSevereSlur('whooore')).toBe(true);
+  });
+
   test('ordinary swearing is not a severe slur', () => {
     expect(containsSevereSlur('איזה חרא של משחק')).toBe(false);
     expect(containsSevereSlur('shit, missed it')).toBe(false);

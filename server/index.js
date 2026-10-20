@@ -974,6 +974,12 @@ io.on('connection', async (socket) => {
       if (exists.isDeleted) return;
       if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
+      // Edits go through the same AI/limits as sends, so they share the send budget.
+      if (!sendRateLimiter.allow(socket.userId)) {
+        socket.emit('error', 'You are sending messages too fast');
+        return;
+      }
+
       const textError = validateMessageText(String(text));
       if (textError) {
         socket.emit('error', textError === 'MESSAGE_TOO_LONG' ? 'Message is too long' : 'Message is empty');
@@ -999,24 +1005,17 @@ io.on('connection', async (socket) => {
         return;
       }
       if (verdict.status === 'blocked') {
-        // Keep the original message. The attempted text is stored only as a
-        // blocked row the sender can see, with the same status the send path uses.
-        const blocked = await prisma.message.create({
-          data: {
-            text: String(text),
-            chatRoomId: exists.chatRoomId,
-            userId: String(socket.userId),
-            status: 'blocked',
-          },
-        });
+        // Keep the original message. The sender gets an ephemeral "blocked" bubble (not
+        // persisted, so repeated attempts cannot grow the table); the attempt itself is
+        // recorded for moderators by assessOutgoingMessage.
         const echo = {
-          id: blocked.id,
-          text: blocked.text,
+          id: `blocked-edit:${exists.id}:${Date.now()}`,
+          text: String(text),
           senderId: String(socket.userId),
           userId: String(socket.userId),
           roomId: exists.chatRoomId,
           status: 'blocked',
-          ts: blocked.createdAt.toISOString(),
+          ts: new Date().toISOString(),
         };
         io.to(`user_${socket.userId}`).emit('message', echo);
         io.to(`user_${socket.userId}`).emit('message:received', { ...echo, chatId: exists.chatRoomId, content: echo.text });
@@ -1024,7 +1023,12 @@ io.on('connection', async (socket) => {
       }
 
       // Keep the pre-edit text so editing cannot erase what a reporter/moderator needs to see.
-      await applyMessageEdit(prisma, exists, text);
+      const editResult = await applyMessageEdit(prisma, exists, text);
+      if (editResult === 'conflict') {
+        socket.emit('error', 'Message changed, please try again');
+        return;
+      }
+      if (editResult === 'unchanged') return;
 
       const payload = { id: messageId, text, isEdited: true, roomId: roomId ? String(roomId) : undefined };
       if (roomId) {
@@ -1051,7 +1055,10 @@ io.on('connection', async (socket) => {
       }
       if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
-      await applyMessageDelete(prisma, exists);
+      if (!(await applyMessageDelete(prisma, exists))) {
+        socket.emit('error', 'Could not delete message, please try again');
+        return;
+      }
 
       const payload = { id: messageId, roomId: roomId ? String(roomId) : undefined };
       if (roomId) {

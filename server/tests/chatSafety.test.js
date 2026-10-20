@@ -221,6 +221,36 @@ describe('assessOutgoingMessage', () => {
     expect(moderator.checkMessage).not.toHaveBeenCalled();
   });
 
+  test('a blocked slur leaves a moderator trail', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: true }), sender, roomId: 'r1', text: 'זונה' });
+    expect(mockFlaggedCreate).toHaveBeenCalledTimes(1);
+    expect(mockFlaggedCreate.mock.calls[0][0].data).toMatchObject({
+      content: 'זונה', userId: 'sender', status: 'PENDING_REVIEW',
+      aiTriggers: { source: 'blocked_attempt', reason: 'severe_slur', chatMode: 'ADULT_TO_MINOR' },
+    });
+  });
+
+  test('an AI-blocked message leaves a trail, but not a duplicate when reviewNeeded already writes one', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: false, source: 'gemini_decision' }), sender, roomId: 'r1', text: GATED });
+    expect(mockFlaggedCreate).toHaveBeenCalledTimes(1);
+    expect(mockFlaggedCreate.mock.calls[0][0].data.aiTriggers).toMatchObject({ source: 'blocked_attempt', reason: 'blocked_unsafe' });
+
+    mockFlaggedCreate.mockClear();
+    await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: false, reviewNeeded: true, source: 'gemini_decision' }), sender, roomId: 'r1', text: GATED });
+    expect(mockFlaggedCreate).toHaveBeenCalledTimes(1);
+  });
+
+  test('a sent message leaves no trail', async () => {
+    room('kid');
+    users({ kid: MINOR });
+    await assessOutgoingMessage({ moderator: moderatorReturning({ isSafe: true, source: 'openai_clean' }), sender, roomId: 'r1', text: GATED });
+    expect(mockFlaggedCreate).not.toHaveBeenCalled();
+  });
+
   test('adult-only chat: nothing is filtered', async () => {
     room('bob');
     users({ bob: ADULT });

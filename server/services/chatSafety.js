@@ -130,6 +130,31 @@ async function getMinorRecipients(senderId, recipientIds) {
   return { minorIds, nonFriendMinorIds: minorIds.filter((id) => !friendIds.has(id)), youngestAge };
 }
 
+/** Moderator trail for a blocked adult→minor attempt (never throws). */
+async function recordBlockedAttempt({ text, senderId, roomId, senderAge, youngestAge, reason, onFlagged }) {
+  try {
+    await prisma.flaggedMessage.create({
+      data: {
+        content: text,
+        userId: senderId,
+        status: 'PENDING_REVIEW',
+        resolution: null,
+        aiTriggers: {
+          source: 'blocked_attempt',
+          reason,
+          roomId: String(roomId),
+          senderAge,
+          receiverAge: youngestAge,
+          chatMode: 'ADULT_TO_MINOR',
+        },
+      },
+    });
+    if (onFlagged) onFlagged();
+  } catch (dbError) {
+    console.error('[MODERATION] Failed to record blocked attempt:', dbError.message);
+  }
+}
+
 /**
  * Decides whether a message is delivered or blocked.
  * @returns {Promise<{ status: 'sent'|'blocked', recipientIds: string[] }>}
@@ -148,6 +173,7 @@ async function assessOutgoingMessage({ moderator, sender, roomId, text, onFlagge
   // Private adult→minor: severe sexual slurs only. Groups rely on AI + reports.
   if (!isGroup && containsSevereSlur(text)) {
     console.log(`[MODERATION] Blocked slur in room ${roomId}`);
+    await recordBlockedAttempt({ text, senderId, roomId, senderAge, youngestAge, reason: 'severe_slur', onFlagged });
     return { status: 'blocked', recipientIds, reason: 'profanity' };
   }
 
@@ -173,6 +199,15 @@ async function assessOutgoingMessage({ moderator, sender, roomId, text, onFlagge
 
   if (status === 'blocked') {
     console.log(`[MODERATION] Blocked message in room ${roomId} (${unverified ? 'moderation unavailable' : 'unsafe'})`);
+  }
+
+  if (status === 'blocked' && !modResult?.reviewNeeded) {
+    // reviewNeeded already writes a row below; otherwise leave a trail so repeated
+    // attempts by an adult towards a minor are visible to moderators.
+    await recordBlockedAttempt({
+      text, senderId, roomId, senderAge, youngestAge, onFlagged,
+      reason: unverified ? 'blocked_unverified' : 'blocked_unsafe',
+    });
   }
 
   if (modResult?.reviewNeeded) {
