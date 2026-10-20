@@ -159,7 +159,7 @@ cmd_deploy() {
     echo "!! first deploy failed: stopping the new stack and restarting the old containers"
     dc down || true
     # shellcheck disable=SC2046
-    docker start $(cat "$STATE_DIR/old_containers") || echo "!! could not restart old containers: start them by hand (names in $STATE_DIR/old_containers)"
+    if docker start $(cat "$STATE_DIR/old_containers"); then rm -f "$STATE_DIR/old_containers"; else echo "!! could not restart old containers: start them by hand (names in $STATE_DIR/old_containers)"; fi
   else
     echo "!! first deploy failed and there is no previous version. The site is DOWN. Inspect: deploy.sh logs;"
     echo "!! if an old stack existed, start it again (docker start <old containers>) after 'docker compose down' here."
