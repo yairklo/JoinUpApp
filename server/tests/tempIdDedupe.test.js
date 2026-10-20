@@ -4,7 +4,12 @@ function fakeRedis() {
   const m = new Map();
   return {
     fail: false,
-    async set(k, v, _px, _ttl, nx) {
+    calls: 0,
+    ttls: [],
+    expire(k) { m.delete(k); },
+    async set(k, v, _px, ttl, nx) {
+      this.calls += 1;
+      this.ttls.push(ttl);
       if (this.fail) throw new Error('down');
       if (nx === 'NX' && m.has(k)) return null;
       m.set(k, v);
@@ -72,5 +77,38 @@ describe('tempId dedupe (Redis shared across instances)', () => {
     expect(await d.claim('k')).toEqual({ claimed: false, echo: null });
     await expect(d.storeEcho('k', { id: 1 })).resolves.toBeUndefined();
     await expect(d.release('k')).resolves.toBeUndefined();
+  });
+});
+
+describe('tempId dedupe: in-flight marker TTL and breaker', () => {
+  test('the shared in-flight marker is short, the stored echo keeps the long TTL', async () => {
+    const client = fakeRedis();
+    const d = createTempIdDedupe({ client });
+    await d.claim('k');
+    await d.storeEcho('k', { id: 1 });
+    expect(client.ttls[0]).toBe(25_000);
+    expect(client.ttls[1]).toBe(5 * 60 * 1000);
+  });
+
+  test('if the claiming instance dies mid-send, a retry on another instance can claim once the marker expires', async () => {
+    const client = fakeRedis();
+    const a = createTempIdDedupe({ client });
+    const b = createTempIdDedupe({ client });
+    expect((await a.claim('k')).claimed).toBe(true); // A then crashes: never stores or releases
+    expect(await b.claim('k')).toEqual({ claimed: false, echo: null });
+    client.expire('joinup:tempid:k'); // marker TTL elapsed
+    expect((await b.claim('k')).claimed).toBe(true); // B is not stuck behind a cached in-flight entry
+  });
+
+  test('a hung Redis opens the breaker: later claims skip Redis entirely', async () => {
+    const client = fakeRedis();
+    client.fail = true;
+    const d = createTempIdDedupe({ client });
+    for (let i = 0; i < 3; i++) await d.claim(`k${i}`);
+    const before = client.calls;
+    await d.claim('k-new');
+    await d.storeEcho('k-new', { id: 1 });
+    await d.release('k-new');
+    expect(client.calls).toBe(before);
   });
 });

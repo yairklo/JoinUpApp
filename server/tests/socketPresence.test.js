@@ -1,4 +1,6 @@
-const { isUserOnline, hasOtherUserInRoom, fetchRoomSockets } = require('../utils/socketPresence');
+const { isUserOnline, hasOtherUserInRoom, fetchRoomSockets, resetPresenceBreaker } = require('../utils/socketPresence');
+
+beforeEach(() => resetPresenceBreaker());
 
 function ioWith(fetchImpl, local = {}) {
   const rooms = new Map();
@@ -49,4 +51,29 @@ test('a hanging fetchSockets times out and uses the local view', async () => {
   } finally {
     jest.useRealTimers();
   }
+});
+
+test('a local hit answers without any cluster call', async () => {
+  const fetchImpl = jest.fn(async () => []);
+  const io = ioWith(fetchImpl, { user_u1: [{ id: 's1', userId: 'u1' }], r: [{ id: 's2', userId: 'u9' }] });
+  expect(await isUserOnline(io, 'u1')).toBe(true);
+  expect(await hasOtherUserInRoom(io, 'r', 'u1')).toBe(true);
+  expect(fetchImpl).not.toHaveBeenCalled();
+});
+
+test('the cluster query excludes the sender personal room so only other users are transferred', async () => {
+  const except = jest.fn(() => ({ fetchSockets: async () => [{ id: 'x', data: { userId: 'u2' } }] }));
+  const io = { in: () => ({ except, fetchSockets: async () => { throw new Error('must use except'); } }), sockets: { adapter: { rooms: new Map() }, sockets: new Map() } };
+  expect(await hasOtherUserInRoom(io, 'r', 'u1')).toBe(true);
+  expect(except).toHaveBeenCalledWith('user_u1');
+});
+
+test('a failing cluster opens the breaker: later calls do not touch it until it closes', async () => {
+  const fetchImpl = jest.fn(async () => { throw new Error('redis down'); });
+  const io = ioWith(fetchImpl);
+  for (let i = 0; i < 3; i++) await isUserOnline(io, 'u1');
+  expect(fetchImpl).toHaveBeenCalledTimes(3);
+  expect(await isUserOnline(io, 'u1')).toBe(false); // local view, no cluster call
+  expect(await hasOtherUserInRoom(io, 'r', 'u1')).toBe(false);
+  expect(fetchImpl).toHaveBeenCalledTimes(3);
 });
