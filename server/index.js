@@ -299,7 +299,7 @@ function isUserOnline(userId) {
 }
 
 // Redis: moderation fan-out + optional worker→API socket bridge
-const { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent } = require('./utils/socketBridge');
+const { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent, localTarget } = require('./utils/socketBridge');
 if (enableRedis) {
   const Redis = require("ioredis");
   const { Logger } = require('./utils/logger');
@@ -367,7 +367,9 @@ if (enableRedis) {
         const event = JSON.parse(message);
         if (event.type === 'delete') {
           Logger.info('MODERATION', `Retroactive delete command received for msg: ${event.messageId}`);
-          const target = event.roomId ? io.to(String(event.roomId)) : io;
+          // Local-only: every instance receives this message itself (see utils/socketBridge.js).
+          const local = localTarget(io);
+          const target = event.roomId ? local.to(String(event.roomId)) : local;
           target.emit('messageDeleted', { id: event.messageId });
         }
       } catch (e) {

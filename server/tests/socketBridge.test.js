@@ -30,3 +30,32 @@ describe('socket bridge', () => {
     ]);
   });
 });
+
+describe('socket bridge local delivery (multi-instance de-dup)', () => {
+  function mockIo() {
+    const calls = [];
+    const make = (tag) => ({
+      emit: (event, payload) => calls.push({ tag, event, payload }),
+      to: (room) => ({ emit: (event, payload) => calls.push({ tag, room, event, payload }) }),
+    });
+    const io = make('cluster');
+    io.local = make('local');
+    return { io, calls };
+  }
+
+  test('applySocketEvent delivers via io.local and never via the cluster-wide emit', () => {
+    const { io, calls } = mockIo();
+    applySocketEvent(io, { broadcast: true, event: 'a', payload: 1 });
+    applySocketEvent(io, { rooms: ['r1', 'r2'], event: 'b', payload: 2 });
+    expect(calls.every((c) => c.tag === 'local')).toBe(true);
+    expect(calls).toHaveLength(3);
+  });
+
+  test('falls back to plain io when no local flag exists', () => {
+    const calls = [];
+    const io = { emit: (e) => calls.push(e), to: () => ({ emit: (e) => calls.push(e) }) };
+    applySocketEvent(io, { broadcast: true, event: 'x' });
+    applySocketEvent(io, { rooms: ['r'], event: 'y' });
+    expect(calls).toEqual(['x', 'y']);
+  });
+});
