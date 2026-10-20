@@ -188,3 +188,17 @@ import { SPORT_MAPPING, getSportName, getSportKey } from '@/utils/sports';
 | שרת Staging (Render) | `https://my-app-staging-ijyp.onrender.com` |
 | Web Production | Vercel |
 | Mobile Dev | Expo Go + `.env` עם `EXPO_PUBLIC_API_URL` |
+
+## עדכוני OTA למובייל (EAS Update)
+
+אפשר לשלוח תיקוני JS לאפליקציה בלי לעבור דרך החנות:
+
+```bash
+cd mobile_app
+npm run update:production -- --message "תיאור קצר של התיקון"
+```
+
+- **תמיד דרך הסקריפט, לא `eas update` ישירות:** `eas update` לא קורא את ה-`env` של פרופילי ה-build ב-`eas.json`. בלי הסקריפט, העדכון יוצא בלי `EXPO_PUBLIC_API_URL` (כלומר האפליקציה פונה ל-localhost), בלי מפתח Clerk ובלי Sentry. הסקריפט `scripts/eas-update.mjs` לוקח את ה-env מהפרופיל ומפרסם לערוץ שלו.
+- **`runtimeVersion` הוא `fingerprint`:** עדכון מגיע רק לבילדים עם אותו קוד native. שינוי בתלות native, ב-plugin או ב-`app.json` דורש בילד חדש לחנות, ו-OTA לא יגיע לבילדים הישנים. זה בכוונה, כדי שעדכון לא יקריס בילד שלא מתאים לו.
+- **Source maps:** כש-`SENTRY_AUTH_TOKEN` מוגדר בסביבה, הסקריפט מעלה את ה-source maps של העדכון ל-Sentry.
+- **בדיקה לפני פרודקשן:** `npm run update:preview -- --message "..."` שולח לבילדים של פרופיל `preview`.
