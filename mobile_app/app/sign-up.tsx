@@ -88,6 +88,7 @@ export default function SignUpScreen() {
                                 <View>
                                     <Text className="text-gray-800 font-semibold mb-2 ml-1">{t('auth.email', 'Email')}</Text>
                                     <TextInput
+                                        testID="sign-up-email"
                                         autoCapitalize="none"
                                         value={emailAddress}
                                         placeholder="your@email.com"
@@ -99,6 +100,7 @@ export default function SignUpScreen() {
                                 <View>
                                     <Text className="text-gray-800 font-semibold mb-2 ml-1">{t('auth.password', 'Password')}</Text>
                                     <TextInput
+                                        testID="sign-up-password"
                                         value={password}
                                         placeholder="••••••••"
                                         secureTextEntry={true}
@@ -108,6 +110,7 @@ export default function SignUpScreen() {
                                 </View>
 
                                 <TouchableOpacity
+                                    testID="sign-up-terms-checkbox"
                                     onPress={() => setAgreedToTerms((v) => !v)}
                                     className="flex-row items-center mt-2"
                                     activeOpacity={0.7}
@@ -124,6 +127,7 @@ export default function SignUpScreen() {
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
+                                    testID="sign-up-submit"
                                     onPress={onSignUpPress}
                                     disabled={loading || !agreedToTerms}
                                     className={`w-full p-5 rounded-2xl items-center mt-4 bg-brand shadow-lg shadow-brand-pale ${(loading || !agreedToTerms) ? 'opacity-40' : ''}`}
@@ -161,6 +165,7 @@ export default function SignUpScreen() {
 
                             <View className="space-y-6">
                                 <TextInput
+                                    testID="sign-up-code"
                                     value={code}
                                     placeholder="000000"
                                     onChangeText={(code) => setCode(code)}
@@ -170,6 +175,7 @@ export default function SignUpScreen() {
                                 />
 
                                 <TouchableOpacity
+                                    testID="sign-up-verify"
                                     onPress={onPressVerify}
                                     disabled={loading}
                                     className={`w-full p-5 rounded-2xl items-center bg-brand shadow-lg shadow-brand-pale ${loading ? 'opacity-70' : ''}`}
