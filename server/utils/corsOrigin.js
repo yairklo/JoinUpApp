@@ -13,9 +13,11 @@
 // The team slug is mandatory, so another Vercel account's project named join-up-* / join-up-app-*
 // can't pass CORS with credentials. Not a bare `*.vercel.app` wildcard either.
 function vercelPreviewPattern() {
-  const team = (process.env.CORS_VERCEL_TEAM_SLUG || 'yair-klausners-projects').toLowerCase();
-  const escaped = team.replace(/[^a-z0-9-]/g, '');
-  return new RegExp(`^https://join-up(-app)?-[a-z0-9-]+-${escaped}\.vercel\.app$`, 'i');
+  const DEFAULT_TEAM = 'yair-klausners-projects';
+  const cleaned = (process.env.CORS_VERCEL_TEAM_SLUG || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+  // Empty/malformed override falls back to the default; never widens the pattern.
+  const team = /[a-z0-9]/.test(cleaned) ? cleaned : DEFAULT_TEAM;
+  return new RegExp('^https://join-up(-app)?-[a-z0-9-]+-' + team + '\\.vercel\\.app$', 'i');
 }
 
 const LOCAL_DEV_ORIGIN_PATTERNS = [
