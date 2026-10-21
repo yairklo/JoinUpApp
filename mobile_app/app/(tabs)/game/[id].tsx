@@ -11,6 +11,7 @@ import { useSeriesLogic } from '@/hooks/useSeriesLogic';
 import { useTranslation } from 'react-i18next';
 import PendingRequestsList from '@/components/PendingRequestsList';
 import GameRatingsPanel from '@/components/GameRatingsPanel';
+import GameResultSection from '@/components/GameResultSection';
 import GameDetailsSkeleton from '@/components/GameDetailsSkeleton';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
@@ -471,6 +472,8 @@ export default function GameDetailsScreen() {
                         <Text className="text-xs text-gray-600 dark:text-cyber-muted font-bold">{t('game.calendar', 'יומן')}</Text>
                     </TouchableOpacity>
                 </View>
+
+                <GameResultSection game={game} />
 
                 {/* Map Section */}
                 <View className="bg-white p-4 mb-4 shadow-sm border-b border-gray-100">
