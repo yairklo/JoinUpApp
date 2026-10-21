@@ -1,10 +1,11 @@
-import React, { useId, useState } from "react";
+import React, { useId } from "react";
 import Box from "@mui/material/Box";
 import type { SxProps, Theme } from "@mui/material/styles";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
 import SportsTennisIcon from "@mui/icons-material/SportsTennis";
 
+import SafeImage from "@/components/ui/SafeImage";
 import { getSportTheme } from "@/utils/sports";
 
 /*
@@ -105,8 +106,7 @@ export default function SportCover({
     const key = sport && sport in COURTS ? sport : "SOCCER";
     const Court = COURTS[key];
     const Glyph = GLYPHS[key as keyof typeof GLYPHS];
-    const [failedImage, setFailedImage] = useState<string | null>(null);
-    const photo = image && image.trim().length > 0 && image !== failedImage ? image : null;
+    const photo = image && image.trim().length > 0 ? image : null;
 
     return (
         <Box
@@ -123,14 +123,13 @@ export default function SportCover({
         >
             {photo && (
                 <>
-                    <Box
-                        component="img"
+                    <SafeImage
                         src={photo}
                         alt=""
                         aria-hidden
                         loading="lazy"
-                        onError={() => setFailedImage(image ?? null)}
-                        sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        fallback={null}
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
                     <Box
                         aria-hidden
