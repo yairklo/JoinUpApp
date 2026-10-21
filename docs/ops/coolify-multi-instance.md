@@ -1,8 +1,8 @@
 # Running the API on several instances in Coolify
 
-Plan and runbook for running the multi-instance code from [#370](https://github.com/yairklo/JoinUpApp/pull/370) (Redis Socket.IO adapter, shared limiters, job leader lock) on the existing Coolify VPS. Style and conventions follow the dev runbook in [#373](https://github.com/yairklo/JoinUpApp/pull/373) (`docs/dev-environment.md`, not yet on `main` when this was written).
+Plan and runbook for running the multi-instance code from [#370](https://github.com/yairklo/JoinUpApp/pull/370) (Redis Socket.IO adapter, shared limiters, job leader lock) on the existing Coolify VPS. Style and conventions follow the dev runbook from [#373](https://github.com/yairklo/JoinUpApp/pull/373) (`docs/dev-environment.md`, now on `main`).
 
-**This document is a plan. Nothing here was run against Coolify or any server.** Every Coolify statement is from the official docs (cited in [Sources](#sources)); anything the docs do not settle is listed under [Open questions](#open-questions-only-the-owner-can-answer) and marked **VERIFY** inline.
+**This document is mostly a plan.** The multi-instance phases (Redis flags, second app, sticky LB) were not run anywhere. Facts that were checked on the real dev environment are collected in [section 11](#11-what-we-confirmed-on-the-real-dev-environment) and in A8. Every other Coolify statement is from the official docs (cited in [Sources](#sources)); anything the docs do not settle is listed under [Open questions](#open-questions-only-the-owner-can-answer) and marked **VERIFY** inline.
 
 Depends on #370 being merged and deployed. PR #366 (own Caddy/compose/`deploy.sh`) is closed and is not used: Coolify already owns ports 80/443, TLS and deploys.
 
@@ -18,8 +18,9 @@ Depends on #370 being merged and deployed. PR #366 (own Caddy/compose/`deploy.sh
 8. [DuckDNS and TLS](#8-duckdns-and-tls)
 9. [Adding a second server later](#9-adding-a-second-server-later)
 10. [Risks](#10-risks)
-11. [Open questions only the owner can answer](#open-questions-only-the-owner-can-answer)
-12. [Sources](#sources)
+11. [What we confirmed on the real dev environment](#11-what-we-confirmed-on-the-real-dev-environment)
+12. [Open questions only the owner can answer](#open-questions-only-the-owner-can-answer)
+13. [Sources](#sources)
 
 ## 1. Assumptions to verify first
 
@@ -36,7 +37,7 @@ Verify each before phase 1 and write the answers into the PR / a note:
 | A5 | Health check on the production app | Production app → **Healthcheck**: Enabled, GET, path `/api/health`, port `3005`. |
 | A6 | **Stop Grace Period** | Production app → **Advanced → Operations**. Docs default is 30 s. #370's drain forces exit at 10 s, so ≥15 s is enough. |
 | A7 | Rolling update is actually happening | Production app → **Deployments** → open the latest log; look for "Rolling update started … completed". Forced stop-first when a host port is published, a custom container name or `--ip` is set ([docs](https://coolify.io/docs/knowledge-base/rolling-updates)). |
-| A8 | Image `CMD` forwards SIGTERM to Node | On `main` the `server/Dockerfile` CMD is shell form `npx prisma migrate deploy && npm start`; PID 1 is `sh`, which does not forward SIGTERM, so #370's drain would never run and Docker SIGKILLs after the grace period. #373 changes it to exec form `["npm","start"]` (npm forwards signals). Confirm #373 (or an equivalent) is merged **before phase 3**, then check `docker top <container>` / logs for `[SHUTDOWN] SIGTERM received` on a redeploy. |
+| A8 | SIGTERM reaches Node (so #370's drain runs) | **Verified, no change needed.** With `node:20-alpine` both the old shell-form `CMD npx prisma migrate deploy && npm start` and #373's exec form deliver SIGTERM (busybox `sh` execs the last command). Checked locally with `docker stop`: `[SHUTDOWN] SIGTERM received, draining...` then `[SHUTDOWN] done`, exit 0, for both. Process tree: `npm start` → `node scripts/render-start.js` (requires `index.js` in the same process). Still confirm `[SHUTDOWN]` in logs on a Restart of the container (see section 11). |
 | A9 | Compute resources | One VPS running Coolify, the proxy, two API containers, Redis. Check RAM (`free -m`) — each Node API ≈ a few hundred MB; Redis was sized in #370 at 128 MB. |
 | A10 | Coolify's Docker network for the app | Production app → **Configuration** shows the **Destination** (usually network `coolify`). Redis must use the same destination. |
 | A11 | Is the production Neon compute / connection limit OK for 2 instances | Prisma pool size × 2 must fit Neon's pooled limit. Check Neon console → project → **Connection pooling**. |
@@ -142,7 +143,7 @@ Never skip a phase; each has an exit check and a rollback (section 6). Do phases
 
 ### Phase 0 — ship #370 with flags off
 
-1. Merge #370 (owner's call), and #373's Dockerfile change (A8).
+1. #370 and #373 are already on `main`; confirm the deployed image includes them (the `HEALTHCHECK` from #373 should show as "Custom healthcheck found in Dockerfile" in the deploy log).
 2. Coolify auto-deploys. Do **not** set any new variable.
 3. Check: deployment log shows "Rolling update completed"; `curl -fsS https://joinup-api.duckdns.org/api/health` → `"status":"OK"`, `"jobs":"on"`. App behaves as before.
 
@@ -212,9 +213,9 @@ Flags can be changed in any order; each change = edit variable → **Redeploy** 
 
 ## 7. Deploys, health check, graceful shutdown
 
-- **Health check** (each app): GET, scheme http, host `localhost`, port `3005`, path `/api/health`. Interval 10 s, timeout 5 s, retries 3, start period ≥ 40 s (Prisma migrations run before listen). **Never `/api/health/deep`**: it queries Postgres and keeps the Neon compute awake. `/api/health` is dependency-free and returns `jobs: on|standby|off`, which doubles as a leader indicator.
+- **Health check** (each app): the image already declares a Docker `HEALTHCHECK` (from #373: `curl http://127.0.0.1:${PORT:-3005}/api/health`, start period 40 s); Coolify detects it ("Custom healthcheck found in Dockerfile") and uses it for rolling updates, so no UI health check is strictly required. If you set one in the UI instead: GET, scheme http, host `localhost`, port `3005`, path `/api/health`. Interval 10 s, timeout 5 s, retries 3, start period ≥ 40 s (Prisma migrations run before listen). **Never `/api/health/deep`**: it queries Postgres and keeps the Neon compute awake. `/api/health` is dependency-free and returns `jobs: on|standby|off`, which doubles as a leader indicator.
 - **Rolling update**: with the health check, Coolify starts the new container, waits for healthy, then stops the old one. Both run together briefly: acceptable, because jobs are behind the Redis lock, the Socket.IO adapter makes both deliver, and the limiter is shared. Migrations are run by whichever container boots first; Prisma `migrate deploy` takes an advisory lock, so a concurrent boot waits. **Do not deploy both apps at the same moment** — redeploy one, wait healthy, then the other, to keep one instance serving.
-- **Graceful shutdown**: SIGTERM → #370 drains (release leader lock, close Socket.IO, adapter, Redis, Prisma), hard timeout **10 s** in code. Coolify **Stop Grace Period** (default 30 s) is longer, so it never kills mid-drain; leave 30 s or set 15 s. A lapsed lock expires on its own within 30 s if the old container is killed hard, so a stuck drain costs a delay in jobs, not duplicates. This only works if Node receives SIGTERM — see A8.
+- **Graceful shutdown**: SIGTERM → #370 drains (release leader lock, close Socket.IO, adapter, Redis, Prisma), hard timeout **10 s** in code. Coolify **Stop Grace Period** (default 30 s) is longer, so it never kills mid-drain; leave 30 s or set 15 s. A lapsed lock expires on its own within 30 s if the old container is killed hard, so a stuck drain costs a delay in jobs, not duplicates. Node does receive SIGTERM in our image (A8, verified).
 - Stop-first deploys (host port published, custom container name, `--ip`) defeat all of this; do not set them on the API apps.
 - Coolify deploys each app independently on push to `main`. With **Auto Deploy** on both, the two deploys start together. Prefer turning Auto Deploy **off** on app 2 and deploying it from the UI after app 1 is healthy (**VERIFY** stagger option in your version), or use a deploy webhook for app 2 invoked after app 1 finishes.
 
@@ -239,7 +240,7 @@ Per [Servers](https://coolify.io/docs/knowledge-base/server/introduction) and [S
 
 | # | Risk | Mitigation |
 |---|---|---|
-| R1 | Shell-form `CMD` swallows SIGTERM (A8) → no drain, hard kill after 30 s | Land #373's exec-form CMD; verify `[SHUTDOWN]` log on a redeploy |
+| R1 | SIGTERM not reaching Node → no drain, hard kill after 30 s | Not an issue in our `node:20-alpine` image (A8, verified for shell and exec CMD). Re-check only if the base image or CMD changes |
 | R2 | Upstream names change per deploy → LB 502 after deploy | Network aliases (section 3); verify after the first redeploy of each app |
 | R3 | Cookie stickiness may not hold for the mobile HTTP stack (React Native may not persist `Set-Cookie` the way a browser does) → polling requests bounce between instances → "Session ID unknown", reconnect loops | Test on real iOS and Android in phase 4. Fallback if broken: mobile websocket-only transport (listed as a follow-up in #370), or stickiness by source IP (`sticky` is cookie-only in Traefik; use a single-instance route for `/api/socket` as a stopgap) |
 | R4 | Real client IP lost → one shared rate-limit bucket | Check `X-Forwarded-For` reaches the API with the client IP; exactly one proxy hop |
@@ -251,6 +252,40 @@ Per [Servers](https://coolify.io/docs/knowledge-base/server/introduction) and [S
 | R10 | Neon connections ×2 | Check pool size (A11); Prisma `connection_limit` |
 | R11 | Env drift between app 1 and 2 | Use shared variables, diff both env pages before each phase |
 | R12 | Dev and prod sharing Redis | Never; see #373 |
+
+## 11. What we confirmed on the real dev environment
+
+The owner built the dev environment on Coolify; these facts were observed there (or locally with Docker), not taken from docs.
+
+**Coolify layout**
+- Two Applications, in two Coolify projects: `production` and `dev`.
+- **Dev app** tracks branch `Dev`, source **Public GitHub**, Auto deploy = **Deploy on push (webhooks)**. This needs a GitHub repo webhook: Payload URL `http://<coolify-host>:8000/webhooks/source/github/events/manual`, content type form or json, **push** events, a shared secret that matches the one in Coolify. The first webhook-triggered deploy worked.
+- **Production app** tracks `main` and also auto-deploys on every merge to `main`, so every merge goes live. Consider **Watch Paths** on the app to skip docs-only changes (**VERIFY** the syntax in your version).
+- **Rolling update** waits for the Docker `HEALTHCHECK` (from #373) and removes the old container only after the new one is healthy.
+- Deleting the old container deletes its logs. A drain proof (`[SHUTDOWN] SIGTERM received, draining...` / `[SHUTDOWN] done`) therefore has to come from `docker stop` locally, or from a **Restart** of the same container, not from an old container after a rolling deploy.
+
+**Redis**
+- Production Redis is a Coolify-managed Redis resource: Public access = Private, port 6379, internal URL ends in `:6379/0`. Never copy its credentials into docs or other envs.
+- The old Render dev server used a separate external Redis. Dev therefore needs **its own** Coolify Redis resource; use that resource's INTERNAL URL, never production's (see section 4).
+
+**Dev env var set that works (names only, no values)**
+
+| Variable | Notes |
+|---|---|
+| `DATABASE_URL` | pooled Neon host (contains `-pooler`) |
+| `DIRECT_DATABASE_URL` | direct host, **same database** as above; the seed refuses to run if they differ |
+| `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY` | Clerk test instance, the same one Vercel Preview uses |
+| `NODE_ENV` | `production` |
+| `PORT` | `3005` |
+| `PUBLIC_SERVER_URL` | the dev API's public URL |
+| `RUN_BACKGROUND_JOBS` | `false` |
+| `ALLOW_DISK_UPLOADS` | `true` (no Cloudinary in dev) |
+| `OPENAI_API_KEY`, `GOOGLE_API_KEY` | optional |
+| Firebase | not set |
+| `REDIS_URL` | unset until a dev Redis resource exists |
+| CORS | Vercel Preview origins are allowed by the team-slug regex in `server/utils/corsOrigin.js` (#380). Do **not** set `CORS_PERMISSIVE` |
+
+**Lesson learned: check `DIRECT_DATABASE_URL` before the first deploy.** On the first dev boot a `DIRECT_DATABASE_URL` pointing at production made `prisma migrate deploy` run against the **production** database. Before the first deploy of any environment, remove `-pooler` from the `DATABASE_URL` host and compare it with the `DIRECT_DATABASE_URL` host: they must be identical (and be the environment's own database).
 
 ## Open questions only the owner can answer
 
