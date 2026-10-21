@@ -41,13 +41,14 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://joinup:joinup@localhost:5432/joinup_e2e?schema=public
-      DIRECT_DATABASE_URL: postgresql://joinup:joinup@localhost:5432/joinup_e2e?schema=public
-      # Clerk DEVELOPMENT instance dedicated to E2E (never the live one).
+      # Consumed by mobile_app/maestro/local/start-backend.mjs --ci (blanks prod vars, sets dev/disk uploads).
+      E2E_DATABASE_URL: postgresql://joinup:joinup@localhost:5432/joinup_e2e?schema=public
+      E2E_PSQL_URL: postgresql://joinup:joinup@localhost:5432/joinup_e2e
+      # Clerk DEVELOPMENT instance dedicated to E2E (never the live one); start-backend.mjs refuses non-test keys.
       CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
       CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
       EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
-      PORT: '3005'
+      E2E_CLEAN_CMD: ${{ github.workspace }}/mobile_app/maestro/scripts/ci-clean.sh
     steps:
       - uses: actions/checkout@v4
 
@@ -62,14 +63,11 @@ jobs:
 
       # ---- backend (disposable Postgres, seeded fields) ----
       - name: Start backend
-        working-directory: server
         run: |
-          npm ci
-          npx prisma migrate deploy
-          node scripts/importFieldsFromCsv.js ../weplay_courts_export.csv
-          nohup node index.js > ../server.log 2>&1 &
-          for i in $(seq 1 60); do curl -sf http://localhost:3005/api/health && exit 0; sleep 2; done
-          cat ../server.log; exit 1
+          (cd server && npm ci)
+          nohup node mobile_app/maestro/local/start-backend.mjs --ci > server.log 2>&1 &
+          for i in $(seq 1 90); do curl -sf http://localhost:3005/api/health && exit 0; sleep 2; done
+          cat server.log; exit 1
 
       # ---- app ----
       - name: Install mobile dependencies
@@ -100,13 +98,14 @@ jobs:
           profile: pixel_6
           disable-animations: true
           working-directory: mobile_app
-          script: node maestro/scripts/run.mjs --tags ${{ inputs.tags || 'smoke' }}
+          script: bash maestro/scripts/ci-run.sh ${{ inputs.tags || 'smoke' }}
 
       - name: Upload Maestro report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: maestro-report
+          include-hidden-files: true
           path: |
             mobile_app/maestro/.reports
             server.log

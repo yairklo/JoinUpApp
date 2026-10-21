@@ -58,14 +58,14 @@ export function assertClerkDevKeys(pub, secret) {
   }
 }
 
-export function buildE2EBackendEnv(parentEnv, clerk) {
+export function buildE2EBackendEnv(parentEnv, clerk, dbUrl = LOCAL_DB_URL) {
   assertClerkDevKeys(clerk?.pub, clerk?.secret);
   const blocked = Object.fromEntries(BLOCKED_PROD_ENV_KEYS.map((key) => [key, '']));
   const env = {
     ...parentEnv,
     ...blocked,
-    DATABASE_URL: LOCAL_DB_URL,
-    DIRECT_DATABASE_URL: LOCAL_DB_URL,
+    DATABASE_URL: dbUrl,
+    DIRECT_DATABASE_URL: dbUrl,
     CLERK_SECRET_KEY: clerk.secret,
     CLERK_PUBLISHABLE_KEY: clerk.pub,
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: clerk.pub,
@@ -75,8 +75,8 @@ export function buildE2EBackendEnv(parentEnv, clerk) {
     NODE_ENV: 'development',
     PORT: '3005',
   };
-  if (env.DATABASE_URL !== LOCAL_DB_URL || env.DIRECT_DATABASE_URL !== LOCAL_DB_URL) {
-    throw new Error('Refusing to start: DATABASE_URL must be the local E2E Postgres (localhost:5544/joinup_e2e).');
+  if (!/^postgres(ql)?:\/\/[^@]*@(localhost|127\.0\.0\.1)[:/]/.test(env.DATABASE_URL)) {
+    throw new Error('Refusing to start: DATABASE_URL must point at a localhost E2E Postgres.');
   }
   for (const key of BLOCKED_PROD_ENV_KEYS) {
     if (env[key] !== '') {
@@ -94,9 +94,11 @@ function isDirectRun() {
 
 function main() {
   const { pub, secret } = loadClerkKeys();
+  // --ci: the job's Postgres service already runs (E2E_DATABASE_URL); no Docker, API detached-friendly.
+  const ci = process.argv.includes('--ci');
   let env;
   try {
-    env = buildE2EBackendEnv(process.env, { pub, secret });
+    env = buildE2EBackendEnv(process.env, { pub, secret }, ci ? process.env.E2E_DATABASE_URL : LOCAL_DB_URL);
   } catch (err) {
     console.error(err.message);
     process.exit(1);
@@ -107,8 +109,8 @@ function main() {
     if (r.status !== 0) process.exit(r.status ?? 1);
   }
 
-  if (process.argv.includes('--reset')) run('docker', ['compose', '-f', compose, 'down', '-v'], here);
-  run('docker', ['compose', '-f', compose, 'up', '-d', '--wait'], here);
+  if (!ci && process.argv.includes('--reset')) run('docker', ['compose', '-f', compose, 'down', '-v'], here);
+  if (!ci) run('docker', ['compose', '-f', compose, 'up', '-d', '--wait'], here);
   run('npx', ['prisma', 'migrate', 'deploy'], server);
   run('npx', ['prisma', 'generate'], server);
   run('node', ['scripts/importFieldsFromCsv.js', '../weplay_courts_export.csv'], server);

@@ -39,7 +39,9 @@ if (!xml.includes('usesCleartextTraffic')) {
 }
 
 const gradlew = process.platform === 'win32' ? `"${join(root, 'android', 'gradlew.bat')}"` : './gradlew';
-run(gradlew, ['assembleRelease', '-x', 'lint', '-PreactNativeArchitectures=x86_64'], join(root, 'android'));
+// lintVital* runs per library on release builds and OOMs (Metaspace) on 7GB CI runners; a test APK needs no lint.
+const skipLint = ['lint', 'lintVitalAnalyzeRelease', 'lintVitalReportRelease', 'lintVitalRelease'].flatMap((t) => ['-x', t]);
+run(gradlew, ['assembleRelease', ...skipLint, '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g', '-PreactNativeArchitectures=x86_64'], join(root, 'android'));
 
 const built = join(root, 'android', 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
 if (!existsSync(built)) {
