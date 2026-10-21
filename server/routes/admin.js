@@ -363,9 +363,19 @@ router.get('/user-reports', authenticateToken, requireAdmin, async (req, res) =>
     });
     const gameIds = [...new Set(rows.map((r) => r.gameId).filter(Boolean))];
     const games = gameIds.length
-      ? await prisma.game.findMany({ where: { id: { in: gameIds } }, select: { id: true, start: true, field: { select: { name: true } } } })
+      ? await prisma.game.findMany({ where: { id: { in: gameIds } }, select: { id: true, title: true, start: true, field: { select: { name: true } } } })
       : [];
     const gameById = new Map(games.map((g) => [g.id, g]));
+    const tournamentIds = [...new Set(rows.map((r) => r.tournamentId).filter(Boolean))];
+    const tournaments = tournamentIds.length
+      ? await prisma.tournament.findMany({ where: { id: { in: tournamentIds } }, select: { id: true, title: true } })
+      : [];
+    const tournamentById = new Map(tournaments.map((t) => [t.id, t]));
+    const targetIds = [...new Set(rows.map((r) => r.targetId))];
+    const openCounts = targetIds.length
+      ? await prisma.userReport.groupBy({ by: ['targetId'], where: { targetId: { in: targetIds }, status: 'OPEN' }, _count: { _all: true } })
+      : [];
+    const openByTarget = new Map(openCounts.map((c) => [c.targetId, c._count._all]));
     res.json(rows.map((r) => ({
       id: r.id,
       reason: r.reason,
@@ -377,7 +387,11 @@ router.get('/user-reports', authenticateToken, requireAdmin, async (req, res) =>
       createdAt: r.createdAt,
       reporter: r.reporter,
       target: r.target,
-      game: r.gameId ? (gameById.get(r.gameId) || { id: r.gameId, start: null, field: null }) : null,
+      game: r.gameId ? (gameById.get(r.gameId) || { id: r.gameId, title: null, start: null, field: null }) : null,
+      tournamentId: r.tournamentId,
+      tournament: r.tournamentId ? (tournamentById.get(r.tournamentId) || { id: r.tournamentId, title: null }) : null,
+      // OPEN reports against the same player (this one included while it is open).
+      openReportsOnTarget: openByTarget.get(r.targetId) || 0,
     })));
   } catch (error) {
     console.error('List user reports error:', error);
