@@ -289,9 +289,9 @@ async function generateSchedule(user, tournamentId, body, { preview }) {
       };
     });
     await tx.tournamentMatch.createMany({ data: rows });
-    return { count: rows.length, conflicts: r.conflicts, scheduledCount: rows.filter((x) => x.scheduledAt).length, t };
+    return { count: rows.length, conflicts: r.conflicts, scheduledIds: rows.filter((x) => x.scheduledAt).map((x) => x.id), t };
   }, { timeout: 30000, maxWait: 10000 });
-  return { preview: false, matchCount: out.count, scheduledCount: out.scheduledCount, conflicts: out.conflicts, t: out.t };
+  return { preview: false, matchCount: out.count, scheduledCount: out.scheduledIds.length, scheduledMatchIds: out.scheduledIds, conflicts: out.conflicts, t: out.t };
 }
 
 // ---- manual edits ------------------------------------------------------------------------

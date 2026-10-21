@@ -5,6 +5,7 @@ const svc = require('../services/tournamentService');
 const teams = require('../services/tournamentTeamService');
 const schedule = require('../services/tournamentScheduleService');
 const results = require('../services/tournamentResultService');
+const notify = require('../services/tournamentNotifications');
 
 const router = express.Router();
 
@@ -87,12 +88,18 @@ router.delete('/:id/teams/:teamId', authenticateToken, handle(async (req) => {
     : { matchIds: [] };
   emit(req, 'teams');
   if (forfeited.matchIds.length) emit(req, 'schedule');
+  notify.notifyPromoted({ tournament: out.t, teamIds: out.promoted, io: req.app.get('io') });
   return { ok: true, affectedMatchIds: forfeited.matchIds, promotedTeamIds: out.promoted };
 }));
 
 router.post('/:id/teams/:teamId/decision', authenticateToken, handle(async (req) => {
   const out = await teams.decideTeam(req.user, req.params.id, req.params.teamId, (req.body || {}).decision);
   emit(req, 'teams');
+  const io = req.app.get('io');
+  if (out.changed) {
+    notify.notifyTeamDecision({ tournament: out.t, team: out.team, status: out.team.status, io });
+    notify.notifyPromoted({ tournament: out.t, teamIds: out.promoted, io });
+  }
   return { team: out.team, promotedTeamIds: out.promoted };
 }));
 
@@ -101,6 +108,9 @@ router.post('/:id/teams/:teamId/join-code/rotate', authenticateToken, handle((re
 router.post('/:id/teams/:teamId/members', authenticateToken, handle(async (req, res) => {
   const out = await teams.inviteMember(req.user, req.params.id, req.params.teamId, (req.body || {}).userId);
   emit(req, 'teams');
+  if (out.created) {
+    notify.notifyTeamInvite({ tournament: out.t, team: out.team, inviterId: req.user.id, inviteeId: req.body.userId, io: req.app.get('io') });
+  }
   res.status(out.created ? 201 : 200);
   return { member: out.member };
 }));
@@ -129,14 +139,18 @@ router.post('/:id/join/:joinCode', authenticateToken, handle(async (req) => {
 router.post('/:id/schedule/generate', authenticateToken, handle(async (req) => {
   const preview = req.query.preview === '1' || req.query.preview === 'true';
   const out = await schedule.generateSchedule(req.user, req.params.id, req.body, { preview });
-  if (!preview) emit(req, 'schedule');
-  const { t, ...rest } = out;
+  if (!preview) {
+    emit(req, 'schedule');
+    notify.notifyMatchesScheduled({ tournament: out.t, matchIds: out.scheduledMatchIds, io: req.app.get('io') });
+  }
+  const { t, scheduledMatchIds, ...rest } = out;
   return rest;
 }));
 
 router.post('/:id/matches', authenticateToken, handle(async (req, res) => {
   const out = await schedule.createMatch(req.user, req.params.id, req.body);
   emit(req, 'schedule', { matchId: out.match.id });
+  if (out.scheduleChanged) notify.notifyMatchesScheduled({ tournament: out.t, matchIds: [out.match.id], io: req.app.get('io') });
   res.status(201);
   return { match: out.match, conflicts: out.conflicts };
 }));
@@ -144,6 +158,7 @@ router.post('/:id/matches', authenticateToken, handle(async (req, res) => {
 router.patch('/:id/matches/:matchId', authenticateToken, handle(async (req) => {
   const out = await schedule.updateMatch(req.user, req.params.id, req.params.matchId, req.body);
   emit(req, 'schedule', { matchId: req.params.matchId });
+  if (out.scheduleChanged) notify.notifyMatchesScheduled({ tournament: out.t, matchIds: [req.params.matchId], io: req.app.get('io') });
   return { match: out.match, conflicts: out.conflicts };
 }));
 
