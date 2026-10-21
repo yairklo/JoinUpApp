@@ -49,16 +49,17 @@ appId: com.yairklo.joinupapp
 # Native Android date dialog opens on 2008-01-01 (adult); "OK" keeps that date.
 - tapOn:
     id: "android:id/button1"
-# The row centre sits on the terms links. Tap the box, and only when it is still unchecked —
-# AgeGate stays mounted across a sign-out, so a second user in the same session can already be ticked.
-- runFlow:
-    when:
-      visible:
-        id: age-gate-terms-checkbox
-        checked: false
-    commands:
-      - tapOn:
-          id: age-gate-terms-checkbox-box
+# AgeGate stays mounted across a sign-out, so it must come up with consent cleared for every new
+# user (regression guard: a second user on the same device used to see the box pre-ticked).
+- assertVisible:
+    id: age-gate-terms-checkbox
+    checked: false
+# The row centre sits on the terms links, so tap the box itself - exactly once.
+- tapOn:
+    id: age-gate-terms-checkbox-box
+- assertVisible:
+    id: age-gate-terms-checkbox
+    checked: true
 - tapOn:
     id: age-gate-continue
 - extendedWaitUntil:
