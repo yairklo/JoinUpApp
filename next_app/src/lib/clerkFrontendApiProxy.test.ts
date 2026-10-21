@@ -19,7 +19,8 @@ describe("resolveClerkProxyUrl", () => {
     }
   });
 
-  test("pk_test_ ignores NEXT_PUBLIC_CLERK_PROXY_URL", () => {
+  // Helper return value only. @clerk/nextjs still reads the env var; see resolveClerkProxyUrl.
+  test("pk_test_ returns undefined even when NEXT_PUBLIC_CLERK_PROXY_URL is set", () => {
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_example";
     process.env.NEXT_PUBLIC_CLERK_PROXY_URL = "/__clerk";
     expect(resolveClerkProxyUrl()).toBeUndefined();

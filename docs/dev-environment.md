@@ -59,14 +59,29 @@ Do not merge to `main` until the first dev deploy of this image is healthy. See 
    - **Direct** connection string → this is `DIRECT_DATABASE_URL`. The host must **not** contain `-pooler`. Prisma migrations use the direct string.
 3. Keep both strings in a password manager. Do not commit them. Do not reuse the production project's host.
 4. The first successful dev boot runs `npx prisma migrate deploy` and creates the tables. Logs must show `[BOOT] Prisma migrations OK`. Until that line appears, the database has no schema.
-5. Load test users only with the dev seed, from a checkout that contains `server/scripts/seedDev.js` ([#374](https://github.com/yairklo/JoinUpApp/pull/374); see `docs/dev-seed.md` once that PR is merged). Point `DATABASE_URL` / `DIRECT_DATABASE_URL` at this empty project and `CLERK_SECRET_KEY` at `sk_test_…`, then from `server/`:
+5. Load test users only with the dev seed, from a checkout that contains `server/scripts/seedDev.js` ([#374](https://github.com/yairklo/JoinUpApp/pull/374)). The procedure, the refusal checks, and the marker SQL are in [`docs/dev-seed.md`](dev-seed.md). That file arrives with #374; it is not on this branch. The target is this **new empty Neon project**. It is not a branch of the production project.
+
+   The seed does not read `server/.env`. From `server/`, export these in the shell (or pass `--env-file`) before `npm run seed:dev`:
+
+   - `DATABASE_URL` — pooled connection string of this empty project.
+   - `DIRECT_DATABASE_URL` — direct connection string of the same project. The host must not contain `-pooler`. After `-pooler` is removed, both URLs must be the same host and database.
+   - `SEED_ALLOWED_DB_HOST` — that direct host (no `-pooler`). A remote database is refused when this is missing or does not match the host.
+   - `CLERK_SECRET_KEY` — `sk_test_…`. A missing key, or any `pk_live_` / `sk_live_` key in the environment, makes the script exit before it writes.
+   - `joinup_dev_seed_marker` — create this row **by hand** in that database (`id = 'dev'`, `host` = the same direct host). The seed does not insert it. Local Postgres skips the marker; this Neon host does not. The SQL is in `docs/dev-seed.md`.
+   - `JOINUP_SEED_CONFIRM=dev` — required when the host has no whole-token `dev`, `preview`, `staging`, `test`, `branch`, or `ci` label. A fresh Neon endpoint usually has none of those, so set it. The flag does not bypass the allowlist, the marker, or a live Clerk key.
 
    ```bash
-   JOINUP_SEED_CONFIRM=dev npm run seed:dev
+   cd server
+   export DATABASE_URL='postgresql://…-pooler…/neondb'
+   export DIRECT_DATABASE_URL='postgresql://…direct-host…/neondb'
+   export SEED_ALLOWED_DB_HOST='ep-your-endpoint.region.aws.neon.tech'
+   export CLERK_SECRET_KEY='sk_test_…'
+   export JOINUP_SEED_CONFIRM=dev
+   npm run seed:dev
    ```
 
-   The script refuses to run against production (live Clerk keys, a production-looking database, or `PUBLIC_SERVER_URL=https://joinup-api.duckdns.org`). This pull request does not add the script.
-6. To wipe a messy dev database: delete the Neon project and create another empty one (or drop the dev database inside that project), redeploy so `prisma migrate deploy` rebuilds the schema, then run `npm run seed:dev` again. Do not reset from production.
+   The script also refuses a production-looking host or database name and `PUBLIC_SERVER_URL=https://joinup-api.duckdns.org`. This pull request does not add the script.
+6. To wipe a messy dev database: delete the Neon project and create another empty one (or drop the dev database inside that project), redeploy so `prisma migrate deploy` rebuilds the schema, create a new `joinup_dev_seed_marker` row for the new host, then run `npm run seed:dev` again with the exports above. Do not reset from production.
 
 ### 2. Clerk — test keys only
 
@@ -134,10 +149,14 @@ Do not merge to `main` until the first dev deploy of this image is healthy. See 
    | `CLERK_SECRET_KEY` | `sk_test_...` |
 
    If a variable is already set on Preview with a live key or the production API URL, change that Preview/Development row only.
-3. **Do not set `NEXT_PUBLIC_CLERK_PROXY_URL` on Preview or Development.** Delete it on those environments if it is set (including a project-wide value that Preview inherits). That variable is the production `/__clerk` Frontend API proxy. `next_app/src/lib/clerkFrontendApiProxy.ts` used to honor it before looking at the key type, so a `pk_test_` preview would send Clerk traffic through the live proxy (`frontend-api.clerk.dev`). The code now ignores the variable when the publishable key starts with `pk_test_`, and middleware does not forward `/__clerk` unless a proxy URL is in use. Leave the variable unset on Preview and Development anyway, so an older build cannot route test keys through production. Production may keep it; `pk_live_` still defaults to `/__clerk` when it is unset.
+3. **`NEXT_PUBLIC_CLERK_PROXY_URL` must not be set on Preview or Development.** Delete it on those environments if it is set, including a project-wide value that Preview inherits. Do not set it in `next_app/.env.local` when the publishable key is `pk_test_`.
+
+   `resolveClerkProxyUrl()` returns nothing for `pk_test_`, and this app's middleware then does not forward `/__clerk`. That does not stop Clerk. `@clerk/nextjs@6.39.6` reads `NEXT_PUBLIC_CLERK_PROXY_URL` directly in `ClerkProvider` and `clerkMiddleware`. `ClerkProvider` merges with `props.proxyUrl || process.env.NEXT_PUBLIC_CLERK_PROXY_URL`, so omitting the prop, or passing `undefined` or `""`, still keeps a set variable. `clerkMiddleware` uses the env value when `proxyUrl` is omitted. Next inlines `NEXT_PUBLIC_*` at build time, so a preview built with the variable set sends `pk_test_` traffic through the production `/__clerk` proxy (`frontend-api.clerk.dev`). There is no app-side override that clears it for the provider without changing `pk_live_` behaviour.
+
+   Production may keep the variable. `pk_live_` still defaults to `/__clerk` when it is unset, and an explicit value still overrides that default for live keys only.
 4. Open **Production** and confirm it is unchanged: `NEXT_PUBLIC_API_URL=https://joinup-api.duckdns.org`, publishable key `pk_live_...`, secret `sk_live_...`.
 5. `NEXT_PUBLIC_*` is baked in at build time. **Deployments → redeploy** the latest preview after saving. New previews pick the values up on their own.
-6. Local web: copy `next_app/.env.example` to `next_app/.env.local` and fill the same three Preview values. Do not set `NEXT_PUBLIC_CLERK_PROXY_URL` there either when the key is `pk_test_`. Do not commit that file.
+6. Local web: copy `next_app/.env.example` to `next_app/.env.local` and fill the same three Preview values. `NEXT_PUBLIC_CLERK_PROXY_URL` must not be set there when the key is `pk_test_` — the Clerk SDK reads it even though `resolveClerkProxyUrl()` returns undefined. Do not commit that file.
 
 ### 6. Mobile (only if you want a dev client)
 
@@ -179,7 +198,7 @@ The useful facts from that PR are already how this repo works, and they are repe
 - Do not leave `RUN_BACKGROUND_JOBS` unset or `true` on a database that still has production `UserDevice` rows.
 - Do not point `DIRECT_DATABASE_URL` at a `-pooler` host.
 - Do not point the dev Coolify resource at `Dev` until Yair has fast-forwarded it from `main`, and do not push to `Dev` as part of this pull request.
-- Do not set `NEXT_PUBLIC_CLERK_PROXY_URL` on Vercel Preview or Development.
+- Do not set `NEXT_PUBLIC_CLERK_PROXY_URL` on Vercel Preview or Development, or in a local `pk_test_` env. `@clerk/nextjs` reads it even when `resolveClerkProxyUrl()` returns undefined.
 - Do not health-check `/api/health/deep` on a short interval.
 - Do not merge this to `main` until the first dev deploy is healthy.
 - Do not add a second Caddy or compose project on the VPS.
