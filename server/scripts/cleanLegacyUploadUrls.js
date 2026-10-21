@@ -14,21 +14,26 @@
  * Columns covered: User.imageUrl, GameSeries.imageUrl, Game.imageUrl, Field.image,
  * Field.photos (array), FieldIssueReport.photoUrl.
  *
- * Usage (from server/, e.g. the Coolify terminal of the production app):
+ * Deadness is a POSITIVE signal: a URL is dead only when the API answers 404 AND the response carries
+ * `X-Uploads-Miss: 1` (sent by the /uploads handler for a genuinely missing file). A 404 from a proxy
+ * during a redeploy has no such header and is reported as undecided. 429/timeouts are undecided too.
+ *
+ * Usage (from server/, e.g. the Coolify terminal of the production app, which supplies DATABASE_URL and
+ * PUBLIC_SERVER_URL in its environment):
  *   1. Take a DB backup / Neon branch first.
  *   2. Dry run (default, changes nothing):
  *        node scripts/cleanLegacyUploadUrls.js
  *      It prints the database host; note it.
  *   3. Apply:
- *        CONFIRM_CLEAN_UPLOADS=yes node scripts/cleanLegacyUploadUrls.js --apply \
- *          --yes-host=<that host> --api-host=joinup-api.duckdns.org
+ *        CONFIRM_CLEAN_UPLOADS=yes node scripts/cleanLegacyUploadUrls.js --apply --yes-host=<that host>
  *
- * Before deleting anything --apply checks https://<api-host>/api/health is 200 (control check),
- * aborts if every checked URL (more than 20) is 404 unless --force-all-dead, and re-checks each 404 once
- * more right before updating.
+ * The API host defaults to the host of PUBLIC_SERVER_URL. --api-host=<host> must equal it, unless
+ * --allow-other-host is passed. --apply probes https://<api-host>/uploads/__control__/does-not-exist
+ * (must be 404 + header) before the HEAD pass and again before any update, and re-checks each dead URL
+ * once more after a short delay.
  *
- * Options: --api-host=<host> (required for --apply; the dry run defaults to joinup-api.duckdns.org and
- * the PUBLIC_SERVER_URL host), --force-all-dead, --concurrency=<n> (default 8), --timeout-ms=<n> (default 10000), --retries=<n> (default 2).
+ * Options: --api-host=<host>, --allow-other-host, --concurrency=<n> (default 4), --timeout-ms=<n>
+ * (default 10000), --retries=<n> (default 2).
  * Refuses to run when NODE_ENV=test. See docs/ops/cleanup-legacy-uploads.md.
  */
 
@@ -53,7 +58,7 @@ function isLegacyUploadUrl(v) {
 function hostOf(urlStr) {
   if (!urlStr) return null;
   try {
-    return new URL(/^https?:\/\//i.test(urlStr) ? urlStr : `https://${urlStr}`).hostname.toLowerCase();
+    return new URL(/^https?:\/\//i.test(urlStr) ? urlStr : `https://${urlStr}`).host.toLowerCase();
   } catch {
     return null;
   }
@@ -64,14 +69,14 @@ function hostOf(urlStr) {
  * { kind: 'external' } for any other value containing /uploads/, or null when not relevant.
  * apiHosts: Set of lowercase hostnames; primaryHost resolves relative values.
  */
-function classifyUrl(value, apiHosts, primaryHost) {
+function classifyUrl(value, apiHosts, primaryHost, scheme = 'https') {
   if (!isLegacyUploadUrl(value)) return null;
-  if (value.startsWith(MARKER)) return { kind: 'own', url: `https://${primaryHost}${value}` };
+  if (value.startsWith(MARKER)) return { kind: 'own', url: `${scheme}://${primaryHost}${value}` };
   try {
     const u = new URL(value);
     if (
       (u.protocol === 'https:' || u.protocol === 'http:') &&
-      apiHosts.has(u.hostname.toLowerCase()) &&
+      apiHosts.has(u.host.toLowerCase()) &&
       u.pathname.startsWith(MARKER)
     ) {
       return { kind: 'own', url: value };
@@ -93,29 +98,34 @@ function maskUrl(url) {
   return `${head}${tail.slice(0, 2)}…${ext}`;
 }
 
-/** Host only (no credentials, port, or database name) of a Postgres connection string. */
+/** host[:port] (no credentials or database name) of a Postgres connection string. */
 function dbHostFromUrl(connectionString) {
   if (!connectionString) return null;
   try {
-    return new URL(connectionString).hostname || null;
+    return new URL(connectionString).host || null;
   } catch {
     return null;
   }
 }
 
 function parseArgs(argv) {
-  const opts = { apply: false, yesHost: null, apiHost: null, forceAllDead: false, concurrency: 8, timeoutMs: 10000, retries: 2 };
+  const opts = { apply: false, yesHost: null, apiHost: null, allowOtherHost: false, concurrency: 4, timeoutMs: 10000, retries: 2 };
   for (const a of argv) {
     if (a === '--apply') opts.apply = true;
     else if (a.startsWith('--yes-host=')) opts.yesHost = a.slice('--yes-host='.length);
     else if (a.startsWith('--api-host=')) opts.apiHost = hostOf(a.slice('--api-host='.length));
-    else if (a === '--force-all-dead') opts.forceAllDead = true;
-    else if (a.startsWith('--concurrency=')) opts.concurrency = Math.max(1, parseInt(a.split('=')[1], 10) || 8);
+    else if (a === '--allow-other-host') opts.allowOtherHost = true;
+    else if (a.startsWith('--concurrency=')) opts.concurrency = Math.max(1, parseInt(a.split('=')[1], 10) || 4);
     else if (a.startsWith('--timeout-ms=')) opts.timeoutMs = Math.max(1, parseInt(a.split('=')[1], 10) || 10000);
     else if (a.startsWith('--retries=')) opts.retries = Math.max(0, parseInt(a.split('=')[1], 10) || 0);
     else throw new Error(`Unknown argument: ${a}`);
   }
   return opts;
+}
+
+/** The API host this run talks to: --api-host, else the host of PUBLIC_SERVER_URL. */
+function resolveApiHost(env, opts) {
+  return opts.apiHost || hostOf(env.PUBLIC_SERVER_URL);
 }
 
 /** Returns an error message when the run must be refused, otherwise null. */
@@ -125,27 +135,40 @@ function checkSafety({ env, opts, host }) {
   if (opts.apply) {
     if (env.CONFIRM_CLEAN_UPLOADS !== 'yes') return '--apply requires CONFIRM_CLEAN_UPLOADS=yes.';
     if (opts.yesHost !== host) return `--apply requires --yes-host=${host} (confirms the target database).`;
-    if (!opts.apiHost) return '--apply requires --api-host=<public API host> (e.g. joinup-api.duckdns.org).';
+    const apiHost = resolveApiHost(env, opts);
+    if (!apiHost) return '--apply requires PUBLIC_SERVER_URL in the environment (or --api-host=<host> with --allow-other-host).';
+    const envHost = hostOf(env.PUBLIC_SERVER_URL);
+    if (opts.apiHost && opts.apiHost !== envHost && !opts.allowOtherHost) {
+      return `--api-host=${opts.apiHost} differs from PUBLIC_SERVER_URL host (${envHost || 'unset'}). Pass --allow-other-host only if you are sure it serves this database's files.`;
+    }
   }
   return null;
 }
 
-/** Only a real 404 marks a URL dead. 200, 5xx, errors, etc. are never cleaned. */
-function isDeadStatus(status) {
-  return status === 404;
+/**
+ * Verdict for a probe result { status, miss }:
+ *  dead      - 404 with X-Uploads-Miss (the only thing that ever leads to a change)
+ *  proxy404  - 404 without the header (proxy / deploy hiccup): undecided
+ *  undecided - 429, timeout or other failure (status null)
+ *  alive     - anything else (200, redirects, ...): left untouched
+ */
+function verdict(p) {
+  if (!p || p.status == null || p.status === 429 || p.status >= 500) return 'undecided';
+  if (p.status === 404) return p.miss ? 'dead' : 'proxy404';
+  return 'alive';
 }
 
 /**
  * Collect legacy URLs from column values (scalar or array).
  * Returns { own: Map(storedValue -> {url, count}), external: number of external values }.
  */
-function collectLegacyUrls(values, apiHosts, primaryHost) {
+function collectLegacyUrls(values, apiHosts, primaryHost, scheme = 'https') {
   const own = new Map();
   let external = 0;
   for (const v of values) {
     const list = Array.isArray(v) ? v : [v];
     for (const item of list) {
-      const c = classifyUrl(item, apiHosts, primaryHost);
+      const c = classifyUrl(item, apiHosts, primaryHost, scheme);
       if (!c) continue;
       if (c.kind === 'external') {
         external++;
@@ -156,15 +179,6 @@ function collectLegacyUrls(values, apiHosts, primaryHost) {
     }
   }
   return { own, external };
-}
-
-/** Abort reason when HEAD results look like a proxy/deploy outage rather than dead files, else null. */
-function allDeadAbort(statuses, forceAllDead) {
-  if (forceAllDead) return null;
-  if (statuses.length > 20 && statuses.every((s) => s === 404)) {
-    return `All ${statuses.length} checked URLs returned 404. This looks like a proxy/deploy problem; aborting. Re-run later or pass --force-all-dead if you are sure.`;
-  }
-  return null;
 }
 
 /** Array column: drop entries whose URL is in deadSet. Returns null when nothing changes. */
@@ -193,19 +207,42 @@ async function mapLimit(items, limit, fn) {
   return results;
 }
 
-/** HEAD with timeout and retries. Returns an HTTP status number, 'relative', or 'error'. */
-async function headStatus(url, { timeoutMs, retries, fetchImpl = fetch }, method = 'HEAD') {
-  if (!/^https?:\/\//i.test(url)) return 'relative';
-  for (let attempt = 0; attempt <= retries; attempt++) {
+const defaultSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const MAX_429_RETRIES = 4;
+
+/**
+ * One request with timeout and retries. Returns { status, miss } where status is null when no usable
+ * response was obtained. 429 is retried with backoff honouring Retry-After (max 30s per wait).
+ */
+async function probe(url, { timeoutMs, retries, fetchImpl = fetch, sleep = defaultSleep }, method = 'HEAD') {
+  let last = { status: null, miss: false };
+  let rateLimited = 0;
+  for (let attempt = 0; attempt <= retries; ) {
     try {
-      const res = await fetchImpl(url, { method, signal: AbortSignal.timeout(timeoutMs), redirect: 'follow' });
-      if (res.status < 500) return res.status;
+      const res = await fetchImpl(url, { method, signal: AbortSignal.timeout(timeoutMs), redirect: 'manual' });
+      const miss = !!(res.headers && res.headers.get && res.headers.get('x-uploads-miss'));
+      last = { status: res.status, miss };
+      if (res.status === 429) {
+        if (++rateLimited > MAX_429_RETRIES) return last;
+        const ra = parseInt((res.headers && res.headers.get && res.headers.get('retry-after')) || '', 10);
+        await sleep(Math.min(30000, (Number.isFinite(ra) && ra > 0 ? ra * 1000 : 2000 * rateLimited)));
+        continue;
+      }
+      if (res.status < 500) return last;
     } catch {
-      // network error / timeout: retry
+      last = { status: null, miss: false };
     }
-    if (attempt < retries) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+    attempt++;
+    if (attempt <= retries) await sleep(300 * attempt);
   }
-  return 'error';
+  return last;
+}
+
+/** The control path must answer a genuine uploads miss (404 + header); proves the API itself is answering. */
+async function controlCheck(apiHost, opts, scheme = 'https') {
+  const url = `${scheme}://${apiHost}/uploads/__control__/does-not-exist`;
+  const p = await probe(url, opts);
+  return { ok: verdict(p) === 'dead', url, p };
 }
 
 async function loadColumn(prisma, t) {
@@ -221,6 +258,7 @@ async function loadColumn(prisma, t) {
 }
 
 async function applyTarget(prisma, t, deadUrls, batchSize = 50) {
+  const arrayBatch = 10;
   const deadSet = new Set(deadUrls);
   let changed = 0;
   if (t.kind === 'scalar') {
@@ -234,7 +272,7 @@ async function applyTarget(prisma, t, deadUrls, batchSize = 50) {
     return changed;
   }
   const rows = await loadColumn(prisma, t);
-  for (const batch of chunk(rows, batchSize)) {
+  for (const batch of chunk(rows, arrayBatch)) {
     // Re-read each row inside the transaction so a concurrent change to the array is not overwritten.
     changed += await prisma.$transaction(async (tx) => {
       let n = 0;
@@ -247,7 +285,7 @@ async function applyTarget(prisma, t, deadUrls, batchSize = 50) {
         }
       }
       return n;
-    });
+    }, { maxWait: 10000, timeout: 30000 });
   }
   return changed;
 }
@@ -262,8 +300,11 @@ async function main() {
   }
   const { prisma } = require('../lib/prisma');
   const publicHost = hostOf(process.env.PUBLIC_SERVER_URL);
-  const primaryHost = opts.apiHost || publicHost || DEFAULT_API_HOST;
-  const apiHosts = new Set(opts.apply ? [opts.apiHost] : [DEFAULT_API_HOST, publicHost, opts.apiHost].filter(Boolean));
+  const apiHost = resolveApiHost(process.env, opts);
+  const primaryHost = apiHost || DEFAULT_API_HOST;
+  // Scheme follows PUBLIC_SERVER_URL (https in production; http only for local rehearsals).
+  const scheme = /^http:/i.test(process.env.PUBLIC_SERVER_URL || '') ? 'http' : 'https';
+  const apiHosts = new Set(opts.apply ? [apiHost] : [DEFAULT_API_HOST, publicHost, opts.apiHost].filter(Boolean));
   console.log(`Database host: ${host}`);
   console.log(`API host(s) treated as ours: ${[...apiHosts].join(', ')}`);
   console.log(opts.apply ? 'Mode: APPLY' : 'Mode: DRY RUN (no changes; pass --apply to modify)');
@@ -272,7 +313,7 @@ async function main() {
     const loaded = [];
     for (const t of TARGETS) {
       const rows = await loadColumn(prisma, t);
-      const { own, external } = collectLegacyUrls(rows.map((r) => r[t.column]), apiHosts, primaryHost);
+      const { own, external } = collectLegacyUrls(rows.map((r) => r[t.column]), apiHosts, primaryHost, scheme);
       loaded.push({ t, own });
       const samples = [...own.keys()].slice(0, 5).map(maskUrl);
       console.log(
@@ -285,47 +326,51 @@ async function main() {
       return;
     }
 
-    // Control check: the public API must be reachable, otherwise every file would look dead.
-    const healthUrl = `https://${opts.apiHost}/api/health`;
-    const health = await headStatus(healthUrl, opts, 'GET');
-    if (health !== 200) {
-      console.error(`Control check failed: GET ${healthUrl} returned ${health}. Aborting, nothing changed.`);
-      process.exit(1);
-    }
-    console.log(`Control check OK: ${healthUrl} -> 200`);
+    const requireControl = async (when) => {
+      const c = await controlCheck(apiHost, opts, scheme);
+      if (!c.ok) {
+        console.error(`Control check failed ${when}: ${c.url} returned status ${c.p.status} (X-Uploads-Miss: ${c.p.miss ? 'yes' : 'no'}). Aborting before any change.`);
+        process.exit(1);
+      }
+      console.log(`Control check OK ${when}.`);
+    };
+    await requireControl('before HEAD pass');
 
     // storedValue -> absolute url, across all columns
     const urlByValue = new Map();
     for (const { own } of loaded) for (const [v, { url }] of own) urlByValue.set(v, url);
     const values = [...urlByValue.keys()];
-    console.log(`Checking ${values.length} distinct URLs with HEAD...`);
-    const statuses = await mapLimit(values, opts.concurrency, (v) => headStatus(urlByValue.get(v), opts));
+    console.log(`Checking ${values.length} distinct URLs with HEAD (concurrency ${opts.concurrency})...`);
+    const probes = await mapLimit(values, opts.concurrency, (v) => probe(urlByValue.get(v), opts));
+    const verdicts = probes.map(verdict);
     const tally = {};
-    for (const st of statuses) tally[st] = (tally[st] || 0) + 1;
-    console.log('HEAD results:', JSON.stringify(tally));
-    const abort = allDeadAbort(statuses, opts.forceAllDead);
-    if (abort) {
-      console.error(abort);
-      process.exit(1);
-    }
+    for (const v of verdicts) tally[v] = (tally[v] || 0) + 1;
+    console.log('Results:', JSON.stringify(tally));
 
-    // Second HEAD right before updating; still 404 required.
-    const first404 = values.filter((_, i) => isDeadStatus(statuses[i]));
-    const second = await mapLimit(first404, opts.concurrency, (v) => headStatus(urlByValue.get(v), opts));
-    const deadSet = new Set(first404.filter((_, i) => isDeadStatus(second[i])));
-    console.log(`${first404.length} URLs were 404; ${deadSet.size} still 404 on recheck.`);
+    // Recheck dead ones after a short delay; both probes must say dead.
+    const first = values.filter((_, i) => verdicts[i] === 'dead');
+    await defaultSleep(2000);
+    const second = await mapLimit(first, opts.concurrency, (v) => probe(urlByValue.get(v), opts));
+    const dead = new Set(first.filter((_, i) => verdict(second[i]) === 'dead'));
+    console.log(`${first.length} URLs dead on first pass; ${dead.size} still dead on recheck.`);
+
+    await requireControl('before updating');
 
     let total = 0;
     for (const { t, own } of loaded) {
-      const deadHere = [...own.keys()].filter((u) => deadSet.has(u));
+      const deadHere = [...own.keys()].filter((u) => dead.has(u));
       const n = deadHere.length ? await applyTarget(prisma, t, deadHere) : 0;
       total += n;
       console.log(`${t.table}.${t.column}: cleaned ${n} rows`);
     }
-    const kept = values.length - deadSet.size;
-    console.log(`Summary: ${deadSet.size} dead URLs cleaned (${total} rows updated); ${kept} URLs left untouched (non-404 or flaky).`);
-    for (const v of values.filter((x) => !deadSet.has(x)).slice(0, 10)) {
-      console.log(`  untouched ${maskUrl(v)}`);
+    const undecided = values.length - dead.size - verdicts.filter((v) => v === 'alive').length;
+    console.log(
+      `Summary: database ${host}, API ${apiHost}. ${dead.size} dead URLs cleaned (${total} rows updated, updatedAt bumped); ` +
+        `${verdicts.filter((v) => v === 'alive').length} alive (untouched); ${undecided} undecided (429/timeout/proxy 404/flaky).`,
+    );
+    if (undecided > 0) {
+      console.log(`${undecided} URLs undecided: re-run the script (it is idempotent) to finish them.`);
+      process.exitCode = 2;
     }
   } finally {
     await prisma.$disconnect();
@@ -337,18 +382,19 @@ module.exports = {
   isLegacyUploadUrl,
   hostOf,
   classifyUrl,
-  allDeadAbort,
   DEFAULT_API_HOST,
   maskUrl,
   dbHostFromUrl,
   parseArgs,
   checkSafety,
-  isDeadStatus,
+  verdict,
+  resolveApiHost,
   collectLegacyUrls,
   pruneArray,
   chunk,
   mapLimit,
-  headStatus,
+  probe,
+  controlCheck,
 };
 
 if (require.main === module) {

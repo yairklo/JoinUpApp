@@ -11,7 +11,8 @@ function mountUploads(app, dir) {
   });
   app.use('/uploads', express.static(dir));
   app.use('/uploads', (req, res) => {
-    res.status(404).set('Cache-Control', 'public, max-age=300').end();
+    // X-Uploads-Miss lets tooling tell a genuine missing file from a proxy/deploy 404.
+    res.status(404).set({ 'Cache-Control': 'public, max-age=300', 'X-Uploads-Miss': '1' }).end();
   });
 }
 

@@ -31,6 +31,13 @@ describe('mountUploads', () => {
     expect(res.headers['content-type'] || '').not.toMatch(/json/);
     expect(res.headers['cache-control']).toBe('public, max-age=300');
     expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
+    expect(res.headers['x-uploads-miss']).toBe('1');
+  });
+
+  it('does not mark the application 404 as an uploads miss', async () => {
+    const res = await request(app).get('/api/nope');
+    expect(res.status).toBe(404);
+    expect(res.headers['x-uploads-miss']).toBeUndefined();
   });
 
   it('answers HEAD for a missing file with 404', async () => {
