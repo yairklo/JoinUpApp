@@ -38,4 +38,23 @@ async function cleanup(prefix) {
   await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
 }
 
-module.exports = { prisma, ensureUsers, tournamentBody, cleanup };
+/** Creates `n` APPROVED teams with `players` accepted members each; returns team rows in order. */
+async function seedTeams(prefix, tournamentId, n, players = 2) {
+  const teams = [];
+  for (let i = 1; i <= n; i += 1) {
+    const ids = Array.from({ length: players }, (_, j) => `${prefix}s${i}p${j + 1}`);
+    await ensureUsers(ids);
+    const team = await prisma.tournamentTeam.create({
+      data: {
+        tournamentId, name: `Seed ${String(i).padStart(2, '0')}`, captainId: ids[0], status: 'APPROVED',
+        joinCode: `${tournamentId.slice(-6)}-${prefix}${i}`,
+        members: { create: ids.map((userId, j) => ({ tournamentId, userId, role: j === 0 ? 'CAPTAIN' : 'PLAYER', status: 'ACCEPTED' })) },
+      },
+    });
+    teams.push({ ...team, playerIds: ids });
+  }
+  return teams;
+}
+
+module.exports = {
+  seedTeams, prisma, ensureUsers, tournamentBody, cleanup };
