@@ -1079,5 +1079,18 @@
     "blockedHint": "Only your friends and people already in can open the link.",
     "gameLocked": "This game is for the organizer's friends only",
     "seriesLocked": "This group is for the organizer's friends only"
+  },
+  "userReport": {
+    "title": "Report player",
+    "reasons": {
+      "HARASSMENT": "Harassment or bullying",
+      "VIOLENCE": "Violence or threats",
+      "CHEATING": "Cheating or unfair play",
+      "NO_SHOW": "Did not show up",
+      "FAKE_PROFILE": "Fake profile",
+      "INAPPROPRIATE_CONTENT": "Inappropriate content",
+      "RESULT_DISPUTE": "Disputed match result",
+      "OTHER": "Other"
+    }
   }
 }

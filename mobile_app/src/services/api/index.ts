@@ -9,3 +9,4 @@ export * from './search';
 export * from './ratings';
 export * from './support';
 export * from './manage';
+export * from './results';
