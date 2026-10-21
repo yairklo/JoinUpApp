@@ -25,8 +25,10 @@ a blocked sender exactly like an unblocked one. For a blocked pair the request i
 normal pending row (so a retry gets the same `400 Request already exists` an unblocked sender
 gets, and it shows in the sender's outgoing list and can be cancelled), but it is invisible to the
 receiver: no notification or bell, not listed in incoming requests, not counted in the badge, and
-accept/decline answer `404`. Unblocking deletes the pair's pending requests so nothing surfaces
-afterwards.
+accept/decline answer `404`. Unblocking deletes the pair's pending requests in the same transaction
+as the unblock (kept, still hidden, if the other side also blocks), so nothing surfaces afterwards.
+A concurrent double-send (unique-key race) is guarded the same way: no bell, push or counter
+broadcast for a blocked pair, and a block that appears mid-request also suppresses the bell.
 
 A duplicate pending request from the same sender is again `400 { error: 'Request already exists' }`
 (now also with `code: 'REQUEST_ALREADY_PENDING'`), the response older builds know. The server still
@@ -54,12 +56,18 @@ tokens with `משתמש`. Idempotent, and non-destructive apart from the email t
 enumerate friends-only minors id by id). The real rule lives in `POST /api/users/requests`, which
 answers `403 PROFILE_FRIENDS_ONLY`.
 
-Remaining, accepted trade-off: the profile still returns `profileRestricted` and `canMessage`
-because the clients need them to render the page (hide age/city/sports, show the "friends only"
-notice, hide the message button). Together with the `403`s on request/chat creation, a determined
-non-friend who already has a user id can still learn that an account is a friends-only minor.
-Closing that fully would need minors to be undiscoverable by id, which is a product decision.
-Search and the user list no longer carry any such signal (no `canAddFriend: false`, no city).
+Decision on what stays: `profileRestricted` and `canMessage` are kept on the profile response.
+
+- Clients need them to render the page (hide age/city/sports, show the "friends only" notice, hide
+  the message button). Removing them would not hide anything anyway: a restricted profile has no
+  age, city, gender or sports, so a non-friend can already tell it is restricted from the missing
+  fields, and `POST /requests` and `POST /chats/private` answer `403` for the same accounts.
+- What was reducible is already reduced: search and the user list carry no signal (no
+  `canAddFriend: false`, no minor city), and the profile's `canAddFriend` is a constant.
+- What remains: someone who already holds a user id can learn that the account is a friends-only
+  minor. Ids come from search and lists, which show minors by name and photo only. Closing this
+  fully means making minors undiscoverable by id (or returning identical shapes for everyone and
+  moving the restricted rendering to the client), which is a product decision, not a patch here.
 
 ## Unread counts
 

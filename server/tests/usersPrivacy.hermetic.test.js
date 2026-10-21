@@ -8,6 +8,10 @@ const express = require('express');
 const mockPrisma = new Proxy({}, {
   get(target, model) {
     if (model === 'then') return undefined;
+    if (model === '$transaction') {
+      if (!target.$transaction) target.$transaction = jest.fn(async (ops) => Promise.all(ops));
+      return target.$transaction;
+    }
     if (!target[model]) {
       const methods = {};
       target[model] = new Proxy(methods, {
@@ -232,6 +236,85 @@ describe('retry sequences are identical for blocked and unblocked senders', () =
     expect(accept.status).toBe(404);
     const decline = await request(app).post('/api/users/requests/fr9/decline');
     expect(decline.status).toBe(404);
+  });
+});
+
+describe('concurrent double-send from a blocked sender', () => {
+  const { broadcastCounters } = require('../services/counterService');
+  const burst = async (blocked) => {
+    mockPrisma.user.findUnique.mockImplementation(async ({ where }) => (
+      where.id === 'target' ? { id: 'target', birthDate: yearsAgo(30), privacyFriends: null } : { id: 'viewer', birthDate: yearsAgo(30) }
+    ));
+    mockPrisma.userBlock.findFirst.mockResolvedValue(blocked ? { id: 'b1' } : null);
+    const rows = [];
+    // Both requests pass the "already exists" check, then race on the unique key.
+    mockPrisma.friendRequest.findFirst.mockImplementation(async ({ where }) => (
+      where.status === 'PENDING' ? rows[0] || null : null
+    ));
+    let creates = 0;
+    mockPrisma.friendRequest.create.mockImplementation(async ({ data }) => {
+      creates += 1;
+      if (creates > 1) throw Object.assign(new Error('unique'), { code: 'P2002' });
+      const row = { id: 'fr1', status: 'PENDING', createdAt: new Date(), ...data };
+      rows.push(row);
+      return row;
+    });
+    mockSend.mockClear();
+    broadcastCounters.mockClear();
+    const results = await Promise.all([
+      request(app).post('/api/users/requests').send({ receiverId: 'target' }),
+      request(app).post('/api/users/requests').send({ receiverId: 'target' }),
+    ]);
+    return {
+      statuses: results.map((r) => [r.status, r.body.error || null, r.body.code || null]).sort((x, y) => x[0] - y[0]),
+      sends: mockSend.mock.calls.length,
+      broadcasts: broadcastCounters.mock.calls.length,
+    };
+  };
+
+  test('no bell, push or counter bump for the blocker, and the responses match the unblocked case', async () => {
+    const plain = await burst(false);
+    const blocked = await burst(true);
+    expect(plain.statuses.map((x) => x[0])).toEqual([201, 400]);
+    expect(blocked.statuses).toEqual(plain.statuses);
+    expect(plain.sends).toBeGreaterThan(0);
+    expect(blocked.sends).toBe(0);
+    expect(blocked.broadcasts).toBe(0);
+  });
+
+  test('cancelling a request across a block does not poke the receiver', async () => {
+    const { broadcastCounters: bc } = require('../services/counterService');
+    bc.mockClear();
+    mockPrisma.friendRequest.findUnique.mockResolvedValue({ id: 'fr1', requesterId: 'viewer', receiverId: 'target' });
+    mockPrisma.userBlock.findFirst.mockResolvedValue({ id: 'b1' });
+    const res = await request(app).post('/api/users/requests/fr1/cancel');
+    expect(res.status).toBe(200);
+    expect(bc).not.toHaveBeenCalled();
+  });
+});
+
+describe('unblock is atomic with the hidden-request cleanup', () => {
+  test('block removal and request deletion go in one transaction', async () => {
+    mockPrisma.userBlock.findFirst.mockResolvedValue(null);
+    mockPrisma.$transaction.mockClear();
+    const res = await request(app).delete('/api/users/target/block');
+    expect(res.status).toBe(200);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.$transaction.mock.calls[0][0]).toHaveLength(2);
+  });
+
+  test('requests are kept (hidden) while the other side still blocks me', async () => {
+    mockPrisma.userBlock.findFirst.mockResolvedValue({ id: 'reverse' });
+    mockPrisma.$transaction.mockClear();
+    await request(app).delete('/api/users/target/block');
+    expect(mockPrisma.$transaction.mock.calls[0][0]).toHaveLength(1);
+  });
+
+  test('a failing transaction fails the whole unblock', async () => {
+    mockPrisma.userBlock.findFirst.mockResolvedValue(null);
+    mockPrisma.$transaction.mockRejectedValueOnce(new Error('db'));
+    const res = await request(app).delete('/api/users/target/block');
+    expect(res.status).toBe(500);
   });
 });
 

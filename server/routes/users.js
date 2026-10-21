@@ -493,15 +493,19 @@ router.delete('/:id/block', authenticateToken, async (req, res) => {
   try {
     const me = String(req.user.id);
     const other = String(req.params.id);
-    await prisma.userBlock.deleteMany({ where: { blockerId: me, blockedId: other } });
-    // Requests sent while blocked were only ever visible to their sender; drop them so they do
-    // not surface to the receiver now, with no bell, after the block is lifted. Skipped when the
-    // other side still blocks me.
-    if (!(await isBlockedEitherWay(me, other))) {
-      await prisma.friendRequest.deleteMany({
+    // Requests sent while blocked were only ever visible to their sender; drop them in the same
+    // transaction as the unblock so a failure cannot leave a request the receiver can now see and
+    // accept. Skipped when the other side still blocks me (those rows stay hidden).
+    const stillBlockedByOther = !!(await prisma.userBlock.findFirst({
+      where: { blockerId: other, blockedId: me },
+      select: { id: true },
+    }));
+    await prisma.$transaction([
+      prisma.userBlock.deleteMany({ where: { blockerId: me, blockedId: other } }),
+      ...(stillBlockedByOther ? [] : [prisma.friendRequest.deleteMany({
         where: { OR: [{ requesterId: me, receiverId: other }, { requesterId: other, receiverId: me }] },
-      });
-    }
+      })]),
+    ]);
     res.json({ ok: true });
   } catch (error) {
     console.error('Unblock user error:', error);
@@ -1164,7 +1168,7 @@ router.post('/requests', authenticateToken, async (req, res) => {
         const pending = await prisma.friendRequest.findFirst({
           where: { requesterId, receiverId, status: 'PENDING' },
         });
-        if (pending) {
+        if (pending && !blocked) {
           try {
             await ensureFriendRequestNotification(req, pending);
           } catch (notifyErr) {
@@ -1181,7 +1185,8 @@ router.post('/requests', authenticateToken, async (req, res) => {
     // sender's (201, then 400 "Request already exists"). The row is hidden from the receiver
     // everywhere (list, counters, accept/decline) while the block exists, no bell is created, and
     // it is deleted on unblock.
-    if (blocked) return res.status(201).json(fr);
+    // Re-check: a block created while this request was being written must not produce a bell.
+    if (blocked || await isBlockedEitherWay(requesterId, receiverId)) return res.status(201).json(fr);
     try {
       await ensureFriendRequestNotification(req, fr);
     } catch (err) {
@@ -1270,7 +1275,10 @@ router.post('/requests/:id/cancel', authenticateToken, async (req, res) => {
     if (!reqRow || reqRow.requesterId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
     await prisma.friendRequest.delete({ where: { id: reqRow.id } });
 
-    broadcastCounters(req.app.get('io'), prisma, reqRow.receiverId).catch(() => {});
+    // A receiver across a block never saw the request, so there is nothing to refresh for them.
+    if (!(await isBlockedEitherWay(reqRow.requesterId, reqRow.receiverId))) {
+      broadcastCounters(req.app.get('io'), prisma, reqRow.receiverId).catch(() => {});
+    }
 
     res.json({ ok: true });
   } catch (e) {
