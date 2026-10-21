@@ -8,6 +8,16 @@ lost on every redeploy. Rows still reference `https://<api>/uploads/...`, which 
 Columns: `User.imageUrl`, `GameSeries.imageUrl`, `Game.imageUrl`, `Field.image`, `Field.photos[]`,
 `FieldIssueReport.photoUrl`.
 
+## Scope and safeguards
+
+- Only our own files are candidates: absolute URLs on the API host with a path starting `/uploads/`, and
+  relative `/uploads/...` values. Anything else containing `/uploads/` (for example a club site's
+  `wp-content/uploads`) is reported as "external, untouched" and never requested.
+- Before changing anything, `--apply` requires `https://<api-host>/api/health` to return 200.
+- If more than 20 URLs were checked and all returned 404 it aborts (proxy/deploy outage); override only
+  with `--force-all-dead`. Each 404 is re-checked once right before updating.
+- Array columns (`Field.photos`) are re-read inside the transaction before writing.
+
 ## Steps
 
 1. Take a DB backup or create a Neon branch of the production database.
@@ -18,9 +28,9 @@ Columns: `User.imageUrl`, `GameSeries.imageUrl`, `Game.imageUrl`, `Field.image`,
    It prints the database host, per-column counts and up to 5 masked sample URLs.
 3. Apply, confirming the host printed above:
    ```
-   CONFIRM_CLEAN_UPLOADS=yes node scripts/cleanLegacyUploadUrls.js --apply --yes-host=<host>
+   CONFIRM_CLEAN_UPLOADS=yes node scripts/cleanLegacyUploadUrls.js --apply --yes-host=<db host> --api-host=joinup-api.duckdns.org
    ```
-   Optional: `--concurrency=8 --timeout-ms=10000 --retries=2`.
+   `--api-host` is required for `--apply`. Optional: `--concurrency=8 --timeout-ms=10000 --retries=2`.
 4. Read the summary. URLs answering 200 or anything other than 404 are left untouched and listed.
 
 The script refuses to run when `NODE_ENV=test`, and `--apply` is refused without both the env var and a
