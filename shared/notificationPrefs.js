@@ -36,6 +36,11 @@ const CATEGORY_BY_NOTIFICATION_TYPE = {
   FRIEND_NEW_GAME: 'friendGames',
   FRIEND_JOINED_GAME: 'friendJoins',
   NEW_GAME_IN_CITY: 'cityGames',
+  // Tournaments reuse existing categories (no new settings columns). Results never notify.
+  TOURNAMENT_TEAM_INVITE: 'invitations',
+  TOURNAMENT_TEAM_DECISION: 'myGames',
+  TOURNAMENT_MATCH_SCHEDULED: 'myGames',
+  TOURNAMENT_STARTING_SOON: 'gameReminders',
 };
 
 /** Types the server never mutes and always keeps in-app — "turn off like this" isn't offered. */
