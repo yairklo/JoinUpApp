@@ -43,11 +43,12 @@ async function canViewTournament(db, tournament, user, role) {
   if (tournament.status === 'DRAFT') return false;
   if (tournament.isPublic) return true;
   if (!user || !user.id) return false;
-  const member = await db.tournamentTeamMember.findUnique({
-    where: { tournamentId_userId: { tournamentId: tournament.id, userId: user.id } },
+  // Not findUnique: a player may hold several INVITED rows; only ACCEPTED is unique.
+  const member = await db.tournamentTeamMember.findFirst({
+    where: { tournamentId: tournament.id, userId: user.id, status: { in: ['INVITED', 'ACCEPTED'] } },
     select: { status: true },
   });
-  return !!member && member.status !== 'REMOVED';
+  return !!member;
 }
 
 module.exports = {
