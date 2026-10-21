@@ -1,4 +1,5 @@
 const express = require('express');
+const { publicDisplayName, publicUser } = require('../utils/publicName');
 const { getBlockedByMe } = require('../utils/blocks');
 const { Prisma } = require('@prisma/client');
 const { prisma } = require('../lib/prisma');
@@ -530,7 +531,7 @@ function mapCommentForClient(c, viewerId) {
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     edited: c.updatedAt.getTime() !== c.createdAt.getTime(),
-    user: c.user,
+    user: publicUser(c.user),
     ...reactionSummary(c.reactions, viewerId),
     replies: (c.replies || []).map((r) => mapCommentForClient(r, viewerId)),
   };
@@ -547,7 +548,7 @@ function mapIssueForClient(i, viewerId) {
     createdAt: i.createdAt,
     updatedAt: i.updatedAt,
     edited: i.updatedAt.getTime() !== i.createdAt.getTime(),
-    user: i.user,
+    user: publicUser(i.user),
     ...reactionSummary(i.reactions, viewerId),
     replies: (i.replies || []).map((r) => mapIssueForClient(r, viewerId)),
   };

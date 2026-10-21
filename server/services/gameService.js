@@ -2218,7 +2218,7 @@ async function getGameRatings(gameId, viewerId) {
     eligible: true,
     teammates: parts.map(p => ({
       id: p.user.id,
-      name: p.user.name,
+      name: publicDisplayName(p.user.name),
       imageUrl: p.user.imageUrl,
       myScore: scoreByTarget[p.user.id] ?? null,
     })),

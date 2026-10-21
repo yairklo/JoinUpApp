@@ -18,11 +18,19 @@ async function getUnreadMessageCount(prisma, userId) {
   const joinedRoomIds = participations.map(p => p.chatId);
   if (joinedRoomIds.length === 0) return 0;
 
+  // Messages from people I blocked are hidden from me, so they never count as unread. This
+  // clears the pre-block unread badge without touching the sender's read receipts.
+  const blockedRows = await prisma.userBlock.findMany({
+    where: { blockerId: userId },
+    select: { blockedId: true }
+  });
+  const blockedIds = blockedRows.map(r => r.blockedId);
+
   const roomsWithUnread = await prisma.message.groupBy({
     by: ['chatRoomId'],
     where: {
       chatRoomId: { in: joinedRoomIds },
-      userId: { not: userId },
+      userId: { notIn: [userId, ...blockedIds] },
       status: { notIn: ['read', 'blocked'] }
     },
     _count: { id: true }

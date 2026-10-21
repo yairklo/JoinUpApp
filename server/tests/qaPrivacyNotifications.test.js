@@ -178,14 +178,14 @@ describe('QA privacy and notification fixes', () => {
     expect(JSON.stringify(note.data)).not.toMatch(/@/);
   });
 
-  test('R-04 a pending request with no notification is repaired instead of 400', async () => {
+  test('R-04 a duplicate pending request keeps the 400 contract but still repairs the missing bell', async () => {
     const send = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     expect(send.statusCode).toEqual(201);
     await prisma.notification.deleteMany({ where: { userId: bob, type: 'FRIEND_REQUEST' } });
 
     const again = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
-    expect(again.statusCode).toEqual(200);
-    expect(again.body.id).toEqual(send.body.id);
+    expect(again.statusCode).toEqual(400);
+    expect(again.body.error).toEqual('Request already exists');
     expect(await prisma.friendRequest.count({ where: { requesterId: alice, receiverId: bob } })).toEqual(1);
 
     const notes = await prisma.notification.findMany({ where: { userId: bob, type: 'FRIEND_REQUEST' } });
@@ -284,7 +284,9 @@ describe('QA privacy and notification fixes', () => {
     expect(row.privacyFriends).toBeUndefined();
 
     const asAdult = await request(app).get('/api/users/search').query({ q: 'qa_r_noakid' }).set('Authorization', strangerAuth);
-    expect(asAdult.body.find((u) => u.id === minorB).canAddFriend).toEqual(false);
+    // Listings must not single out friends-only minors; the send endpoint enforces the rule.
+    expect(asAdult.body.find((u) => u.id === minorB).canAddFriend).toEqual(true);
+    expect(asAdult.body.find((u) => u.id === minorB).city).toBeNull();
 
     const send = await request(app).post('/api/users/requests').set('Authorization', minorAuth).send({ receiverId: minorB });
     expect(send.statusCode).toEqual(201);

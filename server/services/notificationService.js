@@ -2,7 +2,7 @@ const admin = require('firebase-admin');
 const { Expo } = require('expo-server-sdk');
 const { Logger } = require('../utils/logger');
 const { decideDelivery, toClientSettings, isMuteActive } = require('../utils/notificationPrefs');
-const { redactNotificationFields, scrubNotificationRecord } = require('../utils/publicName');
+const { redactNotificationFields, scrubNotificationRecord, publicDisplayName } = require('../utils/publicName');
 
 // Fan-out batch size: keeps a city-wide send from opening thousands of parallel queries.
 const FANOUT_CHUNK = 50;
@@ -557,7 +557,7 @@ class NotificationService {
                 : [],
         ]);
         const byKey = new Map();
-        users.forEach(u => byKey.set(`USER:${u.id}`, { label: u.name || null, imageUrl: u.imageUrl || null }));
+        users.forEach(u => byKey.set(`USER:${u.id}`, { label: publicDisplayName(u.name, null), imageUrl: u.imageUrl || null }));
         series.forEach(s => byKey.set(`SERIES:${s.id}`, { label: s.title || s.fieldName || null, imageUrl: null }));
         games.forEach(g => byKey.set(`GAME:${g.id}`, { label: g.title || null, imageUrl: null }));
 

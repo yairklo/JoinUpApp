@@ -118,18 +118,10 @@ router.post('/', authenticateToken, async (req, res) => {
       console.error('[blocks] private chat block check failed:', e.message);
       return res.status(500).json({ error: 'Failed to create message' });
     }
-    if (block) {
-      if (block.senderIsBlocked) {
-        return res.status(201).json({
-          id: ephemeralCuid(),
-          roomId: String(roomId),
-          text: String(text),
-          userId: req.user.id,
-          ts: new Date().toISOString(),
-          status: 'sent',
-        });
-      }
-      return res.status(500).json({ error: 'Failed to create message' });
+    if (block && !block.senderIsBlocked) {
+      // The sender blocked the other person: a plain, non-retryable refusal (old app builds
+      // retry 5xx/retryable errors in a loop). No block-specific code.
+      return res.status(403).json({ error: 'Could not send message', code: 'SEND_FAILED' });
     }
 
     const sender = await prisma.user.findUnique({
@@ -144,6 +136,19 @@ router.post('/', authenticateToken, async (req, res) => {
       text,
       onFlagged: () => require('../services/gameScheduler').triggerReviewQueue(),
     });
+
+    if (block && block.senderIsBlocked && status !== 'blocked') {
+      // Moderation ran (and recorded anything it flagged) exactly as for an unblocked sender;
+      // otherwise answer like an ordinary send. Nothing is stored or delivered.
+      return res.status(201).json({
+        id: ephemeralCuid(),
+        roomId: String(roomId),
+        text: String(text),
+        userId: req.user.id,
+        ts: new Date().toISOString(),
+        status: 'sent',
+      });
+    }
 
     const saved = await prisma.message.create({
       data: {

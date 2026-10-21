@@ -628,43 +628,22 @@ io.on('connection', async (socket) => {
 
     const finalUserId = String(socket.userId);
 
+    // Private-chat block between the pair, in either direction. Nothing is ever persisted or
+    // delivered across it; the checks below still run so a blocked sender gets the same
+    // validation, rate limiting, age gate and moderation trail as anyone else.
+    let block = null;
     try {
-      const block = await getPrivateChatBlock(finalUserId, String(roomId));
-      if (block) {
-        // Never persist or deliver a private message across a block.
-        if (block.senderIsBlocked) {
-          // The sender is the blocked party. Ack like an ordinary send so the
-          // response does not reveal the block. Only this user's own sockets see it.
-          const name = publicDisplayName(senderName, null) || 'משתמש';
-          const msg = {
-            id: ephemeralCuid(),
-            text: String(text),
-            senderId: finalUserId,
-            senderName: name,
-            ts: new Date().toISOString(),
-            roomId: String(roomId),
-            userId: finalUserId,
-            status: 'sent',
-            tempId,
-            sender: { id: finalUserId, name, image: null },
-          };
-          // The quote is only echoed to this user's own sockets. Dropping it made the
-          // reply preview disappear from their bubble while the send still looked successful.
-          if (replyTo && typeof replyTo === 'object') msg.replyTo = replyTo;
-          if (dedupeKey) recentTempIds.set(dedupeKey, { t: Date.now(), echo: msg });
-          io.to(`user_${finalUserId}`).emit('message', msg);
-          io.to(`user_${finalUserId}`).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
-          return;
-        }
-        // The sender blocked the other person. Same generic failure as a send
-        // that could not be completed — no block-specific code or copy.
-        fail('Could not send message', 'SEND_FAILED', true);
-        return;
-      }
+      block = await getPrivateChatBlock(finalUserId, String(roomId));
     } catch (e) {
       // Fail closed: if we cannot tell whether the pair is blocked, do not deliver.
       console.error('[blocks] private chat block check failed:', e.message);
       fail('Could not send message', 'SEND_FAILED', true);
+      return;
+    }
+    if (block && !block.senderIsBlocked) {
+      // The sender blocked the other person. NOT retryable: older app builds retry
+      // retryable failures in a loop, and this will never succeed until they unblock.
+      fail('Could not send message', 'SEND_FAILED', false);
       return;
     }
 
@@ -704,6 +683,31 @@ io.on('connection', async (socket) => {
       // Fail closed: if we cannot tell who receives this (or whether they are minors), do not deliver.
       console.error('[MODERATION] Recipient/age lookup failed:', e.message);
       fail('Could not send message', 'SEND_FAILED', true);
+      return;
+    }
+
+    if (block && block.senderIsBlocked && initialStatus !== 'blocked') {
+      // The sender is the blocked party and moderation found nothing: ack like an ordinary
+      // send so the response does not reveal the block. Only this user's own sockets see it.
+      // Not stored (the other person's history must not contain it), so it is gone on reload.
+      const name = publicDisplayName(senderUser?.name, null) || publicDisplayName(senderName, null) || 'משתמש';
+      const echo = {
+        id: ephemeralCuid(),
+        text: String(text),
+        senderId: finalUserId,
+        senderName: name,
+        ts: new Date().toISOString(),
+        roomId: String(roomId),
+        userId: finalUserId,
+        status: 'sent',
+        tempId,
+        sender: { id: finalUserId, name, image: senderUser?.imageUrl || null },
+      };
+      // The quote is only echoed to this user's own sockets.
+      if (replyTo && typeof replyTo === 'object') echo.replyTo = replyTo;
+      if (dedupeKey) { echoStored = true; tempIdDedupe.storeEcho(dedupeKey, echo); }
+      io.to(`user_${finalUserId}`).emit('message', echo);
+      io.to(`user_${finalUserId}`).emit('message:received', { ...echo, chatId: echo.roomId, content: echo.text });
       return;
     }
 
@@ -1030,7 +1034,13 @@ io.on('connection', async (socket) => {
       // without the socket event would still show blue ticks on the next load.
       // A failed lookup fails closed the same way.
       const readGate = await readPrivateChatBlock(userId, String(roomId));
-      if (readGate.error || readGate.blocked) return;
+      if (readGate.error) return;
+      if (readGate.blocked) {
+        // Receipts stay untouched, but the reader's own badge must still refresh: unread
+        // counts ignore people they blocked, so opening the chat clears the old badge.
+        broadcastCounters(io, prisma, userId).catch(() => {});
+        return;
+      }
 
       // 1. Update in DB: Mark all messages in this room NOT sent by me as 'read'
       const marked = await prisma.message.updateMany({
@@ -1388,7 +1398,8 @@ app.use((err, req, res, next) => {
     message: err.message,
     stack: err.stack,
   }));
-  captureException(err, { requestId, path: req.originalUrl, method: req.method });
+  // Path only: query strings can carry search terms such as an email address.
+  captureException(err, { requestId, path: String(req.originalUrl || '').split('?')[0], method: req.method });
   const payload = { error: 'Something went wrong!', requestId };
   if (process.env.NODE_ENV !== 'production') payload.message = err.message;
   res.status(500).json(payload);

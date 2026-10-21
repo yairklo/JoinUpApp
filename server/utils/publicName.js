@@ -24,6 +24,12 @@ function publicDisplayName(raw, fallback = 'משתמש') {
   return name;
 }
 
+/** Copy of a {id,name,imageUrl} user projection that is safe to show to others. */
+function publicUser(user, fallback = 'משתמש') {
+  if (!user || typeof user !== 'object') return user;
+  return { ...user, name: publicDisplayName(user.name, fallback) };
+}
+
 function replaceEmails(value, replacement) {
   if (typeof value !== 'string' || !value.includes('@')) return value;
   return value.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, replacement);
@@ -117,6 +123,7 @@ function scrubNotificationRecord(row, replacement = 'משתמש') {
 module.exports = {
   isEmailAddress,
   publicDisplayName,
+  publicUser,
   notificationName,
   redactNotificationFields,
   replaceEmails,

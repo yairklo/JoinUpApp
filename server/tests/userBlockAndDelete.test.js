@@ -279,14 +279,13 @@ describe('user block + account deletion', () => {
       expect(JSON.stringify(fromBlocked.body).toLowerCase()).not.toMatch(/block/);
       expect(await prisma.message.findUnique({ where: { id: fromBlocked.body.id } })).toBeNull();
 
-      // A is the blocker: a generic failure, same body as a create that did not complete.
+      // A is the blocker: a plain non-retryable refusal (old app builds loop on 5xx).
       const fromBlocker = await request(app)
         .post('/api/messages')
         .set('Authorization', 'Bearer mock_token_a')
         .send({ roomId: privateRoomId, text: blockerText });
-      expect(fromBlocker.statusCode).toEqual(500);
-      expect(fromBlocker.body).toEqual({ error: 'Failed to create message' });
-      expect(fromBlocker.body.code).toBeUndefined();
+      expect(fromBlocker.statusCode).toEqual(403);
+      expect(fromBlocker.body).toEqual({ error: 'Could not send message', code: 'SEND_FAILED' });
       expect(JSON.stringify(fromBlocker.body).toLowerCase()).not.toMatch(/block/);
 
       // Mutual: A is now also the blocked party, so their send is acked and still not stored.
