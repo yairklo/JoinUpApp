@@ -53,6 +53,7 @@ export default function PrivacySettingsPage() {
         privacyMessages: "DEFAULT",
     });
     const [hideGroups, setHideGroups] = useState(false);
+    const [hideMatchStats, setHideMatchStats] = useState(false);
     // Age-based default per field; fixed for the user, so the "default" option label never changes.
     const [ageDefaults, setAgeDefaults] = useState<PrivacySettings["ageDefaults"] | null>(null);
     const [loading, setLoading] = useState(true);
@@ -76,6 +77,7 @@ export default function PrivacySettingsPage() {
                         privacyMessages: ps.privacyMessages ?? "DEFAULT",
                     });
                     setHideGroups(!!ps.hideGroups);
+                    setHideMatchStats(!!ps.hideMatchStats);
                     setAgeDefaults(ps.ageDefaults ?? null);
                 }
             } catch (e) {
@@ -95,8 +97,9 @@ export default function PrivacySettingsPage() {
         try {
             const token = await getToken();
             if (!token) return;
-            const payload: Partial<Record<FieldKey, PrivacyLevel | null>> & { hideGroups?: boolean } = {
+            const payload: Partial<Record<FieldKey, PrivacyLevel | null>> & { hideGroups?: boolean; hideMatchStats?: boolean } = {
                 hideGroups,
+                hideMatchStats,
                 privacyFriends: values.privacyFriends === "DEFAULT" ? null : values.privacyFriends,
                 privacyGames: values.privacyGames === "DEFAULT" ? null : values.privacyGames,
                 privacyMessages: values.privacyMessages === "DEFAULT" ? null : values.privacyMessages,
@@ -185,6 +188,29 @@ export default function PrivacySettingsPage() {
                                     control={<Switch checked={hideGroups} onChange={(e) => setHideGroups(e.target.checked)} />}
                                     label="הסתר את הקבוצות שלי בפרופיל"
                                 />
+
+                                <Box>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={hideMatchStats}
+                                                onChange={(e) => setHideMatchStats(e.target.checked)}
+                                                inputProps={{ "aria-describedby": "hide-match-stats-help" }}
+                                                data-testid="settings-hide-match-stats"
+                                            />
+                                        }
+                                        label="הסתר את הסטטיסטיקות שלי מאחרים"
+                                    />
+                                    <Typography
+                                        id="hide-match-stats-help"
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                        sx={{ paddingInlineStart: "52px", mt: -0.5 }}
+                                    >
+                                        התוצאות והסטטיסטיקות שלך לא יוצגו לאחרים בפרופיל ובעמודי המשחקים. עדיין אפשר לראות אותן בעצמך.
+                                    </Typography>
+                                </Box>
 
                                 <Stack direction="row" spacing={2} justifyContent="flex-end">
                                     <Button variant="text" onClick={() => router.push("/profile")}>
