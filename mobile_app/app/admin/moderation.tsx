@@ -11,6 +11,7 @@ import {
 } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import BackButton from '@/components/ui/BackButton';
+import AdminUserReportsSection from '@/components/admin/AdminUserReportsSection';
 
 const REASON_LABELS: Record<string, string> = {
     OFFENSIVE: 'תוכן פוגעני',
@@ -172,6 +173,8 @@ export default function AdminModerationScreen() {
                 </View>
             ) : (
                 <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, gap: 12 }}>
+                    <AdminUserReportsSection />
+
                     <Text className="text-lg font-bold text-gray-800">תגובות שדווחו</Text>
                     {commentFlags.length === 0 ? (
                         <Text className="text-gray-500 text-sm">אין תגובות מדווחות.</Text>

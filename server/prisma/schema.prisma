@@ -67,6 +67,15 @@ model User {
   termsVersion              String?
   /// Minor (13-17) declared guardian consent, recorded together with termsAcceptedAt.
   guardianConsentAt         DateTime?
+  /// Opt-out: hide the player match-stats summary from other viewers of the profile.
+  hideMatchStats            Boolean                    @default(false)
+  playerStatEntries         PlayerStatEntry[]
+  reportsFiled              UserReport[]               @relation("ReportsFiled")
+  reportsReceived           UserReport[]               @relation("ReportsReceived")
+  organizedTournaments      Tournament[]               @relation("TournamentOrganizer")
+  tournamentRoles           TournamentRole[]
+  tournamentMemberships     TournamentTeamMember[]
+  captainedTournamentTeams  TournamentTeam[]           @relation("TournamentTeamCaptain")
 }
 
 /// One-directional user block (App Store UGC requirement): blocker no longer sees the blocked
@@ -115,6 +124,7 @@ model Field {
   @@index([lat, lng])
   @@index([available, lat, lng])
   @@index([city])
+  tournaments Tournament[]
 }
 
 enum ReactionType {
@@ -402,6 +412,9 @@ model Game {
 
   /// One occurrence per series slot — guards weekly generation against a second job process.
   @@unique([seriesId, start])
+  result                  GameResult?
+  statEntries             PlayerStatEntry[]
+
   @@index([start, status])
   @@index([status, start])
   @@index([sport])
@@ -971,10 +984,359 @@ enum NotificationType {
   FRIEND_NEW_GAME
   FRIEND_JOINED_GAME
   NEW_SERIES_GAME
+  TOURNAMENT_TEAM_INVITE
+  TOURNAMENT_TEAM_DECISION
+  TOURNAMENT_MATCH_SCHEDULED
+  TOURNAMENT_STARTING_SOON
 }
 
 enum NotificationMuteTarget {
   USER
   SERIES
   GAME
+}
+
+// ---------------------------------------------------------------------------
+// Match results, player stats and user reports
+// (docs/plans/2026-10-feature-match-results.md). No result notification type by design.
+// ---------------------------------------------------------------------------
+
+enum GameResultStatus {
+  DRAFT
+  FINAL
+}
+
+enum ResultOutcome {
+  WIN
+  LOSS
+  DRAW
+}
+
+enum UserReportReason {
+  HARASSMENT
+  VIOLENCE
+  CHEATING
+  NO_SHOW
+  FAKE_PROFILE
+  INAPPROPRIATE_CONTENT
+  RESULT_DISPUTE
+  OTHER
+}
+
+enum UserReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+/// One recorded result per game.
+model GameResult {
+  id           String           @id @default(cuid())
+  gameId       String           @unique
+  sport        SportType
+  status       GameResultStatus @default(FINAL)
+  recordedById String
+  recordedAt   DateTime         @default(now())
+  editedById   String?
+  editedAt     DateTime?
+  /// recordedAt + 7 days; only admin edits after.
+  lockedAt     DateTime?
+  notes        String?
+  game         Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  sides        GameResultSide[]
+}
+
+/// A side = a game Team, or an ad-hoc side (tennis singles / games without Team rows).
+model GameResultSide {
+  id       String        @id @default(cuid())
+  resultId String
+  /// 0 = home/A, 1 = away/B
+  order    Int
+  /// Optional link to Team (no FK: label is the durable snapshot).
+  teamId   String?
+  /// Snapshot of the team name so later team edits do not rewrite history.
+  label    String
+  score    Int           @default(0)
+  /// Tennis: [[6,4],[3,6]]
+  sets     Json?
+  outcome  ResultOutcome
+  result   GameResult    @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  statEntries PlayerStatEntry[]
+
+  @@unique([resultId, order])
+}
+
+/// Per-player stat as key/value rows so new stats need no migration.
+model PlayerStatEntry {
+  id     String  @id @default(cuid())
+  /// Exactly one of gameId / tournamentMatchId is set (raw-SQL CHECK in the migration).
+  gameId String?
+  tournamentMatchId String?
+  userId String
+  /// Side the player played for (gives the player's W/D/L).
+  sideId String?
+  /// Validated against shared/matchStats.js.
+  key    String
+  value  Int
+  game   Game?   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  tournamentMatch TournamentMatch? @relation(fields: [tournamentMatchId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  side   GameResultSide? @relation(fields: [sideId], references: [id], onDelete: SetNull)
+
+  @@index([sideId])
+  @@unique([gameId, userId, key])
+  @@unique([tournamentMatchId, userId, key])
+  @@index([tournamentMatchId])
+  @@index([userId, key])
+  @@index([gameId])
+}
+
+model UserReport {
+  id           String           @id @default(cuid())
+  reporterId   String
+  targetId     String
+  /// Optional context.
+  gameId       String?
+  /// Optional tournament context.
+  tournamentId String?
+  reason       UserReportReason
+  details      String?
+  status       UserReportStatus @default(OPEN)
+  resolution   String?
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  reporter     User             @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  target       User             @relation("ReportsReceived", fields: [targetId], references: [id], onDelete: Cascade)
+  tournament   Tournament?      @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+
+  // One open report per (reporter, target, game) is enforced in code: a NULL gameId does not
+  // collide in a Postgres unique index.
+  @@index([status, createdAt])
+  @@index([targetId])
+  @@index([tournamentId])
+}
+
+// ---------------------------------------------------------------------------
+// Tournaments (docs/plans/2026-10-feature-tournaments.md). Standings are computed, not stored.
+// ---------------------------------------------------------------------------
+
+enum TournamentStatus {
+  DRAFT
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TournamentFormat {
+  LEAGUE
+  KNOCKOUT
+  GROUPS_KNOCKOUT
+  CUSTOM
+}
+
+enum TournamentTeamStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WAITLISTED
+  WITHDRAWN
+}
+
+enum TournamentMemberRole {
+  CAPTAIN
+  PLAYER
+  SUBSTITUTE
+}
+
+enum TournamentMemberStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  REMOVED
+}
+
+enum TournamentMatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+  FORFEIT
+  POSTPONED
+  CANCELLED
+}
+
+enum TournamentStageType {
+  GROUP
+  LEAGUE
+  KNOCKOUT
+}
+
+enum TournamentRoleType {
+  ORGANIZER
+  MANAGER
+  SCOREKEEPER
+}
+
+model Tournament {
+  id                   String            @id @default(cuid())
+  organizerId          String
+  title                String
+  description          String?
+  sport                SportType
+  imageUrl             String?
+  /// Main venue (optional; matches can override).
+  fieldId              String?
+  customLocation       String?
+  startsAt             DateTime
+  endsAt               DateTime?
+  status               TournamentStatus  @default(DRAFT)
+  format               TournamentFormat
+  isPublic             Boolean           @default(true)
+  openToMinors         Boolean           @default(false)
+  registrationOpensAt  DateTime?
+  registrationClosesAt DateTime?
+  /// After this no roster changes without the organizer.
+  rosterLockAt         DateTime?
+  minTeams             Int               @default(2)
+  maxTeams             Int
+  startersPerTeam      Int
+  minPlayersPerTeam    Int
+  maxPlayersPerTeam    Int
+  requireApproval      Boolean           @default(true)
+  /// points (3/1/0), tiebreak order, legs, matchDuration, thirdPlace, ...
+  rules                Json
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  organizer            User              @relation("TournamentOrganizer", fields: [organizerId], references: [id])
+  field                Field?            @relation(fields: [fieldId], references: [id], onDelete: SetNull)
+  teams                TournamentTeam[]
+  stages               TournamentStage[]
+  matches              TournamentMatch[]
+  roles                TournamentRole[]
+  reports              UserReport[]
+
+  @@index([status, startsAt])
+  @@index([organizerId])
+}
+
+model TournamentTeam {
+  id           String                 @id @default(cuid())
+  tournamentId String
+  name         String
+  color        String?
+  logoUrl      String?
+  captainId    String
+  status       TournamentTeamStatus   @default(PENDING)
+  seed         Int?
+  /// Organizer's manual final ranking override.
+  manualRank   Int?
+  groupId      String?
+  /// Invite link code.
+  joinCode     String                 @unique
+  createdAt    DateTime               @default(now())
+  tournament   Tournament             @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  captain      User                   @relation("TournamentTeamCaptain", fields: [captainId], references: [id])
+  group        TournamentGroup?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  members      TournamentTeamMember[]
+  homeMatches  TournamentMatch[]      @relation("TournamentMatchHome")
+  awayMatches  TournamentMatch[]      @relation("TournamentMatchAway")
+
+  @@unique([tournamentId, name])
+  @@index([tournamentId, status])
+}
+
+model TournamentTeamMember {
+  id           String                 @id @default(cuid())
+  teamId       String
+  /// Denormalised: at most one ACCEPTED team per player per tournament (partial unique index in
+  /// migration 20261021140000, which Prisma cannot express).
+  tournamentId String
+  userId       String
+  role         TournamentMemberRole   @default(PLAYER)
+  status       TournamentMemberStatus @default(INVITED)
+  jerseyNumber Int?
+  createdAt    DateTime               @default(now())
+  team         TournamentTeam         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+model TournamentStage {
+  id           String              @id @default(cuid())
+  tournamentId String
+  order        Int
+  type         TournamentStageType
+  name         String
+  /// groups count, legs, advance count, seeding method.
+  config       Json
+  tournament   Tournament          @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  groups       TournamentGroup[]
+  matches      TournamentMatch[]
+
+  @@unique([tournamentId, order])
+}
+
+model TournamentGroup {
+  id      String            @id @default(cuid())
+  stageId String
+  name    String
+  stage   TournamentStage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  teams   TournamentTeam[]
+  matches TournamentMatch[]
+
+  @@index([stageId])
+}
+
+model TournamentMatch {
+  id            String                @id @default(cuid())
+  tournamentId  String
+  stageId       String
+  groupId       String?
+  round         Int
+  /// Display number within the tournament.
+  number        Int
+  homeTeamId    String?
+  awayTeamId    String?
+  /// {type:'WINNER_OF',matchId} | {type:'GROUP_RANK',groupId,pos} | {type:'SEED',n}
+  homeSource    Json?
+  awaySource    Json?
+  scheduledAt   DateTime?
+  fieldId       String?
+  courtLabel    String?
+  status        TournamentMatchStatus @default(SCHEDULED)
+  homeScore     Int?
+  awayScore     Int?
+  homePenalties Int?
+  awayPenalties Int?
+  /// Tennis sets.
+  details       Json?
+  winnerTeamId  String?
+  /// Optimistic concurrency for score updates.
+  version       Int                   @default(0)
+  updatedById   String?
+  tournament    Tournament            @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  stage         TournamentStage       @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  group         TournamentGroup?      @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  homeTeam      TournamentTeam?       @relation("TournamentMatchHome", fields: [homeTeamId], references: [id], onDelete: SetNull)
+  awayTeam      TournamentTeam?       @relation("TournamentMatchAway", fields: [awayTeamId], references: [id], onDelete: SetNull)
+  statEntries   PlayerStatEntry[]
+
+  @@index([tournamentId, stageId, round])
+  @@index([tournamentId, scheduledAt])
+}
+
+model TournamentRole {
+  id           String             @id @default(cuid())
+  tournamentId String
+  userId       String
+  role         TournamentRoleType
+  tournament   Tournament         @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, userId])
 }
