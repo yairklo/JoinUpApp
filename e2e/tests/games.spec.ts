@@ -42,8 +42,13 @@ test("approval request is approved by the organizer", async ({ page }) => {
     .filter({ hasText: seed.users.adultA.name })
     .filter({ has: page.getByTestId("approve-join") })
     .last();
+  // The row locator re-resolves to an ancestor once the row is gone, so compare
+  // the page-wide count of pending approvals instead.
+  const approveButtons = page.getByTestId("approve-join");
+  await expect(approveButtons.first()).toBeVisible();
+  const pendingBefore = await approveButtons.count();
   await row.getByTestId("approve-join").click();
-  await expect(row.getByTestId("approve-join")).toHaveCount(0);
+  await expect(approveButtons).toHaveCount(pendingBefore - 1);
 
   await signOut(page);
   await signIn(page, seed.users.adultA.email);
