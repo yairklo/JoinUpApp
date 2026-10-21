@@ -17,6 +17,7 @@ type BaseProps = {
   error?: boolean;
   helperText?: React.ReactNode;
   disabled?: boolean;
+  testId?: string;
 };
 
 const FIELD_HEIGHT = { small: 40, medium: 56 } as const;
@@ -44,6 +45,7 @@ function HebrewNativeField({
   error,
   helperText,
   disabled,
+  testId,
 }: BaseProps & {
   type: "date" | "time";
   icon: React.ReactNode;
@@ -81,7 +83,7 @@ function HebrewNativeField({
         error={error}
         helperText={helperText}
         InputLabelProps={{ shrink: true }}
-        slotProps={{ htmlInput: { min, lang: "he-IL" } }}
+        slotProps={{ htmlInput: { min, lang: "he-IL", "data-testid": testId } }}
         sx={{
           "& input": {
             position: "relative",

@@ -114,7 +114,7 @@ export default async function GameDetails(props: {
   if (result && "friendsOnly" in result) {
     return (
       <Container sx={{ py: 4 }}>
-        <Alert severity="info">
+        <Alert severity="info" data-testid="game-friends-only">
           המשחק הזה פתוח לחברים של המארגן בלבד.
           {!userId && " אם אתה חבר של המארגן, התחבר כדי לראות אותו."}
         </Alert>

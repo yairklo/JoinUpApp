@@ -1,4 +1,5 @@
 const express = require('express');
+const { publicUser } = require('../utils/publicName');
 const { getBlockedEitherWayIds } = require('../utils/blocks');
 const { prisma } = require('../lib/prisma');
 const { authenticateToken } = require('../utils/auth');
@@ -86,7 +87,7 @@ router.get('/global', authenticateToken, async (req, res) => {
       }),
     ]);
 
-    return res.json({ users, fields, games });
+    return res.json({ users: users.map((u) => publicUser(u)), fields, games });
   } catch (err) {
     console.error('[Global Search] Failed:', err);
     return res.status(500).json({ error: 'Global search failed' });

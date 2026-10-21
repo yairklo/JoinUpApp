@@ -1,6 +1,6 @@
 ---
 description: Server runtime lessons — rate limiting, sockets, worker/API process split
-globs: server/middleware/rateLimit.js,server/socket/**,server/index.js,server/worker.js
+globs: server/middleware/rateLimit.js,server/middleware/rateLimitStore.js,server/socket/**,server/lib/redis.js,server/services/leaderLock.js,server/utils/socketBridge.js,server/utils/socketPresence.js,server/index.js,server/worker.js
 alwaysApply: false
 ---
 
@@ -19,7 +19,20 @@ alwaysApply: false
 - Game list endpoints use `SEARCH_GAME_SELECT` (no nested `user`); keep full
   `include: { user: true }` for `getGameById` only.
 
+## Multi-instance (Redis) rules
+- Redis features are opt-in flags with in-memory defaults (`SOCKET_ADAPTER`, `RATE_LIMIT_STORE`,
+  `CHAT_RATE_STORE`, `CHAT_DEDUPE_STORE`, `JOBS_LEADER_LOCK`); every one must fail open when Redis is
+  down. New Redis clients come from `lib/redis.js` (retry forever, capped backoff) — never copy the
+  old `retryStrategy: times > 3 → null`, which permanently ends cross-node delivery after one blip.
+- Cross-user socket state (online, delivered) comes from `utils/socketPresence` (`fetchSockets`),
+  never from `io.sockets.adapter.rooms` / `io.sockets.sockets` (node-local).
+- Redis-originated socket events that every instance applies (`joinup:socket_events`,
+  `moderation_events`) use `io.local`, otherwise the adapter multiplies them N-fold.
+- Tests that need Redis use `TEST_REDIS_URL` (never `REDIS_URL`, which makes moderationService
+  connect) via `describeRedis` in `tests/helpers/redisTest.js`; close every socket/io/redis client.
+
 ## Worker / API process split
 - A dedicated jobs process is `node worker.js` (`RUN_HTTP_SERVER=false`). The web API sitting next to
-  it must set `RUN_BACKGROUND_JOBS=false` (see `server-invariants.mdc`). Worker socket emits go
+  it must set `RUN_BACKGROUND_JOBS=false` (see `server-invariants.mdc`) unless `JOBS_LEADER_LOCK=redis`
+  is on, in which case `worker.js` and API instances compete for the lock. Worker socket emits go
   through Redis `joinup:socket_events`.

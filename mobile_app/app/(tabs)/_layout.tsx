@@ -61,7 +61,7 @@ export default function TabLayout() {
         </TouchableOpacity>
       </Link>
       <Link href="/user/profile" asChild>
-        <TouchableOpacity className="w-8 h-8 bg-brand-mist dark:bg-cyber-card rounded-xl items-center justify-center border border-brand-pale dark:border-cyber-border overflow-hidden">
+        <TouchableOpacity testID="header-profile" className="w-8 h-8 bg-brand-mist dark:bg-cyber-card rounded-xl items-center justify-center border border-brand-pale dark:border-cyber-border overflow-hidden">
           {hasAvatar ? (
             <Image source={{ uri: avatarUrl }} style={{ width: '100%', height: '100%' }} />
           ) : (
@@ -112,6 +112,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="fields"
         options={{
+          tabBarButtonTestID: 'tab-fields',
           title: t('tabs.fields'),
           tabBarIcon: ({ color, focused }) => <TabBarIcon name="list" focused={focused} color={color} isDark={isDark} />,
           headerTitle: t('tabs.fields'),
@@ -121,6 +122,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="search"
         options={{
+          tabBarButtonTestID: 'tab-search',
           title: t('tabs.games', 'משחקים'),
           tabBarIcon: ({ color, focused }) => <TabBarIcon name="football" focused={focused} color={color} isDark={isDark} />,
           headerTitle: t('tabs.games', 'משחקים'),
@@ -130,6 +132,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          tabBarButtonTestID: 'tab-home',
           title: t('tabs.home', 'בית'),
           tabBarIcon: ({ color, focused }) => <TabBarIcon name="home" focused={focused} color={color} isDark={isDark} />,
           headerTitle: 'JoinUp',
@@ -139,6 +142,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chats"
         options={{
+          tabBarButtonTestID: 'tab-chats',
           title: t('tabs.chats'),
           tabBarIcon: ({ color, focused }) => <TabBarIcon name="chatbubbles" focused={focused} color={color} isDark={isDark} />,
           tabBarBadge: unreadMessages > 0 ? unreadMessages : undefined,
@@ -150,6 +154,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="friends"
         options={{
+          tabBarButtonTestID: 'tab-friends',
           title: t('tabs.friends'),
           tabBarIcon: ({ color, focused }) => <TabBarIcon name="people" focused={focused} color={color} isDark={isDark} />,
           tabBarBadge: friendRequests > 0 ? friendRequests : undefined,

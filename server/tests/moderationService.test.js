@@ -34,6 +34,7 @@ describe('ContentModerator.checkMessage', () => {
     jest.clearAllMocks();
     process.env = { ...ORIGINAL_ENV };
     delete process.env.REDIS_URL; // stay on the local LRUCache path — no Redis mocking needed
+    delete process.env.MODERATION_PROVIDER; // a dev stub must not replace the model under test
     process.env.OPENAI_API_KEY = 'test-openai-key';
     process.env.GOOGLE_API_KEY = 'test-google-key';
   });

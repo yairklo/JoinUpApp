@@ -321,9 +321,13 @@ function mapGameForSearchClient(game, viewerId) {
     isOpenToJoin: game.isOpenToJoin,
     isFriendsOnly: !!game.isFriendsOnly,
     viewerParticipationStatus,
-    participants: (game.participants || [])
-      .filter((p) => p.status === 'CONFIRMED')
-      .map((p) => ({ id: p.userId })),
+    // Logged-out callers must not receive participant user ids. Counts stay on
+    // currentPlayers; field lat/lng (below and on `field`) stay public.
+    participants: viewerId
+      ? (game.participants || [])
+        .filter((p) => p.status === 'CONFIRMED')
+        .map((p) => ({ id: p.userId }))
+      : [],
     field: game.field
       ? {
           id: game.field.id,
@@ -2214,7 +2218,7 @@ async function getGameRatings(gameId, viewerId) {
     eligible: true,
     teammates: parts.map(p => ({
       id: p.user.id,
-      name: p.user.name,
+      name: publicDisplayName(p.user.name),
       imageUrl: p.user.imageUrl,
       myScore: scoreByTarget[p.user.id] ?? null,
     })),

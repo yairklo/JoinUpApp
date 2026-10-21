@@ -1,5 +1,6 @@
 import type { Notification } from '@/services/api/notifications';
 import i18n from '@/i18n';
+import { replaceEmails } from '@/utils/publicName';
 
 export type RawNotification = {
   id?: string;
@@ -64,16 +65,18 @@ export function resolveNotificationCopy(raw: RawNotification): { title: string; 
     ? (isEn ? 'New chat message' : "הודעה חדשה בצ'אט")
     : '';
 
+  const scrub = (value: string) => replaceEmails(value);
+
   if (isEn && titleEn) {
     return {
-      title: titleEn,
-      body: bodyEn || String(raw.body || raw.message || raw.text || '').trim(),
+      title: scrub(titleEn),
+      body: scrub(bodyEn || String(raw.body || raw.message || raw.text || '').trim()),
     };
   }
 
   return {
-    title: (raw.title?.trim() || fallbackTitle),
-    body: String(raw.body || raw.message || raw.text || fallbackBody).trim(),
+    title: scrub(raw.title?.trim() || fallbackTitle),
+    body: scrub(String(raw.body || raw.message || raw.text || fallbackBody).trim()),
   };
 }
 

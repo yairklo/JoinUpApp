@@ -101,7 +101,7 @@ export default function ProfilePage() {
   const userId = user?.id;
 
   const [profile, setProfile] = useState<PublicUser | null>(null);
-  const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; city?: string | null; email?: string | null }>>([]);
+  const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; city?: string | null; email?: string | null; canAddFriend?: boolean }>>([]);
   const [friends, setFriends] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; mutualCount?: number }>>([]);
   const [incoming, setIncoming] = useState<Array<{ id: string; requester: PublicUser; createdAt: string }>>([]);
   // Receiver ids of friend requests the current user has already sent and are still pending —
@@ -936,7 +936,7 @@ export default function ProfilePage() {
                             />
                             {isFriend ? (
                               <Chip label="חברים" size="small" color="success" variant="outlined" />
-                            ) : (
+                            ) : u.canAddFriend === false ? null : (
                               <AddFriendButton receiverId={u.id} initialSent={outgoingPendingIds.has(u.id)} />
                             )}
                           </ListItem>

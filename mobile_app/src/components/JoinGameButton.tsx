@@ -216,6 +216,7 @@ export default function JoinGameButton({
 
     return (
         <TouchableOpacity
+            testID="game-join-button"
             onPress={join}
             disabled={loading}
             className={`flex-row items-center justify-center p-3 rounded-xl shadow-sm ${loading ? 'bg-brand-soft' : 'bg-brand'}`}

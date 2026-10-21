@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useMyName, useMyAvatar } from "@/hooks/useMyAvatar";
+import { firstPublicName } from "@/utils/publicName";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -38,6 +39,7 @@ import { chatsApi, type MessageReportReason } from "@/services/api/chats";
 import { usersApi } from "@/services/api/users";
 import { ChatMessage } from "./types";
 import { useChatLogic, MAX_MESSAGE_LENGTH } from "@/hooks/useChatLogic";
+import { useSocket } from "@/context/SocketContext";
 
 type ChatProps = {
   roomId?: string;
@@ -144,6 +146,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   // Use the custom hook for all logic
   const { state, actions, refs } = useChatLogic({ roomId, chatName, suspended });
+  const { isConnected } = useSocket();
   const visibleMessages = useMemo(
     () => state.messages.filter((m: ChatMessage) => !(m.userId && blockedIds.has(m.userId))),
     [state.messages, blockedIds]
@@ -320,7 +323,17 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       onRetry={actions.handleRetryMessage}
                       onDiscard={actions.handleDiscardMessage}
                       avatarUrl={avatarUrl}
-                      displayName={m.sender?.name || u?.name || (m.userId && state.nameByUserId[m.userId]) || (isMine ? (myName || (isRTL ? "אני" : "Me")) : "") || m.senderName || (state.isPrivate && !isMine ? state.otherUserName : undefined) || (isRTL ? "משתמש" : "User")}
+                      displayName={firstPublicName(
+                        [
+                          m.sender?.name,
+                          u?.name,
+                          m.userId ? state.nameByUserId[m.userId] : undefined,
+                          isMine ? (myName || (isRTL ? "אני" : "Me")) : "",
+                          m.senderName,
+                          state.isPrivate && !isMine ? state.otherUserName : undefined,
+                        ],
+                        isRTL ? "משתמש" : "User"
+                      )}
                       timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                       showAvatar={!isNextSameSender}
                       showName={!isPrevSameSender && !isMine && !state.isPrivate}
@@ -371,7 +384,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         </Box>
       )}
 
-      <Box sx={{ p: 2, borderTop: 1, borderColor: "divider", bgcolor: "background.paper" }}>
+      <Box data-testid="chat-composer" data-connected={isConnected ? "true" : "false"} sx={{ p: 2, borderTop: 1, borderColor: "divider", bgcolor: "background.paper" }}>
         <Stack direction="row" spacing={1} alignItems="flex-end">
           <TextField
             fullWidth multiline maxRows={3} variant="outlined" size="small"
@@ -386,8 +399,9 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
               ? `${state.inputValue.length}/${MAX_MESSAGE_LENGTH}${state.inputValue.length > MAX_MESSAGE_LENGTH ? (isRTL ? " — ההודעה ארוכה מדי" : " — too long") : ""}`
               : undefined}
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
+            slotProps={{ htmlInput: { "data-testid": "chat-input" } }}
           />
-          <IconButton color="primary" onClick={actions.handleSendMessage} disabled={!state.inputValue.trim() || state.inputValue.trim().length > MAX_MESSAGE_LENGTH} sx={{ mb: 0.5, transform: isRTL ? "scaleX(-1)" : "none" }}>
+          <IconButton color="primary" onClick={actions.handleSendMessage} disabled={!state.inputValue.trim() || state.inputValue.trim().length > MAX_MESSAGE_LENGTH} sx={{ mb: 0.5, transform: isRTL ? "scaleX(-1)" : "none" }} data-testid="chat-send">
             {state.editingMessage ? <CheckIcon /> : <SendIcon />}
           </IconButton>
         </Stack>

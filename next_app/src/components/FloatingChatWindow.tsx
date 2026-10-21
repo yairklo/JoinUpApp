@@ -11,6 +11,7 @@ import ChatList from "./ChatList";
 import { useChat } from "@/context/ChatContext";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useSocket } from "@/context/SocketContext";
+import { publicDisplayName } from "@/utils/publicName";
 
 export default function FloatingChatWindow() {
     const { activeChatId, isWidgetOpen, isMinimized, headerInfo, closeChat, minimizeChat, maximizeChat, goBackToList } = useChat();
@@ -170,12 +171,18 @@ export default function FloatingChatWindow() {
                         </IconButton>
                     )}
                     {activeChatId && headerInfo?.image && (
-                        <Avatar src={headerInfo.image} sx={{ width: 24, height: 24 }} />
+                        <Avatar
+                            src={headerInfo.image}
+                            alt={headerInfo?.name ? publicDisplayName(headerInfo.name, "משתמש") : "משתמש"}
+                            sx={{ width: 24, height: 24 }}
+                        />
                     )}
 
                     <Box sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <Typography variant="subtitle2" fontWeight="bold" noWrap>
-                            {activeChatId ? (headerInfo?.name || "Chat") : "הודעות"}
+                            {activeChatId
+                                ? (headerInfo?.name ? publicDisplayName(headerInfo.name, "משתמש") : "Chat")
+                                : "הודעות"}
                         </Typography>
 
                         {/* Status Bar Container (Same Logic as Chat.tsx) */}

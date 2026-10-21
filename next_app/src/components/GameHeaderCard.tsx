@@ -58,6 +58,7 @@ export default function GameHeaderCard({
   fullWidth = false,
   href,
   fieldHref,
+  testId,
 }: {
   time: string;
   date?: string;
@@ -80,6 +81,7 @@ export default function GameHeaderCard({
   href?: string;
   /** When set, the subtitle (field name/location) becomes its own link to the field's profile page. */
   fieldHref?: string;
+  testId?: string;
 }) {
   const router = useRouter();
   function formatEndTime(startTime: string, hours: number | undefined): string {
@@ -106,6 +108,7 @@ export default function GameHeaderCard({
       {...cardHoverProps}
       elevation={0}
       dir="rtl"
+      data-testid={testId}
       onClick={href ? () => router.push(href) : undefined}
       onKeyDown={
         href

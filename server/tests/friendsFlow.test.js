@@ -128,7 +128,7 @@ describe('friend request edge cases', () => {
     expect(await prisma.notification.count({ where: { userId: bob, type: 'FRIEND_REQUEST' } })).toEqual(notificationsBefore);
   });
 
-  test('after the cooldown the same person may ask again; a still-pending request is rejected', async () => {
+  test('after the cooldown the same person may ask again; a still-pending request resends the bell', async () => {
     const first = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     await request(app).post(`/api/users/requests/${first.body.id}/decline`).set('Authorization', bobAuth);
     await prisma.friendRequest.update({
@@ -138,8 +138,14 @@ describe('friend request edge cases', () => {
 
     const again = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
     expect(again.statusCode).toEqual(201);
+    await prisma.notification.deleteMany({ where: { userId: bob, type: 'FRIEND_REQUEST' } });
     const dup = await request(app).post('/api/users/requests').set('Authorization', aliceAuth).send({ receiverId: bob });
+    // Same 400 older app builds already understand; the bell is still repaired.
     expect(dup.statusCode).toEqual(400);
+    expect(dup.body.error).toEqual('Request already exists');
+    const note = await prisma.notification.findFirst({ where: { userId: bob, type: 'FRIEND_REQUEST' }, orderBy: { createdAt: 'desc' } });
+    expect(note).toBeTruthy();
+    expect(note.data.friendRequestId).toEqual(again.body.id);
   });
 
   test('the cooldown counts from the decline, not from when the request was first sent', async () => {

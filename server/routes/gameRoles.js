@@ -80,7 +80,7 @@ router.post('/:id/roles', authenticateToken, async (req, res) => {
     });
     const managers = (game.roles || [])
       .filter(r => r.role !== 'ORGANIZER')
-      .map(r => ({ id: r.userId, name: r.user?.name || null, avatar: r.user?.imageUrl || null, role: r.role }));
+      .map(r => ({ id: r.userId, name: publicDisplayName(r.user?.name, null), avatar: r.user?.imageUrl || null, role: r.role }));
     return res.json({ organizerId: game.organizerId, managers });
   } catch (e) {
     return res.status(500).json({ error: 'Failed to add manager' });
@@ -115,7 +115,7 @@ router.delete('/:id/roles/:userId', authenticateToken, async (req, res) => {
     });
     const managers = (updated.roles || [])
       .filter(r => r.role !== 'ORGANIZER')
-      .map(r => ({ id: r.userId, name: r.user?.name || null, avatar: r.user?.imageUrl || null, role: r.role }));
+      .map(r => ({ id: r.userId, name: publicDisplayName(r.user?.name, null), avatar: r.user?.imageUrl || null, role: r.role }));
     return res.json({ organizerId: updated.organizerId, managers });
   } catch (e) {
     return res.status(500).json({ error: 'Failed to remove manager' });

@@ -9,6 +9,8 @@ const {
   getAgeDefaults,
   areConfirmedFriends,
   canViewSection,
+  canRequestFriendship,
+  isKnownMinor,
 } = require('../utils/privacy');
 const {
   isGameRatingEligible,
@@ -35,8 +37,9 @@ const notificationService = new NotificationService(prisma);
 // Shared constants
 const { SPORT_KEYS } = require('../utils/sports');
 const { sanitizeFreeText } = require('../utils/sanitize');
-const { isBlockedEitherWay, getBlockedEitherWayIds } = require('../utils/blocks');
+const { isBlockedEitherWay, getBlockedEitherWayIds, getBlockedByMe } = require('../utils/blocks');
 const { revokePresenceSubscriptions } = require('../utils/presenceAuth');
+const crypto = require('crypto');
 
 // After a decline the same requester must wait before asking the same person again, so a declined
 // request cannot be re-sent (and re-notified) over and over. The person who declined can always ask.
@@ -76,14 +79,14 @@ router.get('/search', authenticateToken, async (req, res) => {
   try {
     const q = String(req.query.q || '').trim();
     const loggedInUserId = req.user.id;
-    console.log(`[Backend User Search] 🔍 Query: "${q}", Logged-in user: "${loggedInUserId}"`);
+    console.log(`[Backend User Search] 🔍 Query length: ${q.length}, Logged-in user: "${loggedInUserId}"`);
 
     if (!q) {
       console.log('[Backend User Search] ⚠️ Empty query string. Returning early.');
       return res.json([]);
     }
 
-    // Fetch matching users
+    // Birth date stays server-side: it only decides whether the city is shown.
     const hiddenUserIds = await getBlockedEitherWayIds(loggedInUserId);
     const matchingUsers = await prisma.user.findMany({
       where: {
@@ -91,10 +94,9 @@ router.get('/search', authenticateToken, async (req, res) => {
           { id: { notIn: [loggedInUserId, ...hiddenUserIds] } },
           { deletedAt: null },
           {
-            OR: [
-              { name: { contains: q, mode: 'insensitive' } },
-              { email: { contains: q, mode: 'insensitive' } }
-            ]
+            // Public display field only: matching on email would let a query confirm
+            // (and, by prefix, enumerate) other people's addresses.
+            name: { contains: q, mode: 'insensitive' }
           },
           {
             OR: [
@@ -107,9 +109,9 @@ router.get('/search', authenticateToken, async (req, res) => {
       select: {
         id: true,
         name: true,
-        email: true,
         imageUrl: true,
-        city: true
+        city: true,
+        birthDate: true,
       },
       take: 50
     });
@@ -151,13 +153,16 @@ router.get('/search', authenticateToken, async (req, res) => {
 
       return {
         id: u.id,
-        name: u.name,
-        email: u.email,
+        name: publicDisplayName(u.name, 'משתמש'),
         imageUrl: u.imageUrl,
-        city: u.city,
+        // Same rule as the profile endpoint: a non-friend gets no city for a minor.
+        city: directoryCity(u, friendIds.has(u.id)),
         friendshipStatus,
         requestId,
-        isRequestSender
+        isRequestSender,
+        // Always true: a false value would single out friends-only minors. The send
+        // endpoint enforces the real rule (403 PROFILE_FRIENDS_ONLY).
+        canAddFriend: true,
       };
     });
     console.log(`[Backend User Search] ✅ Found ${results.length} matching users. Returning results.`);
@@ -249,8 +254,16 @@ router.get('/', authenticateToken, async (req, res) => {
       where: { deletedAt: null },
       orderBy: { name: 'asc' },
       take,
+      select: { id: true, name: true, imageUrl: true, city: true, birthDate: true },
     });
-    res.json(users.map(u => ({ id: u.id, name: u.name, imageUrl: u.imageUrl, city: u.city })));
+    const friendIds = new Set(await getFriendIds(req.user.id));
+    res.json(users.map(u => ({
+      id: u.id,
+      name: publicDisplayName(u.name, 'משתמש'),
+      imageUrl: u.imageUrl,
+      city: directoryCity(u, u.id === req.user.id || friendIds.has(u.id)),
+      canAddFriend: true,
+    })));
   } catch (error) {
     console.error('List users error:', error);
     res.status(500).json({ error: 'Failed to list users' });
@@ -298,20 +311,30 @@ router.delete('/:id/favorites/:fieldId', authenticateToken, async (req, res) => 
 
 const VALID_GENDERS = ['MALE', 'FEMALE'];
 
-function mapUserPublic(u, { includeContact = false } = {}) {
+function calculatedAge(birthDate) {
+  if (!birthDate) return null;
+  const diff = Date.now() - new Date(birthDate).getTime();
+  const ageDt = new Date(diff);
+  return Math.abs(ageDt.getUTCFullYear() - 1970);
+}
+
+function mapUserPublic(u, { includeContact = false, hideDetails = false } = {}) {
   if (!u) return u;
-  return {
+  const base = {
     id: u.id,
-    name: u.name,
-    ...(includeContact ? { email: u.email, phone: u.phone, birthDate: u.birthDate } : {}),
+    // Other people must never see an email stored in the name column.
+    name: includeContact ? u.name : publicDisplayName(u.name, 'משתמש'),
     imageUrl: u.imageUrl,
+  };
+  if (hideDetails) {
+    return { ...base, sports: [], positions: [] };
+  }
+  return {
+    ...base,
+    ...(includeContact ? { email: u.email, phone: u.phone, birthDate: u.birthDate } : {}),
     city: u.city,
     gender: u.gender || null,
-    age: u.birthDate ? (() => {
-      const diff = Date.now() - new Date(u.birthDate).getTime();
-      const ageDt = new Date(diff);
-      return Math.abs(ageDt.getUTCFullYear() - 1970);
-    })() : null,
+    age: calculatedAge(u.birthDate),
     sports: (u.sports || []).map(us => ({
       id: us.sport.id,
       name: us.sport.name,
@@ -319,6 +342,13 @@ function mapUserPublic(u, { includeContact = false } = {}) {
     })),
     positions: (u.positions || []).map(up => ({ id: up.position.id, name: up.position.name, sportId: up.position.sportId }))
   };
+}
+
+// City in a directory listing. Mirrors the profile endpoint: a known minor's city is only
+// shown to the minor themself and confirmed friends.
+function directoryCity(u, canSeeDetails) {
+  if (!canSeeDetails && isKnownMinor(u.birthDate)) return null;
+  return u.city ?? null;
 }
 
 async function getFriendIds(userId) {
@@ -415,7 +445,7 @@ router.get('/blocks', authenticateToken, async (req, res) => {
     });
     res.json(rows.map((r) => ({
       id: r.blockedId,
-      name: r.blocked?.name || null,
+      name: publicDisplayName(r.blocked?.name, null),
       imageUrl: r.blocked?.imageUrl || null,
       blockedAt: r.createdAt,
     })));
@@ -461,9 +491,21 @@ router.post('/:id/block', authenticateToken, async (req, res) => {
 // DELETE /api/users/:id/block - unblock
 router.delete('/:id/block', authenticateToken, async (req, res) => {
   try {
-    await prisma.userBlock.deleteMany({
-      where: { blockerId: String(req.user.id), blockedId: String(req.params.id) },
-    });
+    const me = String(req.user.id);
+    const other = String(req.params.id);
+    // Requests sent while blocked were only ever visible to their sender; drop them in the same
+    // transaction as the unblock so a failure cannot leave a request the receiver can now see and
+    // accept. Skipped when the other side still blocks me (those rows stay hidden).
+    const stillBlockedByOther = !!(await prisma.userBlock.findFirst({
+      where: { blockerId: other, blockedId: me },
+      select: { id: true },
+    }));
+    await prisma.$transaction([
+      prisma.userBlock.deleteMany({ where: { blockerId: me, blockedId: other } }),
+      ...(stillBlockedByOther ? [] : [prisma.friendRequest.deleteMany({
+        where: { OR: [{ requesterId: me, receiverId: other }, { requesterId: other, receiverId: me }] },
+      })]),
+    ]);
     res.json({ ok: true });
   } catch (error) {
     console.error('Unblock user error:', error);
@@ -668,14 +710,30 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
 
     const effFriends = resolvePrivacyLevel(user.privacyFriends, user.birthDate);
     const effGames = resolvePrivacyLevel(user.privacyGames, user.birthDate);
+    const effMessages = resolvePrivacyLevel(user.privacyMessages, user.birthDate);
+
+    const age = getAgeInJerusalem(user.birthDate);
+    const isMinor = age !== null && age < ADULT_AGE;
+    // Minor profiles default to friends-only. Non-friends do not get age or the
+    // rest of the about section (city, gender, sports), even if a row was stored
+    // before that default existed.
+    const profileRestricted = !isOwner && !isFriend && isMinor;
 
     const showFriends = canViewSection({ effectivePrivacy: effFriends, isOwner, isFriend });
     const showGames = canViewSection({ effectivePrivacy: effGames, isOwner, isFriend });
 
+    // Never an exact answer: a per-profile false would let a non-friend enumerate friends-only
+    // minors id by id. The button is always offered; POST /requests enforces the real rule and
+    // answers 403 PROFILE_FRIENDS_ONLY (see docs/qa/blocks-and-privacy-contract.md).
+    const canAddFriend = true;
+
     const ratingSummary = await getUserRatingSummary(targetId);
 
     const payload = {
-      ...mapUserPublic(user, { includeContact: isOwner }),
+      ...mapUserPublic(user, { includeContact: isOwner, hideDetails: profileRestricted }),
+      profileRestricted,
+      canMessage: isOwner || isFriend || effMessages === 'EVERYONE',
+      canAddFriend,
       ratingAverage: ratingSummary.ratingAverage,
       totalRatings: ratingSummary.totalRatings,
       sections: { friends: showFriends, matchHistory: showGames },
@@ -704,12 +762,15 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     // Friends list (id/name/imageUrl only) when visible.
     if (showFriends) {
       const friendIds = await getFriendIds(targetId);
-      payload.friends = friendIds.length
-        ? await prisma.user.findMany({
+        payload.friends = friendIds.length
+        ? (await prisma.user.findMany({
             where: { id: { in: friendIds } },
             select: { id: true, name: true, imageUrl: true },
             take: 20,
-          })
+          })).map((friend) => ({
+            ...friend,
+            name: publicDisplayName(friend.name, 'משתמש'),
+          }))
         : [];
     }
 
@@ -967,6 +1028,48 @@ router.get('/:id/friends', attachOptionalUser, async (req, res) => {
   }
 });
 
+// A pending request with no bell (notification create failed, or a later retry hit the
+// old "already exists" 400) must be repairable. Look the row up in JS — Prisma JSON
+// path filters are not reliable for `data.friendRequestId`.
+async function ensureFriendRequestNotification(req, fr) {
+  const receiverId = fr.receiverId;
+  const requesterId = fr.requesterId;
+  const recent = await prisma.notification.findMany({
+    where: { userId: receiverId, type: 'FRIEND_REQUEST' },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    select: { data: true },
+  });
+  const already = recent.some((n) => n.data && n.data.friendRequestId === fr.id);
+  if (already) return;
+
+  const requester = await prisma.user.findUnique({ where: { id: requesterId } });
+  const requesterLabel = await notificationName(
+    prisma,
+    requester || { id: requesterId, name: req.user.name },
+    'משתמש'
+  );
+  await notificationService.sendNotification(
+    receiverId,
+    'FRIEND_REQUEST',
+    'בקשת חברות חדשה',
+    `${requesterLabel} שלח/ה לך בקשת חברות`,
+    {
+      friendRequestId: fr.id,
+      requesterId,
+      actorId: requesterId,
+      requesterName: requesterLabel,
+      link: '/friends',
+    },
+    req.app.get('io')
+  );
+}
+
+function notifyFailure(res, err) {
+  console.error('[NOTIFICATION] Failed to send friend request notification:', err);
+  return res.status(500).json({ error: 'Failed to notify the recipient', code: 'NOTIFICATION_FAILED' });
+}
+
 // Send friend request
 router.post('/requests', authenticateToken, async (req, res) => {
   try {
@@ -975,56 +1078,122 @@ router.post('/requests', authenticateToken, async (req, res) => {
     if (!receiverId || receiverId === requesterId) return res.status(400).json({ error: 'Invalid receiver' });
     // Ensure the requester exists; never invent a placeholder row for an unknown receiver
     await safeUpsertUserFromAuth(prisma, req.user);
-    const rx = await prisma.user.findUnique({ where: { id: String(receiverId) }, select: { id: true } });
+    const rx = await prisma.user.findUnique({
+      where: { id: String(receiverId) },
+      select: { id: true, birthDate: true, privacyFriends: true },
+    });
     if (!rx) return res.status(404).json({ error: 'User not found' });
-    // already friends?
-    if (await isBlockedEitherWay(requesterId, receiverId)) {
-      return res.status(403).json({ error: 'Cannot send a request to this user', code: 'USER_BLOCKED' });
-    }
+    // Every gate below answers a blocked sender exactly like an unblocked one. The block
+    // only turns the final write + notification into a no-op (a normal-looking 201).
+    const blocked = await isBlockedEitherWay(requesterId, receiverId);
     const [a, b] = orderPair(requesterId, receiverId);
     const existingFriend = await prisma.friendship.findFirst({ where: { OR: [{ userAId: a, userBId: b }, { userAId: b, userBId: a }] } });
     if (existingFriend) return res.status(400).json({ error: 'Already friends' });
-    // existing request either way
-    const existingReq = await prisma.friendRequest.findFirst({ where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] } });
-    if (existingReq && existingReq.status === 'DECLINED') {
-      const sameDirection = existingReq.requesterId === requesterId;
-      if (sameDirection && Date.now() - new Date(existingReq.createdAt).getTime() < DECLINED_RESEND_COOLDOWN_MS) {
-        return res.status(400).json({ error: 'Your previous request was declined; you can send a new one later', code: 'REQUEST_DECLINED_RECENTLY' });
+
+    // Across a block only the caller's own direction counts: the other side's rows are hidden
+    // from this user, so they must not surface here as INCOMING_REQUEST_EXISTS either.
+    const existingReq = await prisma.friendRequest.findFirst({
+      where: blocked
+        ? { requesterId, receiverId }
+        : { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] },
+    });
+
+    if (existingReq && existingReq.status === 'PENDING') {
+      if (existingReq.requesterId !== requesterId) {
+        return res.status(400).json({
+          error: 'This user already sent you a friend request',
+          code: 'INCOMING_REQUEST_EXISTS',
+        });
       }
-      // Otherwise a declined request must not block the pair forever.
+      // Same-direction pending: keep the original contract (400 'Request already exists', which
+      // every released app build understands) but still repair a missing bell for the receiver.
+      if (!blocked) {
+        try {
+          await ensureFriendRequestNotification(req, existingReq);
+        } catch (err) {
+          console.error('Friend request notification repair failed:', err);
+        }
+        broadcastCounters(req.app.get('io'), prisma, receiverId).catch(() => {});
+      }
+      return res.status(400).json({ error: 'Request already exists', code: 'REQUEST_ALREADY_PENDING' });
+    }
+
+    if (
+      existingReq &&
+      existingReq.status === 'DECLINED' &&
+      existingReq.requesterId === requesterId &&
+      Date.now() - new Date(existingReq.createdAt).getTime() < DECLINED_RESEND_COOLDOWN_MS
+    ) {
+      return res.status(400).json({
+        error: 'Your previous request was declined; you can send a new one later',
+        code: 'REQUEST_DECLINED_RECENTLY',
+      });
+    }
+
+    // Friends-only minor rule, applied before the block short-circuit so blocked and
+    // unblocked senders get the same answer: another minor may ask; an adult may not, unless
+    // the minor explicitly chose EVERYONE.
+    if (!canRequestFriendship({
+      targetBirthDate: rx.birthDate,
+      targetPrivacyFriends: rx.privacyFriends,
+      requesterBirthDate: null,
+    })) {
+      const requesterRow = await prisma.user.findUnique({
+        where: { id: requesterId },
+        select: { birthDate: true },
+      });
+      if (!canRequestFriendship({
+        targetBirthDate: rx.birthDate,
+        targetPrivacyFriends: rx.privacyFriends,
+        requesterBirthDate: requesterRow?.birthDate ?? null,
+      })) {
+        return res.status(403).json({
+          error: 'This profile only accepts friend requests from friends',
+          code: 'PROFILE_FRIENDS_ONLY',
+        });
+      }
+    }
+
+    if (existingReq && existingReq.status === 'DECLINED') {
+      // A declined request must not block the pair forever.
       // deleteMany: two concurrent re-sends must not make the second one fail with P2025 (a 500)
       await prisma.friendRequest.deleteMany({ where: { id: existingReq.id } });
-    } else if (existingReq) {
-      return res.status(400).json({ error: 'Request already exists' });
     }
+
+    let fr;
     try {
-      const fr = await prisma.friendRequest.create({ data: { requesterId, receiverId } });
-
-      // Send notification to receiver
-      const requester = await prisma.user.findUnique({ where: { id: requesterId } });
-      const requesterLabel = await notificationName(prisma, requester || { id: requesterId, name: req.user.name }, 'משתמש');
-      await notificationService.sendNotification(
-        receiverId,
-        'FRIEND_REQUEST',
-        'בקשת חברות חדשה',
-        `${requesterLabel} שלח/ה לך בקשת חברות`,
-        {
-          friendRequestId: fr.id,
-          requesterId,
-          actorId: requesterId,
-          requesterName: requesterLabel,
-          link: '/friends'
-        },
-        req.app.get('io') // Get Socket.IO instance from app
-      ).catch(err => console.error('[NOTIFICATION] Failed to send friend request notification:', err));
-
-      broadcastCounters(req.app.get('io'), prisma, receiverId).catch(() => {});
-
-      res.status(201).json(fr);
+      fr = await prisma.friendRequest.create({ data: { requesterId, receiverId } });
     } catch (err) {
-      // handle unique race condition
-      return res.status(400).json({ error: 'Request already exists' });
+      if (err && err.code === 'P2002') {
+        const pending = await prisma.friendRequest.findFirst({
+          where: { requesterId, receiverId, status: 'PENDING' },
+        });
+        if (pending && !blocked) {
+          try {
+            await ensureFriendRequestNotification(req, pending);
+          } catch (notifyErr) {
+            console.error('Friend request notification repair failed:', notifyErr);
+          }
+          broadcastCounters(req.app.get('io'), prisma, receiverId).catch(() => {});
+        }
+        return res.status(400).json({ error: 'Request already exists', code: 'REQUEST_ALREADY_PENDING' });
+      }
+      throw err;
     }
+
+    // A blocked pair gets a real pending row so repeat sends behave exactly like an unblocked
+    // sender's (201, then 400 "Request already exists"). The row is hidden from the receiver
+    // everywhere (list, counters, accept/decline) while the block exists, no bell is created, and
+    // it is deleted on unblock.
+    // Re-check: a block created while this request was being written must not produce a bell.
+    if (blocked || await isBlockedEitherWay(requesterId, receiverId)) return res.status(201).json(fr);
+    try {
+      await ensureFriendRequestNotification(req, fr);
+    } catch (err) {
+      return notifyFailure(res, err);
+    }
+    broadcastCounters(req.app.get('io'), prisma, receiverId).catch(() => {});
+    return res.status(201).json(fr);
   } catch (e) {
     console.error('Send request error:', e);
     res.status(500).json({ error: 'Failed to send request' });
@@ -1035,7 +1204,12 @@ router.post('/requests', authenticateToken, async (req, res) => {
 router.get('/:id/requests/incoming', authenticateToken, async (req, res) => {
   try {
     if (req.params.id !== req.user.id) return res.status(403).json({ error: 'Access denied' });
-    const list = await prisma.friendRequest.findMany({ where: { receiverId: req.user.id, status: 'PENDING' }, include: { requester: true } });
+    // Requests a blocked sender made while blocked exist only for the sender; never list them.
+    const hidden = await getBlockedEitherWayIds(req.user.id);
+    const list = await prisma.friendRequest.findMany({
+      where: { receiverId: req.user.id, status: 'PENDING', ...(hidden.length ? { requesterId: { notIn: hidden } } : {}) },
+      include: { requester: true },
+    });
     res.json(list.map(r => ({ id: r.id, requester: mapUserPublic(r.requester), createdAt: r.createdAt })));
   } catch (e) {
     console.error('Incoming requests error:', e);
@@ -1060,6 +1234,7 @@ router.post('/requests/:id/accept', authenticateToken, async (req, res) => {
   try {
     const reqRow = await prisma.friendRequest.findUnique({ where: { id: req.params.id } });
     if (!reqRow || reqRow.receiverId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
+    if (await isBlockedEitherWay(reqRow.requesterId, reqRow.receiverId)) return res.status(404).json({ error: 'Request not found' });
     const [a, b] = orderPair(reqRow.requesterId, reqRow.receiverId);
     await prisma.$transaction([
       prisma.friendRequest.delete({ where: { id: reqRow.id } }),
@@ -1100,7 +1275,10 @@ router.post('/requests/:id/cancel', authenticateToken, async (req, res) => {
     if (!reqRow || reqRow.requesterId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
     await prisma.friendRequest.delete({ where: { id: reqRow.id } });
 
-    broadcastCounters(req.app.get('io'), prisma, reqRow.receiverId).catch(() => {});
+    // A receiver across a block never saw the request, so there is nothing to refresh for them.
+    if (!(await isBlockedEitherWay(reqRow.requesterId, reqRow.receiverId))) {
+      broadcastCounters(req.app.get('io'), prisma, reqRow.receiverId).catch(() => {});
+    }
 
     res.json({ ok: true });
   } catch (e) {
@@ -1114,6 +1292,7 @@ router.post('/requests/:id/decline', authenticateToken, async (req, res) => {
   try {
     const reqRow = await prisma.friendRequest.findUnique({ where: { id: req.params.id } });
     if (!reqRow || reqRow.receiverId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
+    if (await isBlockedEitherWay(reqRow.requesterId, reqRow.receiverId)) return res.status(404).json({ error: 'Request not found' });
     // createdAt doubles as "when this request last changed state": the resend cooldown (see
     // DECLINED_RESEND_COOLDOWN_MS) is measured from the decline, not from when it was first sent.
     await prisma.friendRequest.update({ where: { id: reqRow.id }, data: { status: 'DECLINED', createdAt: new Date() } });
@@ -1196,12 +1375,14 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
     const chatIds = participations.map(p => p.chatId);
     
     let unreadMap = {};
+    // Same rule as the total badge (counterService): people I blocked never count as unread.
+    const blockedByMeIds = chatIds.length > 0 ? await getBlockedByMe(userId) : [];
     if (chatIds.length > 0) {
       const unreadCounts = await prisma.message.groupBy({
         by: ['chatRoomId'],
         where: {
           chatRoomId: { in: chatIds },
-          userId: { not: userId },
+          userId: { notIn: [userId, ...blockedByMeIds] },
           status: { notIn: ['read', 'blocked'] }
         },
         _count: { id: true }

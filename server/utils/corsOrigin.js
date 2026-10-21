@@ -9,6 +9,17 @@
 //   enforce CORS on WebSockets, so this is the only origin gate there. engine.io never forwards
 //   the Error to the Express error handler, so it doesn't reach Sentry.
 
+// Vercel preview/deployment hosts of THIS team only: join-up[-app]-<hash or git-branch>-<team>.vercel.app.
+// The team slug is mandatory, so another Vercel account's project named join-up-* / join-up-app-*
+// can't pass CORS with credentials. Not a bare `*.vercel.app` wildcard either.
+function vercelPreviewPattern() {
+  const DEFAULT_TEAM = 'yair-klausners-projects';
+  const cleaned = (process.env.CORS_VERCEL_TEAM_SLUG || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+  // Empty/malformed override falls back to the default; never widens the pattern.
+  const team = /[a-z0-9]/.test(cleaned) ? cleaned : DEFAULT_TEAM;
+  return new RegExp('^https://join-up(-app)?-[a-z0-9-]+-' + team + '\\.vercel\\.app$', 'i');
+}
+
 const LOCAL_DEV_ORIGIN_PATTERNS = [
   /^https?:\/\/localhost(:\d+)?$/i,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/i,
@@ -16,9 +27,7 @@ const LOCAL_DEV_ORIGIN_PATTERNS = [
   /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
   /^https?:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/i,
   /^exp:\/\/[\w.-]+(:\d+)?$/i,
-  // Vercel preview deployments of THIS project only (e.g. join-up-app-git-<branch>-<team>.vercel.app).
-  // Not a bare `*.vercel.app` wildcard — that would let any Vercel-hosted app pass CORS with credentials.
-  /^https:\/\/join-up-app(-[\w-]+)?\.vercel\.app$/i,
+  vercelPreviewPattern(),
 ];
 
 function isLocalDevOrigin(origin) {

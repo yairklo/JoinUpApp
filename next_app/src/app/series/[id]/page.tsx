@@ -118,7 +118,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
     if (result && "friendsOnly" in result) {
         return (
             <Container sx={{ py: 4 }}>
-                <Alert severity="info">
+                <Alert severity="info" data-testid="series-friends-only">
                     הקבוצה הזו פתוחה לחברים של המארגן בלבד.
                     {!userId && " אם אתה חבר של המארגן, התחבר כדי לראות אותה."}
                 </Alert>
@@ -160,7 +160,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     size="lg"
                                 />
                             </Box>
-                            <Typography variant="h4" fontWeight="bold">
+                            <Typography variant="h4" fontWeight="bold" data-testid="series-title">
                                 {series.title || series.fieldName}
                             </Typography>
                             <Stack direction="row" spacing={2} sx={{ mt: 1, color: 'text.secondary' }} flexWrap="wrap" useFlexGap>

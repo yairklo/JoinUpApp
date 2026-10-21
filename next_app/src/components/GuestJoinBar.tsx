@@ -53,7 +53,7 @@ export default function GuestJoinBar() {
     >
       <Typography variant="body2" fontWeight={600}>התחבר כדי להצטרף למשחק</Typography>
       <SignInButton mode="modal">
-        <Button variant="contained" size="small">התחבר</Button>
+        <Button variant="contained" size="small" data-testid="guest-sign-in">התחבר</Button>
       </SignInButton>
     </Box>
   );

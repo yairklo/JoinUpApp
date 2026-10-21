@@ -32,8 +32,13 @@ they don't fit one narrower `.mdc` glob — but they're still server-only, so th
 
 ## Background job idempotency
 - Scheduler handlers must claim work with `updateMany` on sentinel fields (`lotteryExecutedAt`,
-  `reminderSent`, `pickingOpenedAt`, `status`) so a second Render instance is a no-op.
-- Set `RUN_BACKGROUND_JOBS=false` on extra API instances so they do not arm in-memory timers.
+  `reminderSent`, `pickingOpenedAt`, `status`) so a second instance is a no-op, **and re-read the
+  row and check the due timestamp first**: a stale in-memory timer (row edited to a later time,
+  schedule owned by another process) must never run a lottery/pick draw early. Anything non-claimed
+  (review queue, series generation) must be a compare-and-set or sit behind a DB unique constraint.
+- Exactly one process runs jobs: either `RUN_BACKGROUND_JOBS=false` on every extra instance, or
+  `JOBS_LEADER_LOCK=redis` so only the Redis lock holder does (`services/leaderLock.js`; see
+  `server/docs/agents/realtime_rules.md`). A deposed leader must call `gameScheduler.stop()`.
 
 ## Payments
 - `Game.price` / `GameSeries.price` are display-only (pay at field). Do not add a payment processor

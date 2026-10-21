@@ -1,0 +1,40 @@
+appId: com.yairklo.joinupapp
+name: Send a chat message in a game chat
+tags:
+  - smoke
+  - chat
+---
+- runScript: ../scripts/gen-run-data.js
+- runFlow: ../subflows/common/launch-clean.yaml
+- runFlow:
+    file: ../subflows/auth/sign-up.yaml
+    env:
+      EMAIL: ${output.emailA}
+      PASSWORD: ${output.password}
+- runFlow:
+    file: ../subflows/game/create.yaml
+    env:
+      GAME_TITLE: ${output.gameTitle}
+# The organizer is a participant of their own game, so the chat entry point is shown.
+- extendedWaitUntil:
+    visible:
+      id: game-open-chat
+    timeout: 30000
+- tapOn:
+    id: game-open-chat
+- extendedWaitUntil:
+    visible:
+      id: chat-input
+    timeout: 30000
+- tapOn:
+    id: chat-input
+- inputText: ${output.chatMessage}
+- tapOn:
+    id: chat-send
+# The bubble is drawn before the server ack. chat-message-ok appears only once the send is confirmed
+# (sent / delivered / read), so a local "not sent" bubble does not pass.
+- extendedWaitUntil:
+    visible:
+      id: chat-message-ok
+    timeout: 20000
+- assertVisible: ${output.chatMessage}

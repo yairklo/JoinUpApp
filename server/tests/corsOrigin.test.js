@@ -69,7 +69,10 @@ describe('CORS origin policy (Express)', () => {
 
   test.each([
     'https://join-up-app.vercel.app',
-    'https://join-up-app-git-feature-team.vercel.app',
+    'https://join-up-bqendlnhc-yair-klausners-projects.vercel.app',
+    'https://join-up-app-abc123xyz-yair-klausners-projects.vercel.app',
+    'https://join-up-git-feat-cors-yair-klausners-projects.vercel.app',
+    'https://join-up-app-git-feat-cors-yair-klausners-projects.vercel.app',
     'http://localhost:3000',
   ])('allowed origin %s is echoed back', async (origin) => {
     const { app } = buildApp();
@@ -94,6 +97,22 @@ describe('CORS origin policy (Express)', () => {
   test.each([
     'https://evil-join-up-app.vercel.app',
     'https://join-up-app.vercel.app.evil.com',
+    'https://evil.vercel.app',
+    'https://join-up-evil.vercel.app',
+    'https://join-up-x-otherteam.vercel.app',
+    'https://join-up-app-x-otherteam.vercel.app',
+    'https://join-up-app-git-x-otherteam.vercel.app',
+    'https://join-up-x-yair-klausners-projects.vercel.app.evil.com',
+    'http://join-up-bqendlnhc-yair-klausners-projects.vercel.app',
+    'https://join-up-bqendlnhc-yair-klausners-projects.vercel.app.evil.com',
+    'https://join.up-bqendlnhc-yair-klausners-projects.vercel.app',
+    'https://join-up-a.b-yair-klausners-projects.vercel.app',
+    'https://evil.com/join-up-x-yair-klausners-projects.vercel.app',
+    'https://join-up--yair-klausners-projects.vercel.app',
+    'https://join-up-x-yair-klausners-projectsXvercel.app',
+    'https://join-up-x-yair-klausners-projects.vercelXapp',
+    'https://join-up-x-yair-klausners-projectsXvercelYapp',
+    'https://xjoin-up-x-yair-klausners-projects.vercel.app',
   ])('lookalike origin %s is not allowed', async (origin) => {
     const { app } = buildApp();
     const res = await request(app).get('/api/health').set('Origin', origin);
@@ -140,5 +159,35 @@ describe('CORS origin policy (Socket.IO)', () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain('"sid"');
     expect(res.headers['access-control-allow-origin']).toBe('https://join-up-app.vercel.app');
+  });
+});
+
+describe('Vercel preview pattern construction', () => {
+  const load = (slug) => {
+    jest.resetModules();
+    const prev = process.env.CORS_VERCEL_TEAM_SLUG;
+    if (slug === undefined) delete process.env.CORS_VERCEL_TEAM_SLUG; else process.env.CORS_VERCEL_TEAM_SLUG = slug;
+    try { return require('../utils/corsOrigin'); } finally {
+      if (prev === undefined) delete process.env.CORS_VERCEL_TEAM_SLUG; else process.env.CORS_VERCEL_TEAM_SLUG = prev;
+    }
+  };
+
+  test('regex source has escaped dots', () => {
+    const { isLocalDevOrigin } = load();
+    expect(isLocalDevOrigin('https://join-up-x-yair-klausners-projects.vercel.app')).toBe(true);
+    const src = require('fs').readFileSync(require.resolve('../utils/corsOrigin'), 'utf8');
+    expect(src).toContain(String.raw`'\\.vercel\\.app$'`);
+  });
+
+  test.each(['', '...', '$$$', '.*'])('malformed slug %j falls back to default', (slug) => {
+    const { isLocalDevOrigin } = load(slug);
+    expect(isLocalDevOrigin('https://join-up-x-yair-klausners-projects.vercel.app')).toBe(true);
+    expect(isLocalDevOrigin('https://join-up-x-other.vercel.app')).toBe(false);
+  });
+
+  test('custom slug is honoured', () => {
+    const { isLocalDevOrigin } = load('my-team');
+    expect(isLocalDevOrigin('https://join-up-x-my-team.vercel.app')).toBe(true);
+    expect(isLocalDevOrigin('https://join-up-x-yair-klausners-projects.vercel.app')).toBe(false);
   });
 });

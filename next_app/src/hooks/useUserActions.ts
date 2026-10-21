@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { usersApi, chatsApi } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
 import { useMediaQuery, useTheme } from '@mui/material';
+import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
 
 export type FriendStatus = 'FRIEND' | 'REQUESTED' | 'INCOMING' | 'NONE' | 'SELF' | 'LOADING';
 
@@ -81,14 +82,12 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
             setStatus('REQUESTED');
         } catch (e) {
             console.error(e);
-            // The server refuses a repeat request for a few days after a decline.
-            setError(
-                e instanceof Error && /declined/i.test(e.message)
-                    ? "הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים"
-                    : "שליחת בקשת החברות נכשלה"
-            );
-            // The server may know something we don't (e.g. a request already exists): resync.
-            checkStatus();
+            // A failed send must stay a failure. Resyncing here used to flip the button to
+            // "request sent" whenever a pending row existed, even when the bell was never created.
+            setError(mapFriendRequestError(e));
+            if (getErrorCode(e) === 'INCOMING_REQUEST_EXISTS') {
+                await checkStatus();
+            }
         } finally {
             setLoading(false);
         }

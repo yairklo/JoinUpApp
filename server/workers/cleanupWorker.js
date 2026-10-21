@@ -22,9 +22,12 @@ async function cleanupOldNotifications() {
  * Start the Cron job
  * Runs daily at 3:00 AM
  */
+let cleanupTask = null;
+
 function startCleanupWorker() {
+    if (cleanupTask) return; // idempotent: leader re-acquisition must not stack cron jobs
     // Run daily at 3:00 AM: 0 3 * * *
-    cron.schedule('0 3 * * *', () => {
+    cleanupTask = cron.schedule('0 3 * * *', () => {
         cleanupOldNotifications().catch(err => {
             console.error('[CLEANUP_WORKER] Cron execution failed:', err);
         });
@@ -33,4 +36,14 @@ function startCleanupWorker() {
     console.log('[CLEANUP_WORKER] Scheduled to run daily at 3:00 AM');
 }
 
-module.exports = { startCleanupWorker, cleanupOldNotifications };
+/** Stop the cron (job leadership lost / shutdown). */
+function stopCleanupWorker() {
+    if (!cleanupTask) return;
+    try { cleanupTask.stop(); } catch (_) { /* already stopped */ }
+    if (typeof cleanupTask.destroy === 'function') {
+        try { cleanupTask.destroy(); } catch (_) { /* ignore */ }
+    }
+    cleanupTask = null;
+}
+
+module.exports = { startCleanupWorker, stopCleanupWorker, cleanupOldNotifications };

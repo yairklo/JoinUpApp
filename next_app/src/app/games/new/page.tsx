@@ -639,7 +639,7 @@ function NewGamePageInner() {
                     value={form.title}
                     onChange={(e) => update("title", e.target.value)}
                     dir="rtl"
-                    slotProps={{ htmlInput: { maxLength: 200 } }}
+                    slotProps={{ htmlInput: { maxLength: 200, "data-testid": "game-title-input" } }}
                   />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 3 }}>
@@ -647,6 +647,7 @@ function NewGamePageInner() {
                     label="תאריך"
                     fullWidth
                     size="small"
+                    testId="game-date-input"
                     value={form.date}
                     min={todayStr}
                     error={!!(form.date && form.time) && parseJerusalemTimeToUTC(form.date, form.time).getTime() < Date.now()}
@@ -663,6 +664,7 @@ function NewGamePageInner() {
                     label="שעה"
                     fullWidth
                     size="small"
+                    testId="game-time-input"
                     value={form.time}
                     onChange={(e) => update("time", e.target.value)}
                   />
@@ -954,6 +956,7 @@ function NewGamePageInner() {
                   type="submit"
                   variant="contained"
                   size="large"
+                  data-testid="create-game-submit"
                   disabled={!canSubmit || submitting}
                   startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
                 >

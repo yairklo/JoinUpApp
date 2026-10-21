@@ -18,6 +18,7 @@ import UserProfileSections from "@/components/UserProfileSections";
 import UserProfileRating from "@/components/UserProfileRating";
 import { SPORT_MAPPING } from "@/utils/sports";
 import { normalizeName } from "@/utils/normalizeName";
+import { auth } from "@clerk/nextjs/server";
 
 type PublicUser = {
     id: string;
@@ -31,6 +32,9 @@ type PublicUser = {
     positions?: { id: string; name: string; sportId: string }[];
     ratingAverage?: number | null;
     totalRatings?: number;
+    profileRestricted?: boolean;
+    canMessage?: boolean;
+    canAddFriend?: boolean;
 };
 
 const GENDER_LABELS: Record<"MALE" | "FEMALE", string> = {
@@ -40,10 +44,11 @@ const GENDER_LABELS: Record<"MALE" | "FEMALE", string> = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-async function fetchUser(id: string): Promise<PublicUser | null> {
+async function fetchUser(id: string, token: string | null): Promise<PublicUser | null> {
     try {
         const res = await fetch(`${API_BASE}/api/users/${id}`, {
             cache: "no-store",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok) return null;
         return res.json();
@@ -56,7 +61,9 @@ export default async function UserPublicPage(props: {
     params: Promise<{ id: string }>;
 }) {
     const { id } = await props.params;
-    const u = await fetchUser(id);
+    const { getToken } = await auth();
+    const token = await getToken().catch(() => null);
+    const u = await fetchUser(id, token);
 
     if (!u) {
         return (
@@ -98,7 +105,7 @@ export default async function UserPublicPage(props: {
 
                         {/* Name & Location */}
                         <Box mt={2} mb={3}>
-                            <Typography variant="h4" fontWeight="bold" gutterBottom>
+                            <Typography variant="h4" fontWeight="bold" gutterBottom data-testid="profile-name">
                                 {normalizeName(u.name) || "משתמש"}
                             </Typography>
 
@@ -112,8 +119,14 @@ export default async function UserPublicPage(props: {
                                     <LocationOnIcon fontSize="small" />
                                     <Typography variant="body1">{u.city}</Typography>
                                 </Stack>
-                            ) : (
+                            ) : u.profileRestricted ? null : (
                                 <Typography variant="body2" color="text.secondary">מיקום לא צוין</Typography>
+                            )}
+
+                            {u.profileRestricted && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                    הפרופיל הזה פתוח לחברים בלבד
+                                </Typography>
                             )}
 
                             <Box mt={2}>
@@ -121,6 +134,8 @@ export default async function UserPublicPage(props: {
                                     targetUserId={id}
                                     targetUserName={normalizeName(u.name) || "משתמש"}
                                     targetUserImage={u.imageUrl}
+                                    canMessage={u.canMessage !== false}
+                                    canAddFriend={u.canAddFriend !== false}
                                 />
                             </Box>
                         </Box>
@@ -130,29 +145,31 @@ export default async function UserPublicPage(props: {
                         {/* Details Grid */}
                         <Stack spacing={3} textAlign="left">
 
-                            {/* Contact */}
+                            {/* Contact — only the owner receives an email, and a restricted profile has none */}
+                            {!u.profileRestricted && u.email ? (
                             <Box>
                                 <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
                                     יצירת קשר
                                 </Typography>
                                 <Stack direction="row" alignItems="center" gap={1.5} mt={1}>
                                     <EmailIcon color="action" fontSize="small" />
-                                    <Typography variant="body1">{u.email || "אימייל לא זמין"}</Typography>
+                                    <Typography variant="body1" data-testid="profile-email">{u.email}</Typography>
                                 </Stack>
                             </Box>
+                            ) : null}
 
                             {/* Age */}
-                            {u.age && (
-                                <Box>
+                            {!u.profileRestricted && u.age ? (
+                                <Box data-testid="profile-age">
                                     <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
                                         גיל
                                     </Typography>
                                     <Typography variant="body1">{u.age}</Typography>
                                 </Box>
-                            )}
+                            ) : null}
 
                             {/* Gender */}
-                            {u.gender && (
+                            {!u.profileRestricted && u.gender && (
                                 <Box>
                                     <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
                                         מין
@@ -162,6 +179,7 @@ export default async function UserPublicPage(props: {
                             )}
 
                             {/* Sports & Positions */}
+                            {!u.profileRestricted && (
                             <Box>
                                 <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase" gutterBottom>
                                     ענפי ספורט ותפקידים
@@ -195,6 +213,7 @@ export default async function UserPublicPage(props: {
                                     <Typography variant="body2" color="text.secondary">-</Typography>
                                 )}
                             </Box>
+                            )}
 
                         </Stack>
 

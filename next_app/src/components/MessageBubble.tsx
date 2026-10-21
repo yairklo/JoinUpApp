@@ -131,6 +131,8 @@ export default function MessageBubble({
 
     return (
         <Box
+            data-testid="message-bubble"
+            data-message-status={message.status || "sent"}
             onMouseEnter={() => setHover(true)}
             onMouseLeave={() => setHover(false)}
             sx={{
@@ -268,7 +270,7 @@ export default function MessageBubble({
                     )}
                 </Paper>
                 {isMine && message.status === 'blocked' && (
-                    <Typography variant="caption" sx={{ color: "error.main", mt: 0.5, px: 1, alignSelf: isRTL ? "flex-end" : "flex-start", width: "100%", textAlign: isRTL ? "right" : "left" }}>
+                    <Typography data-testid="message-blocked" variant="caption" sx={{ color: "error.main", mt: 0.5, px: 1, alignSelf: isRTL ? "flex-end" : "flex-start", width: "100%", textAlign: isRTL ? "right" : "left" }}>
                             {isRTL ? "ההודעה נחסמה על ידי הסינון האוטומטי ולא נשלחה" : "Message was blocked by the automatic filter and was not sent."}
                     </Typography>
                 )}
@@ -296,7 +298,7 @@ export default function MessageBubble({
                     <IconButton size="small" onClick={() => onReply(message)}><ReplyIcon fontSize="small" /></IconButton>
                     <IconButton size="small" onClick={handleReactionClick}><AddReactionIcon fontSize="small" /></IconButton>
                     {(isMine || onReport || onBlock) && (
-                        <IconButton size="small" onClick={handleMenuOpen}><MoreVertIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" onClick={handleMenuOpen} data-testid="message-actions"><MoreVertIcon fontSize="small" /></IconButton>
                     )}
                 </Stack>
             )}
@@ -332,7 +334,7 @@ export default function MessageBubble({
                         <ListItemText sx={{ color: "error.main" }}>{isRTL ? "מחק" : "Delete"}</ListItemText>
                     </MenuItem>
                 ] : [
-                    <MenuItem key="report" onClick={handleReport}>
+                    <MenuItem key="report" onClick={handleReport} data-testid="report-message">
                         <ListItemIcon><FlagIcon fontSize="small" color="error" /></ListItemIcon>
                         <ListItemText sx={{ color: "error.main" }}>{isRTL ? "דווח על הודעה פוגענית" : "Report message"}</ListItemText>
                     </MenuItem>,

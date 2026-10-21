@@ -3,16 +3,22 @@ const { prisma } = require('../lib/prisma');
 const VALID_LEVELS = ['EVERYONE', 'FRIENDS_ONLY'];
 
 // Jerusalem-local calendar age (null when no birthDate); shared with clients and the age gate.
-const { getAgeInJerusalem } = require('../shared/ageGate');
+const { getAgeInJerusalem, ADULT_AGE } = require('../shared/ageGate');
 
 /**
  * Age-based DEFAULT only (used when a user has not saved an explicit preference).
- * Under 18 → FRIENDS_ONLY; 18+ or unknown age → EVERYONE.
+ * Under ADULT_AGE → FRIENDS_ONLY; adult or unknown age → EVERYONE.
  */
 function getDefaultPrivacyForAge(birthDate) {
   const age = getAgeInJerusalem(birthDate);
   if (age === null) return 'EVERYONE';
-  return age < 18 ? 'FRIENDS_ONLY' : 'EVERYONE';
+  return age < ADULT_AGE ? 'FRIENDS_ONLY' : 'EVERYONE';
+}
+
+/** True only for a stored birth date that is still under ADULT_AGE. Unknown age is not a minor. */
+function isKnownMinor(birthDate) {
+  const age = getAgeInJerusalem(birthDate);
+  return age !== null && age < ADULT_AGE;
 }
 
 /**
@@ -52,6 +58,21 @@ function canViewSection({ effectivePrivacy, isOwner, isFriend }) {
   return !!isFriend;
 }
 
+/**
+ * Whether this requester may open a friend request.
+ * Friends-only on an adult only hides their friends list — anyone can still ask.
+ * A minor on friends-only (the age default, or an explicit choice) still accepts
+ * requests from other known minors, so two minors can become friends. Adults and
+ * unknown-age accounts stay refused unless that minor chose EVERYONE.
+ * This does not look at blocks. Callers must apply the block check first and
+ * answer it with an ordinary success, so a blocked sender cannot tell.
+ */
+function canRequestFriendship({ targetBirthDate, targetPrivacyFriends, requesterBirthDate }) {
+  if (!isKnownMinor(targetBirthDate)) return true;
+  if (resolvePrivacyLevel(targetPrivacyFriends, targetBirthDate) === 'EVERYONE') return true;
+  return isKnownMinor(requesterBirthDate);
+}
+
 module.exports = {
   VALID_LEVELS,
   getAgeInJerusalem,
@@ -60,4 +81,6 @@ module.exports = {
   getAgeDefaults,
   areConfirmedFriends,
   canViewSection,
+  isKnownMinor,
+  canRequestFriendship,
 };

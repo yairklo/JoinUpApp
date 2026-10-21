@@ -1,4 +1,5 @@
 const express = require('express');
+const { publicDisplayName } = require('../utils/publicName');
 const { authenticateToken } = require('../utils/auth');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const {
@@ -245,7 +246,7 @@ router.get('/:id/join-requests', authenticateToken, async (req, res) => {
 
     const toDTO = (p, idx) => ({
       userId: p.userId,
-      name: p.user?.name || null,
+      name: publicDisplayName(p.user?.name, null),
       avatar: p.user?.imageUrl || null,
       requestedAt: p.createdAt.toISOString(),
       status: p.status,

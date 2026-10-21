@@ -8,6 +8,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "e2e:build:android": "node maestro/scripts/build-android.mjs",
+    "e2e": "node maestro/scripts/run.mjs --tags all",
+    "e2e:smoke": "node maestro/scripts/run.mjs --tags smoke",
     "update:preview": "node scripts/eas-update.mjs preview",
     "update:production": "node scripts/eas-update.mjs production"
   },

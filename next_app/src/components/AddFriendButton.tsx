@@ -88,6 +88,7 @@ export default function AddFriendButton({ receiverId, initialSent = false }: Add
           color={error ? "error" : "primary"}
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <PersonAddIcon />}
           aria-label={loading ? "שולח..." : "הוסף חבר"}
+          data-testid="add-friend"
         >
           {loading ? "שולח..." : "הוסף חבר"}
         </Button>

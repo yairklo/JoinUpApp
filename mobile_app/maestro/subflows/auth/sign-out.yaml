@@ -1,0 +1,28 @@
+# Signs the current user out via the profile screen; ends on the sign-in screen.
+appId: com.yairklo.joinupapp
+---
+# Game screens hide the profile shortcut; it lives in the tab headers.
+- tapOn:
+    id: tab-home
+- tapOn:
+    id: header-profile
+- scrollUntilVisible:
+    element:
+      id: profile-sign-out
+- tapOn:
+    id: profile-sign-out
+# App quirk (reported, not fixed here): the game screen left mounted behind the profile refetches
+# after sign-out, gets 401 and shows a native "Failed to load game details" alert over the sign-in
+# screen. The alert hides the sign-in elements from Maestro, so dismiss it if it appears.
+- extendedWaitUntil:
+    visible:
+      id: "android:id/button1"
+    timeout: 8000
+    optional: true
+- tapOn:
+    id: "android:id/button1"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: sign-in-to-sign-up
+    timeout: 30000

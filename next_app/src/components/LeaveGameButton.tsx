@@ -85,6 +85,7 @@ export default function LeaveGameButton({
           variant="outlined"
           color="error"
           size="small"
+          data-testid="leave-game"
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ExitToAppIcon />}
         >
           {loading ? "יוצא..." : leaveLabel}
@@ -117,7 +118,7 @@ export default function LeaveGameButton({
           <Button onClick={() => setOpenConfirm(false)} color="primary">
             ביטול
           </Button>
-          <Button onClick={leave} color="error" autoFocus>
+          <Button onClick={leave} color="error" autoFocus data-testid="leave-confirm">
             {isLastPlayer ? "מחק וצא" : "בטל השתתפות"}
           </Button>
         </DialogActions>

@@ -10,6 +10,14 @@ export function getErrorStatus(error: unknown): number | undefined {
   return undefined;
 }
 
+export function getErrorCode(error: unknown): string | undefined {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+  }
+  return undefined;
+}
+
 // Differentiates network/offline failures (no HTTP status at all -- the fetch
 // itself rejected) from real HTTP error responses, so callers can render more
 // specific Hebrew copy than one generic string for every failure type.
@@ -48,14 +56,23 @@ export function getActionErrorMessage(error: unknown): string {
 // from the network directly — always go through this.
 export function mapFriendRequestError(error: unknown): string {
   const status = getErrorStatus(error);
+  const code = getErrorCode(error);
   if (status === 429) return "יותר מדי בקשות, נסה שוב בעוד רגע";
-  if (status === 401 || status === 403) return "יש להתחבר מחדש";
+  // A block must look like any other failed send. A distinct sentence tells the sender they were blocked.
+  if (code === "USER_BLOCKED") return "שליחת הבקשה נכשלה, נסה שוב";
+  if (code === "PROFILE_FRIENDS_ONLY") return "הפרופיל הזה פתוח לחברים בלבד";
+  if (code === "REQUEST_DECLINED_RECENTLY") return "הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים";
+  if (code === "INCOMING_REQUEST_EXISTS") return "המשתמש כבר שלח לך בקשת חברות";
+  if (code === "NOTIFICATION_FAILED") return "לא הצלחנו לשלוח התראה. נסה שוב";
+  if (status === 401 || code === "SIGN_IN_REQUIRED") return "יש להתחבר כדי לשלוח בקשת חברות";
+  if (status === 403) return "אין הרשאה לבצע פעולה זו";
 
   const raw = error instanceof Error ? error.message : "";
   const normalized = raw.toLowerCase();
   if (normalized.includes("already friends")) return "אתם כבר חברים";
   if (normalized.includes("request already exists")) return "כבר נשלחה בקשת חברות";
   if (normalized.includes("invalid receiver")) return "לא ניתן לשלוח בקשה זו";
+  if (normalized.includes("declined")) return "הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים";
   if (normalized.includes("sign in required")) return "יש להתחבר כדי לשלוח בקשת חברות";
   if (normalized.includes("failed to fetch") || normalized.includes("networkerror")) {
     return "בעיית תקשורת, בדוק את החיבור לאינטרנט";
