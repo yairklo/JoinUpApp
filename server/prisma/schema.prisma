@@ -1061,6 +1061,7 @@ model GameResultSide {
   sets     Json?
   outcome  ResultOutcome
   result   GameResult    @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  statEntries PlayerStatEntry[]
 
   @@unique([resultId, order])
 }
@@ -1080,7 +1081,9 @@ model PlayerStatEntry {
   game   Game?   @relation(fields: [gameId], references: [id], onDelete: Cascade)
   tournamentMatch TournamentMatch? @relation(fields: [tournamentMatchId], references: [id], onDelete: Cascade)
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  side   GameResultSide? @relation(fields: [sideId], references: [id], onDelete: SetNull)
 
+  @@index([sideId])
   @@unique([gameId, userId, key])
   @@unique([tournamentMatchId, userId, key])
   @@index([tournamentMatchId])
@@ -1094,6 +1097,8 @@ model UserReport {
   targetId     String
   /// Optional context.
   gameId       String?
+  /// Optional tournament context.
+  tournamentId String?
   reason       UserReportReason
   details      String?
   status       UserReportStatus @default(OPEN)
@@ -1103,11 +1108,13 @@ model UserReport {
   createdAt    DateTime         @default(now())
   reporter     User             @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
   target       User             @relation("ReportsReceived", fields: [targetId], references: [id], onDelete: Cascade)
+  tournament   Tournament?      @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
 
   // One open report per (reporter, target, game) is enforced in code: a NULL gameId does not
   // collide in a Postgres unique index.
   @@index([status, createdAt])
   @@index([targetId])
+  @@index([tournamentId])
 }
 
 // ---------------------------------------------------------------------------
@@ -1208,6 +1215,7 @@ model Tournament {
   stages               TournamentStage[]
   matches              TournamentMatch[]
   roles                TournamentRole[]
+  reports              UserReport[]
 
   @@index([status, startsAt])
   @@index([organizerId])
@@ -1222,6 +1230,8 @@ model TournamentTeam {
   captainId    String
   status       TournamentTeamStatus   @default(PENDING)
   seed         Int?
+  /// Organizer's manual final ranking override.
+  manualRank   Int?
   groupId      String?
   /// Invite link code.
   joinCode     String                 @unique
@@ -1240,7 +1250,8 @@ model TournamentTeam {
 model TournamentTeamMember {
   id           String                 @id @default(cuid())
   teamId       String
-  /// Denormalised to enforce one team per player per tournament.
+  /// Denormalised: at most one ACCEPTED team per player per tournament (partial unique index in
+  /// migration 20261021140000, which Prisma cannot express).
   tournamentId String
   userId       String
   role         TournamentMemberRole   @default(PLAYER)
@@ -1250,7 +1261,7 @@ model TournamentTeamMember {
   team         TournamentTeam         @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([tournamentId, userId])
+  @@index([tournamentId, userId])
   @@index([teamId])
   @@index([userId])
 }
