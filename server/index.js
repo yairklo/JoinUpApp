@@ -145,7 +145,7 @@ app.use(readMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 120, pre
 // Mutations (POST/PUT/PATCH/DELETE) keep the existing, deliberately stricter limiter untouched.
 app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 60, prefix: 'write' })));
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+require('./middleware/uploadsStatic').mountUploads(app, path.join(__dirname, 'uploads'));
 
 // Create data directory if it doesn't exist
 const dataDir = path.join(__dirname, 'data');
