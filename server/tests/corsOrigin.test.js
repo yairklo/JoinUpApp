@@ -69,7 +69,10 @@ describe('CORS origin policy (Express)', () => {
 
   test.each([
     'https://join-up-app.vercel.app',
-    'https://join-up-app-git-feature-team.vercel.app',
+    'https://join-up-bqendlnhc-yair-klausners-projects.vercel.app',
+    'https://join-up-app-abc123xyz-yair-klausners-projects.vercel.app',
+    'https://join-up-git-feat-cors-yair-klausners-projects.vercel.app',
+    'https://join-up-app-git-feat-cors-yair-klausners-projects.vercel.app',
     'http://localhost:3000',
   ])('allowed origin %s is echoed back', async (origin) => {
     const { app } = buildApp();
@@ -94,6 +97,19 @@ describe('CORS origin policy (Express)', () => {
   test.each([
     'https://evil-join-up-app.vercel.app',
     'https://join-up-app.vercel.app.evil.com',
+    'https://evil.vercel.app',
+    'https://join-up-evil.vercel.app',
+    'https://join-up-x-otherteam.vercel.app',
+    'https://join-up-app-x-otherteam.vercel.app',
+    'https://join-up-app-git-x-otherteam.vercel.app',
+    'https://join-up-x-yair-klausners-projects.vercel.app.evil.com',
+    'http://join-up-bqendlnhc-yair-klausners-projects.vercel.app',
+    'https://join-up-bqendlnhc-yair-klausners-projects.vercel.app.evil.com',
+    'https://join.up-bqendlnhc-yair-klausners-projects.vercel.app',
+    'https://join-up-a.b-yair-klausners-projects.vercel.app',
+    'https://evil.com/join-up-x-yair-klausners-projects.vercel.app',
+    'https://join-up--yair-klausners-projects.vercel.app',
+    'https://xjoin-up-x-yair-klausners-projects.vercel.app',
   ])('lookalike origin %s is not allowed', async (origin) => {
     const { app } = buildApp();
     const res = await request(app).get('/api/health').set('Origin', origin);
