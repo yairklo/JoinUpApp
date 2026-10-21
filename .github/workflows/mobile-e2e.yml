@@ -98,13 +98,14 @@ jobs:
           profile: pixel_6
           disable-animations: true
           working-directory: mobile_app
-          script: node maestro/scripts/run.mjs --tags ${{ inputs.tags || 'smoke' }}
+          script: bash maestro/scripts/ci-run.sh ${{ inputs.tags || 'smoke' }}
 
       - name: Upload Maestro report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: maestro-report
+          include-hidden-files: true
           path: |
             mobile_app/maestro/.reports
             server.log
