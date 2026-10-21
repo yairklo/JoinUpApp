@@ -74,12 +74,32 @@ function getClientIp(request: Request): string | undefined {
   return undefined;
 }
 
-/** Relative proxy path for live keys; env override wins. Dev (pk_test_) returns undefined. */
+/**
+ * Proxy path this app passes to Clerk middleware and `ClerkProvider`.
+ * `pk_live_` defaults to `/__clerk` (required on `*.vercel.app`). An explicit
+ * `NEXT_PUBLIC_CLERK_PROXY_URL` overrides that for live keys only.
+ * `pk_test_` returns undefined so this app does not opt Preview/Development
+ * into the production proxy.
+ *
+ * That return value does not mean the variable is unused. `@clerk/nextjs@6.39.6`
+ * (this repo's lockfile) reads `NEXT_PUBLIC_CLERK_PROXY_URL` itself:
+ * `ClerkProvider` merges with `props.proxyUrl || process.env.NEXT_PUBLIC_CLERK_PROXY_URL`,
+ * so an omitted prop, `undefined`, and `""` all keep a set variable.
+ * `clerkMiddleware` uses the same env value when `proxyUrl` is omitted
+ * (`handleValueOrFn` falls through to the module-level `PROXY_URL`).
+ * Next inlines `NEXT_PUBLIC_*` at build time. Leave the variable unset on
+ * Vercel Preview/Development and in local `pk_test_` env files.
+ * Production `pk_live_` behaviour is unchanged.
+ */
 export function resolveClerkProxyUrl(): string | undefined {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
+  if (publishableKey.startsWith("pk_test_")) {
+    return undefined;
+  }
+
   const fromEnv = process.env.NEXT_PUBLIC_CLERK_PROXY_URL?.trim();
   if (fromEnv) return fromEnv;
 
-  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
   if (publishableKey.startsWith("pk_live_")) {
     return DEFAULT_CLERK_PROXY_PATH;
   }
