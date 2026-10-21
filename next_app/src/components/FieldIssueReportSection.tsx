@@ -8,6 +8,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
 import { getActionErrorMessage } from "@/utils/apiError";
 import Avatar from "@/components/Avatar";
+import SafeImage from "@/components/ui/SafeImage";
 import Card from "@mui/material/Card";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -323,11 +324,15 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
                 rel="noreferrer"
                 sx={{ display: "block" }}
               >
-                <Box
-                  component="img"
+                <SafeImage
                   src={issue.photoUrl}
                   alt="תמונת הליקוי"
-                  sx={{ maxWidth: 220, maxHeight: 160, borderRadius: 2, display: "block", objectFit: "cover" }}
+                  style={{ maxWidth: 220, maxHeight: 160, borderRadius: 16, display: "block", objectFit: "cover" }}
+                  fallback={
+                    <Typography variant="caption" color="text.secondary">
+                      התמונה אינה זמינה
+                    </Typography>
+                  }
                 />
               </Box>
               {isOwn && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { mapFriendRequestError } from '@/utils/apiError';
+import SafeImage from '@/components/SafeImage';
 
 /**
  * Inline player search + add-friend list, embedded directly in the friends page
@@ -124,7 +125,7 @@ export default function PlayerSearch() {
                                 activeOpacity={0.7}
                             >
                                 <View className="flex-row items-center flex-1 mr-3">
-                                    <Image
+                                    <SafeImage
                                         source={{ uri: item.imageUrl || defaultAvatar }}
                                         className="w-11 h-11 rounded-full bg-gray-100"
                                     />

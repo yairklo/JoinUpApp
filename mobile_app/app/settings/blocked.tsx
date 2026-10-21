@@ -1,9 +1,10 @@
-import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { usersApi, type BlockedUser } from '@/services/api/users';
+import SafeImage from '@/components/SafeImage';
 
 export default function BlockedUsersScreen() {
     const { t } = useTranslation();
@@ -55,7 +56,7 @@ export default function BlockedUsersScreen() {
                         renderItem={({ item }) => (
                             <View className="bg-white rounded-xl p-3 mb-3 flex-row items-center border border-gray-100">
                                 {item.imageUrl ? (
-                                    <Image source={{ uri: item.imageUrl }} className="w-10 h-10 rounded-full bg-gray-200" />
+                                    <SafeImage source={{ uri: item.imageUrl }} className="w-10 h-10 rounded-full bg-gray-200" />
                                 ) : (
                                     <View className="w-10 h-10 rounded-full bg-gray-200" />
                                 )}

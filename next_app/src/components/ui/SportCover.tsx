@@ -1,4 +1,4 @@
-import React, { useId } from "react";
+import React, { useId, useState } from "react";
 import Box from "@mui/material/Box";
 import type { SxProps, Theme } from "@mui/material/styles";
 import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
@@ -105,7 +105,8 @@ export default function SportCover({
     const key = sport && sport in COURTS ? sport : "SOCCER";
     const Court = COURTS[key];
     const Glyph = GLYPHS[key as keyof typeof GLYPHS];
-    const photo = image && image.trim().length > 0 ? image : null;
+    const [failedImage, setFailedImage] = useState<string | null>(null);
+    const photo = image && image.trim().length > 0 && image !== failedImage ? image : null;
 
     return (
         <Box
@@ -128,6 +129,7 @@ export default function SportCover({
                         alt=""
                         aria-hidden
                         loading="lazy"
+                        onError={() => setFailedImage(image ?? null)}
                         sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
                     <Box

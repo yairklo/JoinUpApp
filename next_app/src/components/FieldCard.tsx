@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 
@@ -54,7 +55,8 @@ export default function FieldCard({ field }: { field: Field }) {
   const primarySport = field.supportedSports?.find(
     (s): s is SportType => s in SPORT_IMAGES
   );
-  const hasPhoto = !!field.image && field.image.trim().length > 0;
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  const hasPhoto = !!field.image && field.image.trim().length > 0 && field.image !== failedImage;
   const isFree = !field.price || field.price <= 0;
   const isOpen = field.type === "open";
 
@@ -101,6 +103,7 @@ export default function FieldCard({ field }: { field: Field }) {
               height="150"
               image={field.image!}
               alt={field.name}
+              onError={() => setFailedImage(field.image ?? null)}
               sx={{ display: "block", width: "100%" }}
             />
             <Box

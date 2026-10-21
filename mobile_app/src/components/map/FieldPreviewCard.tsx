@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 import FavoriteButton from '@/components/FavoriteButton';
 import { getSportColorHex, getSportIconName } from '@/utils/mapSport';
 import { SPORT_MAPPING } from '@/utils/sports';
+import SafeImage from '@/components/SafeImage';
 
 export interface PreviewField {
     id: string;
@@ -126,7 +127,7 @@ export default function FieldPreviewCard({
                     {/* Thumbnail or sport icon */}
                     <View style={{ position: 'relative' }}>
                         {field.image ? (
-                            <Image
+                            <SafeImage
                                 source={{ uri: field.image }}
                                 style={{ width: 60, height: 60, borderRadius: 14, backgroundColor: '#f3f4f6' }}
                             />

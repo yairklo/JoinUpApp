@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { seriesApi, type SeriesJoinRequest } from '@/services/api/series';
+import SafeImage from '@/components/SafeImage';
 
 // Managers only: outsiders asking to join a friends-only group. Renders nothing when empty.
 export default function SeriesJoinRequests({ seriesId, onApproved }: { seriesId: string; onApproved?: () => void }) {
@@ -52,7 +53,7 @@ export default function SeriesJoinRequests({ seriesId, onApproved }: { seriesId:
             {requests.map((r) => (
                 <View key={r.userId} className="flex-row items-center py-2 border-b border-gray-100">
                     {r.avatar ? (
-                        <Image source={{ uri: r.avatar }} className="w-9 h-9 rounded-full bg-gray-200" />
+                        <SafeImage source={{ uri: r.avatar }} className="w-9 h-9 rounded-full bg-gray-200" />
                     ) : (
                         <View className="w-9 h-9 rounded-full bg-gray-200 items-center justify-center">
                             <Text className="text-gray-600 font-bold">{(r.name || '?').charAt(0)}</Text>

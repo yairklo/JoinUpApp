@@ -1,4 +1,4 @@
-import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, Image } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -17,6 +17,7 @@ import FilterPill from '@/components/FilterPill';
 import { MapBounds, MapMarkerItem } from '@/components/map/types';
 import { getSportColorHex, getSportIconName } from '@/utils/mapSport';
 import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
+import SafeImage from '@/components/SafeImage';
 
 type SearchMapPayload = { games: Game[] };
 
@@ -475,7 +476,7 @@ export default function SearchScreen() {
                                 {/* Field header -- same visual language as the fields map's preview card */}
                                 <View className="flex-row items-center mb-4">
                                     {selectedFieldGames?.[0]?.field?.image ? (
-                                        <Image
+                                        <SafeImage
                                             source={{ uri: selectedFieldGames[0].field.image }}
                                             style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: '#f3f4f6' }}
                                         />

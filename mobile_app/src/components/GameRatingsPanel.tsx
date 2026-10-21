@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { ratingsApi, GameRatingTeammate } from '@/services/api/ratings';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import SafeImage from '@/components/SafeImage';
 
 function StarRow({
     value,
@@ -114,7 +115,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
                     className="flex-row items-center py-3 border-b border-gray-50"
                     style={{ opacity: tm.myScore != null ? 0.85 : 1 }}
                 >
-                    <Image
+                    <SafeImage
                         source={{
                             uri:
                                 tm.imageUrl ||
