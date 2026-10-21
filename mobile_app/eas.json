@@ -10,8 +10,8 @@
       "channel": "development",
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
-        "EXPO_PUBLIC_API_URL": "https://joinup-api.duckdns.org",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsuam9pbi11cC1hcHAudmVyY2VsLmFwcCQ",
+        "EXPO_PUBLIC_API_URL": "https://joinup-dev-api.duckdns.org",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bm90YWJsZS1kb2ctMTEuY2xlcmsuYWNjb3VudHMuZGV2JA",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCSkGsi2WtND71FfLA3h5o0IMje_veOPxw",
         "EXPO_PUBLIC_SENTRY_DSN": "https://0c6736101975570a8c29a65348751814@o4512283420524544.ingest.de.sentry.io/4512283487305808",
         "EXPO_PUBLIC_SENTRY_ENVIRONMENT": "development",
@@ -24,8 +24,8 @@
       "channel": "preview",
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
-        "EXPO_PUBLIC_API_URL": "https://joinup-api.duckdns.org",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsuam9pbi11cC1hcHAudmVyY2VsLmFwcCQ",
+        "EXPO_PUBLIC_API_URL": "https://joinup-dev-api.duckdns.org",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bm90YWJsZS1kb2ctMTEuY2xlcmsuYWNjb3VudHMuZGV2JA",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCSkGsi2WtND71FfLA3h5o0IMje_veOPxw",
         "EXPO_PUBLIC_SENTRY_DSN": "https://0c6736101975570a8c29a65348751814@o4512283420524544.ingest.de.sentry.io/4512283487305808",
         "EXPO_PUBLIC_SENTRY_ENVIRONMENT": "preview",
