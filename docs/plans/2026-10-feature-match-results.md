@@ -101,12 +101,12 @@ model UserReport {
 
 // User: add  hideMatchStats Boolean @default(false)  + relation fields
 // Game: add  result GameResult?  statEntries PlayerStatEntry[]
-// NotificationType: add GAME_RESULT_POSTED (own migration, enum ADD VALUE)
+// No notification type for results (owner decision: no result notifications).
 ```
 
 Notes: `PlayerStatEntry.tournamentMatchId` is added later by the tournament plan (nullable, plus a raw-SQL CHECK that exactly one of `gameId` / `tournamentMatchId` is set; `gameId` becomes nullable in that migration). Player W/D/L for aggregates is derived by joining `sideId` -> `GameResultSide.outcome`; players without a side get no W/D/L but still count stats.
 
-Migrations: (1) tables + `hideMatchStats`; (2) the enum value in a separate migration (Postgres cannot use a new enum value in the transaction that adds it). Dev DB first; production gets it via `prisma migrate deploy` on deploy.
+Migrations: (1) tables + `hideMatchStats`; Dev DB first; production gets it via `prisma migrate deploy` on deploy.
 
 ## 4. API contract
 
@@ -115,7 +115,7 @@ All under existing routers; every existing response keeps its shape (old mobile 
 | Method + path | Who | Behaviour |
 | --- | --- | --- |
 | `GET /api/games/:id/result` | anyone who can see the game (respect friends-only access) | `{ eligible, canEdit, result: {sides, stats, notes, status, recordedBy, lockedAt} or null, roster: [{userId,name,imageUrl,sideId}] }`. Stats of players who hid them stay visible inside that game's own record, but are excluded from profile aggregates for others. |
-| `PUT /api/games/:id/result` | level >= `MANAGER` or admin | Upsert result + stats in one transaction. Body: `{ sides:[{teamId?,label,score,sets?}], stats:[{userId,sideId,values:{goals:1,...}}], notes }`. Shared-schema validation, only `CONFIRMED` participants, game started (`start <= now`) and not `CANCELLED`, not locked (admin override). Sets `lockedAt` on first write. Replaces the game's entries (delete+create inside `tx`). First FINAL write emits `GAME_RESULT_POSTED` to confirmed participants, honouring prefs. |
+| `PUT /api/games/:id/result` | level >= `MANAGER` or admin | Upsert result + stats in one transaction. Body: `{ sides:[{teamId?,label,score,sets?}], stats:[{userId,sideId,values:{goals:1,...}}], notes }`. Shared-schema validation, only `CONFIRMED` participants, game started (`start <= now`) and not `CANCELLED`, not locked (admin override). Sets `lockedAt` on first write. Replaces the game's entries (delete+create inside `tx`). |
 | `DELETE /api/games/:id/result` | admin, or manager within the lock window | Removes result and stat entries. |
 | `POST /api/games/:id/result/dispute` | any confirmed participant | Creates a `UserReport` with `reason=RESULT_DISPUTE` against the recorder; rate limited. |
 | `GET /api/users/:id/stats?sport=` | privacy-gated | `{ visible, hiddenReason?: 'USER_HIDDEN'/'PRIVATE', sports: [{sport, games, wins, draws, losses, totals:{...}, perGame:{...}}] }` via `groupBy` over `PlayerStatEntry` + sides. Hidden for non-owners when `hideMatchStats` or `!canViewSection(privacyGames)`; owner always sees. |
@@ -132,15 +132,12 @@ Eligibility: allowed once `start <= now` (a manager often records right after th
 | Step | Area | Files | Work |
 | --- | --- | --- | --- |
 | F1-1 | server schema | `server/prisma/schema.prisma`, new migration | Models above + `hideMatchStats`. Tier-2 runs `prisma migrate dev`. |
-| F1-2 | server schema | schema + new migration | `GAME_RESULT_POSTED` enum value (own migration). |
 | F1-3 | shared | `shared/matchStats.js`, `.d.ts`, `.test.js` | Sport schemas, validators, derivations, labels. Parallel with F1-1. |
 | F1-4 | server | `server/services/gameResultService.js`, `server/tests/gameResult.test.js` | `getGameResult`, `upsertGameResult` (tx), `deleteGameResult`, permission via `getRoleLevel`. |
 | F1-5 | server | `server/routes/games.js`, `server/tests/gameResultRoutes.test.js` | `GET/PUT/DELETE /:id/result`, dispute. Declare before `/:id` catch-alls. |
 | F1-6 | server | `server/services/userStatsService.js`, `server/routes/users.js`, `server/tests/userStats.test.js` | `/users/:id/stats`, `statsSummary`, match-history `result`, `hideMatchStats` setting; privacy matrix. |
 | F1-7a | server | `server/routes/users.js`, `server/tests/userReports.test.js` | `POST /users/:id/report`, rate limit, no block leakage. |
 | F1-7b | server | `server/routes/admin.js`, `server/tests/adminUserReports.test.js` | Admin list / resolve / dismiss / ban. |
-| F1-8a | shared | `shared/notificationPrefs.js`, `.d.ts`, test | New pref toggle for result notifications. |
-| F1-8b | server | `server/services/notificationService.js`, `server/services/gameResultService.js`, test | Push + in-app on first FINAL result. |
 | F1-9 | web | `next_app/src/services/api/results.ts`, types, `useGameResult.ts` | API client + types + hook. |
 | F1-10 | web | `GameResultPanel.tsx`, `GameResultEditor.tsx`, `app/games/[id]/page.tsx` | Read panel for everyone, editor for managers (per-sport fields from the shared schema). |
 | F1-11 | web | `app/users/[id]/page.tsx`, `ProfileStatsCard.tsx`, history card | Stats section + result badge on history cards; owner sees "hidden from others". |

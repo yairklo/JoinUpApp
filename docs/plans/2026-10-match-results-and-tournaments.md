@@ -73,7 +73,7 @@ To make the hand-off cheap:
 3. Result disputes: default = managers may edit for 7 days, then locked (admin can reopen); any participant can flag a result, which lands in the admin queue.
 4. Stats input: default = manager enters per-player numbers after the game (not live). Live scoring is limited to tournament matches (score only) in v1.
 5. Tennis modelled as sides (singles = 1 player, doubles = 2) with set scores; no per-point tracking.
-6. Push notification volume for results: default = one push per game result to participants, respecting existing `UserNotificationSettings` (needs a new toggle).
+6. ~~Result notifications~~ - RESOLVED by owner: none. No push / in-app notification for game or tournament-match results (clients see them on refresh / realtime socket for open tournament screens).
 7. Public tournaments are visible to everyone (SEO sitemap later). Entry points in the apps appear only once at least one tournament is published, or for creators.
 
 ## 6. Definition of done (both features)
@@ -83,3 +83,12 @@ To make the hand-off cheap:
 - `next_app` build + typecheck, `mobile_app` typecheck/lint green; one Playwright flow and one Maestro flow per feature.
 - Hebrew + English strings (mobile i18n locales; web copy follows existing approach), RTL checked.
 - Deployed first to the **Dev** environment, reviewed there, then merged to `main` (merge = production deploy; owner decides).
+
+## 7. Execution model (agreed with owner)
+
+- Integration branch `feat/results-tournaments` (cut from this plan branch). Every agent works in its own worktree and opens a PR **into the integration branch**, never `main`.
+- Wave 1 (parallel): schema (F1-1 + T-1 + T-2, one agent, sequential migrations), shared `matchStats` (F1-3), shared tournament engines (T-3..T-7).
+- Wave 2 (after wave 1 merges into the integration branch): server F1 (F1-4..7b), server tournaments (T-8..T-12) as separate agents on disjoint files; then web and mobile agents per feature once API contracts are in.
+- Each agent finishes with an initial implementation, then **code review (L3 / `/code-review`) happens before anything is pushed to `Dev`**. Only the reviewed integration branch is pushed to `Dev` (Coolify dev API + Vercel Preview), where extra tests (Playwright / Maestro) can run.
+- Never push to `main`; merge to `main` (= production deploy) only on the owner's explicit say-so.
+- D0 design brief: delivered to the owner (or to an Opus session if one can be opened) once the API contract + shared types are merged into the integration branch.

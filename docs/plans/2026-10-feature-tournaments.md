@@ -137,7 +137,7 @@ model TournamentRole { id String @id @default(cuid())  tournamentId String  user
 // PlayerStatEntry (from Feature 1): gameId -> nullable, add tournamentMatchId String?,
 // raw-SQL CHECK ((gameId IS NULL) <> (tournamentMatchId IS NULL)), unique (tournamentMatchId,userId,key).
 // NotificationType additions (own migration): TOURNAMENT_TEAM_INVITE, TOURNAMENT_TEAM_DECISION,
-//   TOURNAMENT_MATCH_SCHEDULED, TOURNAMENT_MATCH_RESULT, TOURNAMENT_STARTING_SOON.
+//   TOURNAMENT_MATCH_SCHEDULED, TOURNAMENT_STARTING_SOON.
 // ChatRoom: tournament chat room with id = tournament id (same convention as games).
 ```
 
@@ -172,7 +172,7 @@ Gating: `canCreateTournament(req.user)` = `isAdmin` or id in `TOURNAMENT_CREATOR
 | `POST /:id/teams/:teamId/decision` | organizer/manager | APPROVE / REJECT / WAITLIST (+ promote waitlist when a spot opens, in tx). |
 | `POST /:id/schedule/generate?preview=1` | organizer/manager | Runs stage config through the shared engines; `preview=1` returns the proposal without saving; commit replaces unfinished generated matches only (never finished ones). |
 | `POST/PATCH/DELETE /:id/matches[/:matchId]` | organizer/manager | Manual add / edit (teams, time, court) / remove; conflict check from `scheduler.js`. |
-| `PUT /:id/matches/:matchId/result` | organizer/manager/scorekeeper | `{ homeScore, awayScore, penalties?, details?, status, stats?, expectedVersion }`; in one tx: validate, bump `version` (409 on mismatch), set winner, advance winner/loser into downstream slots, optionally write `PlayerStatEntry` (tournamentMatchId), notify team members; socket `tournament:update`. |
+| `PUT /:id/matches/:matchId/result` | organizer/manager/scorekeeper | `{ homeScore, awayScore, penalties?, details?, status, stats?, expectedVersion }`; in one tx: validate, bump `version` (409 on mismatch), set winner, advance winner/loser into downstream slots, optionally write `PlayerStatEntry` (tournamentMatchId); socket `tournament:update` (no push for results). |
 | `GET /:id/standings`, `GET /:id/bracket`, `GET /:id/schedule`, `GET /:id/stats/leaders?key=` | per visibility | Computed views. |
 | `POST /:id/report` | any | Reuses the Feature 1 report model (`UserReport` + optional `tournamentId`). |
 
@@ -198,7 +198,7 @@ Presentational components take props only (`<StandingsTable rows/>`, `<BracketVi
 | T-10 | server | `tournamentTeamService.js`, routes (teams/members/join), test | Registration, roster rules, waitlist promotion, concurrency on last spot (tx + unique). |
 | T-11 | server | `tournamentScheduleService.js`, routes (generate/matches), test | Preview/commit, manual edits, conflict detection. |
 | T-12 | server | `tournamentResultService.js`, routes (result/standings/bracket/leaders), test | Result tx with versioning + advancement + stats write. |
-| T-13 | server | notification types in `notificationService.js`, prefs in `shared/notificationPrefs.js`, tests | Invite, decision, scheduled, result, starting soon; reminder job via existing scheduler (leader-locked, idempotent). |
+| T-13 | server | notification types in `notificationService.js`, prefs in `shared/notificationPrefs.js`, tests | Invite, decision, scheduled, starting soon (NO result notifications); reminder job via existing scheduler (leader-locked, idempotent). |
 | T-14 | web | `services/api/tournaments.ts`, types, `useTournament*` hooks | Client layer. |
 | T-15..T-18 | web | list + detail tabs; wizard; team & roster; manage console (one per step) | UI. |
 | T-19..T-23 | mobile | mirror of T-14..T-18 | Parallel with web. |
