@@ -50,4 +50,3 @@ router.post('/:id/roles', authenticateToken, handle((req) => {
 router.delete('/:id/roles/:userId', authenticateToken, handle((req) => svc.removeRole(req.user, req.params.id, req.params.userId)));
 
 module.exports = router;
-module.exports.handle = handle;
