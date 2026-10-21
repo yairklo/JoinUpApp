@@ -40,7 +40,7 @@ function fail(msg) {
 }
 
 if (!profileName || profileName.startsWith("-")) {
-  fail('usage: npm run update:<preview|production> -- --message "..." [extra eas update args]');
+  fail('usage: npm run update:<development|preview|production> -- --message "..." [extra eas update args]');
 }
 const hasMessage = rest.some((a) => a === "--message" || a === "-m" || a.startsWith("--message="));
 if (!hasMessage) fail('pass --message "what changed" so the update is identifiable in EAS and Sentry');
@@ -55,6 +55,23 @@ if (!profile.channel) fail(`build profile "${profileName}" has no "channel" in e
 const profileEnv = profile.env || {};
 for (const key of ["EXPO_PUBLIC_API_URL", "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"]) {
   if (!profileEnv[key]) fail(`build profile "${profileName}" is missing ${key}; refusing to publish a bundle without it`);
+}
+
+// Environment guard: a production update must carry production values, and a preview/development
+// update must never carry the live Clerk key or the production API (they would write test data
+// into production, or ship a dev backend to real users).
+const PROD_API = "https://joinup-api.duckdns.org";
+const apiUrl = String(profileEnv.EXPO_PUBLIC_API_URL).replace(/\/+$/, "");
+const clerkKey = String(profileEnv.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
+if (profileName === "production") {
+  if (apiUrl !== PROD_API) fail(`refusing to publish production: EXPO_PUBLIC_API_URL is ${apiUrl}, expected ${PROD_API}`);
+  if (!clerkKey.startsWith("pk_live_")) fail("refusing to publish production: EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not a pk_live_ key");
+} else {
+  if (clerkKey.startsWith("pk_live_")) fail(`refusing to publish ${profileName}: it has a pk_live_ Clerk key (production Clerk)`);
+  if (apiUrl === PROD_API) fail(`refusing to publish ${profileName}: EXPO_PUBLIC_API_URL is the production API`);
+}
+if (profileEnv.EXPO_PUBLIC_SOCKET_URL && String(profileEnv.EXPO_PUBLIC_SOCKET_URL).replace(/\/+$/, "") !== apiUrl) {
+  fail("EXPO_PUBLIC_SOCKET_URL differs from EXPO_PUBLIC_API_URL in the profile; remove it or make them match");
 }
 
 // Uncommitted code would ship to users with no commit to trace it back to.
