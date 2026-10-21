@@ -34,7 +34,7 @@ const searchRoutes = require('./routes/search');
 const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 const { verifyToken } = require('@clerk/backend');
-const { isPrivateChatBlocked, getBlockersAmong } = require('./utils/blocks');
+const { getPrivateChatBlock, getBlockersAmong, ephemeralCuid } = require('./utils/blocks');
 const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
 const { canSubscribePresence } = require('./utils/presenceAuth');
 const { mapUserToSender } = require('./utils/chatMappers');
@@ -594,8 +594,33 @@ io.on('connection', async (socket) => {
     const finalUserId = String(socket.userId);
 
     try {
-      if (await isPrivateChatBlocked(finalUserId, String(roomId))) {
-        fail('You cannot message this user', 'USER_BLOCKED', false);
+      const block = await getPrivateChatBlock(finalUserId, String(roomId));
+      if (block) {
+        // Never persist or deliver a private message across a block.
+        if (block.senderIsBlocked) {
+          // The sender is the blocked party. Ack like an ordinary send so the
+          // response does not reveal the block. Only this user's own sockets see it.
+          const name = publicDisplayName(senderName, null) || 'משתמש';
+          const msg = {
+            id: ephemeralCuid(),
+            text: String(text),
+            senderId: finalUserId,
+            senderName: name,
+            ts: new Date().toISOString(),
+            roomId: String(roomId),
+            userId: finalUserId,
+            status: 'sent',
+            tempId,
+            sender: { id: finalUserId, name, image: null },
+          };
+          if (dedupeKey) recentTempIds.set(dedupeKey, { t: Date.now(), echo: msg });
+          io.to(`user_${finalUserId}`).emit('message', msg);
+          io.to(`user_${finalUserId}`).emit('message:received', { ...msg, chatId: msg.roomId, content: msg.text });
+          return;
+        }
+        // The sender blocked the other person. Same generic failure as a send
+        // that could not be completed — no block-specific code or copy.
+        fail('Could not send message', 'SEND_FAILED', true);
         return;
       }
     } catch (e) {

@@ -4,7 +4,7 @@ const { checkChatPermission } = require('../utils/chatAuth');
 const { prisma } = require('../lib/prisma');
 const { mapUserToSender } = require('../utils/chatMappers');
 const { publicDisplayName } = require('../utils/publicName');
-const { getBlockedByMe, isPrivateChatBlocked } = require('../utils/blocks');
+const { getBlockedByMe, getPrivateChatBlock, ephemeralCuid } = require('../utils/blocks');
 const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('../services/chatSafety');
 const { moderator } = require('../moderationInstance');
 const router = express.Router();
@@ -109,8 +109,27 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied: You are not a participant of this chat' });
     }
 
-    if (await isPrivateChatBlocked(req.user.id, String(roomId))) {
-      return res.status(403).json({ error: 'You cannot message this user', code: 'USER_BLOCKED' });
+    // Same outcomes as the socket send path. A block-specific code would tell the
+    // sender they were blocked. The message is never stored or delivered either way.
+    let block;
+    try {
+      block = await getPrivateChatBlock(req.user.id, String(roomId));
+    } catch (e) {
+      console.error('[blocks] private chat block check failed:', e.message);
+      return res.status(500).json({ error: 'Failed to create message' });
+    }
+    if (block) {
+      if (block.senderIsBlocked) {
+        return res.status(201).json({
+          id: ephemeralCuid(),
+          roomId: String(roomId),
+          text: String(text),
+          userId: req.user.id,
+          ts: new Date().toISOString(),
+          status: 'sent',
+        });
+      }
+      return res.status(500).json({ error: 'Failed to create message' });
     }
 
     const sender = await prisma.user.findUnique({

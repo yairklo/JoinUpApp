@@ -167,6 +167,114 @@ describe('user block + account deletion', () => {
     await prisma.notification.deleteMany({ where: { userId: { in: ids } } });
   });
 
+  test('a private-chat send does not reveal a block, and nothing is stored', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const indexSrc = fs.readFileSync(path.join(__dirname, '../index.js'), 'utf8');
+    const messagesSrc = fs.readFileSync(path.join(__dirname, '../routes/messages.js'), 'utf8');
+    expect(indexSrc).not.toMatch(/USER_BLOCKED|cannot message this user/i);
+    expect(messagesSrc).not.toMatch(/USER_BLOCKED|cannot message this user/i);
+
+    const privateRoomId = `test_dm_pair_${Date.now()}`;
+    const openRoomId = `test_dm_open_${Date.now()}`;
+    const hiddenText = 'ping from the other side';
+    const blockerText = 'ping the other way';
+    const mutualText = 'ping after both sides';
+    await prisma.userBlock.upsert({
+      where: { blockerId_blockedId: { blockerId: 'blk_user_a', blockedId: 'blk_user_b' } },
+      update: {},
+      create: { blockerId: 'blk_user_a', blockedId: 'blk_user_b' },
+    });
+    await prisma.chatRoom.create({
+      data: {
+        id: privateRoomId,
+        type: 'PRIVATE',
+        participants: { create: [{ userId: 'blk_user_a' }, { userId: 'blk_user_b' }] },
+      },
+    });
+    await prisma.chatRoom.create({
+      data: {
+        id: openRoomId,
+        type: 'PRIVATE',
+        participants: { create: [{ userId: 'blk_user_a' }, { userId: 'blk_user_c' }] },
+      },
+    });
+
+    try {
+      const real = await request(app)
+        .post('/api/messages')
+        .set('Authorization', 'Bearer mock_token_a')
+        .send({ roomId: openRoomId, text: 'hello there' });
+      expect(real.statusCode).toEqual(201);
+      expect(real.body.status).toEqual('sent');
+      expect(real.body.code).toBeUndefined();
+
+      // B is the blocked party: the send looks like the real one and is not stored.
+      const fromBlocked = await request(app)
+        .post('/api/messages')
+        .set('Authorization', 'Bearer mock_token_b')
+        .send({ roomId: privateRoomId, text: hiddenText });
+      expect(fromBlocked.statusCode).toEqual(201);
+      expect(Object.keys(fromBlocked.body).sort()).toEqual(Object.keys(real.body).sort());
+      expect(fromBlocked.body.status).toEqual('sent');
+      expect(fromBlocked.body.userId).toEqual('blk_user_b');
+      expect(fromBlocked.body.roomId).toEqual(privateRoomId);
+      expect(fromBlocked.body.text).toEqual(hiddenText);
+      expect(fromBlocked.body.code).toBeUndefined();
+      expect(fromBlocked.body.id).toMatch(/^c[a-z0-9]{24}$/);
+      expect(JSON.stringify(fromBlocked.body).toLowerCase()).not.toMatch(/block/);
+      expect(await prisma.message.findUnique({ where: { id: fromBlocked.body.id } })).toBeNull();
+
+      // A is the blocker: a generic failure, same body as a create that did not complete.
+      const fromBlocker = await request(app)
+        .post('/api/messages')
+        .set('Authorization', 'Bearer mock_token_a')
+        .send({ roomId: privateRoomId, text: blockerText });
+      expect(fromBlocker.statusCode).toEqual(500);
+      expect(fromBlocker.body).toEqual({ error: 'Failed to create message' });
+      expect(fromBlocker.body.code).toBeUndefined();
+      expect(JSON.stringify(fromBlocker.body).toLowerCase()).not.toMatch(/block/);
+
+      // Mutual: A is now also the blocked party, so their send is acked and still not stored.
+      await prisma.userBlock.create({ data: { blockerId: 'blk_user_b', blockedId: 'blk_user_a' } });
+      const fromMutual = await request(app)
+        .post('/api/messages')
+        .set('Authorization', 'Bearer mock_token_a')
+        .send({ roomId: privateRoomId, text: mutualText });
+      expect(fromMutual.statusCode).toEqual(201);
+      expect(Object.keys(fromMutual.body).sort()).toEqual(Object.keys(real.body).sort());
+      expect(fromMutual.body.status).toEqual('sent');
+      expect(JSON.stringify(fromMutual.body).toLowerCase()).not.toMatch(/block/);
+
+      const stored = await prisma.message.findMany({ where: { chatRoomId: privateRoomId } });
+      expect(stored).toHaveLength(0);
+      const asA = await request(app).get(`/api/messages?roomId=${privateRoomId}`).set('Authorization', 'Bearer mock_token_a');
+      const asB = await request(app).get(`/api/messages?roomId=${privateRoomId}`).set('Authorization', 'Bearer mock_token_b');
+      expect(asA.body).toEqual([]);
+      expect(asB.body).toEqual([]);
+      const notes = await prisma.notification.findMany({
+        where: { userId: { in: ['blk_user_a', 'blk_user_b'] }, type: 'NEW_MESSAGE' },
+      });
+      expect(notes).toHaveLength(0);
+
+      // A group chat is not closed by a block. B can still post there.
+      const group = await request(app)
+        .post('/api/messages')
+        .set('Authorization', 'Bearer mock_token_b')
+        .send({ roomId, text: 'still in the group' });
+      expect(group.statusCode).toEqual(201);
+      expect(await prisma.message.findUnique({ where: { id: group.body.id } })).not.toBeNull();
+      await prisma.message.delete({ where: { id: group.body.id } });
+    } finally {
+      await prisma.userBlock.deleteMany({
+        where: { blockerId: 'blk_user_b', blockedId: 'blk_user_a' },
+      });
+      await prisma.message.deleteMany({ where: { chatRoomId: { in: [privateRoomId, openRoomId] } } });
+      await prisma.chatParticipant.deleteMany({ where: { chatId: { in: [privateRoomId, openRoomId] } } });
+      await prisma.chatRoom.deleteMany({ where: { id: { in: [privateRoomId, openRoomId] } } });
+    }
+  });
+
   test('list and unblock', async () => {
     const list = await request(app).get('/api/users/blocks').set('Authorization', 'Bearer mock_token_a');
     expect(list.statusCode).toEqual(200);
