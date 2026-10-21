@@ -14,3 +14,34 @@ appId: com.yairklo.joinupapp
 - tapOn:
     id: "com.android.permissioncontroller:id/permission_allow_button"
     optional: true
+# System "isn't responding" dialog on slow emulators covers the app; keep waiting.
+- tapOn:
+    text: "Wait"
+    optional: true
+# CI emulator race: clearState kills the old task while the new process is starting, so the app can
+# be killed mid-launch and sit on the splash forever ("failed to attach"). If the sign-in screen does
+# not show up, relaunch (data is already wiped) - twice at most.
+- extendedWaitUntil:
+    visible:
+      id: sign-in-to-sign-up
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: sign-in-to-sign-up
+    commands:
+      - launchApp:
+          stopApp: true
+      - extendedWaitUntil:
+          visible:
+            id: sign-in-to-sign-up
+          timeout: 20000
+          optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: sign-in-to-sign-up
+    commands:
+      - launchApp:
+          stopApp: true
