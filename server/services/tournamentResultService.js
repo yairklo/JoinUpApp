@@ -261,6 +261,15 @@ async function putResult(user, tournamentId, matchId, body) {
   });
 }
 
+/** Re-resolves group-rank slots, e.g. after the organizer set a manualRank to break a tie. */
+async function recomputeAdvancement(user, tournamentId) {
+  return prisma.$transaction(async (tx) => {
+    await lockTournament(tx, tournamentId);
+    const { tournament: t } = await loadForRole(tx, tournamentId, user, 'MANAGER');
+    return { changedMatchIds: await resolveSlots(tx, t, { force: false }) };
+  });
+}
+
 /** After a team withdrew: forfeit its unfinished matches (or postpone when the opponent is unknown). */
 async function forfeitWithdrawnTeam(user, tournamentId, teamId) {
   return prisma.$transaction(async (tx) => {
@@ -412,6 +421,7 @@ async function getLeaders(user, tournamentId, query = {}) {
 module.exports = {
   putResult,
   forfeitWithdrawnTeam,
+  recomputeAdvancement,
   resolveSlots,
   rankTable,
   getSchedule,

@@ -71,6 +71,11 @@ router.get('/:id/teams/:teamId', attachOptionalUser, handle((req) => teams.getTe
 router.patch('/:id/teams/:teamId', authenticateToken, handle(async (req) => {
   const out = await teams.updateTeam(req.user, req.params.id, req.params.teamId, req.body);
   emit(req, 'teams');
+  // A manualRank can settle a group tie, which unlocks the knockout slots that wait for it.
+  if ((req.body || {}).manualRank !== undefined) {
+    const r = await results.recomputeAdvancement(req.user, req.params.id);
+    if (r.changedMatchIds.length) emit(req, 'result', { changedMatchIds: r.changedMatchIds });
+  }
   return out;
 }));
 
