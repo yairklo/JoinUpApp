@@ -521,6 +521,23 @@ io.on('connection', async (socket) => {
     }
   });
 
+  // Live tournament updates (`tournament:update`): only viewers allowed to see the tournament.
+  socket.on('joinTournament', async (tournamentId) => {
+    try {
+      if (typeof tournamentId !== 'string' || !tournamentId) return;
+      const { canViewTournament } = require('./utils/tournamentAccess');
+      const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+      const viewer = socket.userId ? { id: socket.userId, isAdmin: !!socket.data?.isAdmin } : null;
+      if (t && (await canViewTournament(prisma, t, viewer))) socket.join(`tournament:${tournamentId}`);
+    } catch (e) {
+      console.warn('[socket] joinTournament failed:', e && e.message);
+    }
+  });
+
+  socket.on('leaveTournament', (tournamentId) => {
+    if (typeof tournamentId === 'string') socket.leave(`tournament:${tournamentId}`);
+  });
+
   // Live team-management pick room (managers)
   socket.on('joinPickSession', async (gameId) => {
     try {

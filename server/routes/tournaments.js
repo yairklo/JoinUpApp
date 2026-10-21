@@ -4,6 +4,7 @@ const { canCreateTournament } = require('../utils/tournamentAccess');
 const svc = require('../services/tournamentService');
 const teams = require('../services/tournamentTeamService');
 const schedule = require('../services/tournamentScheduleService');
+const results = require('../services/tournamentResultService');
 
 const router = express.Router();
 
@@ -75,8 +76,13 @@ router.patch('/:id/teams/:teamId', authenticateToken, handle(async (req) => {
 
 router.delete('/:id/teams/:teamId', authenticateToken, handle(async (req) => {
   const out = await teams.withdrawTeam(req.user, req.params.id, req.params.teamId);
+  // Scheduled matches of a withdrawn team are forfeited (or postponed when the opponent is TBD).
+  const forfeited = out.affectedMatchIds.length
+    ? await results.forfeitWithdrawnTeam(req.user, req.params.id, req.params.teamId)
+    : { matchIds: [] };
   emit(req, 'teams');
-  return { ok: true, affectedMatchIds: out.affectedMatchIds, promotedTeamIds: out.promoted };
+  if (forfeited.matchIds.length) emit(req, 'schedule');
+  return { ok: true, affectedMatchIds: forfeited.matchIds, promotedTeamIds: out.promoted };
 }));
 
 router.post('/:id/teams/:teamId/decision', authenticateToken, handle(async (req) => {
@@ -141,5 +147,17 @@ router.delete('/:id/matches/:matchId', authenticateToken, handle(async (req) => 
   emit(req, 'schedule', { matchId: req.params.matchId });
   return { ok: true };
 }));
+
+// ---- results & computed views ------------------------------------------------------------
+router.put('/:id/matches/:matchId/result', authenticateToken, handle(async (req) => {
+  const out = await results.putResult(req.user, req.params.id, req.params.matchId, req.body);
+  emit(req, 'result', { matchId: req.params.matchId, changedMatchIds: out.changedMatchIds });
+  return { match: out.match, changedMatchIds: out.changedMatchIds, warnings: out.warnings };
+}));
+
+router.get('/:id/schedule', attachOptionalUser, handle((req) => results.getSchedule(req.user, req.params.id, req.query)));
+router.get('/:id/standings', attachOptionalUser, handle((req) => results.getStandings(req.user, req.params.id)));
+router.get('/:id/bracket', attachOptionalUser, handle((req) => results.getBracket(req.user, req.params.id)));
+router.get('/:id/stats/leaders', attachOptionalUser, handle((req) => results.getLeaders(req.user, req.params.id, req.query)));
 
 module.exports = router;
