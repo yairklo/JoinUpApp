@@ -665,6 +665,7 @@ export default function GameDetailsScreen() {
                     ) : isParticipant ? (
                         <View className="flex-row gap-3">
                             <TouchableOpacity
+                                testID="game-open-chat"
                                 onPress={() => router.push({
                                     pathname: '/chat/[id]',
                                     params: {
@@ -709,6 +710,7 @@ export default function GameDetailsScreen() {
                         </View>
                     ) : (
                         <TouchableOpacity
+                            testID="game-join-button"
                             onPress={handleJoin}
                             disabled={actionLoading}
                             className={`h-[52px] rounded-2xl items-center justify-center ${actionLoading ? 'bg-brand-soft' : 'bg-brand'}`}

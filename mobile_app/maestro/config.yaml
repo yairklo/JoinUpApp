@@ -1,0 +1,14 @@
+# Maestro workspace config. Run from mobile_app/:  maestro test maestro/
+# Only files under flows/ are executed as tests; subflows/ are reusable building blocks
+# (never listed here, so they are never run on their own).
+flows:
+  - flows/*.yaml
+
+# `maestro test maestro/ --include-tags=smoke` narrows a run; see maestro/README.md for the tag map.
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - 01-sign-up
+    - 02-create-game
+    - 03-join-game
+    - 04-send-chat-message

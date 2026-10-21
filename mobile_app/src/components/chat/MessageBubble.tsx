@@ -142,6 +142,11 @@ function MessageBubble({
 
                 <View className="max-w-[75%]">
                     <Pressable
+                        testID={
+                            isMe && (message.status === 'sent' || message.status === 'delivered' || message.status === 'read')
+                                ? 'chat-message-ok'
+                                : undefined
+                        }
                         onPress={handlePress}
                         onLongPress={() => {
                             if (isInteractive) onLongPress?.(message);

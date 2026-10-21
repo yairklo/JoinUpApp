@@ -1,0 +1,36 @@
+# Sets the new-game form to tomorrow at 12:00. The form defaults to "today, next hour",
+# which is already in the past between 23:00 and midnight. Requires output.slotDay / slotRollMonth
+# from gen-run-data.js. Ends with the pickers closed and the form still open.
+appId: com.yairklo.joinupapp
+---
+- scrollUntilVisible:
+    element:
+      id: new-game-date
+    timeout: 20000
+- tapOn:
+    id: new-game-date
+- extendedWaitUntil:
+    visible:
+      id: "android:id/button1"
+    timeout: 15000
+- runFlow:
+    when:
+      true: ${output.slotRollMonth == '1'}
+    commands:
+      - tapOn:
+          id: "android:id/next"
+- tapOn: ${output.slotDay}
+- tapOn:
+    id: "android:id/button1"
+- tapOn:
+    id: new-game-time
+- extendedWaitUntil:
+    visible:
+      id: "android:id/pm_label"
+    timeout: 15000
+- tapOn:
+    id: "android:id/pm_label"
+- tapOn: "12"
+- tapOn: "00"
+- tapOn:
+    id: "android:id/button1"

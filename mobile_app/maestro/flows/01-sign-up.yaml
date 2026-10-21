@@ -1,0 +1,15 @@
+appId: com.yairklo.joinupapp
+name: Sign up a new user
+tags:
+  - smoke
+  - auth
+---
+- runScript: ../scripts/gen-run-data.js
+- runFlow: ../subflows/common/launch-clean.yaml
+- runFlow:
+    file: ../subflows/auth/sign-up.yaml
+    env:
+      EMAIL: ${output.emailA}
+      PASSWORD: ${output.password}
+- assertVisible:
+    id: home-create-game

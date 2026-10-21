@@ -100,7 +100,7 @@ router.post('/', authenticateToken, async (req, res) => {
     if (textError) {
       return res.status(400).json({ error: textError === 'MESSAGE_TOO_LONG' ? `Message is too long (max ${MAX_MESSAGE_LENGTH} characters)` : 'Message is empty', code: textError });
     }
-    if (!sendRateLimiter.allow(req.user.id)) {
+    if (!(await sendRateLimiter.allow(req.user.id))) {
       return res.status(429).json({ error: 'You are sending messages too fast', code: 'RATE_LIMITED' });
     }
 
