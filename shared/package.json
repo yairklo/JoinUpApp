@@ -55,6 +55,10 @@
     "./chatSend": {
       "types": "./chatSend.d.ts",
       "default": "./chatSend.js"
+    },
+    "./tournament/*": {
+      "types": "./tournament/*.d.ts",
+      "default": "./tournament/*.js"
     }
   },
   "devDependencies": {
