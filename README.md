@@ -209,3 +209,4 @@ npm run update:production -- --message "תיאור קצר של התיקון"
   - `google-services.json` נשמר תמיד עם סופי שורה LF (`.gitattributes`), כדי שבילד מ-Windows ועדכון מ-Linux/CI יחשבו אותו fingerprint.
 - **Source maps:** כש-`SENTRY_AUTH_TOKEN` מוגדר בסביבה המקומית, הסקריפט מעלה את ה-source maps של העדכון ל-Sentry. ב-EAS הטוקן זמין רק לשרתי ה-build, אז לעדכון מקומי צריך להגדיר אותו בטרמינל.
 - **בדיקה לפני פרודקשן:** `npm run update:preview -- --message "..."` שולח לבילדים של פרופיל `preview`.
+- **פרופילים `development` ו-`preview` מצביעים על סביבת ה-Dev** (`https://joinup-dev-api.duckdns.org` + מפתח Clerk מסוג `pk_test_`); רק `production` מצביע על הפרודקשן (`pk_live_`). הסקריפט מסרב לפרסם `production` אם כתובת ה-API אינה של הפרודקשן או שהמפתח אינו `pk_live_`, ומסרב לפרסם `preview`/`development` עם מפתח `pk_live_` או עם כתובת הפרודקשן. בילד שכבר מותקן שומר את הערכים שנאפו בו עד שיקבל עדכון בערוץ שלו או שיותקן בילד חדש.
