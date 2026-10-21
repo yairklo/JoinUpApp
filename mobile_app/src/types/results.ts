@@ -148,6 +148,8 @@ export interface UserStatsResponse {
     visible: boolean;
     /** Present only when `visible` is false. */
     hiddenReason?: 'USER_HIDDEN' | 'PRIVATE';
+    /** Present (true) only for the owner while their stats are hidden from everyone else. */
+    ownerHidden?: boolean;
     sports: UserSportStats[];
 }
 
@@ -168,7 +170,11 @@ export interface AdminUserReport {
     createdAt: string;
     reporter: UserReportParty;
     target: UserReportParty;
-    game: { id: string; start: string | null; field: { name: string } | null } | null;
+    game: { id: string; title: string | null; start: string | null; field: { name: string } | null } | null;
+    tournamentId: string | null;
+    tournament: { id: string; title: string | null } | null;
+    /** OPEN reports against the same player (this one included while it is open). */
+    openReportsOnTarget: number;
 }
 
 export interface SubmitUserReportInput {

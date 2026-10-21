@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ratingsApi, GameRatingTeammate } from '@/services/api/ratings';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import ReportPlayerEntry from '@/components/ReportPlayerEntry';
 
 function StarRow({
     value,
@@ -133,6 +134,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
                     {submittingId === tm.id && (
                         <ActivityIndicator size="small" color="#059669" />
                     )}
+                    <ReportPlayerEntry variant="icon" gameId={gameId} testID={`ratings-report-${tm.id}`} target={tm} />
                 </View>
             ))}
         </View>
