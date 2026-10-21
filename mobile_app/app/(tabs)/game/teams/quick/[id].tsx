@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Image, Modal, ActivityIndicator, type ViewStyle } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, type ViewStyle } from 'react-native';
 import { getTokenOrThrow } from '@/utils/apiErrors';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useLocalSearchParams, useNavigation, Stack } from 'expo-router';
@@ -13,6 +13,7 @@ import BackButton from '@/components/ui/BackButton';
 import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { useColorMode } from '@/theme/ColorModeContext';
 import type { Team } from '@joinup/shared/types/game';
+import SafeImage from '@/components/SafeImage';
 
 type Player = { id: string; name?: string | null; avatar?: string | null };
 
@@ -66,7 +67,7 @@ const fallbackColor = (name: string) => {
 function PlayerAvatar({ p, size = 28, ring }: { p: Player; size?: number; ring?: string }) {
   const ringStyle = ring ? { borderWidth: 2, borderColor: ring } : null;
   if (p.avatar) {
-    return <Image source={{ uri: p.avatar }} style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#e5e7eb' }, ringStyle]} />;
+    return <SafeImage source={{ uri: p.avatar }} style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#e5e7eb' }, ringStyle]} />;
   }
   return (
     <View

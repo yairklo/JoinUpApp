@@ -1,4 +1,4 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal, Image } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal } from 'react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -20,6 +20,7 @@ import * as Location from 'expo-location';
 import SuggestFieldModal from '@/components/SuggestFieldModal';
 import FriendsOnlyLinkPolicyPicker from '@/components/FriendsOnlyLinkPolicyPicker';
 import type { FriendsOnlyLinkPolicy } from '@/types/game';
+import SafeImage from '@/components/SafeImage';
 
 function filterFieldsWithCoords(fields: Field[]): Field[] {
     return fields.filter((f) => f.lat != null && f.lng != null);
@@ -800,7 +801,7 @@ export default function NewGameScreen() {
                                             }}
                                             className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
                                         >
-                                            <Image
+                                            <SafeImage
                                                 source={{ uri: friend.imageUrl || "https://ui-avatars.com/api/?name=" + friend.name }}
                                                 className="w-10 h-10 rounded-full bg-gray-200 mb-1"
                                             />

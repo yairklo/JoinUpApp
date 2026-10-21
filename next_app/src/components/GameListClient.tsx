@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import JoinGameButton from "./JoinGameButton";
+import SafeImage from "./ui/SafeImage";
 
 type Game = {
   id: string;
@@ -86,8 +87,12 @@ export default function GameListClient({ games }: { games: Game[] }) {
                   <Link key={p.id} href={`/users/${p.id}`} className="flex items-center gap-2 group">
                     <span className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 overflow-hidden w-[28px] h-[28px] ring-1 ring-gray-300">
                       {p.avatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.avatar} alt={p.name || p.id} className="w-full h-full object-cover block" />
+                        <SafeImage
+                          src={p.avatar}
+                          alt={p.name || p.id}
+                          className="w-full h-full object-cover block"
+                          fallback={<span className="text-[11px] font-semibold">{getInitials(p.name || '')}</span>}
+                        />
                       ) : (
                         <span className="text-[11px] font-semibold">
                           {getInitials(p.name || '')}

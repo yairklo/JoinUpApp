@@ -1,4 +1,4 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal, Image } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -15,6 +15,7 @@ import { SPORT_MAPPING } from '@/utils/sports';
 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackButton from '@/components/ui/BackButton';
+import SafeImage from '@/components/SafeImage';
 
 interface ScrollSelectionModalProps<T> {
     visible: boolean;
@@ -904,7 +905,7 @@ export default function EditGameScreen() {
                                                     }}
                                                     className={`mr-3 p-2 rounded-xl items-center w-20 border ${isSelected ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
                                                 >
-                                                    <Image
+                                                    <SafeImage
                                                         source={{ uri: friend.imageUrl || "https://ui-avatars.com/api/?name=" + friend.name }}
                                                         className="w-10 h-10 rounded-full bg-gray-200 mb-1"
                                                     />
@@ -952,7 +953,7 @@ export default function EditGameScreen() {
                             return (
                                 <View key={p.id} className={`flex-row justify-between items-center py-2.5 border-b border-gray-100 ${isRtl ? 'flex-row-reverse' : ''}`}>
                                     <View className={`flex-row items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
-                                        <Image
+                                        <SafeImage
                                             source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }}
                                             className="w-9 h-9 rounded-full bg-gray-200"
                                         />

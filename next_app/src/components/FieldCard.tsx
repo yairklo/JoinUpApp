@@ -3,7 +3,6 @@ import type { KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 
 // MUI
-import CardMedia from "@mui/material/CardMedia";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
@@ -18,6 +17,7 @@ import HomeWorkOutlinedIcon from "@mui/icons-material/HomeWorkOutlined";
 import FavoriteButton from "@/components/FavoriteButton";
 import { MotionCard, cardHoverProps } from "@/components/motion/MotionCard";
 import { SPORT_IMAGES, SportType } from "@/utils/sports";
+import SafeImage from "@/components/ui/SafeImage";
 import SportCover from "@/components/ui/SportCover";
 
 export type Field = {
@@ -95,27 +95,27 @@ export default function FieldCard({ field }: { field: Field }) {
     >
       <Box sx={{ position: "relative", overflow: "hidden", flexShrink: 0 }}>
         {hasPhoto ? (
-          <>
-            <CardMedia
-              component="img"
-              height="150"
-              image={field.image!}
-              alt={field.name}
-              sx={{ display: "block", width: "100%" }}
-            />
-            <Box
-              sx={{
-                position: "absolute",
-                inset: 0,
-                background: "linear-gradient(180deg, rgba(2,6,23,0.15) 0%, transparent 40%, rgba(2,6,23,0.55) 100%)",
-                pointerEvents: "none",
-              }}
-            />
-          </>
+          <SafeImage
+            src={field.image}
+            alt={field.name}
+            style={{ display: "block", width: "100%", height: 150, objectFit: "cover" }}
+            // Dead/missing photo: same generated art as a field with no photo.
+            fallback={<SportCover sport={primarySport} height={150} />}
+          />
         ) : (
           // No uploaded photo: generated court art for the field's main sport instead of the
           // same stock photo on every card.
           <SportCover sport={primarySport} height={150} />
+        )}
+        {hasPhoto && (
+          <Box
+            sx={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(180deg, rgba(2,6,23,0.15) 0%, transparent 40%, rgba(2,6,23,0.55) 100%)",
+              pointerEvents: "none",
+            }}
+          />
         )}
 
         <Box

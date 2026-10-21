@@ -5,6 +5,7 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import SportsBasketballIcon from "@mui/icons-material/SportsBasketball";
 import SportsTennisIcon from "@mui/icons-material/SportsTennis";
 
+import SafeImage from "@/components/ui/SafeImage";
 import { getSportTheme } from "@/utils/sports";
 
 /*
@@ -122,13 +123,13 @@ export default function SportCover({
         >
             {photo && (
                 <>
-                    <Box
-                        component="img"
+                    <SafeImage
                         src={photo}
                         alt=""
                         aria-hidden
                         loading="lazy"
-                        sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        fallback={null}
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
                     <Box
                         aria-hidden

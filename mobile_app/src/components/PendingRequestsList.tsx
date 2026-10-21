@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { gamesApi } from '@/services/api';
 import { Game, JoinRequest } from '@/types/game';
+import SafeImage from '@/components/SafeImage';
 
 export default function PendingRequestsList({
     gameId,
@@ -98,7 +99,7 @@ export default function PendingRequestsList({
                     </Text>
                     <View className="flex-row items-center justify-between">
                         <View className="flex-row items-center flex-1">
-                            <Image
+                            <SafeImage
                                 source={{ uri: activeOffer.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
                                 className="w-10 h-10 rounded-full bg-gray-200 mr-3"
                             />
@@ -126,7 +127,7 @@ export default function PendingRequestsList({
                     {requests.map(req => (
                         <View key={req.userId} className="flex-row items-center justify-between mb-3 last:mb-0">
                             <View className="flex-row items-center flex-1">
-                                <Image
+                                <SafeImage
                                     source={{ uri: req.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
                                     className="w-10 h-10 rounded-full bg-gray-200 mr-3"
                                 />
@@ -162,7 +163,7 @@ export default function PendingRequestsList({
                     {waitlist.map(req => (
                         <View key={req.userId} className="flex-row items-center justify-between mb-3 last:mb-0">
                             <View className="flex-row items-center flex-1">
-                                <Image
+                                <SafeImage
                                     source={{ uri: req.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
                                     className="w-10 h-10 rounded-full bg-gray-200 mr-3"
                                 />
@@ -193,7 +194,7 @@ export default function PendingRequestsList({
                             {rejected.map(req => (
                                 <View key={req.userId} className="flex-row items-center justify-between mb-3 last:mb-0">
                                     <View className="flex-row items-center flex-1">
-                                        <Image
+                                        <SafeImage
                                             source={{ uri: req.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
                                             className="w-10 h-10 rounded-full bg-gray-200 mr-3 opacity-60"
                                         />

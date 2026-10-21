@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, TextInput, Image, FlatList, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, ScrollView } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ import { MapBounds, MapMarkerItem, MapCoordinate, regionToBounds, DEFAULT_MAP_RE
 import { getFieldSportTags } from '@/utils/mapSport';
 import { SPORT_KEYS, SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 import { useMapFields } from '@/hooks/useMapFields';
+import SafeImage from '@/components/SafeImage';
 
 const PAGE_SIZE = 24;
 
@@ -255,7 +256,7 @@ export default function FieldsDirectoryScreen() {
         >
             <View style={{ position: 'relative' }}>
                 {field.image ? (
-                    <Image source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100" />
+                    <SafeImage source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100" />
                 ) : (
                     <View className="w-14 h-14 rounded-xl mr-3 bg-brand-mist items-center justify-center">
                         <FontAwesome name="map-marker" size={20} color="#059669" />
