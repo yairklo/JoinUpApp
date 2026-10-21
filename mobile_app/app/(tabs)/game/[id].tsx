@@ -14,7 +14,7 @@ import GameRatingsPanel from '@/components/GameRatingsPanel';
 import GameDetailsSkeleton from '@/components/GameDetailsSkeleton';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
-import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { tryParseJerusalemTimeToUTC } from '@/utils/timezone';
 import BackButton from '@/components/ui/BackButton';
 import SportCover, { resolveSportKey, SPORT_GLYPH } from '@/components/ui/SportCover';
@@ -79,6 +79,7 @@ export default function GameDetailsScreen() {
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const { getToken, isLoaded: isAuthLoaded, isSignedIn } = useAuth();
     const getTokenRef = useAuthTokenRef();
+    const signedOutSinceMount = useSignedOutSinceMount();
     const { user } = useUser();
     const router = useRouter();
     const { notifyGameUpdate } = useGameUpdate();
@@ -124,6 +125,7 @@ export default function GameDetailsScreen() {
                 setLoading(false);
                 return;
             }
+            if (signedOutSinceMount()) return; // stale screen after sign-out: 401 is expected
             console.error("Failed to load game", err);
             Alert.alert(t('common.error', 'שגיאה'), t('game.loadFailed', 'לא הצלחנו לטעון את פרטי המשחק'));
             setLoading(false);

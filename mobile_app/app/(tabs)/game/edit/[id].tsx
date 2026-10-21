@@ -2,6 +2,7 @@ import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, Act
 import React, { useState, useEffect } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { gamesApi, fieldsApi, usersApi } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -98,6 +99,7 @@ const getTeamSizeOptions = (t: any) => [
 export default function EditGameScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { getToken } = useAuth();
+    const signedOutSinceMount = useSignedOutSinceMount();
     const router = useRouter();
     const { t, i18n } = useTranslation();
     const isRtl = i18n.language === 'he';
@@ -277,6 +279,7 @@ export default function EditGameScreen() {
             setNewFieldLocation('');
 
         } catch (error) {
+            if (signedOutSinceMount()) return;
             console.error("Failed to load game", error);
             Alert.alert(t('editGame.error', 'Error'), t('editGame.loadError', 'Failed to load game details'));
             router.back();
