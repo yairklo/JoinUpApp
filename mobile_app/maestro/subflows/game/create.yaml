@@ -1,0 +1,26 @@
+# Creates a game from the home screen using the first seeded field. Requires env: GAME_TITLE.
+# Ends on the new game's detail screen. Needs >= 1 field in the backend DB (see README: seeding).
+appId: com.yairklo.joinupapp
+---
+- tapOn:
+    id: home-create-game
+- extendedWaitUntil:
+    visible:
+      id: new-game-field-0
+    timeout: 30000
+- tapOn:
+    id: new-game-title
+- inputText: ${GAME_TITLE}
+- hideKeyboard
+- tapOn:
+    id: new-game-field-0
+- runFlow: pick-future-slot.yaml
+- scrollUntilVisible:
+    element:
+      id: new-game-submit
+- tapOn:
+    id: new-game-submit
+# On success the app replaces the form with /game/<id>, whose header shows the title.
+- extendedWaitUntil:
+    visible: ${GAME_TITLE}
+    timeout: 30000

@@ -47,6 +47,7 @@ export default function GameCard({ game, isJoined, children, titleLines = 2 }: G
 
     return (
         <TouchableOpacity
+            testID={`game-card-${game.id}`}
             activeOpacity={0.92}
             onPress={() => router.push(`/game/${game.id}`)}
             className={`bg-white dark:bg-cyber-card rounded-3xl overflow-hidden border ${

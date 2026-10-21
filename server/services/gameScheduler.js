@@ -3,6 +3,14 @@
 // timer instead of the whole table being scanned every 30-60s — that polling never let Neon's
 // compute suspend, since the DB was touched every tick regardless of whether anything was due.
 const MAX_TIMEOUT = 2_147_000_000; // ~24.8 days, safely under Node's 2^31-1 ms setTimeout cap
+// A timer may fire a hair before its due time; anything further out is a STALE timer (the row was
+// edited to a later time, or another process owns the schedule) and must not execute early.
+const DUE_TOLERANCE_MS = 2000;
+
+function isDue(at, now = Date.now()) {
+  if (!at) return false;
+  return new Date(at).getTime() - now <= DUE_TOLERANCE_MS;
+}
 
 function shuffleInPlace(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -22,6 +30,19 @@ class GameScheduler {
     // Cross-process notifier, set via setPublisher(). Used only when this process's own
     // scheduler isn't enabled, to forward the signal to whichever process runs it.
     this.publish = null;
+    this.reviewRunning = false;
+    this.reviewPending = false;
+    // Optional extra permission check (leader lock): consulted right before any job runs, so a
+    // process that was frozen past its lease cannot fire timers before its demotion is processed.
+    this.runGuard = null;
+  }
+
+  setRunGuard(fn) {
+    this.runGuard = fn;
+  }
+
+  _mayRun() {
+    return this.enabled && (!this.runGuard || !!this.runGuard());
   }
 
   // Must be called once at boot (gated the same way as the old setIntervals, so Jest never
@@ -31,6 +52,24 @@ class GameScheduler {
     this.io = io;
     this.notificationService = notificationService;
     this.enabled = true;
+  }
+
+  // Leader-lock loss / shutdown: drop every timer and go back to forwarding signals. The next
+  // leader rebuilds its schedule from the DB via loadAll(), so nothing is lost by stopping.
+  stop() {
+    this.enabled = false;
+    for (const t of this.timers.values()) clearTimeout(t);
+    this.timers.clear();
+  }
+
+  // Entry point for signals received over the scheduler channel. Only the process that is
+  // actually running the scheduler (the leader) acts on them; everyone else ignores them.
+  // (A non-leader must NOT re-publish, or standbys would ping-pong the signal forever.)
+  handleSignal(msg) {
+    if (!this.enabled || !msg) return Promise.resolve();
+    if (msg.type === 'resync') return this.resyncGameById(msg.gameId);
+    if (msg.type === 'reviewQueue') { this.triggerReviewQueue(); return Promise.resolve(); }
+    return Promise.resolve();
   }
 
   // Lets a process that doesn't run the scheduler itself (e.g. the web API when split from
@@ -53,6 +92,10 @@ class GameScheduler {
 
     const timeout = setTimeout(() => {
       this.timers.delete(key);
+      if (!this._mayRun()) {
+        console.warn(`[SCHEDULER] Skipping ${key}: not (or no longer) the job leader`);
+        return;
+      }
       Promise.resolve().then(handler).catch(err => {
         console.error(`[SCHEDULER] Handler failed for ${key}:`, err);
       });
@@ -163,6 +206,12 @@ class GameScheduler {
   async _runLottery(gameId) {
     const prisma = this.prisma;
     const now = new Date();
+    // Due-time re-check (defence in depth): a stale timer must not run the lottery early.
+    const due = await prisma.game.findUnique({
+      where: { id: gameId },
+      select: { lotteryEnabled: true, lotteryExecutedAt: true, lotteryAt: true },
+    });
+    if (!due || !due.lotteryEnabled || due.lotteryExecutedAt || !isDue(due.lotteryAt)) return;
     const claimed = await prisma.game.updateMany({
       where: { id: gameId, lotteryEnabled: true, lotteryExecutedAt: null },
       data: { lotteryExecutedAt: now },
@@ -211,11 +260,21 @@ class GameScheduler {
     // Lazy require: pickSessionService requires gameScheduler too (to call resyncGame after
     // updatePickSchedule), so this avoids a circular require at module-load time.
     const { executePickDraw } = require('./pickSessionService');
+    const due = await this.prisma.game.findUnique({
+      where: { id: gameId },
+      select: { pickDrawAt: true, pickDrawExecutedAt: true },
+    });
+    if (!due || due.pickDrawExecutedAt || !isDue(due.pickDrawAt)) return;
     await executePickDraw(gameId, this.io);
   }
 
   async _runPickOpen(gameId) {
     const { openPicking } = require('./pickSessionService');
+    const due = await this.prisma.game.findUnique({
+      where: { id: gameId },
+      select: { pickingStartsAt: true, pickingOpenedAt: true },
+    });
+    if (!due || due.pickingOpenedAt || !isDue(due.pickingStartsAt)) return;
     await openPicking(gameId, this.io);
   }
 
@@ -293,8 +352,21 @@ class GameScheduler {
       if (this.publish) this.publish({ type: 'reviewQueue' });
       return;
     }
+    if (!this._mayRun()) return;
+    // One run at a time per process; triggers arriving mid-run coalesce into a single re-run.
+    // (Overlapping runs would double-apply AI retries and reputation penalties.)
+    if (this.reviewRunning) { this.reviewPending = true; return; }
+    this.reviewRunning = true;
     const { processReviewQueue } = require('../workers/reviewWorker');
-    processReviewQueue().catch(err => console.error('[SCHEDULER] Review queue trigger failed:', err));
+    processReviewQueue({ isActive: () => this._mayRun() })
+      .catch(err => console.error('[SCHEDULER] Review queue trigger failed:', err))
+      .finally(() => {
+        this.reviewRunning = false;
+        if (this.reviewPending) {
+          this.reviewPending = false;
+          if (this._mayRun()) this.triggerReviewQueue();
+        }
+      });
   }
 
   armReviewRetry(id, retryAfter) {
@@ -303,3 +375,4 @@ class GameScheduler {
 }
 
 module.exports = new GameScheduler();
+module.exports.isDue = isDue;

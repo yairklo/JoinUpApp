@@ -207,6 +207,7 @@ export default function HomeScreen() {
 
       {/* Extended Floating "create game" button */}
       <TouchableOpacity
+        testID="home-create-game"
         onPress={() => router.push('/game/new')}
         accessibilityRole="button"
         accessibilityLabel={t('newGame.createGame', 'צור משחק')}

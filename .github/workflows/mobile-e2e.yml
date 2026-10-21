@@ -1,0 +1,112 @@
+name: Mobile E2E (Maestro)
+
+# Release gate for mobile_app. Not run on every PR (an emulator build is slow and uses secrets);
+# run it before publishing to the stores:
+#   - manually: Actions > "Mobile E2E (Maestro)" > Run workflow
+#   - automatically: pushing a tag named mobile-release-*  (e.g. git tag mobile-release-1.2.0)
+# See mobile_app/maestro/README.md and docs/qa/maestro-e2e-plan.md.
+on:
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Maestro tag filter (smoke | all)'
+        default: smoke
+  push:
+    tags: ['mobile-release-*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  maestro:
+    name: Android emulator + Maestro
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: joinup
+          POSTGRES_PASSWORD: joinup
+          POSTGRES_DB: joinup_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U joinup -d joinup_e2e"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://joinup:joinup@localhost:5432/joinup_e2e?schema=public
+      DIRECT_DATABASE_URL: postgresql://joinup:joinup@localhost:5432/joinup_e2e?schema=public
+      # Clerk DEVELOPMENT instance dedicated to E2E (never the live one).
+      CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+      CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
+      PORT: '3005'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # ---- backend (disposable Postgres, seeded fields) ----
+      - name: Start backend
+        working-directory: server
+        run: |
+          npm ci
+          npx prisma migrate deploy
+          node scripts/importFieldsFromCsv.js ../weplay_courts_export.csv
+          nohup node index.js > ../server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3005/api/health && exit 0; sleep 2; done
+          cat ../server.log; exit 1
+
+      # ---- app ----
+      - name: Install mobile dependencies
+        working-directory: mobile_app
+        run: NPM_CONFIG_LEGACY_PEER_DEPS=true npm ci
+
+      - name: Build E2E APK
+        working-directory: mobile_app
+        run: npm run e2e:build:android
+
+      # ---- Maestro ----
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+
+      - name: Run flows on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          working-directory: mobile_app
+          script: node maestro/scripts/run.mjs --tags ${{ inputs.tags || 'smoke' }}
+
+      - name: Upload Maestro report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-report
+          path: |
+            mobile_app/maestro/.reports
+            server.log

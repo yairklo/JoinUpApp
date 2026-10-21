@@ -61,6 +61,7 @@ export default function Page() {
                             <View>
                                 <Text className="text-gray-800 font-semibold mb-2 ml-1">{t('auth.email', 'Email')}</Text>
                                 <TextInput
+                                    testID="sign-in-email"
                                     autoCapitalize="none"
                                     value={emailAddress}
                                     placeholder="your@email.com"
@@ -72,6 +73,7 @@ export default function Page() {
                             <View>
                                 <Text className="text-gray-800 font-semibold mb-2 ml-1">{t('auth.password', 'Password')}</Text>
                                 <TextInput
+                                    testID="sign-in-password"
                                     value={password}
                                     placeholder="••••••••"
                                     secureTextEntry={true}
@@ -81,6 +83,7 @@ export default function Page() {
                             </View>
 
                             <TouchableOpacity
+                                testID="sign-in-submit"
                                 onPress={onSignInPress}
                                 disabled={loading}
                                 className={`w-full p-5 rounded-2xl items-center mt-4 bg-brand shadow-lg shadow-brand-pale ${loading ? 'opacity-70' : ''}`}
@@ -94,7 +97,7 @@ export default function Page() {
 
                             <View className="flex-row justify-center mt-8 pb-10">
                                 <Text className="text-gray-500 font-medium">{t('auth.noAccount', "Don't have an account? ")}</Text>
-                                <Link href="/sign-up">
+                                <Link href="/sign-up" testID="sign-in-to-sign-up">
                                     <Text className="text-brand font-bold">{t('auth.signUp', 'Sign Up')}</Text>
                                 </Link>
                             </View>

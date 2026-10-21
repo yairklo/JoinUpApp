@@ -328,6 +328,7 @@ export default function ChatScreen() {
                 <View className="p-4 border-t border-gray-100 flex-row items-end bg-white">
                     <View className="flex-1 bg-gray-50 rounded-3xl px-4 py-2 ml-3 flex-row items-end min-h-[44px] border border-gray-100 shadow-sm shadow-gray-100">
                         <TextInput
+                            testID="chat-input"
                             value={inputValue}
                             onChangeText={(text) => {
                                 setInputValue(text);
@@ -346,6 +347,7 @@ export default function ChatScreen() {
                     </View>
 
                     <TouchableOpacity
+                        testID="chat-send"
                         onPress={() => {
                             isNearBottomRef.current = true;
                             handleSendMessage();

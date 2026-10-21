@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useRouter, useSegments } from 'expo-router';
@@ -14,10 +14,10 @@ const toYmd = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const formatHe = (d: Date) => `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 
-function CheckRow({ checked, onToggle, children }: { checked: boolean; onToggle: () => void; children: React.ReactNode }) {
+function CheckRow({ checked, onToggle, children, testID }: { checked: boolean; onToggle: () => void; children: React.ReactNode; testID?: string }) {
     return (
-        <Pressable onPress={onToggle} className="flex-row items-start gap-3 py-2" accessibilityRole="checkbox" accessibilityState={{ checked }}>
-            <View className={`w-6 h-6 rounded-md border-2 items-center justify-center mt-0.5 ${checked ? 'bg-brand border-brand' : 'border-gray-400 dark:border-gray-500'}`}>
+        <Pressable testID={testID} onPress={onToggle} className="flex-row items-start gap-3 py-2" accessibilityRole="checkbox" accessibilityState={{ checked }}>
+            <View testID={testID ? `${testID}-box` : undefined} className={`w-6 h-6 rounded-md border-2 items-center justify-center mt-0.5 ${checked ? 'bg-brand border-brand' : 'border-gray-400 dark:border-gray-500'}`}>
                 {checked && <Ionicons name="checkmark" size={16} color="#fff" />}
             </View>
             <View className="flex-1">{children}</View>
@@ -31,7 +31,7 @@ function CheckRow({ checked, onToggle, children }: { checked: boolean; onToggle:
  * enforces the same rule. Hidden on /legal/* so the documents can be read.
  */
 export default function AgeGate() {
-    const { isSignedIn, getToken, signOut } = useAuth();
+    const { isSignedIn, userId, getToken, signOut } = useAuth();
     const segments = useSegments();
     const router = useRouter();
     const insets = useSafeAreaInsets();
@@ -47,22 +47,35 @@ export default function AgeGate() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const load = useCallback(async () => {
-        try {
-            const token = await getToken();
-            if (!token) return;
-            const me = await usersApi.getMe(token);
-            setGate(me.ageGate ?? null);
-        } catch {
-            // Network/API failure: don't lock the app; the server still enforces the gate.
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- getToken identity churns
-    }, []);
+    // Bumped on every user change / sign-out so a late response for a previous user is dropped.
+    const requestSeq = useRef(0);
+    const getTokenRef = useRef(getToken);
+    getTokenRef.current = getToken;
 
+    // This overlay stays mounted across sign-out, so wipe all form state (consent must never carry
+    // over from another person on the same device) whenever the signed-in user changes.
     useEffect(() => {
-        if (isSignedIn) load();
-        else setGate(null);
-    }, [isSignedIn, load]);
+        const seq = ++requestSeq.current;
+        setGate(null);
+        setBirthDate(null);
+        setShowPicker(false);
+        setAcceptTerms(false);
+        setGuardianConsent(false);
+        setBusy(false);
+        setError(null);
+        if (!isSignedIn || !userId) return;
+        (async () => {
+            try {
+                const token = await getTokenRef.current();
+                if (!token || seq !== requestSeq.current) return;
+                const me = await usersApi.getMe(token);
+                if (seq !== requestSeq.current) return;
+                setGate(me.ageGate ?? null);
+            } catch {
+                // Network/API failure: don't lock the app; the server still enforces the gate.
+            }
+        })();
+    }, [isSignedIn, userId]);
 
     if (!isSignedIn || !gate || gate.status === 'OK' || segments[0] === 'legal') return null;
 
@@ -73,6 +86,7 @@ export default function AgeGate() {
     const canSubmit = !busy && acceptTerms && (!needsBirthDate || !!birthDate) && (!isMinor || guardianConsent);
 
     const submit = async () => {
+        const seq = requestSeq.current;
         setBusy(true);
         setError(null);
         try {
@@ -86,11 +100,12 @@ export default function AgeGate() {
                 },
                 token
             );
-            setGate(res.ageGate);
+            if (seq === requestSeq.current) setGate(res.ageGate);
         } catch (e) {
+            if (seq !== requestSeq.current) return;
             setError(e instanceof Error && e.message ? e.message : t('ageGate.saveFailed', 'השמירה נכשלה. נסו שוב.'));
         } finally {
-            setBusy(false);
+            if (seq === requestSeq.current) setBusy(false);
         }
     };
 
@@ -147,6 +162,7 @@ export default function AgeGate() {
                                 </Text>
                                 <Text className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1" style={rtl}>{t('ageGate.birthDateLabel', 'תאריך לידה')}</Text>
                                 <Pressable
+                                    testID="age-gate-birthdate"
                                     onPress={() => setShowPicker(true)}
                                     className="border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 mb-2"
                                 >
@@ -175,7 +191,7 @@ export default function AgeGate() {
                         )}
 
                         <View className="mt-4">
-                            <CheckRow checked={acceptTerms} onToggle={() => setAcceptTerms((v) => !v)}>
+                            <CheckRow testID="age-gate-terms-checkbox" checked={acceptTerms} onToggle={() => setAcceptTerms((v) => !v)}>
                                 <Text className="text-gray-800 dark:text-gray-200" style={rtl}>
                                     {t('auth.agreeToTermsPrefix', 'אני מאשר/ת שקראתי ומסכים/ה ל')}
                                     <Text className="text-brand font-bold" onPress={() => router.push('/legal/terms' as any)}>{t('auth.termsOfService', 'תנאי השימוש')}</Text>
@@ -194,6 +210,7 @@ export default function AgeGate() {
                         {error && <Text className="text-red-600 mt-3" style={rtl}>{error}</Text>}
 
                         <Pressable
+                            testID="age-gate-continue"
                             onPress={submit}
                             disabled={!canSubmit}
                             className={`rounded-xl py-3.5 mt-6 ${canSubmit ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-700'}`}

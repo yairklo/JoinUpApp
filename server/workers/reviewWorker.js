@@ -2,7 +2,9 @@ const { moderator } = require('../moderationInstance');
 const { prisma } = require('../lib/prisma');
 const gameScheduler = require('../services/gameScheduler');
 
-async function processReviewQueue() {
+// `isActive` lets the job leader abort mid-run when it loses leadership: a run must stop touching
+// shared state as soon as another instance may have taken over.
+async function processReviewQueue({ isActive } = {}) {
     console.log("[WORKER] Checking for pending reviews...");
 
     // 1. Fetch messages that failed previously
@@ -17,6 +19,10 @@ async function processReviewQueue() {
     if (failedMessages.length === 0) return;
 
     for (const item of failedMessages) {
+        if (isActive && !isActive()) {
+            console.log('[WORKER] No longer the job leader; aborting review queue run');
+            return;
+        }
         console.log(`[WORKER] Retrying message ${item.messageId}...`);
 
         // Check if we should wait before retrying (based on Google's retryDelay)
@@ -56,28 +62,30 @@ async function processReviewQueue() {
 
         if (!result.reviewNeeded) {
             // Success! The AI system is back online
+            // Resolution is a compare-and-set on status: only the run that flips the row from
+            // PENDING_RETRY applies the side effects, so an overlapping run (leader hand-over,
+            // lock lost mid-run) can never delete twice or double the -20 reputation penalty.
             if (result.isSafe) {
-                await prisma.flaggedMessage.update({
-                    where: { id: item.id },
+                await prisma.flaggedMessage.updateMany({
+                    where: { id: item.id, status: 'PENDING_RETRY' },
                     data: { status: 'RESOLVED', resolution: 'AUTO_APPROVED' }
                 });
             } else {
+                const claimed = await prisma.flaggedMessage.updateMany({
+                    where: { id: item.id, status: 'PENDING_RETRY' },
+                    data: { status: 'RESOLVED', resolution: 'AUTO_REJECTED' }
+                });
+                if (claimed.count === 0) continue;
+
                 // Danger detected after recovery!
                 console.log(`[WORKER] TOXIC CONTENT DETECTED RETROACTIVELY: ${item.messageId}`);
 
-                // 1. Delete from Chat UI (Implementation depends on your socket setup)
-                // If messageId exists, mark as deleted/rejected
+                // 1. Delete from Chat UI
                 if (item.messageId) {
                     await deleteMessageFromChat(item.messageId);
                 }
 
-                // 2. Mark as rejected
-                await prisma.flaggedMessage.update({
-                    where: { id: item.id },
-                    data: { status: 'RESOLVED', resolution: 'AUTO_REJECTED' }
-                });
-
-                // 3. Punish user
+                // 2. Punish user
                 await moderator.security.adjustReputation(item.userId, -20);
             }
         } else {

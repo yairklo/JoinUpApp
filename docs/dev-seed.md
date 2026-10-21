@@ -26,9 +26,9 @@ It refuses to start when any of these are true:
 
 `precious`, `ancient`, and `contest` do **not** count as dev hosts. `JOINUP_SEED_CONFIRM=dev` does not identify the database by itself. A live key, a prod-looking URL, or a host that matches `PROD_DATABASE_URL` cannot be overridden.
 
-## One-time marker on the Neon dev branch
+## One-time marker on the joinup-dev Neon project
 
-Run this in the dev database only, with the direct host (`-pooler` removed):
+`joinup-dev` is a **new empty Neon project**. It is not a branch of production and it is not a copy of production data. Run this in that project only, with the direct host (`-pooler` removed):
 
 ```sql
 CREATE TABLE IF NOT EXISTS joinup_dev_seed_marker (
@@ -44,7 +44,7 @@ The seed will not create this row. Local Postgres (`localhost`, `127.0.0.1`, `*.
 
 ## Run
 
-From `server/`, with the Neon **dev branch** URLs (pooled `DATABASE_URL`, direct `DIRECT_DATABASE_URL`) and the Clerk development secret:
+From `server/`, with the **joinup-dev** project URLs (pooled `DATABASE_URL`, direct `DIRECT_DATABASE_URL`) and the Clerk development secret:
 
 ```bash
 cd server

@@ -726,6 +726,7 @@ export default function ProfileScreen() {
 
                 {/* Sign Out */}
                 <TouchableOpacity
+                    testID="profile-sign-out"
                     onPress={handleSignOut}
                     className="bg-red-50 p-4 rounded-xl items-center border border-red-100 mx-4 mb-8 shadow-sm"
                 >

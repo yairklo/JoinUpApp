@@ -51,6 +51,7 @@ export default function GamesDateNav({ selectedDate, onSelectDate }: GamesDateNa
                     return (
                         <FilterPill
                             key={dateStr}
+                            testID={`home-date-${index}`}
                             label={label}
                             selected={isSelected}
                             onPress={() => onSelectDate(dateStr)}
