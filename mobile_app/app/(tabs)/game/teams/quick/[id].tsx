@@ -10,7 +10,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { gamesApi } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import BackButton from '@/components/ui/BackButton';
-import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { useColorMode } from '@/theme/ColorModeContext';
 import type { Team } from '@joinup/shared/types/game';
 
@@ -88,6 +88,7 @@ export default function QuickTeamEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getToken } = useAuth();
   const getTokenRef = useAuthTokenRef();
+  const signedOutSinceMount = useSignedOutSinceMount();
   const router = useRouter();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -130,6 +131,7 @@ export default function QuickTeamEditScreen() {
       snapshotRef.current = JSON.stringify(initial);
       setTeams(initial);
     } catch (e) {
+      if (signedOutSinceMount()) return;
       console.error(e);
       Alert.alert(t('teams.error'), t('teams.loadFailed'));
       router.back();
