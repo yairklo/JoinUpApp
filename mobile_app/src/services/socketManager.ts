@@ -67,7 +67,11 @@ function socketServerUrl(): string {
   if (__DEV__ && url.startsWith('http://')) {
     return url;
   }
-  if (!__DEV__ && url.startsWith('http://')) {
+  // Release builds talk to production over https. The E2E APK is also a release build, but its
+  // API is the emulator's plain-http host (10.0.2.2 / localhost). Upgrading that to https makes
+  // the socket fail while REST (left on http) still works, so chat sends never leave the device.
+  const loopbackHttp = /^http:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:|\/|$)/i.test(url);
+  if (!__DEV__ && url.startsWith('http://') && !loopbackHttp) {
     url = url.replace(/^http:\/\//i, 'https://');
   }
   return url;

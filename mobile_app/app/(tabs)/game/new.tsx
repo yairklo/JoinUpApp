@@ -583,6 +583,7 @@ export default function NewGameScreen() {
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
                     <Text className="text-lg font-bold mb-2 text-gray-800">{t('newGame.title', 'כותרת המשחק (לא חובה)')}</Text>
                     <TextInput
+                        testID="new-game-title"
                         value={title}
                         onChangeText={setTitle}
                         placeholder={t('newGame.titlePlaceholder', 'לדוגמה: כדורגל שישי!')}
@@ -633,9 +634,10 @@ export default function NewGameScreen() {
                         {fieldsLoading && <ActivityIndicator size="small" className="ml-2" />}
                     </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
-                        {fields.map(field => (
+                        {fields.map((field, index) => (
                             <TouchableOpacity
                                 key={field.id}
+                                testID={`new-game-field-${index}`}
                                 onPress={() => setSelectedField(field)}
                                 className={`mr-3 p-3 rounded-xl border w-40 ${selectedField?.id === field.id ? 'bg-brand-mist border-brand' : 'bg-white border-gray-200'}`}
                             >
@@ -656,6 +658,7 @@ export default function NewGameScreen() {
                     <Text className="text-lg font-bold mb-4 text-gray-800">{t('newGame.when', 'מתי?')}</Text>
                     <View className="flex-row justify-between">
                         <TouchableOpacity
+                            testID="new-game-date"
                             onPress={() => setShowDatePicker(true)}
                             className="flex-1 bg-gray-100 p-3 rounded-lg mr-2 items-center"
                         >
@@ -664,6 +667,7 @@ export default function NewGameScreen() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
+                            testID="new-game-time"
                             onPress={() => setShowTimePicker(true)}
                             className="flex-1 bg-gray-100 p-3 rounded-lg ml-2 items-center"
                         >
@@ -907,6 +911,7 @@ export default function NewGameScreen() {
                 )}
 
                 <TouchableOpacity
+                    testID="new-game-submit"
                     onPress={handleSubmit}
                     disabled={submitting}
                     className={`p-4 rounded-xl items-center mb-10 ${submitting ? 'bg-brand-soft' : 'bg-brand'}`}

@@ -14,10 +14,10 @@ const toYmd = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const formatHe = (d: Date) => `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 
-function CheckRow({ checked, onToggle, children }: { checked: boolean; onToggle: () => void; children: React.ReactNode }) {
+function CheckRow({ checked, onToggle, children, testID }: { checked: boolean; onToggle: () => void; children: React.ReactNode; testID?: string }) {
     return (
-        <Pressable onPress={onToggle} className="flex-row items-start gap-3 py-2" accessibilityRole="checkbox" accessibilityState={{ checked }}>
-            <View className={`w-6 h-6 rounded-md border-2 items-center justify-center mt-0.5 ${checked ? 'bg-brand border-brand' : 'border-gray-400 dark:border-gray-500'}`}>
+        <Pressable testID={testID} onPress={onToggle} className="flex-row items-start gap-3 py-2" accessibilityRole="checkbox" accessibilityState={{ checked }}>
+            <View testID={testID ? `${testID}-box` : undefined} className={`w-6 h-6 rounded-md border-2 items-center justify-center mt-0.5 ${checked ? 'bg-brand border-brand' : 'border-gray-400 dark:border-gray-500'}`}>
                 {checked && <Ionicons name="checkmark" size={16} color="#fff" />}
             </View>
             <View className="flex-1">{children}</View>
@@ -147,6 +147,7 @@ export default function AgeGate() {
                                 </Text>
                                 <Text className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-1" style={rtl}>{t('ageGate.birthDateLabel', 'תאריך לידה')}</Text>
                                 <Pressable
+                                    testID="age-gate-birthdate"
                                     onPress={() => setShowPicker(true)}
                                     className="border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 mb-2"
                                 >
@@ -175,7 +176,7 @@ export default function AgeGate() {
                         )}
 
                         <View className="mt-4">
-                            <CheckRow checked={acceptTerms} onToggle={() => setAcceptTerms((v) => !v)}>
+                            <CheckRow testID="age-gate-terms-checkbox" checked={acceptTerms} onToggle={() => setAcceptTerms((v) => !v)}>
                                 <Text className="text-gray-800 dark:text-gray-200" style={rtl}>
                                     {t('auth.agreeToTermsPrefix', 'אני מאשר/ת שקראתי ומסכים/ה ל')}
                                     <Text className="text-brand font-bold" onPress={() => router.push('/legal/terms' as any)}>{t('auth.termsOfService', 'תנאי השימוש')}</Text>
@@ -194,6 +195,7 @@ export default function AgeGate() {
                         {error && <Text className="text-red-600 mt-3" style={rtl}>{error}</Text>}
 
                         <Pressable
+                            testID="age-gate-continue"
                             onPress={submit}
                             disabled={!canSubmit}
                             className={`rounded-xl py-3.5 mt-6 ${canSubmit ? 'bg-brand' : 'bg-gray-300 dark:bg-gray-700'}`}
