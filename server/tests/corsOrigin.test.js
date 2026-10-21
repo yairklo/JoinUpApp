@@ -176,7 +176,7 @@ describe('Vercel preview pattern construction', () => {
     const { isLocalDevOrigin } = load();
     expect(isLocalDevOrigin('https://join-up-x-yair-klausners-projects.vercel.app')).toBe(true);
     const src = require('fs').readFileSync(require.resolve('../utils/corsOrigin'), 'utf8');
-    expect(src).toContain("'\\.vercel\\.app$'");
+    expect(src).toContain(String.raw`'\\.vercel\\.app$'`);
   });
 
   test.each(['', '...', '$$$', '.*'])('malformed slug %j falls back to default', (slug) => {
