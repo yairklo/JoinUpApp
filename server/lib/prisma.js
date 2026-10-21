@@ -1,17 +1,16 @@
 // Load env vars here too, not just in index.js -- this module reads
 // process.env.DATABASE_URL at require-time (below) to construct the pg pool,
 // so anything that requires this module (directly or transitively) before
-// index.js runs its own require('dotenv').config() would silently get an
-// undefined connection string, causing every query to fail with ECONNREFUSED
-// no matter how correct the actual .env file is. dotenv.config() is a no-op
-// for variables already set, so calling it again from index.js is harmless.
+// index.js runs its own loadEnv() would silently get an undefined connection
+// string, causing every query to fail with ECONNREFUSED no matter how correct
+// the actual .env file is. loadEnv() is a no-op for variables already set, so
+// calling it again from index.js is harmless.
 //
-// The dev seed sets JOINUP_SKIP_DOTENV=1 before requiring this module. Without
-// that, a server/.env pointed at production would be applied to any URL the
-// operator forgot to export, and the seed guard would never see the real target.
-if (process.env.JOINUP_SKIP_DOTENV !== '1') {
-  require('dotenv').config();
-}
+// JOINUP_SKIP_DOTENV=1 skips server/.env entirely. The dev seed sets that
+// before requiring this module, and Playwright passes database URLs in the
+// process environment with the same flag. Without it, a server/.env pointed
+// at production would fill any URL the operator forgot to export.
+require('./loadEnv').loadEnv();
 
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');

@@ -175,6 +175,7 @@ export default function PendingJoinRequests({
                     color="success"
                     disabled={actingOnUserId === req.userId}
                     onClick={() => decide(req.userId, true)}
+                    data-testid="approve-join"
                   >
                     אשר
                   </Button>

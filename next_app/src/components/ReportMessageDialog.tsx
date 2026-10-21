@@ -91,7 +91,7 @@ export default function ReportMessageDialog({ open, isRTL, messagePreview, onClo
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} disabled={submitting}>{isRTL ? "ביטול" : "Cancel"}</Button>
-                <Button onClick={handleSubmit} color="error" variant="contained" disabled={submitting}>
+                <Button onClick={handleSubmit} color="error" variant="contained" disabled={submitting} data-testid="report-submit">
                     {isRTL ? "שלח דיווח" : "Report"}
                 </Button>
             </DialogActions>

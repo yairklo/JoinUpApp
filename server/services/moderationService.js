@@ -4,6 +4,7 @@ const Redis = require("ioredis");
 const { LRUCache } = require('lru-cache');
 const crypto = require('crypto');
 const { Logger } = require('../utils/logger'); // Import Logger
+const { resolveModerationProvider, stubVerdict } = require('./moderationStub');
 
 /**
  * CONFIGURATION & CONSTANTS
@@ -169,6 +170,17 @@ class SecurityManager {
  */
 class ContentModerator {
     constructor(dbDelegate) {
+        // Throws when MODERATION_PROVIDER=stub and NODE_ENV=production, so the
+        // process cannot boot a bypass. Dev/CI set the variable explicitly.
+        this.provider = resolveModerationProvider(process.env);
+        if (this.provider === 'stub') {
+            Logger.info("ContentModerator", "Deterministic stub provider (dev/CI only). Meeting proposals are allowed.");
+            this.security = null;
+            this.openai = null;
+            this.gemini = null;
+            return;
+        }
+
         this.security = new SecurityManager(dbDelegate);
 
         const hasOpenAI = !!process.env.OPENAI_API_KEY;
@@ -215,6 +227,13 @@ class ContentModerator {
         Logger.info("ContentModerator", `Checking message for User: ${userId}`);
         const safeMessage = (currentMessage || "").substring(0, 10000);
         if (!safeMessage) return { isSafe: true };
+
+        if (this.provider === 'stub') {
+            if (process.env.NODE_ENV === 'production') {
+                throw new Error('MODERATION_PROVIDER=stub cannot be enabled when NODE_ENV=production');
+            }
+            return stubVerdict();
+        }
 
         const cached = await this.security.getCache(safeMessage);
         if (cached) {

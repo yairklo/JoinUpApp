@@ -326,6 +326,7 @@ function SearchPageInner() {
         }}
       >
         <GameHeaderCard
+          testId={`game-card-${g.id}`}
           time={g.time}
           date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}
           durationHours={g.duration ?? 1}
@@ -379,6 +380,7 @@ function SearchPageInner() {
           wide desktop monitors -- the map pane below picks up the remaining
           space via flex: 1 instead of a matching percentage. */}
       <Box
+        data-testid="search-list"
         sx={{
           width: { xs: "100%", md: 420, lg: 460 },
           flexShrink: { md: 0 },
@@ -569,6 +571,7 @@ function SearchPageInner() {
 
       {/* Map pane -- fills whatever width the fixed-width list pane doesn't use. */}
       <Box
+        data-testid="search-map"
         sx={{
           width: { xs: "100%" },
           flex: { md: 1 },
@@ -603,6 +606,7 @@ function SearchPageInner() {
 
       {/* Mobile: floating list/map toggle */}
       <Button
+        data-testid="search-view-toggle"
         variant="contained"
         onClick={() => setMobileView((v) => (v === "list" ? "map" : "list"))}
         startIcon={mobileView === "list" ? <MapIcon /> : <ViewListIcon />}

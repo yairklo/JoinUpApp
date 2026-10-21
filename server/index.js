@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('./lib/loadEnv').loadEnv();
 
 const { captureException } = require('./lib/sentry');
 

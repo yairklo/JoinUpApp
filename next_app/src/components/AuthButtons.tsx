@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, ClerkLoaded, useClerk, useUser } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, ClerkLoaded, useClerk } from "@clerk/nextjs";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
@@ -20,12 +20,11 @@ import { useMyAvatar, useMyName } from "@/hooks/useMyAvatar";
 // avatar stored in our DB. Same menu entries, rendered from our imageUrl.
 function UserMenu() {
   const { signOut, openUserProfile } = useClerk();
-  const { user } = useUser();
   const avatarUrl = useMyAvatar();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const close = () => setAnchorEl(null);
   const myName = useMyName();
-  const name = myName || user?.primaryEmailAddress?.emailAddress || "";
+  const name = myName || "משתמש";
 
   return (
     <>
