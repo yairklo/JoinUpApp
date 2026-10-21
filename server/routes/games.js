@@ -23,6 +23,13 @@ const {
   getGameRatings,
   loadGameForImageEdit,
 } = require('../services/gameService');
+const {
+  getGameResult,
+  upsertGameResult,
+  deleteGameResult,
+  disputeGameResult,
+} = require('../services/gameResultService');
+const { createRateLimiter } = require('../middleware/rateLimit');
 const gameRosterRouter = require('./gameRoster');
 const gameTeamsRouter = require('./gameTeams');
 const gameRolesRouter = require('./gameRoles');
@@ -34,6 +41,8 @@ const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFil
 const gameImageUpload = createImageUpload('games');
 
 const router = express.Router();
+
+const resultDisputeLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 10, prefix: 'result-dispute' });
 
 function handleRouteError(res, error, fallbackMessage) {
   console.error(fallbackMessage, error);
@@ -82,6 +91,40 @@ router.get('/city', attachOptionalUser, async (req, res) => {
     res.json(await getCityGames(req.query.city, req.user?.id));
   } catch (error) {
     handleRouteError(res, error, 'Failed to get games by city');
+  }
+});
+
+// Match result + per-player stats (see services/gameResultService.js). Declared ahead of the
+// '/:id' catch-alls; GET honours friends-only access, writes need MANAGER+ or admin.
+router.get('/:id/result', authenticateToken, async (req, res) => {
+  try {
+    res.json(await getGameResult(req.params.id, req.user.id, { isAdmin: !!req.user?.isAdmin }));
+  } catch (error) {
+    handleRouteError(res, error, 'Failed to load game result');
+  }
+});
+
+router.put('/:id/result', authenticateToken, async (req, res) => {
+  try {
+    res.json(await upsertGameResult(req.params.id, req.user.id, req.body, { isAdmin: !!req.user?.isAdmin }));
+  } catch (error) {
+    handleRouteError(res, error, 'Failed to save game result');
+  }
+});
+
+router.delete('/:id/result', authenticateToken, async (req, res) => {
+  try {
+    res.json(await deleteGameResult(req.params.id, req.user.id, { isAdmin: !!req.user?.isAdmin }));
+  } catch (error) {
+    handleRouteError(res, error, 'Failed to delete game result');
+  }
+});
+
+router.post('/:id/result/dispute', authenticateToken, resultDisputeLimiter, async (req, res) => {
+  try {
+    res.status(201).json(await disputeGameResult(req.params.id, req.user.id, req.body || {}));
+  } catch (error) {
+    handleRouteError(res, error, 'Failed to dispute game result');
   }
 });
 
