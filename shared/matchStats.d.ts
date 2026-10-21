@@ -5,6 +5,9 @@ export interface StatDef {
   key: string;
   en: string;
   he: string;
+  /** Singular label (count === 1); absent for stats without a plural form (cleanSheet, mvp). */
+  enOne?: string;
+  heOne?: string;
   /** Sanity cap (inclusive). */
   max: number;
   /** Shown in the profile summary. */
@@ -29,8 +32,8 @@ export const MAX_TEAM_SCORE: { SOCCER: number; BASKETBALL: number };
 export function getStatDefs(sport: string): StatDef[];
 export function getStatKeys(sport: string): string[];
 export function getSummaryKeys(sport: string): string[];
-/** Label for a stat key; falls back to the key itself. */
-export function getStatLabel(sport: string, key: string, lang?: 'he' | 'en'): string;
+/** Label for a stat key; falls back to the key itself. With `count === 1` returns the singular form when one exists. */
+export function getStatLabel(sport: string, key: string, lang?: 'he' | 'en', count?: number): string;
 
 export interface ValidateStatsResult {
   valid: boolean;
