@@ -51,7 +51,9 @@ jobs:
       NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
       NEXT_PUBLIC_API_URL: http://127.0.0.1:3005
       PORT: "3005"
-      E2E_SERVER_NODE_ENV: development
+      # "test" turns off the per-IP rate limiter and background jobs. One browser on
+      # 127.0.0.1 exceeds 120 reads/min over the suite and gets 429s that blank pages.
+      E2E_SERVER_NODE_ENV: test
       ALLOW_DISK_UPLOADS: "true"
       # Dev/CI stub. The API refuses this when NODE_ENV=production.
       MODERATION_PROVIDER: stub

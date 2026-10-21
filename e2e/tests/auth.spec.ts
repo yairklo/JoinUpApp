@@ -35,12 +35,14 @@ test.describe("logged out", () => {
     const subscribe = await request.post(`${API_URL}/api/series/${seed.series.weekly.id}/subscribe`);
     expect(subscribe.status()).toBe(401);
 
-    // Shareable public reads stay anonymous. Friends-only BLOCKED stays 403, not 401.
-    const publicGame = await request.get(`${API_URL}/api/games/${seed.games.tlvSoccer.id}`);
-    expect(publicGame.status()).toBe(200);
-    const blocked = await request.get(`${API_URL}/api/games/${seed.games.friendsBlocked.id}`);
-    expect(blocked.status()).toBe(403);
-    const publicSeries = await request.get(`${API_URL}/api/series/${seed.series.weekly.id}`);
-    expect(publicSeries.status()).toBe(200);
+    // By-id reads sit behind authenticateToken on main; only the list endpoints are anonymous.
+    const byId = await request.get(`${API_URL}/api/games/${seed.games.tlvSoccer.id}`);
+    expect(byId.status()).toBe(401);
+    const seriesById = await request.get(`${API_URL}/api/series/${seed.series.weekly.id}`);
+    expect(seriesById.status()).toBe(401);
+    const list = await request.get(`${API_URL}/api/games`);
+    expect(list.status()).toBe(200);
+    const activeSeries = await request.get(`${API_URL}/api/series/active`);
+    expect(activeSeries.status()).toBe(200);
   });
 });

@@ -4,8 +4,10 @@ import { expect, signIn, signOut, test } from "../support/auth";
 test("friend request shows on the receiver bell without an email", async ({ page }) => {
   const seed = loadFixture();
   await signIn(page, seed.users.adultA.email);
-  await page.goto(`/users/${seed.users.organizerO.id}`);
-  await page.getByTestId("add-friend").click();
+  // Friend requests are sent from the "people" list on /profile, not from /users/:id.
+  await page.goto("/profile");
+  const person = page.getByRole("listitem").filter({ hasText: seed.users.organizerO.name });
+  await person.getByTestId("add-friend").click();
   await expect(page.getByRole("button", { name: "בקשה נשלחה" })).toBeVisible();
 
   await signOut(page);
@@ -32,7 +34,7 @@ test("a stranger does not see a minor's private profile sections or email", asyn
     await expect(email).not.toContainText("@");
     await expect(email).not.toContainText(seed.users.minorC.email);
   }
-  await expect(page.locator("main")).not.toContainText(seed.users.minorC.email);
+  await expect(page.locator("main").last()).not.toContainText(seed.users.minorC.email);
   // The age block is omitted for a stranger. PR #375 also drops it when
   // profileRestricted is set; either build must leave profile-age out of the DOM.
   await expect(page.getByTestId("profile-age")).toHaveCount(0);

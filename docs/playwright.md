@@ -31,7 +31,7 @@ export DIRECT_DATABASE_URL='postgresql://joinup:joinup@localhost:5432/joinup_e2e
 export CLERK_SECRET_KEY='sk_test_...'
 export CLERK_PUBLISHABLE_KEY='pk_test_...'
 export MODERATION_PROVIDER=stub   # dev/CI only; refused when NODE_ENV=production
-export E2E_SERVER_NODE_ENV=development
+export E2E_SERVER_NODE_ENV=test        # disables the per-IP rate limiter (a whole suite from one IP hits 429)
 
 cd next_app
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_... NEXT_PUBLIC_API_URL=http://127.0.0.1:3005 npm run build
@@ -73,7 +73,7 @@ Useful knobs:
 | `SEED_FIXTURE` | Path to the JSON fixture. Default `server/fixtures/devSeed.json` (gitignored). |
 | `MODERATION_PROVIDER=stub` | Deterministic moderation for dev/CI. The API throws if this is set with `NODE_ENV=production`. |
 | `E2E_MODERATION_READY=1` | Also runs the meeting / phone / link tests when a real model key is configured instead of the stub. |
-| `E2E_SERVER_NODE_ENV` | `NODE_ENV` for the API Playwright starts. Use `development` with the stub. |
+| `E2E_SERVER_NODE_ENV` | `NODE_ENV` for the API Playwright starts. Use `test` (CI): it disables the per-IP rate limiter and background jobs, which a single-IP suite would otherwise trip (429). |
 
 Traces: `cd e2e && npx playwright show-report` after a failure. The runner records a trace, screenshot, and video only on failure. Tests wait on locators. They do not use fixed sleeps. Retries are 0: the seed is stateful, and a retry would fail because the first attempt already changed those rows.
 
