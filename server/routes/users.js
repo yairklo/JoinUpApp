@@ -819,6 +819,7 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
 
     // Owner also receives their raw + resolved privacy settings for the settings UI.
     if (isOwner) {
+      if (user.hideMatchStats) payload.ownerHidden = true; // others cannot see these stats
       payload.privacySettings = {
         hideGroups: user.hideGroups,
         hideMatchStats: user.hideMatchStats,

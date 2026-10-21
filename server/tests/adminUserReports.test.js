@@ -131,10 +131,33 @@ describe('Admin user reports', () => {
       const res = await request(app).get('/api/admin/user-reports').set(as(ADMIN));
       const row = res.body.find((x) => x.id === r.id);
       expect(row.game).toMatchObject({ id: game.id, field: { name: 'UR Field' } });
+      expect(row.game).toHaveProperty('title');
+      expect(row.game.start).toBeTruthy();
+      expect(row.tournamentId).toBeNull();
+      expect(row.tournament).toBeNull();
     } finally {
       await prisma.userReport.deleteMany({ where: { gameId: game.id } });
       await prisma.game.delete({ where: { id: game.id } });
       await prisma.field.delete({ where: { id: field.id } });
+    }
+  });
+
+  test('list includes tournament context and openReportsOnTarget', async () => {
+    const t = await prisma.tournament.create({ data: { organizerId: 'ur_reporter', title: 'UR Cup', sport: 'SOCCER', startsAt: new Date(), format: 'LEAGUE', maxTeams: 8, startersPerTeam: 5, minPlayersPerTeam: 5, maxPlayersPerTeam: 8, rules: {} } });
+    try {
+      const a = await makeReport({ tournamentId: t.id });
+      await makeReport({ reason: 'OTHER' });
+      await makeReport({ reason: 'OTHER', status: 'DISMISSED' });
+      const res = await request(app).get('/api/admin/user-reports').set(as(ADMIN));
+      const row = res.body.find((x) => x.id === a.id);
+      expect(row.tournamentId).toBe(t.id);
+      expect(row.tournament).toEqual({ id: t.id, title: 'UR Cup' });
+      expect(row.openReportsOnTarget).toBe(2);
+      expect(row.reporter.name).toBe('ur_reporter');
+      expect(row.target.name).toBe('ur_target');
+    } finally {
+      await prisma.userReport.deleteMany({ where: { reporterId: 'ur_reporter' } });
+      await prisma.tournament.delete({ where: { id: t.id } });
     }
   });
 });

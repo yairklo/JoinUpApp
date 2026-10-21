@@ -25,6 +25,34 @@ describe('schemas', () => {
   });
 });
 
+describe('getStatLabel singular', () => {
+  it('uses singular labels only when count === 1', () => {
+    expect(m.getStatLabel('SOCCER', 'goals', 'he', 1)).toBe('שער');
+    expect(m.getStatLabel('SOCCER', 'goals', 'en', 1)).toBe('Goal');
+    expect(m.getStatLabel('SOCCER', 'goals', 'he', 2)).toBe('שערים');
+    expect(m.getStatLabel('SOCCER', 'goals', 'he', 0)).toBe('שערים');
+    expect(m.getStatLabel('SOCCER', 'goals', 'he')).toBe('שערים');
+    expect(m.getStatLabel('SOCCER', 'yellowCards', 'he', 1)).toBe('כרטיס צהוב');
+    expect(m.getStatLabel('BASKETBALL', 'assists', 'he', 1)).toBe('אסיסט');
+    expect(m.getStatLabel('SOCCER', 'assists', 'he', 1)).toBe('בישול');
+    expect(m.getStatLabel('TENNIS', 'doubleFaults', 'he', 1)).toBe('פסילה כפולה');
+    expect(m.getStatLabel('TENNIS', 'winners', 'he', 1)).toBe('וינר');
+  });
+  it('falls back to the plain label when there is no singular form', () => {
+    expect(m.getStatLabel('SOCCER', 'mvp', 'he', 1)).toBe('שחקן המשחק');
+    expect(m.getStatLabel('SOCCER', 'cleanSheet', 'en', 1)).toBe('Clean sheet');
+    expect(m.getStatLabel('SOCCER', 'nope', 'en', 1)).toBe('nope');
+  });
+  it('every countable stat has both singular labels', () => {
+    for (const sport of ['SOCCER', 'BASKETBALL', 'TENNIS']) {
+      for (const d of m.getStatDefs(sport)) {
+        if (d.key === 'mvp' || d.key === 'cleanSheet') expect(d.heOne).toBeUndefined();
+        else expect(d.heOne && d.enOne).toBeTruthy();
+      }
+    }
+  });
+});
+
 describe('validateStats', () => {
   it('accepts valid stats including zeros', () => {
     const r = m.validateStats('SOCCER', { goals: 2, assists: 0, mvp: 1 });
