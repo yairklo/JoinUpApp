@@ -6,12 +6,10 @@ import ProfileStatsCard from '@/components/ProfileStatsCard';
 interface ProfileStatsProps {
     userId: string;
     isOwner?: boolean;
-    /** Owner's own `hideMatchStats` setting (from the profile's privacySettings); undefined = unknown, no banner. */
-    ownerHidden?: boolean;
 }
 
 /** Thin container: loads a user's aggregated stats and renders ProfileStatsCard. */
-export default function ProfileStats({ userId, isOwner = false, ownerHidden }: ProfileStatsProps) {
+export default function ProfileStats({ userId, isOwner = false }: ProfileStatsProps) {
     const router = useRouter();
     const { data, loading, error, refresh } = useUserStats(userId);
     const [sport, setSport] = useState<string | null>(null);
@@ -23,7 +21,7 @@ export default function ProfileStats({ userId, isOwner = false, ownerHidden }: P
             state={state}
             visible={data?.visible ?? false}
             isOwner={isOwner}
-            ownerHidden={ownerHidden}
+            ownerHidden={data?.ownerHidden}
             sports={data?.sports ?? []}
             selectedSport={sport}
             onSelectSport={setSport}

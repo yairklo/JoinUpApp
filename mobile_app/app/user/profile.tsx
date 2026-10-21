@@ -712,7 +712,7 @@ export default function ProfileScreen() {
                 {/* Own match stats; banner shows when hidden from others */}
                 {user?.id ? (
                     <View className="mx-4 mb-4">
-                        <ProfileStats userId={user.id} isOwner ownerHidden={profile?.privacySettings?.hideMatchStats} />
+                        <ProfileStats userId={user.id} isOwner />
                     </View>
                 ) : null}
 
