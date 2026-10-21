@@ -33,6 +33,37 @@ const STAT_DEFS = {
   ],
 };
 
+// Singular labels for countable stats (used when the count is exactly 1). Keys without an
+// entry (cleanSheet, mvp) have no plural form and keep their plain label.
+const SINGULAR = {
+  goals: ['Goal', 'שער'],
+  assists: ['Assist', 'בישול'],
+  saves: ['Save', 'הצלה'],
+  yellowCards: ['Yellow card', 'כרטיס צהוב'],
+  redCards: ['Red card', 'כרטיס אדום'],
+  ownGoals: ['Own goal', 'שער עצמי'],
+  points: ['Point', 'נקודה'],
+  rebounds: ['Rebound', 'ריבאונד'],
+  steals: ['Steal', 'חטיפה'],
+  blocks: ['Block', 'חסימה'],
+  threePointers: ['Three-pointer', 'שלשה'],
+  fouls: ['Foul', 'עבירה'],
+  aces: ['Ace', 'אייס'],
+  doubleFaults: ['Double fault', 'פסילה כפולה'],
+  winners: ['Winner', 'וינר'],
+};
+// Basketball assists are 'אסיסט' (loanword), soccer assists are 'בישול'.
+const SINGULAR_BY_SPORT = { BASKETBALL: { assists: ['Assist', 'אסיסט'] } };
+for (const [sport, list] of Object.entries(STAT_DEFS)) {
+  for (const d of list) {
+    const one = (SINGULAR_BY_SPORT[sport] && SINGULAR_BY_SPORT[sport][d.key]) || SINGULAR[d.key];
+    if (one) {
+      d.enOne = one[0];
+      d.heOne = one[1];
+    }
+  }
+}
+
 // Keys that count toward the team score, for the soft "player sum > team score" warning.
 const SCORING_KEY = { SOCCER: 'goals', BASKETBALL: 'points' };
 // Sanity cap on a team score.
@@ -55,9 +86,11 @@ function getSummaryKeys(sport) {
   return getStatDefs(sport).filter((d) => d.summary).map((d) => d.key);
 }
 
-function getStatLabel(sport, key, lang = 'en') {
+/** Label for a stat. With `count === 1` the singular form is used when the stat has one. */
+function getStatLabel(sport, key, lang = 'en', count) {
   const d = getStatDefs(sport).find((x) => x.key === key);
   if (!d) return key;
+  if (count === 1 && d.enOne) return lang === 'he' ? d.heOne : d.enOne;
   return lang === 'he' ? d.he : d.en;
 }
 

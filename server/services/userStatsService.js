@@ -73,7 +73,10 @@ async function getUserStats(viewerId, target, { sport } = {}) {
   }
   const vis = await getStatsVisibility(viewerId, target);
   if (!vis.visible) return { visible: false, hiddenReason: vis.hiddenReason, sports: [] };
-  return { visible: true, sports: await computeUserStats(target.id, { sport }) };
+  const payload = { visible: true, sports: await computeUserStats(target.id, { sport }) };
+  // Only the owner ever sees their own stats while hidden from everyone else.
+  if (vis.isOwner && target.hideMatchStats) payload.ownerHidden = true;
+  return payload;
 }
 
 /** Compact block for the profile hero: W/D/L plus a few headline stats of the most played sport. */
@@ -100,20 +103,38 @@ async function getStatsSummary(userId) {
 
 /**
  * Result badges for match-history cards: gameId -> { outcome, score, myStats }.
- * `score` is "mine-theirs" from the user's side. Games where the user has no stat rows are omitted.
+ * `score` is "mine-theirs" from the user's side. The side comes from the user's stat rows, or, when they
+ * have none, from their Participation.teamId matching a GameResultSide.teamId (myStats is then {}).
+ * Games where the user's side is unknown and they have no stat rows are omitted.
  */
 async function getResultsForGames(userId, gameIds) {
   if (!gameIds.length) return new Map();
-  const entries = await prisma.playerStatEntry.findMany({
-    where: { userId, gameId: { in: gameIds } },
-    select: { gameId: true, sideId: true, key: true, value: true },
-  });
-  if (!entries.length) return new Map();
+  const [entries, participations] = await Promise.all([
+    prisma.playerStatEntry.findMany({
+      where: { userId, gameId: { in: gameIds } },
+      select: { gameId: true, sideId: true, key: true, value: true },
+    }),
+    prisma.participation.findMany({
+      where: { userId, gameId: { in: gameIds }, status: 'CONFIRMED', teamId: { not: null } },
+      select: { gameId: true, teamId: true },
+    }),
+  ]);
+  const teamByGame = new Map(participations.map((p) => [p.gameId, p.teamId]));
+  const candidateGames = [...new Set([...entries.map((e) => e.gameId), ...teamByGame.keys()])];
+  if (!candidateGames.length) return new Map();
   const results = await prisma.gameResult.findMany({
-    where: { gameId: { in: [...new Set(entries.map((e) => e.gameId))] } },
-    select: { gameId: true, sides: { select: { id: true, order: true, score: true, outcome: true } } },
+    where: { gameId: { in: candidateGames } },
+    select: { gameId: true, sides: { select: { id: true, order: true, score: true, outcome: true, teamId: true } } },
   });
   const resultByGame = new Map(results.map((r) => [r.gameId, r]));
+
+  const badge = (r, mineId, teamId) => {
+    const sorted = [...r.sides].sort((a, b) => a.order - b.order);
+    const mine = sorted.find((s) => s.id === mineId) || (teamId ? sorted.find((s) => s.teamId === teamId) : undefined);
+    const other = mine ? sorted.find((s) => s !== mine) : null;
+    const [a, b] = mine && other ? [mine, other] : sorted;
+    return { outcome: mine ? mine.outcome : null, score: a && b ? `${a.score}-${b.score}` : null, myStats: {} };
+  };
 
   const out = new Map();
   for (const e of entries) {
@@ -121,18 +142,16 @@ async function getResultsForGames(userId, gameIds) {
     if (!r) continue;
     let item = out.get(e.gameId);
     if (!item) {
-      const sorted = [...r.sides].sort((a, b) => a.order - b.order);
-      const mine = sorted.find((s) => s.id === e.sideId);
-      const other = mine ? sorted.find((s) => s !== mine) : null;
-      const [a, b] = mine && other ? [mine, other] : sorted;
-      item = {
-        outcome: mine ? mine.outcome : null,
-        score: a && b ? `${a.score}-${b.score}` : null,
-        myStats: {},
-      };
+      item = badge(r, e.sideId, teamByGame.get(e.gameId));
       out.set(e.gameId, item);
     }
     item.myStats[e.key] = e.value;
+  }
+  for (const [gameId, teamId] of teamByGame) {
+    const r = resultByGame.get(gameId);
+    if (out.has(gameId) || !r) continue;
+    const item = badge(r, null, teamId);
+    if (item.outcome) out.set(gameId, item); // no badge when the team matches no side
   }
   return out;
 }
