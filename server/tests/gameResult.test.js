@@ -119,9 +119,15 @@ describe('gameResultService', () => {
       }
     });
 
+    test('mid-game is rejected until start + duration has passed', async () => {
+      const mid = await makeGame({ start: new Date(Date.now() - 30 * 60 * 1000) });
+      await expect(upsertGameResult(mid.id, U.org, soccerBody())).rejects.toMatchObject({ status: 409, code: 'GAME_NOT_FINISHED' });
+      expect((await getGameResult(mid.id, U.org)).eligible).toBe(false);
+    });
+
     test('not started game is rejected, started and COMPLETED ok', async () => {
       const future = await makeGame({ start: new Date(Date.now() + 5 * HOUR) });
-      await expect(upsertGameResult(future.id, U.org, soccerBody())).rejects.toMatchObject({ status: 409, code: 'GAME_NOT_STARTED' });
+      await expect(upsertGameResult(future.id, U.org, soccerBody())).rejects.toMatchObject({ status: 409, code: 'GAME_NOT_FINISHED' });
       const done = await makeGame({ start: new Date(Date.now() + 5 * HOUR), status: 'COMPLETED' });
       await expect(upsertGameResult(done.id, U.org, soccerBody())).resolves.toBeTruthy();
     });
@@ -209,6 +215,7 @@ describe('gameResultService', () => {
       expect(n).toBe(3);
       await upsertGameResult(g.id, U.org, soccerBody());
       expect(await entryCount(g.id)).toBe(n);
+      const idsBefore = first.result.sides.map((x) => x.id);
       expect(await prisma.gameResultSide.count({ where: { resultId: first.result.id } })).toBe(2);
 
       const changed = await upsertGameResult(g.id, U.mgr, soccerBody({
@@ -216,6 +223,7 @@ describe('gameResultService', () => {
         stats: [{ userId: U.p3, sideOrder: 1, values: { saves: 5 } }],
       }));
       expect(changed.result.id).toBe(first.result.id);
+      expect(changed.result.sides.map((x) => x.id)).toEqual(idsBefore);
       expect(changed.result.stats).toEqual([{ userId: U.p3, sideId: expect.any(String), values: { saves: 5 } }]);
       expect(changed.result.sides.map((s) => s.outcome)).toEqual(['LOSS', 'WIN']);
       expect(changed.result.editedAt).toBeTruthy();
@@ -307,6 +315,30 @@ describe('gameResultService', () => {
       expect(v.roster).toEqual([]);
       expect(v.result.stats).toEqual([]);
       expect(v.result.sides).toHaveLength(2);
+    });
+
+    test('per-player stats follow the profile privacy gate', async () => {
+      const g = await makeGame();
+      await upsertGameResult(g.id, U.org, soccerBody());
+      // p1 hides stats; p2 is friends-only; viewer p3 is a plain participant.
+      await prisma.user.update({ where: { id: U.p1 }, data: { hideMatchStats: true } });
+      await prisma.user.update({ where: { id: U.p2 }, data: { privacyGames: 'FRIENDS_ONLY' } });
+      try {
+        const asP3 = await getGameResult(g.id, U.p3);
+        expect(asP3.result.stats).toEqual([]);
+        expect(asP3.result.sides).toHaveLength(2);
+        // owner of the stats sees their own; hideMatchStats owner too
+        expect((await getGameResult(g.id, U.p1)).result.stats.map((x) => x.userId).sort()).toEqual([U.p1]);
+        expect((await getGameResult(g.id, U.p2)).result.stats.map((x) => x.userId).sort()).toEqual([U.p2]);
+        // a friend of p2 sees p2 (p1 still hidden)
+        await prisma.friendship.create({ data: { userAId: U.p2 < U.p3 ? U.p2 : U.p3, userBId: U.p2 < U.p3 ? U.p3 : U.p2 } });
+        expect((await getGameResult(g.id, U.p3)).result.stats.map((x) => x.userId)).toEqual([U.p2]);
+        // managers editing see everything
+        expect((await getGameResult(g.id, U.mgr)).result.stats).toHaveLength(2);
+      } finally {
+        await prisma.friendship.deleteMany({ where: { OR: [{ userAId: U.p2 }, { userBId: U.p2 }] } });
+        await prisma.user.updateMany({ where: { id: { in: [U.p1, U.p2] } }, data: { hideMatchStats: false, privacyGames: null } });
+      }
     });
 
     test('unknown game is 404', async () => {

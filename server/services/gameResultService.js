@@ -1,7 +1,9 @@
+const { Prisma } = require('@prisma/client');
 const { prisma } = require('../lib/prisma');
 const { ROLE_LEVEL, getRoleLevel } = require('./gameService');
 const { getGameAccess } = require('../utils/friendsOnlyAccess');
 const { publicDisplayName } = require('../utils/publicName');
+const { getStatsVisibility } = require('./userStatsService');
 const { SPORT_KEYS } = require('../shared/sports');
 const {
   validateStats,
@@ -10,6 +12,7 @@ const {
   getStatKeys,
 } = require('../shared/matchStats');
 
+const HOUR_MS = 3600 * 1000;
 const LOCK_WINDOW_MS = 7 * 24 * 3600 * 1000;
 const MAX_LABEL_LENGTH = 60;
 const MAX_NOTES_LENGTH = 500;
@@ -28,6 +31,7 @@ const GAME_SELECT = {
   id: true,
   sport: true,
   start: true,
+  duration: true,
   status: true,
   organizerId: true,
   seriesId: true,
@@ -39,7 +43,10 @@ const GAME_SELECT = {
 function isEligible(game, now = new Date()) {
   if (!game || !SPORT_KEYS.includes(game.sport)) return false;
   if (game.status === 'CANCELLED') return false;
-  return game.status === 'COMPLETED' || new Date(game.start) <= now;
+  if (game.status === 'COMPLETED') return true;
+  // Never mid-game: the game must have run its full length (duration is in hours).
+  const endsAt = new Date(game.start).getTime() + (Number(game.duration) || 1) * HOUR_MS;
+  return endsAt <= now.getTime();
 }
 
 function isLocked(result, now = new Date()) {
@@ -79,6 +86,27 @@ function groupEntries(entries) {
   return [...byUser.values()];
 }
 
+async function filterEntriesByPrivacy(viewerId, entries) {
+  const userIds = [...new Set(entries.map((e) => e.userId))];
+  if (!userIds.length) return [];
+  const [users, friendships] = await Promise.all([
+    prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, birthDate: true, privacyGames: true, hideMatchStats: true } }),
+    viewerId
+      ? prisma.friendship.findMany({
+          where: { OR: [{ userAId: viewerId, userBId: { in: userIds } }, { userBId: viewerId, userAId: { in: userIds } }] },
+          select: { userAId: true, userBId: true },
+        })
+      : [],
+  ]);
+  const friendIds = new Set(friendships.map((f) => (f.userAId === viewerId ? f.userBId : f.userAId)));
+  const allowed = new Set();
+  for (const u of users) {
+    const vis = await getStatsVisibility(viewerId, u, { isFriend: friendIds.has(u.id) });
+    if (vis.visible) allowed.add(u.id);
+  }
+  return entries.filter((e) => allowed.has(e.userId));
+}
+
 async function getGameResult(gameId, viewerId, { isAdmin = false } = {}) {
   const game = await loadGameOr404(prisma, gameId);
   const access = await getGameAccess(prisma, game, viewerId, { isAdmin });
@@ -104,6 +132,9 @@ async function getGameResult(gameId, viewerId, { isAdmin = false } = {}) {
 
   // Outsiders holding a friends-only link (access REQUEST) see the score, not who played.
   const showPeople = access === 'FULL';
+  // Per-player stats follow the profile gate (owner / hideMatchStats / privacyGames incl. minors).
+  // Managers who can edit see every row, otherwise saving would silently drop hidden players' stats.
+  const visibleEntries = showPeople && !canEdit ? await filterEntriesByPrivacy(viewerId, entries) : entries;
   const sideByTeam = new Map((result?.sides || []).filter((s) => s.teamId).map((s) => [s.teamId, s.id]));
   const entrySide = new Map(entries.map((e) => [e.userId, e.sideId]));
 
@@ -125,7 +156,7 @@ async function getGameResult(gameId, viewerId, { isAdmin = false } = {}) {
           status: result.status,
           sport: result.sport,
           sides: result.sides.map(mapSide),
-          stats: showPeople ? groupEntries(entries) : [],
+          stats: showPeople ? groupEntries(visibleEntries) : [],
           notes: result.notes,
           recordedBy,
           recordedAt: result.recordedAt,
@@ -223,7 +254,7 @@ async function upsertGameResult(gameId, actorId, body, { isAdmin = false } = {})
     const game = await loadGameOr404(tx, gameId);
     const now = new Date();
     if (game.status === 'CANCELLED') throw httpError('Game was cancelled', 409, 'GAME_CANCELLED');
-    if (!isEligible(game, now)) throw httpError('Game has not started yet', 409, 'GAME_NOT_STARTED');
+    if (!isEligible(game, now)) throw httpError('Game has not finished yet', 409, 'GAME_NOT_FINISHED');
 
     const existing = await tx.gameResult.findUnique({ where: { gameId } });
     if (existing && isLocked(existing, now) && !isAdmin) {
@@ -242,7 +273,6 @@ async function upsertGameResult(gameId, actorId, body, { isAdmin = false } = {})
 
     let result;
     if (existing) {
-      await tx.gameResultSide.deleteMany({ where: { resultId: existing.id } });
       await tx.playerStatEntry.deleteMany({ where: { gameId } });
       result = await tx.gameResult.update({
         where: { id: existing.id },
@@ -266,16 +296,18 @@ async function upsertGameResult(gameId, actorId, body, { isAdmin = false } = {})
     const sideIds = [];
     for (let order = 0; order < 2; order += 1) {
       const s = model.sides[order];
-      const created = await tx.gameResultSide.create({
-        data: {
-          resultId: result.id,
-          order,
-          teamId: s.teamId,
-          label: s.label,
-          score: s.score,
-          sets: s.sets === null ? undefined : s.sets,
-          outcome: s.outcome,
-        },
+      // Upsert by [resultId, order] so side ids stay stable across edits.
+      const fields = {
+        teamId: s.teamId,
+        label: s.label,
+        score: s.score,
+        sets: s.sets === null ? Prisma.DbNull : s.sets,
+        outcome: s.outcome,
+      };
+      const created = await tx.gameResultSide.upsert({
+        where: { resultId_order: { resultId: result.id, order } },
+        update: fields,
+        create: { resultId: result.id, order, ...fields },
       });
       sideIds.push(created.id);
     }
