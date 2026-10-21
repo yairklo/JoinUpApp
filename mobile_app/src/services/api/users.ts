@@ -33,6 +33,8 @@ export interface ProfileGroup {
 
 export interface PrivacySettings {
     hideGroups?: boolean;
+    /** Hide my match stats from others. Absent on older servers. */
+    hideMatchStats?: boolean;
     privacyFriends: PrivacyLevel | null;
     privacyGames: PrivacyLevel | null;
     privacyMessages: PrivacyLevel | null;
@@ -269,7 +271,7 @@ export const usersApi = {
     },
 
     updatePrivacySettings: (
-        data: Partial<Record<'privacyFriends' | 'privacyGames' | 'privacyMessages', PrivacyLevel | null>> & { hideGroups?: boolean },
+        data: Partial<Record<'privacyFriends' | 'privacyGames' | 'privacyMessages', PrivacyLevel | null>> & { hideGroups?: boolean; hideMatchStats?: boolean },
         token: string
     ) => {
         return apiClient<PrivacySettings>('/api/users/profile/settings', {
