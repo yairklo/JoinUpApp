@@ -4,6 +4,13 @@ const { prisma } = require('../lib/prisma');
 const { authenticateToken } = require('../utils/auth');
 const { resolvePrivacyLevel, areConfirmedFriends } = require('../utils/privacy');
 const { isBlockedEitherWay } = require('../utils/blocks');
+const { publicDisplayName } = require('../utils/publicName');
+
+// One body for "this person is not accepting a new private chat". Used both for a
+// friends-only privacy setting and for a block, so the blocked side cannot tell them apart.
+function friendsOnlyMessages(res) {
+    return res.status(403).json({ error: 'This user only accepts messages from friends' });
+}
 
 // POST /api/chats/private - Get or Create a Private Chat
 router.post('/private', authenticateToken, async (req, res) => {
@@ -19,8 +26,10 @@ router.post('/private', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Cannot chat with yourself' });
         }
 
+        // Same body as a friends-only profile. A USER_BLOCKED code (or any other
+        // distinct error) would tell the sender they were blocked.
         if (await isBlockedEitherWay(currentUserId, targetUserId)) {
-            return res.status(403).json({ error: 'You cannot message this user', code: 'USER_BLOCKED' });
+            return friendsOnlyMessages(res);
         }
 
         // 1. Check if a private chat already exists between these two users
@@ -51,7 +60,7 @@ router.post('/private', authenticateToken, async (req, res) => {
             if (effectiveMessages === 'FRIENDS_ONLY') {
                 const friends = await areConfirmedFriends(currentUserId, targetUserId);
                 if (!friends) {
-                    return res.status(403).json({ error: 'This user only accepts messages from friends' });
+                    return friendsOnlyMessages(res);
                 }
             }
         }
@@ -102,7 +111,15 @@ router.get('/:chatId', authenticateToken, async (req, res) => {
         const isParticipant = await checkChatPermission(userId, chatId);
         if (!isParticipant) return res.status(403).json({ error: 'Access denied' });
 
-        res.json(chat);
+        res.json({
+            ...chat,
+            participants: (chat.participants || []).map((p) => ({
+                ...p,
+                user: p.user
+                    ? { ...p.user, name: publicDisplayName(p.user.name, 'משתמש') }
+                    : p.user,
+            })),
+        });
     } catch (err) {
         console.error("Get Chat Details Error:", err);
         res.status(500).json({ error: 'Server error' });

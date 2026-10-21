@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, Suspense } from "react
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usersApi } from "@/services/api/users";
+import { mapFriendRequestError } from "@/utils/apiError";
 import Link from "next/link";
 
 // MUI Imports
@@ -125,7 +126,7 @@ function SearchPlayersContent() {
       );
     } catch (err) {
       console.error("Failed to send friend request:", err);
-      alert("שליחת בקשת החברות נכשלה.");
+      alert(mapFriendRequestError(err));
     }
   };
 
@@ -225,7 +226,7 @@ function SearchPlayersContent() {
                           size="small" 
                         />
                       )}
-                      {player.friendshipStatus === "none" && (
+                      {player.friendshipStatus === "none" && player.canAddFriend !== false && (
                         <Button
                           variant="contained"
                           color="primary"

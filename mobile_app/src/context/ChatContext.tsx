@@ -100,11 +100,32 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
     // Fix #3: ref-based guard so loadChats has a stable reference
     const chatsLoadedRef = useRef(false);
+    const seenUserIdRef = useRef<string | null | undefined>(undefined);
     const loadChatsInFlightRef = useRef(false);
     const chatsRef = useRef<ChatPreview[]>([]);
     const activeChatIdRef = useRef<string | null>(null);
     const updateChatListRef = useRef<(newMessage: any) => void>(() => {});
     const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+    // A new account in the same app session must not keep the previous user's chats or socket.
+    // The first resolution (Clerk still loading, then the signed-in user) is not a switch.
+    useEffect(() => {
+        const nextId = user?.id ?? null;
+        const prev = seenUserIdRef.current;
+        seenUserIdRef.current = nextId;
+        if (prev === undefined || prev === nextId) return;
+        if (prev === null && nextId) return;
+        chatsLoadedRef.current = false;
+        setChats([]);
+        setMessagesCache({});
+        setActiveChatId(null);
+        setHeaderInfo(null);
+        setIsWidgetOpen(false);
+        setIsMinimized(false);
+        setTotalUnread(0);
+        setTypingStatus({});
+        SocketManager.disconnect();
+    }, [user?.id]);
 
     useEffect(() => {
         chatsRef.current = chats;

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useMyName, useMyAvatar } from "@/hooks/useMyAvatar";
+import { firstPublicName } from "@/utils/publicName";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -322,7 +323,17 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
                       onRetry={actions.handleRetryMessage}
                       onDiscard={actions.handleDiscardMessage}
                       avatarUrl={avatarUrl}
-                      displayName={m.sender?.name || u?.name || (m.userId && state.nameByUserId[m.userId]) || (isMine ? (myName || (isRTL ? "אני" : "Me")) : "") || m.senderName || (state.isPrivate && !isMine ? state.otherUserName : undefined) || (isRTL ? "משתמש" : "User")}
+                      displayName={firstPublicName(
+                        [
+                          m.sender?.name,
+                          u?.name,
+                          m.userId ? state.nameByUserId[m.userId] : undefined,
+                          isMine ? (myName || (isRTL ? "אני" : "Me")) : "",
+                          m.senderName,
+                          state.isPrivate && !isMine ? state.otherUserName : undefined,
+                        ],
+                        isRTL ? "משתמש" : "User"
+                      )}
                       timeStr={currentDate.toLocaleTimeString(isRTL ? 'he-IL' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                       showAvatar={!isNextSameSender}
                       showName={!isPrevSameSender && !isMine && !state.isPrivate}

@@ -4,6 +4,33 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { useUser } from "@clerk/nextjs";
 import { ChatMessage } from "@/components/types";
 import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
+import { publicDisplayName } from "@/utils/publicName";
+
+const CHAT_STORAGE_KEYS = ["activeChatId", "chatMinimized", "chatHeaderInfo", "chatOwnerId"] as const;
+
+function readChatStorage(key: string): string | null {
+    try {
+        return localStorage.getItem(key);
+    } catch {
+        return null;
+    }
+}
+
+function writeChatStorage(key: string, value: string) {
+    try {
+        localStorage.setItem(key, value);
+    } catch { /* storage blocked */ }
+}
+
+function removeChatStorage(key: string) {
+    try {
+        localStorage.removeItem(key);
+    } catch { /* storage blocked */ }
+}
+
+function clearChatStorage() {
+    for (const key of CHAT_STORAGE_KEYS) removeChatStorage(key);
+}
 
 export interface HeaderInfo {
     name: string;
@@ -50,23 +77,15 @@ interface ChatContextProps {
 const ChatContext = createContext<ChatContextProps | undefined>(undefined);
 
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
-    const { user } = useUser();
+    const { user, isLoaded } = useUser();
     const getTokenRef = useAuthTokenRef();
 
-    // UI State
+    // UI State. The widget stays closed until we know the stored chat belongs to this user.
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [isWidgetOpen, setIsWidgetOpen] = useState(false);
-    // Seed from localStorage synchronously (harmless belt-and-braces; not the W1 root cause).
-    // Hydration-safe only because FloatingChatWindow renders null until isWidgetOpen is set in the
-    // mount effect below, so server and first client render produce the same markup.
-    const [isMinimized, setIsMinimized] = useState(() => {
-        try {
-            return typeof window !== "undefined" && localStorage.getItem("chatMinimized") === "true";
-        } catch {
-            return false;
-        }
-    });
+    const [isMinimized, setIsMinimized] = useState(false);
     const [headerInfo, setHeaderInfo] = useState<HeaderInfo | null>(null);
+    const [boundUserId, setBoundUserId] = useState<string | null>(null);
 
     // Data State
     const [chats, setChats] = useState<ChatPreview[]>([]);
@@ -76,28 +95,60 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-    // Initialize UI from localStorage
-    useEffect(() => {
-        const savedChatId = localStorage.getItem("activeChatId");
-        const savedMinimized = localStorage.getItem("chatMinimized");
-        const savedHeaderInfo = localStorage.getItem("chatHeaderInfo");
+    const resetChatMemory = useCallback(() => {
+        setActiveChatId(null);
+        setIsWidgetOpen(false);
+        setIsMinimized(false);
+        setHeaderInfo(null);
+        setChats([]);
+        setMessagesCache({});
+        setTotalUnread(0);
+    }, []);
 
+    // Restore the popup only for the account that opened it. A missing owner (older
+    // sessions) or a different user clears the cache so the previous chat cannot flash.
+    useEffect(() => {
+        if (!isLoaded) return;
+        if (!user?.id) {
+            resetChatMemory();
+            setBoundUserId(null);
+            clearChatStorage();
+            return;
+        }
+
+        const owner = readChatStorage("chatOwnerId");
+        if (owner !== user.id) {
+            clearChatStorage();
+            resetChatMemory();
+            writeChatStorage("chatOwnerId", user.id);
+            setBoundUserId(user.id);
+            return;
+        }
+
+        const savedChatId = readChatStorage("activeChatId");
+        const savedHeaderInfo = readChatStorage("chatHeaderInfo");
         if (savedChatId) {
             setActiveChatId(savedChatId);
             setIsWidgetOpen(true);
             if (savedHeaderInfo) {
                 try {
-                    setHeaderInfo(JSON.parse(savedHeaderInfo));
+                    const parsed = JSON.parse(savedHeaderInfo);
+                    setHeaderInfo({
+                        ...parsed,
+                        name: publicDisplayName(parsed?.name, "משתמש"),
+                    });
                 } catch (e) {
                     console.error("Failed to parse chat header info", e);
                 }
             }
+        } else {
+            setActiveChatId(null);
+            setIsWidgetOpen(false);
+            setHeaderInfo(null);
         }
-
-        if (savedMinimized === "true") {
-            setIsMinimized(true);
-        }
-    }, []);
+        setIsMinimized(readChatStorage("chatMinimized") === "true");
+        setBoundUserId(user.id);
+    }, [isLoaded, user?.id, resetChatMemory]);
 
     // 1. Load Chats
     const loadChats = useCallback(async (forceFetch = false) => {
@@ -241,18 +292,25 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }, [user?.id, loadChats]);
 
     const openChat = (chatId: string, info?: HeaderInfo) => {
+        const safeInfo = info
+            ? { ...info, name: publicDisplayName(info.name, "משתמש") }
+            : undefined;
         setActiveChatId(chatId);
-        if (info) {
-            setHeaderInfo(info);
-            localStorage.setItem("chatHeaderInfo", JSON.stringify(info));
+        if (safeInfo) {
+            setHeaderInfo(safeInfo);
+            writeChatStorage("chatHeaderInfo", JSON.stringify(safeInfo));
         } else {
             setHeaderInfo(null);
-            localStorage.removeItem("chatHeaderInfo");
+            removeChatStorage("chatHeaderInfo");
         }
         setIsWidgetOpen(true);
         setIsMinimized(false);
-        localStorage.setItem("activeChatId", chatId);
-        localStorage.setItem("chatMinimized", "false");
+        writeChatStorage("activeChatId", chatId);
+        writeChatStorage("chatMinimized", "false");
+        if (user?.id) {
+            writeChatStorage("chatOwnerId", user.id);
+            setBoundUserId(user.id);
+        }
     };
 
     const openWidget = () => {
@@ -266,24 +324,24 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         setActiveChatId(null);
         setIsMinimized(false);
         setHeaderInfo(null);
-        localStorage.removeItem("activeChatId");
-        localStorage.removeItem("chatHeaderInfo");
-        localStorage.removeItem("chatMinimized");
+        removeChatStorage("activeChatId");
+        removeChatStorage("chatHeaderInfo");
+        removeChatStorage("chatMinimized");
     };
 
     const minimizeChat = () => {
         setIsMinimized(true);
-        localStorage.setItem("chatMinimized", "true");
+        writeChatStorage("chatMinimized", "true");
     };
 
     const maximizeChat = () => {
         setIsMinimized(false);
-        localStorage.setItem("chatMinimized", "false");
+        writeChatStorage("chatMinimized", "false");
     };
 
     const goBackToList = () => {
         setActiveChatId(null);
-        localStorage.removeItem("activeChatId");
+        removeChatStorage("activeChatId");
     };
 
     const markChatAsRead = useCallback((chatId: string) => {
@@ -302,7 +360,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         <ChatContext.Provider
             value={{
                 activeChatId,
-                isWidgetOpen,
+                isWidgetOpen: boundUserId !== null && boundUserId === user?.id && isWidgetOpen,
                 isMinimized,
                 headerInfo,
                 chats,

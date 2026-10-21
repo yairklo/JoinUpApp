@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { prisma } = require('../lib/prisma');
 
 /** Ids of users that `userId` has blocked (their content is hidden from `userId`). */
@@ -48,18 +49,56 @@ async function getBlockersAmong(userId, userIds) {
 }
 
 /**
- * True when `roomId` is a PRIVATE chat and either side has blocked the other.
+ * Private-chat block between `userId` and the other participant.
  * Group / game chats are never blocked wholesale (a block hides content REST- and client-side).
+ * @returns {Promise<null | { otherId: string, senderIsBlocked: boolean }>}
+ * `null` when this is not a private pair with a block in either direction.
+ * `senderIsBlocked` is true when the other participant has blocked `userId`
+ * (the sender is the blocked party), including a mutual block.
  */
-async function isPrivateChatBlocked(userId, roomId) {
+async function getPrivateChatBlock(userId, roomId) {
+  if (!userId || !roomId) return null;
   const room = await prisma.chatRoom.findUnique({
     where: { id: String(roomId) },
     select: { type: true, participants: { select: { userId: true } } },
   });
-  if (!room || room.type !== 'PRIVATE') return false;
-  const other = room.participants.map((p) => p.userId).find((id) => id !== String(userId));
-  if (!other) return false;
-  return isBlockedEitherWay(userId, other);
+  if (!room || room.type !== 'PRIVATE') return null;
+  const otherId = room.participants.map((p) => p.userId).find((id) => id !== String(userId));
+  if (!otherId) return null;
+  const rows = await prisma.userBlock.findMany({
+    where: {
+      OR: [
+        { blockerId: String(userId), blockedId: String(otherId) },
+        { blockerId: String(otherId), blockedId: String(userId) },
+      ],
+    },
+    select: { blockerId: true },
+  });
+  if (!rows.length) return null;
+  const senderIsBlocked = rows.some((r) => r.blockerId === String(otherId));
+  return { otherId, senderIsBlocked };
 }
 
-module.exports = { getBlockedEitherWayIds, getBlockedByMe, isBlockedEitherWay, getBlockersAmong, isPrivateChatBlocked };
+/** True when `roomId` is a PRIVATE chat and either side has blocked the other. */
+async function isPrivateChatBlocked(userId, roomId) {
+  return !!(await getPrivateChatBlock(userId, roomId));
+}
+
+/** Prisma cuid() is 25 chars starting with "c". Match that so a stand-in id is not a tell. */
+function ephemeralCuid() {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = crypto.randomBytes(24);
+  let id = 'c';
+  for (let i = 0; i < 24; i++) id += alphabet[bytes[i] % alphabet.length];
+  return id;
+}
+
+module.exports = {
+  getBlockedEitherWayIds,
+  getBlockedByMe,
+  isBlockedEitherWay,
+  getBlockersAmong,
+  getPrivateChatBlock,
+  isPrivateChatBlocked,
+  ephemeralCuid,
+};

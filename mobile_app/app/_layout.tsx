@@ -164,7 +164,7 @@ function RootLayoutInner() {
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken, userId } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
@@ -194,6 +194,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Drop any socket left from the previous account before opening a new one.
+    SocketManager.disconnect();
+
     // Wait until Clerk is fully loaded AND user is signed in before opening the socket.
     let cancelled = false;
 
@@ -222,7 +225,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       appSub.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- getToken identity churn must not remount mid-handshake
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, userId]);
 
   if (!isLoaded) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><Text>{t('common.loadingAuth', 'Loading Clerk...')}</Text></View>;
 

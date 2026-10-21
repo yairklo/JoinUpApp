@@ -15,6 +15,7 @@ const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
 const { getAgeInJerusalem } = require('../shared/ageGate');
 const { getSeriesAccess, seriesVisibilityWhere, normalizeLinkPolicy } = require('../utils/friendsOnlyAccess');
+const { publicDisplayName } = require('../utils/publicName');
 
 const WELCOME_MESSAGE_MAX_LENGTH = 2000;
 const DESCRIPTION_MAX_LENGTH = 2000;
@@ -61,20 +62,20 @@ function mapGameForClient(game) {
   const overbooked = !!game.lotteryEnabled && !game.lotteryExecutedAt && totalSignups > game.maxPlayers;
   const participants = confirmed.map(p => ({
     id: p.userId,
-    name: p.user?.name || null,
+    name: publicDisplayName(p.user?.name, 'משתמש'),
     avatar: p.user?.imageUrl || null,
     teamId: p.teamId || null
   }));
   const waitlistParticipants = waitlisted.map(p => ({
     id: p.userId,
-    name: p.user?.name || null,
+    name: publicDisplayName(p.user?.name, 'משתמש'),
     avatar: p.user?.imageUrl || null
   }));
   const managers = (game.roles || [])
     .filter(r => r.role !== 'ORGANIZER')
     .map(r => ({
       id: r.userId,
-      name: r.user?.name || null,
+      name: publicDisplayName(r.user?.name, 'משתמש'),
       avatar: r.user?.imageUrl || null,
       role: r.role
     }));
@@ -176,7 +177,7 @@ router.get('/active', attachOptionalUser, async (req, res) => {
         type: s.type,
         organizer: {
           id: org?.id || s.organizerId,
-          name: org?.name || '',
+          name: publicDisplayName(org?.name, 'משתמש'),
           avatar: org?.imageUrl || ''
         },
         subscriberCount: s._count.subscribers,
@@ -313,7 +314,7 @@ router.get('/:seriesId', authenticateToken, async (req, res) => {
       imageUrl: series.imageUrl || null,
       organizer: {
         id: organizer?.id || series.organizerId,
-        name: organizer?.name || '',
+        name: publicDisplayName(organizer?.name, 'משתמש'),
         avatar: organizer?.imageUrl || ''
       },
       subscriberCount: (subscribers || []).length,
@@ -322,7 +323,7 @@ router.get('/:seriesId', authenticateToken, async (req, res) => {
         role: s.role || 'MEMBER',
         user: {
           id: s.user?.id || s.userId,
-          name: s.user?.name || '',
+          name: publicDisplayName(s.user?.name, 'משתמש'),
           avatar: s.user?.imageUrl || ''
         }
       })),
@@ -714,7 +715,7 @@ router.get('/:seriesId/join-requests', authenticateToken, async (req, res) => {
     });
     const toDTO = (r) => ({
       userId: r.userId,
-      name: r.user?.name || '',
+      name: publicDisplayName(r.user?.name, 'משתמש'),
       avatar: r.user?.imageUrl || null,
       createdAt: r.createdAt.toISOString(),
     });
@@ -991,5 +992,6 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.mapGameForClient = mapGameForClient;
 
 

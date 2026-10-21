@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 import MuteNotificationsButton from '@/components/MuteNotificationsButton';
+import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
 
 const PAGE_SIZE = 5;
 
@@ -107,9 +108,9 @@ export default function UserProfileScreen() {
 
             if (friends.some(f => f.id === id)) {
                 setRelationship('friends');
-            } else if (outgoing.some(req => req.receiverId === id)) {
+            } else if (outgoing.some((req) => req.receiver?.id === id || req.receiverId === id)) {
                 setRelationship('pending_outgoing');
-            } else if (incoming.some(req => req.senderId === id)) {
+            } else if (incoming.some((req) => req.requester?.id === id || req.senderId === id)) {
                 setRelationship('pending_incoming');
             } else {
                 setRelationship('none');
@@ -130,7 +131,10 @@ export default function UserProfileScreen() {
             await usersApi.sendFriendRequest(id, token);
             setRelationship('pending_outgoing');
         } catch (error) {
-            Alert.alert(t('common.error', 'Error'), t('profile.failedToSendRequest', 'Failed to send friend request.'));
+            Alert.alert(t('common.error', 'Error'), mapFriendRequestError(error));
+            if (getErrorCode(error) === 'INCOMING_REQUEST_EXISTS') {
+                await loadUserData();
+            }
         } finally {
             setActionLoading(false);
         }
@@ -158,7 +162,7 @@ export default function UserProfileScreen() {
             
             // We need the request ID, so we fetch incoming again
             const incoming = await usersApi.getIncomingRequests(currentUser!.id, token);
-            const request = incoming.find(req => req.senderId === id);
+            const request = incoming.find((req) => req.requester?.id === id || req.senderId === id);
             if (request) {
                 await usersApi.acceptFriendRequest(request.id, token);
                 setRelationship('friends');
@@ -262,7 +266,8 @@ export default function UserProfileScreen() {
                             <MuteNotificationsButton targetType="USER" targetId={id} />
                         )}
 
-                        {relationship === 'none' && (
+                        {/* canAddFriend is false for an adult viewing a friends-only minor, and true for a minor viewing another minor. */}
+                        {relationship === 'none' && profile.canAddFriend !== false && (
                             <TouchableOpacity
                                 onPress={handleAddFriend}
                                 disabled={actionLoading}
@@ -294,8 +299,7 @@ export default function UserProfileScreen() {
                             </TouchableOpacity>
                         )}
 
-                        {/* Always show Send Message button unless it's yourself */}
-                        {relationship !== 'self' && !isBlocked && (
+                        {relationship !== 'self' && !isBlocked && profile.canMessage !== false && (
                             <TouchableOpacity
                                 onPress={async () => {
                                     try {
@@ -340,15 +344,18 @@ export default function UserProfileScreen() {
                 {/* Additional Info */}
                 <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                     <Text className="font-bold text-gray-900 text-lg mb-4">{t('profile.about', 'About')}</Text>
-                    
-                    {profile.age ? (
+                    {profile.profileRestricted ? (
+                        <Text className="text-gray-500">{t('profile.friendsOnly', 'הפרופיל הזה פתוח לחברים בלבד')}</Text>
+                    ) : null}
+
+                    {!profile.profileRestricted && profile.age ? (
                         <View className="flex-row items-center mb-3">
                             <View className="w-8 items-center"><FontAwesome name="birthday-cake" size={16} color="#9ca3af" /></View>
                             <Text className="text-gray-700">{profile.age} {t('profile.yearsOld', 'years old')}</Text>
                         </View>
                     ) : null}
 
-                    {profile.gender ? (
+                    {!profile.profileRestricted && profile.gender ? (
                         <View className="flex-row items-center mb-3">
                             <View className="w-8 items-center"><FontAwesome name="user" size={16} color="#9ca3af" /></View>
                             <Text className="text-gray-700">
@@ -359,7 +366,7 @@ export default function UserProfileScreen() {
                         </View>
                     ) : null}
 
-                    {profile.sports && profile.sports.length > 0 && (
+                    {!profile.profileRestricted && profile.sports && profile.sports.length > 0 && (
                         <View className="mt-4">
                             <Text className="font-bold text-gray-800 mb-2">{t('profile.favoriteSports', 'Favorite Sports')}</Text>
                             <View className="flex-row flex-wrap">

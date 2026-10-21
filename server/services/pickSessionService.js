@@ -1,5 +1,6 @@
 const { prisma, ROLE_LEVEL, getRoleLevel, mapGameForClient, broadcastGameUpdate } = require('./gameService');
 const gameScheduler = require('./gameScheduler');
+const { publicDisplayName } = require('../utils/publicName');
 
 const TEAM_COLORS = ['#f97316', '#3b82f6', '#ef4444', '#22c55e', '#eab308', '#a855f7', '#1f2937', '#14b8a6'];
 
@@ -114,7 +115,7 @@ async function ensureManagerTeams(gameId, managerIds) {
     where: { id: { in: managerIds } },
     select: { id: true, name: true },
   });
-  const nameById = Object.fromEntries(users.map((u) => [u.id, u.name || u.id]));
+  const nameById = Object.fromEntries(users.map((u) => [u.id, publicDisplayName(u.name, null)]));
 
   let colorIdx = existing.length;
   for (const mid of managerIds) {
@@ -197,7 +198,7 @@ function computeBench(confirmedParticipants, managerIds) {
     .filter((p) => !assigned.has(p.userId) && !managerSet.has(String(p.userId)))
     .map((p) => ({
       id: p.userId,
-      name: p.user?.name || null,
+      name: publicDisplayName(p.user?.name, null),
       avatar: p.user?.imageUrl || null,
     }));
 }
@@ -301,7 +302,7 @@ async function buildPickSessionState(gameId, viewerId) {
   });
   const managers = managerUsers.map((u) => ({
     id: u.id,
-    name: u.name || null,
+    name: publicDisplayName(u.name, null),
     avatar: u.imageUrl || null,
     isOrganizer: u.id === game.organizerId,
   }));
@@ -317,7 +318,7 @@ async function buildPickSessionState(gameId, viewerId) {
       .filter((p) => p.teamId === t.id)
       .map((p) => ({
         id: p.userId,
-        name: p.user?.name || null,
+        name: publicDisplayName(p.user?.name, null),
         avatar: p.user?.imageUrl || null,
       })),
   }));

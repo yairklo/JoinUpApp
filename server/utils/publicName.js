@@ -24,6 +24,12 @@ function publicDisplayName(raw, fallback = 'משתמש') {
   return name;
 }
 
+/** Copy of a {id,name,imageUrl} user projection that is safe to show to others. */
+function publicUser(user, fallback = 'משתמש') {
+  if (!user || typeof user !== 'object') return user;
+  return { ...user, name: publicDisplayName(user.name, fallback) };
+}
+
 function replaceEmails(value, replacement) {
   if (typeof value !== 'string' || !value.includes('@')) return value;
   return value.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, replacement);
@@ -91,10 +97,35 @@ async function redactNotificationFields(prisma, title, body, data = {}) {
   };
 }
 
+/**
+ * Serve-time scrub for a stored notification row. Old rows were written before
+ * names were redacted; replace any email token with `משתמש` without a lookup.
+ */
+function scrubNotificationRecord(row, replacement = 'משתמש') {
+  if (!row || typeof row !== 'object') return row;
+  const data = row.data;
+  let nextData = data;
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    nextData = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'email') continue;
+      nextData[key] = replaceEmails(value, replacement);
+    }
+  }
+  return {
+    ...row,
+    title: replaceEmails(row.title, replacement),
+    body: replaceEmails(row.body, replacement),
+    data: nextData,
+  };
+}
+
 module.exports = {
   isEmailAddress,
   publicDisplayName,
+  publicUser,
   notificationName,
   redactNotificationFields,
   replaceEmails,
+  scrubNotificationRecord,
 };

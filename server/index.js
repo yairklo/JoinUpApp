@@ -38,7 +38,8 @@ const searchRoutes = require('./routes/search');
 const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 const { verifyToken } = require('@clerk/backend');
-const { isPrivateChatBlocked, getBlockersAmong } = require('./utils/blocks');
+const blocks = require('./utils/blocks');
+const { getPrivateChatBlock, getBlockersAmong, ephemeralCuid } = blocks;
 const { checkChatPermission, checkChatPermissionsBatch } = require('./utils/chatAuth');
 const { canSubscribePresence } = require('./utils/presenceAuth');
 const { mapUserToSender } = require('./utils/chatMappers');
@@ -399,6 +400,35 @@ const tempIdDedupe = createTempIdDedupe({
 });
 const SEND_PROCESS_TIMEOUT_MS = 20000;
 
+function aggregateReactions(rows) {
+  const reactions = {};
+  for (const r of rows) {
+    if (!reactions[r.emoji]) {
+      reactions[r.emoji] = { emoji: r.emoji, count: 0, userIds: [] };
+    }
+    reactions[r.emoji].count += 1;
+    reactions[r.emoji].userIds.push(r.userId);
+  }
+  return reactions;
+}
+
+/**
+ * Private-chat block for a socket actor. Group chats are `{ blocked: false }`.
+ * A lookup error fails closed (`{ error: true }`) so a blip cannot deliver typing,
+ * read receipts, reactions, or edits across a block.
+ * Called through `blocks.getPrivateChatBlock` (not a destructured copy) so tests can spy it.
+ */
+async function readPrivateChatBlock(userId, roomId) {
+  try {
+    const block = await blocks.getPrivateChatBlock(userId, roomId);
+    if (!block) return { blocked: false };
+    return { blocked: true, senderIsBlocked: !!block.senderIsBlocked };
+  } catch (e) {
+    console.error('[blocks] private chat block check failed:', e.message);
+    return { error: true };
+  }
+}
+
 io.on('connection', async (socket) => {
   // 1. Auto-join User & City User Rooms & Presence
   if (socket.userId) {
@@ -496,13 +526,6 @@ io.on('connection', async (socket) => {
       const { buildPickSessionState, canAccessPickSession } = require('./services/pickSessionService');
       const allowed = await canAccessPickSession(String(gameId), String(socket.userId));
       if (!allowed) {
-        const g = await prisma.game.findUnique({
-          where: { id: String(gameId) },
-          select: { organizerId: true, roles: { select: { userId: true, role: true } } },
-        });
-        allowed = canManagePickSession(g, String(socket.userId));
-      }
-      if (!allowed) {
         socket.emit('error', 'Unauthorized: managers only');
         return;
       }
@@ -598,15 +621,22 @@ io.on('connection', async (socket) => {
 
     const finalUserId = String(socket.userId);
 
+    // Private-chat block between the pair, in either direction. Nothing is ever persisted or
+    // delivered across it; the checks below still run so a blocked sender gets the same
+    // validation, rate limiting, age gate and moderation trail as anyone else.
+    let block = null;
     try {
-      if (await isPrivateChatBlocked(finalUserId, String(roomId))) {
-        fail('You cannot message this user', 'USER_BLOCKED', false);
-        return;
-      }
+      block = await getPrivateChatBlock(finalUserId, String(roomId));
     } catch (e) {
       // Fail closed: if we cannot tell whether the pair is blocked, do not deliver.
       console.error('[blocks] private chat block check failed:', e.message);
       fail('Could not send message', 'SEND_FAILED', true);
+      return;
+    }
+    if (block && !block.senderIsBlocked) {
+      // The sender blocked the other person. NOT retryable: older app builds retry
+      // retryable failures in a loop, and this will never succeed until they unblock.
+      fail('Could not send message', 'SEND_FAILED', false);
       return;
     }
 
@@ -646,6 +676,31 @@ io.on('connection', async (socket) => {
       // Fail closed: if we cannot tell who receives this (or whether they are minors), do not deliver.
       console.error('[MODERATION] Recipient/age lookup failed:', e.message);
       fail('Could not send message', 'SEND_FAILED', true);
+      return;
+    }
+
+    if (block && block.senderIsBlocked && initialStatus !== 'blocked') {
+      // The sender is the blocked party and moderation found nothing: ack like an ordinary
+      // send so the response does not reveal the block. Only this user's own sockets see it.
+      // Not stored (the other person's history must not contain it), so it is gone on reload.
+      const name = publicDisplayName(senderUser?.name, null) || publicDisplayName(senderName, null) || 'משתמש';
+      const echo = {
+        id: ephemeralCuid(),
+        text: String(text),
+        senderId: finalUserId,
+        senderName: name,
+        ts: new Date().toISOString(),
+        roomId: String(roomId),
+        userId: finalUserId,
+        status: 'sent',
+        tempId,
+        sender: { id: finalUserId, name, image: senderUser?.imageUrl || null },
+      };
+      // The quote is only echoed to this user's own sockets.
+      if (replyTo && typeof replyTo === 'object') echo.replyTo = replyTo;
+      if (dedupeKey) { echoStored = true; tempIdDedupe.storeEcho(dedupeKey, echo); }
+      io.to(`user_${finalUserId}`).emit('message', echo);
+      io.to(`user_${finalUserId}`).emit('message:received', { ...echo, chatId: echo.roomId, content: echo.text });
       return;
     }
 
@@ -841,6 +896,36 @@ io.on('connection', async (socket) => {
         socket.emit('error', 'Unauthorized access to room');
         return;
       }
+
+      const gate = await readPrivateChatBlock(userId, chatId);
+      if (gate.error) {
+        socket.emit('error', 'Could not send message');
+        return;
+      }
+      if (gate.blocked) {
+        // The blocked party still sees their own toggle. Nothing is stored, and the
+        // room (the other person) is not told. The blocker gets silence — no block code.
+        if (gate.senderIsBlocked) {
+          const allReactions = await prisma.reaction.findMany({
+            where: { messageId: String(messageId) },
+          });
+          const rows = allReactions.map((r) => ({ emoji: r.emoji, userId: r.userId }));
+          const mineIndex = rows.findIndex((r) => r.userId === userId);
+          if (mineIndex >= 0) {
+            if (rows[mineIndex].emoji === emoji) rows.splice(mineIndex, 1);
+            else rows[mineIndex] = { emoji, userId };
+          } else {
+            rows.push({ emoji, userId });
+          }
+          io.to(`user_${userId}`).emit('messageReaction', {
+            messageId,
+            reactions: aggregateReactions(rows),
+            roomId: chatId,
+          });
+        }
+        return;
+      }
+
       // Toggle reaction
       // Check for ANY existing reaction by this user on this message
       const existing = await prisma.reaction.findFirst({
@@ -877,14 +962,7 @@ io.on('connection', async (socket) => {
         where: { messageId: String(messageId) }
       });
 
-      const reactions = {};
-      for (const r of allReactions) {
-        if (!reactions[r.emoji]) {
-          reactions[r.emoji] = { emoji: r.emoji, count: 0, userIds: [] };
-        }
-        reactions[r.emoji].count += 1;
-        reactions[r.emoji].userIds.push(r.userId);
-      }
+      const reactions = aggregateReactions(allReactions);
 
       const payload = { messageId, reactions, roomId: chatId };
       io.to(chatId).emit('messageReaction', payload);
@@ -909,6 +987,9 @@ io.on('connection', async (socket) => {
     const name = typeof data === 'object' ? data.userName : undefined;
     if (!rid) return;
     if (!(await checkChatPermission(socket.userId, String(rid)))) return;
+    // Either direction, and a failed lookup: the other side hears nothing.
+    const typingGate = await readPrivateChatBlock(socket.userId, String(rid));
+    if (typingGate.error || typingGate.blocked) return;
     const event = {
       senderId: socket.userId ? String(socket.userId) : String(socket.id),
       userName: name,
@@ -941,6 +1022,19 @@ io.on('connection', async (socket) => {
     if (!(await checkChatPermission(userId, String(roomId)))) return;
 
     try {
+      // Either direction: do not emit a receipt. The status column IS the receipt
+      // (GET /messages returns it), so leaving it unread is required — an update
+      // without the socket event would still show blue ticks on the next load.
+      // A failed lookup fails closed the same way.
+      const readGate = await readPrivateChatBlock(userId, String(roomId));
+      if (readGate.error) return;
+      if (readGate.blocked) {
+        // Receipts stay untouched, but the reader's own badge must still refresh: unread
+        // counts ignore people they blocked, so opening the chat clears the old badge.
+        broadcastCounters(io, prisma, userId).catch(() => {});
+        return;
+      }
+
       // 1. Update in DB: Mark all messages in this room NOT sent by me as 'read'
       const marked = await prisma.message.updateMany({
         where: {
@@ -1033,6 +1127,26 @@ io.on('connection', async (socket) => {
         };
         io.to(`user_${socket.userId}`).emit('message', echo);
         io.to(`user_${socket.userId}`).emit('message:received', { ...echo, chatId: exists.chatRoomId, content: echo.text });
+        return;
+      }
+
+      // User-block gate runs after moderation so an adult→minor edit is still recorded.
+      // The blocked party sees the edit on their own sockets only; nothing is stored.
+      // The blocker is dropped with no block-specific error. A lookup failure stores nothing.
+      const editGate = await readPrivateChatBlock(String(socket.userId), exists.chatRoomId);
+      if (editGate.error) {
+        socket.emit('error', 'Could not send message');
+        return;
+      }
+      if (editGate.blocked) {
+        if (editGate.senderIsBlocked && String(exists.text) !== String(text)) {
+          io.to(`user_${socket.userId}`).emit('messageUpdated', {
+            id: messageId,
+            text: String(text),
+            isEdited: true,
+            roomId: exists.chatRoomId,
+          });
+        }
         return;
       }
 
@@ -1277,7 +1391,8 @@ app.use((err, req, res, next) => {
     message: err.message,
     stack: err.stack,
   }));
-  captureException(err, { requestId, path: req.originalUrl, method: req.method });
+  // Path only: query strings can carry search terms such as an email address.
+  captureException(err, { requestId, path: String(req.originalUrl || '').split('?')[0], method: req.method });
   const payload = { error: 'Something went wrong!', requestId };
   if (process.env.NODE_ENV !== 'production') payload.message = err.message;
   res.status(500).json(payload);
