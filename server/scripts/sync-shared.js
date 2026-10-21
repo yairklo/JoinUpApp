@@ -1,6 +1,6 @@
 // Vendors the shared/ modules server actually requires into server/shared/, since Render's
 // Docker build context is scoped to server/ and can't COPY anything from the sibling shared/
-// directory at the repo root. Run this after editing shared/{timezone,sports,upload,cityAliases,notificationPrefs,ageGate}.js and
+// directory at the repo root. Run this after editing shared/{timezone,sports,upload,cityAliases,notificationPrefs,ageGate,matchStats}.js and
 // commit the result -- server/shared/ is generated, not hand-edited.
 const fs = require('fs');
 const path = require('path');

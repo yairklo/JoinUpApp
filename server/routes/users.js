@@ -18,6 +18,12 @@ const {
   getUserRatingSummary,
   validateScore,
 } = require('../utils/ratings');
+const {
+  getStatsVisibility,
+  getUserStats,
+  getStatsSummary,
+  attachResults,
+} = require('../services/userStatsService');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { notificationName, publicDisplayName } = require('../utils/publicName');
 const {
@@ -191,9 +197,12 @@ router.get('/notifications/counts', authenticateToken, async (req, res) => {
 // Static path registered before '/:id' routes to avoid param capture.
 router.put('/profile/settings', authenticateToken, async (req, res) => {
   try {
-    const { privacyFriends, privacyGames, privacyMessages, hideGroups } = req.body || {};
+    const { privacyFriends, privacyGames, privacyMessages, hideGroups, hideMatchStats } = req.body || {};
     if (typeof hideGroups !== 'undefined' && typeof hideGroups !== 'boolean') {
       return res.status(400).json({ error: 'Invalid value for hideGroups' });
+    }
+    if (typeof hideMatchStats !== 'undefined' && typeof hideMatchStats !== 'boolean') {
+      return res.status(400).json({ error: 'Invalid value for hideMatchStats' });
     }
 
     const validate = (v, field) => {
@@ -210,6 +219,7 @@ router.put('/profile/settings', authenticateToken, async (req, res) => {
         ...(typeof privacyGames !== 'undefined' ? { privacyGames: validate(privacyGames, 'privacyGames') } : {}),
         ...(typeof privacyMessages !== 'undefined' ? { privacyMessages: validate(privacyMessages, 'privacyMessages') } : {}),
         ...(typeof hideGroups !== 'undefined' ? { hideGroups } : {}),
+        ...(typeof hideMatchStats !== 'undefined' ? { hideMatchStats } : {}),
       };
     } catch (validationErr) {
       return res.status(400).json({ error: validationErr.message });
@@ -224,11 +234,13 @@ router.put('/profile/settings', authenticateToken, async (req, res) => {
         privacyGames: true,
         privacyMessages: true,
         hideGroups: true,
+        hideMatchStats: true,
       },
     });
 
     res.json({
       hideGroups: updated.hideGroups,
+      hideMatchStats: updated.hideMatchStats,
       privacyFriends: updated.privacyFriends,
       privacyGames: updated.privacyGames,
       privacyMessages: updated.privacyMessages,
@@ -795,7 +807,13 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
         }),
       ]);
 
-      payload.matchHistory = participations.map((p) => p.game);
+      const stats = await getStatsVisibility(viewerId, user, { isFriend });
+      const history = participations.map((p) => p.game);
+      payload.matchHistory = stats.visible ? await attachResults(targetId, history) : history;
+      if (stats.visible) {
+        const summary = await getStatsSummary(targetId);
+        if (summary) payload.statsSummary = summary;
+      }
       payload.sportStats = grouped.map((g) => ({ sport: g.sport, count: g._count._all }));
     }
 
@@ -803,6 +821,7 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     if (isOwner) {
       payload.privacySettings = {
         hideGroups: user.hideGroups,
+        hideMatchStats: user.hideMatchStats,
         privacyFriends: user.privacyFriends,
         privacyGames: user.privacyGames,
         privacyMessages: user.privacyMessages,
@@ -822,6 +841,25 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
   }
 });
 
+// Aggregated match stats per sport (privacy-enforced; hidden stub instead of 403 so clients can show why).
+router.get('/:id/stats', attachOptionalUser, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    if (RESERVED_USER_IDS.has(targetId)) return res.status(404).json({ error: 'User not found' });
+    const sport = typeof req.query.sport === 'string' && req.query.sport ? req.query.sport.toUpperCase() : undefined;
+    const user = await prisma.user.findUnique({
+      where: { id: targetId },
+      select: { id: true, birthDate: true, privacyGames: true, hideMatchStats: true },
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(await getUserStats(req.user?.id || null, user, { sport }));
+  } catch (error) {
+    if (error.status === 400) return res.status(400).json({ error: error.message });
+    console.error('Get user stats error:', error);
+    res.status(500).json({ error: 'Failed to load stats' });
+  }
+});
+
 // Paginated match history (privacy-enforced). Used by the profile "Load More" button.
 router.get('/:id/match-history', attachOptionalUser, async (req, res) => {
   try {
@@ -831,7 +869,7 @@ router.get('/:id/match-history', attachOptionalUser, async (req, res) => {
 
     const user = await prisma.user.findUnique({
       where: { id: targetId },
-      select: { birthDate: true, privacyGames: true },
+      select: { id: true, birthDate: true, privacyGames: true, hideMatchStats: true },
     });
     if (!user) return res.json([]);
 
@@ -852,7 +890,9 @@ router.get('/:id/match-history', attachOptionalUser, async (req, res) => {
       take,
     });
 
-    res.json(participations.map((p) => p.game));
+    const games = participations.map((p) => p.game);
+    const stats = await getStatsVisibility(viewerId, user, { isFriend });
+    res.json(stats.visible ? await attachResults(targetId, games) : games);
   } catch (error) {
     console.error('Match history pagination error:', error);
     res.status(500).json({ error: 'Failed to load match history' });

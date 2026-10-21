@@ -97,3 +97,8 @@ To make the hand-off cheap:
 ## 8. Revisions after review (2026-10-21)
 
 Applied: stats self-reported + same privacy gate on game page; result entry only after `start + duration`, status COMPLETED, or an explicit manager "finish game"; lock counted from first write; `PlayerStatEntry.sideId` becomes a real FK (`SetNull`) and sides are upserted by `[resultId, order]`; `UserReport.tournamentId`; one ACCEPTED team per player via partial unique index (invites unrestricted); `TournamentTeam.manualRank` and rule that `GROUP_RANK` resolves only when the group is finished; join code rotation/expiry; `openToMinors=false` enforced in v1; scheduler works in Asia/Jerusalem incl. DST; standings cache removed; F1 steps renumbered. Schema corrections ship as a follow-up migration on the integration branch.
+
+## 9. Scope and ordering decision (owner, 2026-10-21)
+
+- Tournament scope stays FULL as planned (all formats, self-registration, waitlist, SCOREKEEPER, auto-scheduler).
+- Ordering: tournament **server + shared** work continues in parallel, but **Feature 1 UI (web + mobile) is finished first**; tournament web/mobile UI starts only after Feature 1 UI is merged into the integration branch. D0 for Feature 1 happens before its UI work; D1 on the real Feature 1 screens on Dev; tournament D0 afterwards.
