@@ -3,6 +3,7 @@ const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { canCreateTournament } = require('../utils/tournamentAccess');
 const svc = require('../services/tournamentService');
 const teams = require('../services/tournamentTeamService');
+const schedule = require('../services/tournamentScheduleService');
 
 const router = express.Router();
 
@@ -111,6 +112,34 @@ router.post('/:id/join/:joinCode', authenticateToken, handle(async (req) => {
   const out = await teams.joinByCode(req.user, req.params.id, req.params.joinCode);
   emit(req, 'teams');
   return { member: out.member, team: out.team };
+}));
+
+// ---- schedule & matches ------------------------------------------------------------------
+router.post('/:id/schedule/generate', authenticateToken, handle(async (req) => {
+  const preview = req.query.preview === '1' || req.query.preview === 'true';
+  const out = await schedule.generateSchedule(req.user, req.params.id, req.body, { preview });
+  if (!preview) emit(req, 'schedule');
+  const { t, ...rest } = out;
+  return rest;
+}));
+
+router.post('/:id/matches', authenticateToken, handle(async (req, res) => {
+  const out = await schedule.createMatch(req.user, req.params.id, req.body);
+  emit(req, 'schedule', { matchId: out.match.id });
+  res.status(201);
+  return { match: out.match, conflicts: out.conflicts };
+}));
+
+router.patch('/:id/matches/:matchId', authenticateToken, handle(async (req) => {
+  const out = await schedule.updateMatch(req.user, req.params.id, req.params.matchId, req.body);
+  emit(req, 'schedule', { matchId: req.params.matchId });
+  return { match: out.match, conflicts: out.conflicts };
+}));
+
+router.delete('/:id/matches/:matchId', authenticateToken, handle(async (req) => {
+  await schedule.deleteMatch(req.user, req.params.id, req.params.matchId);
+  emit(req, 'schedule', { matchId: req.params.matchId });
+  return { ok: true };
 }));
 
 module.exports = router;
