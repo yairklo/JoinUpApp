@@ -1,6 +1,6 @@
 ---
 description: Prisma schema, migrations, and Neon connection lessons
-globs: server/prisma/**,server/lib/prisma.js,**/schema.prisma
+globs: server/prisma/**,server/lib/prisma.js,**/schema.prisma,server/scripts/seedDev.js,server/scripts/seedDevGuard.js,docs/dev-seed.md
 alwaysApply: false
 ---
 
@@ -17,6 +17,14 @@ alwaysApply: false
   migration. If only `schema.prisma` is updated, `notification.create` fails silently while the rest
   of the request (e.g. a roster join) still succeeds — users appear added with no notification.
   Fix: update `schema.prisma` AND add an `ALTER TYPE ... ADD VALUE` migration in the same change.
+
+## Dev seed must not be able to reach production
+- `scripts/seedDevGuard.js` checks **both** `DATABASE_URL` and `DIRECT_DATABASE_URL`. `prisma migrate deploy` uses `directUrl`. After `-pooler` is stripped they must be the same host and database name, and `DIRECT_DATABASE_URL` must not itself be a pooler host.
+- Compare `PROD_DATABASE_URL` by that canonical host (pooled and direct variants), not by exact string.
+- A remote seed requires `SEED_ALLOWED_DB_HOST` equal to that host, plus a pre-created `joinup_dev_seed_marker` row (`id = 'dev'`). The seed must not insert the marker itself. `JOINUP_SEED_CONFIRM=dev` does not identify the dev database.
+- Auto-allow tokens (`dev`, `preview`, `staging`, `test`, `branch`, `ci`) match a whole dot/hyphen/underscore segment only. `precious`, `ancient`, and `contest` are not dev hosts.
+- `seedDev.js` must not load `server/.env` implicitly. It sets `JOINUP_SKIP_DOTENV=1` before requiring `lib/prisma.js`. Operators export variables or pass `--env-file`.
+- `resetSeed` deletes games whose `fieldId` is a seed field or whose `seriesId` is a seed group (the weekly job creates random ids), including participations, roles, teams, trades, ratings, and chat rooms, and deletes `FavoriteField` rows for those fields before `field.deleteMany`.
 
 ## Stale generated client
 - If `gameService` (or any service) writes a field present in `schema.prisma` but the local
