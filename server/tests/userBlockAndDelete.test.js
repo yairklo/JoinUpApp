@@ -31,7 +31,61 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { prisma } = require('../services/gameService');
-const { app } = require('../index');
+const { app, io } = require('../index');
+
+// Drive the socket handlers without a Clerk handshake: the connection listener registers
+// them on the socket we pass in. `io.to().emit` goes through the adapter, which this records.
+function installBroadcastCapture(serverIo) {
+  const events = [];
+  const adapter = serverIo.of('/').adapter;
+  const original = adapter.broadcast.bind(adapter);
+  adapter.broadcast = (packet, opts) => {
+    const data = packet && packet.data;
+    if (Array.isArray(data) && data.length) {
+      events.push({
+        event: data[0],
+        payload: data[1],
+        rooms: opts && opts.rooms ? [...opts.rooms].map(String) : [],
+      });
+    }
+    return original(packet, opts);
+  };
+  return {
+    events,
+    restore() { adapter.broadcast = original; },
+  };
+}
+
+async function connectSocket(serverIo, userId) {
+  const local = [];
+  const handlers = {};
+  const socket = {
+    id: `sock_${userId}_${Math.random().toString(36).slice(2, 8)}`,
+    userId,
+    data: {},
+    rooms: new Set(),
+    handshake: {},
+    join(room) { this.rooms.add(String(room)); },
+    leave(room) { this.rooms.delete(String(room)); },
+    emit(event, payload) { local.push({ event, payload }); },
+    to(room) {
+      const target = String(room);
+      return {
+        emit: (event, payload) => {
+          local.push({ event, payload, room: target, broadcast: true });
+        },
+      };
+    },
+    on(event, fn) { handlers[event] = fn; },
+  };
+  const [onConnection] = serverIo.listeners('connection');
+  if (!onConnection) throw new Error('socket connection listener missing');
+  await onConnection(socket);
+  if (!handlers.typing || !handlers.addReaction || !handlers.editMessage || !handlers.markAsRead) {
+    throw new Error('socket handlers were not registered');
+  }
+  return { handlers, local };
+}
 
 const ids = ['blk_user_a', 'blk_user_b', 'blk_user_c'];
 const roomId = `test_block_room_${Date.now()}`;
@@ -273,6 +327,215 @@ describe('user block + account deletion', () => {
       await prisma.chatParticipant.deleteMany({ where: { chatId: { in: [privateRoomId, openRoomId] } } });
       await prisma.chatRoom.deleteMany({ where: { id: { in: [privateRoomId, openRoomId] } } });
     }
+  });
+
+  describe('socket events in a private chat with a block', () => {
+    const privateRoomId = `test_dm_socket_${Date.now()}`;
+    let msgFromA;
+    let msgFromB;
+    let groupFromA;
+    let groupFromB;
+    let capture;
+    let actorA;
+    let actorB;
+
+    const named = (events, event) => events.filter((e) => e.event === event);
+
+    beforeAll(async () => {
+      await prisma.userBlock.upsert({
+        where: { blockerId_blockedId: { blockerId: 'blk_user_a', blockedId: 'blk_user_b' } },
+        update: {},
+        create: { blockerId: 'blk_user_a', blockedId: 'blk_user_b' },
+      });
+      await prisma.chatRoom.create({
+        data: {
+          id: privateRoomId,
+          type: 'PRIVATE',
+          participants: { create: [{ userId: 'blk_user_a' }, { userId: 'blk_user_b' }] },
+        },
+      });
+      msgFromA = await prisma.message.create({
+        data: { chatRoomId: privateRoomId, text: 'private from A', userId: 'blk_user_a', status: 'sent' },
+      });
+      msgFromB = await prisma.message.create({
+        data: { chatRoomId: privateRoomId, text: 'private from B', userId: 'blk_user_b', status: 'sent' },
+      });
+      groupFromA = await prisma.message.create({
+        data: { chatRoomId: roomId, text: 'group from A', userId: 'blk_user_a', status: 'sent' },
+      });
+      groupFromB = await prisma.message.create({
+        data: { chatRoomId: roomId, text: 'group from B', userId: 'blk_user_b', status: 'sent' },
+      });
+      capture = installBroadcastCapture(io);
+      actorA = await connectSocket(io, 'blk_user_a');
+      actorB = await connectSocket(io, 'blk_user_b');
+    });
+
+    afterAll(async () => {
+      if (capture) capture.restore();
+      await prisma.userBlock.deleteMany({ where: { blockerId: 'blk_user_b', blockedId: 'blk_user_a' } });
+      await prisma.reaction.deleteMany({ where: { messageId: { in: [groupFromA?.id, groupFromB?.id].filter(Boolean) } } });
+      await prisma.message.deleteMany({ where: { id: { in: [groupFromA?.id, groupFromB?.id].filter(Boolean) } } });
+      await prisma.message.deleteMany({ where: { chatRoomId: privateRoomId } });
+      await prisma.chatParticipant.deleteMany({ where: { chatId: privateRoomId } });
+      await prisma.chatRoom.deleteMany({ where: { id: privateRoomId } });
+    });
+
+    beforeEach(() => {
+      if (capture) capture.events.length = 0;
+      if (actorA) actorA.local.length = 0;
+      if (actorB) actorB.local.length = 0;
+    });
+
+    test('typing reaches a group chat and stops at a private block, both ways', async () => {
+      await actorB.handlers.typing({ isTyping: true, roomId: privateRoomId, userName: 'B' });
+      await actorA.handlers.typing({ isTyping: false, roomId: privateRoomId, userName: 'A' });
+      expect(actorB.local.filter((e) => e.broadcast)).toEqual([]);
+      expect(actorA.local.filter((e) => e.broadcast)).toEqual([]);
+      expect(named(capture.events, 'typing')).toEqual([]);
+      expect(named(capture.events, 'typing:start')).toEqual([]);
+      expect(named(capture.events, 'typing:stop')).toEqual([]);
+
+      await actorB.handlers.typing({ isTyping: true, roomId, userName: 'B' });
+      const sent = actorB.local.filter((e) => e.broadcast);
+      expect(sent.map((e) => e.event).sort()).toEqual(['typing', 'typing:start']);
+      expect(sent.every((e) => e.room === roomId)).toBe(true);
+    });
+
+    test('reactions are not stored across a private block, and a group reaction still is', async () => {
+      await actorB.handlers.addReaction({ messageId: msgFromA.id, emoji: '👍', roomId: privateRoomId });
+      expect(await prisma.reaction.count({ where: { messageId: msgFromA.id, userId: 'blk_user_b' } })).toBe(0);
+      const echoes = named(capture.events, 'messageReaction');
+      expect(echoes).toHaveLength(1);
+      expect(echoes[0].rooms).toEqual(['user_blk_user_b']);
+      expect(echoes[0].payload.reactions['👍'].userIds).toContain('blk_user_b');
+      expect(JSON.stringify(echoes[0].payload).toLowerCase()).not.toMatch(/block/);
+
+      capture.events.length = 0;
+      await actorA.handlers.addReaction({ messageId: msgFromB.id, emoji: '🔥', roomId: privateRoomId });
+      expect(await prisma.reaction.count({ where: { messageId: msgFromB.id } })).toBe(0);
+      expect(named(capture.events, 'messageReaction')).toEqual([]);
+      expect(JSON.stringify(actorA.local).toLowerCase()).not.toMatch(/block/);
+
+      capture.events.length = 0;
+      await actorB.handlers.addReaction({ messageId: groupFromA.id, emoji: '✅', roomId });
+      expect(await prisma.reaction.count({
+        where: { messageId: groupFromA.id, userId: 'blk_user_b', emoji: '✅' },
+      })).toBe(1);
+      expect(named(capture.events, 'messageReaction').some((e) => e.rooms.includes(roomId))).toBe(true);
+    });
+
+    test('a mutual block still echoes the reaction only to the actor', async () => {
+      await prisma.userBlock.upsert({
+        where: { blockerId_blockedId: { blockerId: 'blk_user_b', blockedId: 'blk_user_a' } },
+        update: {},
+        create: { blockerId: 'blk_user_b', blockedId: 'blk_user_a' },
+      });
+      try {
+        await actorA.handlers.addReaction({ messageId: msgFromB.id, emoji: '❤️', roomId: privateRoomId });
+        expect(await prisma.reaction.count({ where: { messageId: msgFromB.id, userId: 'blk_user_a' } })).toBe(0);
+        const echoes = named(capture.events, 'messageReaction');
+        expect(echoes).toHaveLength(1);
+        expect(echoes[0].rooms).toEqual(['user_blk_user_a']);
+        expect(echoes[0].rooms).not.toContain(privateRoomId);
+      } finally {
+        await prisma.userBlock.deleteMany({ where: { blockerId: 'blk_user_b', blockedId: 'blk_user_a' } });
+      }
+    });
+
+    test('edits are not stored across a private block, and a group edit still is', async () => {
+      await actorB.handlers.editMessage({ messageId: msgFromB.id, text: 'secret edit', roomId: privateRoomId });
+      const hidden = await prisma.message.findUnique({ where: { id: msgFromB.id } });
+      expect(hidden.text).toEqual('private from B');
+      expect(hidden.isEdited).toBe(false);
+      expect(await prisma.messageEdit.count({ where: { messageId: msgFromB.id } })).toBe(0);
+      const echoes = named(capture.events, 'messageUpdated');
+      expect(echoes).toHaveLength(1);
+      expect(echoes[0].rooms).toEqual(['user_blk_user_b']);
+      expect(echoes[0].payload).toMatchObject({
+        id: msgFromB.id,
+        text: 'secret edit',
+        isEdited: true,
+        roomId: privateRoomId,
+      });
+      expect(JSON.stringify(echoes[0].payload).toLowerCase()).not.toMatch(/block/);
+
+      capture.events.length = 0;
+      await actorA.handlers.editMessage({ messageId: msgFromA.id, text: 'blocker edit', roomId: privateRoomId });
+      const kept = await prisma.message.findUnique({ where: { id: msgFromA.id } });
+      expect(kept.text).toEqual('private from A');
+      expect(kept.isEdited).toBe(false);
+      expect(named(capture.events, 'messageUpdated')).toEqual([]);
+      expect(JSON.stringify(actorA.local).toLowerCase()).not.toMatch(/block/);
+
+      capture.events.length = 0;
+      await actorB.handlers.editMessage({ messageId: groupFromB.id, text: 'group edited', roomId });
+      const edited = await prisma.message.findUnique({ where: { id: groupFromB.id } });
+      expect(edited.text).toEqual('group edited');
+      expect(edited.isEdited).toBe(true);
+      expect(named(capture.events, 'messageUpdated').some((e) => e.rooms.includes(roomId))).toBe(true);
+    });
+
+    test('read receipts stop at a private block and still fire in a group', async () => {
+      await actorB.handlers.markAsRead({ roomId: privateRoomId });
+      await actorA.handlers.markAsRead({ roomId: privateRoomId });
+      expect(named(capture.events, 'messageStatusUpdate')).toEqual([]);
+      expect((await prisma.message.findUnique({ where: { id: msgFromA.id } })).status).toEqual('sent');
+      expect((await prisma.message.findUnique({ where: { id: msgFromB.id } })).status).toEqual('sent');
+
+      capture.events.length = 0;
+      await actorB.handlers.markAsRead({ roomId });
+      const receipts = named(capture.events, 'messageStatusUpdate');
+      expect(receipts.some((e) => e.rooms.includes(roomId) && e.payload.roomId === roomId && e.payload.status === 'read')).toBe(true);
+      expect((await prisma.message.findUnique({ where: { id: groupFromA.id } })).status).toEqual('read');
+    });
+
+    test('a blocked sender keeps the quote on the fake sent echo', async () => {
+      await actorB.handlers.message({
+        text: 'quoted ping',
+        roomId: privateRoomId,
+        senderName: 'B',
+        tempId: 'tmp-reply-1',
+        replyTo: { id: msgFromA.id, text: 'private from A', senderName: 'A' },
+      });
+      const echoed = named(capture.events, 'message').filter((e) => e.rooms.includes('user_blk_user_b'));
+      expect(echoed.length).toBeGreaterThan(0);
+      expect(echoed[0].payload.replyTo).toMatchObject({
+        id: msgFromA.id,
+        text: 'private from A',
+        senderName: 'A',
+      });
+      expect(echoed[0].payload.status).toEqual('sent');
+      expect(named(capture.events, 'message').some((e) => e.rooms.includes(privateRoomId))).toBe(false);
+      expect(await prisma.message.findFirst({ where: { chatRoomId: privateRoomId, text: 'quoted ping' } })).toBeNull();
+    });
+
+    test('a failed block lookup does not deliver typing, reactions, edits, or read receipts', async () => {
+      const blocks = require('../utils/blocks');
+      const spy = jest.spyOn(blocks, 'getPrivateChatBlock').mockRejectedValue(new Error('lookup down'));
+      try {
+        await actorB.handlers.typing({ isTyping: true, roomId: privateRoomId, userName: 'B' });
+        expect(actorB.local.filter((e) => e.broadcast)).toEqual([]);
+
+        await actorB.handlers.addReaction({ messageId: msgFromA.id, emoji: '❌', roomId: privateRoomId });
+        expect(await prisma.reaction.count({ where: { messageId: msgFromA.id, userId: 'blk_user_b' } })).toBe(0);
+        expect(named(capture.events, 'messageReaction')).toEqual([]);
+
+        await actorB.handlers.editMessage({ messageId: msgFromB.id, text: 'should not land', roomId: privateRoomId });
+        expect((await prisma.message.findUnique({ where: { id: msgFromB.id } })).text).toEqual('private from B');
+        expect(named(capture.events, 'messageUpdated')).toEqual([]);
+
+        await actorB.handlers.markAsRead({ roomId: privateRoomId });
+        expect((await prisma.message.findUnique({ where: { id: msgFromA.id } })).status).toEqual('sent');
+        expect(named(capture.events, 'messageStatusUpdate')).toEqual([]);
+
+        const leaked = JSON.stringify(actorB.local).toLowerCase();
+        expect(leaked).not.toMatch(/block/);
+        expect(leaked).not.toMatch(/user_blocked/);
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   test('list and unblock', async () => {
