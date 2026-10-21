@@ -10,6 +10,8 @@ import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 import MuteNotificationsButton from '@/components/MuteNotificationsButton';
 import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
+import ProfileStats from '@/components/ProfileStats';
+import MatchResultBadge from '@/components/MatchResultBadge';
 
 const PAGE_SIZE = 5;
 
@@ -427,6 +429,9 @@ export default function UserProfileScreen() {
                     </View>
                 )}
 
+                {/* Match stats: the card hides itself when the server says they are not visible */}
+                {typeof id === 'string' && !profile.profileRestricted && <ProfileStats userId={id} />}
+
                 {/* Match history (privacy-filtered) */}
                 {profile.sections?.matchHistory && profile.matchHistory && (
                     <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
@@ -463,6 +468,7 @@ export default function UserProfileScreen() {
                                             <Text className="text-gray-800 font-medium">{m.title || sportLabel || t('search.game', 'משחק')}</Text>
                                             <Text className="text-gray-500 text-xs mt-0.5">{meta}</Text>
                                         </View>
+                                        <MatchResultBadge gameId={m.id} result={m.result} sport={m.sport} compact />
                                     </TouchableOpacity>
                                 );
                             })

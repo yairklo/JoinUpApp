@@ -25,6 +25,7 @@ export default function PrivacySettingsScreen() {
     });
     // Age-based default per field; fixed for the user, so the default option label never changes.
     const [hideGroups, setHideGroups] = useState(false);
+    const [hideMatchStats, setHideMatchStats] = useState(false);
     const [ageDefaults, setAgeDefaults] = useState<PrivacySettings['ageDefaults'] | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -58,6 +59,7 @@ export default function PrivacySettingsScreen() {
                         privacyMessages: ps.privacyMessages ?? 'DEFAULT',
                     });
                     setHideGroups(!!ps.hideGroups);
+                    setHideMatchStats(!!ps.hideMatchStats);
                     setAgeDefaults(ps.ageDefaults ?? null);
                 }
             } catch (e) {
@@ -75,6 +77,7 @@ export default function PrivacySettingsScreen() {
             const saved = await usersApi.updatePrivacySettings(
                 {
                     hideGroups,
+                    hideMatchStats,
                     privacyFriends: values.privacyFriends === 'DEFAULT' ? null : values.privacyFriends,
                     privacyGames: values.privacyGames === 'DEFAULT' ? null : values.privacyGames,
                     privacyMessages: values.privacyMessages === 'DEFAULT' ? null : values.privacyMessages,
@@ -134,6 +137,20 @@ export default function PrivacySettingsScreen() {
                     <View className="flex-row items-center justify-between bg-white rounded-2xl border border-gray-100 px-4 py-3 mb-6">
                         <Text className="font-bold text-gray-800 flex-1">{t('privacy.hideGroups', 'הסתר את הקבוצות שלי בפרופיל')}</Text>
                         <Switch value={hideGroups} onValueChange={setHideGroups} />
+                    </View>
+
+                    <View className="flex-row items-center justify-between bg-white dark:bg-cyber-card rounded-2xl border border-gray-100 dark:border-cyber-border px-4 py-3 mb-6">
+                        <View className="flex-1 me-3">
+                            <Text className="font-bold text-gray-800 dark:text-cyber-text">{t('privacy.hideMatchStats')}</Text>
+                            <Text className="text-xs text-gray-500 dark:text-cyber-muted mt-1">{t('privacy.hideMatchStatsHint')}</Text>
+                        </View>
+                        <Switch
+                            testID="settings-hide-match-stats"
+                            value={hideMatchStats}
+                            onValueChange={setHideMatchStats}
+                            accessibilityLabel={t('privacy.hideMatchStats')}
+                            accessibilityHint={t('privacy.hideMatchStatsHint')}
+                        />
                     </View>
 
                     <TouchableOpacity

@@ -22,6 +22,15 @@ export interface ProfileMatch {
     start: string;
     date?: string;
     time?: string;
+    /** Present only when the user has a recorded result for this game and stats are visible. */
+    result?: ProfileMatchResult | null;
+}
+
+/** `score` is "mine-theirs" (e.g. "3-2"); `outcome` is null when the player has stats but no side. */
+export interface ProfileMatchResult {
+    outcome: 'WIN' | 'DRAW' | 'LOSS' | null;
+    score: string | null;
+    myStats: Record<string, number>;
 }
 
 export interface ProfileGroup {

@@ -16,6 +16,7 @@ import { SPORT_MAPPING } from '@/utils/sports';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useMyAvatar, useMyName, notifyAvatarChanged, notifyNameChanged } from '@/hooks/useMyAvatar';
 import { pickOneImage } from '@/utils/pickImage';
+import ProfileStats from '@/components/ProfileStats';
 
 const getPositionOptions = (t: any): Record<string, string[]> => ({
     SOCCER: [
@@ -707,6 +708,13 @@ export default function ProfileScreen() {
                         })()}
                     </View>
                 </View>
+
+                {/* Own match stats; banner shows when hidden from others */}
+                {user?.id ? (
+                    <View className="mx-4 mb-4">
+                        <ProfileStats userId={user.id} isOwner ownerHidden={profile?.privacySettings?.hideMatchStats} />
+                    </View>
+                ) : null}
 
                 {/* Bug Report / Feedback */}
                 <TouchableOpacity
