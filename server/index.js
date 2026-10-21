@@ -211,6 +211,7 @@ console.log('✅ [ROUTES] Notification routes mounted at /api/notifications');
 app.use('/api/chats', require('./routes/chats'));
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/tournaments', require('./routes/tournaments'));
 app.use('/api/field-suggestions', require('./routes/fieldSuggestions'));
 
 // 'on' = jobs running here, 'standby' = waiting for the leader lock, 'off' = disabled.
