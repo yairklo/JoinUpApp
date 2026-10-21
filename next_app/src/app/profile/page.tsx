@@ -54,6 +54,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import Avatar from "@/components/Avatar";
 import { notifyAvatarChanged, notifyNameChanged } from "@/hooks/useMyAvatar";
 import ImageUploadField from "@/components/ImageUploadField";
+import ProfileStatsSection from "@/components/ProfileStatsSection";
 import AddFriendButton from "@/components/AddFriendButton";
 import { Game } from "@/types/game";
 import { gamesApi } from "@/services/api/games";
@@ -767,6 +768,9 @@ export default function ProfilePage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Own match stats (Feature 1) */}
+              {user?.id && (<Box sx={{ my: 3 }}><ProfileStatsSection userId={user.id} isOwner /></Box>)}
 
               {/* משחקים - Games Tabs */}
               <Card elevation={2}>

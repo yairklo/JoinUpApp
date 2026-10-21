@@ -23,6 +23,8 @@ export interface ProfileMatch {
     start: string;
     date?: string;
     time?: string;
+    /** Viewer-filtered result badge; absent when hidden or no result. */
+    result?: MatchHistoryResult | null;
 }
 
 export interface ProfileGroup {
