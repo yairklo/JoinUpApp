@@ -29,6 +29,10 @@ jest.mock('../utils/auth', () => ({
   invalidateClerkUser: jest.fn(),
 }));
 jest.mock('../utils/userSync', () => ({ safeUpsertUserFromAuth: jest.fn(async () => {}) }));
+jest.mock('../utils/blocks', () => ({
+  ...jest.requireActual('../utils/blocks'),
+  getBlockedByMe: jest.fn(async () => []),
+}));
 jest.mock('../services/counterService', () => ({
   getCounters: jest.fn(async () => ({})),
   broadcastCounters: jest.fn(async () => {}),
@@ -56,7 +60,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(console, 'log').mockImplementation(() => {});
   jest.spyOn(console, 'error').mockImplementation(() => {});
-  for (const model of ['user', 'userBlock', 'friendship', 'friendRequest', 'notification']) {
+  for (const model of ['user', 'userBlock', 'friendship', 'friendRequest', 'notification', 'chatParticipant']) {
     for (const method of ['findMany', 'findFirst', 'findUnique', 'create', 'deleteMany']) {
       mockPrisma[model][method].mockReset();
       mockPrisma[model][method].mockResolvedValue(method === 'findMany' ? [] : null);
@@ -137,12 +141,12 @@ describe('POST /users/requests: blocked and unblocked senders are indistinguisha
     expect(mockPrisma.friendRequest.create).not.toHaveBeenCalled();
   });
 
-  test('blocked adult -> adult gets a normal 201 and nothing is written or notified', async () => {
+  test('blocked adult -> adult gets a normal 201; the row is real but nobody is notified', async () => {
     setup({ blocked: true, target: { birthDate: yearsAgo(30), privacyFriends: null } });
     const res = await post();
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ requesterId: 'viewer', receiverId: 'target', status: 'PENDING' });
-    expect(mockPrisma.friendRequest.create).not.toHaveBeenCalled();
+    expect(mockPrisma.friendRequest.create).toHaveBeenCalled();
     expect(mockSend).not.toHaveBeenCalled();
   });
 
@@ -150,7 +154,6 @@ describe('POST /users/requests: blocked and unblocked senders are indistinguisha
     setup({ blocked: true, target: minorTarget, viewerBirth: yearsAgo(14) });
     const res = await post();
     expect(res.status).toBe(201);
-    expect(mockPrisma.friendRequest.create).not.toHaveBeenCalled();
   });
 
   test('unblocked adult -> adult really creates the request', async () => {
@@ -170,6 +173,80 @@ describe('POST /users/requests: blocked and unblocked senders are indistinguisha
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('Request already exists');
     expect(mockPrisma.friendRequest.create).not.toHaveBeenCalled();
+  });
+});
+
+// A stateful fake of the friendRequest table, so a retry sequence can be replayed.
+function statefulRequests() {
+  const rows = [];
+  mockPrisma.friendRequest.findFirst.mockImplementation(async ({ where }) => (
+    rows.find((r) => (where.OR || [where]).some((c) => c.requesterId === r.requesterId && c.receiverId === r.receiverId)) || null
+  ));
+  mockPrisma.friendRequest.create.mockImplementation(async ({ data }) => {
+    const row = { id: `fr${rows.length + 1}`, status: 'PENDING', createdAt: new Date(), ...data };
+    rows.push(row);
+    return row;
+  });
+  return rows;
+}
+
+describe('retry sequences are identical for blocked and unblocked senders', () => {
+  const post = () => request(app).post('/api/users/requests').send({ receiverId: 'target' });
+  const run = async (blocked, target, viewerBirth) => {
+    mockPrisma.user.findUnique.mockImplementation(async ({ where }) => (
+      where.id === 'target' ? { id: 'target', ...target } : { id: 'viewer', birthDate: viewerBirth }
+    ));
+    mockPrisma.userBlock.findFirst.mockResolvedValue(blocked ? { id: 'b1' } : null);
+    statefulRequests();
+    mockSend.mockClear();
+    const seq = [];
+    for (let i = 0; i < 3; i += 1) {
+      const r = await post();
+      seq.push([r.status, r.body.error || null, r.body.code || null]);
+    }
+    return { seq, notified: mockSend.mock.calls.length };
+  };
+
+  test.each([
+    ['adult -> adult', { birthDate: yearsAgo(30), privacyFriends: null }, yearsAgo(30)],
+    ['minor -> minor', { birthDate: yearsAgo(15), privacyFriends: null }, yearsAgo(14)],
+    ['adult -> minor with EVERYONE', { birthDate: yearsAgo(15), privacyFriends: 'EVERYONE' }, yearsAgo(30)],
+    ['adult -> friends-only minor', { birthDate: yearsAgo(15), privacyFriends: null }, yearsAgo(30)],
+  ])('%s', async (_name, target, viewerBirth) => {
+    const plain = await run(false, target, viewerBirth);
+    const blocked = await run(true, target, viewerBirth);
+    expect(blocked.seq).toEqual(plain.seq);
+    expect(blocked.notified).toBe(0);
+  });
+
+  test('a blocked sender request is hidden from the receiver and cannot be accepted', async () => {
+    mockPrisma.userBlock.findMany.mockResolvedValue([{ blockerId: 'viewer', blockedId: 'asker' }]);
+    mockPrisma.friendRequest.findMany.mockResolvedValue([]);
+    await request(app).get('/api/users/viewer/requests/incoming');
+    const where = mockPrisma.friendRequest.findMany.mock.calls[0][0].where;
+    expect(where.requesterId).toEqual({ notIn: ['asker'] });
+
+    mockPrisma.friendRequest.findUnique.mockResolvedValue({ id: 'fr9', requesterId: 'asker', receiverId: 'viewer' });
+    mockPrisma.userBlock.findFirst.mockResolvedValue({ id: 'b1' });
+    const accept = await request(app).post('/api/users/requests/fr9/accept');
+    expect(accept.status).toBe(404);
+    const decline = await request(app).post('/api/users/requests/fr9/decline');
+    expect(decline.status).toBe(404);
+  });
+});
+
+describe('GET /users/:id/chats unread', () => {
+  test('per-room unread ignores people the viewer blocked', async () => {
+    const { getBlockedByMe } = require('../utils/blocks');
+    getBlockedByMe.mockResolvedValue(['bad']);
+    mockPrisma.chatParticipant.findMany.mockResolvedValue([{
+      chatId: 'r1',
+      chat: { id: 'r1', type: 'PRIVATE', participants: [{ userId: 'viewer', user: { id: 'viewer' } }, { userId: 'bad', user: { id: 'bad', name: 'Bad' } }], messages: [] },
+    }]);
+    mockPrisma.message.groupBy.mockResolvedValue([]);
+    const res = await request(app).get('/api/users/viewer/chats');
+    expect(res.status).toBe(200);
+    expect(mockPrisma.message.groupBy.mock.calls[0][0].where.userId).toEqual({ notIn: ['viewer', 'bad'] });
   });
 });
 

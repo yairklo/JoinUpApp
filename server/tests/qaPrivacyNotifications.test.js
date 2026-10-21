@@ -226,7 +226,7 @@ describe('QA privacy and notification fixes', () => {
     expect(res.statusCode).toEqual(200);
     expect(res.body.profileRestricted).toEqual(true);
     expect(res.body.canMessage).toEqual(false);
-    expect(res.body.canAddFriend).toEqual(false);
+    expect(res.body.canAddFriend).toEqual(true);
     expect(res.body.age).toBeUndefined();
     expect(res.body.gender).toBeUndefined();
     expect(res.body.city).toBeUndefined();
@@ -334,7 +334,10 @@ describe('QA privacy and notification fixes', () => {
     expect(Object.keys(fromBlocked.body).sort()).toEqual(Object.keys(real.body).sort());
     expect(await prisma.friendRequest.count({
       where: { OR: [{ requesterId: minorB, receiverId: minor }, { requesterId: minor, receiverId: minorB }] },
-    })).toEqual(0);
+    })).toEqual(1);
+    expect(await prisma.notification.count({ where: { userId: minor, type: 'FRIEND_REQUEST' } })).toEqual(0);
+    const inbox = await request(app).get(`/api/users/${minor}/requests/incoming`).set('Authorization', minorAuth);
+    expect(inbox.body).toEqual([]);
 
     const hidden = await request(app).get('/api/users/search').query({ q: 'qa_r_noakid' }).set('Authorization', minorAuth);
     expect(hidden.statusCode).toEqual(200);

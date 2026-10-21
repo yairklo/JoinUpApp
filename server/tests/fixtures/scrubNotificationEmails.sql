@@ -9,4 +9,5 @@ INSERT INTO "Notification" (title, body, data) VALUES
   ('t', 'b', '[]'),
   ('t', 'b', '"s@t.com"'),
   ('t', 'b', '{"keep":"\nnoemail@"}'),
-  ('t', 'b', '{"x":"\n@a.bc"}');
+  ('t', 'b', '{"x":"\n@a.bc"}'),
+  ('t', 'b', '{"a@b.com":"v","nested":{"k@x.org":["z@y.io"]},"normal":1}');

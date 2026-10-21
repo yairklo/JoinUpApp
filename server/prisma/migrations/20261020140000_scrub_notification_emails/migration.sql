@@ -14,8 +14,6 @@ CREATE FUNCTION pg_temp.scrub_email_json(j jsonb) RETURNS jsonb
 LANGUAGE plpgsql IMMUTABLE AS $fn$
 DECLARE
   result jsonb;
-  k text;
-  v jsonb;
 BEGIN
   CASE jsonb_typeof(j)
     WHEN 'string' THEN
@@ -26,10 +24,15 @@ BEGIN
         FROM jsonb_array_elements(j) WITH ORDINALITY AS e(value, ord);
       RETURN result;
     WHEN 'object' THEN
-      result := '{}'::jsonb;
-      FOR k, v IN SELECT key, value FROM jsonb_each(j) LOOP
-        result := result || jsonb_build_object(k, pg_temp.scrub_email_json(v));
-      END LOOP;
+      -- One aggregate pass (linear in the number of keys). Email-shaped KEYS are scrubbed too;
+      -- two keys that scrub to the same text collapse into one (the later one wins).
+      SELECT COALESCE(
+               jsonb_object_agg(
+                 regexp_replace(e.key, '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', 'משתמש', 'g'),
+                 pg_temp.scrub_email_json(e.value)),
+               '{}'::jsonb)
+        INTO result
+        FROM jsonb_each(j) AS e(key, value);
       RETURN result;
     ELSE
       RETURN j;

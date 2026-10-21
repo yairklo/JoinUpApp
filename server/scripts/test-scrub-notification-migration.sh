@@ -16,7 +16,7 @@ psql_ < tests/fixtures/scrubNotificationEmails.sql
 psql_ < "$M"
 RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 # Compare decoded string values, not the JSON text (there the n of a newline escape looks like part of an address).
-LEFT=$(psql_ -c "select count(*) from \"Notification\" n left join lateral jsonb_path_query(coalesce(n.data,'null'::jsonb), '\$.**') v on jsonb_typeof(v)='string' and (v #>> '{}') ~ '$RE' where n.title ~ '$RE' or v is not null")
+LEFT=$(psql_ -c "select count(*) from \"Notification\" n left join lateral jsonb_path_query(coalesce(n.data,'null'::jsonb), '\$.**') v on jsonb_typeof(v)='string' and (v #>> '{}') ~ '$RE' where n.title ~ '$RE' or v is not null or n.data::text ~ '\"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\":'")
 [ "$LEFT" = "0" ] || { echo "emails left after migration: $LEFT"; exit 1; }
 BEFORE=$(psql_ -c "select md5(string_agg(coalesce(data::text,'')||title, '|' order by id)) from \"Notification\"")
 psql_ < "$M"

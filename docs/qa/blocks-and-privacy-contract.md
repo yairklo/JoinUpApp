@@ -21,8 +21,12 @@ messages from users the viewer blocked.
 ## Friend requests (`POST /api/users/requests`)
 
 Every gate (friends-only minor 403, already friends, incoming request, declined cooldown) answers
-a blocked sender exactly like an unblocked one. Only the final write and notification are skipped
-for a blocked pair, which then gets a normal `201`.
+a blocked sender exactly like an unblocked one. For a blocked pair the request is stored as a
+normal pending row (so a retry gets the same `400 Request already exists` an unblocked sender
+gets, and it shows in the sender's outgoing list and can be cancelled), but it is invisible to the
+receiver: no notification or bell, not listed in incoming requests, not counted in the badge, and
+accept/decline answer `404`. Unblocking deletes the pair's pending requests so nothing surfaces
+afterwards.
 
 A duplicate pending request from the same sender is again `400 { error: 'Request already exists' }`
 (now also with `code: 'REQUEST_ALREADY_PENDING'`), the response older builds know. The server still
@@ -43,3 +47,22 @@ tokens with `משתמש`. Idempotent, and non-destructive apart from the email t
 
 - Back up first: `pg_dump --table='"Notification"' --data-only "$DIRECT_URL" > notification-backup.sql`
 - Verify on a throwaway Postgres: `bash server/scripts/test-scrub-notification-migration.sh`
+
+## Profile and directory trade-offs (non-friend viewers)
+
+`GET /api/users/:id` always returns `canAddFriend: true` (the exact answer would let someone
+enumerate friends-only minors id by id). The real rule lives in `POST /api/users/requests`, which
+answers `403 PROFILE_FRIENDS_ONLY`.
+
+Remaining, accepted trade-off: the profile still returns `profileRestricted` and `canMessage`
+because the clients need them to render the page (hide age/city/sports, show the "friends only"
+notice, hide the message button). Together with the `403`s on request/chat creation, a determined
+non-friend who already has a user id can still learn that an account is a friends-only minor.
+Closing that fully would need minors to be undiscoverable by id, which is a product decision.
+Search and the user list no longer carry any such signal (no `canAddFriend: false`, no city).
+
+## Unread counts
+
+Both the total chat badge and each chat-list row's `unreadCount` ignore messages from users the
+viewer blocked, so a row never shows unread messages that cannot be cleared. The pending friend
+request badge likewise ignores requests from blocked users.

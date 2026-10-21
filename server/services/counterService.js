@@ -4,8 +4,14 @@
 // counters are derived/ephemeral — always recomputed from source-of-truth rows.
 
 async function getPendingFriendRequestCount(prisma, userId) {
+  // Requests from someone blocked (either way) exist only for their sender; never count them.
+  const blocks = await prisma.userBlock.findMany({
+    where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+    select: { blockerId: true, blockedId: true }
+  });
+  const hidden = blocks.map(b => (b.blockerId === userId ? b.blockedId : b.blockerId));
   return prisma.friendRequest.count({
-    where: { receiverId: userId, status: 'PENDING' }
+    where: { receiverId: userId, status: 'PENDING', ...(hidden.length ? { requesterId: { notIn: hidden } } : {}) }
   });
 }
 

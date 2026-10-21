@@ -37,7 +37,7 @@ const notificationService = new NotificationService(prisma);
 // Shared constants
 const { SPORT_KEYS } = require('../utils/sports');
 const { sanitizeFreeText } = require('../utils/sanitize');
-const { isBlockedEitherWay, getBlockedEitherWayIds } = require('../utils/blocks');
+const { isBlockedEitherWay, getBlockedEitherWayIds, getBlockedByMe } = require('../utils/blocks');
 const { revokePresenceSubscriptions } = require('../utils/presenceAuth');
 const crypto = require('crypto');
 
@@ -491,9 +491,17 @@ router.post('/:id/block', authenticateToken, async (req, res) => {
 // DELETE /api/users/:id/block - unblock
 router.delete('/:id/block', authenticateToken, async (req, res) => {
   try {
-    await prisma.userBlock.deleteMany({
-      where: { blockerId: String(req.user.id), blockedId: String(req.params.id) },
-    });
+    const me = String(req.user.id);
+    const other = String(req.params.id);
+    await prisma.userBlock.deleteMany({ where: { blockerId: me, blockedId: other } });
+    // Requests sent while blocked were only ever visible to their sender; drop them so they do
+    // not surface to the receiver now, with no bell, after the block is lifted. Skipped when the
+    // other side still blocks me.
+    if (!(await isBlockedEitherWay(me, other))) {
+      await prisma.friendRequest.deleteMany({
+        where: { OR: [{ requesterId: me, receiverId: other }, { requesterId: other, receiverId: me }] },
+      });
+    }
     res.json({ ok: true });
   } catch (error) {
     console.error('Unblock user error:', error);
@@ -710,24 +718,10 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     const showFriends = canViewSection({ effectivePrivacy: effFriends, isOwner, isFriend });
     const showGames = canViewSection({ effectivePrivacy: effGames, isOwner, isFriend });
 
-    // Friends-only minors still accept a request from another minor. Pass a null
-    // requester age first so adult and anonymous views skip the extra lookup.
-    let canAddFriend = isOwner || isFriend || canRequestFriendship({
-      targetBirthDate: user.birthDate,
-      targetPrivacyFriends: user.privacyFriends,
-      requesterBirthDate: null,
-    });
-    if (!canAddFriend && viewerId) {
-      const viewer = await prisma.user.findUnique({
-        where: { id: viewerId },
-        select: { birthDate: true },
-      });
-      canAddFriend = canRequestFriendship({
-        targetBirthDate: user.birthDate,
-        targetPrivacyFriends: user.privacyFriends,
-        requesterBirthDate: viewer?.birthDate ?? null,
-      });
-    }
+    // Never an exact answer: a per-profile false would let a non-friend enumerate friends-only
+    // minors id by id. The button is always offered; POST /requests enforces the real rule and
+    // answers 403 PROFILE_FRIENDS_ONLY (see docs/qa/blocks-and-privacy-contract.md).
+    const canAddFriend = true;
 
     const ratingSummary = await getUserRatingSummary(targetId);
 
@@ -1072,22 +1066,6 @@ function notifyFailure(res, err) {
   return res.status(500).json({ error: 'Failed to notify the recipient', code: 'NOTIFICATION_FAILED' });
 }
 
-// Same JSON shape as a created FriendRequest, but no row and no notification.
-// Prisma cuid() is 25 chars starting with "c"; match that so the id is not a tell.
-function silentFriendRequest(requesterId, receiverId) {
-  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  const bytes = crypto.randomBytes(24);
-  let id = 'c';
-  for (let i = 0; i < 24; i++) id += alphabet[bytes[i] % alphabet.length];
-  return {
-    id,
-    requesterId,
-    receiverId,
-    status: 'PENDING',
-    createdAt: new Date(),
-  };
-}
-
 // Send friend request
 router.post('/requests', authenticateToken, async (req, res) => {
   try {
@@ -1108,8 +1086,12 @@ router.post('/requests', authenticateToken, async (req, res) => {
     const existingFriend = await prisma.friendship.findFirst({ where: { OR: [{ userAId: a, userBId: b }, { userAId: b, userBId: a }] } });
     if (existingFriend) return res.status(400).json({ error: 'Already friends' });
 
+    // Across a block only the caller's own direction counts: the other side's rows are hidden
+    // from this user, so they must not surface here as INCOMING_REQUEST_EXISTS either.
     const existingReq = await prisma.friendRequest.findFirst({
-      where: { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] },
+      where: blocked
+        ? { requesterId, receiverId }
+        : { OR: [{ requesterId, receiverId }, { requesterId: receiverId, receiverId: requesterId }] },
     });
 
     if (existingReq && existingReq.status === 'PENDING') {
@@ -1168,8 +1150,6 @@ router.post('/requests', authenticateToken, async (req, res) => {
       }
     }
 
-    if (blocked) return res.status(201).json(silentFriendRequest(requesterId, receiverId));
-
     if (existingReq && existingReq.status === 'DECLINED') {
       // A declined request must not block the pair forever.
       // deleteMany: two concurrent re-sends must not make the second one fail with P2025 (a 500)
@@ -1197,6 +1177,11 @@ router.post('/requests', authenticateToken, async (req, res) => {
       throw err;
     }
 
+    // A blocked pair gets a real pending row so repeat sends behave exactly like an unblocked
+    // sender's (201, then 400 "Request already exists"). The row is hidden from the receiver
+    // everywhere (list, counters, accept/decline) while the block exists, no bell is created, and
+    // it is deleted on unblock.
+    if (blocked) return res.status(201).json(fr);
     try {
       await ensureFriendRequestNotification(req, fr);
     } catch (err) {
@@ -1214,7 +1199,12 @@ router.post('/requests', authenticateToken, async (req, res) => {
 router.get('/:id/requests/incoming', authenticateToken, async (req, res) => {
   try {
     if (req.params.id !== req.user.id) return res.status(403).json({ error: 'Access denied' });
-    const list = await prisma.friendRequest.findMany({ where: { receiverId: req.user.id, status: 'PENDING' }, include: { requester: true } });
+    // Requests a blocked sender made while blocked exist only for the sender; never list them.
+    const hidden = await getBlockedEitherWayIds(req.user.id);
+    const list = await prisma.friendRequest.findMany({
+      where: { receiverId: req.user.id, status: 'PENDING', ...(hidden.length ? { requesterId: { notIn: hidden } } : {}) },
+      include: { requester: true },
+    });
     res.json(list.map(r => ({ id: r.id, requester: mapUserPublic(r.requester), createdAt: r.createdAt })));
   } catch (e) {
     console.error('Incoming requests error:', e);
@@ -1239,6 +1229,7 @@ router.post('/requests/:id/accept', authenticateToken, async (req, res) => {
   try {
     const reqRow = await prisma.friendRequest.findUnique({ where: { id: req.params.id } });
     if (!reqRow || reqRow.receiverId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
+    if (await isBlockedEitherWay(reqRow.requesterId, reqRow.receiverId)) return res.status(404).json({ error: 'Request not found' });
     const [a, b] = orderPair(reqRow.requesterId, reqRow.receiverId);
     await prisma.$transaction([
       prisma.friendRequest.delete({ where: { id: reqRow.id } }),
@@ -1293,6 +1284,7 @@ router.post('/requests/:id/decline', authenticateToken, async (req, res) => {
   try {
     const reqRow = await prisma.friendRequest.findUnique({ where: { id: req.params.id } });
     if (!reqRow || reqRow.receiverId !== req.user.id) return res.status(404).json({ error: 'Request not found' });
+    if (await isBlockedEitherWay(reqRow.requesterId, reqRow.receiverId)) return res.status(404).json({ error: 'Request not found' });
     // createdAt doubles as "when this request last changed state": the resend cooldown (see
     // DECLINED_RESEND_COOLDOWN_MS) is measured from the decline, not from when it was first sent.
     await prisma.friendRequest.update({ where: { id: reqRow.id }, data: { status: 'DECLINED', createdAt: new Date() } });
@@ -1375,12 +1367,14 @@ router.get('/:id/chats', authenticateToken, async (req, res) => {
     const chatIds = participations.map(p => p.chatId);
     
     let unreadMap = {};
+    // Same rule as the total badge (counterService): people I blocked never count as unread.
+    const blockedByMeIds = chatIds.length > 0 ? await getBlockedByMe(userId) : [];
     if (chatIds.length > 0) {
       const unreadCounts = await prisma.message.groupBy({
         by: ['chatRoomId'],
         where: {
           chatRoomId: { in: chatIds },
-          userId: { not: userId },
+          userId: { notIn: [userId, ...blockedByMeIds] },
           status: { notIn: ['read', 'blocked'] }
         },
         _count: { id: true }

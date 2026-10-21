@@ -179,7 +179,7 @@ describe('user block + account deletion', () => {
     expect(privateRooms).toHaveLength(0);
   });
 
-  test('a blocked friend request looks like a normal send and stores nothing', async () => {
+  test('a blocked friend request looks like a normal send, stays invisible to the receiver and repeats like one', async () => {
     await prisma.userBlock.upsert({
       where: { blockerId_blockedId: { blockerId: 'blk_user_a', blockedId: 'blk_user_b' } },
       update: {},
@@ -204,18 +204,36 @@ describe('user block + account deletion', () => {
     expect(fromBlocker.body.requesterId).toEqual('blk_user_a');
     expect(fromBlocker.body.receiverId).toEqual('blk_user_b');
 
+    // Real pending rows exist (so retries behave like an unblocked sender's) but nobody is notified.
     const stored = await prisma.friendRequest.findMany({
       where: { OR: [{ requesterId: 'blk_user_b', receiverId: 'blk_user_a' }, { requesterId: 'blk_user_a', receiverId: 'blk_user_b' }] },
     });
-    expect(stored).toHaveLength(0);
+    expect(stored).toHaveLength(2);
     const notes = await prisma.notification.findMany({
       where: { userId: { in: ['blk_user_a', 'blk_user_b'] }, type: 'FRIEND_REQUEST' },
     });
     expect(notes).toHaveLength(0);
 
+    // The sender sees their own pending request; the receiver sees nothing and cannot act on it.
     const outgoing = await request(app).get('/api/users/blk_user_b/requests/outgoing').set('Authorization', 'Bearer mock_token_b');
     expect(outgoing.statusCode).toEqual(200);
-    expect(outgoing.body).toEqual([]);
+    expect(outgoing.body).toHaveLength(1);
+    const incoming = await request(app).get('/api/users/blk_user_a/requests/incoming').set('Authorization', 'Bearer mock_token_a');
+    expect(incoming.body).toEqual([]);
+    const accept = await request(app).post(`/api/users/requests/${fromBlocked.body.id}/accept`).set('Authorization', 'Bearer mock_token_a');
+    expect(accept.statusCode).toEqual(404);
+
+    // A retry gets the same 400 an unblocked sender gets.
+    const retry = await request(app).post('/api/users/requests').set('Authorization', 'Bearer mock_token_b').send({ receiverId: 'blk_user_a' });
+    const realRetry = await request(app).post('/api/users/requests').set('Authorization', 'Bearer mock_token_a').send({ receiverId: 'blk_user_c' });
+    expect(retry.statusCode).toEqual(realRetry.statusCode);
+    expect(retry.body.error).toEqual(realRetry.body.error);
+
+    // Unblocking drops them so they never surface to the receiver.
+    await request(app).delete('/api/users/blk_user_b/block').set('Authorization', 'Bearer mock_token_a');
+    expect(await prisma.friendRequest.count({
+      where: { OR: [{ requesterId: 'blk_user_b', receiverId: 'blk_user_a' }, { requesterId: 'blk_user_a', receiverId: 'blk_user_b' }] },
+    })).toEqual(0);
 
     await prisma.friendRequest.deleteMany({ where: { OR: [{ requesterId: 'blk_user_a' }, { receiverId: 'blk_user_a' }] } });
     await prisma.notification.deleteMany({ where: { userId: { in: ids } } });
