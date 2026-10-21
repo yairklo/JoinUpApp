@@ -17,7 +17,7 @@ const MANUAL_RECONNECT_MIN_MS = 1000;
 const MANUAL_RECONNECT_MAX_MS = 30000;
 
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
-    const { getToken, isLoaded, isSignedIn } = useAuth();
+    const { getToken, isLoaded, isSignedIn, userId } = useAuth();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     // Always call the latest getToken from inside socket callbacks (it is not referentially stable).
@@ -112,7 +112,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
             setSocket(null);
             setIsConnected(false);
         };
-    }, [isLoaded, isSignedIn]);
+    }, [isLoaded, isSignedIn, userId]);
 
     return (
         <SocketContext.Provider value={{ socket, isConnected }}>

@@ -28,6 +28,7 @@ jest.mock('../utils/auth', () => {
 
 const { prisma } = require('../services/gameService');
 const { app } = require('../index');
+const { mapGameForClient } = require('../routes/series');
 
 const ORG = USERS.tok_org.id;
 const FRIEND = USERS.tok_friend.id;
@@ -95,7 +96,10 @@ describe('Friends-only series (groups)', () => {
       await prisma.participation.deleteMany({ where: { gameId: { in: gameIds } } });
       await prisma.gameRole.deleteMany({ where: { gameId: { in: gameIds } } });
       await prisma.game.deleteMany({ where: { id: { in: gameIds } } });
-      await prisma.seriesJoinRequest.deleteMany({ where: { seriesId: { in: seriesIds } } });
+      await prisma.seriesJoinRequest.deleteMany({
+        where: { OR: [{ seriesId: { in: seriesIds } }, { userId: 'fos_email_name' }] },
+      });
+      await prisma.user.deleteMany({ where: { id: 'fos_email_name' } });
       await prisma.seriesParticipant.deleteMany({ where: { seriesId: { in: seriesIds } } });
       await prisma.gameSeries.deleteMany({ where: { id: { in: seriesIds } } });
       await prisma.field.delete({ where: { id: field.id } });
@@ -203,6 +207,26 @@ describe('Friends-only series (groups)', () => {
       expect(res.body.pending.map((r) => r.userId)).toEqual([STRANGER]);
     });
 
+    test('join-request names are public display names, never an email', async () => {
+      const emailUser = 'fos_email_name';
+      await prisma.user.upsert({
+        where: { id: emailUser },
+        update: { name: 'minor.kid@mailinator.com' },
+        create: { id: emailUser, name: 'minor.kid@mailinator.com' },
+      });
+      const named = await makeSeries({ friendsOnlyLinkPolicy: 'REQUEST_TO_JOIN' });
+      await prisma.seriesJoinRequest.create({
+        data: { seriesId: named.id, userId: emailUser, status: 'PENDING' },
+      });
+      const res = await request(app).get(`/api/series/${named.id}/join-requests`).set(auth('tok_org'));
+      expect(res.statusCode).toBe(200);
+      expect(res.body.pending).toEqual([
+        expect.objectContaining({ userId: emailUser, name: 'משתמש' }),
+      ]);
+      expect(JSON.stringify(res.body)).not.toMatch(/@/);
+      await prisma.user.delete({ where: { id: emailUser } });
+    });
+
     test('a non-manager cannot approve', async () => {
       const res = await request(app).post(`/api/series/${s.id}/join-requests/${STRANGER}/approve`).set(auth('tok_member'));
       expect(res.statusCode).toBe(403);
@@ -245,5 +269,29 @@ describe('Friends-only series (groups)', () => {
       expect(res.statusCode).toBe(403);
       expect(await prisma.seriesJoinRequest.findFirst({ where: { seriesId: s3.id } })).toBeNull();
     });
+  });
+
+  test('series game payloads scrub emails on participants, waitlist, and managers', () => {
+    const mapped = mapGameForClient({
+      id: 'g-names',
+      start: new Date('2026-11-01T18:00:00Z'),
+      duration: 60,
+      maxPlayers: 10,
+      field: { name: 'מגרש', location: 'רחוב', city: 'תל אביב' },
+      participants: [
+        { status: 'CONFIRMED', userId: 'p1', teamId: null, user: { name: 'kid@mailinator.com', imageUrl: null } },
+        { status: 'CONFIRMED', userId: 'p2', teamId: null, user: { name: 'נועה', imageUrl: null } },
+        { status: 'WAITLISTED', userId: 'w1', user: { name: 'wait@mailinator.com', imageUrl: null } },
+      ],
+      roles: [
+        { role: 'ORGANIZER', userId: 'org', user: { name: 'org@mailinator.com' } },
+        { role: 'MANAGER', userId: 'm1', user: { name: 'manager@mailinator.com' } },
+      ],
+      teams: [],
+    });
+    expect(mapped.participants.map((p) => p.name)).toEqual(['משתמש', 'נועה']);
+    expect(mapped.waitlistParticipants.map((p) => p.name)).toEqual(['משתמש']);
+    expect(mapped.managers.map((m) => m.name)).toEqual(['משתמש']);
+    expect(JSON.stringify(mapped)).not.toMatch(/@/);
   });
 });

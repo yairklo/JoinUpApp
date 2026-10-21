@@ -4,8 +4,14 @@
 // counters are derived/ephemeral — always recomputed from source-of-truth rows.
 
 async function getPendingFriendRequestCount(prisma, userId) {
+  // Requests from someone blocked (either way) exist only for their sender; never count them.
+  const blocks = await prisma.userBlock.findMany({
+    where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+    select: { blockerId: true, blockedId: true }
+  });
+  const hidden = blocks.map(b => (b.blockerId === userId ? b.blockedId : b.blockerId));
   return prisma.friendRequest.count({
-    where: { receiverId: userId, status: 'PENDING' }
+    where: { receiverId: userId, status: 'PENDING', ...(hidden.length ? { requesterId: { notIn: hidden } } : {}) }
   });
 }
 
@@ -18,11 +24,19 @@ async function getUnreadMessageCount(prisma, userId) {
   const joinedRoomIds = participations.map(p => p.chatId);
   if (joinedRoomIds.length === 0) return 0;
 
+  // Messages from people I blocked are hidden from me, so they never count as unread. This
+  // clears the pre-block unread badge without touching the sender's read receipts.
+  const blockedRows = await prisma.userBlock.findMany({
+    where: { blockerId: userId },
+    select: { blockedId: true }
+  });
+  const blockedIds = blockedRows.map(r => r.blockedId);
+
   const roomsWithUnread = await prisma.message.groupBy({
     by: ['chatRoomId'],
     where: {
       chatRoomId: { in: joinedRoomIds },
-      userId: { not: userId },
+      userId: { notIn: [userId, ...blockedIds] },
       status: { notIn: ['read', 'blocked'] }
     },
     _count: { id: true }

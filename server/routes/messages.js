@@ -4,7 +4,7 @@ const { checkChatPermission } = require('../utils/chatAuth');
 const { prisma } = require('../lib/prisma');
 const { mapUserToSender } = require('../utils/chatMappers');
 const { publicDisplayName } = require('../utils/publicName');
-const { getBlockedByMe, isPrivateChatBlocked } = require('../utils/blocks');
+const { getBlockedByMe, getPrivateChatBlock, ephemeralCuid } = require('../utils/blocks');
 const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('../services/chatSafety');
 const { moderator } = require('../moderationInstance');
 const router = express.Router();
@@ -109,8 +109,19 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied: You are not a participant of this chat' });
     }
 
-    if (await isPrivateChatBlocked(req.user.id, String(roomId))) {
-      return res.status(403).json({ error: 'You cannot message this user', code: 'USER_BLOCKED' });
+    // Same outcomes as the socket send path. A block-specific code would tell the
+    // sender they were blocked. The message is never stored or delivered either way.
+    let block;
+    try {
+      block = await getPrivateChatBlock(req.user.id, String(roomId));
+    } catch (e) {
+      console.error('[blocks] private chat block check failed:', e.message);
+      return res.status(500).json({ error: 'Failed to create message' });
+    }
+    if (block && !block.senderIsBlocked) {
+      // The sender blocked the other person: a plain, non-retryable refusal (old app builds
+      // retry 5xx/retryable errors in a loop). No block-specific code.
+      return res.status(403).json({ error: 'Could not send message', code: 'SEND_FAILED' });
     }
 
     const sender = await prisma.user.findUnique({
@@ -125,6 +136,19 @@ router.post('/', authenticateToken, async (req, res) => {
       text,
       onFlagged: () => require('../services/gameScheduler').triggerReviewQueue(),
     });
+
+    if (block && block.senderIsBlocked && status !== 'blocked') {
+      // Moderation ran (and recorded anything it flagged) exactly as for an unblocked sender;
+      // otherwise answer like an ordinary send. Nothing is stored or delivered.
+      return res.status(201).json({
+        id: ephemeralCuid(),
+        roomId: String(roomId),
+        text: String(text),
+        userId: req.user.id,
+        ts: new Date().toISOString(),
+        status: 'sent',
+      });
+    }
 
     const saved = await prisma.message.create({
       data: {

@@ -25,7 +25,9 @@ jest.mock('../utils/chatAuth', () => ({
   checkChatPermissionsBatch: jest.fn(async (_u, ids) => new Set(ids)),
 }));
 jest.mock('../utils/blocks', () => ({
+  ...jest.requireActual('../utils/blocks'),
   isPrivateChatBlocked: jest.fn(async () => false),
+  getPrivateChatBlock: jest.fn(async () => null),
   getBlockersAmong: jest.fn(async () => new Set()),
 }));
 jest.mock('../services/counterService', () => ({ broadcastCounters: jest.fn(async () => {}) }));
