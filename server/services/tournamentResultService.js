@@ -234,9 +234,9 @@ async function putResult(user, tournamentId, matchId, body) {
     if (match.status === 'CANCELLED') throw err(409, 'MATCH_CANCELLED', 'The match was cancelled');
     if (!match.homeTeamId || !match.awayTeamId) throw err(409, 'TEAMS_UNKNOWN', 'Both teams must be known before a result');
     const outcome = computeOutcome(t, match, match.stage, b);
-    const details = outcome.details && match.details && match.details[REMINDER_KEY]
-      ? { ...outcome.details, [REMINDER_KEY]: match.details[REMINDER_KEY] }
-      : outcome.details;
+    // The reminder sentinel shares the details column; a result must not wipe it (no repeat reminder).
+    const keep = match.details && match.details[REMINDER_KEY] ? { [REMINDER_KEY]: match.details[REMINDER_KEY] } : null;
+    const details = outcome.details || keep ? { ...(outcome.details || {}), ...(keep || {}) } : null;
     const { count } = await tx.tournamentMatch.updateMany({
       where: { id: matchId, version: b.expectedVersion },
       data: { ...outcome, details: details === null ? Prisma.DbNull : details, updatedById: user.id, version: { increment: 1 } },
