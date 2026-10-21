@@ -9,6 +9,7 @@ const {
   getAgeDefaults,
   areConfirmedFriends,
   canViewSection,
+  canRequestFriendship,
 } = require('../utils/privacy');
 const {
   isGameRatingEligible,
@@ -84,8 +85,12 @@ router.get('/search', authenticateToken, async (req, res) => {
       return res.json([]);
     }
 
-    // Fetch matching users
-    const hiddenUserIds = await getBlockedEitherWayIds(loggedInUserId);
+    // Fetch matching users. Birth date stays server-side: it only decides canAddFriend.
+    const [hiddenUserIds, viewer] = await Promise.all([
+      getBlockedEitherWayIds(loggedInUserId),
+      prisma.user.findUnique({ where: { id: loggedInUserId }, select: { birthDate: true } }),
+    ]);
+    const requesterBirthDate = viewer?.birthDate ?? null;
     const matchingUsers = await prisma.user.findMany({
       where: {
         AND: [
@@ -110,7 +115,9 @@ router.get('/search', authenticateToken, async (req, res) => {
         name: true,
         email: true,
         imageUrl: true,
-        city: true
+        city: true,
+        birthDate: true,
+        privacyFriends: true,
       },
       take: 50
     });
@@ -158,7 +165,13 @@ router.get('/search', authenticateToken, async (req, res) => {
         city: u.city,
         friendshipStatus,
         requestId,
-        isRequestSender
+        isRequestSender,
+        // Same gate as the profile button: a minor can add another minor; an adult cannot.
+        canAddFriend: canRequestFriendship({
+          targetBirthDate: u.birthDate,
+          targetPrivacyFriends: u.privacyFriends,
+          requesterBirthDate,
+        }),
       };
     });
     console.log(`[Backend User Search] ✅ Found ${results.length} matching users. Returning results.`);
@@ -246,12 +259,27 @@ router.put('/profile/settings', authenticateToken, async (req, res) => {
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const take = Math.min(Math.max(parseInt(req.query.take, 10) || 20, 1), 100);
-    const users = await prisma.user.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: 'asc' },
-      take,
-    });
-    res.json(users.map(u => ({ id: u.id, name: u.name, imageUrl: u.imageUrl, city: u.city })));
+    const [users, viewer] = await Promise.all([
+      prisma.user.findMany({
+        where: { deletedAt: null },
+        orderBy: { name: 'asc' },
+        take,
+        select: { id: true, name: true, imageUrl: true, city: true, birthDate: true, privacyFriends: true },
+      }),
+      prisma.user.findUnique({ where: { id: req.user.id }, select: { birthDate: true } }),
+    ]);
+    const requesterBirthDate = viewer?.birthDate ?? null;
+    res.json(users.map(u => ({
+      id: u.id,
+      name: u.name,
+      imageUrl: u.imageUrl,
+      city: u.city,
+      canAddFriend: u.id === req.user.id || canRequestFriendship({
+        targetBirthDate: u.birthDate,
+        targetPrivacyFriends: u.privacyFriends,
+        requesterBirthDate,
+      }),
+    })));
   } catch (error) {
     console.error('List users error:', error);
     res.status(500).json({ error: 'Failed to list users' });
@@ -691,15 +719,32 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     const showFriends = canViewSection({ effectivePrivacy: effFriends, isOwner, isFriend });
     const showGames = canViewSection({ effectivePrivacy: effGames, isOwner, isFriend });
 
+    // Friends-only minors still accept a request from another minor. Pass a null
+    // requester age first so adult and anonymous views skip the extra lookup.
+    let canAddFriend = isOwner || isFriend || canRequestFriendship({
+      targetBirthDate: user.birthDate,
+      targetPrivacyFriends: user.privacyFriends,
+      requesterBirthDate: null,
+    });
+    if (!canAddFriend && viewerId) {
+      const viewer = await prisma.user.findUnique({
+        where: { id: viewerId },
+        select: { birthDate: true },
+      });
+      canAddFriend = canRequestFriendship({
+        targetBirthDate: user.birthDate,
+        targetPrivacyFriends: user.privacyFriends,
+        requesterBirthDate: viewer?.birthDate ?? null,
+      });
+    }
+
     const ratingSummary = await getUserRatingSummary(targetId);
 
     const payload = {
       ...mapUserPublic(user, { includeContact: isOwner, hideDetails: profileRestricted }),
       profileRestricted,
       canMessage: isOwner || isFriend || effMessages === 'EVERYONE',
-      // A minor on the friends-only default cannot be contacted by a stranger.
-      // An explicit EVERYONE choice still allows a friend request.
-      canAddFriend: isOwner || isFriend || !isMinor || effFriends === 'EVERYONE',
+      canAddFriend,
       ratingAverage: ratingSummary.ratingAverage,
       totalRatings: ratingSummary.totalRatings,
       sections: { friends: showFriends, matchHistory: showGames },
@@ -1105,16 +1150,28 @@ router.post('/requests', authenticateToken, async (req, res) => {
       });
     }
 
-    const age = getAgeInJerusalem(rx.birthDate);
-    const isMinor = age !== null && age < ADULT_AGE;
-    const effFriends = resolvePrivacyLevel(rx.privacyFriends, rx.birthDate);
-    // Default minor profiles are friends-only. A stranger cannot open a request;
-    // an explicit EVERYONE choice still can. Confirmed friends already returned above.
-    if (isMinor && effFriends !== 'EVERYONE') {
-      return res.status(403).json({
-        error: 'This profile only accepts friend requests from friends',
-        code: 'PROFILE_FRIENDS_ONLY',
+    // Block already returned a normal-looking 201 above. This gate is only the
+    // friends-only minor rule: another minor may ask; an adult may not, unless
+    // the minor explicitly chose EVERYONE.
+    if (!canRequestFriendship({
+      targetBirthDate: rx.birthDate,
+      targetPrivacyFriends: rx.privacyFriends,
+      requesterBirthDate: null,
+    })) {
+      const requesterRow = await prisma.user.findUnique({
+        where: { id: requesterId },
+        select: { birthDate: true },
       });
+      if (!canRequestFriendship({
+        targetBirthDate: rx.birthDate,
+        targetPrivacyFriends: rx.privacyFriends,
+        requesterBirthDate: requesterRow?.birthDate ?? null,
+      })) {
+        return res.status(403).json({
+          error: 'This profile only accepts friend requests from friends',
+          code: 'PROFILE_FRIENDS_ONLY',
+        });
+      }
     }
 
     if (existingReq && existingReq.status === 'DECLINED') {

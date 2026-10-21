@@ -226,7 +226,7 @@ function SearchPlayersContent() {
                           size="small" 
                         />
                       )}
-                      {player.friendshipStatus === "none" && (
+                      {player.friendshipStatus === "none" && player.canAddFriend !== false && (
                         <Button
                           variant="contained"
                           color="primary"

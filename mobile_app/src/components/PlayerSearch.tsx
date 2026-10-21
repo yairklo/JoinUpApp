@@ -157,7 +157,7 @@ export default function PlayerSearch() {
                                         </View>
                                     )}
 
-                                    {isNone && (
+                                    {isNone && item.canAddFriend !== false && (
                                         <TouchableOpacity
                                             onPress={(e) => {
                                                 e.stopPropagation();

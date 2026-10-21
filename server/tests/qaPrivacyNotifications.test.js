@@ -7,6 +7,7 @@ jest.mock('../utils/auth', () => {
     mock_token_qa_alice: { id: 'qa_r_alice', name: 'qa.alice@mailinator.com', avatar: null },
     mock_token_qa_bob: { id: 'qa_r_bob', name: 'Bob', avatar: null },
     mock_token_qa_minor: { id: 'qa_r_minor', name: 'qa.minor.20oct@mailinator.com', avatar: null },
+    mock_token_qa_minor_b: { id: 'qa_r_minor_b', name: 'qa_r_noakid', avatar: null },
     mock_token_qa_stranger: { id: 'qa_r_stranger', name: 'Stranger', avatar: null },
     mock_token_qa_friend: { id: 'qa_r_friend', name: 'Friend', avatar: null },
   };
@@ -47,12 +48,14 @@ const { app } = require('../index');
 const alice = 'qa_r_alice';
 const bob = 'qa_r_bob';
 const minor = 'qa_r_minor';
+const minorB = 'qa_r_minor_b';
 const stranger = 'qa_r_stranger';
 const friend = 'qa_r_friend';
-const ids = [alice, bob, minor, stranger, friend];
+const ids = [alice, bob, minor, minorB, stranger, friend];
 const aliceAuth = 'Bearer mock_token_qa_alice';
 const bobAuth = 'Bearer mock_token_qa_bob';
 const minorAuth = 'Bearer mock_token_qa_minor';
+const minorBAuth = 'Bearer mock_token_qa_minor_b';
 const strangerAuth = 'Bearer mock_token_qa_stranger';
 const friendAuth = 'Bearer mock_token_qa_friend';
 
@@ -74,6 +77,19 @@ function minorBirthDate(now = new Date()) {
 async function cleanup() {
   await prisma.notification.deleteMany({ where: { userId: { in: ids } } }).catch(() => {});
   await prisma.userSport.deleteMany({ where: { userId: { in: ids } } }).catch(() => {});
+  await prisma.userBlock.deleteMany({
+    where: { OR: [{ blockerId: { in: ids } }, { blockedId: { in: ids } }] },
+  }).catch(() => {});
+  const rooms = await prisma.chatRoom.findMany({
+    where: { type: 'PRIVATE', participants: { some: { userId: { in: ids } } } },
+    select: { id: true },
+  }).catch(() => []);
+  const roomIds = rooms.map((r) => r.id);
+  if (roomIds.length) {
+    await prisma.message.deleteMany({ where: { chatRoomId: { in: roomIds } } }).catch(() => {});
+    await prisma.chatParticipant.deleteMany({ where: { chatId: { in: roomIds } } }).catch(() => {});
+    await prisma.chatRoom.deleteMany({ where: { id: { in: roomIds } } }).catch(() => {});
+  }
   await prisma.friendship.deleteMany({
     where: { OR: [{ userAId: { in: ids } }, { userBId: { in: ids } }] },
   }).catch(() => {});
@@ -116,6 +132,13 @@ describe('QA privacy and notification fixes', () => {
         sports: { create: [{ sportId: 'qa_r_soccer', positionDescription: 'שוער' }] },
       },
     });
+    await prisma.user.create({
+      data: {
+        id: minorB,
+        name: 'qa_r_noakid',
+        birthDate: minorBirthDate(),
+      },
+    });
     await prisma.user.create({ data: { id: stranger, name: 'Stranger', birthDate: new Date('1991-06-01T00:00:00.000Z') } });
     await prisma.user.create({ data: { id: friend, name: 'Friend', birthDate: new Date('1988-06-01T00:00:00.000Z') } });
     const [a, b] = orderPair(minor, friend);
@@ -132,6 +155,13 @@ describe('QA privacy and notification fixes', () => {
     await prisma.friendRequest.deleteMany({
       where: { OR: [{ requesterId: { in: ids } }, { receiverId: { in: ids } }] },
     });
+    await prisma.userBlock.deleteMany({
+      where: { OR: [{ blockerId: { in: ids } }, { blockedId: { in: ids } }] },
+    });
+    const [a, b] = orderPair(minor, minorB);
+    await prisma.friendship.deleteMany({ where: { userAId: a, userBId: b } });
+    await prisma.user.update({ where: { id: minor }, data: { privacyFriends: null } });
+    await prisma.user.update({ where: { id: minorB }, data: { privacyFriends: null } });
   });
 
   test('R-04 creating a friend request stores a bell notification without an email', async () => {
@@ -230,6 +260,86 @@ describe('QA privacy and notification fixes', () => {
     expect(res.statusCode).toEqual(403);
     expect(res.body.code).toEqual('PROFILE_FRIENDS_ONLY');
     expect(await prisma.friendRequest.count({ where: { requesterId: stranger, receiverId: minor } })).toEqual(0);
+
+    const chat = await request(app).post('/api/chats/private').set('Authorization', strangerAuth).send({ targetUserId: minor });
+    expect(chat.statusCode).toEqual(403);
+    expect(chat.body.code).toBeUndefined();
+    expect(JSON.stringify(chat.body).toLowerCase()).not.toMatch(/block/);
+  });
+
+  test('two minors can request each other under the default and accept', async () => {
+    const asMinor = await request(app).get(`/api/users/${minorB}`).set('Authorization', minorAuth);
+    expect(asMinor.statusCode).toEqual(200);
+    expect(asMinor.body.canAddFriend).toEqual(true);
+    expect(asMinor.body.canMessage).toEqual(false);
+    expect(asMinor.body.profileRestricted).toEqual(true);
+    expect(asMinor.body.age).toBeUndefined();
+
+    const found = await request(app).get('/api/users/search').query({ q: 'qa_r_noakid' }).set('Authorization', minorAuth);
+    expect(found.statusCode).toEqual(200);
+    const row = found.body.find((u) => u.id === minorB);
+    expect(row).toBeTruthy();
+    expect(row.canAddFriend).toEqual(true);
+    expect(row.birthDate).toBeUndefined();
+    expect(row.privacyFriends).toBeUndefined();
+
+    const asAdult = await request(app).get('/api/users/search').query({ q: 'qa_r_noakid' }).set('Authorization', strangerAuth);
+    expect(asAdult.body.find((u) => u.id === minorB).canAddFriend).toEqual(false);
+
+    const send = await request(app).post('/api/users/requests').set('Authorization', minorAuth).send({ receiverId: minorB });
+    expect(send.statusCode).toEqual(201);
+    expect(send.body.status).toEqual('PENDING');
+    expect(await prisma.friendRequest.count({ where: { requesterId: minor, receiverId: minorB } })).toEqual(1);
+    const note = await prisma.notification.findFirst({ where: { userId: minorB, type: 'FRIEND_REQUEST' } });
+    expect(note).toBeTruthy();
+    expect(JSON.stringify(note)).not.toMatch(/@/);
+
+    const accept = await request(app).post(`/api/users/requests/${send.body.id}/accept`).set('Authorization', minorBAuth);
+    expect(accept.statusCode).toEqual(200);
+    const [a, b] = orderPair(minor, minorB);
+    expect(await prisma.friendship.findFirst({ where: { userAId: a, userBId: b } })).toBeTruthy();
+
+    const after = await request(app).get(`/api/users/${minorB}`).set('Authorization', minorAuth);
+    expect(after.body.canMessage).toEqual(true);
+    expect(after.body.profileRestricted).toEqual(false);
+
+    const chat = await request(app).post('/api/chats/private').set('Authorization', minorAuth).send({ targetUserId: minorB });
+    expect(chat.statusCode).toEqual(200);
+    expect(chat.body.chatId).toBeTruthy();
+  });
+
+  test('an explicit EVERYONE choice still lets an adult request a minor', async () => {
+    await prisma.user.update({ where: { id: minor }, data: { privacyFriends: 'EVERYONE' } });
+    const res = await request(app).post('/api/users/requests').set('Authorization', strangerAuth).send({ receiverId: minor });
+    expect(res.statusCode).toEqual(201);
+    expect(await prisma.friendRequest.count({ where: { requesterId: stranger, receiverId: minor } })).toEqual(1);
+  });
+
+  test('a blocked minor still gets an ordinary request and stays out of search', async () => {
+    const block = await request(app).post(`/api/users/${minorB}/block`).set('Authorization', minorAuth);
+    expect(block.statusCode).toEqual(201);
+
+    const real = await request(app).post('/api/users/requests').set('Authorization', minorAuth).send({ receiverId: bob });
+    expect(real.statusCode).toEqual(201);
+
+    const fromBlocked = await request(app).post('/api/users/requests').set('Authorization', minorBAuth).send({ receiverId: minor });
+    expect(fromBlocked.statusCode).toEqual(201);
+    expect(fromBlocked.body.status).toEqual('PENDING');
+    expect(fromBlocked.body.requesterId).toEqual(minorB);
+    expect(fromBlocked.body.receiverId).toEqual(minor);
+    expect(fromBlocked.body.code).toBeUndefined();
+    expect(JSON.stringify(fromBlocked.body).toLowerCase()).not.toMatch(/block/);
+    expect(Object.keys(fromBlocked.body).sort()).toEqual(Object.keys(real.body).sort());
+    expect(await prisma.friendRequest.count({
+      where: { OR: [{ requesterId: minorB, receiverId: minor }, { requesterId: minor, receiverId: minorB }] },
+    })).toEqual(0);
+
+    const hidden = await request(app).get('/api/users/search').query({ q: 'qa_r_noakid' }).set('Authorization', minorAuth);
+    expect(hidden.statusCode).toEqual(200);
+    expect(hidden.body.map((u) => u.id)).not.toContain(minorB);
+
+    const reverse = await request(app).get('/api/users/search').query({ q: 'qa.minor.20oct' }).set('Authorization', minorBAuth);
+    expect(reverse.body.map((u) => u.id)).not.toContain(minor);
   });
 
   test('logged-out game lists omit participant ids and keep the field location', () => {

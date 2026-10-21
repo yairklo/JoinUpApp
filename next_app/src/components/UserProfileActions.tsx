@@ -30,6 +30,7 @@ export default function UserProfileActions({
     targetUserName?: string;
     targetUserImage?: string | null;
     canMessage?: boolean;
+    /** Server gate. False only hides add-friend (adult looking at a friends-only minor). */
     canAddFriend?: boolean;
 }) {
     const {

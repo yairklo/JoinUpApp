@@ -69,6 +69,11 @@ export interface UserProfile {
     /** True when a non-friend is looking at a minor: age and about-details are omitted. */
     profileRestricted?: boolean;
     canMessage?: boolean;
+    /**
+     * False when this viewer must not send a friend request: an adult or unknown-age
+     * account looking at a minor on the friends-only default. A minor looking at
+     * another minor is true, so the add-friend button stays available.
+     */
     canAddFriend?: boolean;
 }
 
@@ -322,6 +327,8 @@ export const usersApi = {
             friendshipStatus?: 'none' | 'friends' | 'pending';
             requestId?: string | null;
             isRequestSender?: boolean;
+            /** Same rule as PublicUser.canAddFriend. Missing means the button may show. */
+            canAddFriend?: boolean;
         }>>(
             `/api/users/search?q=${encodeURIComponent(query)}`,
             { token }

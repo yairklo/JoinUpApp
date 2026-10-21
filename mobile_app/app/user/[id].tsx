@@ -266,6 +266,7 @@ export default function UserProfileScreen() {
                             <MuteNotificationsButton targetType="USER" targetId={id} />
                         )}
 
+                        {/* canAddFriend is false for an adult viewing a friends-only minor, and true for a minor viewing another minor. */}
                         {relationship === 'none' && profile.canAddFriend !== false && (
                             <TouchableOpacity
                                 onPress={handleAddFriend}
