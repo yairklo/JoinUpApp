@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { usersApi, UserProfile, ProfileMatch } from "@/services/api/users";
 import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 import Avatar from "@/components/Avatar";
 import MatchResultBadge from "@/components/MatchResultBadge";
+import ProfileStatsSection from "@/components/ProfileStatsSection";
 
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -26,6 +27,8 @@ const PAGE_SIZE = 5;
 
 export default function UserProfileSections({ userId }: { userId: string }) {
     const { getToken } = useAuth();
+    const { user: me } = useUser();
+    const isOwner = !!me?.id && me.id === userId;
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -137,6 +140,11 @@ export default function UserProfileSections({ userId }: { userId: string }) {
                     )}
                 </Box>
             )}
+
+            {/* Match stats: hidden/private renders nothing; own view shows an empty state */}
+            <Box mb={4} sx={{ "&:empty": { display: "none" } }}>
+                <ProfileStatsSection userId={userId} isOwner={isOwner} ownerHidden={isOwner ? profile.privacySettings?.hideMatchStats : undefined} />
+            </Box>
 
             {/* Match history */}
             {showHistory && (
