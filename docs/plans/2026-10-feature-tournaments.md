@@ -1,7 +1,7 @@
 # Feature 2 - Tournaments
 
 Overview and sequencing: [2026-10-match-results-and-tournaments.md](./2026-10-match-results-and-tournaments.md)
-Depends on: Feature 1 steps F1-1 (schema) and F1-3 (shared stat schemas).
+Depends on: Feature 1 steps F1-1 (schema) and F1-2 (shared stat schemas).
 
 ## 1. Goals
 
@@ -20,6 +20,9 @@ Non-goals (v1): payments, double elimination, Swiss system, live minute-by-minut
 - **Team**: created by a captain (any user) while registration is open; members join by invite/accept or a join code. One player = one team per tournament.
 - **Stage**: `GROUP` (round-robin groups), `LEAGUE` (single round-robin or double round), `KNOCKOUT` (single elimination). A tournament has an ordered list of stages, e.g. Groups -> Knockout.
 - **Match**: two slots; each slot is a concrete team or a *source* (`WINNER_OF match X`, `LOSER_OF`, `GROUP_RANK group A pos 1`). Resolved automatically as results arrive.
+- **Group ranks**: a `GROUP_RANK` slot resolves only after ALL matches of that group are FINISHED/FORFEIT; ties the tiebreakers cannot separate require the organizer to set `manualRank` (the UI blocks advancement until set).
+- **Time zone**: the scheduler's day windows are interpreted in `Asia/Jerusalem` (including DST changes), never UTC; stored times stay UTC.
+- **Minors**: v1 enforces `openToMinors=false` on the server (cannot join/be invited).
 - **Roles**: `ORGANIZER`, `MANAGER` (full edit), `SCOREKEEPER` (results only).
 
 ## 3. Data model (Prisma, additive; own migrations, never mixed with UI steps)
@@ -75,8 +78,9 @@ model TournamentTeam {
   captainId    String
   status       TournamentTeamStatus @default(PENDING)
   seed         Int?
+  manualRank   Int?     // organizer override within the group when tiebreakers cannot separate teams
   groupId      String?
-  joinCode     String               @unique   // invite link
+  joinCode     String               @unique   // invite link; rotatable by captain/organizer, invalid once registration closes (joinCodeRotatedAt tracked in code, not required in schema)
   createdAt    DateTime             @default(now())
   members      TournamentTeamMember[]
   @@unique([tournamentId, name])
@@ -92,7 +96,9 @@ model TournamentTeamMember {
   status       TournamentMemberStatus @default(INVITED)
   jerseyNumber Int?
   createdAt    DateTime               @default(now())
-  @@unique([tournamentId, userId])
+  // NOT a plain unique: invites to several teams must be allowed. Raw-SQL partial unique index
+  // CREATE UNIQUE INDEX ... ON "TournamentTeamMember"("tournamentId","userId") WHERE status = 'ACCEPTED'
+  @@index([tournamentId, userId])
   @@index([teamId])
 }
 
@@ -141,7 +147,9 @@ model TournamentRole { id String @id @default(cuid())  tournamentId String  user
 // ChatRoom: tournament chat room with id = tournament id (same convention as games).
 ```
 
-Standings are **computed, not stored** (pure function over finished matches), with an in-memory cache keyed by `(tournamentId, max(match.updatedAt))` if needed.
+Standings are **computed, not stored** (pure function over finished matches). A few dozen matches make recomputation negligible, so there is no cache.
+
+The model blocks above are abbreviated: `prisma/schema.prisma` is the source of truth for relations and `onDelete`. Intent: deleting a team sets `TournamentMatch.homeTeamId/awayTeamId` to NULL (SetNull) and the organizer flow marks affected matches `FORFEIT`/`POSTPONED` first; deleting a tournament cascades.
 
 ## 4. Shared engines (`shared/tournament/`, pure, heavily tested)
 
@@ -174,7 +182,7 @@ Gating: `canCreateTournament(req.user)` = `isAdmin` or id in `TOURNAMENT_CREATOR
 | `POST/PATCH/DELETE /:id/matches[/:matchId]` | organizer/manager | Manual add / edit (teams, time, court) / remove; conflict check from `scheduler.js`. |
 | `PUT /:id/matches/:matchId/result` | organizer/manager/scorekeeper | `{ homeScore, awayScore, penalties?, details?, status, stats?, expectedVersion }`; in one tx: validate, bump `version` (409 on mismatch), set winner, advance winner/loser into downstream slots, optionally write `PlayerStatEntry` (tournamentMatchId); socket `tournament:update` (no push for results). |
 | `GET /:id/standings`, `GET /:id/bracket`, `GET /:id/schedule`, `GET /:id/stats/leaders?key=` | per visibility | Computed views. |
-| `POST /:id/report` | any | Reuses the Feature 1 report model (`UserReport` + optional `tournamentId`). |
+| `POST /:id/report` | any | Reuses the Feature 1 report model (`UserReport.tournamentId`, added by the schema follow-up migration). |
 
 Realtime: reuse the Socket.io rooms pattern (`tournament:<id>`), emit on result / schedule changes; clients also refetch on focus (as games do).
 
@@ -210,6 +218,9 @@ Design-agent checkpoints: D0 before T-14 / T-19 (bracket, standings, score sheet
 ## 8. Test matrix highlights
 
 - Gating: non-creator `POST /tournaments` -> 403; creator allowlist and admin work; capability flag on `/users/me`.
+- Invited to two teams, accepts one (second invite auto-voids; accepting the second -> 409); declined/removed players can join another team; partial unique index prevents two ACCEPTED rows.
+- Join code: rotate invalidates old code; closed registration rejects codes.
+- Scheduler DST: windows around the Israeli DST switch keep local times.
 - Registration races: two captains take the last spot (one APPROVED/PENDING, one WAITLISTED); player in two teams (409); roster below min cannot be approved, above max cannot be invited; lock time; minors rule.
 - Engines: N = 2..32 teams for round-robin/bracket (byes, odd counts), no double booking, rest constraints, tiebreaker permutations incl. 3-way ties.
 - Results: stale `expectedVersion` -> 409; editing a finished match re-resolves downstream slots and refuses if a downstream match is already finished (unless organizer force); forfeits; penalties winner.
