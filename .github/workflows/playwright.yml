@@ -68,6 +68,10 @@ jobs:
             next_app/package-lock.json
             e2e/package-lock.json
 
+      # No Clerk secrets and no database. Runs even when the key check below fails.
+      - name: DB guard unit tests
+        run: node --test e2e/support/dbEnv.test.js
+
       - name: Refuse live Clerk keys
         run: |
           set -euo pipefail

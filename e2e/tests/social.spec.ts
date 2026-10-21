@@ -33,6 +33,10 @@ test("a stranger does not see a minor's private profile sections or email", asyn
     await expect(email).not.toContainText(seed.users.minorC.email);
   }
   await expect(page.locator("main")).not.toContainText(seed.users.minorC.email);
+  // The age block is omitted for a stranger. PR #375 also drops it when
+  // profileRestricted is set; either build must leave profile-age out of the DOM.
+  await expect(page.getByTestId("profile-age")).toHaveCount(0);
+  await expect(page.locator("main").getByText("גיל", { exact: true })).toHaveCount(0);
   const sections = page.getByTestId("profile-sections");
   await expect(sections).toBeAttached();
   await expect(sections).not.toContainText("חברים");

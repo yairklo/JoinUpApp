@@ -18,6 +18,7 @@ import UserProfileSections from "@/components/UserProfileSections";
 import UserProfileRating from "@/components/UserProfileRating";
 import { SPORT_MAPPING } from "@/utils/sports";
 import { normalizeName } from "@/utils/normalizeName";
+import { ADULT_AGE } from "@joinup/shared/ageGate";
 
 type PublicUser = {
     id: string;
@@ -31,6 +32,7 @@ type PublicUser = {
     positions?: { id: string; name: string; sportId: string }[];
     ratingAverage?: number | null;
     totalRatings?: number;
+    profileRestricted?: boolean;
 };
 
 const GENDER_LABELS: Record<"MALE" | "FEMALE", string> = {
@@ -64,6 +66,13 @@ export default async function UserPublicPage(props: {
                 <Alert severity="error">המשתמש לא נמצא</Alert>
             </Container>
         );
+    }
+
+    // Strangers do not see a minor's age. profileRestricted === false means the
+    // viewer is the owner or a friend (PR #375). This fetch has no viewer token,
+    // so until that flag is explicitly false a minor age stays off the public profile.
+    if (u.profileRestricted !== false && typeof u.age === "number" && u.age < ADULT_AGE) {
+        u.age = null;
     }
 
     return (
@@ -143,7 +152,7 @@ export default async function UserPublicPage(props: {
 
                             {/* Age */}
                             {u.age && (
-                                <Box>
+                                <Box data-testid="profile-age">
                                     <Typography variant="caption" fontWeight="bold" color="text.secondary" textTransform="uppercase">
                                         גיל
                                     </Typography>

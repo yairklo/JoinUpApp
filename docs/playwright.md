@@ -14,7 +14,7 @@ The suite reads `server/fixtures/devSeed.json`, which `server/scripts/seedDev.js
 - A meeting proposal (`ניפגש …`), a phone number, and a link are delivered. CI runs these against `MODERATION_PROVIDER=stub` (dev/CI only; the API refuses the stub when `NODE_ENV=production`). A real `OPENAI_API_KEY` or `GOOGLE_API_KEY` is optional and is not used when the stub is on. Without either provider, adult A is not friends with minor C, so those gated messages fail closed.
 - Group chat report sends and the toast confirms it.
 - Names rendered in profile headings, notification rows, chat bubbles, and the account avatar are never email-shaped. The footer support `mailto` is not part of that check.
-- A stranger viewing the minor does not see friends, match history, or the minor's email. `profile-email` is either absent or its text contains no `@` (older builds show «אימייל לא זמין»; the privacy change removes the row for non-owners). Age is hidden from strangers on a minor's profile.
+- A stranger viewing the minor does not see friends, match history, or the minor's email. `profile-email` is either absent or its text contains no `@` (older builds show «אימייל לא זמין»; the privacy change removes the row for non-owners). Age is hidden from strangers on a minor's profile: `profile-age` is absent, and `main` has no exact «גיל» label.
 
 ## Run locally
 
@@ -94,6 +94,8 @@ Repository secrets (test instance only — never `sk_live_` / `pk_live_`):
 2. `CLERK_TEST_PUBLISHABLE_KEY` = `pk_test_...`
 
 No model key is required. CI sets `MODERATION_PROVIDER=stub` and throws away the Postgres service on localhost. Do not add `OPENAI_API_KEY` or `GOOGLE_API_KEY` for this job.
+
+The job runs `node --test e2e/support/dbEnv.test.js` before the Clerk secret check, so the database guard is covered even when those secrets are missing.
 
 The job name is **web regression**. To block merge:
 
