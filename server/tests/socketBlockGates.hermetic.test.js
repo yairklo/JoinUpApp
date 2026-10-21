@@ -260,3 +260,19 @@ describe('message send across a block', () => {
     expect(mockPrisma.message.create).not.toHaveBeenCalled();
   });
 });
+
+describe('joinPickSession authorization', () => {
+  test('an unauthorized user gets the Unauthorized error and does not join the room', async () => {
+    mockPrisma.game.findUnique.mockResolvedValue({ organizerId: 'someone_else', roles: [], participants: [] });
+    const { handlers, local } = await connect();
+    await handlers.joinPickSession('g1');
+    expect(local.find((l) => l.event === 'error').payload).toBe('Unauthorized: managers only');
+  });
+
+  test('the organizer joins the pick room', async () => {
+    mockPrisma.game.findUnique.mockResolvedValue({ organizerId: ME, roles: [], participants: [] });
+    const { handlers, local } = await connect();
+    await handlers.joinPickSession('g1');
+    expect(local.some((l) => l.event === 'error' && l.payload === 'Unauthorized: managers only')).toBe(false);
+  });
+});

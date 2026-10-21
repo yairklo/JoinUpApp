@@ -526,13 +526,6 @@ io.on('connection', async (socket) => {
       const { buildPickSessionState, canAccessPickSession } = require('./services/pickSessionService');
       const allowed = await canAccessPickSession(String(gameId), String(socket.userId));
       if (!allowed) {
-        const g = await prisma.game.findUnique({
-          where: { id: String(gameId) },
-          select: { organizerId: true, roles: { select: { userId: true, role: true } } },
-        });
-        allowed = canManagePickSession(g, String(socket.userId));
-      }
-      if (!allowed) {
         socket.emit('error', 'Unauthorized: managers only');
         return;
       }
