@@ -103,7 +103,29 @@
     "noFriends": "No friends to show",
     "noMatches": "No past matches",
     "loadMore": "Load more games",
-    "messagesBlocked": "This user only accepts messages from friends"
+    "messagesBlocked": "This user only accepts messages from friends",
+    "hideMatchStats": "Hide my match stats from others",
+    "hideMatchStatsHint": "Your results and stats won't be shown to others on your profile or game pages. You can still see them."
+  },
+  "stats": {
+    "title": "Stats",
+    "titleOwner": "My stats",
+    "source": "As reported by game managers",
+    "sourceHint": "Results are entered by game managers and aren't verified.",
+    "games": "Games",
+    "wins": "Wins",
+    "draws": "Draws",
+    "losses": "Losses",
+    "winRate": "{{pct}}% wins",
+    "perGame": "{{value}} per game",
+    "showAll": "Show all stats",
+    "emptyViewer": "No results yet",
+    "emptyOwnerTitle": "No results yet",
+    "emptyOwnerBody": "When a game manager adds a result for a game you played, your stats show up here.",
+    "hiddenOwner": "Hidden from others. Only you can see this.",
+    "changeInSettings": "Change in settings",
+    "loadFailed": "Couldn't load stats",
+    "summaryLine": "{{games}} games"
   },
   "ratings": {
     "title": "Rate your teammates",
