@@ -23,6 +23,8 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import PendingJoinRequests from "@/components/PendingJoinRequests";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import GameRatingsPanel from "@/components/GameRatingsPanel";
+import GameResultSection from "@/components/gameResult/GameResultSection";
+import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import Chat from "@/components/Chat";
 import { useSocket } from "@/context/SocketContext";
 import { normalizeIncomingGame } from "@/utils/timezone";
@@ -452,6 +454,20 @@ export default function GameLiveSection({
           <PendingJoinRequests gameId={game.id} onDecision={mergeAndSet} />
         </Box>
       )}
+
+      <Box mt={2}>
+        <SectionErrorBoundary label="תוצאת המשחק">
+          <GameResultSection
+            gameId={game.id}
+            sport={game.sport}
+            gameTitle={game.title || game.fieldName}
+            gameDate={game.date && game.date.includes("-") ? game.date.split("-").reverse().join("/") : game.date}
+            teams={game.teams || []}
+            viewerId={viewerId}
+            viewerParticipationStatus={game.viewerParticipationStatus}
+          />
+        </SectionErrorBoundary>
+      </Box>
 
       <Grid container spacing={{ xs: 3, md: 4 }} mt={0.5}>
         <Grid size={{ xs: 12, md: joined ? 7 : 12 }}>
