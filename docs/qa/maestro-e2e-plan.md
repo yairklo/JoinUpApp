@@ -1,7 +1,8 @@
 # Maestro E2E plan for `mobile_app`
 
-Status: approach + 4 smoke flows implemented. **The flows have not been executed yet** (no Maestro CLI,
-Clerk dev instance or E2E backend on the machine that wrote them) — see [Verification status](#verification-status).
+Status: approach + 4 smoke flows implemented and executed locally. All four smoke flows passed on a
+Windows host against the local E2E backend and an Android 34 emulator — see [Verification status](#verification-status).
+CI with only the listed env vars is still unrun.
 
 ## 1. What we learned about the app
 

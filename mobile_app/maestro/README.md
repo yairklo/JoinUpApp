@@ -44,3 +44,7 @@ node maestro/local/start-backend.mjs --reset    # same, from an empty DB
 Verified on Windows (without Clerk keys, using placeholder keys): Postgres container, `prisma migrate deploy`,
 field import and the API (`/api/health`, `/api/fields/cities`) all come up. Authenticated routes need real Clerk dev keys.
 Notes: the API needs `ALLOW_DISK_UPLOADS=true` locally (set by the script) because no Cloudinary URL is configured.
+The script also blanks Redis, Sentry, Cloudinary, Firebase, and AI keys to empty strings before starting
+`server/index.js`, so a developer `server/.env` cannot attach this process to production services (dotenv
+does not override existing keys). It refuses to start unless the Clerk keys are `sk_test_` / `pk_test_`,
+and it always uses the local Postgres URL on `localhost:5544`.
