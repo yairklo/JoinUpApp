@@ -204,6 +204,7 @@ function validateResultInput(sport, body) {
     s.score = resultCheck.scores[i];
     s.outcome = resultCheck.outcomes[i];
     if (sport === 'TENNIS') {
+      // Client-sent score / side-1 sets are ignored: score = sets won, side 1 sets = mirror of side 0.
       s.sets = i === 0 ? sides[0].sets : sides[0].sets.map(([a, b]) => [b, a]);
     } else {
       s.sets = null;
@@ -230,9 +231,25 @@ function validateResultInput(sport, body) {
     return { userId, sideOrder, values: v.stats };
   });
 
-  const notes = typeof input.notes === 'string' ? input.notes.trim().slice(0, MAX_NOTES_LENGTH) || null : null;
+  let notes = null;
+  if (typeof input.notes === 'string') {
+    notes = input.notes.trim() || null;
+    if (notes && notes.length > MAX_NOTES_LENGTH) {
+      throw toBadRequest('NOTES_TOO_LONG', `Notes must be at most ${MAX_NOTES_LENGTH} characters`, [
+        { max: MAX_NOTES_LENGTH, length: notes.length },
+      ]);
+    }
+  }
 
   const warnings = [];
+  // At most one MVP per game: keep the last one in the request, drop the others and say so.
+  const mvps = stats.filter((p) => p.values.mvp === 1);
+  if (mvps.length > 1) {
+    const kept = mvps[mvps.length - 1];
+    const dropped = mvps.slice(0, -1);
+    for (const p of dropped) delete p.values.mvp;
+    warnings.push({ code: 'MULTIPLE_MVP', keptUserId: kept.userId, droppedUserIds: dropped.map((p) => p.userId) });
+  }
   for (let order = 0; order < 2; order += 1) {
     const mine = stats.filter((p) => p.sideOrder === order).map((p) => p.values);
     warnings.push(...checkPlayerTotals(sport, sides[order].score, mine).map((w) => ({ ...w, sideOrder: order })));
