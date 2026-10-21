@@ -68,7 +68,7 @@ To make the hand-off cheap:
 
 ## 5. Risks and open questions (need owner answers; defaults are stated)
 
-1. "רשימת משחקים בגודל משתנה" - interpreted as: the number of matches is not fixed (depends on format and number of teams) and the organizer can add/remove/edit matches manually after generation. If it meant variable *players per match*, say so (default: fixed on-field size per tournament, e.g. 5v5, plus the roster range 5..9).
+1. ~~"רשימת משחקים בגודל משתנה"~~ - RESOLVED by owner: the number of matches varies with format and team count, and the organizer can add/remove matches manually. This is what the tournament plan already specifies (generator + manual add/edit/remove endpoints); on-field team size stays fixed per tournament.
 2. Minors in tournaments: default = follow age gate; a minor can join only if the tournament is marked open to minors, and minors/adults are not mixed unless the organizer opts in. Needs a legal/product call.
 3. Result disputes: default = managers may edit for 7 days, then locked (admin can reopen); any participant can flag a result, which lands in the admin queue.
 4. Stats input: default = manager enters per-player numbers after the game (not live). Live scoring is limited to tournament matches (score only) in v1.
