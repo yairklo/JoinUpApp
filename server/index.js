@@ -20,6 +20,10 @@ const fs = require('fs').promises;
 const http = require('http');
 const { Server } = require('socket.io');
 const { prisma } = require('./lib/prisma');
+const { createClient, closeSharedRedis, isRedisHealthy, getRedis } = require('./lib/redis');
+const { attachSocketAdapter } = require('./socket/adapter');
+const { isUserOnline, hasOtherUserInRoom } = require('./utils/socketPresence');
+const { createTempIdDedupe } = require('./utils/tempIdDedupe');
 const { setChatView, canSocketMarkRead } = require('./utils/chatViewState');
 
 // Import routes
@@ -48,14 +52,17 @@ const { getAgeGateStatus, AGE_GATE_STATUS } = require('./shared/ageGate');
 const { MAX_MESSAGE_LENGTH, validateMessageText, sendRateLimiter, assessOutgoingMessage } = require('./services/chatSafety');
 const { notificationName, publicDisplayName } = require('./utils/publicName');
 const { applyMessageEdit, applyMessageDelete } = require('./services/messageEvidence');
-const { processReviewQueue } = require('./workers/reviewWorker');
 
 // Notification Workers
-const { startCleanupWorker } = require('./workers/cleanupWorker');
+const { startCleanupWorker, stopCleanupWorker } = require('./workers/cleanupWorker');
 const gameScheduler = require('./services/gameScheduler');
+const { createLeaderLock } = require('./services/leaderLock');
+const { createJobsRuntime } = require('./services/jobsRuntime');
 
-// Jest skips timers so --detectOpenHandles stays clean. A second Render API instance
-// should set RUN_BACKGROUND_JOBS=false; lottery/reminder claims stay idempotent either way.
+// Jest skips timers so --detectOpenHandles stays clean. This flag means "this process MAY host
+// the background jobs". Without JOBS_LEADER_LOCK=redis every such process runs them, so extra
+// API instances must set RUN_BACKGROUND_JOBS=false. With JOBS_LEADER_LOCK=redis any number of
+// processes may leave it on: only the Redis lock holder actually runs the jobs.
 const enableBackgroundSchedulers =
   process.env.NODE_ENV !== 'test'
   && !process.env.JEST_WORKER_ID
@@ -72,11 +79,13 @@ const enableRedis =
   && !process.env.JEST_WORKER_ID
   && process.env.NODE_ENV !== 'test';
 
-// Start Review Worker
-if (enableBackgroundSchedulers) {
-  // Run immediately on startup to process any backlog (crash/redeploy recovery). Ongoing
-  // items are triggered on insert and via gameScheduler.armReviewRetry — no polling interval.
-  processReviewQueue().catch(err => console.error("Worker Startup Error:", err));
+// JOBS_LEADER_LOCK=redis: elect a single job runner among all job-capable processes.
+// If REDIS_URL is missing the lock cannot work: run jobs directly (single-instance behaviour
+// as before) and say so loudly.
+const wantsLeaderLock = process.env.JOBS_LEADER_LOCK === 'redis';
+const useLeaderLock = wantsLeaderLock && enableRedis;
+if (wantsLeaderLock && !useLeaderLock && !process.env.JEST_WORKER_ID) {
+  console.warn('[JOBS] JOBS_LEADER_LOCK=redis but REDIS_URL is not set: running jobs without a lock (single instance only)');
 }
 
 const app = express();
@@ -175,6 +184,10 @@ const io = new Server(server, {
   },
 });
 
+// Cross-instance delivery (SOCKET_ADAPTER=redis + REDIS_URL). No-op otherwise. Rooms are plain
+// strings so every existing io.to(room).emit() call site works cluster-wide unchanged.
+const socketAdapter = attachSocketAdapter(io);
+
 app.use((req, res, next) => {
   req.io = io;
   next();
@@ -199,9 +212,18 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/field-suggestions', require('./routes/fieldSuggestions'));
 
+// 'on' = jobs running here, 'standby' = waiting for the leader lock, 'off' = disabled.
+function jobsStatus() {
+  const st = jobsRuntime.state();
+  if (st.mode === 'off') return 'off';
+  if (st.mode === 'leader-lock') return st.active ? 'on' : 'standby';
+  return 'on';
+}
+
 // Health check
 let redisReady = false;
 let redisPub = null;
+let redisSub = null;
 
 // Liveness probe: the container platform's healthcheck hits this every few seconds to
 // decide whether to restart the container. It must stay instant and dependency-free —
@@ -210,7 +232,7 @@ let redisPub = null;
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
-    jobs: enableBackgroundSchedulers ? 'on' : 'off',
+    jobs: jobsStatus(),
     http: enableHttpServer ? 'on' : 'off',
     message: 'Football Fields API is running',
     requestId: req.requestId,
@@ -239,7 +261,9 @@ app.get('/api/health/deep', async (req, res) => {
       status: 'OK',
       db: 'up',
       redis,
-      jobs: enableBackgroundSchedulers ? 'on' : 'off',
+      socketAdapter: !socketAdapter.enabled ? 'off' : (isRedisHealthy() ? 'up' : 'down'),
+      jobs: jobsStatus(),
+      jobLeader: jobsRuntime.state().lock,
       http: enableHttpServer ? 'on' : 'off',
       message: 'Football Fields API is running',
       requestId: req.requestId,
@@ -270,6 +294,9 @@ async function socketAuthMiddleware(socket, next) {
     if (!socket.userId) {
       return next(new Error('Unauthorized'));
     }
+    // socket.data survives fetchSockets()/RemoteSocket, so other instances can see who is online.
+    socket.data = socket.data || {};
+    socket.data.userId = String(socket.userId);
     try {
       const { getClerkUserCached, isAccountDeleted } = require('./utils/auth');
       const { resolveIsBanned } = require('./utils/admin');
@@ -293,37 +320,19 @@ async function socketAuthMiddleware(socket, next) {
 
 io.use(socketAuthMiddleware);
 
-// A user is "online" if they have at least one active socket in their personal room
-function isUserOnline(userId) {
-  const room = io.sockets.adapter.rooms.get(`user_${userId}`);
-  return !!(room && room.size > 0);
-}
-
 // Redis: moderation fan-out + optional worker→API socket bridge
-const { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent } = require('./utils/socketBridge');
+const { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent, localTarget } = require('./utils/socketBridge');
 if (enableRedis) {
-  const Redis = require("ioredis");
   const { Logger } = require('./utils/logger');
 
-  const redisSub = new Redis(process.env.REDIS_URL, {
-    retryStrategy: (times) => {
-      if (times > 3) return null;
-      return Math.min(times * 500, 2000);
-    }
-  });
-  redisPub = new Redis(process.env.REDIS_URL, {
-    retryStrategy: (times) => {
-      if (times > 3) return null;
-      return Math.min(times * 500, 2000);
-    }
-  });
+  // Retry forever (capped backoff): the bridge carries worker->API socket events and scheduler
+  // signals, so one Redis blip must not end it permanently. ioredis re-subscribes on reconnect.
+  // sub: its (re)subscribe commands queue until connected and never give up.
+  // pub: fail-fast, no offline queue — events published while Redis is down are dropped instead of
+  // being replayed minutes later as stale socket events / scheduler signals.
+  redisSub = createClient({ label: 'bridge-sub', maxRetriesPerRequest: null });
+  redisPub = createClient({ label: 'bridge-pub', failFast: true, commandTimeout: 2000 });
 
-  redisSub.on('error', (err) => {
-    Logger.warn("REDIS SUB", `Connection error: ${err.message}`);
-  });
-  redisPub.on('error', (err) => {
-    Logger.warn("REDIS PUB", `Connection error: ${err.message}`);
-  });
   redisSub.on('ready', () => { redisReady = true; });
   redisPub.on('ready', () => { redisReady = true; });
 
@@ -331,10 +340,15 @@ if (enableRedis) {
   // handler even if its own scheduler isn't enabled (e.g. the web API split from a
   // dedicated `worker.js` jobs process) — forward the signal to whichever process is
   // actually subscribed to SCHEDULER_CHANNEL below.
-  gameScheduler.setPublisher((msg) => redisPub.publish(SCHEDULER_CHANNEL, JSON.stringify(msg)));
+  gameScheduler.setPublisher((msg) => {
+    Promise.resolve(redisPub.publish(SCHEDULER_CHANNEL, JSON.stringify(msg)))
+      .catch((err) => Logger.warn('SCHEDULER', `signal publish failed: ${err.message}`));
+  });
 
   const channels = ['moderation_events'];
   if (enableHttpServer) channels.push(SOCKET_CHANNEL);
+  // Every job-capable process listens; only the one whose scheduler is enabled (the leader, or
+  // the sole job runner) acts on a signal. See gameScheduler.handleSignal.
   if (enableBackgroundSchedulers) channels.push(SCHEDULER_CHANNEL);
   redisSub.subscribe(...channels, (err, count) => {
     if (err) Logger.error("REDIS SUB", "Failed to subscribe:", err);
@@ -352,12 +366,8 @@ if (enableRedis) {
     }
     if (channel === SCHEDULER_CHANNEL) {
       try {
-        const msg = JSON.parse(message);
-        if (msg.type === 'resync') {
-          gameScheduler.resyncGameById(msg.gameId).catch(err => Logger.error('SCHEDULER', 'resyncGameById failed:', err));
-        } else if (msg.type === 'reviewQueue') {
-          gameScheduler.triggerReviewQueue();
-        }
+        gameScheduler.handleSignal(JSON.parse(message))
+          .catch(err => Logger.error('SCHEDULER', 'signal handling failed:', err));
       } catch (e) {
         Logger.error("REDIS SUB", "Error parsing scheduler bridge message:", e);
       }
@@ -368,7 +378,9 @@ if (enableRedis) {
         const event = JSON.parse(message);
         if (event.type === 'delete') {
           Logger.info('MODERATION', `Retroactive delete command received for msg: ${event.messageId}`);
-          const target = event.roomId ? io.to(String(event.roomId)) : io;
+          // Local-only: every instance receives this message itself (see utils/socketBridge.js).
+          const local = localTarget(io);
+          const target = event.roomId ? local.to(String(event.roomId)) : local;
           target.emit('messageDeleted', { id: event.messageId });
         }
       } catch (e) {
@@ -380,15 +392,12 @@ if (enableRedis) {
 
 
 // tempIds of messages accepted/in flight per sender+room, so client retries are idempotent.
-const recentTempIds = new Map(); // key -> { t: createdAt, echo: stored message payload | null (in flight) }
-const TEMP_ID_TTL_MS = 5 * 60 * 1000;
+// CHAT_DEDUPE_STORE=redis also shares the claim across instances (retry after failover);
+// default is per-process memory.
+const tempIdDedupe = createTempIdDedupe({
+  client: process.env.CHAT_DEDUPE_STORE === 'redis' ? getRedis() : null,
+});
 const SEND_PROCESS_TIMEOUT_MS = 20000;
-let lastTempIdSweep = 0;
-function sweepRecentTempIds(now) {
-  if (now - lastTempIdSweep < 60 * 1000) return;
-  lastTempIdSweep = now;
-  for (const [k, v] of recentTempIds) if (now - v.t > TEMP_ID_TTL_MS) recentTempIds.delete(k);
-}
 
 io.on('connection', async (socket) => {
   // 1. Auto-join User & City User Rooms & Presence
@@ -417,18 +426,17 @@ io.on('connection', async (socket) => {
     }
   }
 
-  socket.on('disconnect', () => {
-    // Check if user has other connections? 
-    // For simplicity in this scale: if specific socket disconnects, check if user still has connected sockets
-    // io.sockets.adapter.rooms.get(`user_${socket.userId}`) might be empty now?
-    // Actually, socket.io rooms are accurate.
-    // If `user_${socket.userId}` room is empty, user is offline.
+  socket.on('disconnect', async () => {
+    // The socket has already left its rooms. If `user_<id>` is now empty on EVERY instance
+    // (cluster-wide via fetchSockets), the user is offline. Two last tabs on different nodes
+    // closing in the same instant can both still see the other; accepted (presence is approximate).
     if (socket.userId) {
-      // Allow a small delay to handle page refreshes without flickering?
-      // For now, immediate.
-      const room = io.sockets.adapter.rooms.get(`user_${socket.userId}`);
-      if (!room || room.size === 0) {
-        io.to(`presence_listener_${socket.userId}`).emit('presence:update', { userId: socket.userId, isOnline: false });
+      try {
+        if (!(await isUserOnline(io, socket.userId))) {
+          io.to(`presence_listener_${socket.userId}`).emit('presence:update', { userId: socket.userId, isOnline: false });
+        }
+      } catch (e) {
+        console.error('[presence] disconnect check failed:', e && e.message);
       }
     }
   });
@@ -445,9 +453,8 @@ io.on('connection', async (socket) => {
       socket.join(listenerRoom);
     }
     // Emit initial status
-    // Check if target user has any active sockets in their "user_ID" room
-    const room = io.sockets.adapter.rooms.get(`user_${targetUserId}`);
-    const isOnline = !!(room && room.size > 0);
+    // Check if target user has any active sockets (on any instance) in their "user_ID" room
+    const isOnline = await isUserOnline(io, targetUserId);
     socket.emit('presence:update', { userId: targetUserId, isOnline });
   });
 
@@ -542,7 +549,7 @@ io.on('connection', async (socket) => {
     // Moderation blocks are NOT failures: they come back as a normal echo with status 'blocked'.
     let dedupeKey = null;
     const fail = (error, code, retryable) => {
-      if (dedupeKey) recentTempIds.delete(dedupeKey);
+      if (dedupeKey) tempIdDedupe.release(dedupeKey);
       socket.emit('error', error);
       if (tempId !== undefined && tempId !== null) {
         socket.emit('messageFailed', { tempId, roomId: String(roomId), code, retryable });
@@ -556,19 +563,17 @@ io.on('connection', async (socket) => {
 
     // Retries reuse the same tempId, so a retry after a lost echo must not store the message twice.
     // Already stored => re-send the stored echo to this sender (their client was left on "pending");
-    // still in flight => ignore, the original will answer. In-memory and per instance: good enough
-    // for the sticky single-connection retry case, not a cross-instance guarantee.
+    // still in flight => ignore, the original will answer. Per instance by default; shared via
+    // Redis when CHAT_DEDUPE_STORE=redis (see utils/tempIdDedupe.js).
+    let echoStored = false;
     if (tempId !== undefined && tempId !== null) {
-      const now = Date.now();
-      sweepRecentTempIds(now);
-      dedupeKey = `${socket.userId}:${roomId}:${tempId}`;
-      const seen = recentTempIds.get(dedupeKey);
-      if (seen) {
-        dedupeKey = null; // not ours to clear
-        if (seen.echo) socket.emit('message', seen.echo);
+      const key = `${socket.userId}:${roomId}:${tempId}`;
+      const claim = await tempIdDedupe.claim(key);
+      if (!claim.claimed) {
+        if (claim.echo) socket.emit('message', claim.echo);
         return;
       }
-      recentTempIds.set(dedupeKey, { t: now, echo: null });
+      dedupeKey = key;
     }
 
     const processMessage = async () => {
@@ -580,7 +585,7 @@ io.on('connection', async (socket) => {
       return;
     }
 
-    if (!sendRateLimiter.allow(socket.userId)) {
+    if (!(await sendRateLimiter.allow(socket.userId))) {
       fail('You are sending messages too fast', 'RATE_LIMITED', true);
       return;
     }
@@ -647,13 +652,7 @@ io.on('connection', async (socket) => {
     // Check active users in room to determine initial status
     if (initialStatus === 'sent') {
       // Delivered = a socket of ANOTHER user is in the room (the sender's own tabs don't count).
-      const clients = io.sockets.adapter.rooms.get(String(roomId));
-      if (clients) {
-        for (const sid of clients) {
-          const other = io.sockets.sockets.get(sid);
-          if (other && String(other.userId) !== String(socket.userId)) { initialStatus = 'delivered'; break; }
-        }
-      }
+      if (await hasOtherUserInRoom(io, String(roomId), socket.userId)) initialStatus = 'delivered';
     }
     // ---------------------------------
 
@@ -734,7 +733,7 @@ io.on('connection', async (socket) => {
     };
 
 
-    if (dedupeKey) recentTempIds.set(dedupeKey, { t: Date.now(), echo: msg });
+    if (dedupeKey) { echoStored = true; tempIdDedupe.storeEcho(dedupeKey, msg); }
 
     if (msg.roomId) {
       if (initialStatus === 'blocked') {
@@ -817,7 +816,7 @@ io.on('connection', async (socket) => {
         }
       } catch (e) {
         console.error('[message] unexpected send error:', e);
-        if (dedupeKey && recentTempIds.get(dedupeKey)?.echo) return; // already stored + echoed; don't report a false failure
+        if (dedupeKey && echoStored) return; // already stored + echoed; don't report a false failure
         fail('Could not send message', 'SEND_FAILED', true);
       }
     };
@@ -990,7 +989,7 @@ io.on('connection', async (socket) => {
       if (!(await checkChatPermission(socket.userId, exists.chatRoomId))) return;
 
       // Edits go through the same AI/limits as sends, so they share the send budget.
-      if (!sendRateLimiter.allow(socket.userId)) {
+      if (!(await sendRateLimiter.allow(socket.userId))) {
         socket.emit('error', 'You are sending messages too fast');
         return;
       }
@@ -1124,8 +1123,9 @@ function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
 const { resolveSeriesRegistrationOpensAt } = require('./utils/seriesRegistrationRule');
 
 let seriesGenRunning = false;
-async function runWeeklySeriesGeneration() {
-  if (seriesGenRunning) return;
+// `shouldContinue` lets a deposed job leader stop between series/occurrences.
+async function runWeeklySeriesGeneration({ shouldContinue = () => true } = {}) {
+  if (seriesGenRunning || !shouldContinue()) return;
   seriesGenRunning = true;
   try {
     const now = new Date();
@@ -1135,6 +1135,7 @@ async function runWeeklySeriesGeneration() {
     });
 
     for (const s of seriesList) {
+      if (!shouldContinue()) break;
       try {
         if (typeof s.dayOfWeek !== 'number' || !s.time || !s.fieldId) continue;
 
@@ -1228,6 +1229,7 @@ async function runWeeklySeriesGeneration() {
           // aborts that occurrence and the rest are still generated.
           let createdCount = 0;
           for (const occ of pendingCreates) {
+            if (!shouldContinue()) break;
             try {
               const game = await prisma.$transaction(async (tx) => {
                 const g = await tx.game.create({ data: occ.data });
@@ -1260,12 +1262,6 @@ async function runWeeklySeriesGeneration() {
   }
 }
 
-if (enableBackgroundSchedulers) {
-  // Run every 24 hours
-  setInterval(runWeeklySeriesGeneration, 24 * 60 * 60 * 1000);
-  // Kick once on boot (non-blocking)
-  runWeeklySeriesGeneration().catch(() => { });
-}
 
 // 404 handler (must be after all routes, before error handler)
 app.use((req, res) => {
@@ -1287,28 +1283,80 @@ app.use((err, req, res, next) => {
   res.status(500).json(payload);
 });
 
-async function startJobs(jobIo) {
-  if (!enableBackgroundSchedulers) {
-    console.log('⏸️  Background jobs disabled (RUN_BACKGROUND_JOBS=false)');
-    return;
-  }
-  gameScheduler.init({ prisma, io: jobIo, notificationService });
-  await gameScheduler.loadAll();
-  startCleanupWorker();
-  console.log('🔔 Notification workers started');
+// Graceful shutdown: rolling deploys must drain sockets (clients fail over to the other
+// instance) and release anything cluster-visible (job leadership) instead of being cut off.
+// Never registered under Jest.
+const shutdownHooks = [];
+let shuttingDown = false;
+async function gracefulShutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[SHUTDOWN] ${signal} received, draining...`);
+  const force = setTimeout(() => {
+    console.error('[SHUTDOWN] timed out, forcing exit');
+    process.exit(1);
+  }, 10000);
+  if (force.unref) force.unref();
+  const step = async (name, fn) => {
+    try { await fn(); } catch (e) { console.error(`[SHUTDOWN] ${name} failed:`, e && e.message); }
+  };
+  for (const [name, fn] of shutdownHooks) await step(name, fn);
+  await step('socket.io', () => new Promise((resolve) => { io.close(() => resolve()); }));
+  await step('socket adapter', () => socketAdapter.close());
+  await step('redis bridge', async () => {
+    for (const c of [redisSub, redisPub]) if (c) { try { await c.quit(); } catch { c.disconnect(); } }
+  });
+  await step('redis shared', () => closeSharedRedis());
+  await step('prisma', () => prisma.$disconnect());
+  console.log('[SHUTDOWN] done');
+  process.exit(0);
 }
+// Graceful drain is on by default (Node as PID 1 otherwise ignores SIGTERM until the platform
+// SIGKILLs it). GRACEFUL_SHUTDOWN=false restores the old behaviour.
+const gracefulShutdownEnabled = process.env.GRACEFUL_SHUTDOWN !== 'false' && process.env.GRACEFUL_SHUTDOWN !== '0';
+if (!process.env.JEST_WORKER_ID && gracefulShutdownEnabled) {
+  process.on('SIGTERM', () => { gracefulShutdown('SIGTERM'); });
+  process.on('SIGINT', () => { gracefulShutdown('SIGINT'); });
+}
+
+// --- Background jobs lifecycle (see services/jobsRuntime.js) -------------------------------
+// io used by jobs when they must go over the bridge: publish so EVERY instance delivers to its
+// own sockets, regardless of which instance happens to be the job runner.
+function makeBridgeIo() {
+  return createPublisherIo((msg) => {
+    if (!redisPub) {
+      console.warn('[WORKER] REDIS_URL is not set — live socket events will not reach the API');
+      return;
+    }
+    return redisPub.publish(SOCKET_CHANNEL, JSON.stringify(msg));
+  });
+}
+
+const jobsRuntime = createJobsRuntime({
+  enabled: enableBackgroundSchedulers,
+  httpEnabled: enableHttpServer,
+  useLeaderLock,
+  gameScheduler,
+  prisma,
+  notificationService,
+  startCleanupWorker,
+  stopCleanupWorker,
+  runWeeklySeriesGeneration,
+  createLeaderLock,
+  getRedis,
+  adapterEnabled: () => socketAdapter.enabled,
+  makeBridgeIo,
+  addShutdownHook: (hook) => shutdownHooks.push(hook),
+  ttlMs: Number(process.env.JOBS_LEADER_TTL_MS) || 30000,
+});
+
+const startJobs = (jobIo) => jobsRuntime.start(jobIo);
 
 async function startServer() {
   await initializeDataFiles();
 
   if (!enableHttpServer) {
-    const jobIo = createPublisherIo((msg) => {
-      if (!redisPub) {
-        console.warn('[WORKER] REDIS_URL is not set — live socket events will not reach the API');
-        return;
-      }
-      return redisPub.publish(SOCKET_CHANNEL, JSON.stringify(msg));
-    });
+    const jobIo = makeBridgeIo();
     await startJobs(jobIo);
     console.log('[WORKER] background jobs running (HTTP bind skipped)');
     return null;
@@ -1332,4 +1380,4 @@ if (!process.env.JEST_WORKER_ID) {
   });
 }
 
-module.exports = { app, server, startServer, socketAuthMiddleware, runWeeklySeriesGeneration };
+module.exports = { app, server, io, socketAdapter, startServer, socketAuthMiddleware, runWeeklySeriesGeneration };

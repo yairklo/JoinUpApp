@@ -1,4 +1,5 @@
-const { LRUCache } = require('lru-cache');
+const { createMemoryStore, createRedisStore } = require('./rateLimitStore');
+const { getRedis } = require('../lib/redis');
 
 // CF-Connecting-IP is only authoritative when Cloudflare really sits in front of this app: its
 // edge overwrites any client-supplied value. Without Cloudflare (production today is a single
@@ -24,32 +25,43 @@ function isExempt(req) {
     || url.startsWith('/socket.io');
 }
 
+// RATE_LIMIT_STORE=redis shares counters across API instances (falls back to memory when
+// REDIS_URL is unset, and fails open to memory whenever Redis errors). Default: memory.
+function resolveStore({ windowMs }) {
+  if (process.env.RATE_LIMIT_STORE === 'redis') {
+    const client = getRedis();
+    if (client) return createRedisStore({ windowMs, client });
+  }
+  return createMemoryStore({ windowMs });
+}
+
 /**
  * Fixed-window counter per IP. Disabled in Jest unless forceEnable is set.
  * Socket.IO polling and /api/health are never counted.
+ * `store` may be injected (tests); otherwise chosen from RATE_LIMIT_STORE on first use.
  */
-function createRateLimiter({ windowMs, max, prefix, forceEnable = false }) {
-  const hits = new LRUCache({ max: 20000, ttl: windowMs });
+function createRateLimiter({ windowMs, max, prefix, forceEnable = false, store: injected }) {
+  let store = injected || null;
   const disabled = !forceEnable && (process.env.NODE_ENV === 'test' || !!process.env.JEST_WORKER_ID);
 
-  return function rateLimitMiddleware(req, res, next) {
+  return async function rateLimitMiddleware(req, res, next) {
     if (disabled || isExempt(req)) return next();
+    try {
+      if (!store) store = resolveStore({ windowMs });
+      const key = `${prefix}:${clientKey(req)}`;
+      const now = Date.now();
+      const entry = await store.hit(key);
 
-    const key = `${prefix}:${clientKey(req)}`;
-    const now = Date.now();
-    let entry = hits.get(key);
-    if (!entry || entry.resetAt <= now) {
-      entry = { count: 0, resetAt: now + windowMs };
-    }
-    entry.count += 1;
-    hits.set(key, entry);
+      res.setHeader('X-RateLimit-Limit', String(max));
+      res.setHeader('X-RateLimit-Remaining', String(Math.max(0, max - entry.count)));
 
-    res.setHeader('X-RateLimit-Limit', String(max));
-    res.setHeader('X-RateLimit-Remaining', String(Math.max(0, max - entry.count)));
-
-    if (entry.count > max) {
-      res.setHeader('Retry-After', String(Math.max(1, Math.ceil((entry.resetAt - now) / 1000))));
-      return res.status(429).json({ error: 'Too many requests' });
+      if (entry.count > max) {
+        res.setHeader('Retry-After', String(Math.max(1, Math.ceil((entry.resetAt - now) / 1000))));
+        return res.status(429).json({ error: 'Too many requests' });
+      }
+    } catch (err) {
+      // The limiter must never take the API down.
+      console.warn('[rateLimit] store error, allowing request:', err && err.message);
     }
     next();
   };

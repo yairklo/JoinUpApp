@@ -20,6 +20,7 @@ const { prisma } = require('../lib/prisma');
 const { getAgeInJerusalem } = require('../utils/privacy');
 const { containsSevereSlur } = require('./profanityFilter');
 const { needsAiReview } = require('./moderationGate');
+const { getRedis, key: redisKey } = require('../lib/redis');
 
 const MAX_MESSAGE_LENGTH = 2000;
 const SEND_RATE_WINDOW_MS = 10_000;
@@ -32,8 +33,29 @@ function validateMessageText(text) {
   return null;
 }
 
-/** In-memory sliding-window limiter keyed by user id (per API process). */
-function createSendRateLimiter({ windowMs = SEND_RATE_WINDOW_MS, max = SEND_RATE_MAX } = {}) {
+// Sliding window in Redis using server time so every API instance agrees. 1 = allowed.
+const SEND_LIMIT_LUA = `
+local t = redis.call('TIME')
+local now = tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)
+local w = tonumber(ARGV[1])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, now - w)
+if redis.call('ZCARD', KEYS[1]) >= tonumber(ARGV[2]) then return 0 end
+redis.call('ZADD', KEYS[1], now, now .. '-' .. ARGV[3])
+redis.call('PEXPIRE', KEYS[1], w)
+return 1
+`;
+
+/**
+ * Sliding-window limiter keyed by user id.
+ * - Without `client`: synchronous in-memory (per API process); allow() returns a boolean.
+ * - With a Redis `client` (CHAT_RATE_STORE=redis): shared across instances; allow() returns a
+ *   Promise<boolean> and FAILS OPEN to the local window when Redis errors/times out.
+ * Callers must `await limiter.allow(...)` so both shapes work.
+ */
+function createSendRateLimiter({
+  windowMs = SEND_RATE_WINDOW_MS, max = SEND_RATE_MAX, client = null, timeoutMs = 80,
+  breakerThreshold = 3, breakerOpenMs = 5000,
+} = {}) {
   const hits = new Map();
 
   function sweep(now) {
@@ -42,18 +64,42 @@ function createSendRateLimiter({ windowMs = SEND_RATE_WINDOW_MS, max = SEND_RATE
     }
   }
 
-  return {
-    allow(userId, now = Date.now()) {
-      const key = String(userId);
-      const times = (hits.get(key) || []).filter((t) => now - t < windowMs);
-      if (times.length >= max) {
-        hits.set(key, times);
-        return false;
-      }
-      times.push(now);
+  function allowLocal(userId, now = Date.now()) {
+    const key = String(userId);
+    const times = (hits.get(key) || []).filter((t) => now - t < windowMs);
+    if (times.length >= max) {
       hits.set(key, times);
-      if (hits.size > 5000) sweep(now);
-      return true;
+      return false;
+    }
+    times.push(now);
+    hits.set(key, times);
+    if (hits.size > 5000) sweep(now);
+    return true;
+  }
+
+  if (!client) return { allow: allowLocal };
+
+  let failures = 0;
+  let openUntil = 0;
+  return {
+    async allow(userId, now = Date.now()) {
+      if (now < openUntil) return allowLocal(userId, now);
+      let timer;
+      try {
+        const member = Math.random().toString(36).slice(2, 10);
+        const res = await Promise.race([
+          client.eval(SEND_LIMIT_LUA, 1, redisKey('chatrl', String(userId)), String(windowMs), String(max), member),
+          new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('redis timeout')), timeoutMs); }),
+        ]);
+        failures = 0;
+        return Number(res) === 1;
+      } catch (e) {
+        failures += 1;
+        if (failures >= breakerThreshold) openUntil = Date.now() + breakerOpenMs;
+        return allowLocal(userId, now);
+      } finally {
+        clearTimeout(timer);
+      }
     },
   };
 }
@@ -239,7 +285,10 @@ async function assessOutgoingMessage({ moderator, sender, roomId, text, onFlagge
 }
 
 // One limiter for both write paths (socket + REST) so they share a user's budget.
-const sendRateLimiter = createSendRateLimiter();
+// CHAT_RATE_STORE=redis shares the budget across API instances (default: per-process memory).
+const sendRateLimiter = createSendRateLimiter({
+  client: process.env.CHAT_RATE_STORE === 'redis' ? getRedis() : null,
+});
 
 module.exports = {
   MAX_MESSAGE_LENGTH,

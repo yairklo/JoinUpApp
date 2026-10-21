@@ -134,5 +134,75 @@ describe('HTTP rate limiter', () => {
       // eslint-disable-next-line no-await-in-loop
       expect((await request(app).get('/ok')).statusCode).toEqual(200);
     }
+  }, 30_000); // 100 sequential requests; the default 5 s is too tight on a loaded machine
+});
+
+describe('Redis-backed rate limit store (fake client)', () => {
+  const { createRedisStore, createMemoryStore } = require('../middleware/rateLimitStore');
+
+  function fakeClient() {
+    const counts = new Map();
+    return {
+      fail: false,
+      calls: 0,
+      async eval(_lua, _n, key) {
+        this.calls += 1;
+        if (this.fail) throw new Error('ECONNREFUSED');
+        const c = (counts.get(key) || 0) + 1;
+        counts.set(key, c);
+        return [c, 30_000];
+      },
+    };
+  }
+
+  function app(store, max = 3) {
+    const a = express();
+    a.use(createRateLimiter({ windowMs: 60_000, max, prefix: 'r', forceEnable: true, store }));
+    a.get('/ok', (_req, res) => res.json({ ok: true }));
+    return a;
+  }
+
+  test('counts via the shared store and derives Retry-After from the TTL', async () => {
+    const client = fakeClient();
+    const a = app(createRedisStore({ windowMs: 60_000, client }));
+    for (let i = 0; i < 3; i++) expect((await request(a).get('/ok')).statusCode).toBe(200);
+    const blocked = await request(a).get('/ok');
+    expect(blocked.statusCode).toBe(429);
+    expect(['30', '31']).toContain(blocked.headers['retry-after']); // TTL 30s (+ a ms of skew)
+  });
+
+  test('two apps sharing one store share one budget', async () => {
+    const client = fakeClient();
+    const a = app(createRedisStore({ windowMs: 60_000, client }));
+    const b = app(createRedisStore({ windowMs: 60_000, client }));
+    expect((await request(a).get('/ok')).statusCode).toBe(200);
+    expect((await request(b).get('/ok')).statusCode).toBe(200);
+    expect((await request(a).get('/ok')).statusCode).toBe(200);
+    expect((await request(b).get('/ok')).statusCode).toBe(429);
+  });
+
+  test('fails open to the memory store and trips the circuit breaker', async () => {
+    const client = fakeClient();
+    client.fail = true;
+    let t = 1_000_000;
+    const store = createRedisStore({
+      windowMs: 60_000, client, now: () => t, fallback: createMemoryStore({ windowMs: 60_000 }),
+    });
+    const a = app(store, 100);
+    for (let i = 0; i < 3; i++) expect((await request(a).get('/ok')).statusCode).toBe(200);
+    expect(client.calls).toBe(3);
+    expect(store.breakerOpen).toBe(true);
+    await request(a).get('/ok'); // breaker open: Redis not consulted
+    expect(client.calls).toBe(3);
+    t += 5001; // breaker closes, Redis recovers
+    client.fail = false;
+    expect((await request(a).get('/ok')).statusCode).toBe(200);
+    expect(client.calls).toBe(4);
+    expect(store.breakerOpen).toBe(false);
+  });
+
+  test('a store that throws never blocks the request', async () => {
+    const a = app({ hit: async () => { throw new Error('boom'); } });
+    expect((await request(a).get('/ok')).statusCode).toBe(200);
   });
 });

@@ -109,4 +109,16 @@ describe('socketAuthMiddleware (Socket.IO connection auth)', () => {
     expect(next.mock.calls[0][0]).toBeInstanceOf(Error);
     expect(next.mock.calls[0][0].message).toEqual('Account suspended');
   });
+
+  test('valid token: mirrors the verified id into socket.data.userId (visible via fetchSockets across instances)', async () => {
+    verifyToken.mockResolvedValue({ sub: 'user_abc' });
+    const socket = mockSocket({ authToken: 'good' });
+    const next = jest.fn();
+
+    await socketAuthMiddleware(socket, next);
+
+    expect(socket.userId).toEqual('user_abc');
+    expect(socket.data.userId).toEqual('user_abc');
+    expect(next).toHaveBeenCalledWith();
+  });
 });

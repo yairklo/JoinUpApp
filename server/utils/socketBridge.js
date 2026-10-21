@@ -28,15 +28,24 @@ function createPublisherIo(publishFn) {
   };
 }
 
+// Apply a bridged event on THIS node's sockets only. Every HTTP instance subscribes to the
+// bridge channel, so with the Redis Socket.IO adapter enabled a plain `io.emit` would be
+// re-published to the whole cluster by each of the N subscribers (N-fold duplicates).
+// `io.local` scopes the emit to local sockets; on the default adapter it equals `io`.
+function localTarget(io) {
+  return (io && io.local) || io;
+}
+
 function applySocketEvent(io, msg) {
   if (!io || !msg || !msg.event) return;
+  const target = localTarget(io);
   if (msg.broadcast) {
-    io.emit(msg.event, msg.payload);
+    target.emit(msg.event, msg.payload);
     return;
   }
   for (const room of msg.rooms || []) {
-    io.to(String(room)).emit(msg.event, msg.payload);
+    target.to(String(room)).emit(msg.event, msg.payload);
   }
 }
 
-module.exports = { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent };
+module.exports = { SOCKET_CHANNEL, SCHEDULER_CHANNEL, createPublisherIo, applySocketEvent, localTarget };
