@@ -46,11 +46,18 @@ import { resolveNotificationRoute } from '@/utils/notificationRoute';
 export default function NotificationPanel() {
     const router = useRouter();
     const { userId, getToken } = useAuth(); // Just to check if we should render
-    const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
+    const { notifications, unreadCount, loading, markAsRead, markAllAsRead, actionError, clearActionError } = useNotifications();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [itemMenu, setItemMenu] = useState<{ anchor: HTMLElement; notif: Notification } | null>(null);
     const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
     const [showCityPrompt, setShowCityPrompt] = useState(false);
+
+    // Failed mark-read (429, offline, ...) is user-triggered, so show it in the same snackbar.
+    useEffect(() => {
+        if (!actionError) return;
+        setToast({ text: actionError });
+        clearActionError();
+    }, [actionError, clearActionError]);
     const cityPromptChecked = useRef(false);
 
     // One-time suggestion: city games arrive in-app only by default. When the user is actually

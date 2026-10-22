@@ -107,3 +107,11 @@ codebases with very different testing tooling. It adds the two integration test 
 the most glaring self-introduced gaps (`server/tests/adminActions.test.js`,
 `server/tests/notificationSettings.test.js`) and leaves the rest as this prioritized list for
 whoever picks up the next chunk.
+
+
+## Focused test session update (feat/results-tournaments)
+- **Web 429 handling (bug D-01)**: Unit tests added in next_app/src/utils/apiError.test.ts for all 429 copy mappings. **D-01 hooks: fixed** — next_app/src/hooks/use429Handling.test.ts now asserts (no more `test.failing`) that `useReportUser` shows the Hebrew `getActionErrorMessage` copy on 429, `useNotifications` keeps background fetch 429s silent and pauses/retries after `Retry-After` (default 30s), and user-triggered mark-read failures surface `getActionErrorMessage` (shown in the bell snackbar).
+- **Direct tournament services**: Covered by server/tests/tournamentServiceDirect.test.js (standings with forfeit, withdraw after results, technical loss on live match, manualRank tiebreaks, roster capacity).
+- **Game teams & roster concurrency**: Covered by server/tests/gameTeamsAndRosterConcurrency.test.js (PUT permissions and no-overbooking concurrent joins).
+- **User reports & field suggestions**: Rate limiting returning 429 verified in server/tests/userReports.test.js, admin approve/reject verified in server/tests/fieldSuggestions.test.js.
+- **Tournament Playwright E2E**: Verified against Dev in e2e/tests/tournamentResultStandings.spec.ts (organizer enters score -> participant sees it -> standings update).

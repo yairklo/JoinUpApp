@@ -12,3 +12,11 @@ name: tournaments screens
 - openLink: joinup://tournaments/new
 - takeScreenshot:
     path: ../../../docs/design-screens/mobile/tournaments/tournaments-new-${THEME}
+- openLink: joinup://tournaments/cmvjad6r3000gqe0iifmjp349
+- waitForAnimationToEnd
+- takeScreenshot:
+    path: ../../../docs/design-screens/mobile/tournaments/tournament-${THEME}
+- openLink: joinup://tournaments/cmvjad6r3000gqe0iifmjp349/manage
+- waitForAnimationToEnd
+- takeScreenshot:
+    path: ../../../docs/design-screens/mobile/tournaments/tournament-manage-${THEME}
