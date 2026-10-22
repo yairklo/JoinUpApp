@@ -86,9 +86,9 @@ export default function ScheduleViews({ items, conflictedKeys, durationMinutes, 
                         bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.08 : 0.05),
                         "& .MuiToggleButtonGroup-grouped": { border: 0, borderRadius: "999px !important", mx: 0, px: 1.75, fontWeight: 700, textTransform: "none", color: "text.secondary" },
                         "& .MuiToggleButtonGroup-grouped.Mui-selected, & .MuiToggleButtonGroup-grouped.Mui-selected:hover": {
-                            bgcolor: "background.paper",
-                            color: "text.primary",
-                            boxShadow: theme.shadows[2],
+                            bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.primary.main, 0.24) : theme.palette.background.paper,
+                            color: theme.palette.mode === "dark" ? theme.palette.primary.light : "text.primary",
+                            boxShadow: theme.palette.mode === "dark" ? "none" : theme.shadows[2],
                         },
                     })}
                 >

@@ -95,9 +95,9 @@ const segmentedSx = (theme: Theme) => ({
         transition: "background-color 150ms ease, color 150ms ease, box-shadow 150ms ease",
     },
     "& .MuiToggleButtonGroup-grouped.Mui-selected, & .MuiToggleButtonGroup-grouped.Mui-selected:hover": {
-        bgcolor: "background.paper",
+        bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.primary.main, 0.24) : theme.palette.background.paper,
         color: theme.palette.mode === "dark" ? theme.palette.primary.light : theme.palette.primary.dark,
-        boxShadow: theme.shadows[2],
+        boxShadow: theme.palette.mode === "dark" ? "none" : theme.shadows[2],
     },
 });
 
