@@ -16,18 +16,35 @@ function clamp(ms: number): number {
     return Math.min(Math.max(ms, READ_BACKOFF_FLOOR_MS), READ_BACKOFF_CAP_MS);
 }
 
-function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+function abortError(signal: AbortSignal): DOMException {
+    return signal.reason instanceof DOMException ? signal.reason : new DOMException('The operation was aborted.', 'AbortError');
+}
+
+/** Resolves after `ms`, or rejects immediately if `signal` aborts so the retry is never sent. */
+function delay(ms: number, signal?: AbortSignal | null): Promise<void> {
+    if (signal?.aborted) return Promise.reject(abortError(signal));
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            signal?.removeEventListener('abort', onAbort);
+            resolve();
+        }, ms);
+        const onAbort = () => {
+            clearTimeout(timer);
+            reject(abortError(signal as AbortSignal));
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+    });
 }
 
 /**
  * GET/HEAD only: on 429, wait `Retry-After` (capped) and try once more.
- * Mutations are returned as-is so a 429 is not replayed.
+ * Mutations are returned as-is so a 429 is not replayed. An aborted signal
+ * cancels the wait and does not send the second request.
  */
 export async function fetchRead(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const method = (init?.method ?? 'GET').toUpperCase();
     const first = await fetch(input, init);
     if (first.status !== 429 || (method !== 'GET' && method !== 'HEAD')) return first;
-    await delay(retryAfterMs(first.headers.get('Retry-After')));
+    await delay(retryAfterMs(first.headers.get('Retry-After')), init?.signal);
     return fetch(input, init);
 }

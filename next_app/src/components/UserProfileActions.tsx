@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
 import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -49,7 +48,6 @@ export default function UserProfileActions({
         isLoaded
     } = useUserActions(targetUserId, targetUserName, targetUserImage);
 
-    const { getToken } = useAuth();
     const getTokenRef = useAuthTokenRef();
     const [isBlocked, setIsBlocked] = useState(false);
     const [blockLoaded, setBlockLoaded] = useState(false);
@@ -84,7 +82,7 @@ export default function UserProfileActions({
         setBlockBusy(true);
         setBlockError(null);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) throw new Error('no token');
             if (isBlocked) {
                 await usersApi.unblockUser(targetUserId, token);

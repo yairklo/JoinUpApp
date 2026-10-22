@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useUser, useAuth } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { usersApi, chatsApi } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
@@ -11,7 +11,6 @@ export type FriendStatus = 'FRIEND' | 'REQUESTED' | 'INCOMING' | 'NONE' | 'SELF'
 
 export function useUserActions(targetUserId: string, targetUserName?: string, targetUserImage?: string | null) {
     const { user, isLoaded } = useUser();
-    const { getToken } = useAuth();
     const getTokenRef = useAuthTokenRef();
     const viewerId = user?.id ?? null;
     const router = useRouter();
@@ -78,7 +77,7 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
     const addFriend = async () => {
         setLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             setError(null);
             await usersApi.sendFriendRequest(targetUserId, token);
@@ -100,7 +99,7 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
         if (!user || !confirm("להסיר את המשתמש מרשימת החברים?")) return;
         setLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             await usersApi.removeFriend(user.id, targetUserId, token);
             setStatus('NONE');
@@ -116,7 +115,7 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
         setLoading(true);
         setError(null);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             if (action === 'accept') await usersApi.acceptFriendRequest(incomingRequestId, token);
             else await usersApi.declineFriendRequest(incomingRequestId, token);
@@ -135,7 +134,7 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
         if (!user) return;
         setActionLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
 
             const { chatId } = await chatsApi.createPrivate(targetUserId, token);

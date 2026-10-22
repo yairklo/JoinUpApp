@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import Link from "next/link";
 import { usersApi, UserProfile, ProfileMatch } from "@/services/api/users";
@@ -27,7 +27,6 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 const PAGE_SIZE = 5;
 
 export default function UserProfileSections({ userId }: { userId: string }) {
-    const { getToken } = useAuth();
     const getTokenRef = useAuthTokenRef();
     const { user: me } = useUser();
     const isOwner = !!me?.id && me.id === userId;
@@ -64,7 +63,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
     const handleLoadMore = async () => {
         setLoadingMore(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             const next = await usersApi.getMatchHistory(userId, matches.length, PAGE_SIZE, token || undefined);
             setMatches((prev) => [...prev, ...next]);
             setHasMore(next.length === PAGE_SIZE);
