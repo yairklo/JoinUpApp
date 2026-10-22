@@ -87,7 +87,7 @@ export default function TournamentWizardScreen({ tournamentId }: { tournamentId?
             <Centered testID="wizard-error">
                 <Text className="text-center text-gray-700 dark:text-cyber-text mb-4">{t('common.error')}</Text>
                 <TouchableOpacity accessibilityRole="button" onPress={detail.refetch} className="h-11 px-6 rounded-xl bg-brand items-center justify-center">
-                    <Text className="text-white font-bold">{t('common.retry')}</Text>
+                    <Text className="text-white font-bold">{t('tournaments.team.retry')}</Text>
                 </TouchableOpacity>
             </Centered>
         );

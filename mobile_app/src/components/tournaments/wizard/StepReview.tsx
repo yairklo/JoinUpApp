@@ -51,7 +51,7 @@ export default function StepReview({ state, warnings, invalidSteps, onEdit }: Pr
         {
             step: 'format',
             rows: [
-                [t('tournaments.format.title'), t(`tournaments.format.${state.format}`)],
+                [t('tournaments.wizard.format'), t(`tournaments.format.${state.format}`)],
                 ...(preview ? [[t('tournaments.wizard.matchCount', { teams: state.maxTeams, count: preview.count }), ''] as [string, string]] : []),
             ],
         },
