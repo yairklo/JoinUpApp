@@ -30,3 +30,11 @@ gap yet — do not rely on that luck happening again.
   it is not recoverable the same way.
 - Before committing, check `git status` for changes you did not make (especially large deletions)
   and leave them unstaged rather than folding them into your own commit — see the incident above.
+
+## Git & deploy
+- Never push/force-push `main`; merge to `main` only on Yair's explicit go.
+- Code review always by a separate agent, never the author. Exception: the L1 fast path for very small tasks stays as is (no separate review required).
+- Test on the shared Dev env, not local servers; deploy = non-force merge of the integration branch into `origin/Dev`; never touch prod. → `docs/agents/dev-env.md`
+- After a Dev push, confirm Vercel READY; lint is not a build check.
+- Multi-agent waves / worktrees / PRs into the integration branch, squash pre-approved → `docs/agents/workflow.md`
+- Screenshots are scripted (Playwright/Maestro) into `docs/design-screens/` + `INDEX.md`, never a model session → `docs/agents/screenshots.md`

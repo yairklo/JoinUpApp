@@ -40,6 +40,21 @@ they don't fit one narrower `.mdc` glob — but they're still server-only, so th
   `JOBS_LEADER_LOCK=redis` so only the Redis lock holder does (`services/leaderLock.js`; see
   `server/docs/agents/realtime_rules.md`). A deposed leader must call `gameScheduler.stop()`.
 
+## Privacy, users & friend requests
+- Minor-to-minor friend requests stay allowed under the default friends-only contact setting. `canRequestFriendship` in `server/utils/privacy.js` refuses only an adult or unknown-age account requesting a minor who did not choose `EVERYONE`. Do not put that gate back on both sides — two minors could never become friends. Profile, search, and the user list expose the same answer as `canAddFriend`. Blocks stay a silent 201 (`silentFriendRequest`) checked before this gate, and search still omits blocked users.
+- `POST /users/requests` must not map every failure after the insert to 400 `Request already exists`. That status made the client call `checkStatus()`, see the pending row, and show "request sent" while the bell was never created (the notification `.catch` swallowed the error, and a retry returned 400 before notifying). Same-direction pending is idempotent 200 and must ensure a `FRIEND_REQUEST` row; only `P2002` is a duplicate race. Opposite pending is `INCOMING_REQUEST_EXISTS`. Notification copy is scrubbed again when served (`scrubNotificationRecord`) because rows written before write-time redaction still contain emails.
+- Notification identity must never use Clerk `displayName()` as-is: it falls back to the account email, and join/request copy interpolated `req.user.name` directly (`qa@… הצטרף/ה`). Resolve `notificationName()` (stored profile name, else a non-email inline name, else `משתמש`) and keep `redactNotificationFields` on every NotificationService entry point so push, socket, and in-app rows cannot leak an email.
+- **Blocked-pair responses must be identical to unblocked ones** for every gate; apply the block only at the final write. Older app builds retry `retryable` failures forever, so a refusal that can never succeed must be `retryable: false` / a 4xx.
+
+## Minor chat policy & safety
+- Minor chat policy (`chatSafety.js`): teens swear and we do not moderate that. Minor senders are never filtered; group/game chats have no lexicon filter; only a private adult→minor chat blocks a short list of severe sexual slurs (`profanityFilter.js`). AI runs only when the sender is an adult and a recipient is a known minor, and only for messages that trip `moderationGate.js` (grooming/threat/sexual signals) so ordinary chat costs nothing. Reports (`POST /messages/:id/report` → admin flagged queue) are the safety net for everything else.
+
+## Live pick bench
+- Live pick bench must never include managers/captains: `ensureManagerTeams` alone is not enough — also `assignManagersToOwnTeams` (set `participation.teamId`), filter managers out of `computeBench`, block `makePick` of managers, and mirror the filter on web/mobile derived bench/unassigned lists.
+
+## Uploads (Cloudinary)
+- Uploads: `server/middleware/upload.js` stores images in Cloudinary (`CLOUDINARY_URL`) and throws at boot if it is missing/malformed unless `NODE_ENV` is `test`/`development` or `ALLOW_DISK_UPLOADS=true`. `handleSingleUpload` discards the stored file automatically when the route answers 4xx/5xx, so routes need no orphan cleanup. Never let clients set `imageUrl` to a managed URL they don't already own (`PUT /users/:id` guards this) — `deleteUploadedFile` would destroy someone else's file. Tests: mock `cloudinary` with `jest.resetModules` + `jest.doMock` (see `tests/uploadCloudinary.test.js`).
+
 ## Payments
 - `Game.price` / `GameSeries.price` are display-only (pay at field). Do not add a payment processor
   without a product brief.
