@@ -55,8 +55,10 @@ import Avatar from "@/components/Avatar";
 import { notifyAvatarChanged, notifyNameChanged } from "@/hooks/useMyAvatar";
 import ImageUploadField from "@/components/ImageUploadField";
 import ProfileStatsSection from "@/components/ProfileStatsSection";
+import MatchResultBadge from "@/components/MatchResultBadge";
 import AddFriendButton from "@/components/AddFriendButton";
 import { Game } from "@/types/game";
+import type { MatchHistoryResult } from "@/types/matchResult";
 import { gamesApi } from "@/services/api/games";
 import { fieldsApi } from "@/services/api/fields";
 import { usersApi } from "@/services/api/users";
@@ -117,6 +119,7 @@ export default function ProfilePage() {
   const [cities, setCities] = useState<string[]>([]);
 
   const [myGames, setMyGames] = useState<Game[]>([]);
+  const [historyGames, setHistoryGames] = useState<Array<Game & { result?: MatchHistoryResult | null }>>([]);
   const [gamesTab, setGamesTab] = useState(0);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -251,9 +254,13 @@ export default function ProfilePage() {
         }
 
         if (token) {
-            const games = await gamesApi.getMyGames(token);
+            const [games, history] = await Promise.all([
+              gamesApi.getMyGames(token),
+              gamesApi.getMyHistory(token),
+            ]);
             if (!active) return;
             setMyGames(games);
+            setHistoryGames(history);
         }
       } catch { }
     })();
@@ -439,9 +446,11 @@ export default function ProfilePage() {
 
   const friendIdSet = new Set(friends.map((f) => f.id));
 
-  const now = new Date();
-  const upcomingGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) >= now);
-  const pastGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) < now);
+  const nowMs = Date.now();
+  const upcomingGames = myGames.filter((g) => {
+    const t = g.start ? Date.parse(g.start) : NaN;
+    return Number.isNaN(t) || t >= nowMs;
+  });
 
   const infoBoxSx = (t: import("@mui/material/styles").Theme) => ({
     p: 1.75,
@@ -894,8 +903,8 @@ export default function ProfilePage() {
                         </Box>
                       )
                     ) : (
-                      pastGames.length > 0 ? (
-                        pastGames.map(g => (
+                      historyGames.length > 0 ? (
+                        historyGames.map(g => (
                           <Card
                             key={g.id}
                             variant="outlined"
@@ -916,6 +925,9 @@ export default function ProfilePage() {
                                   <Typography variant="caption" color="text.secondary">{g.fieldLocation}</Typography>
                                 </Stack>
                               )}
+                              <Box sx={{ mt: 0.75 }}>
+                                <MatchResultBadge gameId={g.id} sport={g.sport} result={g.result} />
+                              </Box>
                             </CardContent>
                           </Card>
                         ))

@@ -27,19 +27,18 @@ export interface StatGroup {
     rows: GameResultPlayerStats[];
 }
 
-/** A, then B, then unassigned (only when non-empty). Rows with no non-zero value are dropped. */
+/** A, then B, then unassigned. A side stays even when every player on it has zeros, so side B is not dropped. */
 export function groupStatsBySide(result: GameResultData): StatGroup[] {
     const sides = [...result.sides].sort((a, b) => a.order - b.order);
-    const hasValue = (r: GameResultPlayerStats) => Object.values(r.values || {}).some((v) => v > 0);
     const groups: StatGroup[] = sides.map((side) => ({
         key: side.id,
         side,
-        rows: result.stats.filter((r) => r.sideId === side.id && hasValue(r)),
+        rows: result.stats.filter((r) => r.sideId === side.id),
     }));
     const known = new Set(sides.map((s) => s.id));
-    const loose = result.stats.filter((r) => (!r.sideId || !known.has(r.sideId)) && hasValue(r));
+    const loose = result.stats.filter((r) => !r.sideId || !known.has(r.sideId));
     if (loose.length) groups.push({ key: 'none', side: null, rows: loose });
-    return groups.filter((g) => g.rows.length > 0);
+    return groups;
 }
 
 /** Winning side of a two-sided result, or null for a draw / unknown. */
