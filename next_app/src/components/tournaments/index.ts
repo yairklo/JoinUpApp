@@ -10,6 +10,8 @@ export { default as ScoreCluster } from "./ScoreCluster";
 export type { ScoreClusterProps } from "./ScoreCluster";
 export { default as UpdatedCue, changedFlashSx } from "./UpdatedCue";
 export type { UpdatedCueProps } from "./UpdatedCue";
+export { default as ScoreEntrySheet } from "./ScoreEntrySheet";
+export type { ScoreEntrySheetProps } from "./ScoreEntrySheet";
 export { default as MatchCard } from "./MatchCard";
 export type { MatchCardProps } from "./MatchCard";
 export { default as StandingsTable } from "./StandingsTable";
