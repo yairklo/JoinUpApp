@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import MyGamesSection from '@/components/MyGamesSection';
 import SeriesSection from '@/components/SeriesSection';
+import TournamentsSection from '@/components/tournaments/TournamentsSection';
 import ManageSection from '@/components/ManageSection';
 import { useManageOverview } from '@/hooks/useManageOverview';
 import GamesByCitySection from '@/components/GamesByCitySection';
@@ -156,6 +157,7 @@ export default function HomeScreen() {
 
         <ManageSection overview={manage.data} />
         <MyGamesSection />
+        <TournamentsSection />
         <SeriesSection />
         <GamesByCitySection sportFilter={selectedSport !== 'ALL' ? selectedSport : undefined} />
         <GamesByFriendsSection sportFilter={selectedSport !== 'ALL' ? selectedSport : undefined} />
