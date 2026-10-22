@@ -96,9 +96,10 @@ export async function apiClient<T>(endpoint: string, { token, data, signal, sile
             if (!silent) {
                 console.error("API Error Details:", errorBody);
             }
-            const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number; code?: string };
+            const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number; code?: string; body?: any };
             err.status = response.status;
             if (typeof errorBody.code === 'string') err.code = errorBody.code;
+            err.body = errorBody;
             throw err;
         }
 
