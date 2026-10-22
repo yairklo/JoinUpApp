@@ -89,7 +89,7 @@ export default function TournamentMatchDetailScreen() {
     );
 
     if (loading && !match) return header(<View className="px-4" testID="match-detail"><SkeletonList count={3} height={120} /></View>);
-    if (error && !match) return header(<View testID="match-detail"><ErrorState onRetry={refetch} /></View>);
+    if (error && !match) return header(<View testID="match-detail"><ErrorState onRetry={refetch} error={error} /></View>);
     if (!match) {
         return header(
             <View testID="match-detail" className="items-center py-16 px-6">
