@@ -200,13 +200,17 @@ export default function PrivacySettingsPage() {
                                             />
                                         }
                                         label="הסתר את הסטטיסטיקות שלי מאחרים"
+                                        // Match the hideGroups row above: the parent Stack zeroes its
+                                        // FormControlLabel margins, this one sits in a Box so reset here.
+                                        sx={{ mx: 0 }}
                                     />
                                     <Typography
                                         id="hide-match-stats-help"
                                         variant="caption"
                                         color="text.secondary"
                                         display="block"
-                                        sx={{ paddingInlineStart: "52px", mt: -0.5 }}
+                                        // Indent = Switch width (58px), so the helper lines up with the label text.
+                                        sx={{ paddingInlineStart: "58px", mt: -0.5 }}
                                     >
                                         התוצאות והסטטיסטיקות שלך לא יוצגו לאחרים בפרופיל ובעמודי המשחקים. עדיין אפשר לראות אותן בעצמך.
                                     </Typography>

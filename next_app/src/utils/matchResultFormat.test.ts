@@ -8,7 +8,7 @@ const side = (order: number, score: number, outcome: 'WIN' | 'LOSS' | 'DRAW') =>
 describe('matchResultFormat', () => {
     it('formats singular, plural and binary stats', () => {
         expect(formatStatParts('SOCCER', { goals: 2, assists: 1, cleanSheet: 1, mvp: 1, saves: 0 })).toEqual([
-            '2 שערים', 'בישולים: 1', 'רשת נקייה', '⭐ שחקן המשחק',
+            '2 שערים', '1 בישול', 'רשת נקייה', '⭐ שחקן המשחק',
         ]);
         expect(formatStatParts('SOCCER', {})).toEqual([]);
     });

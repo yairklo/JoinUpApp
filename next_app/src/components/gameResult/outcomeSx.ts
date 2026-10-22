@@ -24,7 +24,8 @@ export function swatchSx(color: string | null | undefined, fallback: "accent" | 
     flexShrink: 0,
     borderRadius: "50%",
     border: "1px solid",
-    borderColor: "divider",
+    // Dark mode: `divider` is ~#25303f on paper, which hides near-black team colours (#1f2937).
+    borderColor: t.palette.mode === "dark" ? t.palette.text.disabled : t.palette.divider,
     bgcolor: color || (fallback === "neutral" ? t.palette.text.disabled : t.palette.primary.main),
   });
 }
