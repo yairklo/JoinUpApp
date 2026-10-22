@@ -135,8 +135,8 @@ export const fieldsApi = {
         return apiClient<Field>(`/api/fields/${fieldId}`, { cache: 'no-store' });
     },
 
-    getCities: () => {
-        return apiClient<string[]>('/api/fields/cities');
+    getCities: (signal?: AbortSignal) => {
+        return apiClient<string[]>('/api/fields/cities', { signal });
     },
 
     search: (params: URLSearchParams, signal?: AbortSignal) => {

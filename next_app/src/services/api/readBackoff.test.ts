@@ -82,4 +82,19 @@ describe('fetchRead', () => {
         await aborted;
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    test('cancels a backoff that is already waiting and does not send the retry', async () => {
+        const controller = new AbortController();
+        fetchMock.mockResolvedValueOnce(response(429, '2'));
+        const pending = fetchRead('/api/users/me', { signal: controller.signal });
+        const aborted = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+        await jest.advanceTimersByTimeAsync(0);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(400);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        controller.abort();
+        await aborted;
+        await jest.advanceTimersByTimeAsync(5000);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
 });

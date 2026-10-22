@@ -185,9 +185,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!userId) return;
+    // The signal, not the ignore flag, is what stops a 429 retry: fetchRead waits
+    // out Retry-After and would still send the second request after unmount.
+    const controller = new AbortController();
+    const signal = controller.signal;
     let active = true;
     const failProfile = (status?: number) => {
-      if (!active) return;
+      if (!active || signal.aborted) return;
       setProfile(null);
       setProfileError(status === 429
         ? "יותר מדי בקשות כרגע. חכו רגע ונסו שוב."
@@ -199,7 +203,7 @@ export default function ProfilePage() {
         if (!active) return;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         setProfileError(null);
-        const res = await fetchRead(`${API_BASE}/api/users/${userId}`, { headers });
+        const res = await fetchRead(`${API_BASE}/api/users/${userId}`, { headers, signal });
         if (!active) return;
         if (!res.ok) {
           failProfile(res.status);
@@ -217,8 +221,8 @@ export default function ProfilePage() {
         // A failure here leaves the profile up.
         try {
           const [usersRes, friendsRes] = await Promise.all([
-            fetchRead(`${API_BASE}/api/users?take=7`, { headers }),
-            fetchRead(`${API_BASE}/api/users/${userId}/friends`, { headers }),
+            fetchRead(`${API_BASE}/api/users?take=7`, { headers, signal }),
+            fetchRead(`${API_BASE}/api/users/${userId}/friends`, { headers, signal }),
           ]);
           if (!active) return;
           if (usersRes.ok) setAllUsers(await usersRes.json());
@@ -228,17 +232,31 @@ export default function ProfilePage() {
         failProfile();
       }
     })();
-    fieldsApi.getCities().then(setCities).catch(() => { });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [userId, profileLoad]);
+
+  // Kept off profileLoad so "נסו שוב" repeats only the failed profile read.
+  useEffect(() => {
+    if (!userId) return;
+    const controller = new AbortController();
+    const signal = controller.signal;
+    let active = true;
+    fieldsApi.getCities(signal).then((next) => {
+      if (active) setCities(next);
+    }).catch(() => { });
     (async () => {
       try {
         const token = await getTokenRef.current({ template: undefined }).catch(() => "");
         if (!active) return;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-        const inc = await fetchRead(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers });
+        const inc = await fetchRead(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers, signal });
         if (!active) return;
         if (inc.ok) setIncoming(await inc.json());
 
-        const out = await fetchRead(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers });
+        const out = await fetchRead(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers, signal });
         if (!active) return;
         if (out.ok) {
           const outgoing: Array<{ id: string; receiver: { id: string } }> = await out.json();
@@ -246,14 +264,17 @@ export default function ProfilePage() {
         }
 
         if (token) {
-            const games = await gamesApi.getMyGames(token);
+            const games = await gamesApi.getMyGames(token, signal);
             if (!active) return;
             setMyGames(games);
         }
       } catch { }
     })();
-    return () => { active = false; };
-  }, [userId, profileLoad]);
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [userId]);
 
   // Debounce the inline "search players" box, then search server-side
   // (the same /api/users/search endpoint the dedicated search-players page
