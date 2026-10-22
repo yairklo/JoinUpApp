@@ -1,3 +1,5 @@
+import { parseRetryAfterMs } from './retryAfter.ts';
+
 /** Cap so a 60s rate-limit window cannot freeze the UI. One retry, then the caller surfaces the error. */
 export const READ_BACKOFF_CAP_MS = 5_000;
 const READ_BACKOFF_FLOOR_MS = 250;
@@ -6,14 +8,9 @@ function clamp(ms: number): number {
     return Math.min(Math.max(ms, READ_BACKOFF_FLOOR_MS), READ_BACKOFF_CAP_MS);
 }
 
-/** `Retry-After` is delta-seconds or an HTTP date. Missing or unparseable means 1s. */
+/** `Retry-After` (see `retryAfter.ts`), fallback 1s, clamped to 250ms..5s so even `0` waits a beat. */
 export function retryAfterMs(header: string | null | undefined, now = Date.now()): number {
-    if (!header) return 1000;
-    const seconds = Number(header);
-    if (Number.isFinite(seconds)) return clamp(seconds * 1000);
-    const at = Date.parse(header);
-    if (Number.isFinite(at)) return clamp(at - now);
-    return 1000;
+    return clamp(parseRetryAfterMs(header, { fallbackMs: 1000, maxMs: READ_BACKOFF_CAP_MS, now }));
 }
 
 function abortError(): Error {
