@@ -38,6 +38,7 @@ import ConflictsPanel from "./ConflictsPanel";
 import MatchEditDialog, { EMPTY_MATCH_VALUES, type MatchEditValues } from "./MatchEditDialog";
 import ScheduleParamsForm from "./ScheduleParamsForm";
 import ScheduleViews from "./ScheduleViews";
+import ScoreEntrySheet from "../ScoreEntrySheet";
 
 function defaultParams(t: TournamentDetail): ScheduleParams {
     const start = isoToIsraelParts(t.startsAt)?.date ?? "";
@@ -96,6 +97,7 @@ export default function ScheduleBuilder({ tournament: t }: ScheduleBuilderProps)
     const [toast, setToast] = useState<string | null>(null);
     const [focusKey, setFocusKey] = useState<string | null>(null);
     const [edit, setEdit] = useState<EditState | null>(null);
+    const [scoreMatch, setScoreMatch] = useState<TournamentMatch | null>(null);
     const [moveConflict, setMoveConflict] = useState<{ key: string; iso: string; court: string; conflicts: ScheduleConflict[] } | null>(null);
 
     const approved = useMemo(() => teams.filter((x) => x.status === "APPROVED"), [teams]);
@@ -313,6 +315,10 @@ export default function ScheduleBuilder({ tournament: t }: ScheduleBuilderProps)
                         editable
                         onMove={(k, iso, court) => void move(k, iso, court)}
                         onEdit={openEdit}
+                        onScore={t.status === "IN_PROGRESS" ? (key) => {
+                            const match = sched.matches.find((m) => m.id === key);
+                            if (match && match.home.teamId && match.away.teamId) setScoreMatch(match);
+                        } : undefined}
                     />
                 </>
             ) : (
@@ -414,6 +420,15 @@ export default function ScheduleBuilder({ tournament: t }: ScheduleBuilderProps)
                 />
             )}
             <Snackbar open={toast !== null} autoHideDuration={4000} onClose={() => setToast(null)} message={toast ?? ""} />
+            {t.status === "IN_PROGRESS" && (
+                <ScoreEntrySheet
+                    open={!!scoreMatch}
+                    tournament={t}
+                    match={scoreMatch}
+                    onClose={() => setScoreMatch(null)}
+                    onSaved={() => { setScoreMatch(null); void sched.reload(); }}
+                />
+            )}
         </Box>
     );
 }

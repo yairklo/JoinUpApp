@@ -1,8 +1,8 @@
-import TournamentMatchDetail from "@/components/tournaments/TournamentMatchDetail";
+import TournamentMatchScreen from "@/components/tournaments/TournamentMatchScreen";
 
 export default async function TournamentMatchPage(props: {
     params: Promise<{ id: string; matchId: string }>;
 }) {
     const { id, matchId } = await props.params;
-    return <TournamentMatchDetail tournamentId={id} matchId={matchId} />;
+    return <TournamentMatchScreen tournamentId={id} matchId={matchId} />;
 }

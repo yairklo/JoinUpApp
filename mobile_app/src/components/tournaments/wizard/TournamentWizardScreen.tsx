@@ -92,6 +92,16 @@ export default function TournamentWizardScreen({ tournamentId }: { tournamentId?
             </Centered>
         );
     }
+    if (!editing && caps.error) {
+        return (
+            <Centered testID="wizard-error">
+                <Text className="text-center text-gray-700 dark:text-cyber-text mb-4">{t('common.error')}</Text>
+                <TouchableOpacity accessibilityRole="button" onPress={() => void caps.refetch()} className="h-11 px-6 rounded-xl bg-brand items-center justify-center">
+                    <Text className="text-white font-bold">{t('tournaments.team.retry')}</Text>
+                </TouchableOpacity>
+            </Centered>
+        );
+    }
     if (editing ? !tournament?.capabilities.canManage : !caps.canCreate) return <NoAccess onBack={goBack} />;
 
     const isOrganizer = tournament?.myRole === 'ORGANIZER';

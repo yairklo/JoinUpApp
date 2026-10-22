@@ -56,4 +56,30 @@ describe('fetchRead', () => {
         expect(res.status).toBe(429);
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    test('returns 429 when the single retry is also limited', async () => {
+        fetchMock.mockResolvedValueOnce(response(429, '1')).mockResolvedValueOnce(response(429, '30'));
+        const pending = fetchRead('/api/users/me');
+        await jest.advanceTimersByTimeAsync(1000);
+        const res = await pending;
+        expect(res.status).toBe(429);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    test('does not retry a 500', async () => {
+        fetchMock.mockResolvedValueOnce(response(500));
+        const res = await fetchRead('/api/users/me');
+        expect(res.status).toBe(500);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not send the retry after the caller aborts the wait', async () => {
+        const controller = new AbortController();
+        fetchMock.mockResolvedValueOnce(response(429, '1'));
+        const pending = fetchRead('/api/users/me', { signal: controller.signal });
+        const aborted = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+        controller.abort();
+        await aborted;
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
 });
