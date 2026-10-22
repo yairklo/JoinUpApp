@@ -12,6 +12,7 @@ import MuteNotificationsButton from '@/components/MuteNotificationsButton';
 import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
 import ProfileStats from '@/components/ProfileStats';
 import MatchResultBadge from '@/components/MatchResultBadge';
+import ReportPlayerEntry from '@/components/ReportPlayerEntry';
 
 const PAGE_SIZE = 5;
 
@@ -339,6 +340,9 @@ export default function UserProfileScreen() {
                                 {isBlocked ? t('profile.unblock', 'בטל חסימה') : t('profile.block', 'חסום משתמש')}
                             </Text>
                         </TouchableOpacity>
+                    )}
+                    {relationship !== 'self' && typeof id === 'string' && (
+                        <ReportPlayerEntry testID="profile-report-player" target={{ id, name: profile.name ?? null, imageUrl: profile.imageUrl }} />
                     )}
                 </View>
 
