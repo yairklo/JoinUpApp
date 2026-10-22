@@ -64,7 +64,7 @@ export default function StepFormat({ state, onChange, locked }: Props) {
                     <Text className="text-xs text-gray-500 dark:text-cyber-muted ms-1">{t('tournaments.wizard.lockedAfterSchedule')}</Text>
                 </View>
             ) : null}
-            <Card title={t('tournaments.format.title')}>
+            <Card title={t('tournaments.wizard.format')}>
                 {FORMATS.map((f) => {
                     const on = state.format === f.key;
                     return (

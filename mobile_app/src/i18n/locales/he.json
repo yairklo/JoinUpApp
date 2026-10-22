@@ -1436,7 +1436,10 @@
       "withdrawConfirmAfter": "להוציא את {{team}}? המשחקים שלה שעוד לא שוחקו ייחשבו כהפסד טכני.",
       "withdrawn": "יצאו מהטורניר",
       "playersCount": "{{count}} שחקנים",
-      "group": "בית {{name}}"
+      "group": "בית {{name}}",
+      "retry": "נסה שוב",
+      "declined": "דחו את ההזמנה",
+      "withdrawAction": "הוצאה"
     },
     "teams": {
       "emptyBefore": "עוד אין קבוצות. ההרשמה תיפתח ב-{{date}}.",
@@ -1519,7 +1522,11 @@
       "err": {
         "minOverMax": "המינימום גדול מהמקסימום",
         "startersOverMin": "בהרכב לא יכולים להיות יותר שחקנים מהמינימום בקבוצה ({{min}})",
-        "teamsMinOverMax": "מספר הקבוצות המינימלי גדול מהמקסימלי"
+        "teamsMinOverMax": "מספר הקבוצות המינימלי גדול מהמקסימלי",
+        "required": "שדה חובה",
+        "endBeforeStart": "הסיום לפני ההתחלה",
+        "closeBeforeOpen": "סגירת ההרשמה חייבת להיות אחרי הפתיחה",
+        "lockBeforeClose": "נעילת הסגלים לפני סגירת ההרשמה"
       },
       "info": {
         "byes": "עם {{n}} קבוצות יהיו {{byes}} פטורים בסיבוב הראשון"
@@ -1574,7 +1581,26 @@
       "approvalHint": "כשכבוי, קבוצה שנרשמת מאושרת מיד (עד שהטורניר מתמלא)",
       "lockedAfterSchedule": "נעול אחרי בניית לוח המשחקים",
       "changeAnyway": "שינוי בכל זאת",
-      "changeAnywayWarn": "שינוי המבנה עלול לבטל משחקים שתוכננו"
+      "changeAnywayWarn": "שינוי המבנה עלול לבטל משחקים שתוכננו",
+      "format": "מבנה",
+      "inc": "הגדלה: {{what}}",
+      "dec": "הקטנה: {{what}}",
+      "edit": "עריכה",
+      "editTitle": "עריכת טורניר",
+      "noAccess": "אין לך הרשאה לפעולה הזו",
+      "pickField": "בחירת מגרש",
+      "searchField": "חיפוש מגרש",
+      "publishAction": "פרסום",
+      "saveChanges": "שמירת שינויים",
+      "removeTiebreak": "הסרת שובר שוויון",
+      "moveUp": "הזזה למעלה",
+      "moveDown": "הזזה למטה",
+      "serverInvalid": "חלק מהפרטים לא תקינים. בדקו את השלבים ונסו שוב.",
+      "warn": {
+        "noRegClose": "לא נקבע מועד סגירת הרשמה",
+        "closeAfterStart": "ההרשמה נסגרת אחרי תחילת הטורניר",
+        "fixStep": "יש לתקן שגיאות בשלב: {{step}}"
+      }
     },
     "manage": {
       "header": "ניהול · {{title}}",
