@@ -11,11 +11,11 @@ and a recommended order of attack, not house style.
 |---|---|---|---|
 | `server/` | Jest + supertest, real Postgres | 19 | 86 |
 | `shared/` | Jest | 2 | 14 |
-| `next_app/` | Jest (`next/jest`, pure-logic only) | 2 | 6 |
+| `nnext_app/` | Jest (`next/jest`, pure-logic only) | 2 | 6 |
 | `mobile_app/` | none — `tsc --noEmit` is the only CI gate | 0 | 0 |
 
 `server` and `shared` have real coverage of the logic most likely to cause a bad incident
-(auth, permissions, money-adjacent fields, timezone math). `next_app` and `mobile_app` have
+(auth, permissions, money-adjacent fields, timezone math). `nnext_app` and `mobile_app` have
 **zero** coverage of anything a user actually clicks — every page, component, and hook is
 unverified except by manual QA.
 
@@ -53,7 +53,7 @@ for a template. No new tooling needed, just more files.
   `server/tests/uploadMiddleware.test.js` (valid upload, disallowed MIME type, oversized file,
   filename-never-trusted, and `deleteUploadedFile`'s external-URL/path-traversal guards).
 
-## Priority 2 — next_app (26 pages, 60 components, 15 hooks, 0 component tests)
+## Priority 2 — nnext_app (26 pages, 60 components, 15 hooks, 0 component tests)
 
 Pure-logic tests (`jest.config.js` + `next/jest`) are already wired up and a good template for
 more utils, but the real gap is anything that renders. Recommended approach:
@@ -90,7 +90,7 @@ which catches a class of bugs on its own — but nothing here executes at runtim
      local-only `useState`.
 3. Add the resulting `npm test` as a CI job next to `mobile-typecheck` in
    `.github/workflows/ci.yml` once the first few tests exist — don't add the CI step first with
-   nothing behind it (that's how `next_app`'s lint step ended up as permanent
+   nothing behind it (that's how `nnext_app`'s lint step ended up as permanent
    `continue-on-error: true` noise).
 
 ## Priority 4 — lower value, skip unless touching that code anyway
@@ -107,3 +107,11 @@ codebases with very different testing tooling. It adds the two integration test 
 the most glaring self-introduced gaps (`server/tests/adminActions.test.js`,
 `server/tests/notificationSettings.test.js`) and leaves the rest as this prioritized list for
 whoever picks up the next chunk.
+
+
+## Focused test session update (feat/results-tournaments)
+- **Web 429 handling (bug D-01)**: Unit tests added in next_app/src/utils/apiError.test.ts for all 429 copy mappings, and next_app/src/hooks/use429Handling.test.ts documenting missing D-01 behavior.
+- **Direct tournament services**: Covered by server/tests/tournamentServiceDirect.test.js (standings with forfeit, withdraw after results, technical loss on live match, manualRank tiebreaks, roster capacity).
+- **Game teams & roster concurrency**: Covered by server/tests/gameTeamsAndRosterConcurrency.test.js (PUT permissions and no-overbooking concurrent joins).
+- **User reports & field suggestions**: Rate limiting returning 429 verified in server/tests/userReports.test.js, admin approve/reject verified in server/tests/fieldSuggestions.test.js.
+- **Tournament Playwright E2E**: Verified against Dev in e2e/tests/tournamentResultStandings.spec.ts (organizer enters score -> participant sees it -> standings update).
