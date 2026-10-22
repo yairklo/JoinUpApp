@@ -1,6 +1,9 @@
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
 import { isAbortError } from '@/utils/apiErrors';
-import { fetchRead } from './readBackoff';
+import { fetchRead, delay } from './readBackoff';
+import { parseRetryAfterMs } from '@/utils/apiErrorKind';
+import { UPLOAD_TIMEOUT_MS, shouldRetryUpload, uploadRetryDelayMs } from './uploadPolicy';
+import i18n from '@/i18n';
 
 // API base URL — set via EXPO_PUBLIC_API_URL in .env / eas.json
 // Optional override for Socket.IO: EXPO_PUBLIC_SOCKET_URL (defaults to API URL)
@@ -99,8 +102,10 @@ export async function apiClient<T>(endpoint: string, { token, data, signal, sile
             if (!silent) {
                 console.error("API Error Details:", errorBody);
             }
-            const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number; code?: string; body?: any };
+            const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number; code?: string; body?: any; retryAfterMs?: number };
             err.status = response.status;
+            // Lets tabs tell "rate limited, retry later" from offline and pace their retry button.
+            if (response.status === 429) err.retryAfterMs = parseRetryAfterMs(response.headers.get('Retry-After'));
             if (typeof errorBody.code === 'string') err.code = errorBody.code;
             err.body = errorBody;
             throw err;
@@ -138,18 +143,44 @@ export async function uploadMultipart<T>(
     fieldName: string,
     image: { uri: string; name: string; type: string },
     token: string,
-    failMessage = 'Failed to upload image'
+    failMessage = 'Failed to upload image',
+    opts: { signal?: AbortSignal; timeoutMs?: number } = {}
 ): Promise<T> {
     const formData = new FormData();
     formData.append(fieldName, image as unknown as Blob);
-    const res = await fetch(`${API_BASE}${path}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || failMessage);
+    // One timeout budget covers the request and the single 429 wait, so the call can never hang.
+    const timeout = withRequestTimeout(opts.signal, opts.timeoutMs ?? UPLOAD_TIMEOUT_MS);
+    try {
+        let res: Response | undefined;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            res = await fetch(`${API_BASE}${path}`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+                body: formData,
+                signal: timeout.signal,
+            });
+            if (!shouldRetryUpload(res.status, attempt)) break;
+            await delay(uploadRetryDelayMs(res.headers.get('Retry-After')), timeout.signal);
+        }
+        if (!res!.ok) {
+            const body = await res!.json().catch(() => ({}));
+            const err = new Error(
+                res!.status === 429
+                    ? i18n.t('errors.tooManyRequests', 'יותר מדי בקשות, נסו שוב בעוד רגע')
+                    : body.error || failMessage
+            ) as Error & { status?: number };
+            err.status = res!.status;
+            throw err;
+        }
+        return await res!.json();
+    } catch (e: any) {
+        if (timeout.didTimeout()) {
+            const err = new Error(i18n.t('errors.uploadTimeout', 'ההעלאה נמשכה יותר מדי זמן. בדקו את החיבור ונסו שוב.')) as Error & { code?: string };
+            err.code = 'TIMEOUT';
+            throw err;
+        }
+        throw e;
+    } finally {
+        timeout.cleanup();
     }
-    return res.json();
 }
