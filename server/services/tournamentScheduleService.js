@@ -224,7 +224,11 @@ async function generateSchedule(user, tournamentId, body, { preview }) {
   const b = body || {};
   const run = async (db) => {
     const { tournament: t } = await loadForRole(db, tournamentId, user, 'MANAGER');
-    if (!['REGISTRATION_CLOSED', 'IN_PROGRESS'].includes(t.status)) {
+    // Preview only reads approved teams, so it is allowed while registration is still open.
+    // Commit still waits until registration is closed (or the tournament is already in progress).
+    const committable = ['REGISTRATION_CLOSED', 'IN_PROGRESS'].includes(t.status);
+    const previewable = committable || t.status === 'REGISTRATION_OPEN';
+    if (preview ? !previewable : !committable) {
       throw err(409, 'WRONG_STATUS', 'Close registration before generating the schedule');
     }
     const teams = await loadApprovedTeams(db, tournamentId);

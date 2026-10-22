@@ -11,6 +11,7 @@ import { useTournament } from '@/hooks/useTournament';
 import { useBracket, useTournamentSchedule, useTournamentTeams } from '@/hooks/useTournamentViews';
 import MatchStatusChip from '@/components/tournaments/MatchStatusChip';
 import ScoreCluster from '@/components/tournaments/ScoreCluster';
+import ScoreEntrySheet from '@/components/tournaments/ScoreEntrySheet';
 import SlotLabel from '@/components/tournaments/SlotLabel';
 import { UpdatedCue } from '@/components/tournaments/UpdatedCue';
 import { bracketRoundKey, TOURNAMENT_ICONS } from '@/components/tournaments/tournamentTokens';
@@ -64,6 +65,7 @@ export default function TournamentMatchDetailScreen() {
     const { stages, matches, numberById, loading, error, refetch } = useTournamentSchedule(id);
     const { stages: bracketStages } = useBracket(id);
     const { teams } = useTournamentTeams(id);
+    const [scoring, setScoring] = useState(false);
     const dark = colorMode === 'dark';
     const theme = getSportTheme(tournament?.sport);
 
@@ -118,6 +120,8 @@ export default function TournamentMatchDetailScreen() {
     const caption = [t('tournaments.match.number', { n: m.number }), stage?.name, m.groupId ? groupNames[m.groupId] : '', roundName].filter(Boolean).join(' · ');
     const forfeitLoser: Side | null = m.status === 'FORFEIT' && winner ? (winner === 'home' ? 'away' : 'home') : null;
     const cancelled = m.status === 'CANCELLED';
+    const canEnterScore = !!tournament?.capabilities.canScore && tournament.status === 'IN_PROGRESS' && !cancelled;
+    const finished = m.status === 'FINISHED' || m.status === 'FORFEIT';
     const calUrl = m.scheduledAt && mine && (m.status === 'SCHEDULED' || m.status === 'LIVE')
         ? calendarUrl(m, `${m.home.team?.name ?? ''} - ${m.away.team?.name ?? ''}`, m.courtLabel ?? undefined)
         : null;
@@ -149,6 +153,7 @@ export default function TournamentMatchDetailScreen() {
     };
 
     return header(
+        <>
         <ScrollView testID="match-detail" contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
             <UpdatedCue visible={updated} />
             <View className="rounded-3xl bg-white dark:bg-cyber-card border border-gray-100 dark:border-cyber-border overflow-hidden mt-2">
@@ -217,6 +222,17 @@ export default function TournamentMatchDetailScreen() {
             <Roster team={teams.find((x) => x.id === m.away.teamId)} />
 
             <View className="flex-row mt-3">
+                {canEnterScore ? (
+                    <Pressable
+                        onPress={() => setScoring(true)}
+                        accessibilityRole="button"
+                        testID="match-detail-enter-score"
+                        className="flex-row items-center px-4 rounded-full bg-brand me-2"
+                        style={{ minHeight: 44 }}
+                    >
+                        <Text className="text-[13px] font-semibold text-white">{finished ? t('tournaments.match.updateScore') : t('tournaments.match.enterScore')}</Text>
+                    </Pressable>
+                ) : null}
                 {calUrl ? (
                     <Pressable
                         onPress={() => Linking.openURL(calUrl)}
@@ -240,5 +256,15 @@ export default function TournamentMatchDetailScreen() {
                 </Pressable>
             </View>
         </ScrollView>
+        {canEnterScore && tournament ? (
+            <ScoreEntrySheet
+                open={scoring}
+                tournament={tournament}
+                match={m}
+                onClose={() => setScoring(false)}
+                onSaved={() => { setScoring(false); void refetch(); }}
+            />
+        ) : null}
+        </>
     );
 }

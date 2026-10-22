@@ -159,8 +159,17 @@ export default function TournamentWizardContainer({ tournamentId }: { tournament
     if (!isSignedIn) {
         return <Container maxWidth="md" sx={{ py: 4 }}><Alert severity="info">יש להתחבר כדי ליצור או לערוך טורניר</Alert></Container>;
     }
-    if (isEdit && (t.notFound || (!detail && t.error))) {
+    if (isEdit && t.notFound) {
         return <Container maxWidth="md" sx={{ py: 4 }}><Alert severity="error">הטורניר לא נמצא</Alert></Container>;
+    }
+    if ((isEdit && !detail && t.error) || (!isEdit && caps.error)) {
+        return (
+            <Container maxWidth="md" sx={{ py: 4 }}>
+                <Alert severity="warning" action={<Button color="inherit" size="small" onClick={() => void (isEdit ? t.reload() : caps.reload())}>נסו שוב</Button>}>
+                    לא הצלחנו לבדוק את ההרשאה. נסו שוב.
+                </Alert>
+            </Container>
+        );
     }
     if ((isEdit && detail && !detail.capabilities.canManage) || (!isEdit && !caps.canCreateTournaments)) {
         return <Container maxWidth="md" sx={{ py: 4 }}><Alert severity="warning" data-testid="wizard-forbidden">אין לך הרשאה לפעולה הזו</Alert></Container>;

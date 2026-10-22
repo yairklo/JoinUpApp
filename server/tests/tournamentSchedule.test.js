@@ -72,6 +72,7 @@ describe('tournament schedule generation and manual matches', () => {
     const { id } = await setup({ format: 'LEAGUE' }, 3);
     expect((await gen(id, {}, '', SCORER)).status).toBe(403);
     const open = await setup({ format: 'LEAGUE' }, 3, 'REGISTRATION_OPEN');
+    expect((await gen(open.id, {}, '?preview=1')).status).toBe(200);
     expect((await gen(open.id)).status).toBe(409);
     const custom = await setup({ format: 'CUSTOM' }, 3);
     expect((await gen(custom.id)).body.code).toBe('CUSTOM_FORMAT');

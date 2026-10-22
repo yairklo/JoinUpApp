@@ -12,6 +12,7 @@ import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import SportsScoreRoundedIcon from "@mui/icons-material/SportsScoreRounded";
 import ReportProblemRoundedIcon from "@mui/icons-material/ReportProblemRounded";
 import {
     buildGrid,
@@ -38,6 +39,8 @@ export interface ScheduleViewsProps {
     /** A block was dropped on a free/occupied slot. */
     onMove?: (key: string, iso: string, court: string) => void;
     onEdit?: (key: string) => void;
+    /** Opens score entry for a committed match. Shown only while the tournament is in progress. */
+    onScore?: (key: string) => void;
 }
 
 const SLOT_H = 40;
@@ -47,7 +50,7 @@ const DAY_FMT = new Intl.DateTimeFormat("he-IL", { weekday: "long", day: "numeri
 const dayLabel = (day: string) => DAY_FMT.format(new Date(`${day}T12:00:00Z`));
 
 /** Schedule preview / editor: by-day list or court grid with drag and drop (spec 11.2). */
-export default function ScheduleViews({ items, conflictedKeys, durationMinutes, stepMinutes, courts, focusKey, editable, onMove, onEdit }: ScheduleViewsProps) {
+export default function ScheduleViews({ items, conflictedKeys, durationMinutes, stepMinutes, courts, focusKey, editable, onMove, onEdit, onScore }: ScheduleViewsProps) {
     const theme = useTheme();
     const wide = useMediaQuery(theme.breakpoints.up(900));
     const [view, setView] = useState<"day" | "grid" | null>(null);
@@ -84,7 +87,7 @@ export default function ScheduleViews({ items, conflictedKeys, durationMinutes, 
             {items.length === 0 && <Typography color="text.secondary">אין משחקים בלוח.</Typography>}
 
             {mode === "day" ? (
-                <DayList items={items.filter((i) => i.scheduledAt && isoToIsraelParts(i.scheduledAt)?.date === activeDay)} conflictedKeys={conflictedKeys} focusKey={focusKey} editable={editable} onEdit={onEdit} />
+                <DayList items={items.filter((i) => i.scheduledAt && isoToIsraelParts(i.scheduledAt)?.date === activeDay)} conflictedKeys={conflictedKeys} focusKey={focusKey} editable={editable} onEdit={onEdit} onScore={onScore} />
             ) : (
                 <CourtGrid
                     items={items}
@@ -97,13 +100,14 @@ export default function ScheduleViews({ items, conflictedKeys, durationMinutes, 
                     editable={editable}
                     onMove={onMove}
                     onEdit={onEdit}
+                    onScore={onScore}
                 />
             )}
 
             {loose.length > 0 && (
                 <Box sx={{ mt: 2 }} data-testid="schedule-unscheduled">
                     <Typography variant="subtitle2" fontWeight={800}>לא משובצים</Typography>
-                    <DayList items={loose} conflictedKeys={conflictedKeys} focusKey={focusKey} editable={editable} onEdit={onEdit} />
+                    <DayList items={loose} conflictedKeys={conflictedKeys} focusKey={focusKey} editable={editable} onEdit={onEdit} onScore={onScore} />
                 </Box>
             )}
         </Box>
@@ -114,7 +118,7 @@ function blockLabel(it: GridItem): string {
     return `#${it.number} ${it.home} – ${it.away}`;
 }
 
-function DayList({ items, conflictedKeys, focusKey, editable, onEdit }: { items: GridItem[]; conflictedKeys?: ReadonlySet<string>; focusKey?: string | null; editable?: boolean; onEdit?: (key: string) => void }) {
+function DayList({ items, conflictedKeys, focusKey, editable, onEdit, onScore }: { items: GridItem[]; conflictedKeys?: ReadonlySet<string>; focusKey?: string | null; editable?: boolean; onEdit?: (key: string) => void; onScore?: (key: string) => void }) {
     const sorted = [...items].sort((a, b) => (a.scheduledAt ?? "").localeCompare(b.scheduledAt ?? "") || a.number - b.number);
     return (
         <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
@@ -145,6 +149,11 @@ function DayList({ items, conflictedKeys, focusKey, editable, onEdit }: { items:
                         <Typography variant="body2" color="text.secondary" sx={{ width: 72 }} noWrap>{it.court ?? ""}</Typography>
                         <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap title={blockLabel(it)}>{blockLabel(it)}</Typography>
                         {conflict && <ReportProblemRoundedIcon fontSize="small" color="warning" aria-label="התנגשות" />}
+                        {onScore && (
+                            <IconButton aria-label={`הזנת תוצאה למשחק ${it.number}`} onClick={() => onScore(it.key)} data-testid={`schedule-score-${it.key}`} sx={{ width: 44, height: 44 }}>
+                                <SportsScoreRoundedIcon fontSize="small" />
+                            </IconButton>
+                        )}
                         {editable && onEdit && (
                             <IconButton aria-label={`עריכת משחק ${it.number}`} onClick={() => onEdit(it.key)} sx={{ width: 44, height: 44 }}>
                                 <EditRoundedIcon fontSize="small" />
@@ -157,7 +166,7 @@ function DayList({ items, conflictedKeys, focusKey, editable, onEdit }: { items:
     );
 }
 
-function CourtGrid({ items, day, conflictedKeys, durationMinutes, stepMinutes, courts, focusKey, editable, onMove, onEdit }: Omit<ScheduleViewsProps, "durationMinutes" | "stepMinutes"> & { day: string; durationMinutes: number; stepMinutes: number }) {
+function CourtGrid({ items, day, conflictedKeys, durationMinutes, stepMinutes, courts, focusKey, editable, onMove, onEdit, onScore }: Omit<ScheduleViewsProps, "durationMinutes" | "stepMinutes"> & { day: string; durationMinutes: number; stepMinutes: number }) {
     const grid = useMemo(
         () => buildGrid(items, day, { step: stepMinutes, durationMinutes, extraCourts: courts }),
         [items, day, stepMinutes, durationMinutes, courts]
@@ -262,6 +271,13 @@ function CourtGrid({ items, day, conflictedKeys, durationMinutes, stepMinutes, c
                                 {conflict && <ReportProblemRoundedIcon sx={{ fontSize: 14 }} color="warning" aria-label="התנגשות" />}
                                 {item.stage && <Chip size="small" label={item.stage} sx={{ height: 18, fontSize: 10 }} />}
                                 <Box sx={{ flex: 1 }} />
+                                {onScore && (
+                                    <Tooltip title="הזנת תוצאה">
+                                        <IconButton size="small" aria-label={`הזנת תוצאה למשחק ${item.number}`} onClick={() => onScore(item.key)} data-testid={`schedule-score-${item.key}`} sx={{ width: 28, height: 28 }}>
+                                            <SportsScoreRoundedIcon sx={{ fontSize: 16 }} />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
                                 {editable && onEdit && (
                                     <Tooltip title="העברה…">
                                         <IconButton size="small" aria-label={`העברת משחק ${item.number}`} onClick={() => onEdit(item.key)} sx={{ width: 28, height: 28 }}>
