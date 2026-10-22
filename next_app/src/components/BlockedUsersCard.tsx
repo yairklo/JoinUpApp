@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
 import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import Link from "next/link";
 import Card from "@mui/material/Card";
@@ -15,7 +14,6 @@ import BlockIcon from "@mui/icons-material/Block";
 import { usersApi, type BlockedUser } from "@/services/api/users";
 
 export default function BlockedUsersCard() {
-    const { getToken } = useAuth();
     const getTokenRef = useAuthTokenRef();
     const [items, setItems] = useState<BlockedUser[] | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
@@ -39,7 +37,7 @@ export default function BlockedUsersCard() {
         setBusyId(id);
         setError(null);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             await usersApi.unblockUser(id, token);
             setItems((prev) => (prev || []).filter((b) => b.id !== id));

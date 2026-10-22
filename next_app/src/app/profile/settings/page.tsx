@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser, useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { useUser, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usersApi, PrivacyLevel, PrivacySettings } from "@/services/api/users";
@@ -44,7 +44,6 @@ const FIELDS: { key: FieldKey; label: string }[] = [
 
 export default function PrivacySettingsPage() {
     const { user } = useUser();
-    const { getToken } = useAuth();
     const getTokenRef = useAuthTokenRef();
     const router = useRouter();
     const { isAdmin } = useIsAdmin();
@@ -97,7 +96,7 @@ export default function PrivacySettingsPage() {
         setSaving(true);
         setError(null);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             const payload: Partial<Record<FieldKey, PrivacyLevel | null>> & { hideGroups?: boolean; hideMatchStats?: boolean } = {
                 hideGroups,
