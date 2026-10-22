@@ -29,12 +29,14 @@ interface Props {
     highlightNumber?: number | null;
     /** When set the rows are tappable (edit sheet). */
     onPressRow?: (row: ScheduleRow) => void;
+    /** When set, rows with both teams known get a score-entry button (caller passes it only while IN_PROGRESS). */
+    onScoreRow?: (row: ScheduleRow) => void;
     /** Reports each row's y offset inside this list so the parent can scroll to it. */
     onRowLayout?: (number: number, y: number) => void;
 }
 
 /** "By day" view (spec 11.2): day header, then "18:30 · Court 2 · #12 Blue – Red". Presentational. */
-export default function SchedulePreviewList({ rows, numberById, groupNames, highlightNumber, onPressRow, onRowLayout }: Props) {
+export default function SchedulePreviewList({ rows, numberById, groupNames, highlightNumber, onPressRow, onScoreRow, onRowLayout }: Props) {
     const { t, i18n } = useTranslation();
     const lang = toLang(i18n.language);
     const days = new Map<string, ScheduleRow[]>();
@@ -68,6 +70,19 @@ export default function SchedulePreviewList({ rows, numberById, groupNames, high
                     ) : null}
                     <View className="flex-1" />
                     {r.hasConflict ? <Ionicons name="alert-circle-outline" size={16} color="#b45309" /> : null}
+                    {onScoreRow && r.home.team && r.away.team && r.status !== 'CANCELLED' ? (
+                        <Pressable
+                            testID={`schedule-score-${r.key}`}
+                            onPress={() => onScoreRow(r)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('tournaments.manage.sched.enterScore', { n: r.number }) as string}
+                            hitSlop={8}
+                            style={{ minWidth: 44, minHeight: 44 }}
+                            className="items-center justify-center"
+                        >
+                            <Ionicons name="stats-chart-outline" size={18} color="#059669" />
+                        </Pressable>
+                    ) : null}
                     <Text className="ms-2 text-xs font-bold text-gray-500 dark:text-cyber-muted">#{r.number}</Text>
                     {r.status && r.status !== 'SCHEDULED' ? (
                         <View className="ms-2">
