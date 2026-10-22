@@ -48,6 +48,20 @@ describe("buildCsp", () => {
   test("ignores malformed URLs instead of throwing", () => {
     expect(() => buildCsp({ NEXT_PUBLIC_API_URL: "not a url", NEXT_PUBLIC_SENTRY_DSN: "::" })).not.toThrow();
     expect(sentryCspReportUri("https://o1.ingest.sentry.io/1")).toBeNull(); // no public key
+    expect(() => buildCsp({ NEXT_PUBLIC_SITE_URL: "nope", NEXT_PUBLIC_CLERK_PROXY_URL: "::" })).not.toThrow();
+  });
+
+  // Regressions from real Report-Only violations (Sentry JOINUP-WEB-5/6/7).
+  test("allows the canonical site origin for clerk-js on Vercel previews (cross-origin /__clerk proxy)", () => {
+    const csp = buildCsp(env);
+    expect(directive(csp, "script-src")).toContain("https://join-up-app.vercel.app");
+    expect(directive(csp, "connect-src")).toContain("https://join-up-app.vercel.app");
+    const custom = buildCsp({ ...env, NEXT_PUBLIC_SITE_URL: "https://joinup.example", NEXT_PUBLIC_CLERK_PROXY_URL: "https://auth.joinup.example/__clerk" });
+    expect(directive(custom, "script-src")).toEqual(expect.arrayContaining(["https://joinup.example", "https://auth.joinup.example"]));
+  });
+
+  test("allows GA4's www.google.com/g/collect beacon", () => {
+    expect(directive(buildCsp(env), "connect-src")).toContain("https://www.google.com");
   });
 });
 

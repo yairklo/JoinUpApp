@@ -1,9 +1,10 @@
 import React, { memo, useMemo, useRef } from "react";
-import { View, Text, Image, TouchableOpacity, Pressable, Animated, PanResponder } from "react-native";
+import { View, Text, TouchableOpacity, Pressable, Animated, PanResponder } from "react-native";
 import { useTranslation } from "react-i18next";
 import { ChatMessage } from "@/types/chat";
 import { Ionicons } from "@expo/vector-icons";
 import { messageTickKind } from "@joinup/shared/chatSend";
+import SafeImage from '@/components/SafeImage';
 
 interface MessageBubbleProps {
     message: ChatMessage;
@@ -131,7 +132,7 @@ function MessageBubble({
                     <View className="w-8 mr-2 justify-end pb-1">
                         {showAvatar ? (
                             <TouchableOpacity onPress={handlePressUser} disabled={!senderId || !onPressUser} activeOpacity={0.7}>
-                                <Image
+                                <SafeImage
                                     source={{ uri: avatarUri }}
                                     className="w-8 h-8 rounded-full bg-gray-100 border border-gray-100"
                                 />

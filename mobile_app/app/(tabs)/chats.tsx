@@ -8,6 +8,24 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 
+// Avatar with a neutral placeholder if the image fails to load (e.g. a deleted /uploads file)
+const ChatAvatar = ({ uri }: { uri: string }) => {
+    const [failedUri, setFailedUri] = useState<string | null>(null);
+    if (failedUri === uri) {
+        return <View className="bg-gray-200 dark:bg-cyber-card" style={{ width: 48, height: 48, borderRadius: 24 }} />;
+    }
+    return (
+        <Image
+            source={{ uri }}
+            style={{ width: 48, height: 48, borderRadius: 24 }}
+            cachePolicy="memory-disk"
+            contentFit="cover"
+            transition={150}
+            onError={() => setFailedUri(uri)}
+        />
+    );
+};
+
 // Extracted + memoized chat item — only re-renders when its own data changes
 const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel, onPress }: {
     item: ChatPreview;
@@ -21,13 +39,7 @@ const ChatItem = React.memo(({ item, userId, isTyping, youLabel, noMessagesLabel
         className="flex-row items-center p-4 bg-white border-b border-gray-100"
         onPress={onPress}
     >
-        <Image
-            source={{ uri: item.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name || '?')}` }}
-            style={{ width: 48, height: 48, borderRadius: 24 }}
-            cachePolicy="memory-disk"
-            contentFit="cover"
-            transition={150}
-        />
+        <ChatAvatar uri={item.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name || '?')}`} />
         <View className="flex-1 mr-4 justify-center">
             <View className="flex-row justify-between mb-1">
                 <Text className="text-gray-900 font-bold text-base text-left" numberOfLines={1}>

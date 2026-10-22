@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, Linking, ActivityIndicator, Image, TextInput, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, Linking, ActivityIndicator, TextInput, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,7 @@ import {
 import { normalizeCity } from '@joinup/shared/cityAliases';
 import { notificationsApi } from '@/services/api/notifications';
 import { SPORT_MAPPING } from '@/utils/sports';
+import SafeImage from '@/components/SafeImage';
 
 const SAVE_DEBOUNCE_MS = 400;
 const SPORTS = Object.keys(SPORT_MAPPING) as NotificationSport[];
@@ -452,7 +453,7 @@ export default function NotificationSettingsScreen() {
                         <View key={`${m.targetType}:${m.targetId}`} className={`p-4 flex-row items-center justify-between ${i > 0 ? 'border-t border-gray-100' : ''}`}>
                             <View className="flex-row items-center flex-1 mr-3">
                                 {m.imageUrl ? (
-                                    <Image source={{ uri: m.imageUrl }} className="w-9 h-9 rounded-full bg-gray-200 mr-3" />
+                                    <SafeImage source={{ uri: m.imageUrl }} className="w-9 h-9 rounded-full bg-gray-200 mr-3" />
                                 ) : (
                                     <View className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center mr-3">
                                         <FontAwesome name={m.targetType === 'USER' ? 'user' : m.targetType === 'SERIES' ? 'users' : 'futbol-o'} size={14} color="#6b7280" />

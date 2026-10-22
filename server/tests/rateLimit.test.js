@@ -10,6 +10,7 @@ function appWithLimiter({ readMax = 3, writeMax = 2 } = {}) {
   app.use(readMethodLimiter(createRateLimiter({ windowMs: 60_000, max: readMax, prefix: 'test-read', forceEnable: true })));
   app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60_000, max: writeMax, prefix: 'test-write', forceEnable: true })));
   app.get('/api/health', (_req, res) => res.json({ status: 'OK' }));
+  app.get('/uploads/x.png', (_req, res) => res.send('img'));
   app.get('/api/socket', (_req, res) => res.json({ ok: true }));
   app.get('/ok', (_req, res) => res.json({ ok: true }));
   app.head('/ok', (_req, res) => res.status(200).end());
@@ -35,6 +36,12 @@ describe('HTTP rate limiter', () => {
     await request(app).get('/ok');
     const health = await request(app).get('/api/health');
     expect(health.statusCode).toEqual(200);
+  });
+
+  test('does not rate-limit /uploads/', async () => {
+    const app = appWithLimiter();
+    for (let i = 0; i < 3; i++) await request(app).get('/ok');
+    expect((await request(app).get('/uploads/x.png')).statusCode).toEqual(200);
   });
 
   test('write limiter is stricter than GET', async () => {

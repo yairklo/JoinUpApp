@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { seriesApi } from '@/services/api/series';
 import { pickOneImage } from '@/utils/pickImage';
+import SafeImage from '@/components/SafeImage';
 
 interface SeriesImageUploadProps {
     seriesId: string;
@@ -57,7 +58,7 @@ export default function SeriesImageUpload({ seriesId, image, onChange }: SeriesI
             <View className="w-full h-40 rounded-xl overflow-hidden bg-gray-100 items-center justify-center">
                 {image ? (
                     <>
-                        <Image source={{ uri: image }} className="w-full h-40" resizeMode="cover" />
+                        <SafeImage source={{ uri: image }} className="w-full h-40" resizeMode="cover" />
                         <TouchableOpacity
                             onPress={handleRemove}
                             disabled={busy}

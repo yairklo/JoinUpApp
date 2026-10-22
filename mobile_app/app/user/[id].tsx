@@ -1,4 +1,4 @@
-import { View, Text, ActivityIndicator, Image, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/clerk-expo';
@@ -13,6 +13,7 @@ import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
 import ProfileStats from '@/components/ProfileStats';
 import MatchResultBadge from '@/components/MatchResultBadge';
 import ReportPlayerEntry from '@/components/ReportPlayerEntry';
+import SafeImage from '@/components/SafeImage';
 
 const PAGE_SIZE = 5;
 
@@ -222,7 +223,7 @@ export default function UserProfileScreen() {
 
             <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
                 <View className="items-center mb-6">
-                    <Image
+                    <SafeImage
                         source={{ uri: profile.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=200` }}
                         className="w-32 h-32 rounded-full mb-4 bg-gray-200"
                     />
@@ -421,7 +422,7 @@ export default function UserProfileScreen() {
                                         className="items-center mr-4"
                                         style={{ width: 72 }}
                                     >
-                                        <Image
+                                        <SafeImage
                                             source={{ uri: f.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(f.name || 'U')}&size=100` }}
                                             className="w-14 h-14 rounded-full mb-1 bg-gray-200"
                                         />

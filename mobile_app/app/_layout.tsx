@@ -176,6 +176,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!isSignedIn) {
       // If not signed in and not on auth pages, redirect to sign-in
       if (!inAuthGroup) {
+        // Unmount screens left in the stack so they stop fetching without a session.
+        if (router.canDismiss()) router.dismissAll();
         router.replace("/sign-in");
       }
     } else {

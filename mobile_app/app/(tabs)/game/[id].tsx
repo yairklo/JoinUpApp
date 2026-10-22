@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image, Modal, Share, Linking } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Modal, Share, Linking } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
@@ -15,12 +15,13 @@ import GameResultSection from '@/components/GameResultSection';
 import GameDetailsSkeleton from '@/components/GameDetailsSkeleton';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
-import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { tryParseJerusalemTimeToUTC } from '@/utils/timezone';
 import BackButton from '@/components/ui/BackButton';
 import SportCover, { resolveSportKey, SPORT_GLYPH } from '@/components/ui/SportCover';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SPORT_MAPPING } from '@/utils/sports';
+import SafeImage from '@/components/SafeImage';
 
 const HERO_HEIGHT = 200;
 
@@ -80,6 +81,7 @@ export default function GameDetailsScreen() {
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const { getToken, isLoaded: isAuthLoaded, isSignedIn } = useAuth();
     const getTokenRef = useAuthTokenRef();
+    const signedOutSinceMount = useSignedOutSinceMount();
     const { user } = useUser();
     const router = useRouter();
     const { notifyGameUpdate } = useGameUpdate();
@@ -125,6 +127,7 @@ export default function GameDetailsScreen() {
                 setLoading(false);
                 return;
             }
+            if (signedOutSinceMount()) return; // stale screen after sign-out: 401 is expected
             console.error("Failed to load game", err);
             Alert.alert(t('common.error', 'שגיאה'), t('game.loadFailed', 'לא הצלחנו לטעון את פרטי המשחק'));
             setLoading(false);
@@ -538,7 +541,7 @@ export default function GameDetailsScreen() {
                                                             if (!p) return null;
                                                             return (
                                                                 <TouchableOpacity key={pid} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
-                                                                    <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
+                                                                    <SafeImage source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
                                                                     <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
                                                                 </TouchableOpacity>
                                                             )
@@ -554,7 +557,7 @@ export default function GameDetailsScreen() {
                                                 <View className="flex-row flex-wrap">
                                                     {bench.map(p => (
                                                         <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
-                                                            <Image source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
+                                                            <SafeImage source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
                                                             <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
                                                         </TouchableOpacity>
                                                     ))}
@@ -567,7 +570,7 @@ export default function GameDetailsScreen() {
                         <View className="flex-row flex-wrap">
                             {game.participants?.map((p) => (
                                 <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="ml-4 mb-4 items-center w-16">
-                                    <Image
+                                    <SafeImage
                                         source={{ uri: p.avatar || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
                                         className="w-12 h-12 rounded-full bg-gray-200 mb-1"
                                     />

@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, FlatList } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, FlatList } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -13,6 +13,7 @@ import FieldCommentsSection from '@/components/FieldCommentsSection';
 import FieldIssueReportSection from '@/components/FieldIssueReportSection';
 import FavoriteButton from '@/components/FavoriteButton';
 import BackButton from '@/components/ui/BackButton';
+import SafeImage from '@/components/SafeImage';
 
 const CHART_MAX_HEIGHT = 120;
 
@@ -165,7 +166,7 @@ export default function FieldProfileScreen() {
                 <View className="bg-white mb-4 shadow-sm">
                     <View style={{ position: 'relative' }}>
                         {field.image ? (
-                            <Image source={{ uri: field.image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
+                            <SafeImage source={{ uri: field.image }} style={{ width: '100%', height: 180 }} resizeMode="cover" />
                         ) : null}
                         <View style={{ position: 'absolute', top: 12, right: 12 }}>
                             <FavoriteButton fieldId={fieldId} />
