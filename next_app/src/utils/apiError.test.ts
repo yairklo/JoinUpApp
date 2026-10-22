@@ -1,4 +1,41 @@
-import { mapFriendRequestError } from "./apiError";
+import {
+  getErrorStatus,
+  getLoadErrorMessage,
+  getActionErrorMessage,
+  mapFriendRequestError,
+  mapJoinError,
+  mapLeaveError,
+} from "./apiError";
+
+describe("apiError 429 rate limit handling", () => {
+  const err429 = Object.assign(new Error("Too many requests"), { status: 429 });
+
+  test("getErrorStatus extracts 429 numeric status", () => {
+    expect(getErrorStatus(err429)).toBe(429);
+    expect(getErrorStatus({ status: 429 })).toBe(429);
+    expect(getErrorStatus(new Error("other"))).toBeUndefined();
+  });
+
+  test("getLoadErrorMessage returns user-facing rate-limit copy on 429", () => {
+    expect(getLoadErrorMessage(err429)).toBe("יותר מדי בקשות, נסה שוב בעוד רגע");
+  });
+
+  test("getActionErrorMessage returns user-facing rate-limit copy on 429", () => {
+    expect(getActionErrorMessage(err429)).toBe("יותר מדי בקשות, נסה שוב בעוד רגע");
+  });
+
+  test("mapFriendRequestError returns user-facing rate-limit copy on 429", () => {
+    expect(mapFriendRequestError(err429)).toBe("יותר מדי בקשות, נסה שוב בעוד רגע");
+  });
+
+  test("mapJoinError returns user-facing rate-limit copy on 429", () => {
+    expect(mapJoinError(err429)).toBe("יותר מדי בקשות, נסה שוב בעוד רגע");
+  });
+
+  test("mapLeaveError returns user-facing rate-limit copy on 429", () => {
+    expect(mapLeaveError(err429)).toBe("יותר מדי בקשות, נסה שוב בעוד רגע");
+  });
+});
 
 describe("mapFriendRequestError", () => {
   test("USER_BLOCKED uses the same copy as a generic failure", () => {
@@ -17,3 +54,4 @@ describe("mapFriendRequestError", () => {
     expect(mapFriendRequestError(err)).toBe("הפרופיל הזה פתוח לחברים בלבד");
   });
 });
+

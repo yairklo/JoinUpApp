@@ -116,4 +116,27 @@ describe('POST /api/user-reports', () => {
       expect.arrayContaining([expect.objectContaining({ prefix: 'user-report', max: 10, windowMs: 60 * 60 * 1000 })])
     );
   });
+
+  test('returns 429 when rate limiter triggers on POST /api/user-reports', async () => {
+    const express = require('express');
+    const { createRateLimiter } = jest.requireActual('../middleware/rateLimit');
+    const limiter = createRateLimiter({ windowMs: 60_000, max: 1, prefix: 'user-report-429-test', forceEnable: true });
+    const testApp = express();
+    testApp.use(express.json());
+    testApp.use((req, res, next) => {
+      req.user = { id: 'ur_reporter' };
+      next();
+    });
+    testApp.post('/api/user-reports', limiter, (_req, res) => res.status(201).json({ ok: true }));
+
+    const r1 = await request(testApp).post('/api/user-reports').send({ targetId: 'ur_target', reason: 'OTHER' });
+    expect(r1.statusCode).toBe(201);
+
+    const r2 = await request(testApp).post('/api/user-reports').send({ targetId: 'ur_target', reason: 'OTHER' });
+    expect(r2.statusCode).toBe(429);
+    expect(r2.body).toEqual({ error: 'Too many requests' });
+    expect(r2.headers['retry-after']).toBeDefined();
+    expect(r2.headers['x-ratelimit-limit']).toBe('1');
+    expect(r2.headers['x-ratelimit-remaining']).toBe('0');
+  });
 });
