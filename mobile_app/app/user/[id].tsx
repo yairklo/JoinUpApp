@@ -92,7 +92,8 @@ export default function UserProfileScreen() {
             setLoading(true);
             setLoadError(null);
             const token = await getToken();
-            if (!token) return;
+            // No token yet (e.g. right after app resume): a retriable failure, not "user not found".
+            if (!token) throw new Error('No auth token');
 
             // Fetch profile
             const profileData = await usersApi.getProfile(id, token);
