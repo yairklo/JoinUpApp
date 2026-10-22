@@ -1,8 +1,8 @@
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
 import { isAbortError } from '@/utils/apiErrors';
-import { fetchRead, delay } from './readBackoff';
-import { parseRetryAfterMs } from '@/utils/apiErrorKind';
-import { UPLOAD_TIMEOUT_MS, shouldRetryUpload, uploadRetryDelayMs } from './uploadPolicy';
+import { fetchRead } from './readBackoff';
+import { parseRetryAfterMs } from './retryAfter';
+import { withRequestTimeout, fetchUploadWithRetry } from './requestTimeout';
 import i18n from '@/i18n';
 
 // API base URL — set via EXPO_PUBLIC_API_URL in .env / eas.json
@@ -41,29 +41,6 @@ interface RequestConfig extends RequestInit {
 export const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
 /** Mutations/uploads can be slow on a cold backend and may already be applied server-side, so allow longer. */
 export const MUTATION_REQUEST_TIMEOUT_MS = 60000;
-
-/** Combine a caller's abort signal with a timeout. `cleanup` must be called when the request settles. */
-function withRequestTimeout(signal: AbortSignal | undefined, timeoutMs: number) {
-    const controller = new AbortController();
-    let timedOut = false;
-    const timer = setTimeout(() => {
-        timedOut = true;
-        controller.abort();
-    }, timeoutMs);
-    const onAbort = () => controller.abort();
-    if (signal) {
-        if (signal.aborted) controller.abort();
-        else signal.addEventListener('abort', onAbort);
-    }
-    return {
-        signal: controller.signal,
-        didTimeout: () => timedOut,
-        cleanup: () => {
-            clearTimeout(timer);
-            signal?.removeEventListener('abort', onAbort);
-        },
-    };
-}
 
 export async function apiClient<T>(endpoint: string, { token, data, signal, silent, timeoutMs: timeoutOverride, ...customConfig }: RequestConfig = {}): Promise<T> {
     const headers: HeadersInit = {
@@ -149,30 +126,23 @@ export async function uploadMultipart<T>(
     const formData = new FormData();
     formData.append(fieldName, image as unknown as Blob);
     // One timeout budget covers the request and the single 429 wait, so the call can never hang.
-    const timeout = withRequestTimeout(opts.signal, opts.timeoutMs ?? UPLOAD_TIMEOUT_MS);
+    const timeout = withRequestTimeout(opts.signal, opts.timeoutMs ?? MUTATION_REQUEST_TIMEOUT_MS);
     try {
-        let res: Response | undefined;
-        for (let attempt = 0; attempt < 2; attempt++) {
-            res = await fetch(`${API_BASE}${path}`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}` },
-                body: formData,
-                signal: timeout.signal,
-            });
-            if (!shouldRetryUpload(res.status, attempt)) break;
-            await delay(uploadRetryDelayMs(res.headers.get('Retry-After')), timeout.signal);
-        }
-        if (!res!.ok) {
-            const body = await res!.json().catch(() => ({}));
+        const res = await fetchUploadWithRetry(
+            (signal) => fetch(`${API_BASE}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData, signal }),
+            timeout.signal
+        );
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
             const err = new Error(
-                res!.status === 429
+                res.status === 429
                     ? i18n.t('errors.tooManyRequests', 'יותר מדי בקשות, נסו שוב בעוד רגע')
                     : body.error || failMessage
             ) as Error & { status?: number };
-            err.status = res!.status;
+            err.status = res.status;
             throw err;
         }
-        return await res!.json();
+        return await res.json();
     } catch (e: any) {
         if (timeout.didTimeout()) {
             const err = new Error(i18n.t('errors.uploadTimeout', 'ההעלאה נמשכה יותר מדי זמן. בדקו את החיבור ונסו שוב.')) as Error & { code?: string };
