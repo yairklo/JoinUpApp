@@ -5,6 +5,9 @@
  * a physical phone). Maestro is found via $MAESTRO_BIN (executable or its bin
  * dir), then PATH, then ~/tools/maestro/bin.
  *
+ * --keep-locale leaves the device locale alone. By default the device is switched to Hebrew (he-IL) first,
+ * because the app only picks Hebrew/RTL when the device language is 'he' (or a language was saved).
+ *
  * Runs the Maestro flows in this directory for light and dark.
  * Passwords come from MAESTRO_*_PASSWORD (env, E2E_CLERK_KEYS_FILE or server/.env.maestro); never printed.
  * Does not start the API. Requires the Maestro CLI and a device whose app
@@ -37,6 +40,8 @@ const resolveMaestro = () => {
 };
 const maestro = `"${resolveMaestro()}"`;
 
+const keepLocale = args.includes("--keep-locale");
+
 const flows = ["profile", "match-results", "tournaments"].filter((name) => !feature || name === feature);
 if (flows.length === 0) {
   console.error(`Unknown feature "${feature}". Use profile, match-results, or tournaments.`);
@@ -47,6 +52,44 @@ if (spawnSync(maestro, ["--version"], { shell: true, stdio: "inherit" }).status 
   console.error("Maestro CLI not found (set MAESTRO_BIN or add it to PATH). Install: https://docs.maestro.dev/getting-started/installing-maestro");
   process.exit(2);
 }
+
+// Switch the device to Hebrew so captures are Hebrew/RTL. Needs adb and a device that allows
+// changing the system locale (emulator / userdebug images). Failure is non-fatal but loudly reported.
+const adbRun = (adbArgs, opts = {}) =>
+  spawnSync("adb", [...(device ? ["-s", device] : []), ...adbArgs], { encoding: "utf8", ...opts });
+const currentLocale = () => {
+  const r = adbRun(["shell", "getprop persist.sys.locale; getprop ro.product.locale"]);
+  return (r.stdout || "").split(/\r?\n/).map((l) => l.trim()).find(Boolean) || "";
+};
+const waitForBoot = (timeoutMs) => {
+  const deadline = Date.now() + timeoutMs;
+  adbRun(["wait-for-device"], { timeout: timeoutMs });
+  while (Date.now() < deadline) {
+    if ((adbRun(["shell", "getprop sys.boot_completed"]).stdout || "").trim() === "1") return true;
+    spawnSync(process.execPath, ["-e", "setTimeout(()=>{},2000)"]);
+  }
+  return false;
+};
+const ensureHebrewLocale = () => {
+  if (adbRun(["version"]).status !== 0) {
+    console.warn("adb not found; leaving device locale unchanged (captures may be English/LTR).");
+    return;
+  }
+  if (currentLocale().toLowerCase().startsWith("he")) return;
+  console.log("Switching device locale to he-IL (use --keep-locale to skip)...");
+  const viaCmd = adbRun(["shell", "cmd locale set-system-locales he-IL"]);
+  if (viaCmd.status !== 0 || /unknown|error|exception/i.test(`${viaCmd.stdout}${viaCmd.stderr}`)) {
+    adbRun(["shell", "setprop persist.sys.locale he-IL; setprop ctl.restart zygote"]);
+    spawnSync(process.execPath, ["-e", "setTimeout(()=>{},5000)"]);
+    waitForBoot(120_000);
+    spawnSync(process.execPath, ["-e", "setTimeout(()=>{},5000)"]);
+  }
+  const now = currentLocale();
+  if (!now.toLowerCase().startsWith("he")) {
+    console.warn(`Could not confirm Hebrew device locale (reads "${now}"); captures may be English/LTR.`);
+  }
+};
+if (!keepLocale) ensureHebrewLocale();
 
 const users = {
   profile: { email: "adult-a+clerk_test@example.com", key: "MAESTRO_ADULT_A_PASSWORD" },

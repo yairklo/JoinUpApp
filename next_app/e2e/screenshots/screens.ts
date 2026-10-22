@@ -22,6 +22,7 @@ export type FeatureName = "match-results" | "tournaments" | "profile";
 
 export type ScreenAction =
   | "profile-history"
+  | "finished-game"
   | "wizard-step-2"
   | "wizard-step-3"
   | "wizard-step-4"
@@ -82,14 +83,16 @@ export const screens: ScreenDef[] = [
   {
     id: "game",
     feature: "match-results",
-    route: "/games/seed_game_approval",
-    user: "organizer-o",
+    // Finished game ("QA results A") reached via adult-a's profile history, so the result panel renders.
+    route: "/profile",
+    user: "adult-a",
     source: "next_app/src/components/gameResult/GameResultPanel.tsx",
+    action: "finished-game",
   },
   {
     id: "game-report-user",
     feature: "match-results",
-    route: "/games/seed_game_approval",
+    route: "/profile",
     user: "adult-a",
     source: "next_app/src/components/ReportUserDialog.tsx",
     action: "report-user",
