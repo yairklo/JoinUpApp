@@ -293,7 +293,14 @@ function TennisGrid({ sides }: { sides: GameResultSide[] }) {
 }
 
 function StatsBlock({ result, roster, teams }: { result: GameResultData; roster: GameResultRosterPlayer[]; teams?: ResultTeam[] }) {
-  const groups = groupStatsBySide(result);
+  const groups = groupStatsBySide(result).map((g) => {
+    const extra = roster.filter((p) => p.sideId === g.key && !g.rows.some((r) => r.userId === p.userId));
+    if (!extra.length) return g;
+    return {
+      ...g,
+      rows: [...g.rows, ...extra.map((p) => ({ userId: p.userId, sideId: p.sideId, values: {} }))],
+    };
+  });
   const [expanded, setExpanded] = useState(false);
   if (!groups.length) return null;
   const total = groups.reduce((n, g) => n + g.rows.length, 0);

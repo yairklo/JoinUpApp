@@ -168,13 +168,12 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                                     ) : (
                                         <Autocomplete
                                             value={state.selectedField}
-                                            onChange={(_event, newValue) => {
-                                                if (typeof newValue === 'string') {
-                                                    setTimeout(() => {
-                                                        actions.setNewFieldMode(true);
-                                                        actions.setNewField(p => ({ ...p, name: newValue }));
-                                                    });
-                                                } else if (newValue && newValue.inputValue) {
+                                            onChange={(_event, newValue, reason) => {
+                                                if (reason !== "selectOption" || !newValue || typeof newValue === "string") {
+                                                    if (reason === "clear") actions.setSelectedField(null);
+                                                    return;
+                                                }
+                                                if (newValue.id === "NEW_FIELD_ID_TEMP") {
                                                     actions.setNewFieldMode(true);
                                                     actions.setNewField(p => ({ ...p, name: newValue.inputValue || "" }));
                                                 } else {
@@ -241,7 +240,9 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                                                 size="small"
                                                 value={state.duration}
                                                 onChange={(e) => actions.setDuration(parseFloat(e.target.value) || 1)}
-                                                InputProps={{ inputProps: { min: 0.5, step: 0.25 } }}
+                                                InputProps={{ inputProps: { step: 0.25 } }}
+                                                error={state.duration < 0.5}
+                                                helperText={state.duration < 0.5 ? "משך המשחק חייב להיות לפחות חצי שעה" : ""}
                                             />
                                         </Grid>
                                         {state.seriesType === 'WEEKLY' && (

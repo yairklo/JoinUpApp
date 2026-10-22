@@ -13,7 +13,7 @@ describe('matchResultFormat', () => {
         expect(formatStatParts('SOCCER', {})).toEqual([]);
     });
 
-    it('groups by side then unassigned, dropping empty rows', () => {
+    it('keeps side B and a player whose stats are all zero', () => {
         const result = {
             sides: [side(1, 3, 'WIN'), side(0, 2, 'LOSS')],
             stats: [
@@ -22,7 +22,9 @@ describe('matchResultFormat', () => {
                 { userId: 'c', sideId: null, values: { goals: 1 } },
             ],
         } as unknown as GameResultData;
-        expect(groupStatsBySide(result).map((g) => g.key)).toEqual(['s1', 'none']);
+        const groups = groupStatsBySide(result);
+        expect(groups.map((g) => g.key)).toEqual(['s0', 's1', 'none']);
+        expect(groups[0].rows.map((r) => r.userId)).toEqual(['b']);
     });
 
     it('builds the score aria label', () => {
