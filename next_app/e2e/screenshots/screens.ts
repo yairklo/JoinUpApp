@@ -20,6 +20,15 @@ export type ViewportName = keyof typeof VIEWPORTS;
 export type ThemeName = "light" | "dark";
 export type FeatureName = "match-results" | "tournaments" | "profile";
 
+export type ScreenAction =
+  | "profile-history"
+  | "wizard-step-2"
+  | "wizard-step-3"
+  | "wizard-step-4"
+  | "wizard-step-5"
+  | "match-score-entry"
+  | "report-user";
+
 export type ScreenDef = {
   id: string;
   feature: FeatureName;
@@ -36,6 +45,8 @@ export type ScreenDef = {
   openDetailSkip?: string[];
   /** When no detail link exists, leave the INDEX row as "not yet" instead of failing. */
   optionalDetail?: boolean;
+  /** Pre-capture interaction sequence. */
+  action?: ScreenAction;
 };
 
 export const screens: ScreenDef[] = [
@@ -45,6 +56,14 @@ export const screens: ScreenDef[] = [
     route: "/profile",
     user: "adult-a",
     source: "next_app/src/app/profile/page.tsx",
+  },
+  {
+    id: "profile-history",
+    feature: "profile",
+    route: "/profile",
+    user: "adult-a",
+    source: "next_app/src/app/profile/page.tsx",
+    action: "profile-history",
   },
   {
     id: "profile-settings",
@@ -63,11 +82,17 @@ export const screens: ScreenDef[] = [
   {
     id: "game",
     feature: "match-results",
-    route: "/manage",
+    route: "/games/seed_game_approval",
     user: "organizer-o",
     source: "next_app/src/components/gameResult/GameResultPanel.tsx",
-    openDetailPrefix: "/games/",
-    openDetailSkip: ["/games/new", "/team-management", "/edit"],
+  },
+  {
+    id: "game-report-user",
+    feature: "match-results",
+    route: "/games/seed_game_approval",
+    user: "adult-a",
+    source: "next_app/src/components/ReportUserDialog.tsx",
+    action: "report-user",
   },
   {
     id: "tournaments-list",
@@ -84,6 +109,38 @@ export const screens: ScreenDef[] = [
     source: "next_app/src/app/tournaments/new/page.tsx",
   },
   {
+    id: "tournaments-new-step2",
+    feature: "tournaments",
+    route: "/tournaments/new",
+    user: "organizer-o",
+    source: "next_app/src/components/tournaments/wizard/StepTeams.tsx",
+    action: "wizard-step-2",
+  },
+  {
+    id: "tournaments-new-step3",
+    feature: "tournaments",
+    route: "/tournaments/new",
+    user: "organizer-o",
+    source: "next_app/src/components/tournaments/wizard/StepFormat.tsx",
+    action: "wizard-step-3",
+  },
+  {
+    id: "tournaments-new-step4",
+    feature: "tournaments",
+    route: "/tournaments/new",
+    user: "organizer-o",
+    source: "next_app/src/components/tournaments/wizard/StepRegistration.tsx",
+    action: "wizard-step-4",
+  },
+  {
+    id: "tournaments-new-step5",
+    feature: "tournaments",
+    route: "/tournaments/new",
+    user: "organizer-o",
+    source: "next_app/src/components/tournaments/wizard/StepReview.tsx",
+    action: "wizard-step-5",
+  },
+  {
     id: "tournaments-invites",
     feature: "tournaments",
     route: "/tournaments/invites",
@@ -93,12 +150,45 @@ export const screens: ScreenDef[] = [
   {
     id: "tournament",
     feature: "tournaments",
-    route: "/tournaments",
-    user: "organizer-o",
+    route: "/tournaments/cmvjad6r3000gqe0iifmjp349",
+    user: "adult-a",
     source: "next_app/src/components/tournaments/shell/TournamentPage.tsx",
-    openDetailPrefix: "/tournaments/",
-    openDetailSkip: ["/tournaments/new", "/tournaments/invites", "/edit", "/manage", "/team", "/matches"],
-    optionalDetail: true,
+  },
+  {
+    id: "tournament-schedule",
+    feature: "tournaments",
+    route: "/tournaments/cmvjad6r3000gqe0iifmjp349?tab=schedule",
+    user: "adult-a",
+    source: "next_app/src/components/tournaments/tabs/ScheduleTab.tsx",
+  },
+  {
+    id: "tournament-standings",
+    feature: "tournaments",
+    route: "/tournaments/cmvjad6r3000gqe0iifmjp349?tab=standings",
+    user: "adult-a",
+    source: "next_app/src/components/tournaments/tabs/StandingsTab.tsx",
+  },
+  {
+    id: "tournament-leaders",
+    feature: "tournaments",
+    route: "/tournaments/cmvjad6r3000gqe0iifmjp349?tab=leaders",
+    user: "adult-a",
+    source: "next_app/src/components/tournaments/tabs/TopPlayersTab.tsx",
+  },
+  {
+    id: "tournament-manage",
+    feature: "tournaments",
+    route: "/tournaments/cmvjad6r3000gqe0iifmjp349/manage",
+    user: "organizer-o",
+    source: "next_app/src/components/tournaments/manage/ManageConsole.tsx",
+  },
+  {
+    id: "tournament-score-sheet",
+    feature: "tournaments",
+    route: "/tournaments/cmvjad6r3000gqe0iifmjp349?tab=schedule",
+    user: "organizer-o",
+    source: "next_app/src/components/tournaments/ScoreEntrySheet.tsx",
+    action: "match-score-entry",
   },
 ];
 
