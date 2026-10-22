@@ -146,7 +146,7 @@ export default function AdminUserReports() {
                     const isDispute = r.reason === "RESULT_DISPUTE";
                     const open = expanded[r.id];
                     const gameWhen = r.game?.start ? formatWhen(r.game.start) : "";
-                    const gameLabel = [r.game?.field?.name, gameWhen].filter(Boolean).join(" · ") || "משחק";
+                    const gameLabel = [r.game?.title, r.game?.field?.name, gameWhen].filter(Boolean).join(" · ") || "משחק";
                     return (
                         <Card key={r.id} data-testid={`admin-user-report-${r.id}`}>
                             <CardContent>
@@ -173,6 +173,24 @@ export default function AdminUserReports() {
                                             {gameLabel} ↗
                                         </Typography>
                                     </Typography>
+                                )}
+                                {r.tournament && (
+                                    <Typography variant="body2" mb={1}>
+                                        טורניר:{" "}
+                                        <Typography component={NextLink} href={`/tournaments/${r.tournament.id}`} target="_blank" variant="body2" color="primary">
+                                            {r.tournament.title || "טורניר"} ↗
+                                        </Typography>
+                                    </Typography>
+                                )}
+                                {r.status === "OPEN" && r.openReportsOnTarget > 1 && (
+                                    <Chip
+                                        size="small"
+                                        color="error"
+                                        variant="outlined"
+                                        sx={{ mb: 1 }}
+                                        data-testid={`admin-user-report-repeat-${r.id}`}
+                                        label={`${r.openReportsOnTarget} דיווחים פתוחים על ${r.target.name || "המשתמש"}`}
+                                    />
                                 )}
                                 {r.details && (
                                     <Box mb={1}>
