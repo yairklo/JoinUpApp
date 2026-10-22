@@ -105,6 +105,8 @@ export default function ProfilePage() {
   const userId = user?.id;
 
   const [profile, setProfile] = useState<PublicUser | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileLoad, setProfileLoad] = useState(0);
   const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; city?: string | null; email?: string | null; canAddFriend?: boolean }>>([]);
   const [friends, setFriends] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; mutualCount?: number }>>([]);
   const [incoming, setIncoming] = useState<Array<{ id: string; requester: PublicUser; createdAt: string }>>([]);
@@ -189,8 +191,22 @@ export default function ProfilePage() {
       try {
         const token = await getTokenRef.current({ template: undefined }).catch(() => "");
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+        setProfileError(null);
         const res = await fetchRead(`${API_BASE}/api/users/${userId}`, { headers });
-        setProfile(await res.json());
+        if (!res.ok) {
+          setProfile(null);
+          setProfileError(res.status === 429
+            ? "יותר מדי בקשות כרגע. חכו רגע ונסו שוב."
+            : "לא הצלחנו לטעון את הפרופיל.");
+          return;
+        }
+        const body = await res.json();
+        if (!body || typeof body.id !== "string") {
+          setProfile(null);
+          setProfileError("לא הצלחנו לטעון את הפרופיל.");
+          return;
+        }
+        setProfile(body);
 
         // Both endpoints need the token: the user listing is signed-in only, and the friends
         // list is gated by privacyFriends (the owner always passes, but only when identified).
@@ -202,7 +218,10 @@ export default function ProfilePage() {
         ]);
         if (usersRes.ok) setAllUsers(await usersRes.json());
         if (friendsRes.ok) setFriends(await friendsRes.json());
-      } catch { }
+      } catch {
+        setProfile(null);
+        setProfileError("לא הצלחנו לטעון את הפרופיל.");
+      }
     })();
     fieldsApi.getCities().then(setCities).catch(() => { });
     (async () => {
@@ -224,7 +243,7 @@ export default function ProfilePage() {
         }
       } catch { }
     })();
-  }, [userId]);
+  }, [userId, profileLoad]);
 
   // Debounce the inline "search players" box, then search server-side
   // (the same /api/users/search endpoint the dedicated search-players page
@@ -428,7 +447,16 @@ export default function ProfilePage() {
       </SignedOut>
 
       <SignedIn>
-        {!profile ? (
+        {profileError ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+            <Alert
+              severity="error"
+              action={<Button color="inherit" size="small" onClick={() => setProfileLoad((n) => n + 1)}>נסו שוב</Button>}
+            >
+              {profileError}
+            </Alert>
+          </Box>
+        ) : !profile ? (
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
             <LoadingMotif id="brand-pulse" label="טוען פרופיל…" />
           </Box>

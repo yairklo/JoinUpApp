@@ -1,5 +1,33 @@
+const { verifyToken } = require('@clerk/backend');
 const { createMemoryStore, createRedisStore } = require('./rateLimitStore');
 const { getRedis } = require('../lib/redis');
+
+// One verification per token per window. Parallel GETs on a single page would otherwise
+// each hit Clerk. Failures are not cached: a bad token stays on the IP bucket.
+const verifiedUserIds = new Map();
+const USER_ID_CACHE_MS = 60 * 1000;
+
+function bearerToken(req) {
+  const header = req.headers?.authorization;
+  if (typeof header !== 'string') return null;
+  const match = /^Bearer\s+(\S+)/i.exec(header.trim());
+  return match ? match[1] : null;
+}
+
+async function verifiedUserId(req) {
+  const token = bearerToken(req);
+  if (!token) return null;
+  const cached = verifiedUserIds.get(token);
+  if (cached && cached.until > Date.now()) return cached.sub;
+  try {
+    const claims = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+    const sub = typeof claims?.sub === 'string' && claims.sub ? claims.sub : null;
+    if (sub) verifiedUserIds.set(token, { sub, until: Date.now() + USER_ID_CACHE_MS });
+    return sub;
+  } catch {
+    return null;
+  }
+}
 
 // CF-Connecting-IP is only authoritative when Cloudflare really sits in front of this app: its
 // edge overwrites any client-supplied value. Without Cloudflare (production today is a single
@@ -37,26 +65,32 @@ function resolveStore({ windowMs }) {
 }
 
 /**
- * Fixed-window counter per IP. Disabled in Jest unless forceEnable is set.
+ * Fixed-window counter. A verified Clerk subject gets its own bucket (`max`);
+ * everyone else, including a bearer token that does not verify, shares the IP
+ * bucket (`anonymousMax`, default `max`). Disabled in Jest unless forceEnable is set.
  * Socket.IO polling and /api/health are never counted.
- * `store` may be injected (tests); otherwise chosen from RATE_LIMIT_STORE on first use.
+ * `store` and `resolveUserId` may be injected (tests).
  */
-function createRateLimiter({ windowMs, max, prefix, forceEnable = false, store: injected }) {
+function createRateLimiter({ windowMs, max, anonymousMax, prefix, forceEnable = false, store: injected, resolveUserId }) {
   let store = injected || null;
   const disabled = !forceEnable && (process.env.NODE_ENV === 'test' || !!process.env.JEST_WORKER_ID);
+  const identify = resolveUserId || verifiedUserId;
+  const guestMax = anonymousMax ?? max;
 
   return async function rateLimitMiddleware(req, res, next) {
     if (disabled || isExempt(req)) return next();
     try {
       if (!store) store = resolveStore({ windowMs });
-      const key = `${prefix}:${clientKey(req)}`;
+      const userId = await identify(req);
+      const limit = userId ? max : guestMax;
+      const key = `${prefix}:${userId ? `user:${userId}` : `ip:${clientKey(req)}`}`;
       const now = Date.now();
       const entry = await store.hit(key);
 
-      res.setHeader('X-RateLimit-Limit', String(max));
-      res.setHeader('X-RateLimit-Remaining', String(Math.max(0, max - entry.count)));
+      res.setHeader('X-RateLimit-Limit', String(limit));
+      res.setHeader('X-RateLimit-Remaining', String(Math.max(0, limit - entry.count)));
 
-      if (entry.count > max) {
+      if (entry.count > limit) {
         res.setHeader('Retry-After', String(Math.max(1, Math.ceil((entry.resetAt - now) / 1000))));
         return res.status(429).json({ error: 'Too many requests' });
       }
@@ -96,4 +130,5 @@ module.exports = {
   readMethodLimiter,
   clientKey,
   isExempt,
+  verifiedUserId,
 };
