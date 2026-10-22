@@ -5,12 +5,15 @@ import { usersApi, chatsApi } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
+import { useAuthTokenRef } from './useAuthTokenRef';
 
 export type FriendStatus = 'FRIEND' | 'REQUESTED' | 'INCOMING' | 'NONE' | 'SELF' | 'LOADING';
 
 export function useUserActions(targetUserId: string, targetUserName?: string, targetUserImage?: string | null) {
     const { user, isLoaded } = useUser();
     const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
+    const viewerId = user?.id ?? null;
     const router = useRouter();
     const { openChat } = useChat();
     const theme = useTheme();
@@ -23,23 +26,23 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
     const [error, setError] = useState<string | null>(null);
 
     const checkStatus = useCallback(async () => {
-        if (!isLoaded || !user) {
+        if (!isLoaded || !viewerId) {
             setStatus('NONE');
             return;
         }
-        if (user.id === targetUserId) {
+        if (viewerId === targetUserId) {
             setStatus('SELF');
             return;
         }
 
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
 
             const [friends, outgoing, incoming] = await Promise.all([
-                usersApi.getFriends(user.id, token),
-                usersApi.getOutgoingRequests(user.id, token),
-                usersApi.getIncomingRequests(user.id, token)
+                usersApi.getFriends(viewerId, token),
+                usersApi.getOutgoingRequests(viewerId, token),
+                usersApi.getIncomingRequests(viewerId, token)
             ]);
 
             if (friends.some((f: any) => f.id === targetUserId)) {
@@ -66,7 +69,7 @@ export function useUserActions(targetUserId: string, targetUserName?: string, ta
             console.error(e);
             setStatus('NONE');
         }
-    }, [user, isLoaded, targetUserId, getToken]);
+    }, [viewerId, isLoaded, targetUserId]);
 
     useEffect(() => {
         checkStatus();
