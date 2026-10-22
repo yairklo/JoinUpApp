@@ -22,12 +22,12 @@ export function orderedStatKeys(sport: string, values: StatValues): string[] {
     return ordered.filter((k) => (values[k] ?? 0) > 0);
 }
 
-/** "2 שערים"; value 1 uses "label: 1" (no singular labels yet); binary keys are label only. */
+/** "2 שערים" / "שער אחד"; binary keys are label only. */
 export function formatStatText(sport: string, key: string, value: number): string {
-    const label = getStatLabel(sport, key, 'he');
+    const label = getStatLabel(sport, key, 'he', value);
     if (key === 'mvp') return `⭐ ${label}`;
     if (BINARY_KEYS.has(key)) return label;
-    return value === 1 ? `${label}: 1` : `${value} ${label}`;
+    return `${value} ${label}`;
 }
 
 export function formatPerGame(value: number): string {
