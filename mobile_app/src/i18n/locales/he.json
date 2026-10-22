@@ -1229,6 +1229,7 @@
     "registrationUntil": "ההרשמה פתוחה עד {{date}}",
     "progress": "{{finished}}/{{total}} משחקים שוחקו",
     "liveNow": "{{count}} משחקים חיים עכשיו",
+    "liveNow_one": "משחק אחד חי עכשיו",
     "cancelledBanner": "הטורניר בוטל. המשחקים שלא שוחקו בוטלו.",
     "draftBanner": "טיוטה: רק מנהלי הטורניר רואים אותה",
     "publish": "פרסום",

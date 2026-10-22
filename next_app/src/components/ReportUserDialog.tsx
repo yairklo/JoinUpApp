@@ -17,6 +17,8 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
+import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import { useAuth } from "@clerk/nextjs";
 import { useReportUser } from "@/hooks/useReportUser";
 import { resultsApi } from "@/services/api/results";
@@ -133,17 +135,40 @@ export default function ReportUserDialog({ open, onClose, targetId, targetName, 
         </>
       ) : (
         <>
-          <DialogTitle>{dispute ? "דיווח על תוצאה שגויה" : "דיווח על שחקן"}</DialogTitle>
+          <DialogTitle component="div" sx={{ pb: 1.5 }}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Box
+                aria-hidden
+                sx={(t) => ({
+                  width: 40,
+                  height: 40,
+                  flexShrink: 0,
+                  borderRadius: "50%",
+                  display: "grid",
+                  placeItems: "center",
+                  color: dispute ? "primary.main" : "error.main",
+                  bgcolor: alpha(dispute ? t.palette.primary.main : t.palette.error.main, t.palette.mode === "dark" ? 0.18 : 0.1),
+                })}
+              >
+                {dispute ? <ReportProblemOutlinedIcon fontSize="small" /> : <FlagOutlinedIcon fontSize="small" />}
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography component="h2" variant="h6" fontWeight={800} sx={{ lineHeight: 1.3 }}>
+                  {dispute ? "דיווח על תוצאה שגויה" : "דיווח על שחקן"}
+                </Typography>
+                {targetName && (
+                  <Typography variant="body2" color="text.secondary" noWrap title={targetName}>
+                    {targetName}
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+          </DialogTitle>
           <DialogContent>
-            {targetName && (
-              <Typography variant="body2" color="text.secondary" noWrap title={targetName} sx={{ bgcolor: "action.hover", p: 1, borderRadius: 1, mb: 2 }}>
-                {targetName}
-              </Typography>
-            )}
             {!dispute && (
               <>
-                <Typography variant="subtitle2" gutterBottom>מה קרה?</Typography>
-                <RadioGroup value={reason} onChange={(e) => setReason(e.target.value as UserReportReason)}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>מה קרה?</Typography>
+                <RadioGroup value={reason} onChange={(e) => setReason(e.target.value as UserReportReason)} sx={{ gap: 0.75 }}>
                   {REASONS.map((r) => (
                     <FormControlLabel
                       key={r.value}
@@ -151,7 +176,22 @@ export default function ReportUserDialog({ open, onClose, targetId, targetName, 
                       disabled={submitting}
                       control={<Radio size="small" inputProps={{ "data-testid": `report-user-reason-${r.value}` } as React.InputHTMLAttributes<HTMLInputElement>} />}
                       label={r.he}
-                      sx={{ minHeight: 44 }}
+                      sx={(t) => ({
+                        minHeight: 44,
+                        mx: 0,
+                        pe: 1.5,
+                        borderRadius: 2,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        transition: "background-color 120ms ease, border-color 120ms ease",
+                        "& .MuiFormControlLabel-label": { fontWeight: 500 },
+                        "&:hover": { bgcolor: "action.hover" },
+                        "&:has(.Mui-checked)": {
+                          borderColor: alpha(t.palette.error.main, 0.6),
+                          bgcolor: alpha(t.palette.error.main, t.palette.mode === "dark" ? 0.12 : 0.06),
+                          "& .MuiFormControlLabel-label": { fontWeight: 700 },
+                        },
+                      })}
                     />
                   ))}
                 </RadioGroup>

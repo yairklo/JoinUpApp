@@ -17,6 +17,7 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import ReportProblemRoundedIcon from "@mui/icons-material/ReportProblemRounded";
+import { alpha, type SxProps, type Theme } from "@mui/material/styles";
 import TeamBadge from "../TeamBadge";
 import ScoreCluster from "../ScoreCluster";
 import {
@@ -79,6 +80,37 @@ export interface ScoreEntryViewProps {
 const BTN = 56;
 const STATUS_LABEL: Record<ScoreStatus, string> = { LIVE: "חי", FINISHED: "הסתיים", FORFEIT: "טכני" };
 
+/** Pill-shaped segmented control on top of ToggleButtonGroup. */
+const segmentedSx = (theme: Theme) => ({
+    p: 0.5,
+    gap: 0.5,
+    borderRadius: 999,
+    bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.08 : 0.05),
+    "& .MuiToggleButtonGroup-grouped": {
+        border: 0,
+        borderRadius: "999px !important",
+        mx: 0,
+        textTransform: "none",
+        color: "text.secondary",
+        transition: "background-color 150ms ease, color 150ms ease, box-shadow 150ms ease",
+    },
+    "& .MuiToggleButtonGroup-grouped.Mui-selected, & .MuiToggleButtonGroup-grouped.Mui-selected:hover": {
+        bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.primary.main, 0.24) : theme.palette.background.paper,
+        color: theme.palette.mode === "dark" ? theme.palette.primary.light : theme.palette.primary.dark,
+        boxShadow: theme.palette.mode === "dark" ? "none" : theme.shadows[2],
+    },
+});
+
+const stepBtnSx = (primary: boolean): SxProps<Theme> => (theme) => ({
+    width: BTN,
+    height: BTN,
+    border: 1,
+    borderColor: primary ? alpha(theme.palette.primary.main, 0.45) : "divider",
+    bgcolor: primary ? alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.18 : 0.1) : "background.paper",
+    color: primary ? (theme.palette.mode === "dark" ? "primary.light" : "primary.dark") : "text.secondary",
+    "&:hover": { bgcolor: primary ? alpha(theme.palette.primary.main, 0.24) : "action.hover" },
+});
+
 function BigStepper({
     side,
     sport,
@@ -97,7 +129,6 @@ function BigStepper({
     const [typing, setTyping] = useState(false);
     const noun = sport === "SOCCER" ? "שער" : "נקודה";
     const max = maxScoreFor(sport);
-    const sx = { width: BTN, height: BTN, border: "1px solid", borderColor: "divider" } as const;
     return (
         <Stack alignItems="center" spacing={1} sx={{ flex: 1, minWidth: 0 }}>
             <IconButton
@@ -105,7 +136,7 @@ function BigStepper({
                 disabled={disabled || value >= max}
                 onClick={() => onChange(clampScore(sport, value + 1))}
                 data-testid={`score-inc-${side}`}
-                sx={sx}
+                sx={stepBtnSx(true)}
             >
                 <AddRoundedIcon />
             </IconButton>
@@ -130,12 +161,14 @@ function BigStepper({
                     sx={{
                         all: "unset",
                         cursor: "text",
-                        fontSize: 40,
-                        lineHeight: 1.2,
+                        fontSize: 44,
+                        lineHeight: 1.15,
                         fontWeight: 800,
                         fontVariantNumeric: "tabular-nums",
-                        minWidth: 56,
+                        minWidth: 64,
                         textAlign: "center",
+                        borderRadius: 2,
+                        "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 },
                     }}
                 >
                     {value}
@@ -146,7 +179,7 @@ function BigStepper({
                 disabled={disabled || value <= 0}
                 onClick={() => onChange(clampScore(sport, value - 1))}
                 data-testid={`score-dec-${side}`}
-                sx={sx}
+                sx={stepBtnSx(false)}
             >
                 <RemoveRoundedIcon />
             </IconButton>
@@ -209,7 +242,7 @@ export default function ScoreEntryView(p: ScoreEntryViewProps) {
     const forfeitWinnerLabel = form.forfeitBy === home.teamId ? away.label : form.forfeitBy === away.teamId ? home.label : null;
 
     const sideHead = (s: ScoreSideInfo, testId: string) => (
-        <Box sx={{ flex: 1, minWidth: 0 }} data-testid={testId}>
+        <Box sx={{ minWidth: 0, display: "flex", justifyContent: "center", textAlign: "center", "& .MuiTypography-root": { fontWeight: 800 } }} data-testid={testId}>
             <TeamBadge team={s.team} fallbackName={s.label} lines={2} placeholder={!s.team} />
         </Box>
     );
@@ -279,16 +312,24 @@ export default function ScoreEntryView(p: ScoreEntryViewProps) {
 
     return (
         <Box data-testid="score-sheet" dir="rtl" sx={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-            <Stack direction="row" alignItems="center" sx={{ px: 1, py: 0.5, borderBottom: 1, borderColor: "divider" }}>
+            <Box aria-hidden sx={{ display: { xs: "flex", sm: "none" }, justifyContent: "center", pt: 1 }}>
+                <Box sx={{ width: 40, height: 4, borderRadius: 2, bgcolor: "divider" }} />
+            </Box>
+            <Stack direction="row" alignItems="center" sx={{ px: 1, py: 0.75, borderBottom: 1, borderColor: "divider" }}>
                 <IconButton aria-label="סגירה" onClick={p.onClose} disabled={saving} data-testid="score-sheet-close" edge="start" sx={{ width: 44, height: 44 }}>
                     <CloseRoundedIcon />
                 </IconButton>
-                <Typography variant="subtitle1" fontWeight={800} sx={{ flex: 1, textAlign: "center", pe: 5.5 }} noWrap>
-                    {p.title}
-                </Typography>
+                <Box sx={{ flex: 1, minWidth: 0, textAlign: "center", pe: 5.5 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" sx={{ lineHeight: 1.3 }}>
+                        הזנת תוצאה
+                    </Typography>
+                    <Typography variant="subtitle1" fontWeight={800} noWrap sx={{ lineHeight: 1.3 }}>
+                        {`משחק ${p.title}`}
+                    </Typography>
+                </Box>
             </Stack>
 
-            <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 2, py: 1.5 }}>
+            <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 2, py: 2 }}>
                 {p.blockedText ? (
                     <Alert severity="info" data-testid="score-blocked">{p.blockedText}</Alert>
                 ) : null}
@@ -333,13 +374,29 @@ export default function ScoreEntryView(p: ScoreEntryViewProps) {
 
                 {!controlsHidden && (
                     <>
-                        <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
+                        <Box
+                            sx={(theme) => ({
+                                mb: 2,
+                                p: { xs: 1.75, sm: 2 },
+                                borderRadius: 4,
+                                border: 1,
+                                borderColor: "divider",
+                                background:
+                                    theme.palette.mode === "dark"
+                                        ? `linear-gradient(180deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.primary.main, 0.02)})`
+                                        : `linear-gradient(180deg, ${alpha(theme.palette.primary.main, 0.07)}, ${alpha(theme.palette.primary.main, 0.01)})`,
+                            })}
+                        >
+                        <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 28px minmax(0,1fr)", alignItems: "start", mb: 1.75 }}>
                             {sideHead(home, "score-team-home")}
+                            <Typography aria-hidden variant="caption" color="text.secondary" fontWeight={800} sx={{ textAlign: "center", pt: 0.5 }}>
+                                נגד
+                            </Typography>
                             {sideHead(away, "score-team-away")}
-                        </Stack>
+                        </Box>
 
                         {form.status === "FORFEIT" ? (
-                            <Box sx={{ mb: 2 }} data-testid="score-forfeit">
+                            <Box data-testid="score-forfeit">
                                 <Typography variant="body2" fontWeight={700} sx={{ mb: 0.75 }}>מי הפסידה טכנית?</Typography>
                                 <ToggleButtonGroup
                                     exclusive
@@ -347,6 +404,7 @@ export default function ScoreEntryView(p: ScoreEntryViewProps) {
                                     value={form.forfeitBy}
                                     onChange={(_, v) => v && p.onChange({ forfeitBy: v })}
                                     aria-label="מי הפסידה טכנית"
+                                    sx={segmentedSx}
                                 >
                                     {[home, away].map((s) => (
                                         <ToggleButton key={s.teamId ?? s.label} value={s.teamId ?? ""} disabled={saving || !s.teamId} data-testid={`score-forfeit-by-${s.teamId}`} sx={{ minHeight: 48 }}>
@@ -362,25 +420,29 @@ export default function ScoreEntryView(p: ScoreEntryViewProps) {
                                 {has("FORFEIT_TEAM") && <Typography variant="caption" color="error.main">{SCORE_ERROR_HE.FORFEIT_TEAM}</Typography>}
                             </Box>
                         ) : sport === "TENNIS" ? (
-                            <Box sx={{ mb: 2 }}>{setRows}</Box>
+                            <Box>{setRows}</Box>
                         ) : (
-                            <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ mb: 2 }}>
+                            <Box sx={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 28px minmax(0,1fr)", alignItems: "start" }}>
                                 <BigStepper side="home" sport={sport} value={form.home} onChange={(n) => p.onChange({ home: n })} disabled={saving} label={home.label} />
-                                <Typography sx={{ fontSize: 32, fontWeight: 800, pt: 8.5, color: "text.secondary" }} aria-hidden>:</Typography>
+                                <Typography sx={{ fontSize: 32, fontWeight: 800, pt: 7.5, color: "text.disabled", textAlign: "center" }} aria-hidden>:</Typography>
                                 <BigStepper side="away" sport={sport} value={form.away} onChange={(n) => p.onChange({ away: n })} disabled={saving} label={away.label} />
-                            </Stack>
+                            </Box>
                         )}
+                        </Box>
 
+                        <Typography variant="body2" fontWeight={700} sx={{ mb: 0.75 }}>
+                            מצב המשחק
+                        </Typography>
                         <ToggleButtonGroup
                             exclusive
                             fullWidth
                             value={form.status}
                             onChange={(_, v) => v && p.onChange({ status: v as ScoreStatus })}
                             aria-label="מצב המשחק"
-                            sx={{ mb: 2 }}
+                            sx={(theme) => ({ ...segmentedSx(theme), mb: 2 })}
                         >
                             {(["LIVE", "FINISHED", "FORFEIT"] as const).map((s) => (
-                                <ToggleButton key={s} value={s} disabled={saving} data-testid={`score-status-${s}`} sx={{ minHeight: 48, fontWeight: 700 }}>
+                                <ToggleButton key={s} value={s} disabled={saving} data-testid={`score-status-${s}`} sx={{ minHeight: 44, fontWeight: 700 }}>
                                     {STATUS_LABEL[s]}
                                 </ToggleButton>
                             ))}
