@@ -13,6 +13,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 import AddRounded from "@mui/icons-material/AddRounded";
 import ArrowDownwardRounded from "@mui/icons-material/ArrowDownwardRounded";
 import ArrowUpwardRounded from "@mui/icons-material/ArrowUpwardRounded";
@@ -67,8 +68,8 @@ export default function StepFormat({ values: v, errors, onChange, disabled, lock
     return (
         <Stack spacing={3} data-testid="wizard-step-3">
             <Box>
-                <Typography variant="subtitle2" component="h3" sx={{ mb: 1 }}>מבנה הטורניר</Typography>
-                <Box role="radiogroup" aria-label="מבנה הטורניר" sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1 }}>
+                <Typography variant="subtitle2" component="h3" fontWeight={800} sx={{ mb: 1.25 }}>מבנה הטורניר</Typography>
+                <Box role="radiogroup" aria-label="מבנה הטורניר" sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.25 }}>
                     {FORMATS.map((f) => {
                         const selected = v.format === f.format;
                         return (
@@ -79,19 +80,23 @@ export default function StepFormat({ values: v, errors, onChange, disabled, lock
                                 disabled={off}
                                 data-testid={`wizard-format-${f.format}`}
                                 onClick={() => onChange({ format: f.format })}
-                                sx={{
-                                    p: 1.5,
-                                    borderRadius: 2,
-                                    border: 2,
+                                sx={(theme) => ({
+                                    p: 2,
+                                    borderRadius: 2.5,
+                                    border: "2px solid",
                                     borderColor: selected ? "primary.main" : "divider",
-                                    bgcolor: selected ? "action.selected" : "transparent",
+                                    bgcolor: selected
+                                        ? alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.14 : 0.08)
+                                        : alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.02 : 0.01),
                                     textAlign: "start",
                                     justifyContent: "flex-start",
                                     alignItems: "flex-start",
                                     flexDirection: "column",
-                                }}
+                                    gap: 0.25,
+                                    transition: "all 0.15s ease",
+                                })}
                             >
-                                <Typography fontWeight={700}>{f.name}</Typography>
+                                <Typography fontWeight={800}>{f.name}</Typography>
                                 <Typography variant="caption" color="text.secondary">{f.hint}</Typography>
                             </ButtonBase>
                         );
@@ -104,15 +109,15 @@ export default function StepFormat({ values: v, errors, onChange, disabled, lock
                     </Stack>
                 )}
                 {count && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }} data-testid="wizard-match-count">
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25, fontWeight: 500 }} data-testid="wizard-match-count">
                         {count}
                     </Typography>
                 )}
             </Box>
 
             {hasTable && (
-                <Stack spacing={1}>
-                    <Typography variant="subtitle2" component="h3">נקודות</Typography>
+                <Stack spacing={1.25}>
+                    <Typography variant="subtitle2" component="h3" fontWeight={800}>נקודות</Typography>
                     <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                         <NumberStepper label="ניצחון" ariaLabel="נקודות לניצחון" value={v.pointsWin} min={-10} max={10} disabled={off} onChange={(n) => onChange({ pointsWin: n })} />
                         <NumberStepper label="תיקו" ariaLabel="נקודות לתיקו" value={v.pointsDraw} min={-10} max={10} disabled={off} onChange={(n) => onChange({ pointsDraw: n })} />
@@ -120,8 +125,8 @@ export default function StepFormat({ values: v, errors, onChange, disabled, lock
                     </Stack>
                     {errors.points && <Typography variant="caption" color="error" data-testid="wizard-error-points">{errors.points}</Typography>}
 
-                    <Typography variant="subtitle2" component="h3" sx={{ pt: 1 }}>סדר שוברי שוויון</Typography>
-                    <Stack component="ol" spacing={0.5} sx={{ m: 0, p: 0, listStyle: "none" }}>
+                    <Typography variant="subtitle2" component="h3" fontWeight={800} sx={{ pt: 1 }}>סדר שוברי שוויון</Typography>
+                    <Stack component="ol" spacing={0.75} sx={{ m: 0, p: 0, listStyle: "none" }}>
                         {v.tiebreak.map((k, i) => (
                             <Stack
                                 component="li"
@@ -130,9 +135,9 @@ export default function StepFormat({ values: v, errors, onChange, disabled, lock
                                 alignItems="center"
                                 spacing={0.5}
                                 data-testid={`wizard-tiebreak-${k}`}
-                                sx={{ minHeight: 44, px: 1, border: 1, borderColor: "divider", borderRadius: 2 }}
+                                sx={{ minHeight: 44, px: 1.5, border: 1, borderColor: "divider", borderRadius: 2, bgcolor: "background.paper" }}
                             >
-                                <Typography sx={{ flex: 1 }}>{`${i + 1}. ${tiebreakLabel(k, v.sport)}`}</Typography>
+                                <Typography sx={{ flex: 1, fontWeight: 600 }}>{`${i + 1}. ${tiebreakLabel(k, v.sport)}`}</Typography>
                                 <IconButton size="small" aria-label={`העלאת ${tiebreakLabel(k, v.sport)}`} disabled={off || i === 0} onClick={() => move(i, -1)} sx={{ width: 36, height: 36 }}>
                                     <ArrowUpwardRounded fontSize="small" />
                                 </IconButton>
@@ -158,16 +163,16 @@ export default function StepFormat({ values: v, errors, onChange, disabled, lock
                         </>
                     )}
 
-                    <Typography variant="subtitle2" component="h3" sx={{ pt: 1 }}>מפגשים</Typography>
+                    <Typography variant="subtitle2" component="h3" fontWeight={800} sx={{ pt: 1 }}>מפגשים</Typography>
                     <ToggleButtonGroup exclusive size="small" value={v.legs} disabled={off} aria-label="מספר מפגשים" onChange={(_, n) => n && onChange({ legs: n })}>
-                        <ToggleButton value={1} sx={{ minHeight: 44 }}>סיבוב אחד</ToggleButton>
-                        <ToggleButton value={2} sx={{ minHeight: 44 }}>בית וחוץ</ToggleButton>
+                        <ToggleButton value={1} sx={{ minHeight: 44, px: 2.5 }}>סיבוב אחד</ToggleButton>
+                        <ToggleButton value={2} sx={{ minHeight: 44, px: 2.5 }}>בית וחוץ</ToggleButton>
                     </ToggleButtonGroup>
                 </Stack>
             )}
 
             {v.format === "GROUPS_KNOCKOUT" && (
-                <Stack spacing={1}>
+                <Stack spacing={1.25}>
                     <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
                         <NumberStepper label="מספר בתים" value={v.groupCount} min={1} max={16} disabled={off} error={!!errors.groupCount} onChange={(n) => onChange({ groupCount: n })} />
                         <NumberStepper label="עולות מכל בית" value={v.advancePerGroup} min={1} max={16} disabled={off} error={!!errors.advancePerGroup} onChange={(n) => onChange({ advancePerGroup: n })} />
@@ -180,27 +185,27 @@ export default function StepFormat({ values: v, errors, onChange, disabled, lock
             )}
 
             {hasKnockout && (
-                <Stack spacing={1}>
+                <Stack spacing={1.25}>
                     <FormControlLabel control={<Switch checked={v.thirdPlace} disabled={off} onChange={(e) => onChange({ thirdPlace: e.target.checked })} />} label="משחק על המקום השלישי" />
                     <ToggleButtonGroup exclusive size="small" value={v.seeding} disabled={off} aria-label="שיבוץ" onChange={(_, s) => s && onChange({ seeding: s })}>
-                        <ToggleButton value="MANUAL" sx={{ minHeight: 44 }}>ידני</ToggleButton>
-                        <ToggleButton value="RANDOM" sx={{ minHeight: 44 }}>אקראי</ToggleButton>
+                        <ToggleButton value="MANUAL" sx={{ minHeight: 44, px: 2.5 }}>ידני</ToggleButton>
+                        <ToggleButton value="RANDOM" sx={{ minHeight: 44, px: 2.5 }}>אקראי</ToggleButton>
                     </ToggleButtonGroup>
                 </Stack>
             )}
 
             {v.sport === "TENNIS" && (
                 <Stack spacing={1}>
-                    <Typography variant="subtitle2" component="h3">משחק עד</Typography>
+                    <Typography variant="subtitle2" component="h3" fontWeight={800}>משחק עד</Typography>
                     <ToggleButtonGroup exclusive size="small" value={v.bestOf} aria-label="מספר מערכות" onChange={(_, n) => n && onChange({ bestOf: n })}>
-                        <ToggleButton value={3} sx={{ minHeight: 44 }}>2 מתוך 3</ToggleButton>
-                        <ToggleButton value={5} sx={{ minHeight: 44 }}>3 מתוך 5</ToggleButton>
+                        <ToggleButton value={3} sx={{ minHeight: 44, px: 2.5 }}>2 מתוך 3</ToggleButton>
+                        <ToggleButton value={5} sx={{ minHeight: 44, px: 2.5 }}>3 מתוך 5</ToggleButton>
                     </ToggleButtonGroup>
                 </Stack>
             )}
 
-            <Stack spacing={1}>
-                <Typography variant="subtitle2" component="h3">זמנים</Typography>
+            <Stack spacing={1.25}>
+                <Typography variant="subtitle2" component="h3" fontWeight={800}>זמנים</Typography>
                 <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                     <NumberStepper label="משחק" ariaLabel="משך משחק" suffix="דק׳" value={v.matchMinutes} min={1} max={300} disabled={disabled} error={!!errors.matchMinutes} onChange={(n) => onChange({ matchMinutes: n })} />
                     <NumberStepper label="הפסקה" ariaLabel="משך הפסקה" suffix="דק׳" value={v.breakMinutes} min={0} max={120} disabled={disabled} onChange={(n) => onChange({ breakMinutes: n })} />

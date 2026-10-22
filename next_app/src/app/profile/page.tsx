@@ -29,6 +29,7 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import { alpha } from "@mui/material/styles";
 
 // Icons
 import EditIcon from "@mui/icons-material/Edit";
@@ -38,13 +39,12 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import DeleteIcon from "@mui/icons-material/Delete";
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import SearchIcon from "@mui/icons-material/Search";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
-
-// MUI Form
-
+import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
+import EventOutlinedIcon from "@mui/icons-material/EventOutlined";
+import PeopleOutlineRoundedIcon from "@mui/icons-material/PeopleOutlineRounded";
 
 // Custom Components
 import LoadingMotif from "@/components/motion/LoadingMotif";
@@ -443,8 +443,16 @@ export default function ProfilePage() {
   const upcomingGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) >= now);
   const pastGames = myGames.filter(g => new Date(`${g.date}T${g.time}`) < now);
 
+  const infoBoxSx = (t: import("@mui/material/styles").Theme) => ({
+    p: 1.75,
+    borderRadius: 2,
+    bgcolor: t.palette.mode === "dark" ? alpha(t.palette.text.primary, 0.04) : "action.hover",
+    border: "1px solid",
+    borderColor: "divider",
+  });
+
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2.5, md: 4 }, pb: { xs: 11, md: 5 } }}>
       <SignedOut>
         <Box sx={{ textAlign: "center", py: 6, px: 2 }}>
           <Typography variant="h5" fontWeight={700} mb={1.5}>
@@ -482,11 +490,11 @@ export default function ProfilePage() {
             {/* צד שמאל: פרטי פרופיל */}
             {/* שימוש ב-size במקום xs/md */}
             <Grid size={{ xs: 12, md: 8 }}>
-              <Card elevation={2}>
-                <CardContent>
+              <Card elevation={2} sx={{ borderRadius: 2.5 }}>
+                <CardContent sx={{ p: { xs: 2.25, sm: 3.5 } }}>
 
                   {/* Header Area */}
-                  <Box display="flex" alignItems="center" flexWrap={{ xs: "wrap", md: "nowrap" }} gap={{ xs: 2, md: 3 }} mb={3}>
+                  <Box display="flex" alignItems="center" flexWrap={{ xs: "wrap", sm: "nowrap" }} gap={{ xs: 2, sm: 2.5 }} mb={2.5}>
                     <Avatar
                       src={editing ? form.imageUrl : profile.imageUrl}
                       alt={profile.name || ""}
@@ -497,102 +505,120 @@ export default function ProfilePage() {
                       <Typography
                         variant="h4"
                         component="h1"
-                        fontWeight="bold"
+                        fontWeight={800}
                         // A name that is really an email (no display name set) has no break
                         // opportunities and used to run off the edge on phones.
-                        sx={{ fontSize: { xs: "1.5rem", sm: "2.125rem" }, overflowWrap: "anywhere" }}
+                        sx={{ fontSize: { xs: "1.5rem", sm: "2rem" }, letterSpacing: "-0.02em", overflowWrap: "anywhere", lineHeight: 1.2 }}
                       >
                         {profile.name || "משתמש ללא שם"}
                       </Typography>
-                      <Typography variant="body1" color="text.secondary">
-                        {profile.city || "עיר לא ידועה"}
-                      </Typography>
+                      <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.5, color: "text.secondary" }}>
+                        <LocationOnOutlinedIcon sx={{ fontSize: 16 }} />
+                        <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                          {profile.city || "עיר לא ידועה"}
+                        </Typography>
+                      </Stack>
                     </Box>
                     {!editing && (
-                      <Stack direction="row" spacing={1}>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
                         <Button
                           startIcon={<EditIcon />}
                           variant="outlined"
                           onClick={() => setEditing(true)}
+                          sx={{ minHeight: 40, px: 2 }}
                         >
                           ערוך פרופיל
                         </Button>
                         <IconButton
                           aria-label="הגדרות פרטיות"
                           onClick={() => router.push("/profile/settings")}
+                          sx={{ border: 1, borderColor: "divider", width: 40, height: 40 }}
                         >
-                          <SettingsIcon />
+                          <SettingsIcon fontSize="small" />
                         </IconButton>
                         {isAdmin && (
                           <IconButton
                             aria-label="ניהול"
                             onClick={() => router.push("/admin/fields")}
+                            sx={{ border: 1, borderColor: "divider", width: 40, height: 40 }}
                           >
-                            <AdminPanelSettingsOutlinedIcon />
+                            <AdminPanelSettingsOutlinedIcon fontSize="small" />
                           </IconButton>
                         )}
                       </Stack>
                     )}
                   </Box>
 
-                  <Divider sx={{ mb: 3 }} />
+                  <Divider sx={{ mb: 2.5 }} />
 
                   {/* Details Area */}
                   {!editing ? (
-                    <Grid container spacing={2}>
+                    <Grid container spacing={1.5}>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <Typography variant="caption" color="text.secondary">אימייל</Typography>
-                        <Typography variant="body1" sx={{ overflowWrap: "anywhere" }}>{profile.email || '-'}</Typography>
+                        <Box sx={infoBoxSx}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>אימייל</Typography>
+                          <Typography variant="body2" fontWeight={600} sx={{ overflowWrap: "anywhere" }}>{profile.email || '-'}</Typography>
+                        </Box>
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <Typography variant="caption" color="text.secondary">טלפון</Typography>
-                        <Typography variant="body1">{profile.phone || '-'}</Typography>
+                        <Box sx={infoBoxSx}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>טלפון</Typography>
+                          <Typography variant="body2" fontWeight={600}>{profile.phone || '-'}</Typography>
+                        </Box>
                       </Grid>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <Typography variant="caption" color="text.secondary">גיל</Typography>
-                        <Typography variant="body1">{calculateAge(profile.birthDate) || '-'}</Typography>
+                      <Grid size={{ xs: 6, sm: 6 }}>
+                        <Box sx={infoBoxSx}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>גיל</Typography>
+                          <Typography variant="body2" fontWeight={600}>{calculateAge(profile.birthDate) || '-'}</Typography>
+                        </Box>
                       </Grid>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <Typography variant="caption" color="text.secondary">מין</Typography>
-                        <Typography variant="body1">
-                          {profile.gender ? GENDER_LABELS[profile.gender] : '-'}
-                        </Typography>
+                      <Grid size={{ xs: 6, sm: 6 }}>
+                        <Box sx={infoBoxSx}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>מין</Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            {profile.gender ? GENDER_LABELS[profile.gender] : '-'}
+                          </Typography>
+                        </Box>
                       </Grid>
                       <Grid size={12}>
-                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>ספורט ועמדות</Typography>
-                        {(profile.sports && profile.sports.length > 0) ? (
-                          <Stack spacing={2}>
-                            {profile.sports.map(s => {
-                              const hebrewName = SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name;
-                              const positions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
-                              return (
-                                <Box key={s.id} display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                                  <Chip label={hebrewName} color="primary" />
-                                  {positions.map((pos, i) => (
-                                    <Chip key={i} label={pos} size="small" variant="outlined" color="primary" />
-                                  ))}
-                                </Box>
-                              );
-                            })}
-                          </Stack>
-                        ) : <Typography variant="body2">-</Typography>}
+                        <Box sx={infoBoxSx}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>ספורט ועמדות</Typography>
+                          {(profile.sports && profile.sports.length > 0) ? (
+                            <Stack spacing={1.5} sx={{ mt: 0.5 }}>
+                              {profile.sports.map(s => {
+                                const hebrewName = SPORT_MAPPING[s.name] || SPORT_MAPPING[s.id] || s.name;
+                                const positions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
+                                return (
+                                  <Box key={s.id} display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                                    <Chip label={hebrewName} color="primary" size="small" />
+                                    {positions.map((pos, i) => (
+                                      <Chip key={i} label={pos} size="small" variant="outlined" color="primary" />
+                                    ))}
+                                  </Box>
+                                );
+                              })}
+                            </Stack>
+                          ) : <Typography variant="body2" fontWeight={600}>-</Typography>}
+                        </Box>
                       </Grid>
                       {profile.groups && profile.groups.length > 0 && (
                         <Grid size={12}>
-                          <Typography variant="caption" color="text.secondary" display="block" gutterBottom>הקבוצות שלי</Typography>
-                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                            {profile.groups.map((g) => (
-                              <Chip
-                                key={g.id}
-                                component={Link}
-                                href={`/series/${g.id}`}
-                                clickable
-                                variant="outlined"
-                                color="primary"
-                                label={g.title || g.fieldName}
-                              />
-                            ))}
-                          </Stack>
+                          <Box sx={infoBoxSx}>
+                            <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" gutterBottom>הקבוצות שלי</Typography>
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                              {profile.groups.map((g) => (
+                                <Chip
+                                  key={g.id}
+                                  component={Link}
+                                  href={`/series/${g.id}`}
+                                  clickable
+                                  variant="outlined"
+                                  color="primary"
+                                  label={g.title || g.fieldName}
+                                />
+                              ))}
+                            </Stack>
+                          </Box>
                         </Grid>
                       )}
 
@@ -652,7 +678,7 @@ export default function ProfilePage() {
                       <Grid size={12}>
                         <Typography variant="subtitle2" gutterBottom>ספורט ועמדות</Typography>
                         <Stack spacing={2}>
-                          {form.sportsData.map((s, idx) => {
+                          {form.sportsData.map((s) => {
                             // Using simplified logic assuming s.sportId is the key (or even if it is ID, we show it if not in mapping)
                             const hebrewName = SPORT_MAPPING[s.sportId] || s.sportId;
 
@@ -660,7 +686,7 @@ export default function ProfilePage() {
                             const activePositions = s.position ? s.position.split(',').map(p => p.trim()).filter(Boolean) : [];
 
                             return (
-                              <Box key={s.sportId} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                              <Box key={s.sportId} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                                   <Typography variant="subtitle1" fontWeight="bold">{hebrewName}</Typography>
                                   <IconButton size="small" color="error" onClick={() => {
@@ -819,48 +845,84 @@ export default function ProfilePage() {
               {user?.id && (<Box sx={{ my: 3 }}><ProfileStatsSection userId={user.id} isOwner /></Box>)}
 
               {/* משחקים - Games Tabs */}
-              <Card elevation={2}>
-                <CardContent>
-                  <Tabs value={gamesTab} onChange={(e, val) => setGamesTab(val)} sx={{ mb: 2 }}>
+              <Card elevation={2} sx={{ borderRadius: 2.5 }}>
+                <CardContent sx={{ p: { xs: 2.25, sm: 3 } }}>
+                  <Tabs
+                    value={gamesTab}
+                    onChange={(e, val) => setGamesTab(val)}
+                    sx={{ mb: 2.5, borderBottom: 1, borderColor: "divider", "& .MuiTab-root": { fontWeight: 700, minHeight: 44 } }}
+                  >
                     <Tab label="משחקים קרובים" />
                     <Tab label="היסטוריית משחקים" />
                   </Tabs>
-                  <Stack spacing={2}>
+                  <Stack spacing={1.5}>
                     {gamesTab === 0 ? (
                       upcomingGames.length > 0 ? (
                         upcomingGames.map(g => (
-                          <Card key={g.id} variant="outlined" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => router.push(`/games/${g.id}`)}>
+                          <Card
+                            key={g.id}
+                            variant="outlined"
+                            sx={(t) => ({
+                              cursor: 'pointer',
+                              borderRadius: 2,
+                              borderInlineStart: `3px solid ${t.palette.primary.main}`,
+                              transition: "background-color 150ms ease, transform 150ms ease",
+                              '&:hover': { bgcolor: 'action.hover' },
+                            })}
+                            onClick={() => router.push(`/games/${g.id}`)}
+                          >
                             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                              <Typography variant="subtitle1" fontWeight="bold">{g.title || g.fieldName}</Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {new Date(g.date).toLocaleDateString('he-IL')} • {g.time}
-                              </Typography>
+                              <Typography variant="subtitle1" fontWeight={800}>{g.title || g.fieldName}</Typography>
+                              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.25 }}>
+                                <EventOutlinedIcon sx={{ fontSize: 15, color: "text.secondary" }} />
+                                <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                                  {new Date(g.date).toLocaleDateString('he-IL')} • {g.time}
+                                </Typography>
+                              </Stack>
                               {g.fieldLocation && (
-                                <Typography variant="caption" color="text.secondary">{g.fieldLocation}</Typography>
+                                <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.25 }}>
+                                  <LocationOnOutlinedIcon sx={{ fontSize: 14, color: "text.secondary" }} />
+                                  <Typography variant="caption" color="text.secondary">{g.fieldLocation}</Typography>
+                                </Stack>
                               )}
                             </CardContent>
                           </Card>
                         ))
                       ) : (
-                        <Typography variant="body2" color="text.secondary">אין משחקים קרובים.</Typography>
+                        <Box sx={(t) => ({ py: 3, px: 2, textAlign: "center", borderRadius: 2, bgcolor: t.palette.mode === "dark" ? alpha(t.palette.text.primary, 0.03) : "action.hover", border: "1px dashed", borderColor: "divider" })}>
+                          <Typography variant="body2" color="text.secondary" fontWeight={500}>אין משחקים קרובים.</Typography>
+                        </Box>
                       )
                     ) : (
                       pastGames.length > 0 ? (
                         pastGames.map(g => (
-                          <Card key={g.id} variant="outlined" sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }} onClick={() => router.push(`/games/${g.id}`)}>
+                          <Card
+                            key={g.id}
+                            variant="outlined"
+                            sx={{ cursor: 'pointer', borderRadius: 2, '&:hover': { bgcolor: 'action.hover' } }}
+                            onClick={() => router.push(`/games/${g.id}`)}
+                          >
                             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                              <Typography variant="subtitle1" fontWeight="bold">{g.title || g.fieldName}</Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {new Date(g.date).toLocaleDateString('he-IL')} • {g.time}
-                              </Typography>
+                              <Typography variant="subtitle1" fontWeight={800}>{g.title || g.fieldName}</Typography>
+                              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.25 }}>
+                                <EventOutlinedIcon sx={{ fontSize: 15, color: "text.secondary" }} />
+                                <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                                  {new Date(g.date).toLocaleDateString('he-IL')} • {g.time}
+                                </Typography>
+                              </Stack>
                               {g.fieldLocation && (
-                                <Typography variant="caption" color="text.secondary">{g.fieldLocation}</Typography>
+                                <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.25 }}>
+                                  <LocationOnOutlinedIcon sx={{ fontSize: 14, color: "text.secondary" }} />
+                                  <Typography variant="caption" color="text.secondary">{g.fieldLocation}</Typography>
+                                </Stack>
                               )}
                             </CardContent>
                           </Card>
                         ))
                       ) : (
-                        <Typography variant="body2" color="text.secondary">אין היסטוריית משחקים.</Typography>
+                        <Box sx={(t) => ({ py: 3, px: 2, textAlign: "center", borderRadius: 2, bgcolor: t.palette.mode === "dark" ? alpha(t.palette.text.primary, 0.03) : "action.hover", border: "1px dashed", borderColor: "divider" })}>
+                          <Typography variant="body2" color="text.secondary" fontWeight={500}>אין היסטוריית משחקים.</Typography>
+                        </Box>
                       )
                     )}
                   </Stack>
@@ -873,9 +935,9 @@ export default function ProfilePage() {
               <Stack spacing={3}>
 
                 {/* 0. Search Players Bar */}
-                <Card elevation={2} sx={{ overflow: 'visible' }}>
-                  <CardContent sx={{ position: 'relative' }}>
-                    <Typography variant="h6" mb={2}>חיפוש שחקנים</Typography>
+                <Card elevation={2} sx={{ overflow: 'visible', borderRadius: 2.5 }}>
+                  <CardContent sx={{ position: 'relative', p: { xs: 2.25, sm: 2.5 } }}>
+                    <Typography variant="h6" fontWeight={800} mb={1.5} sx={{ letterSpacing: "-0.02em" }}>חיפוש שחקנים</Typography>
                     <TextField
                       placeholder="חפש שחקנים לפי שם או אימייל..."
                       size="small"
@@ -917,47 +979,63 @@ export default function ProfilePage() {
                 </Card>
 
                 {/* 1. Friends List */}
-                <Card elevation={2}>
-                  <CardContent>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                      <Typography variant="h6">חברים</Typography>
+                <Card elevation={2} sx={{ borderRadius: 2.5 }}>
+                  <CardContent sx={{ p: { xs: 2.25, sm: 2.5 } }}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>חברים</Typography>
+                        {friends.length > 0 && (
+                          <Chip label={friends.length} size="small" sx={{ height: 22, fontSize: 12, fontWeight: 700 }} />
+                        )}
+                      </Stack>
                       <Link href="/profile/friends" passHref>
                         <Button size="small">הצג הכל</Button>
                       </Link>
                     </Box>
-                    <List dense>
-                      {friends.length === 0 && <Typography variant="body2" color="text.secondary">עדיין אין חברים.</Typography>}
-                      {friends.slice(0, 5).map((f) => (
-                        <ListItem key={f.id} secondaryAction={
-                          <IconButton edge="end" aria-label="הסר" size="small" onClick={() => removeFriend(f.id)}>
-                            <PersonRemoveIcon fontSize="small" color="action" />
-                          </IconButton>
-                        }>
-                          <ListItemAvatar>
-                            <Avatar src={f.imageUrl} name={f.name || ""} alt={f.name || ""} size="sm" />
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={<Link href={`/users/${f.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>{f.name || "לא ידוע"}</Link>}
-                            secondary={f.mutualCount ? `${f.mutualCount} משותפים` : null}
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
+                    {friends.length === 0 ? (
+                      <Box sx={(t) => ({ py: 2.5, px: 2, textAlign: "center", borderRadius: 2, bgcolor: t.palette.mode === "dark" ? alpha(t.palette.text.primary, 0.03) : "action.hover", border: "1px dashed", borderColor: "divider" })}>
+                        <PeopleOutlineRoundedIcon sx={{ color: "text.disabled", fontSize: 28, mb: 0.5 }} />
+                        <Typography variant="body2" color="text.secondary">עדיין אין חברים.</Typography>
+                      </Box>
+                    ) : (
+                      <List dense disablePadding>
+                        {friends.slice(0, 5).map((f) => (
+                          <ListItem
+                            key={f.id}
+                            disableGutters
+                            sx={{ py: 0.75, px: 1, borderRadius: 1.5, "&:hover": { bgcolor: "action.hover" } }}
+                            secondaryAction={
+                              <IconButton edge="end" aria-label="הסר" size="small" onClick={() => removeFriend(f.id)}>
+                                <PersonRemoveIcon fontSize="small" color="action" />
+                              </IconButton>
+                            }
+                          >
+                            <ListItemAvatar sx={{ minWidth: 44 }}>
+                              <Avatar src={f.imageUrl} name={f.name || ""} alt={f.name || ""} size="sm" />
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={<Link href={`/users/${f.id}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 600 }}>{f.name || "לא ידוע"}</Link>}
+                              secondary={f.mutualCount ? `${f.mutualCount} משותפים` : null}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    )}
                   </CardContent>
                 </Card>
 
                 {/* 2. Friend Requests */}
                 {incoming.length > 0 && (
-                  <Card elevation={2} sx={{ bgcolor: 'action.hover' }}>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>בקשות חברות</Typography>
-                      <List dense>
+                  <Card elevation={2} sx={(t) => ({ bgcolor: alpha(t.palette.primary.main, 0.06), borderRadius: 2.5, borderColor: alpha(t.palette.primary.main, 0.25) })}>
+                    <CardContent sx={{ p: { xs: 2.25, sm: 2.5 } }}>
+                      <Typography variant="h6" fontWeight={800} gutterBottom sx={{ letterSpacing: "-0.02em" }}>בקשות חברות</Typography>
+                      <List dense disablePadding>
                         {incoming.map((r) => (
-                          <ListItem key={r.id}>
-                            <ListItemAvatar>
+                          <ListItem key={r.id} disableGutters sx={{ py: 0.5 }}>
+                            <ListItemAvatar sx={{ minWidth: 44 }}>
                               <Avatar src={r.requester.imageUrl} name={r.requester.name || ""} alt="" size="sm" />
                             </ListItemAvatar>
-                            <ListItemText primary={r.requester.name} />
+                            <ListItemText primary={<Typography variant="body2" fontWeight={600}>{r.requester.name}</Typography>} />
                             <Box>
                               <IconButton size="small" color="success" aria-label={`אשר בקשת חברות מ${r.requester.name || "המשתמש"}`} onClick={() => acceptRequest(r.id)}><CheckCircleIcon /></IconButton>
                               <IconButton size="small" color="error" aria-label={`דחה בקשת חברות מ${r.requester.name || "המשתמש"}`} onClick={() => declineRequest(r.id)}><CancelOutlinedIcon /></IconButton>
@@ -970,19 +1048,20 @@ export default function ProfilePage() {
                 )}
 
                 {/* 3. People You May Know */}
-                <Card elevation={2}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>אנשים</Typography>
-                    <List dense>
+                <Card elevation={2} sx={{ borderRadius: 2.5 }}>
+                  <CardContent sx={{ p: { xs: 2.25, sm: 2.5 } }}>
+                    <Typography variant="h6" fontWeight={800} mb={1.5} sx={{ letterSpacing: "-0.02em" }}>אנשים</Typography>
+                    <List dense disablePadding>
                       {allUsers.filter(u => u.id !== profile.id).slice(0, 6).map((u) => {
                         const isFriend = friendIdSet.has(u.id);
                         return (
-                          <ListItem key={u.id}>
-                            <ListItemAvatar>
+                          <ListItem key={u.id} disableGutters sx={{ py: 0.75, px: 1, borderRadius: 1.5, "&:hover": { bgcolor: "action.hover" } }}>
+                            <ListItemAvatar sx={{ minWidth: 44 }}>
                               <Avatar src={u.imageUrl} name={u.name || ""} alt="" size="sm" />
                             </ListItemAvatar>
                             <ListItemText
-                              primary={<Link href={`/users/${u.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>{u.name || "לא ידוע"}</Link>}
+                              primary={<Link href={`/users/${u.id}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 600 }}>{u.name || "לא ידוע"}</Link>}
+                              sx={{ minWidth: 0, me: 1 }}
                             />
                             {isFriend ? (
                               <Chip label="חברים" size="small" color="success" variant="outlined" />

@@ -1,10 +1,12 @@
 "use client";
 
+import Box from "@mui/material/Box";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 import type { StepProps } from "./stepTypes";
 
 export default function StepRegistration({ values: v, errors, onChange, disabled }: StepProps) {
@@ -44,15 +46,24 @@ export default function StepRegistration({ values: v, errors, onChange, disabled
                 slotProps={{ inputLabel: { shrink: true } }}
                 fullWidth
             />
-            <Stack>
+            <Box
+                sx={(theme) => ({
+                    p: 2,
+                    borderRadius: 2,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.03 : 0.015),
+                })}
+            >
                 <FormControlLabel
                     control={<Switch checked={v.requireApproval} disabled={disabled} onChange={(e) => onChange({ requireApproval: e.target.checked })} />}
-                    label="אישור ידני של קבוצות"
+                    label={<Typography variant="body2" fontWeight={700}>אישור ידני של קבוצות</Typography>}
+                    sx={{ mx: 0 }}
                 />
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
                     כשכבוי, קבוצה שנרשמת מאושרת מיד (עד שהטורניר מתמלא)
                 </Typography>
-            </Stack>
+            </Box>
         </Stack>
     );
 }

@@ -154,25 +154,25 @@ export default function TournamentWizardContainer({ tournamentId }: { tournament
     const close = () => (dirty ? setLeaveOpen(true) : router.back());
 
     if (!isLoaded || (isEdit ? t.loading && !detail : caps.loading)) {
-        return <Container maxWidth="md" sx={{ py: 6, textAlign: "center" }}><CircularProgress aria-label="טוען" /></Container>;
+        return <Container maxWidth="md" sx={{ py: 6, textAlign: "center" }} dir="rtl"><CircularProgress aria-label="טוען" /></Container>;
     }
     if (!isSignedIn) {
-        return <Container maxWidth="md" sx={{ py: 4 }}><Alert severity="info">יש להתחבר כדי ליצור או לערוך טורניר</Alert></Container>;
+        return <Container maxWidth="md" sx={{ py: 4 }} dir="rtl"><Alert severity="info" sx={{ borderRadius: 2 }}>יש להתחבר כדי ליצור או לערוך טורניר</Alert></Container>;
     }
     if (isEdit && t.notFound) {
-        return <Container maxWidth="md" sx={{ py: 4 }}><Alert severity="error">הטורניר לא נמצא</Alert></Container>;
+        return <Container maxWidth="md" sx={{ py: 4 }} dir="rtl"><Alert severity="error" sx={{ borderRadius: 2 }}>הטורניר לא נמצא</Alert></Container>;
     }
     if ((isEdit && !detail && t.error) || (!isEdit && caps.error)) {
         return (
-            <Container maxWidth="md" sx={{ py: 4 }}>
-                <Alert severity="warning" action={<Button color="inherit" size="small" onClick={() => void (isEdit ? t.reload() : caps.reload())}>נסו שוב</Button>}>
+            <Container maxWidth="md" sx={{ py: 4 }} dir="rtl">
+                <Alert severity="warning" sx={{ borderRadius: 2 }} action={<Button color="inherit" size="small" onClick={() => void (isEdit ? t.reload() : caps.reload())}>נסו שוב</Button>}>
                     לא הצלחנו לבדוק את ההרשאה. נסו שוב.
                 </Alert>
             </Container>
         );
     }
     if ((isEdit && detail && !detail.capabilities.canManage) || (!isEdit && !caps.canCreateTournaments)) {
-        return <Container maxWidth="md" sx={{ py: 4 }}><Alert severity="warning" data-testid="wizard-forbidden">אין לך הרשאה לפעולה הזו</Alert></Container>;
+        return <Container maxWidth="md" sx={{ py: 4 }} dir="rtl"><Alert severity="warning" sx={{ borderRadius: 2 }} data-testid="wizard-forbidden">אין לך הרשאה לפעולה הזו</Alert></Container>;
     }
 
     const serverError = mut.error ? tournamentErrorMessage(mut.error) ?? getActionErrorMessage(mut.error) : null;
@@ -181,10 +181,10 @@ export default function TournamentWizardContainer({ tournamentId }: { tournament
         : undefined;
 
     return (
-        <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
+        <Container maxWidth="lg" sx={{ pt: { xs: 2.5, md: 4 }, pb: { xs: 13, md: 6 } }} dir="rtl">
             {locked && isOrganizer && (
                 <Stack sx={{ mb: 2 }}>
-                    <Alert severity="info" action={<Button color="inherit" size="small" onClick={() => setForceOpen(true)}>שינוי בכל זאת</Button>}>
+                    <Alert severity="info" sx={{ borderRadius: 2 }} action={<Button color="inherit" size="small" onClick={() => setForceOpen(true)}>שינוי בכל זאת</Button>}>
                         המבנה נעול אחרי בניית לוח המשחקים
                     </Alert>
                 </Stack>
@@ -212,7 +212,7 @@ export default function TournamentWizardContainer({ tournamentId }: { tournament
                 onSearchFields={onSearchFields}
             />
             <Snackbar open={!!snack} autoHideDuration={3000} onClose={() => setSnack(null)} message={snack} />
-            <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)}>
+            <Dialog open={leaveOpen} onClose={() => setLeaveOpen(false)} dir="rtl">
                 <DialogTitle>לצאת בלי לשמור?</DialogTitle>
                 <DialogContent><DialogContentText>שינויים שלא נשמרו יאבדו.</DialogContentText></DialogContent>
                 <DialogActions>
@@ -220,7 +220,7 @@ export default function TournamentWizardContainer({ tournamentId }: { tournament
                     <Button color="error" onClick={() => { setDirty(false); setLeaveOpen(false); router.back(); }}>יציאה</Button>
                 </DialogActions>
             </Dialog>
-            <Dialog open={forceOpen} onClose={() => setForceOpen(false)}>
+            <Dialog open={forceOpen} onClose={() => setForceOpen(false)} dir="rtl">
                 <DialogTitle>לשנות את המבנה?</DialogTitle>
                 <DialogContent><DialogContentText>שינוי המבנה עלול לבטל משחקים שתוכננו</DialogContentText></DialogContent>
                 <DialogActions>

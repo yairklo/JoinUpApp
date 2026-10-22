@@ -5,6 +5,7 @@ import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 import type { ReactNode } from "react";
 import type { TournamentApiError } from "@/services/api/tournaments";
 
@@ -14,7 +15,7 @@ export function TabSkeleton({ rows = 4, height = 72, testId = "tab-loading" }: {
     return (
         <Stack spacing={1.5} data-testid={testId} aria-busy="true" aria-label="טוען">
             {Array.from({ length: rows }, (_, i) => (
-                <Skeleton key={i} variant="rounded" height={height} />
+                <Skeleton key={i} variant="rounded" height={height} sx={{ borderRadius: 2 }} />
             ))}
         </Stack>
     );
@@ -26,6 +27,7 @@ export function TabError({ error, onRetry, testId = "tab-error" }: { error: Tour
         <Alert
             severity={offline ? "warning" : "error"}
             data-testid={testId}
+            sx={{ borderRadius: 2 }}
             action={onRetry ? <Button color="inherit" size="small" onClick={onRetry}>ניסיון חוזר</Button> : undefined}
         >
             {offline ? "אין חיבור לאינטרנט. הנתונים יתעדכנו כשהחיבור יחזור." : error?.status === 404 ? "הטורניר לא נמצא." : "לא הצלחנו לטעון את הנתונים."}
@@ -35,8 +37,21 @@ export function TabError({ error, onRetry, testId = "tab-error" }: { error: Tour
 
 export function TabEmpty({ children, action, testId = "tab-empty" }: { children: ReactNode; action?: ReactNode; testId?: string }) {
     return (
-        <Stack alignItems="center" spacing={1.5} sx={{ py: 6, px: 2, textAlign: "center" }} data-testid={testId}>
-            <Typography color="text.secondary">{children}</Typography>
+        <Stack
+            alignItems="center"
+            spacing={1.5}
+            sx={(theme) => ({
+                py: 6,
+                px: 3,
+                textAlign: "center",
+                borderRadius: 2.5,
+                border: "1px dashed",
+                borderColor: "divider",
+                bgcolor: alpha(theme.palette.background.paper, 0.5),
+            })}
+            data-testid={testId}
+        >
+            <Typography color="text.secondary" fontWeight={500}>{children}</Typography>
             {action}
         </Stack>
     );
