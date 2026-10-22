@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { useSocket } from '@/context/SocketContext';
 import { toTournamentError, type TournamentApiError } from '@/services/api/tournaments';
 import type { TournamentUpdateEvent, TournamentUpdateType } from '@/types/tournament';
@@ -32,7 +33,8 @@ export function useResource<T>(
     fetcher: (token: string | undefined) => Promise<T>,
     { enabled = true, auth }: ResourceOptions
 ): ResourceState<T> {
-    const { getToken, isLoaded, isSignedIn } = useAuth();
+    const { isLoaded, isSignedIn } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const [data, setData] = useState<T | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<TournamentApiError | null>(null);
@@ -48,7 +50,7 @@ export function useResource<T>(
         }
         setError(null);
         try {
-            const token = isSignedIn ? (await getToken()) ?? undefined : undefined;
+            const token = isSignedIn ? (await getTokenRef.current()) ?? undefined : undefined;
             const next = await fetcher(token);
             if (mine === seq.current) setData(next);
         } catch (e) {
@@ -56,7 +58,9 @@ export function useResource<T>(
         } finally {
             if (mine === seq.current) setLoading(false);
         }
-    }, [enabled, isLoaded, isSignedIn, auth, getToken, fetcher]);
+        // getToken stays in a ref. Its identity changes often enough to refetch every tournament
+        // query on the page and trip the read limiter (429).
+    }, [enabled, isLoaded, isSignedIn, auth, fetcher]);
 
     useEffect(() => {
         setLoading(enabled);

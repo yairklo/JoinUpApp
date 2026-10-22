@@ -37,8 +37,8 @@ function useLiveResource<T>(
 /** Does the signed-in user get the "create tournament" entry points? (`false` while loading / signed out). */
 export function useTournamentCapabilities(): { canCreateTournaments: boolean; loading: boolean; error: ResourceState<unknown>['error'] } {
     const fetcher = useCallback((token: string | undefined) => tournamentsApi.capabilities(token as string), []);
-    const { data, loading, error } = useResource(fetcher, { auth: 'required' });
-    return { canCreateTournaments: data?.canCreateTournaments === true, loading, error };
+    const { data, loading, error, reload } = useResource(fetcher, { auth: 'required' });
+    return { canCreateTournaments: data?.canCreateTournaments === true, loading, error, reload };
 }
 
 /** Tournament summaries. `filters` is compared by value, so an inline object literal is fine. */

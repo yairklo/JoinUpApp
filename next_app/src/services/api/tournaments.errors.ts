@@ -25,7 +25,8 @@ export type TournamentErrorCode =
     | 'INVALID_SCORES'
     | 'INVALID_STATS'
     | 'NOT_IN_PROGRESS'
-    | 'TEAMS_UNKNOWN';
+    | 'TEAMS_UNKNOWN'
+    | 'WRONG_STATUS';
 
 /** Base class for every failed tournaments call. `body` is the raw JSON error body (extras like `problems`). */
 export class TournamentApiError extends Error {
@@ -134,6 +135,7 @@ const MESSAGES_HE: Record<string, string> = {
     INVALID_STATS: 'נתוני השחקנים לא תקינים',
     NOT_IN_PROGRESS: 'אפשר להזין תוצאות רק כשהטורניר מתקיים',
     TEAMS_UNKNOWN: 'הקבוצות במשחק עדיין לא ידועות',
+    WRONG_STATUS: 'צריך לסגור את ההרשמה לפני שמירת לוח המשחקים',
 };
 
 /** Hebrew user copy for a known code, or `null` so the caller can fall back to getActionErrorMessage. */
