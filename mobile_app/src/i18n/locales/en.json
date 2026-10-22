@@ -1442,7 +1442,10 @@
       "withdrawConfirmAfter": "Withdraw {{team}}? Its unplayed matches will count as forfeits.",
       "withdrawn": "Withdrawn",
       "playersCount": "{{count}} players",
-      "group": "Group {{name}}"
+      "group": "Group {{name}}",
+      "retry": "Try again",
+      "declined": "Declined the invite",
+      "withdrawAction": "Withdraw"
     },
     "teams": {
       "emptyBefore": "No teams yet. Registration opens {{date}}.",
@@ -1525,7 +1528,11 @@
       "err": {
         "minOverMax": "Min is above max",
         "startersOverMin": "Starters can't exceed the team minimum ({{min}})",
-        "teamsMinOverMax": "Min teams is above max teams"
+        "teamsMinOverMax": "Min teams is above max teams",
+        "required": "Required",
+        "endBeforeStart": "End is before start",
+        "closeBeforeOpen": "Closing must be after opening",
+        "lockBeforeClose": "Roster lock is before registration closes"
       },
       "info": {
         "byes": "With {{n}} teams there'll be {{byes}} byes in round one"
@@ -1580,7 +1587,26 @@
       "approvalHint": "When off, teams are approved right away (until the tournament is full)",
       "lockedAfterSchedule": "Locked once the schedule is built",
       "changeAnyway": "Change anyway",
-      "changeAnywayWarn": "Changing the structure may cancel scheduled matches"
+      "changeAnywayWarn": "Changing the structure may cancel scheduled matches",
+      "format": "Format",
+      "inc": "Increase: {{what}}",
+      "dec": "Decrease: {{what}}",
+      "edit": "Edit",
+      "editTitle": "Edit tournament",
+      "noAccess": "You do not have access to this action",
+      "pickField": "Choose a field",
+      "searchField": "Search fields",
+      "publishAction": "Publish",
+      "saveChanges": "Save changes",
+      "removeTiebreak": "Remove tiebreaker",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "serverInvalid": "Some details are invalid. Check the steps and try again.",
+      "warn": {
+        "noRegClose": "No registration close time set",
+        "closeAfterStart": "Registration closes after the tournament starts",
+        "fixStep": "Fix the errors in step: {{step}}"
+      }
     },
     "manage": {
       "header": "Manage · {{title}}",
