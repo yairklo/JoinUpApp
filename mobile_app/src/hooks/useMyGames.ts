@@ -3,6 +3,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useFocusEffect } from 'expo-router';
 import { gamesApi } from '@/services/api';
 import { useSyncedGames } from './useSyncedGames';
+import { useAuthTokenRef } from './useAuthTokenRef';
 import type { Game } from '@/types/game';
 
 function isMyGame(game: Game, userId?: string | null) {
@@ -15,7 +16,10 @@ function isMyGame(game: Game, userId?: string | null) {
 
 export function useMyGames() {
     const { user, isLoaded } = useUser();
-    const { getToken, isLoaded: isAuthLoaded, isSignedIn } = useAuth();
+    const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
+    // getToken's identity changes between renders; keeping it out of the deps stops fetchMyGames
+    // (and the effect + focus effect built on it) from refetching on every render.
+    const getTokenRef = useAuthTokenRef();
     const userId = user?.id || '';
 
     const { games, setGames } = useSyncedGames([], (game) => isMyGame(game, userId));
@@ -31,10 +35,10 @@ export function useMyGames() {
         try {
             let token: string | null = null;
             if (isSignedIn) {
-                token = await getToken();
+                token = await getTokenRef.current();
                 if (!token) {
                     await new Promise((r) => setTimeout(r, 400));
-                    token = await getToken();
+                    token = await getTokenRef.current();
                 }
             }
             if (!token) return;
@@ -55,7 +59,7 @@ export function useMyGames() {
         } finally {
             setLoading(false);
         }
-    }, [userId, isLoaded, isAuthLoaded, isSignedIn, getToken, setGames]);
+    }, [userId, isLoaded, isAuthLoaded, isSignedIn, getTokenRef, setGames]);
 
     useEffect(() => {
         fetchMyGames();

@@ -6,6 +6,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/services/api/users';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { useTournament } from '@/hooks/useTournament';
 import { useTournamentTeam } from '@/hooks/useTournamentTeam';
 import { useRosterMutations, useTeamMutations } from '@/hooks/useTournamentMutations';
@@ -30,7 +31,8 @@ function State({ testID, children }: { testID: string; children: React.ReactNode
 export default function TeamPageScreen({ tournamentId, teamId }: { tournamentId: string; teamId: string }) {
     const { t } = useTranslation();
     const router = useRouter();
-    const { getToken, userId: authUserId } = useAuth();
+    const { userId: authUserId } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const { user } = useUser();
     const viewerId = user?.id ?? authUserId ?? null;
     const { tournament } = useTournament(tournamentId);
@@ -58,7 +60,7 @@ export default function TeamPageScreen({ tournamentId, teamId }: { tournamentId:
         let off = false;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 if (!token) return;
                 const list = await usersApi.getFriends(viewerId, token);
                 if (!off) setFriends(list.map((f: any) => ({ id: f.id, name: f.name, imageUrl: f.imageUrl })));
@@ -69,7 +71,7 @@ export default function TeamPageScreen({ tournamentId, teamId }: { tournamentId:
         return () => {
             off = true;
         };
-    }, [canEdit, viewerId, getToken]);
+    }, [canEdit, viewerId, getTokenRef]);
 
     useEffect(() => {
         if (!dq.trim()) {
@@ -80,7 +82,7 @@ export default function TeamPageScreen({ tournamentId, teamId }: { tournamentId:
         setSearching(true);
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 if (!token) return;
                 const data = await usersApi.search(dq, token);
                 if (!off) setResults(data.map((u: any) => ({ id: u.id, name: u.name, imageUrl: u.imageUrl })));
@@ -93,7 +95,7 @@ export default function TeamPageScreen({ tournamentId, teamId }: { tournamentId:
         return () => {
             off = true;
         };
-    }, [dq, getToken]);
+    }, [dq, getTokenRef]);
 
     if (loading) {
         return (
