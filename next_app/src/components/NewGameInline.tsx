@@ -103,13 +103,12 @@ export default function NewGameInline({ fieldId, onCreated }: { fieldId?: string
                     ) : (
                       <Autocomplete
                         value={state.selectedField}
-                        onChange={(event, newValue) => {
-                          if (typeof newValue === 'string') {
-                            setTimeout(() => {
-                              actions.setNewFieldMode(true);
-                              actions.setNewField(p => ({ ...p, name: newValue }));
-                            });
-                          } else if (newValue?.id === SUGGEST_FIELD_OPTION_ID) {
+                        onChange={(_event, newValue, reason) => {
+                          if (reason !== "selectOption" || !newValue || typeof newValue === "string") {
+                            if (reason === "clear") actions.setSelectedField(null);
+                            return;
+                          }
+                          if (newValue?.id === SUGGEST_FIELD_OPTION_ID) {
                             // Only opens the request form -- the game's location selection is untouched.
                             openSuggestField(newValue.inputValue || "");
                           } else if (newValue?.id === CUSTOM_LOCATION_OPTION_ID) {

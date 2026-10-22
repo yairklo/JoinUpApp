@@ -300,7 +300,7 @@ function NewGamePageInner() {
   const isFutureStart = !!(form.date && form.time) && parseJerusalemTimeToUTC(form.date, form.time).getTime() >= Date.now();
   const validNumbers =
     form.maxPlayers > 0 &&
-    form.duration > 0 &&
+    form.duration >= 0.5 &&
     (form.teamSize === null || form.teamSize > 0) &&
     (form.price === null || form.price >= 0);
 
@@ -325,7 +325,7 @@ function NewGamePageInner() {
     if (!form.date || !form.time) return "יש לבחור תאריך ושעה למשחק";
     if (!isFutureStart) return "התאריך חייב להיות בעתיד";
     if (form.maxPlayers <= 0) return "מספר השחקנים המקסימלי חייב להיות גדול מ-0";
-    if (form.duration <= 0) return "משך המשחק חייב להיות גדול מ-0";
+    if (form.duration < 0.5) return "משך המשחק חייב להיות לפחות חצי שעה";
     if (form.teamSize !== null && form.teamSize <= 0) return "גודל הקבוצה חייב להיות גדול מ-0";
     if (form.price !== null && form.price < 0) return "המחיר לא יכול להיות שלילי";
     return "יש למלא את כל השדות הנדרשים";
@@ -554,14 +554,13 @@ function NewGamePageInner() {
                           value={selectedField}
                           inputValue={fieldSearchInput}
                           onInputChange={(event, newInputValue) => setFieldSearchInput(newInputValue)}
-                          onChange={(event, newValue) => {
+                          onChange={(event, newValue, reason) => {
                             markTouched();
-                            if (typeof newValue === 'string') {
-                              setTimeout(() => {
-                                setNewFieldMode(true);
-                                setNewField(p => ({ ...p, name: newValue }));
-                              });
-                            } else if (newValue?.id === SUGGEST_FIELD_OPTION_ID) {
+                            if (reason !== "selectOption" || !newValue || typeof newValue === "string") {
+                              if (reason === "clear") setSelectedField(null);
+                              return;
+                            }
+                            if (newValue?.id === SUGGEST_FIELD_OPTION_ID) {
                               // Only opens the request form -- the game's location selection is untouched.
                               openSuggestField(newValue.inputValue || "");
                             } else if (newValue?.id === CUSTOM_LOCATION_OPTION_ID) {
@@ -676,9 +675,9 @@ function NewGamePageInner() {
                     fullWidth
                     size="small"
                     value={form.duration}
-                    slotProps={{ htmlInput: { min: 0.5, step: 0.5, dir: "ltr" } }}
-                    error={form.duration <= 0}
-                    helperText={form.duration <= 0 ? "משך המשחק חייב להיות גדול מ-0" : ""}
+                    slotProps={{ htmlInput: { step: 0.5, dir: "ltr" } }}
+                    error={form.duration < 0.5}
+                    helperText={form.duration < 0.5 ? "משך המשחק חייב להיות לפחות חצי שעה" : ""}
                     onChange={(e) => update("duration", Number(e.target.value))}
                   />
                 </Grid>

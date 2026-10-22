@@ -99,7 +99,7 @@ function isSeriesSlotConflict(e) {
   return cols.includes('seriesId') || cols.some((c) => c.includes('Game_seriesId_start_key'));
 }
 
-const SERIES_SLOT_CONFLICT_MESSAGE = 'Another game in this series already starts at that time';
+const SERIES_SLOT_CONFLICT_MESSAGE = 'כבר יש משחק של הקבוצה הזאת בשעה הזו';
 
 function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
   if (!game) return game;
@@ -204,6 +204,8 @@ function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
     customLng: typeof game.customLng === 'number' ? game.customLng : null,
     customLocation: game.customLocation || null,
     start: game.start.toISOString(),
+    date: formatJerusalemDate(game.start),
+    time: formatJerusalemTime(game.start),
     duration: game.duration,
     maxPlayers: game.maxPlayers,
     teamSize: game.teamSize || null,
@@ -307,6 +309,8 @@ function mapGameForSearchClient(game, viewerId) {
     customLng: typeof game.customLng === 'number' ? game.customLng : null,
     customLocation: game.customLocation || null,
     start: game.start.toISOString(),
+    date: formatJerusalemDate(game.start),
+    time: formatJerusalemTime(game.start),
     duration: game.duration,
     maxPlayers: game.maxPlayers,
     currentPlayers: confirmedCount,
@@ -1164,7 +1168,7 @@ async function createGame(payload, creatorUser, io) {
   // Single instance flow (original behavior) with basic conflict check
   const conflict = await prisma.game.findFirst({ where: { fieldId: useFieldId, start } });
   if (conflict) {
-    throw httpError('Time slot is already booked', 400);
+    throw httpError('השעה הזו כבר תפוסה במגרש', 400);
   }
 
   // Transactional creation of Game + ChatRoom
@@ -2040,17 +2044,19 @@ async function getMyGames(userId) {
 }
 
 async function getMyHistory(userId) {
-  return fetchMappedListGames(
+  const { attachResults } = require('./userStatsService');
+  const games = await fetchMappedListGames(
     {
+      start: { lt: new Date() },
       OR: [
-        { participants: { some: { userId } } },
+        { participants: { some: { userId, status: 'CONFIRMED' } } },
         { organizerId: userId },
       ],
-      status: 'COMPLETED',
     },
     userId,
     { orderBy: { start: 'desc' }, take: 50, dedupe: false }
   );
+  return attachResults(userId, games);
 }
 
 async function getFriendsGames(userId) {

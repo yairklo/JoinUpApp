@@ -36,6 +36,29 @@ const {
   isPlausibleBirthDate,
 } = require('../shared/ageGate');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile, isManagedUploadUrl } = require('../middleware/upload');
+const { formatJerusalemDate, formatJerusalemTime } = require('../shared/timezone');
+function pastGamesWhere(userId, now) {
+  return {
+    start: { lt: now },
+    status: { not: 'CANCELLED' },
+    OR: [
+      { participants: { some: { userId, status: 'CONFIRMED' } } },
+      { organizerId: userId },
+    ],
+  };
+}
+
+function mapHistoryGame(game) {
+  return {
+    id: game.id,
+    title: game.title,
+    sport: game.sport,
+    start: game.start,
+    date: formatJerusalemDate(game.start),
+    time: formatJerusalemTime(game.start),
+  };
+}
+
 const router = express.Router();
 const userImageUpload = createImageUpload('users');
 const notificationService = new NotificationService(prisma);
@@ -789,26 +812,24 @@ router.get('/:id', attachOptionalUser, async (req, res) => {
     // Match history + per-sport aggregation when visible.
     if (showGames) {
       const now = new Date();
-      const [participations, grouped] = await Promise.all([
-        prisma.participation.findMany({
-          where: { userId: targetId, status: 'CONFIRMED', game: { start: { lt: now } } },
-          select: { game: { select: { id: true, title: true, sport: true, start: true } } },
-          orderBy: { game: { start: 'desc' } },
+      const where = pastGamesWhere(targetId, now);
+      const [games, grouped] = await Promise.all([
+        prisma.game.findMany({
+          where,
+          select: { id: true, title: true, sport: true, start: true },
+          orderBy: { start: 'desc' },
           take: 5,
         }),
-        // Count all past CONFIRMED matches grouped by sport.
+        // Same set the list uses, so a sport chip cannot count a game the history omits.
         prisma.game.groupBy({
           by: ['sport'],
-          where: {
-            start: { lt: now },
-            participants: { some: { userId: targetId, status: 'CONFIRMED' } },
-          },
+          where,
           _count: { _all: true },
         }),
       ]);
 
       const stats = await getStatsVisibility(viewerId, user, { isFriend });
-      const history = participations.map((p) => p.game);
+      const history = games.map(mapHistoryGame);
       payload.matchHistory = stats.visible ? await attachResults(targetId, history) : history;
       if (stats.visible) {
         const summary = await getStatsSummary(targetId);
@@ -883,15 +904,13 @@ router.get('/:id/match-history', attachOptionalUser, async (req, res) => {
       return res.status(403).json({ error: 'This section is private' });
     }
 
-    const participations = await prisma.participation.findMany({
-      where: { userId: targetId, status: 'CONFIRMED', game: { start: { lt: new Date() } } },
-      select: { game: { select: { id: true, title: true, sport: true, start: true } } },
-      orderBy: { game: { start: 'desc' } },
+    const games = (await prisma.game.findMany({
+      where: pastGamesWhere(targetId, new Date()),
+      select: { id: true, title: true, sport: true, start: true },
+      orderBy: { start: 'desc' },
       skip,
       take,
-    });
-
-    const games = participations.map((p) => p.game);
+    })).map(mapHistoryGame);
     const stats = await getStatsVisibility(viewerId, user, { isFriend });
     res.json(stats.visible ? await attachResults(targetId, games) : games);
   } catch (error) {
