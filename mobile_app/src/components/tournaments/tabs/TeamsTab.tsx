@@ -51,7 +51,7 @@ export default function TeamsTab({ tournamentId }: TournamentTabProps) {
     }, [active, groupNames]);
 
     if (loading && teams.length === 0) return <View testID="teams-tab"><SkeletonList count={6} height={64} /></View>;
-    if (error && teams.length === 0) return <View testID="teams-tab"><ErrorState onRetry={refetch} /></View>;
+    if (error && teams.length === 0) return <View testID="teams-tab"><ErrorState onRetry={refetch} error={error} /></View>;
 
     if (active.length === 0 && withdrawn.length === 0) {
         const opensAt = tournament?.registrationOpensAt;
