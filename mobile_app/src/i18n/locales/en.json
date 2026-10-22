@@ -1227,6 +1227,7 @@
     "registrationUntil": "Registration open until {{date}}",
     "progress": "{{finished}}/{{total}} matches played",
     "liveNow": "{{count}} matches live now",
+    "liveNow_one": "{{count}} match live now",
     "cancelledBanner": "This tournament was cancelled. Unplayed matches were cancelled.",
     "draftBanner": "Draft: only organizers can see it",
     "publish": "Publish",
