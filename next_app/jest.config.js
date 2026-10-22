@@ -5,7 +5,7 @@ const createJestConfig = nextJest({ dir: './' });
 /** @type {import('jest').Config} */
 const customJestConfig = {
   testEnvironment: 'node',
-  testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/'],
+  testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/', '<rootDir>/e2e/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
