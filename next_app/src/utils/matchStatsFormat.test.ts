@@ -17,7 +17,8 @@ describe('matchStatsFormat', () => {
         const keys = orderedStatKeys('SOCCER', { goals: 2, mvp: 1 });
         expect(keys[0]).toBe('goals');
         expect(formatStatText('SOCCER', 'goals', 2)).toMatch(/^2 /);
-        expect(formatStatText('SOCCER', 'goals', 1)).toMatch(/: 1$/);
+        expect(formatStatText('SOCCER', 'goals', 1)).toBe('1 שער');
+        expect(formatStatText('TENNIS', 'aces', 1)).toMatch(/^1 /);
         expect(formatStatText('SOCCER', 'mvp', 1)).toMatch(/^⭐/);
     });
 });

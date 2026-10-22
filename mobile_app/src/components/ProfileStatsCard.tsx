@@ -215,7 +215,7 @@ export default function ProfileStatsCard(props: ProfileStatsCardProps) {
                                     {binary ? `×${total}` : total}
                                 </Text>
                                 <Text className="text-xs text-gray-600 dark:text-cyber-muted" numberOfLines={1}>
-                                    {statLabel(current.sport, k, lang)}
+                                    {statLabel(current.sport, k, lang, total)}
                                 </Text>
                                 {!binary && per != null && (
                                     <Text className="text-xs text-gray-500 dark:text-cyber-muted">
