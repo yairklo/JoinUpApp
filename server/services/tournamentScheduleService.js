@@ -130,7 +130,9 @@ function buildPlan(t, teams, { seed } = {}) {
     const split = splitIntoGroups(teamIds, groupCount, { shuffle, seed: `${seed}:groups` });
     const advance = Math.min(rules.advancePerGroup || 2, Math.min(...split.map((g) => g.length)));
     if (groupCount * advance < 2) throw err(409, 'TOO_FEW_TEAMS', 'At least two teams must advance from the groups');
-    const groups = split.map((ids, i) => ({ key: `g${i}`, name: i < 22 ? String.fromCharCode(0x05d0 + i) : String(i + 1), teamIds: ids }));
+    // Same 22 regular letters as displayGroupName. Skipping the final forms keeps group 11 as כ, not ך.
+    const hebrewLetters = 'אבגדהוזחטיכלמנסעפצקרשת';
+    const groups = split.map((ids, i) => ({ key: `g${i}`, name: i < hebrewLetters.length ? hebrewLetters[i] : String(i + 1), teamIds: ids }));
     plan.stages.push({ key: 's0', order: 0, type: 'GROUP', name: 'בתים', config: { groupCount, legs: rules.legs || 1 }, groups });
     plan.stages.push({ key: 's1', order: 1, type: 'KNOCKOUT', name: 'נוקאאוט', config: { advancePerGroup: advance, thirdPlace: !!rules.thirdPlace }, groups: [] });
     const groupMatchKeys = {};

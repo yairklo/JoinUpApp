@@ -18,6 +18,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import PanToolAltRoundedIcon from "@mui/icons-material/PanToolAltRounded";
 import { useStandings, useTeamDecision, useTeamMutations, useTournamentTeams } from "@/hooks/tournaments";
+import { displayGroupName, displayStageName } from "@/utils/tournamentViews";
 import {
     acceptedCount,
     decisionErrorText,
@@ -77,7 +78,7 @@ export function TeamQueueRow({ team, minPlayers, maxPlayers, segment, busy, onDe
                     aria-valuemin={0}
                     aria-valuemax={maxPlayers}
                     aria-valuenow={n}
-                    aria-valuetext={`${n} שחקנים, נדרשים ${minPlayers} עד ${maxPlayers}`}
+                    aria-valuetext={`${n === 1 ? "שחקן אחד" : `${n} שחקנים`}, נדרשים ${minPlayers} עד ${maxPlayers}`}
                     sx={{ height: 6, borderRadius: 3, bgcolor: "action.hover", overflow: "hidden" }}
                 >
                     <Box sx={{ width: `${pct}%`, height: "100%", bgcolor: validity.state === "ok" ? "success.main" : "warning.main" }} />
@@ -271,7 +272,7 @@ export default function TeamsQueue({ tournament }: TeamsQueueProps) {
                     {needRank.map((tb) => (
                         <Stack key={`${tb.stageId}-${tb.groupId}`} direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                             <PanToolAltRoundedIcon fontSize="small" color="warning" />
-                            <Typography variant="body2" sx={{ flex: 1 }}>{tb.groupName ?? tb.stageName}</Typography>
+                            <Typography variant="body2" sx={{ flex: 1 }}>{tb.groupName ? displayGroupName(tb.groupName) : displayStageName(tb.stageName)}</Typography>
                             <Button size="small" variant="outlined" onClick={() => setRankTable(tb)}>קביעת סדר</Button>
                         </Stack>
                     ))}

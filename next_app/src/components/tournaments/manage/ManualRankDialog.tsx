@@ -12,6 +12,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import TeamBadge from "../TeamBadge";
 import { manualRankPatches, tiedRows } from "@/utils/tournamentManage";
+import { displayGroupName } from "@/utils/tournamentViews";
 import type { StandingsTableData } from "@/types/tournament";
 import ReorderList from "./ReorderList";
 
@@ -34,7 +35,7 @@ export default function ManualRankDialog({ open, table, saving, error, onSave, o
     const byId = new Map(tied.map((r) => [r.team.id, r]));
     return (
         <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="xs" fullWidth dir="rtl" data-testid="manual-rank-dialog">
-            <DialogTitle>{`קביעת סדר בשוויון${table?.groupName ? ` · ${table.groupName}` : ""}`}</DialogTitle>
+            <DialogTitle>{`קביעת סדר בשוויון${table?.groupName ? ` · ${displayGroupName(table.groupName)}` : ""}`}</DialogTitle>
             <DialogContent>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                     הקבוצות שוות בכל שוברי השוויון. הסדר שתקבעו יקבע מי עולה לשלב הבא.

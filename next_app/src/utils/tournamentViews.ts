@@ -98,12 +98,19 @@ export function displayStageName(name: string | null | undefined): string {
     return STAGE_NAME_HE[name] ?? name;
 }
 
+/** Regular letters only. Unicode order inserts final forms (ך ם ן ף ץ) after י, so index math is wrong from group 11. */
+const HEBREW_GROUP_LETTERS = 'אבגדהוזחטיכלמנסעפצקרשת';
+const FINAL_GROUP_LETTER: Record<string, string> = { 'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ' };
+
 /** "Group A" from older schedules becomes "א", so captions read "בית א". */
 export function displayGroupName(name: string | null | undefined): string {
     if (!name) return '';
     const letter = /^Group ([A-Z])$/.exec(name);
-    if (!letter) return name;
-    return String.fromCharCode(0x05d0 + letter[1].charCodeAt(0) - 65);
+    if (letter) {
+        const i = letter[1].charCodeAt(0) - 65;
+        return HEBREW_GROUP_LETTERS[i] ?? name;
+    }
+    return FINAL_GROUP_LETTER[name] ?? name;
 }
 
 /**

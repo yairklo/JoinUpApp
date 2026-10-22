@@ -20,6 +20,7 @@ import {
     filterMatches,
     groupMatches,
     matchDays,
+    displayStageName,
     stageCaption,
     type ScheduleFilterState,
     type StatusFilter,
@@ -198,7 +199,7 @@ export default function ScheduleTab({ tournamentId, canScore, onScoreMatch }: Sc
                             <MenuItem value="">כל השלבים</MenuItem>
                             {stages.map((s) => (
                                 <MenuItem key={s.id} value={s.id}>
-                                    {s.name}
+                                    {displayStageName(s.name)}
                                 </MenuItem>
                             ))}
                         </TextField>

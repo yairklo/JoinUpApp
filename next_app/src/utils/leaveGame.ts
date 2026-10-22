@@ -21,9 +21,18 @@ function gameStartMs(game: { start?: string | null; date?: string | null; time?:
         const t = Date.parse(game.start);
         if (!Number.isNaN(t)) return t;
     }
-    if (game.date && game.time && /^\d{4}-\d{2}-\d{2}$/.test(game.date)) {
-        const t = Date.parse(`${game.date}T${game.time}`);
+    const iso = isoDate(game.date);
+    if (iso && game.time) {
+        const t = Date.parse(`${iso}T${game.time}`);
         if (!Number.isNaN(t)) return t;
     }
     return null;
+}
+
+/** Game cards use YYYY-MM-DD; the game page formats the same instant as DD/MM/YYYY. */
+function isoDate(date: string | null | undefined): string | null {
+    if (!date) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+    const dmy = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(date);
+    return dmy ? `${dmy[3]}-${dmy[2]}-${dmy[1]}` : null;
 }

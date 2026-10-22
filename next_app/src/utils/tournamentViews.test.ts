@@ -67,6 +67,9 @@ test('display names translate stored English stage and group names', () => {
     expect(displayStageName('League')).toBe('ליגה');
     expect(displayStageName('Matches')).toBe('משחקים');
     expect(displayGroupName('Group A')).toBe('א');
+    expect(displayGroupName('Group K')).toBe('כ');
+    expect(displayGroupName('Group P')).toBe('ע');
+    expect(displayGroupName('ך')).toBe('כ');
     expect(displayGroupName('א')).toBe('א');
 });
 

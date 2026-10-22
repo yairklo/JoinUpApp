@@ -72,7 +72,7 @@ export default function TeamPage(p: TeamPageProps) {
             <TeamStatusBanners status={team.status} accepted={counts.accepted} min={p.limits.min} rosterLockAt={p.rosterLockAt} />
             {p.error && <Alert severity="error" data-testid="team-error">{p.error}</Alert>}
 
-            <Section title={`סגל · ${counts.accepted} שחקנים`}>
+            <Section title={counts.accepted === 1 ? "סגל · שחקן אחד" : `סגל · ${counts.accepted} שחקנים`}>
                 <Stack spacing={1.5}>
                     <RosterMeter accepted={counts.accepted} invited={counts.invited} min={p.limits.min} max={p.limits.max} starters={p.limits.starters} />
                     <TeamRoster

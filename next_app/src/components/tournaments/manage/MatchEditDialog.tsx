@@ -14,6 +14,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
+import { displayGroupName, displayStageName } from "@/utils/tournamentViews";
 import type { DescribedConflict } from "@/utils/tournamentManage";
 import type { TournamentStage } from "@/types/tournament";
 
@@ -85,8 +86,8 @@ export default function MatchEditDialog(p: MatchEditDialogProps) {
                 <Stack spacing={2} sx={{ pt: 1 }}>
                     {p.mode === "add" && (
                         <>
-                            {sel("שלב", v.stageId, (x) => set({ stageId: x, groupId: "" }), [{ value: "", label: "ללא" }, ...p.stages.map((s) => ({ value: s.id, label: s.name }))], "match-edit-stage")}
-                            {groups.length > 0 && sel("בית", v.groupId, (x) => set({ groupId: x }), [{ value: "", label: "ללא" }, ...groups.map((g) => ({ value: g.id, label: g.name }))], "match-edit-group")}
+                            {sel("שלב", v.stageId, (x) => set({ stageId: x, groupId: "" }), [{ value: "", label: "ללא" }, ...p.stages.map((s) => ({ value: s.id, label: displayStageName(s.name) }))], "match-edit-stage")}
+                            {groups.length > 0 && sel("בית", v.groupId, (x) => set({ groupId: x }), [{ value: "", label: "ללא" }, ...groups.map((g) => ({ value: g.id, label: displayGroupName(g.name) }))], "match-edit-group")}
                             <TextField size="small" type="number" label="מחזור" value={v.round} onChange={(e) => set({ round: e.target.value })} inputProps={{ min: 1, inputMode: "numeric", "data-testid": "match-edit-round" }} />
                         </>
                     )}

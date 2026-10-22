@@ -23,7 +23,6 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import CityPicker from "@/components/CityPicker";
-import { canLeaveGame } from "@/utils/leaveGame";
 import { buildSearchHref } from "@/utils/searchHref";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
