@@ -5,14 +5,12 @@ name: profile screens
 - tapOn:
     id: header-profile
 - extendedWaitUntil:
-    visible:
-      id: profile-sign-out
-    timeout: 20000
+    visible: 'adult-a.*example.com'
+    timeout: 30000
+- waitForAnimationToEnd
 - takeScreenshot:
     path: ../../../docs/design-screens/mobile/profile/profile-${THEME}
-- tapOn:
-    text: "הגדרות"
-    optional: true
 - openLink: joinup://profile/settings
+- waitForAnimationToEnd
 - takeScreenshot:
     path: ../../../docs/design-screens/mobile/profile/profile-settings-${THEME}

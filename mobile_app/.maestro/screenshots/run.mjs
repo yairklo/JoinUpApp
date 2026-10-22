@@ -6,6 +6,7 @@
  * dir), then PATH, then ~/tools/maestro/bin.
  *
  * Runs the Maestro flows in this directory for light and dark.
+ * Passwords come from MAESTRO_*_PASSWORD (env, E2E_CLERK_KEYS_FILE or server/.env.maestro); never printed.
  * Does not start the API. Requires the Maestro CLI and a device whose app
  * points at the Dev API. Screenshot paths are written by the flows.
  */
@@ -47,16 +48,48 @@ if (spawnSync(maestro, ["--version"], { shell: true, stdio: "inherit" }).status 
   process.exit(2);
 }
 
-const emails = {
-  profile: "adult-a+clerk_test@example.com",
-  "match-results": "organizer-o+clerk_test@example.com",
-  tournaments: "organizer-o+clerk_test@example.com",
+const users = {
+  profile: { email: "adult-a+clerk_test@example.com", key: "MAESTRO_ADULT_A_PASSWORD" },
+  "match-results": { email: "adult-a+clerk_test@example.com", key: "MAESTRO_ADULT_A_PASSWORD" },
+  tournaments: { email: "organizer-o+clerk_test@example.com", key: "MAESTRO_ORGANIZER_PASSWORD" },
 };
+
+// Passwords: process env first, then E2E_CLERK_KEYS_FILE, then server/.env.maestro in this
+// checkout or the main checkout (git common dir's parent). Values are never printed.
+const readEnvFile = (file) => {
+  const out = {};
+  if (!file || !fs.existsSync(file)) return out;
+  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line.trim());
+    if (m) out[m[1]] = m[2].replace(/^(["'])(.*)\1$/, "$2");
+  }
+  return out;
+};
+const mainCheckout = (() => {
+  const r = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: mobileRoot, encoding: "utf8" });
+  return r.status === 0 ? path.dirname(r.stdout.trim()) : "";
+})();
+const fileVars = [
+  process.env.E2E_CLERK_KEYS_FILE,
+  path.join(mobileRoot, "..", "server", ".env.maestro"),
+  mainCheckout && path.join(mainCheckout, "server", ".env.maestro"),
+].reduce((acc, f) => ({ ...readEnvFile(f), ...acc }), {});
+const secretOf = (key) => process.env[key] || fileVars[key] || "";
+const secrets = Object.values(users).map((u) => secretOf(u.key)).filter(Boolean);
+const mask = (text) => secrets.reduce((t, v) => t.split(v).join("***"), text);
 
 let failed = 0;
 for (const name of flows) {
+  const { email, key } = users[name];
+  const password = secretOf(key);
+  if (!password) {
+    console.error(`Missing ${key} (process env, E2E_CLERK_KEYS_FILE or server/.env.maestro). Skipping ${name}.`);
+    failed += 2;
+    continue;
+  }
   for (const theme of ["light", "dark"]) {
     console.log(`\n=== ${name} ${theme} ===`);
+    // Command line is deliberately not printed (it carries the password); output is masked.
     const result = spawnSync(
       maestro,
       [
@@ -66,10 +99,14 @@ for (const name of flows) {
         "-e",
         `THEME=${theme}`,
         "-e",
-        `EMAIL=${emails[name]}`,
+        `EMAIL=${email}`,
+        "-e",
+        `PASSWORD=${password}`,
       ],
-      { cwd: mobileRoot, stdio: "inherit", shell: true }
+      { cwd: mobileRoot, shell: true, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
     );
+    process.stdout.write(mask(result.stdout ?? ""));
+    process.stderr.write(mask(result.stderr ?? ""));
     if ((result.status ?? 1) !== 0) failed += 1;
   }
 }
