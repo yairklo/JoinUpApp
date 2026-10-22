@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { userReportsApi } from '@/services/api/results';
-import { getErrorStatus } from '@/utils/apiError';
+import { getActionErrorMessage, getErrorStatus } from '@/utils/apiError';
 import type { SubmitUserReportInput } from '@/types/matchResult';
 
 /**
@@ -28,7 +28,7 @@ export function useReportUser() {
                 return true;
             } catch (e) {
                 setRateLimited(getErrorStatus(e) === 429);
-                setError(e instanceof Error ? e.message : 'Failed to submit report');
+                setError(getActionErrorMessage(e));
                 return false;
             } finally {
                 setSubmitting(false);

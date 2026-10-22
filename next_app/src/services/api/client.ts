@@ -49,8 +49,11 @@ export async function apiClient<T>(endpoint: string, { token, data, ...customCon
 
         if (!response.ok) {
             const errorBody = await response.json().catch(() => ({}));
-            const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number; code?: string; body?: unknown };
+            const err = new Error(errorBody.error || `API Error: ${response.statusText}`) as Error & { status?: number; code?: string; body?: unknown; retryAfter?: string };
             err.status = response.status;
+            // Kept raw so callers that pause background work on 429 can honor the server's window.
+            const retryAfter = response.headers?.get?.('Retry-After');
+            if (retryAfter) err.retryAfter = retryAfter;
             err.body = errorBody;
             if (typeof errorBody.code === 'string') err.code = errorBody.code;
             throw err;
