@@ -1199,6 +1199,14 @@
     "leave": "Leave"
   },
   "tournaments": {
+    "view": {
+      "loadFailed": "Couldn't load this",
+      "retry": "Try again",
+      "rosters": "Rosters",
+      "noRoster": "No players to show",
+      "backToTournament": "Back to tournament",
+      "pathTitle": "Path"
+    },
     "title": "Tournaments",
     "new": "New tournament",
     "all": "All",
@@ -1434,7 +1442,10 @@
       "withdrawConfirmAfter": "Withdraw {{team}}? Its unplayed matches will count as forfeits.",
       "withdrawn": "Withdrawn",
       "playersCount": "{{count}} players",
-      "group": "Group {{name}}"
+      "group": "Group {{name}}",
+      "retry": "Try again",
+      "declined": "Declined the invite",
+      "withdrawAction": "Withdraw"
     },
     "teams": {
       "emptyBefore": "No teams yet. Registration opens {{date}}.",
@@ -1517,7 +1528,11 @@
       "err": {
         "minOverMax": "Min is above max",
         "startersOverMin": "Starters can't exceed the team minimum ({{min}})",
-        "teamsMinOverMax": "Min teams is above max teams"
+        "teamsMinOverMax": "Min teams is above max teams",
+        "required": "Required",
+        "endBeforeStart": "End is before start",
+        "closeBeforeOpen": "Closing must be after opening",
+        "lockBeforeClose": "Roster lock is before registration closes"
       },
       "info": {
         "byes": "With {{n}} teams there'll be {{byes}} byes in round one"
@@ -1572,7 +1587,26 @@
       "approvalHint": "When off, teams are approved right away (until the tournament is full)",
       "lockedAfterSchedule": "Locked once the schedule is built",
       "changeAnyway": "Change anyway",
-      "changeAnywayWarn": "Changing the structure may cancel scheduled matches"
+      "changeAnywayWarn": "Changing the structure may cancel scheduled matches",
+      "format": "Format",
+      "inc": "Increase: {{what}}",
+      "dec": "Decrease: {{what}}",
+      "edit": "Edit",
+      "editTitle": "Edit tournament",
+      "noAccess": "You do not have access to this action",
+      "pickField": "Choose a field",
+      "searchField": "Search fields",
+      "publishAction": "Publish",
+      "saveChanges": "Save changes",
+      "removeTiebreak": "Remove tiebreaker",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "serverInvalid": "Some details are invalid. Check the steps and try again.",
+      "warn": {
+        "noRegClose": "No registration close time set",
+        "closeAfterStart": "Registration closes after the tournament starts",
+        "fixStep": "Fix the errors in step: {{step}}"
+      }
     },
     "manage": {
       "header": "Manage · {{title}}",
@@ -1595,7 +1629,9 @@
         "valid": "Valid",
         "missing": "{{count}} short",
         "over": "{{count}} over max",
-        "promoted": "{{team}} moved up from the waitlist"
+        "promoted": "{{team}} moved up from the waitlist",
+        "empty": "No teams here",
+        "failed": "Couldn't update the team. Try again."
       },
       "seeding": "Seeding order",
       "seedingSave": "Save order",
@@ -1631,7 +1667,36 @@
         "deleteMatch": "Delete match",
         "matchReferenced": "Another match depends on this one, so it can't be deleted.",
         "matchFinished": "A finished match can't be deleted.",
-        "openSlot": "Open slot"
+        "openSlot": "Open slot",
+        "addCourt": "Add court",
+        "advanced": "Advanced",
+        "awayTeam": "Away team",
+        "homeTeam": "Home team",
+        "breakMinutes": "Break between matches",
+        "matchMinutes": "Match length",
+        "minRest": "Minimum rest per team",
+        "minShort": "min",
+        "conflictsChanged": "The conflicts changed since the preview. Preview again.",
+        "conflictsTitle": "{{count}} conflicts",
+        "courtCount": "Number of courts",
+        "courtLabel": "Court",
+        "date": "Date (YYYY-MM-DD)",
+        "failed": "Couldn't complete that. Try again.",
+        "matchStatus": "Match status",
+        "needClosed": "Close registration to build the schedule.",
+        "needDay": "Add at least one day",
+        "rebuild": "Rebuild",
+        "sameTeam": "Home and away must be different teams",
+        "seed": "Draw seed",
+        "stage": "Stage",
+        "tapToEdit": "Tap to edit",
+        "unscheduled": "No time yet",
+        "when": "Date and time",
+        "status": {
+          "SCHEDULED": "Scheduled",
+          "POSTPONED": "Postponed",
+          "CANCELLED": "Cancelled"
+        }
       },
       "conflict": {
         "COURT_OVERLAP": {
@@ -1671,7 +1736,11 @@
         "cancel": "Cancel tournament",
         "cancelConfirm": "All unplayed matches will be cancelled. This can't be undone.",
         "typeTitle": "Type the tournament name to confirm",
-        "forceStart": "Start anyway"
+        "forceStart": "Start anyway",
+        "failed": "Couldn't change the status. Try again.",
+        "publishConfirm": "The tournament will be published and teams will be able to register.",
+        "reopenConfirm": "Registration will open again until {{date}}.",
+        "reopenConfirmNoDate": "Registration will open again."
       },
       "problem": {
         "TOO_FEW_TEAMS": "Only {{approved}} approved teams, at least {{minTeams}} needed",
@@ -1688,8 +1757,10 @@
         "add": "Add a manager or scorekeeper",
         "change": "Change to…",
         "remove": "Remove",
-        "empty": "No other managers"
-      }
+        "empty": "No other managers",
+        "failed": "Couldn't update roles. Try again."
+      },
+      "loadFailed": "Couldn't load the console"
     },
     "score": {
       "inc": "Add a point for {{team}}",
@@ -1725,7 +1796,9 @@
       "conflictNow": "Now",
       "conflictMine": "Yours",
       "keepTheirs": "Keep theirs",
-      "keepMine": "Save mine"
+      "keepMine": "Save mine",
+      "retry": "Try again",
+      "setN": "Set {{n}}"
     },
     "profile": {
       "title": "Tournaments",

@@ -259,7 +259,7 @@ function EditorBody({
         ]);
 
     const Swatch = ({ i }: { i: number }) => (
-        <View className="w-2.5 h-2.5 rounded-full border border-gray-200 dark:border-cyber-border" style={{ backgroundColor: swatch(i) }} />
+        <View className="w-2.5 h-2.5 rounded-full border border-gray-200 dark:border-cyber-muted" style={{ backgroundColor: swatch(i) }} />
     );
     const alertBox = (tone: 'error' | 'info' | 'warn', text: string, testID?: string) => {
         const cls =
