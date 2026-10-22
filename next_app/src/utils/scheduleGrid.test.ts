@@ -1,4 +1,4 @@
-import { buildGrid, cellOccupants, cellToIso, itemDays, unscheduled, type GridItem } from "./scheduleGrid";
+import { buildGrid, cellOccupants, cellToIso, gridStep, itemDays, unscheduled, type GridItem } from "./scheduleGrid";
 import { israelToIso } from "./tournamentManage";
 
 const at = (date: string, time: string) => israelToIso(date, time) as string;
@@ -27,13 +27,26 @@ describe("scheduleGrid", () => {
 
     it("places blocks by court column and slot row, spanning the match duration", () => {
         const g = buildGrid(items, "2026-11-12", { step: 30, durationMinutes: 40 });
+        expect(gridStep(30, 40)).toBe(10);
+        expect(g.step).toBe(10);
         expect(g.courts).toEqual(["מגרש 1", "מגרש 2"]);
         expect(g.startMin).toBe(18 * 60);
         const c = g.cells.find((x) => x.item.key === "c");
-        expect(c).toMatchObject({ col: 0, row: 2, span: 2 });
+        expect(c).toMatchObject({ col: 0, row: 6, span: 4 });
         expect(g.cells).toHaveLength(3);
-        // last start at row 2 + span 2 + one spare slot
-        expect(g.slots).toBe(5);
+        // last start 60 minutes later, span of 4 ten-minute rows, plus one spare slot
+        expect(g.slots).toBe(11);
+    });
+
+    it("does not stack 40-minute matches on a 30-minute grid", () => {
+        const backToBack = [
+            item("a", 1, "2026-11-12", "18:00", "מגרש 1"),
+            item("b", 2, "2026-11-12", "18:40", "מגרש 1"),
+            item("c", 3, "2026-11-12", "19:20", "מגרש 1"),
+        ];
+        const g = buildGrid(backToBack, "2026-11-12", { step: 30, durationMinutes: 40 });
+        const spans = g.cells.map((c) => [c.row, c.row + c.span] as const);
+        expect(spans).toEqual([[0, 4], [4, 8], [8, 12]]);
     });
 
     it("keeps empty extra courts as columns and handles empty days", () => {

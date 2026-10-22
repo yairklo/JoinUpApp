@@ -18,7 +18,7 @@ import PanToolAltRounded from "@mui/icons-material/PanToolAltRounded";
 import { alpha } from "@mui/material/styles";
 import type { SxProps, Theme } from "@mui/material/styles";
 import TeamBadge from "./TeamBadge";
-import { formatGd, isQualifier, rankLabel } from "@/utils/tournamentViews";
+import { displayGroupName, displayStageName, formatGd, isQualifier, rankLabel } from "@/utils/tournamentViews";
 import type { StandingsRow, StandingsTableData } from "@/types/tournament";
 
 export interface StandingsTableProps {
@@ -50,7 +50,7 @@ const COLS: Array<{ key: "played" | "won" | "drawn" | "lost" | "gf" | "ga" | "gd
 ];
 
 function titleOf(t: StandingsTableData): string {
-    return t.groupName ? `בית ${t.groupName}` : t.stageName;
+    return t.groupName ? `בית ${displayGroupName(t.groupName)}` : displayStageName(t.stageName);
 }
 
 /** One standings table (spec 8). Compact on phones, full from 600px. Props only. */
@@ -212,12 +212,12 @@ export default function StandingsTable({
                                                 {row.tied ? (
                                                     <Tooltip title="שוויון מלא בכל שוברי השוויון">
                                                         <Typography component="span" variant="body2" color="text.secondary" sx={{ ...tabular, fontWeight: 700 }}>
-                                                            {rankLabel(row)}
+                                                            <bdi dir="ltr">{rankLabel(row)}</bdi>
                                                         </Typography>
                                                     </Tooltip>
                                                 ) : (
                                                     <Typography component="span" variant="body2" sx={{ ...tabular, fontWeight: 700 }}>
-                                                        {rankLabel(row)}
+                                                        <bdi dir="ltr">{rankLabel(row)}</bdi>
                                                     </Typography>
                                                 )}
                                             </Stack>

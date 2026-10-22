@@ -47,7 +47,7 @@ export default function RosterMeter({ accepted, invited = 0, min, max, starters,
                 aria-valuemin={0}
                 aria-valuemax={max}
                 aria-valuenow={accepted}
-                aria-valuetext={`${accepted} שחקנים, נדרשים ${min} עד ${max}`}
+                aria-valuetext={`${accepted === 1 ? "שחקן אחד" : `${accepted} שחקנים`}, נדרשים ${min} עד ${max}`}
                 sx={{ position: "relative", pt: compact ? 0 : 2.5 }}
             >
                 {!compact && (

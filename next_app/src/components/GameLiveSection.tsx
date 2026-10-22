@@ -27,6 +27,7 @@ import GameResultSection from "@/components/gameResult/GameResultSection";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import Chat from "@/components/Chat";
 import { useSocket } from "@/context/SocketContext";
+import { canLeaveGame } from "@/utils/leaveGame";
 import { normalizeIncomingGame } from "@/utils/timezone";
 import { gamesApi } from "@/services/api/games";
 import { useAuth } from "@clerk/nextjs";
@@ -374,6 +375,7 @@ export default function GameLiveSection({
         }
       >
         {game.status === "CANCELLED" ? null : joined ? (
+          canLeaveGame(game, viewerId) ? (
           <LeaveGameButton
             gameId={game.id}
             currentPlayers={game.participants?.length || 0}
@@ -381,6 +383,7 @@ export default function GameLiveSection({
             alwaysConfirm
             leaveLabel="בטל השתתפות"
           />
+          ) : null
         ) : !isWaitlistOfferPending && !isWaitlisted ? (
           <JoinGameButton
             gameId={game.id}

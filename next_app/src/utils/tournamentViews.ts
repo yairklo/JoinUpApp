@@ -85,6 +85,34 @@ export interface MatchGroup {
     matches: TournamentMatch[];
 }
 
+const STAGE_NAME_HE: Record<string, string> = {
+    League: 'ליגה',
+    Knockout: 'נוקאאוט',
+    Groups: 'בתים',
+    Matches: 'משחקים',
+};
+
+/** Stored stage names written before the Hebrew labels. */
+export function displayStageName(name: string | null | undefined): string {
+    if (!name) return '';
+    return STAGE_NAME_HE[name] ?? name;
+}
+
+/** Regular letters only. Unicode order inserts final forms (ך ם ן ף ץ) after י, so index math is wrong from group 11. */
+const HEBREW_GROUP_LETTERS = 'אבגדהוזחטיכלמנסעפצקרשת';
+const FINAL_GROUP_LETTER: Record<string, string> = { 'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ' };
+
+/** "Group A" from older schedules becomes "א", so captions read "בית א". */
+export function displayGroupName(name: string | null | undefined): string {
+    if (!name) return '';
+    const letter = /^Group ([A-Z])$/.exec(name);
+    if (letter) {
+        const i = letter[1].charCodeAt(0) - 65;
+        return HEBREW_GROUP_LETTERS[i] ?? name;
+    }
+    return FINAL_GROUP_LETTER[name] ?? name;
+}
+
 /**
  * Groups by day when the matches span more than one day (or all have a time on different days), otherwise by
  * stage + round (spec 7.1). Unscheduled matches go in a trailing group.
@@ -103,8 +131,8 @@ export function groupMatches(matches: readonly TournamentMatch[], stages: readon
         if (rest.length) groups.push({ key: 'unscheduled', title: 'ללא מועד', matches: rest });
         return groups;
     }
-    const stageName = new Map(stages.map((s) => [s.id, s.name]));
-    const groupName = new Map(stages.flatMap((s) => s.groups.map((g) => [g.id, g.name] as const)));
+    const stageName = new Map(stages.map((s) => [s.id, displayStageName(s.name)]));
+    const groupName = new Map(stages.flatMap((s) => s.groups.map((g) => [g.id, displayGroupName(g.name)] as const)));
     const out = new Map<string, MatchGroup>();
     for (const m of sorted) {
         const stage = m.stageId ? stageName.get(m.stageId) : undefined;
@@ -123,7 +151,7 @@ export function stageCaption(m: TournamentMatch, stages: readonly TournamentStag
     const stage = stages.find((s) => s.id === m.stageId);
     const grp = stage?.groups.find((g) => g.id === m.groupId);
     const round = m.round != null ? `מחזור ${m.round}` : '';
-    return [grp ? `בית ${grp.name}` : stage?.name, round].filter(Boolean).join(' · ');
+    return [grp ? `בית ${displayGroupName(grp.name)}` : displayStageName(stage?.name), round].filter(Boolean).join(' · ');
 }
 
 // ---- standings ----

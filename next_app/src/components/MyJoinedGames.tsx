@@ -13,6 +13,7 @@ import GamesHorizontalList from "@/components/GamesHorizontalList";
 import InlineErrorRow from "@/components/InlineErrorRow";
 
 import { useMyGames } from "@/hooks/useMyGames";
+import { canLeaveGame } from "@/utils/leaveGame";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { SportFilter } from "@/utils/sports";
 import EmptyState from "@/components/ui/EmptyState";
@@ -111,6 +112,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
               isJoined={true}
               href={`/games/${g.id}`}
             >
+              {canLeaveGame(g, userId) && (
               <LeaveGameButton
                 gameId={g.id}
                 currentPlayers={g.currentPlayers}
@@ -119,6 +121,7 @@ export default function MyJoinedGames({ sportFilter = "ALL" }: { sportFilter?: S
                   router.refresh(); // Refresh to update other lists
                 }}
               />
+              )}
             </GameHeaderCard>
           );
         })}

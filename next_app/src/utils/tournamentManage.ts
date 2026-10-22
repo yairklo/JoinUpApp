@@ -431,7 +431,7 @@ export function describeStartProblem(
             return {
                 code: p.code,
                 teamId: p.teamId,
-                text: `${(p.teamId && teamNameById.get(p.teamId)) || 'קבוצה'}: ${p.players ?? 0} שחקנים (צריך ${t.minPlayersPerTeam}–${t.maxPlayersPerTeam})`,
+                text: `${(p.teamId && teamNameById.get(p.teamId)) || 'קבוצה'}: ${p.players === 1 ? 'שחקן אחד' : `${p.players ?? 0} שחקנים`} (צריך ${t.minPlayersPerTeam}–${t.maxPlayersPerTeam})`,
             };
         case 'NO_SCHEDULE':
             return { code: 'NO_SCHEDULE', text: 'עוד לא נבנה לוח משחקים' };

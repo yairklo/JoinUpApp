@@ -29,7 +29,7 @@ describe('status tokens', () => {
 describe('describeSlot', () => {
     const ctx = {
         matchNumberById: matchNumberMap([{ id: 'm1', number: 7 }]),
-        groupNameById: groupNameMap([{ groups: [{ id: 'g1', name: 'א׳' }] }]),
+        groupNameById: groupNameMap([{ groups: [{ id: 'g1', name: 'Group A' }] }]),
     };
     test('team wins over source', () => {
         expect(describeSlot(slot({ team }), ctx)).toEqual({ kind: 'team', team });
@@ -47,8 +47,9 @@ describe('describeSlot', () => {
     });
     test('group rank', () => {
         const g = slot({ source: { type: 'GROUP_RANK', groupId: 'g1', rank: 2 } });
-        expect(describeSlot(g, ctx)).toMatchObject({ text: 'מקום 2 בבית א׳', placeholderType: 'GROUP_RANK' });
-        expect(describeSlot(g, { ...ctx, locale: 'en' })).toMatchObject({ text: '2 in group א׳' });
+        expect(describeSlot(g, ctx)).toMatchObject({ text: 'מקום 2 בבית א', placeholderType: 'GROUP_RANK' });
+        expect(describeSlot(g, { ...ctx, locale: 'en' })).toMatchObject({ text: '2 in group א' });
+        expect(groupNameMap([{ groups: [{ id: 'gk', name: 'Group K' }] }]).get('gk')).toBe('כ');
     });
     test('seed, bye, tbd', () => {
         expect(describeSlot({ source: { type: 'SEED', seed: 3 } })).toMatchObject({ text: 'מדורגת 3' });
