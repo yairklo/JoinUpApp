@@ -17,6 +17,7 @@ const ERROR_KEYS: Partial<Record<TournamentErrorCode, string>> = {
     MATCH_FINISHED: 'tournaments.manage.sched.matchFinished',
     SCHEDULE_HAS_RESULTS: 'tournaments.manage.sched.hasResults',
     NOT_IN_PROGRESS: 'tournaments.score.notInProgress',
+    WRONG_STATUS: 'tournaments.manage.sched.wrongStatus',
     TEAMS_UNKNOWN: 'tournaments.score.teamsUnknown',
     NEEDS_PENALTIES: 'tournaments.score.penaltiesHint',
     INVALID_RESULT: 'tournaments.score.invalid',

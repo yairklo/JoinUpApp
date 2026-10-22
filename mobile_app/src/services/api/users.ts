@@ -167,13 +167,22 @@ export interface BlockedUser {
     blockedAt: string;
 }
 
+const meInflight = new Map<string, Promise<CurrentUser>>();
+
 export const usersApi = {
     getProfile: (userId: string, token: string) => {
         return apiClient<UserProfile>(`/api/users/${userId}`, { token });
     },
 
     getMe: (token: string) => {
-        return apiClient<CurrentUser>('/api/users/me', { token, cache: 'no-store' });
+        // AgeGate, useIsAdmin and the avatar store each call this on mount. Share the in-flight
+        // request so one screen does not spend three reads on the same user.
+        const existing = meInflight.get(token);
+        if (existing) return existing;
+        const request = apiClient<CurrentUser>('/api/users/me', { token, cache: 'no-store' })
+            .finally(() => { meInflight.delete(token); });
+        meInflight.set(token, request);
+        return request;
     },
 
     submitAgeGate: (body: AgeGateSubmission, token: string) => {

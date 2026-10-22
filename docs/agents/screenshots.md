@@ -32,6 +32,8 @@ cd mobile_app && npm run screens:mobile
 cd mobile_app && npm run screens:mobile -- --feature <profile|match-results|tournaments>
 ```
 - Runs Maestro flows under `mobile_app/.maestro/screenshots/`.
+- `--device <id>` (or `ANDROID_SERIAL`) is forwarded as `maestro --device <id> test ...`; always pass it (e.g. `--device emulator-5554`) so Maestro does not pick a physical phone.
+- Maestro binary: `MAESTRO_BIN` (executable or its `bin` dir), else `PATH`, else `~/tools/maestro/bin`.
 - Requires an Android device/emulator with the Dev API build.
 - Seeded users (`adult-a`, `adult-b`, `minor-c`, `organizer-o`) have no password; the flow inputs code `424242` when `sign-in-code` is visible, otherwise expects an existing session.
 

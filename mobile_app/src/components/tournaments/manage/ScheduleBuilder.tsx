@@ -7,6 +7,7 @@ import { useTournamentSchedule, useTournamentTeams } from '@/hooks/useTournament
 import { scheduleConflicts, tournamentErrorKey, tournamentErrorParams } from '@/utils/tournamentErrors';
 import type { ScheduleConflict, SchedulePreviewResponse, TournamentDetail, TournamentMatch, TournamentTeam } from '@/types/tournament';
 import { UpdatedCue } from '../UpdatedCue';
+import ScoreEntrySheet from '../ScoreEntrySheet';
 import ConflictsPanel from './ConflictsPanel';
 import MatchEditSheet, { type MatchEditPayload } from './MatchEditSheet';
 import ScheduleParamsForm, { paramsValid, type ScheduleParams } from './ScheduleParamsForm';
@@ -56,7 +57,11 @@ export default function ScheduleBuilder({ tournament, onScheduleSaved }: Props) 
     const teamsQ = useTournamentTeams(tournament.id, 'APPROVED');
     const mut = useScheduleMutations(tournament.id);
     const hasSchedule = sched.matches.length > 0;
+    // Commit needs registration closed; a preview only reads approved teams, so it also works while open.
     const canBuild = tournament.status === 'REGISTRATION_CLOSED' || tournament.status === 'IN_PROGRESS';
+    const canPreview = canBuild || tournament.status === 'REGISTRATION_OPEN';
+    const scoring = tournament.status === 'IN_PROGRESS' && tournament.capabilities.canScore;
+    const [scoreMatch, setScoreMatch] = useState<TournamentMatch | null>(null);
 
     const [rebuilding, setRebuilding] = useState(false);
     const [step, setStep] = useState<Step>('params');
@@ -151,7 +156,7 @@ export default function ScheduleBuilder({ tournament, onScheduleSaved }: Props) 
     };
 
     const commit = async () => {
-        if (!preview) return;
+        if (!preview || !canBuild) return;
         const withConflicts = preview.conflicts.length > 0;
         const go = async () => {
             setErrorText(null);
@@ -268,7 +273,7 @@ export default function ScheduleBuilder({ tournament, onScheduleSaved }: Props) 
                     </View>
                 ) : null}
 
-                {!canBuild && !hasSchedule ? (
+                {!canPreview && !hasSchedule ? (
                     <View className="py-12 items-center px-4" testID="schedule-needs-closed">
                         <Ionicons name="calendar-outline" size={36} color="#9ca3af" />
                         <Text className="mt-3 text-center text-gray-600 dark:text-cyber-muted">{t('tournaments.manage.sched.needClosed')}</Text>
@@ -299,6 +304,11 @@ export default function ScheduleBuilder({ tournament, onScheduleSaved }: Props) 
                                 </View>
                             ) : null}
                         </View>
+                        {!canBuild ? (
+                            <View testID="schedule-preview-only" className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 p-3 mb-3">
+                                <Text className="text-amber-800 dark:text-amber-200">{t('tournaments.manage.sched.previewOnly')}</Text>
+                            </View>
+                        ) : null}
                         <ConflictsPanel items={previewViews} onPickNumber={scrollToNumber} />
                         <View onLayout={(e) => (listY.current = e.nativeEvent.layout.y)}>
                             <SchedulePreviewList
@@ -345,6 +355,7 @@ export default function ScheduleBuilder({ tournament, onScheduleSaved }: Props) 
                             numberById={sched.numberById}
                             groupNames={groupNames}
                             onPressRow={(r) => setEditing(sched.matches.find((m) => m.id === r.key) ?? null)}
+                            onScoreRow={scoring ? (r) => setScoreMatch(sched.matches.find((m) => m.id === r.key) ?? null) : undefined}
                         />
                     </View>
                 )}
@@ -364,10 +375,10 @@ export default function ScheduleBuilder({ tournament, onScheduleSaved }: Props) 
                     <Pressable
                         testID="schedule-commit"
                         onPress={commit}
-                        disabled={busy}
+                        disabled={busy || !canBuild}
                         accessibilityRole="button"
                         accessibilityState={{ busy }}
-                        style={{ height: 52, opacity: busy ? 0.6 : 1 }}
+                        style={{ height: 52, opacity: busy || !canBuild ? 0.6 : 1 }}
                         className={`flex-[2] rounded-2xl items-center justify-center flex-row ${preview.conflicts.length ? 'bg-amber-600' : 'bg-brand'}`}
                     >
                         {busy ? <ActivityIndicator color="#fff" /> : null}
@@ -378,6 +389,18 @@ export default function ScheduleBuilder({ tournament, onScheduleSaved }: Props) 
                 </View>
             ) : null}
 
+            {scoring ? (
+                <ScoreEntrySheet
+                    open={!!scoreMatch}
+                    tournament={tournament}
+                    match={scoreMatch}
+                    onClose={() => setScoreMatch(null)}
+                    onSaved={() => {
+                        setScoreMatch(null);
+                        void sched.refetch();
+                    }}
+                />
+            ) : null}
             <MatchEditSheet
                 open={!!editing || adding}
                 match={editing}
