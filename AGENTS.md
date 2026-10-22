@@ -6,9 +6,11 @@ Persistent instructions for any Cursor Agent run against this repo (including he
 - `.cursorrules` (task runner rules)
 - `.claude/rules/L1_architecture.md` / `L2_execution.md` (planner/executor protocol)
 - `.cursor/rules/*.mdc` (durable project lessons — Cursor auto-attaches by glob; `00-core-invariants.mdc` always applies)
-- `docs/agents/dev-env.md` (Dev environment endpoints, test users, and deploy merge commands)
-- `docs/agents/workflow.md` (Multi-agent waves, integration branches, and code review rules)
-- `docs/agents/screenshots.md` (Scripted Playwright/Maestro screenshot workflow)
+
+## Read when relevant
+- `docs/agents/dev-env.md` (deploying or testing on Dev, endpoints, test users, merge commands)
+- `docs/agents/workflow.md` (multi-agent waves, worktrees, integration branch, code review)
+- `docs/agents/screenshots.md` (scripted Playwright/Maestro screenshot capture)
 
 ## Durable lessons have moved
 Lessons are maintained in glob-scoped rule files under `.cursor/rules/`:

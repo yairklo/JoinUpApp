@@ -14,6 +14,7 @@ const warnOnly = process.argv.includes('--warn-only');
 
 // Deliberately tight: this should only ever hold rules that apply before a file is even chosen
 // (e.g. worktree isolation, git & deploy). Anything glob-scopable belongs in its own non-alwaysApply file.
+// Any further growth belongs in on-demand reference guides under docs/agents/, not always-apply.
 const ALWAYS_APPLY_BUDGET = 750;
 
 if (!fs.existsSync(rulesDir)) {

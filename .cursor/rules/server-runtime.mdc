@@ -25,10 +25,6 @@ alwaysApply: false
   `CHAT_RATE_STORE`, `CHAT_DEDUPE_STORE`, `JOBS_LEADER_LOCK`); every one must fail open when Redis is
   down. New Redis clients come from `lib/redis.js` (retry forever, capped backoff) — never copy the
   old `retryStrategy: times > 3 → null`, which permanently ends cross-node delivery after one blip.
-- Cross-user socket state (online, delivered) comes from `utils/socketPresence` (`fetchSockets`),
-  never from `io.sockets.adapter.rooms` / `io.sockets.sockets` (node-local).
-- Redis-originated socket events that every instance applies (`joinup:socket_events`,
-  `moderation_events`) use `io.local`, otherwise the adapter multiplies them N-fold.
 - Tests that need Redis use `TEST_REDIS_URL` (never `REDIS_URL`, which makes moderationService
   connect) via `describeRedis` in `tests/helpers/redisTest.js`; close every socket/io/redis client.
 

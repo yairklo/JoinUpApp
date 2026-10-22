@@ -103,7 +103,7 @@ Never force-push `Dev`, and never push directly to `main`.
    | `CLOUDINARY_FOLDER` | `joinup-dev` |
    | `SENTRY_ENVIRONMENT` | `development` |
    | `RUN_BACKGROUND_JOBS` | `false` until this database is only the empty schema plus `seed:dev` and contains no production `UserDevice` rows. Unset means jobs **on**. After that check, you may set `true` on this single API container. A later worker resource: `false` on the API, `true` on the worker |
-   | `TOURNAMENT_CREATOR_IDS` | comma-separated Clerk user IDs permitted to create tournaments on dev (e.g. `organizer-o`) |
+   | `TOURNAMENT_CREATOR_IDS` | comma-separated Clerk user IDs permitted to create tournaments on dev (e.g. `organizer-o` = `user_3Kzk5XCXbkgNzoJMUklTDT9HwGL`) |
 
    Do **not** reuse production Redis or production push credentials. Same variable *names* are not the same as the same *values*.
 

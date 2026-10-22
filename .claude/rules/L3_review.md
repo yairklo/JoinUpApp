@@ -18,8 +18,7 @@ verify the diff produced by L2 against the plan L1 wrote — not to re-plan or r
 3. **No regressions on invariants:** re-check the diff against `server-invariants.mdc` for any
    `server/` file (auth, transactions, single Prisma client, background-job idempotency) — these are
    the rules most likely to be silently missed since they don't map to one narrow glob.
-4. **Quality gates:** `next_app` build/typecheck and `mobile_app` typecheck/lint as `PROMPT.md`'s
-   "Quality Gate Loop" defines. For `server`, **default to running only the new/changed test
+4. **Quality gates:** `next_app` build/typecheck and `mobile_app` typecheck/lint per `.cursorrules` quality gates. For `server`, **default to running only the new/changed test
    file(s)** (`cd server && PORT=3099 npx jest <file> --runInBand --detectOpenHandles --forceExit`)
    rather than the full suite — see `testing-jest.mdc`'s Neon autosuspend section for why.
    Run the full `server` suite locally only when the change plausibly affects shared setup/fixtures

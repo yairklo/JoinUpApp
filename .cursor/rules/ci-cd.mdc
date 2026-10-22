@@ -1,6 +1,6 @@
 ---
 description: Required CI gates for GitHub Actions
-globs: .github/workflows/**
+globs: .github/workflows/**,e2e/**,server/lib/loadEnv.js,server/scripts/seedDev*.js
 alwaysApply: false
 ---
 

@@ -6,7 +6,8 @@ The shared Dev environment is the live integration environment for joinUp. All t
 
 - **Dev Web**: `https://join-up-app-git-dev-yair-klausners-projects.vercel.app` (Vercel Preview tracking the `Dev` branch)
 - **Dev API**: `https://joinup-dev-api.duckdns.org` (Hosted on Coolify dev container)
-- **Production**: `https://joinup-api.duckdns.org` / `https://joinup.co.il` — **NEVER TOUCH PROD**.
+- **Health**: `curl -fsS https://joinup-dev-api.duckdns.org/api/health` (returns `{"status":"OK"}`)
+- **Production**: `https://joinup-api.duckdns.org` / `https://join-up-app.vercel.app` — **NEVER TOUCH PROD**.
 
 ## Test Users & Authentication
 
@@ -22,13 +23,13 @@ Dev uses Clerk test keys (`pk_test_...` / `sk_test_...`). Test emails use the `+
 ## Tournament Creation (`TOURNAMENT_CREATOR_IDS`)
 
 On the Coolify dev API resource, tournament creation is restricted by default. To allow tournament creation during QA and testing:
-- `TOURNAMENT_CREATOR_IDS` is configured in Coolify Dev environment variables containing `organizer-o` (or admin Clerk user IDs).
+- `TOURNAMENT_CREATOR_IDS` is configured in Coolify Dev environment variables containing the real Clerk user ID for `organizer-o` (`user_3Kzk5XCXbkgNzoJMUklTDT9HwGL`), not the account name.
 - Only users listed in `TOURNAMENT_CREATOR_IDS` or users with `isAdmin: true` can create tournaments.
 
 ## Vercel Ignored Build Step
 
 Vercel is configured with an **Ignored Build Step** on the web project:
-- Builds are skipped automatically if changes do **not** touch `next_app/` (e.g. `git diff --quiet HEAD^ HEAD next_app/`).
+- Vercel diffs `next_app/` against `VERCEL_GIT_PREVIOUS_SHA` (or the merge-base with `main` when unset) and skips the build if nothing under `next_app/` changed.
 - Do not expect a Vercel build if a commit only modifies `server/`, `mobile_app/`, or `docs/`.
 - If a web build is expected, verify in the Vercel dashboard that the deployment reaches **READY** status. (Note: `npm run lint` passing locally is NOT a substitute for `npm run build` or Vercel readiness).
 
