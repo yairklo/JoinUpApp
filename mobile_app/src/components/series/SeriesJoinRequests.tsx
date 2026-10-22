@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { useTranslation } from 'react-i18next';
 import { seriesApi, type SeriesJoinRequest } from '@/services/api/series';
 import SafeImage from '@/components/SafeImage';
 
 // Managers only: outsiders asking to join a friends-only group. Renders nothing when empty.
 export default function SeriesJoinRequests({ seriesId, onApproved }: { seriesId: string; onApproved?: () => void }) {
-    const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const { t } = useTranslation();
     const [requests, setRequests] = useState<SeriesJoinRequest[]>([]);
     const [busyId, setBusyId] = useState<string | null>(null);
@@ -16,7 +16,7 @@ export default function SeriesJoinRequests({ seriesId, onApproved }: { seriesId:
         let ignore = false;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 if (!token) return;
                 const res = await seriesApi.getJoinRequests(seriesId, token);
                 if (!ignore) setRequests(res.pending || []);
@@ -25,12 +25,12 @@ export default function SeriesJoinRequests({ seriesId, onApproved }: { seriesId:
             }
         })();
         return () => { ignore = true; };
-    }, [seriesId, getToken]);
+    }, [seriesId, getTokenRef]);
 
     const decide = async (userId: string, approve: boolean) => {
         setBusyId(userId);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             if (approve) await seriesApi.approveJoinRequest(seriesId, userId, token);
             else await seriesApi.rejectJoinRequest(seriesId, userId, token);
