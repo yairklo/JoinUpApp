@@ -132,17 +132,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const { requestContext } = require('./middleware/requestContext');
-const { createRateLimiter, writeMethodLimiter, readMethodLimiter } = require('./middleware/rateLimit');
+const { createRateLimiter, writeMethodLimiter, readMethodLimiter, verifiedUserId } = require('./middleware/rateLimit');
 app.use(requestContext);
-// Read/polling traffic (GET/HEAD): feed loads, notification-count polling (every 30s per open
-// tab), chat history, presence, etc. A single page can easily fire 5-10 GETs, and users with
-// several tabs/devices open multiply that. A single 240-req/15min bucket shared across ALL
-// methods was starving this normal interactive traffic long before anyone was abusing anything.
-// Split it out with a much higher ceiling and a short (1 min) window: short windows recover fast
-// (a burst only costs the client up to 60s of 429s instead of being locked out for 15 minutes),
-// while still capping runaway client-side retry/polling loops within that same minute.
-app.use(readMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 120, prefix: 'read' })));
-// Mutations (POST/PUT/PATCH/DELETE) keep the existing, deliberately stricter limiter untouched.
+// Read/polling traffic (GET/HEAD). One signed-in screen fires about 12-15 GETs (the
+// screen plus users/me, notification counts, the notification list, chats and tournament
+// capabilities). 120/minute per IP is only ~8 of those screens, so a short burst of reloads
+// 429s and the page then paints empty. Signed-in reads are counted per Clerk user at
+// 300/minute, enough for that burst and ordinary navigation, still inside one minute so a
+// runaway loop recovers quickly. Guests stay on the IP bucket at 120/minute.
+app.use(readMethodLimiter(createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 300,
+  anonymousMax: 120,
+  prefix: 'read',
+  resolveUserId: verifiedUserId,
+})));
+// Mutations stay one bucket per IP. Do not pass resolveUserId here: a per-user
+// write bucket would multiply the 60/minute cap by the number of accounts.
 app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 60, prefix: 'write' })));
 
 require('./middleware/uploadsStatic').mountUploads(app, path.join(__dirname, 'uploads'));

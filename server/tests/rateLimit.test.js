@@ -5,9 +5,16 @@ const { createRateLimiter, writeMethodLimiter, readMethodLimiter } = require('..
 // Mirrors the production wiring in index.js: a generous read limiter gates GET/HEAD
 // (polling/feed traffic) and a separate, stricter write limiter gates mutations. The two
 // are independent buckets (different prefixes) so neither call inflates the other's count.
-function appWithLimiter({ readMax = 3, writeMax = 2 } = {}) {
+function appWithLimiter({ readMax = 3, writeMax = 2, anonymousMax, resolveUserId } = {}) {
   const app = express();
-  app.use(readMethodLimiter(createRateLimiter({ windowMs: 60_000, max: readMax, prefix: 'test-read', forceEnable: true })));
+  app.use(readMethodLimiter(createRateLimiter({
+    windowMs: 60_000,
+    max: readMax,
+    anonymousMax,
+    prefix: 'test-read',
+    forceEnable: true,
+    resolveUserId,
+  })));
   app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60_000, max: writeMax, prefix: 'test-write', forceEnable: true })));
   app.get('/api/health', (_req, res) => res.json({ status: 'OK' }));
   app.get('/uploads/x.png', (_req, res) => res.send('img'));
@@ -131,6 +138,37 @@ describe('HTTP rate limiter', () => {
     expect((await request(app).get('/ok')).statusCode).toEqual(200);
     expect((await request(app).head('/ok')).statusCode).toEqual(200);
     expect((await request(app).get('/ok')).statusCode).toEqual(429);
+  });
+
+  test('signed-in users do not share a bucket with each other or with guests', async () => {
+    const resolveUserId = (req) => {
+      const id = req.headers['x-user'];
+      return typeof id === 'string' && id ? id : null;
+    };
+    const app = appWithLimiter({ readMax: 2, anonymousMax: 1, resolveUserId });
+    expect((await request(app).get('/ok').set('x-user', 'user_a')).statusCode).toEqual(200);
+    expect((await request(app).get('/ok').set('x-user', 'user_a')).statusCode).toEqual(200);
+    expect((await request(app).get('/ok').set('x-user', 'user_a')).statusCode).toEqual(429);
+    expect((await request(app).get('/ok').set('x-user', 'user_b')).statusCode).toEqual(200);
+    expect((await request(app).get('/ok')).statusCode).toEqual(200);
+    expect((await request(app).get('/ok')).statusCode).toEqual(429);
+  });
+
+  test('writes stay on one IP bucket while reads are split per user', async () => {
+    const resolveUserId = (req) => {
+      const id = req.headers['x-user'];
+      return typeof id === 'string' && id ? id : null;
+    };
+    const app = appWithLimiter({ readMax: 5, writeMax: 1, resolveUserId });
+    expect((await request(app).post('/write').set('x-user', 'user_a')).statusCode).toEqual(200);
+    expect((await request(app).post('/write').set('x-user', 'user_b')).statusCode).toEqual(429);
+    expect((await request(app).get('/ok').set('x-user', 'user_b')).statusCode).toEqual(200);
+  });
+
+  test('a bearer token that does not resolve still shares the IP bucket', async () => {
+    const app = appWithLimiter({ readMax: 5, anonymousMax: 1, resolveUserId: async () => null });
+    expect((await request(app).get('/ok').set('Authorization', 'Bearer not-a-session')).statusCode).toEqual(200);
+    expect((await request(app).get('/ok').set('Authorization', 'Bearer another-garbage')).statusCode).toEqual(429);
   });
 
   test('the read GET ceiling is more generous than the old shared global limiter', async () => {
