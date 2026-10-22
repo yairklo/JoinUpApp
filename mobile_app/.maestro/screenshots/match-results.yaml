@@ -3,6 +3,9 @@ name: match-results screens
 ---
 - runFlow: subflows/session.yaml
 - openLink: joinup://game/seed_game_approval
+- extendedWaitUntil:
+    visible: 'Share|Navigate'
+    timeout: 45000
 - waitForAnimationToEnd
 - takeScreenshot:
-    path: ../../../docs/design-screens/mobile/match-results/game-${THEME}
+    path: match-results/game-${THEME}

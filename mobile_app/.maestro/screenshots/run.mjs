@@ -8,7 +8,7 @@
  * Runs the Maestro flows in this directory for light and dark.
  * Passwords come from MAESTRO_*_PASSWORD (env, E2E_CLERK_KEYS_FILE or server/.env.maestro); never printed.
  * Does not start the API. Requires the Maestro CLI and a device whose app
- * points at the Dev API. Screenshot paths are written by the flows.
+ * points at the Dev API. Flows name screenshots relative to the run output dir; run.mjs copies them to docs/design-screens/mobile.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -90,11 +90,15 @@ for (const name of flows) {
   for (const theme of ["light", "dark"]) {
     console.log(`\n=== ${name} ${theme} ===`);
     // Command line is deliberately not printed (it carries the password); output is masked.
+    // Maestro 2.x only writes takeScreenshot files inside the run's output dir, so collect there then copy.
+    const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "maestro-screens-"));
     const result = spawnSync(
       maestro,
       [
         ...(device ? ["--device", device] : []),
         "test",
+        "--test-output-dir",
+        outDir,
         path.join(".maestro", "screenshots", `${name}.yaml`),
         "-e",
         `THEME=${theme}`,
@@ -108,6 +112,19 @@ for (const name of flows) {
     process.stdout.write(mask(result.stdout ?? ""));
     process.stderr.write(mask(result.stderr ?? ""));
     if ((result.status ?? 1) !== 0) failed += 1;
+    // Maestro writes takeScreenshot output somewhere under the run dir; find every <...>/takeScreenshot folder.
+    const walk = (dir) =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        const full = path.join(dir, e.name);
+        if (!e.isDirectory()) return [];
+        return e.name === "takeScreenshot" ? [full] : walk(full);
+      });
+    const shotDirs = walk(outDir);
+    for (const shots of shotDirs) {
+      fs.cpSync(shots, path.resolve(mobileRoot, "..", "docs", "design-screens", "mobile"), { recursive: true });
+    }
+    if (shotDirs.length === 0) console.error(`No takeScreenshot output found; kept ${outDir}`);
+    if (shotDirs.length > 0) fs.rmSync(outDir, { recursive: true, force: true });
   }
 }
 

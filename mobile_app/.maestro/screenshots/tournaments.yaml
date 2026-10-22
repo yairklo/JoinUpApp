@@ -4,19 +4,15 @@ name: tournaments screens
 - runFlow: subflows/session.yaml
 - openLink: joinup://tournaments
 - extendedWaitUntil:
-    visible:
-      id: tournaments-list
-    timeout: 20000
+    visible: 'QA Cup'
+    timeout: 60000
+- waitForAnimationToEnd
 - takeScreenshot:
-    path: ../../../docs/design-screens/mobile/tournaments/tournaments-list-${THEME}
-- openLink: joinup://tournaments/new
-- takeScreenshot:
-    path: ../../../docs/design-screens/mobile/tournaments/tournaments-new-${THEME}
+    path: tournaments/tournaments-list-${THEME}
 - openLink: joinup://tournaments/cmvjad6r3000gqe0iifmjp349
+- extendedWaitUntil:
+    visible: 'Overview'
+    timeout: 60000
 - waitForAnimationToEnd
 - takeScreenshot:
-    path: ../../../docs/design-screens/mobile/tournaments/tournament-${THEME}
-- openLink: joinup://tournaments/cmvjad6r3000gqe0iifmjp349/manage
-- waitForAnimationToEnd
-- takeScreenshot:
-    path: ../../../docs/design-screens/mobile/tournaments/tournament-manage-${THEME}
+    path: tournaments/tournament-${THEME}
