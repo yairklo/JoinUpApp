@@ -1268,7 +1268,9 @@
     "champion": {
       "title": "אלופת {{title}}",
       "share": "שיתוף",
-      "shareText": "{{team}} אלופי {{title}}! 🏆"
+      "shareText": "{{team}} אלופי {{title}}! 🏆",
+      "runnerUp": "מקום שני",
+      "third": "מקום שלישי"
     },
     "overview": {
       "nextMatch": "המשחק הבא שלך",
@@ -1282,7 +1284,11 @@
       "rosterLine": "{{starters}} בהרכב · {{min}}–{{max}} שחקנים בקבוצה",
       "approvalNote": "הקבוצות מאושרות ע״י המארגן",
       "organizer": "מארגן",
-      "managers": "מנהלים"
+      "managers": "מנהלים",
+      "venue": "מיקום",
+      "registration": "הרשמה",
+      "registrationWindow": "ההרשמה: {{from}} – {{to}}",
+      "noContent": "עוד אין מידע להצגה"
     },
     "match": {
       "number": "משחק {{n}}",
@@ -1452,7 +1458,11 @@
     "teams": {
       "emptyBefore": "עוד אין קבוצות. ההרשמה תיפתח ב-{{date}}.",
       "emptyOpen": "עוד אין קבוצות רשומות. היו הראשונים!",
-      "toTeamPage": "לעמוד הקבוצה"
+      "toTeamPage": "לעמוד הקבוצה",
+      "yourTeam": "הקבוצה שלך",
+      "recentMatches": "משחקי הקבוצה",
+      "noMatches": "אין משחקים לקבוצה עדיין",
+      "close": "סגירה"
     },
     "errors": {
       "PLAYER_IN_OTHER_TEAM": "השחקן כבר בקבוצה אחרת בטורניר הזה",
@@ -1817,6 +1827,21 @@
       "now": "עכשיו!",
       "details": "לפרטים",
       "moreTournaments": "+{{count}} טורניר נוסף"
+    },
+    "hero": {
+      "closedSoon": "ההרשמה נסגרה · לוח המשחקים יפורסם בקרוב",
+      "closedPublished": "ההרשמה נסגרה · לוח המשחקים פורסם",
+      "invited": "הוזמנת לקבוצה {{name}}",
+      "invitedAction": "לצפייה בהזמנה",
+      "menu": "עוד פעולות",
+      "edit": "עריכת פרטים",
+      "codeSubmit": "המשך",
+      "cancel": "ביטול"
+    },
+    "list": {
+      "cancelled": "הטורניר בוטל",
+      "dates": "{{from}}–{{to}}",
+      "noResultsRetry": "לא הצלחנו לטעון טורנירים"
     }
   }
 }
