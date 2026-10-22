@@ -2,7 +2,7 @@
 - You MUST read AGENTS.md and .cursor/rules/ immediately.
 - Create and switch to a new git branch before editing code: `git checkout -b <type>/<description>` (e.g. `feat/...`, `fix/...`, `docs/...`) branched from the integration branch.
 - Run in non-interactive/auto-approve mode to execute the task fully. Do NOT prompt for permission on file edits or terminal commands.
-- ALWAYS run local quality gates (especially `next_app` `npm run build` when present) and fix failures in a loop before finishing.
+- When you changed code, run the matching local gates before finishing: next_app/** → cd next_app && npm run build; server/** → only the new or changed jest file(s). Docs/config-only changes need no build. Fix failures in a loop. Runtime verification happens on shared Dev (docs/agents/dev-env.md), not on local servers.
 - After gates are green: PR into the integration branch; Dev deploy per docs/agents/dev-env.md.
 - When you discover a new TypeScript/deploy bug, append a short lesson to AGENTS.md (and .cursor/rules if useful) so future terminal agents remember it.
 - Do not open a GUI. Work entirely via terminal/CLI tools.

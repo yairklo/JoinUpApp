@@ -1,87 +1,56 @@
-# Automated Screenshots & Design Assets (joinUp)
+# Scripted Screenshots for Design (joinUp)
 
-This guide documents the screenshot capture workflow, storage conventions, and indexing required before handing visual inspection tasks to the design agent.
+Screenshots for the design agent are captured via automated scripts against the shared Dev environment. Do not browse or explore the app to capture or refresh these.
 
-## Core Rule: Scripted, Never Interactive
+## Storage & Folder Layout
 
-Frontier models (such as Claude Opus) running design reviews must **never** be tasked with exploring the app, installing dependencies, or taking screenshots interactively. Capturing screens in an interactive session burns excessive tokens and leads to flaky results.
+All screenshots are stored under `docs/design-screens/`:
+- `docs/design-screens/INDEX.md` — Catalog of all screens with routes, sources, themes, and capture status.
+- `docs/design-screens/web/<feature>/<screen-id>-<light|dark>.png`
+- `docs/design-screens/mobile/<feature>/<screen-id>-<light|dark>.png`
 
-**Always script or pre-capture screenshots** against the shared Dev environment (`https://join-up-app-git-dev-yair-klausners-projects.vercel.app` and `https://joinup-dev-api.duckdns.org`) using Playwright or Maestro before engaging the design agent.
+Web screen IDs include the viewport (e.g. `profile-desktop`, `profile-mobile`).
 
-## Directory Layout
+## How to Run
 
-All captured screens are committed into `docs/design-screens/` organized by feature or workflow topic:
-
+### Web (Playwright)
+```bash
+cd next_app && npm run screens:web
+# Filter by screen id or feature:
+cd next_app && npm run screens:web -- --grep <screen-id|feature>
 ```
-docs/design-screens/
-  └── <feature-or-topic>/
-      ├── INDEX.md
-      ├── web-<screen-name>-<theme>.png
-      └── mobile-<screen-name>.png
+- Targets `BASE_URL`, defaulting to the Dev preview (`https://join-up-app-git-dev-yair-klausners-projects.vercel.app`).
+- Uses Clerk test keys in the shell (`CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY`: `sk_test_...` / `pk_test_...`).
+- Does not start a local web server.
+
+### Mobile (Maestro)
+```bash
+cd mobile_app && npm run screens:mobile
+# Filter by feature:
+cd mobile_app && npm run screens:mobile -- --feature <name>
 ```
+- Runs Maestro flows under `mobile_app/.maestro/screenshots/`.
+- Requires an Android device/emulator with the Dev API build.
+- Seeded users (`adult-a`, `adult-b`, `minor-c`, `organizer-o`) have no password; the flow inputs code `424242` when `sign-in-code` is visible, otherwise expects an existing session.
 
 ## `INDEX.md` Format
 
-Each topic directory must contain an `INDEX.md` file cataloging the captured assets with links to source code and routes:
+`docs/design-screens/INDEX.md` tracks the status of all screens in the following table format:
 
-```markdown
-# Screen Index: <Feature or Flow Name>
+| screen id | platform | route/screen | source file | theme | last captured (sha, date) |
+| --- | --- | --- | --- | --- | --- |
+| profile-desktop | web | /profile | next_app/src/app/profile/page.tsx | light | 91ce4a0 2026-10-22 |
+| profile-desktop | web | /profile | next_app/src/app/profile/page.tsx | dark | 91ce4a0 2026-10-22 |
 
-| Screen Name | File | Route | Source Component | Auth / User State |
-|---|---|---|---|---|
-| Tournament Overview | `web-overview-dark.png` | `/tournaments/[id]?tab=overview` | `next_app/src/components/tournaments/shell/TournamentPage.tsx` | `organizer-o` (creator) |
-| Match Results Modal | `web-result-modal-dark.png` | `/games/[id]` | `next_app/src/components/results/MatchResultDialog.tsx` | `adult-a` (player) |
-| Mobile Home Feed | `mobile-home.png` | `/(tabs)/home` | `mobile_app/app/(tabs)/home.tsx` | `adult-b` |
-```
+## Stale-File Rule (Mandatory)
 
-## Screenshot Scripts
+- A screenshot row is valid only when `last captured` contains a commit SHA and date.
+- **On Failure or Stale**: If a screen capture fails or becomes obsolete, delete the PNG file or mark the row as `failed` or `stale`. Never leave an outdated or broken screenshot in `docs/design-screens/`.
+- Any un-captured row is marked `not yet`.
 
-### Web (Playwright)
+## How to Add a Screen
 
-Use Playwright scripts running against the Dev deployment (or local build with test seed). Capture full pages or specific components:
-
-```bash
-cd e2e
-BASE_URL=https://join-up-app-git-dev-yair-klausners-projects.vercel.app \
-API_URL=https://joinup-dev-api.duckdns.org \
-E2E_SKIP_WEBSERVER=1 \
-npx playwright test tests/screenshots.spec.ts
-```
-
-In your test script:
-```typescript
-import { test } from '@playwright/test';
-import { signIn } from './support/auth';
-
-test('capture tournament page', async ({ page }) => {
-  await signIn(page, 'organizer-o+clerk_test@example.com', '424242');
-  await page.goto('/tournaments/seed_tournament_1');
-  await page.waitForLoadState('networkidle');
-  await page.screenshot({
-    path: '../docs/design-screens/tournaments/web-overview-dark.png',
-    fullPage: true,
-  });
-});
-```
-
-### Mobile (Maestro)
-
-In Maestro flows, use the `takeScreenshot` command:
-
-```yaml
-appId: com.joinup.app
----
-- launchApp
-- runFlow: subflows/auth/sign-in.yaml
-- tapOn:
-    id: "tab-home"
-- takeScreenshot: ../docs/design-screens/home-refresh/mobile-home
-```
-
-## How to Request a Screen Review from the Design Agent
-
-When asking the design agent for feedback or UI improvements:
-1. Ensure the screenshot has been captured and committed under `docs/design-screens/<topic>/`.
-2. Reference the exact file path and attach the relevant row from `INDEX.md`.
-3. Provide the explicit component file paths that need editing.
-4. Specify that the design agent should only review the provided images and edit the code directly without attempting to boot servers or explore the UI.
+1. **Web**: Add a `ScreenDef` to `next_app/e2e/screenshots/screens.ts` specifying `id`, `feature`, `route`, `user`, and `source` component.
+2. **Mobile**: Add a Maestro flow under `mobile_app/.maestro/screenshots/flows/`.
+3. Add corresponding rows to `docs/design-screens/INDEX.md`.
+4. Run the screenshot runner and commit both the captured images and the updated `INDEX.md`.
