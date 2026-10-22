@@ -203,6 +203,8 @@
     "addFriend": "Add Friend",
     "noPlayersFound": "No matching players found",
     "failedToLoadProfile": "Failed to load user profile.",
+    "rateLimited": "Too many requests right now. Wait a moment and try again.",
+    "retry": "Try again",
     "failedToSendRequest": "Failed to send friend request.",
     "requestDeclinedRecently": "Your previous request was declined. You can send a new one in a few days.",
     "failedToRemove": "Failed to remove friend.",

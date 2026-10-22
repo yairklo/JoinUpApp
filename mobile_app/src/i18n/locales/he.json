@@ -203,6 +203,8 @@
     "addFriend": "הוסף חבר",
     "noPlayersFound": "לא נמצאו שחקנים תואמים",
     "failedToLoadProfile": "טעינת פרופיל המשתמש נכשלה.",
+    "rateLimited": "יותר מדי בקשות כרגע. חכו רגע ונסו שוב.",
+    "retry": "נסו שוב",
     "failedToSendRequest": "שליחת בקשת החברות נכשלה.",
     "requestDeclinedRecently": "הבקשה הקודמת נדחתה. אפשר לשלוח בקשה חדשה בעוד כמה ימים.",
     "failedToRemove": "הסרת החבר נכשלה.",

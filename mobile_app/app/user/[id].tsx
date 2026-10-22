@@ -213,7 +213,7 @@ export default function UserProfileScreen() {
                         : t('profile.failedToLoadProfile', 'Failed to load user profile.')}
                 </Text>
                 <TouchableOpacity onPress={loadUserData} accessibilityRole="button" className="mt-4 px-5 h-11 items-center justify-center bg-gray-200 rounded-lg">
-                    <Text>{t('common.retry', 'נסו שוב')}</Text>
+                    <Text>{t('profile.retry', 'נסו שוב')}</Text>
                 </TouchableOpacity>
             </SafeAreaView>
         );
