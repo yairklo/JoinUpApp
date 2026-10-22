@@ -1,5 +1,6 @@
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
 import { isAbortError } from '@/utils/apiErrors';
+import { fetchRead } from './readBackoff';
 
 // API base URL — set via EXPO_PUBLIC_API_URL in .env / eas.json
 // Optional override for Socket.IO: EXPO_PUBLIC_SOCKET_URL (defaults to API URL)
@@ -83,7 +84,9 @@ export async function apiClient<T>(endpoint: string, { token, data, signal, sile
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
 
     try {
-        const response = await fetch(url, config);
+        // A GET that hits the rate limiter gets one bounded retry (Retry-After, abort-aware);
+        // mutations are never replayed. The request timeout keeps running during the wait.
+        const response = await fetchRead(url, config);
 
         if (!response.ok) {
             const errorText = await response.text();

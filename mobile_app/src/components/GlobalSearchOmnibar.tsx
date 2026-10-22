@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
 import { searchApi, GlobalSearchResults } from '@/services/api/search';
@@ -12,7 +12,7 @@ const EMPTY: GlobalSearchResults = { users: [], fields: [], games: [] };
 
 export default function GlobalSearchOmnibar() {
     const router = useRouter();
-    const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const { t } = useTranslation();
 
     const [query, setQuery] = useState('');
@@ -31,7 +31,7 @@ export default function GlobalSearchOmnibar() {
         }
         setLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             const data = await searchApi.global(q, token);
             setResults(data);
@@ -41,7 +41,7 @@ export default function GlobalSearchOmnibar() {
         } finally {
             setLoading(false);
         }
-    }, [getToken]);
+    }, [getTokenRef]);
 
     const handleChange = (val: string) => {
         setQuery(val);

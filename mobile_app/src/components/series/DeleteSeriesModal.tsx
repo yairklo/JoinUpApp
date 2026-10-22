@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { useTranslation } from 'react-i18next';
 import { seriesApi, type SeriesDeleteStrategy } from '@/services/api/series';
 
@@ -17,7 +17,7 @@ interface GameSummary { id: string; date: string; }
 
 /** Delete-group flow with the same three strategies as web: delete all, keep games as standalone events, or pick games. */
 export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClose, onDeleted }: Props) {
-    const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const { t, i18n } = useTranslation();
     const dateLocale = i18n.language === 'he' ? 'he-IL' : 'en-US';
     const [strategy, setStrategy] = useState<SeriesDeleteStrategy>('DELETE_ALL');
@@ -37,7 +37,7 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
         (async () => {
             setFetching(true);
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 if (!token) throw new Error('no token');
                 const data = await seriesApi.getById(seriesId, token, { includeAll: true });
                 if (ignore) return;
@@ -52,13 +52,13 @@ export default function DeleteSeriesModal({ visible, seriesId, seriesName, onClo
             }
         })();
         return () => { ignore = true; };
-    }, [visible, seriesId, getToken]);
+    }, [visible, seriesId, getTokenRef]);
 
     const confirm = async () => {
         setBusy(true);
         setError('');
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) throw new Error(t('series.reauth', 'נדרש להתחבר מחדש'));
             await seriesApi.delete(seriesId, token, strategy, selected);
             onDeleted();

@@ -522,4 +522,5 @@ export type TournamentErrorCode =
     | 'INVALID_SCORES'
     | 'INVALID_STATS'
     | 'NOT_IN_PROGRESS'
-    | 'TEAMS_UNKNOWN';
+    | 'TEAMS_UNKNOWN'
+    | 'WRONG_STATUS';
