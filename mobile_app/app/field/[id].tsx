@@ -3,6 +3,7 @@ import MapView, { Marker } from 'react-native-maps';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { useTranslation } from 'react-i18next';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -45,7 +46,8 @@ function FieldProfileHeader({ title, onBack }: { title: string; onBack: () => vo
 
 export default function FieldProfileScreen() {
     const { t } = useTranslation();
-    const { getToken, userId } = useAuth();
+    const { userId } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const router = useRouter();
     const params = useLocalSearchParams<{ id: string }>();
     const fieldId = params.id;
@@ -61,7 +63,7 @@ export default function FieldProfileScreen() {
         let cancelled = false;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 const [fieldData, analyticsData] = await Promise.all([
                     fieldsApi.getById(fieldId),
                     token ? fieldsApi.getAnalytics(fieldId, token).catch(() => null) : Promise.resolve(null)
@@ -83,7 +85,7 @@ export default function FieldProfileScreen() {
         if (reportState !== 'idle') return;
         setReportState('submitting');
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) { setReportState('idle'); return; }
             await fieldsApi.submitReport(fieldId, busyLevel, token);
             setReportState('done');
@@ -91,7 +93,7 @@ export default function FieldProfileScreen() {
             console.error('Failed to submit crowd report', e);
             setReportState('idle');
         }
-    }, [reportState, fieldId, getToken]);
+    }, [reportState, fieldId, getTokenRef]);
 
     const dayCells: BusyCell[] = useMemo(() => {
         const cells = analytics?.busyProfile?.[selectedDay] || [];
