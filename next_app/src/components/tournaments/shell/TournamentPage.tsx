@@ -74,7 +74,7 @@ export default function TournamentPage({ id }: { id: string }) {
     );
 
     if (loading && !tournament) return <PageSkeleton />;
-    if (notFound || (!tournament && !error)) {
+    if (notFound) {
         return (
             <Container maxWidth="sm" sx={{ py: 6 }} dir="rtl" data-testid="tournament-not-found">
                 <Alert severity="info" action={<Button component={Link} href="/tournaments" color="inherit" size="small">לטורנירים</Button>}>
@@ -90,7 +90,9 @@ export default function TournamentPage({ id }: { id: string }) {
                     severity={typeof navigator !== "undefined" && navigator.onLine === false ? "warning" : "error"}
                     action={<Button color="inherit" size="small" onClick={() => void reload()}>נסו שוב</Button>}
                 >
-                    לא הצלחנו לטעון את הטורניר.
+                    {error?.status === 429
+                        ? "יותר מדי בקשות כרגע. חכו רגע ונסו שוב."
+                        : "לא הצלחנו לטעון את הטורניר."}
                 </Alert>
             </Container>
         );
