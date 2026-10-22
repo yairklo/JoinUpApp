@@ -1,18 +1,14 @@
-# Seeded Dev users are email-code accounts (424242) and have no password.
-# The current sign-in screen only submits a password, so this subflow fails until
-# the screen shows sign-in-code. screens:mobile skips it when a session already exists.
+# Email + password sign-in. EMAIL and PASSWORD come from run.mjs (-e); the
+# password is never echoed by the runner. The password field is not captured
+# in any screenshot (no takeScreenshot here).
 appId: com.yairklo.joinupapp
 ---
 - tapOn:
     id: sign-in-email
 - inputText: ${EMAIL}
-- extendedWaitUntil:
-    visible:
-      id: sign-in-code
-    timeout: 8000
 - tapOn:
-    id: sign-in-code
-- inputText: "424242"
+    id: sign-in-password
+- inputText: ${PASSWORD}
 - hideKeyboard
 - tapOn:
     id: sign-in-submit

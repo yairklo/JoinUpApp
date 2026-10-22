@@ -2,7 +2,7 @@ appId: com.yairklo.joinupapp
 name: match-results screens
 ---
 - runFlow: subflows/session.yaml
-- tapOn:
-    id: "game-card-.*"
+- openLink: joinup://game/seed_game_approval
+- waitForAnimationToEnd
 - takeScreenshot:
     path: ../../../docs/design-screens/mobile/match-results/game-${THEME}
