@@ -7,7 +7,7 @@ Scripted screenshots for the design agent. Do not browse the app to refresh thes
 - Users: `adult-a`, `adult-b`, `minor-c`, `organizer-o` (`+clerk_test@example.com`, code 424242).
 - Files: `web/<feature>/<screen-id>-<light|dark>.png` and `mobile/<feature>/<screen-id>-<light|dark>.png`. Web screen ids include the viewport (`profile-desktop`, `profile-mobile`).
 
-Use a row only when `last captured` is a sha and a date. `failed` and `stale` are not current, and those pngs were removed (`profile-minor-mobile` light, `game-mobile` dark, `tournaments-new-mobile` light). Every `platform=mobile` row is `not yet`. Earlier hand-captured frames in `docs/plans/d1-feature1-screens/` are not this pack.
+Use a row only when `last captured` is a sha and a date. `failed` and `stale` are not current, and those pngs were removed (`profile-minor-mobile` light, `game-mobile` dark, `tournaments-new-mobile` light). Mobile rows were captured against the Dev API; `profile-settings` and `tournaments-new` deep links do not navigate under Maestro so they are `failed` with no PNG. Earlier hand-captured frames in `docs/plans/d1-feature1-screens/` are not this pack.
 
 | screen id | platform | route/screen | source file | theme | last captured (sha, date) |
 | --- | --- | --- | --- | --- | --- |
@@ -43,13 +43,15 @@ Use a row only when `last captured` is a sha and a date. `failed` and `stale` ar
 | tournament-desktop | web | /tournaments/cmvjab6px0001qe0iqqd47k50 | next_app/src/components/tournaments/shell/TournamentPage.tsx | dark | 91ce4a0 2026-10-22 |
 | tournament-mobile | web | /tournaments/cmvjab6px0001qe0iqqd47k50 | next_app/src/components/tournaments/shell/TournamentPage.tsx | light | 91ce4a0 2026-10-22 |
 | tournament-mobile | web | /tournaments/cmvjab6px0001qe0iqqd47k50 | next_app/src/components/tournaments/shell/TournamentPage.tsx | dark | 91ce4a0 2026-10-22 |
-| profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | light | not yet |
-| profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | dark | not yet |
-| profile-settings | mobile | /profile/settings | mobile_app/app/profile/settings.tsx | light | not yet |
-| profile-settings | mobile | /profile/settings | mobile_app/app/profile/settings.tsx | dark | not yet |
-| game | mobile | /(tabs)/game/[id] | mobile_app/app/(tabs)/game/[id].tsx | light | not yet |
-| game | mobile | /(tabs)/game/[id] | mobile_app/app/(tabs)/game/[id].tsx | dark | not yet |
-| tournaments-list | mobile | /tournaments | mobile_app/app/tournaments/index.tsx | light | not yet |
-| tournaments-list | mobile | /tournaments | mobile_app/app/tournaments/index.tsx | dark | not yet |
-| tournaments-new | mobile | /tournaments/new | mobile_app/app/tournaments/new.tsx | light | not yet |
-| tournaments-new | mobile | /tournaments/new | mobile_app/app/tournaments/new.tsx | dark | not yet |
+| profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | light | 2a5f61dd 2026-10-22 |
+| profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | dark | 2a5f61dd 2026-10-22 (screen renders light UI in dark mode) |
+| profile-settings | mobile | /profile/settings | mobile_app/app/profile/settings.tsx | light | failed (deep link did not open settings) |
+| profile-settings | mobile | /profile/settings | mobile_app/app/profile/settings.tsx | dark | failed (deep link did not open settings) |
+| game | mobile | /(tabs)/game/[id] | mobile_app/app/(tabs)/game/[id].tsx | light | 2a5f61dd 2026-10-22 |
+| game | mobile | /(tabs)/game/[id] | mobile_app/app/(tabs)/game/[id].tsx | dark | 2a5f61dd 2026-10-22 |
+| tournaments-list | mobile | /tournaments | mobile_app/app/tournaments/index.tsx | light | 2a5f61dd 2026-10-22 |
+| tournaments-list | mobile | /tournaments | mobile_app/app/tournaments/index.tsx | dark | 2a5f61dd 2026-10-22 |
+| tournaments-new | mobile | /tournaments/new | mobile_app/app/tournaments/new.tsx | light | failed (deep link did not open the form) |
+| tournaments-new | mobile | /tournaments/new | mobile_app/app/tournaments/new.tsx | dark | failed (deep link did not open the form) |
+| tournament | mobile | /tournaments/[id] | mobile_app/app/tournaments/[id]/index.tsx | light | 2a5f61dd 2026-10-22 |
+| tournament | mobile | /tournaments/[id] | mobile_app/app/tournaments/[id]/index.tsx | dark | 2a5f61dd 2026-10-22 |

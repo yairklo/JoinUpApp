@@ -9,8 +9,4 @@ name: profile screens
     timeout: 30000
 - waitForAnimationToEnd
 - takeScreenshot:
-    path: ../../../docs/design-screens/mobile/profile/profile-${THEME}
-- openLink: joinup://profile/settings
-- waitForAnimationToEnd
-- takeScreenshot:
-    path: ../../../docs/design-screens/mobile/profile/profile-settings-${THEME}
+    path: profile/profile-${THEME}
