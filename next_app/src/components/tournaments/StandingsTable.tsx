@@ -81,16 +81,24 @@ export default function StandingsTable({
         zIndex: 1,
     });
 
+    // Tints are painted per cell as a gradient layer (not on the row): sticky cells need an opaque base, and an
+    // inherited translucent row colour would otherwise be painted twice on them.
+    const layer = (c: string) => `linear-gradient(${c}, ${c})`;
     const rowSx = (row: StandingsRow): SxProps<Theme> => (theme) => ({
         height: 50,
         cursor: compact ? "pointer" : "default",
-        bgcolor: row.team.id === myTeamId ? alpha(theme.palette.primary.main, 0.08) : undefined,
         "& > td, & > th": {
             borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
             py: 0,
             px: 0.75,
+            backgroundImage: row.team.id === myTeamId ? layer(alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.16 : 0.08)) : "none",
+            transition: "background-color 120ms ease",
             ...tabular,
         },
+        ...(compact
+            ? { "&:hover > td, &:hover > th, &:focus-visible > td": { backgroundColor: theme.palette.mode === "dark" ? "#1a2436" : "#f6f8fb" } }
+            : {}),
+        "&:focus-visible": { outline: `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 },
         "&:last-of-type > td, &:last-of-type > th": {
             borderBottom: "none",
         },
@@ -99,7 +107,15 @@ export default function StandingsTable({
         },
         // dashed divider after the last qualifier
         ...(hasZone && row.rank === advanceCount
-            ? { "& > td, & > th": { borderBottom: `2px dashed ${theme.palette.divider}`, py: 0, px: 0.75, ...tabular } }
+            ? {
+                  "& > td, & > th": {
+                      borderBottom: `2px dashed ${theme.palette.divider}`,
+                      py: 0,
+                      px: 0.75,
+                      backgroundImage: row.team.id === myTeamId ? layer(alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.16 : 0.08)) : "none",
+                      ...tabular,
+                  },
+              }
             : {}),
     });
 
@@ -149,7 +165,6 @@ export default function StandingsTable({
                         <TableRow
                             sx={(theme) => ({
                                 height: 38,
-                                bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.04 : 0.025),
                                 "& th": {
                                     py: 0,
                                     px: 0.75,
@@ -157,13 +172,14 @@ export default function StandingsTable({
                                     fontWeight: 700,
                                     color: "text.secondary",
                                     borderBottomColor: "divider",
+                                    backgroundImage: layer(alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.05 : 0.03)),
                                 },
                             })}
                         >
-                            <TableCell sx={{ width: RANK_W, textAlign: "center", ...(stickyCell(0) as object), bgcolor: "inherit" }} title="דירוג">
+                            <TableCell sx={{ width: RANK_W, textAlign: "center", ...(stickyCell(0) as object) }} title="דירוג">
                                 #
                             </TableCell>
-                            <TableCell sx={{ ...(stickyCell(RANK_W) as object), bgcolor: "inherit", width: compact ? undefined : 140, minWidth: compact ? 0 : 140 }}>
+                            <TableCell sx={{ ...(stickyCell(RANK_W) as object), width: compact ? undefined : 140, minWidth: compact ? 0 : 140 }}>
                                 קבוצה
                             </TableCell>
                             {cols.map((c) => (
@@ -202,7 +218,7 @@ export default function StandingsTable({
                                         }
                                         sx={rowSx(row)}
                                     >
-                                        <TableCell sx={{ width: RANK_W, textAlign: "center", ...(stickyCell(0) as object), bgcolor: "inherit" }}>
+                                        <TableCell sx={{ width: RANK_W, textAlign: "center", ...(stickyCell(0) as object) }}>
                                             <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.25}>
                                                 {row.manualRank != null && (
                                                     <Tooltip title="הסדר נקבע ידנית ע״י מארגן הטורניר">
@@ -222,7 +238,7 @@ export default function StandingsTable({
                                                 )}
                                             </Stack>
                                         </TableCell>
-                                        <TableCell sx={{ ...(stickyCell(RANK_W) as object), bgcolor: "inherit", maxWidth: compact ? undefined : 140, minWidth: 0 }}>
+                                        <TableCell sx={{ ...(stickyCell(RANK_W) as object), maxWidth: compact ? undefined : 140, minWidth: 0 }}>
                                             <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
                                                 {crown && row.rank === 1 && <span aria-label="מנצחת הליגה" role="img">🏆</span>}
                                                 <TeamBadge team={row.team} emphasis={mine ? "winner" : undefined} testId={`standings-team-${row.team.id}`} />

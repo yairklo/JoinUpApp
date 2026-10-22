@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
+import MuiLink from "@mui/material/Link";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -142,16 +142,27 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
                                 </Typography>
                             )}
                             {t.customLocation && (
-                                <Typography variant="body2" sx={{ mt: t.description ? 1.5 : 0, fontWeight: 500 }}>
-                                    {`📍 ${t.customLocation}`}{" "}
-                                    <Link
+                                <Stack
+                                    direction="row"
+                                    alignItems="center"
+                                    justifyContent="space-between"
+                                    spacing={1.5}
+                                    sx={{ mt: t.description ? 1.75 : 0, pt: t.description ? 1.75 : 0, borderTop: t.description ? 1 : 0, borderColor: "divider" }}
+                                >
+                                    <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0 }}>
+                                        {`📍 ${t.customLocation}`}
+                                    </Typography>
+                                    <MuiLink
                                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.customLocation)}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        underline="hover"
+                                        variant="body2"
+                                        sx={{ fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" }}
                                     >
                                         פתיחה במפה
-                                    </Link>
-                                </Typography>
+                                    </MuiLink>
+                                </Stack>
                             )}
                         </Box>
                     )}

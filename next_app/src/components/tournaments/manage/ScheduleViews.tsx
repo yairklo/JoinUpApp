@@ -10,7 +10,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import SportsScoreRoundedIcon from "@mui/icons-material/SportsScoreRounded";
 import ReportProblemRoundedIcon from "@mui/icons-material/ReportProblemRounded";
@@ -73,7 +73,25 @@ export default function ScheduleViews({ items, conflictedKeys, durationMinutes, 
     return (
         <Box data-testid="schedule-views">
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }} flexWrap="wrap" useFlexGap>
-                <ToggleButtonGroup size="small" exclusive value={mode} onChange={(_, v) => v && setView(v)} aria-label="תצוגה">
+                <ToggleButtonGroup
+                    size="small"
+                    exclusive
+                    value={mode}
+                    onChange={(_, v) => v && setView(v)}
+                    aria-label="תצוגה"
+                    sx={(theme) => ({
+                        p: 0.5,
+                        gap: 0.5,
+                        borderRadius: 999,
+                        bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.08 : 0.05),
+                        "& .MuiToggleButtonGroup-grouped": { border: 0, borderRadius: "999px !important", mx: 0, px: 1.75, fontWeight: 700, textTransform: "none", color: "text.secondary" },
+                        "& .MuiToggleButtonGroup-grouped.Mui-selected, & .MuiToggleButtonGroup-grouped.Mui-selected:hover": {
+                            bgcolor: "background.paper",
+                            color: "text.primary",
+                            boxShadow: theme.shadows[2],
+                        },
+                    })}
+                >
                     <ToggleButton value="day" data-testid="schedule-view-day">לפי יום</ToggleButton>
                     <ToggleButton value="grid" data-testid="schedule-view-grid">לוח מגרשים</ToggleButton>
                 </ToggleButtonGroup>
@@ -135,19 +153,36 @@ function DayList({ items, conflictedKeys, focusKey, editable, onEdit, onScore }:
                         spacing={1}
                         data-testid={`schedule-match-block-${it.key}`}
                         sx={{
-                            minHeight: 48,
-                            px: 1,
-                            borderBottom: 1,
-                            borderColor: "divider",
-                            outline: conflict ? "2px solid" : "none",
+                            minHeight: 60,
+                            py: 1,
+                            px: 1.25,
+                            mb: 1,
+                            border: 1,
+                            borderColor: conflict ? "warning.main" : "divider",
+                            outline: conflict ? "1px solid" : "none",
                             outlineColor: "warning.main",
-                            bgcolor: focusKey === it.key ? "action.selected" : "transparent",
-                            borderRadius: 1,
+                            bgcolor: focusKey === it.key ? "action.selected" : "background.paper",
+                            borderRadius: 2.5,
                         }}
                     >
-                        <Typography variant="body2" sx={{ width: 48, fontVariantNumeric: "tabular-nums" }}>{time ?? "–"}</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ width: 72 }} noWrap>{it.court ?? ""}</Typography>
-                        <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap title={blockLabel(it)}>{blockLabel(it)}</Typography>
+                        <Box sx={{ width: 56, flexShrink: 0, textAlign: "center", py: 0.25, borderInlineEnd: 1, borderColor: "divider", me: 0.5 }}>
+                            <Typography variant="body2" fontWeight={800} sx={{ fontVariantNumeric: "tabular-nums", lineHeight: 1.3 }}>{time ?? "–"}</Typography>
+                            {it.court && (
+                                <Typography variant="caption" color="text.secondary" display="block" noWrap sx={{ lineHeight: 1.3 }}>
+                                    {`מגרש ${it.court}`}
+                                </Typography>
+                            )}
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }} title={blockLabel(it)}>
+                            <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" sx={{ lineHeight: 1.3 }}>
+                                {`#${it.number}`}
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.35, wordBreak: "break-word" }}>
+                                {it.home}
+                                <Box component="span" sx={{ color: "text.disabled", mx: 0.75 }}>–</Box>
+                                {it.away}
+                            </Typography>
+                        </Box>
                         {conflict && <ReportProblemRoundedIcon fontSize="small" color="warning" aria-label="התנגשות" />}
                         {onScore && (
                             <IconButton aria-label={`הזנת תוצאה למשחק ${it.number}`} onClick={() => onScore(it.key)} data-testid={`schedule-score-${it.key}`} sx={{ width: 44, height: 44 }}>

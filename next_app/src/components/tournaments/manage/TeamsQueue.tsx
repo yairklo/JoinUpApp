@@ -16,6 +16,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 import PanToolAltRoundedIcon from "@mui/icons-material/PanToolAltRounded";
 import { useStandings, useTeamDecision, useTeamMutations, useTournamentTeams } from "@/hooks/tournaments";
 import { displayGroupName, displayStageName } from "@/utils/tournamentViews";
@@ -58,67 +59,84 @@ export function TeamQueueRow({ team, minPlayers, maxPlayers, segment, busy, onDe
     const captain = team.members.find((m) => m.role === "CAPTAIN")?.name;
     const approveBlocked = validity.state === "missing";
     const pct = Math.min(100, (n / Math.max(1, maxPlayers)) * 100);
+    const decisions = segment === "PENDING" || segment === "WAITLISTED" || segment === "OTHER";
     return (
-        <Stack
-            direction={{ xs: "column", md: "row" }}
-            alignItems={{ md: "center" }}
-            spacing={1.5}
+        <Box
             data-testid={`queue-team-${team.id}`}
-            sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 3, mb: 1 }}
+            sx={(theme) => ({
+                p: { xs: 1.75, md: 2 },
+                mb: 1.25,
+                borderRadius: 3,
+                border: 1,
+                borderColor: "divider",
+                bgcolor: "background.paper",
+                boxShadow: theme.shadows[1],
+                display: "grid",
+                gap: { xs: 1.5, md: 2.5 },
+                alignItems: "center",
+                gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 200px auto" },
+            })}
         >
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-                <TeamBadge team={team} size={32} lines={2} />
-                {captain && (
-                    <Typography variant="caption" color="text.secondary" display="block">{`קפטן: ${captain}`}</Typography>
-                )}
-            </Box>
-            <Box sx={{ width: { md: 180 } }}>
+            <Stack direction="row" alignItems="flex-start" spacing={1} sx={{ minWidth: 0 }}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <TeamBadge team={team} size={32} lines={2} />
+                    {captain && (
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }} noWrap>
+                            {`קפטן: ${captain}`}
+                        </Typography>
+                    )}
+                </Box>
+                <Chip
+                    size="small"
+                    label={rosterValidityLabel(validity)}
+                    color={validity.state === "ok" ? "success" : validity.state === "missing" ? "warning" : "error"}
+                    variant="outlined"
+                    data-testid={`queue-validity-${team.id}`}
+                    sx={{ flexShrink: 0, fontWeight: 700 }}
+                />
+            </Stack>
+            <Box>
+                <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                        שחקנים
+                    </Typography>
+                    <Typography variant="caption" fontWeight={700} sx={{ fontVariantNumeric: "tabular-nums" }}>
+                        <bdi>{`${n} מתוך ${minPlayers}–${maxPlayers}`}</bdi>
+                    </Typography>
+                </Stack>
                 <Box
                     role="meter"
                     aria-valuemin={0}
                     aria-valuemax={maxPlayers}
                     aria-valuenow={n}
                     aria-valuetext={`${n === 1 ? "שחקן אחד" : `${n} שחקנים`}, נדרשים ${minPlayers} עד ${maxPlayers}`}
-                    sx={{ height: 6, borderRadius: 3, bgcolor: "action.hover", overflow: "hidden" }}
+                    sx={{ height: 8, borderRadius: 4, bgcolor: "action.hover", overflow: "hidden" }}
                 >
-                    <Box sx={{ width: `${pct}%`, height: "100%", bgcolor: validity.state === "ok" ? "success.main" : "warning.main" }} />
+                    <Box sx={{ width: `${pct}%`, height: "100%", borderRadius: 4, bgcolor: validity.state === "ok" ? "success.main" : "warning.main" }} />
                 </Box>
-                <Typography variant="caption" color="text.secondary">{`${n} מתוך ${minPlayers}–${maxPlayers}`}</Typography>
             </Box>
-            <Chip
-                size="small"
-                label={rosterValidityLabel(validity)}
-                color={validity.state === "ok" ? "success" : validity.state === "missing" ? "warning" : "error"}
-                variant="outlined"
-                data-testid={`queue-validity-${team.id}`}
-            />
-            {(segment === "PENDING" || segment === "WAITLISTED" || segment === "OTHER") && (
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={{ xs: "flex-start", md: "flex-end" }}>
+                {decisions && (
                     <Tooltip title={approveBlocked ? `אי אפשר לאשר קבוצה עם פחות מ-${minPlayers} שחקנים` : ""}>
                         <span>
-                            <Button size="small" variant="contained" disabled={busy || approveBlocked} onClick={() => onDecide("APPROVE")} data-testid={`queue-approve-${team.id}`} sx={{ minHeight: 40 }}>
+                            <Button size="small" variant="contained" disabled={busy || approveBlocked} onClick={() => onDecide("APPROVE")} data-testid={`queue-approve-${team.id}`} sx={{ minHeight: 40, px: 2.5 }}>
                                 אישור
                             </Button>
                         </span>
                     </Tooltip>
-                    {segment !== "WAITLISTED" && (
-                        <Button size="small" variant="outlined" disabled={busy} onClick={() => onDecide("WAITLIST")} data-testid={`queue-waitlist-${team.id}`} sx={{ minHeight: 40 }}>
-                            רשימת המתנה
-                        </Button>
-                    )}
-                    {segment !== "OTHER" && (
-                        <Button size="small" color="error" disabled={busy} onClick={() => onDecide("REJECT")} data-testid={`queue-reject-${team.id}`} sx={{ minHeight: 40 }}>
-                            דחייה
-                        </Button>
-                    )}
-                </Stack>
-            )}
-            {segment === "APPROVED" && (
-                <Button size="small" color="error" disabled={busy} onClick={() => onDecide("REJECT")} data-testid={`queue-reject-${team.id}`} sx={{ minHeight: 40 }}>
-                    דחייה
-                </Button>
-            )}
-        </Stack>
+                )}
+                {decisions && segment !== "WAITLISTED" && (
+                    <Button size="small" variant="outlined" disabled={busy} onClick={() => onDecide("WAITLIST")} data-testid={`queue-waitlist-${team.id}`} sx={{ minHeight: 40 }}>
+                        רשימת המתנה
+                    </Button>
+                )}
+                {((decisions && segment !== "OTHER") || segment === "APPROVED") && (
+                    <Button size="small" color="error" disabled={busy} onClick={() => onDecide("REJECT")} data-testid={`queue-reject-${team.id}`} sx={{ minHeight: 40, ms: { xs: "auto", md: 0 } }}>
+                        דחייה
+                    </Button>
+                )}
+            </Stack>
+        </Box>
     );
 }
 
@@ -205,7 +223,36 @@ export default function TeamsQueue({ tournament }: TeamsQueueProps) {
 
     return (
         <Box data-testid="manage-section-teams">
-            <Tabs value={active} onChange={(_, v) => { setSegment(v); setSeedOrder(null); }} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ mb: 1.5 }}>
+            <Tabs
+                value={active}
+                onChange={(_, v) => { setSegment(v); setSeedOrder(null); }}
+                variant="scrollable"
+                scrollButtons={false}
+                sx={(theme) => ({
+                    mb: 2,
+                    minHeight: 0,
+                    "& .MuiTabs-indicator": { display: "none" },
+                    "& .MuiTabs-flexContainer": { gap: 1 },
+                    "& .MuiTab-root": {
+                        minHeight: 36,
+                        py: 0.75,
+                        px: 1.75,
+                        borderRadius: 999,
+                        border: 1,
+                        borderColor: "divider",
+                        fontWeight: 700,
+                        fontSize: "0.85rem",
+                        color: "text.secondary",
+                        bgcolor: "background.paper",
+                        transition: "background-color 150ms ease, color 150ms ease",
+                    },
+                    "& .MuiTab-root.Mui-selected": {
+                        color: theme.palette.mode === "dark" ? theme.palette.primary.light : theme.palette.primary.dark,
+                        bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.18 : 0.1),
+                        borderColor: alpha(theme.palette.primary.main, 0.5),
+                    },
+                })}
+            >
                 {SEGMENTS.map((s) => (
                     <Tab key={s.key} value={s.key} label={`${s.label} (${groups[s.key].length})`} data-testid={`queue-segment-${s.key}`} />
                 ))}

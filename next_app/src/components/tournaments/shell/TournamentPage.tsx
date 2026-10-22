@@ -132,10 +132,10 @@ export default function TournamentPage({ id }: { id: string }) {
                     onChange={(_, v: TournamentTabKey) => setTab(v)}
                     variant="scrollable"
                     scrollButtons="auto"
-                    allowScrollButtonsMobile
                     aria-label="אזורי הטורניר"
                     sx={{
                         "& .MuiTabs-indicator": { height: 3, borderRadius: "3px 3px 0 0" },
+                        "& .MuiTab-root": { minWidth: 0 },
                     }}
                 >
                     {tabs.map((k) => (
@@ -149,10 +149,8 @@ export default function TournamentPage({ id }: { id: string }) {
                     ))}
                 </Tabs>
             </Box>
-            <Box sx={{ mt: 1.5 }}>
-                <UpdatedCue show={updated} testId="tournament-updated-cue" />
-            </Box>
-            <Box sx={{ mt: 2 }} role="tabpanel">
+            <UpdatedCue show={updated} testId="tournament-updated-cue" />
+            <Box sx={{ mt: { xs: 2.5, md: 3 } }} role="tabpanel">
                 {active === "overview" && <OverviewTab tournament={t} onGoTab={setTab} onScoreMatch={onScoreMatch} />}
                 {active === "teams" && (
                     <TeamsTab tournament={t} registerHref={t.capabilities.canRegisterTeam ? `/tournaments/${t.id}/team/new` : undefined} />

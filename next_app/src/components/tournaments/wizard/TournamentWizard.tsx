@@ -113,11 +113,26 @@ export default function TournamentWizard(p: TournamentWizardProps) {
                 })}
             >
                 <Typography variant="body2" fontWeight={700} color="text.primary" data-testid="wizard-progress-label">
-                    {`שלב ${p.step} מתוך 5 · ${WIZARD_STEP_TITLES[p.step - 1]}`}
+                    <Box component="span" sx={{ color: "text.secondary", fontWeight: 600 }}>{`שלב ${p.step} מתוך 5 · `}</Box>
+                    {WIZARD_STEP_TITLES[p.step - 1]}
                 </Typography>
                 <Box sx={{ display: "flex", gap: 0.75, mt: 1.25 }} aria-hidden>
                     {WIZARD_STEP_TITLES.map((_, i) => (
-                        <Box key={i} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: i < p.step ? "primary.main" : "action.hover" }} />
+                        <Box
+                            key={i}
+                            sx={(theme) => ({
+                                flex: 1,
+                                height: 6,
+                                borderRadius: 3,
+                                bgcolor:
+                                    i + 1 === p.step
+                                        ? "primary.main"
+                                        : i + 1 < p.step
+                                          ? alpha(theme.palette.primary.main, 0.45)
+                                          : "action.hover",
+                                transition: "background-color 200ms ease",
+                            })}
+                        />
                     ))}
                 </Box>
             </Box>
@@ -197,12 +212,12 @@ export default function TournamentWizard(p: TournamentWizardProps) {
                             backdropFilter: "blur(10px)",
                         })}
                     >
-                        <Button data-testid="wizard-back" onClick={p.onBack} disabled={p.saving || p.step === 1} sx={{ minHeight: 44 }}>
+                        <Button data-testid="wizard-back" onClick={p.onBack} disabled={p.saving || p.step === 1} sx={{ minHeight: 44, minWidth: 0, px: 1.5, whiteSpace: "nowrap" }}>
                             חזרה
                         </Button>
                         <Box sx={{ flex: 1 }} />
                         {!p.isPublished && (
-                            <Button data-testid="wizard-save-draft" variant="outlined" onClick={p.onSaveDraft} disabled={p.saving} sx={{ minHeight: 44 }}>
+                            <Button data-testid="wizard-save-draft" variant="outlined" onClick={p.onSaveDraft} disabled={p.saving} sx={{ minHeight: 44, whiteSpace: "nowrap", px: { xs: 1.75, md: 2.5 } }}>
                                 שמירה כטיוטה
                             </Button>
                         )}
@@ -212,7 +227,7 @@ export default function TournamentWizard(p: TournamentWizardProps) {
                             onClick={handlePrimary}
                             disabled={p.saving}
                             startIcon={p.saving ? <CircularProgress size={16} color="inherit" /> : undefined}
-                            sx={{ minHeight: 44, minWidth: 104, px: 3 }}
+                            sx={{ minHeight: 44, minWidth: { xs: 88, md: 104 }, px: { xs: 2.5, md: 3 }, whiteSpace: "nowrap" }}
                         >
                             {nextLabel}
                         </Button>
