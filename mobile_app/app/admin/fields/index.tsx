@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Image, ActivityIndicator, Switch, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { fieldsApi, Field } from '@/services/api/fields';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING } from '@/utils/sports';
 import BackButton from '@/components/ui/BackButton';
+import SafeImage from '@/components/SafeImage';
 
 /**
  * Mobile counterpart of next_app's admin fields list
@@ -145,7 +146,7 @@ export default function AdminFieldsListScreen() {
                         return (
                             <View key={field.id} className="flex-row items-center px-4 py-3 border-b border-gray-100 bg-white">
                                 {field.image ? (
-                                    <Image source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100" />
+                                    <SafeImage source={{ uri: field.image }} className="w-14 h-14 rounded-xl mr-3 bg-gray-100" />
                                 ) : (
                                     <View className="w-14 h-14 rounded-xl mr-3 bg-brand-mist items-center justify-center">
                                         <Text className="text-brand font-bold text-lg">{field.name?.[0]}</Text>

@@ -12,6 +12,7 @@ import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
 import UploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
+import SafeImage from "@/components/ui/SafeImage";
 
 interface FieldPhotoGalleryProps {
   fieldId: string;
@@ -87,8 +88,14 @@ export default function FieldPhotoGallery({ fieldId, photos, onChange }: FieldPh
             height={96}
             borderRadius={1}
             overflow="hidden"
-            sx={{ backgroundImage: `url(${url})`, backgroundSize: "cover", backgroundPosition: "center" }}
+            sx={{ bgcolor: "grey.200" }}
           >
+            <SafeImage
+              src={url}
+              alt=""
+              fallback={null}
+              style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
+            />
             <IconButton
               size="small"
               onClick={() => handleRemove(url)}

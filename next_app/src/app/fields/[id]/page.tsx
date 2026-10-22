@@ -13,7 +13,7 @@ import FieldIssueReportSection from "@/components/FieldIssueReportSection";
 // MUI Imports
 import Container from "@mui/material/Container";
 import Card from "@mui/material/Card";
-import CardMedia from "@mui/material/CardMedia";
+import SafeImage from "@/components/ui/SafeImage";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
@@ -123,7 +123,15 @@ export default async function FieldProfilePage(props: { params: Promise<{ id: st
       <Container maxWidth="md" sx={{ py: 4 }}>
         {/* Field Header & Info */}
         <Card sx={{ mb: 3, overflow: "hidden" }}>
-          <CardMedia component="img" image={imgSrc} alt={field.name} sx={{ height: 220, objectFit: "cover" }} />
+          <SafeImage
+            src={imgSrc}
+            alt={field.name}
+            style={{ display: "block", width: "100%", height: 220, objectFit: "cover" }}
+            fallback={
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src="/images/default-field.jpg" alt={field.name} style={{ display: "block", width: "100%", height: 220, objectFit: "cover" }} />
+            }
+          />
           <Box sx={{ p: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
               <Box>

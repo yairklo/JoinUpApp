@@ -24,7 +24,7 @@ export interface ProfileStatsCardProps {
     /** false (hidden/private) renders nothing at all. */
     visible: boolean;
     isOwner?: boolean;
-    /** Owner has hideMatchStats on; the banner is omitted when unknown (spec 12.1 fallback). */
+    /** Owner has hideMatchStats on (server `ownerHidden`). */
     ownerHidden?: boolean;
     sports: SportStatsAggregate[];
     selectedSport?: string | null;
@@ -40,10 +40,19 @@ const cardSx = { border: 1, borderColor: "divider", borderRadius: 2, p: { xs: 2,
 
 function Header({ isOwner, emoji }: { isOwner?: boolean; emoji?: string }) {
     return (
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1.5 }}>
+        <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            flexWrap="wrap"
+            useFlexGap
+            columnGap={1}
+            rowGap={0.25}
+            sx={{ mb: 1.5 }}
+        >
             <Stack direction="row" alignItems="center" spacing={1}>
                 {emoji ? <span aria-hidden>{emoji}</span> : <InsightsRoundedIcon color="primary" fontSize="small" />}
-                <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>
+                <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
                     {isOwner ? "הסטטיסטיקות שלי" : "סטטיסטיקות"}
                 </Typography>
             </Stack>
@@ -57,7 +66,9 @@ function Header({ isOwner, emoji }: { isOwner?: boolean; emoji?: string }) {
                     sx={{ color: "text.secondary", cursor: "help" }}
                 >
                     <InfoOutlinedIcon sx={{ fontSize: 14 }} />
-                    <Typography variant="caption">לפי מנהלי המשחקים</Typography>
+                    <Typography variant="caption" sx={{ whiteSpace: "nowrap" }}>
+                        לפי מנהלי המשחקים
+                    </Typography>
                 </Stack>
             </Tooltip>
         </Stack>
@@ -189,7 +200,7 @@ export default function ProfileStatsCard({
                     <Typography variant="caption" sx={{ flex: 1 }}>
                         מוסתר מאחרים, רק לך זה מוצג
                     </Typography>
-                    <Typography variant="caption" component={Link} href={settingsHref} sx={{ color: "primary.main", fontWeight: 600 }}>
+                    <Typography variant="caption" component={Link} href={settingsHref} sx={{ color: "primary.main", fontWeight: 600, whiteSpace: "nowrap" }}>
                         שינוי בהגדרות
                     </Typography>
                 </Stack>
@@ -253,11 +264,10 @@ export default function ProfileStatsCard({
                     {shownKeys.map((key) => {
                         const total = current.totals[key];
                         const binary = key === "mvp" || key === "cleanSheet";
+                        // Binary keys read as a count ("3 פעמים שחקן המשחק"); a single time drops "פעמים".
                         const caption = binary
-                            ? key === "mvp"
-                                ? "פעמים שחקן המשחק"
-                                : "פעמים רשת נקייה"
-                            : getStatLabel(current.sport, key, "he");
+                            ? `${total === 1 ? "" : "פעמים "}${key === "mvp" ? "שחקן המשחק" : "רשת נקייה"}`
+                            : getStatLabel(current.sport, key, "he", total);
                         const perGame = current.perGame[key];
                         return (
                             <Box

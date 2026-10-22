@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { ratingsApi, GameRatingTeammate } from "@/services/api/ratings";
 import Avatar from "@/components/Avatar";
+import ReportUserDialog from "@/components/ReportUserDialog";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
 
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -24,6 +28,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
     const [submittingId, setSubmittingId] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [reportTarget, setReportTarget] = useState<GameRatingTeammate | null>(null);
 
     useEffect(() => {
         let active = true;
@@ -132,11 +137,29 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
                                     />
                                 </Box>
                                 {submittingId === t.id && <CircularProgress size={20} />}
+                                <Tooltip title="דווח על שחקן">
+                                    <IconButton
+                                        size="small"
+                                        aria-label={`דווח על ${t.name || "שחקן"}`}
+                                        data-testid={`game-ratings-report-${t.id}`}
+                                        onClick={() => setReportTarget(t)}
+                                    >
+                                        <FlagOutlinedIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
                             </Stack>
                         ))}
                     </Stack>
                 </CardContent>
             </Card>
+
+            <ReportUserDialog
+                open={!!reportTarget}
+                onClose={() => setReportTarget(null)}
+                targetId={reportTarget?.id ?? ""}
+                targetName={reportTarget?.name || undefined}
+                gameId={gameId}
+            />
 
             <Snackbar
                 open={success}

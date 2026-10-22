@@ -143,7 +143,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
 
             {/* Match stats: hidden/private renders nothing; own view shows an empty state */}
             <Box mb={4} sx={{ "&:empty": { display: "none" } }}>
-                <ProfileStatsSection userId={userId} isOwner={isOwner} ownerHidden={isOwner ? profile.privacySettings?.hideMatchStats : undefined} />
+                <ProfileStatsSection userId={userId} isOwner={isOwner} />
             </Box>
 
             {/* Match history */}

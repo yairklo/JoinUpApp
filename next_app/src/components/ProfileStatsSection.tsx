@@ -9,12 +9,9 @@ import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 export default function ProfileStatsSection({
     userId,
     isOwner,
-    ownerHidden,
 }: {
     userId: string;
     isOwner?: boolean;
-    /** Owner's own hideMatchStats flag when known (no banner otherwise). */
-    ownerHidden?: boolean;
 }) {
     const { data, loading, error, reload } = useUserStats(userId);
     const [selectedSport, setSelectedSport] = useState<string | null>(null);
@@ -26,7 +23,7 @@ export default function ProfileStatsSection({
                 state={state}
                 visible={state !== "ready" || data?.visible !== false}
                 isOwner={isOwner}
-                ownerHidden={ownerHidden}
+                ownerHidden={data?.ownerHidden}
                 sports={data?.sports ?? []}
                 selectedSport={selectedSport}
                 onSelectSport={setSelectedSport}

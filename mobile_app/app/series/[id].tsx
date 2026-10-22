@@ -1,4 +1,4 @@
-import { View, Text, Switch, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Image, Share } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Share } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,6 +21,7 @@ import BackButton from '@/components/ui/BackButton';
 import FriendsOnlyLinkPolicyPicker from '@/components/FriendsOnlyLinkPolicyPicker';
 import SeriesJoinRequests from '@/components/series/SeriesJoinRequests';
 import type { FriendsOnlyLinkPolicy } from '@/types/game';
+import SafeImage from '@/components/SafeImage';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -388,12 +389,12 @@ export default function SeriesScreen() {
                 {/* Hero Header Card */}
                 <View className="bg-white p-6 mb-4 shadow-sm">
                     {!!imageUrl && (
-                        <Image source={{ uri: imageUrl }} className="w-full h-40 rounded-xl mb-4" resizeMode="cover" />
+                        <SafeImage source={{ uri: imageUrl }} className="w-full h-40 rounded-xl mb-4" resizeMode="cover" />
                     )}
                     {/* Organizer row */}
                     <View className="flex-row items-center mb-4">
                         {series.organizer?.avatar ? (
-                            <Image source={{ uri: series.organizer.avatar }} className="w-12 h-12 rounded-full mr-3 border border-gray-200" />
+                            <SafeImage source={{ uri: series.organizer.avatar }} className="w-12 h-12 rounded-full mr-3 border border-gray-200" />
                         ) : (
                             <View className="w-12 h-12 rounded-full bg-brand-pale items-center justify-center mr-3">
                                 <FontAwesome name="user" size={20} color="#059669" />
@@ -532,7 +533,7 @@ export default function SeriesScreen() {
                             {series.subscribers.map((sub: any) => (
                                 <View key={sub.userId} className="items-center mr-4 w-16">
                                     {sub.user?.avatar ? (
-                                        <Image source={{ uri: sub.user.avatar }} className="w-14 h-14 rounded-full mb-1 border border-gray-200" />
+                                        <SafeImage source={{ uri: sub.user.avatar }} className="w-14 h-14 rounded-full mb-1 border border-gray-200" />
                                     ) : (
                                         <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-1 border border-gray-200">
                                             <FontAwesome name="user" size={20} color="#9ca3af" />

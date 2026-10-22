@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { gameStartMs } from '@/utils/timezone';
 import React, { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
@@ -17,6 +17,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useMyAvatar, useMyName, notifyAvatarChanged, notifyNameChanged } from '@/hooks/useMyAvatar';
 import { pickOneImage } from '@/utils/pickImage';
 import ProfileStats from '@/components/ProfileStats';
+import SafeImage from '@/components/SafeImage';
 
 const getPositionOptions = (t: any): Record<string, string[]> => ({
     SOCCER: [
@@ -316,7 +317,7 @@ export default function ProfileScreen() {
                         accessibilityLabel={t('upload.avatarChange', 'החלפת תמונה')}
                         className="mb-3"
                     >
-                        <Image
+                        <SafeImage
                             source={{ uri: displayAvatar }}
                             className="w-24 h-24 rounded-full bg-gray-200 border-2 border-brand-mist"
                         />
@@ -712,7 +713,7 @@ export default function ProfileScreen() {
                 {/* Own match stats; banner shows when hidden from others */}
                 {user?.id ? (
                     <View className="mx-4 mb-4">
-                        <ProfileStats userId={user.id} isOwner ownerHidden={profile?.privacySettings?.hideMatchStats} />
+                        <ProfileStats userId={user.id} isOwner />
                     </View>
                 ) : null}
 

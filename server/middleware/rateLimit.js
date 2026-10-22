@@ -21,6 +21,7 @@ function isExempt(req) {
   if (req.method === 'OPTIONS') return true;
   const url = String(req.originalUrl || req.url || '');
   return url.startsWith('/api/health')
+    || url.startsWith('/uploads/')
     || url.startsWith('/api/socket')
     || url.startsWith('/socket.io');
 }

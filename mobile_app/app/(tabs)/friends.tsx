@@ -1,4 +1,4 @@
-import { View, Text, Image, TouchableOpacity, ScrollView, Alert, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, RefreshControl } from 'react-native';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import PlayerSearch from '@/components/PlayerSearch';
+import SafeImage from '@/components/SafeImage';
 
 export default function FriendsScreen() {
     const { t } = useTranslation();
@@ -128,7 +129,7 @@ export default function FriendsScreen() {
                         {incomingRequests.map(req => (
                             <View key={req.id} className="flex-row items-center justify-between py-2 border-b border-gray-50 last:border-b-0">
                                 <TouchableOpacity onPress={() => router.push(`/user/${req.requester.id}`)} className="flex-row items-center flex-1">
-                                    <Image
+                                    <SafeImage
                                         source={{ uri: req.requester.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.requester.name)}` }}
                                         className="w-10 h-10 rounded-full bg-gray-200 mr-3"
                                     />
@@ -174,7 +175,7 @@ export default function FriendsScreen() {
                         friends.map(friend => (
                             <View key={friend.id} className="flex-row items-center justify-between py-2 border-b border-gray-50 last:border-b-0">
                                 <TouchableOpacity onPress={() => router.push(`/user/${friend.id}`)} className="flex-row items-center flex-1">
-                                    <Image
+                                    <SafeImage
                                         source={{ uri: friend.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(friend.name)}` }}
                                         className="w-10 h-10 rounded-full bg-gray-200 mr-3"
                                     />

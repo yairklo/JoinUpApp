@@ -12,7 +12,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChatLogic } from '@/hooks/useChatLogic';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
+import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 
 type PickState = {
   gameId: string;
@@ -67,6 +67,7 @@ export default function LiveTeamManagementScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getToken } = useAuth();
   const getTokenRef = useAuthTokenRef();
+  const signedOutSinceMount = useSignedOutSinceMount();
   const { user } = useUser();
   const router = useRouter();
   const { t } = useTranslation();
@@ -115,6 +116,7 @@ export default function LiveTeamManagementScreen() {
         loadedRef.current = true;
       }
     } catch (e) {
+      if (signedOutSinceMount()) return;
       console.error(e);
       Alert.alert(t('teams.error'), t('teams.loadFailed'));
       router.back();

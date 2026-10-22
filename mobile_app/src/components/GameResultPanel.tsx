@@ -41,7 +41,7 @@ const COLLAPSE_AT = 6;
 function Swatch({ color }: { color: string }) {
     return (
         <View
-            className="w-2.5 h-2.5 rounded-full border border-gray-200 dark:border-cyber-border"
+            className="w-2.5 h-2.5 rounded-full border border-gray-200 dark:border-cyber-muted"
             style={{ backgroundColor: color }}
         />
     );

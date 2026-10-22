@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useAuth } from '@clerk/clerk-expo';
 import { fieldsApi } from '@/services/api/fields';
 import { pickOneImage } from '@/utils/pickImage';
+import SafeImage from '@/components/SafeImage';
 
 interface FieldPhotoGalleryProps {
     fieldId: string;
@@ -62,7 +63,7 @@ export default function FieldPhotoGallery({ fieldId, photos, onChange }: FieldPh
             <View className="flex-row flex-wrap gap-2">
                 {photos.map((url) => (
                     <View key={url} className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 relative">
-                        <Image source={{ uri: url }} className="w-24 h-24" />
+                        <SafeImage source={{ uri: url }} className="w-24 h-24" />
                         <TouchableOpacity
                             onPress={() => handleRemove(url)}
                             disabled={removingUrl === url}

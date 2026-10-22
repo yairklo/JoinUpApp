@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -7,6 +7,7 @@ import { fieldsApi, FieldIssueCategory, FieldIssueReport, FieldFlagReason, Picke
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
 import { pickOneImage } from '@/utils/pickImage';
+import SafeImage from '@/components/SafeImage';
 
 const CATEGORIES: FieldIssueCategory[] = ['POTHOLE', 'LIGHTING', 'SURFACE', 'GOAL_NET', 'FENCE', 'OTHER'];
 
@@ -252,7 +253,7 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
 
                 {issue.photoUrl && !isEditing && (
                     <View className="mt-2" style={{ width: 140, position: 'relative' }}>
-                        <Image source={{ uri: issue.photoUrl }} style={{ width: 140, height: 100, borderRadius: 8 }} />
+                        <SafeImage source={{ uri: issue.photoUrl }} style={{ width: 140, height: 100, borderRadius: 8 }} />
                         {isOwn && (
                             <TouchableOpacity
                                 onPress={() => removePhoto(issue)}
@@ -371,7 +372,7 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
                     </TouchableOpacity>
                     {photo && (
                         <View className="flex-row items-center mt-2" style={{ gap: 8 }}>
-                            <Image source={{ uri: photo.uri }} style={{ width: 60, height: 60, borderRadius: 8 }} />
+                            <SafeImage source={{ uri: photo.uri }} style={{ width: 60, height: 60, borderRadius: 8 }} />
                             <TouchableOpacity onPress={() => setPhoto(null)}>
                                 <FontAwesome name="times-circle" size={18} color="#9ca3af" />
                             </TouchableOpacity>

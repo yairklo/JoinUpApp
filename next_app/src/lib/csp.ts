@@ -56,7 +56,31 @@ export function buildCsp(env: Env = process.env): string {
     }
   })();
 
-  const clerk = ["https://*.clerk.accounts.dev", "https://clerk.join-up-app.vercel.app", "https://challenges.cloudflare.com"];
+  // Clerk's frontend API runs through the /__clerk proxy of the PRODUCTION site. On a Vercel preview
+  // (pk_live_ key) clerk-js resolves that proxy to the canonical origin, i.e. cross-origin from the
+  // preview URL, so it must be listed explicitly ('self' only covers the production domain itself).
+  const siteOrigin = (() => {
+    try {
+      return new URL(env.NEXT_PUBLIC_SITE_URL || "https://join-up-app.vercel.app").origin;
+    } catch {
+      return null;
+    }
+  })();
+  const clerkProxyOrigin = (() => {
+    try {
+      const proxy = env.NEXT_PUBLIC_CLERK_PROXY_URL?.trim();
+      return proxy && /^https:\/\//.test(proxy) ? new URL(proxy).origin : null;
+    } catch {
+      return null;
+    }
+  })();
+  const clerk = [
+    "https://*.clerk.accounts.dev",
+    "https://clerk.join-up-app.vercel.app",
+    "https://challenges.cloudflare.com",
+    ...(siteOrigin ? [siteOrigin] : []),
+    ...(clerkProxyOrigin ? [clerkProxyOrigin] : []),
+  ];
   const google = [
     "https://maps.googleapis.com",
     "https://maps.gstatic.com",
@@ -85,6 +109,8 @@ export function buildCsp(env: Env = process.env): string {
       ...google,
       "https://*.google-analytics.com",
       "https://*.analytics.google.com",
+      // GA4 (via Firebase Analytics) also beacons to www.google.com/g/collect — seen in CSP reports.
+      "https://www.google.com",
     ],
     "frame-src": ["'self'", ...clerk, "https://www.google.com"],
     "worker-src": ["'self'", "blob:"],

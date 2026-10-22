@@ -7,7 +7,7 @@ export const BINARY_STAT_KEYS = ['cleanSheet', 'mvp'];
 
 export const OUTCOME_LABEL_HE: Record<ResultOutcome, string> = { WIN: 'ניצחון', DRAW: 'תיקו', LOSS: 'הפסד' };
 
-/** Non-zero stats in STAT_DEFS order as text parts: "2 שערים", "בישולים: 1", "⭐ שחקן המשחק". */
+/** Non-zero stats in STAT_DEFS order as text parts: "2 שערים", "1 בישול", "⭐ שחקן המשחק". */
 export function formatStatParts(sport: string, values: StatValues | null | undefined): string[] {
     const parts: string[] = [];
     for (const d of getStatDefs(sport)) {
@@ -15,7 +15,7 @@ export function formatStatParts(sport: string, values: StatValues | null | undef
         if (!(v > 0)) continue;
         if (d.key === 'mvp') continue;
         if (BINARY_STAT_KEYS.includes(d.key)) parts.push(d.he);
-        else parts.push(v === 1 ? `${d.he}: 1` : `${v} ${d.he}`);
+        else parts.push(`${v} ${v === 1 && d.heOne ? d.heOne : d.he}`);
     }
     if ((values?.mvp ?? 0) > 0) parts.push('⭐ שחקן המשחק');
     return parts;

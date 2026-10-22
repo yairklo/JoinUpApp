@@ -28,17 +28,17 @@ export function sideSwatchColor(side: { order: number; teamId: string | null }, 
     return side.order === 0 ? getSportTheme(sport).base : '#9ca3af';
 }
 
-/** Non-zero stats in STAT_DEFS order as display strings; value 1 renders "label: 1" (spec 1.6). MVP/cleanSheet are badges. */
+/** Non-zero stats in STAT_DEFS order as display strings; value 1 uses the singular label. MVP/cleanSheet are badges. */
 export function describeStats(sport: string, values: Record<string, number>, lang: Lang): { key: string; text: string }[] {
     const out: { key: string; text: string }[] = [];
     for (const def of getStatDefs(sport)) {
         const v = values[def.key];
         if (!v || v <= 0) continue;
-        const label = getStatLabel(sport, def.key, lang);
+        const label = getStatLabel(sport, def.key, lang, v);
         if (BINARY_STAT_KEYS.includes(def.key)) {
             out.push({ key: def.key, text: def.key === 'mvp' ? `⭐ ${label}` : label });
         } else {
-            out.push({ key: def.key, text: v === 1 ? `${label}: 1` : `${v} ${label}` });
+            out.push({ key: def.key, text: `${v} ${label}` });
         }
     }
     // MVP last

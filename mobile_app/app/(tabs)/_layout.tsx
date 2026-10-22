@@ -1,13 +1,14 @@
 import React, { useCallback } from 'react';
 import { Tabs, Link } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TouchableOpacity, Text, View, Image } from 'react-native';
+import { TouchableOpacity, Text, View } from 'react-native';
 import i18n, { changeLanguage } from '@/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useMyAvatar } from '@/hooks/useMyAvatar';
 import { useNotificationCounters } from '@/context/NotificationCountersContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorMode } from '@/theme/ColorModeContext';
+import SafeImage from '@/components/SafeImage';
 
 const BRAND = '#059669';
 
@@ -63,7 +64,7 @@ export default function TabLayout() {
       <Link href="/user/profile" asChild>
         <TouchableOpacity testID="header-profile" className="w-8 h-8 bg-brand-mist dark:bg-cyber-card rounded-xl items-center justify-center border border-brand-pale dark:border-cyber-border overflow-hidden">
           {hasAvatar ? (
-            <Image source={{ uri: avatarUrl }} style={{ width: '100%', height: '100%' }} />
+            <SafeImage source={{ uri: avatarUrl }} style={{ width: '100%', height: '100%' }} />
           ) : (
             <Ionicons name="person-outline" size={16} color={isDark ? '#f1f5f9' : '#0f172a'} />
           )}

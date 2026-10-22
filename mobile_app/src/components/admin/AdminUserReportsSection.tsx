@@ -51,8 +51,10 @@ export function ReportCard({ report, busy, onResolve, onDismiss, onBan }: Report
     const when = new Date(report.createdAt).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
     const game = report.game;
     const gameLine = game
-        ? [game.field?.name ?? 'משחק', game.start ? new Date(game.start).toLocaleDateString('he-IL') : null].filter(Boolean).join(' · ')
+        ? [game.title || game.field?.name || 'משחק', game.title ? game.field?.name : null, game.start ? new Date(game.start).toLocaleDateString('he-IL') : null].filter(Boolean).join(' · ')
         : null;
+    const tournamentTitle = report.tournament ? report.tournament.title || 'טורניר' : null;
+    const repeat = report.status === 'OPEN' && report.openReportsOnTarget > 1;
 
     return (
         <View
@@ -77,7 +79,13 @@ export function ReportCard({ report, busy, onResolve, onDismiss, onBan }: Report
             <Text className="text-gray-500 dark:text-cyber-muted text-sm">
                 על: <Text className="text-gray-900 dark:text-cyber-text font-bold">{targetName}</Text>
             </Text>
+            {repeat ? (
+                <Text testID={`admin-user-report-repeat-${report.id}`} className="text-orange-700 dark:text-orange-300 text-xs font-bold">
+                    {report.openReportsOnTarget} דיווחים פתוחים על השחקן הזה
+                </Text>
+            ) : null}
             {gameLine ? <Text className="text-gray-500 dark:text-cyber-muted text-xs">משחק: {gameLine}</Text> : null}
+            {tournamentTitle ? <Text className="text-gray-500 dark:text-cyber-muted text-xs">טורניר: {tournamentTitle}</Text> : null}
             {report.details ? (
                 <Text className="text-gray-700 dark:text-cyber-text text-sm" numberOfLines={4}>{report.details}</Text>
             ) : null}

@@ -1,4 +1,4 @@
-import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, Keyboard, Image } from 'react-native';
+import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, Keyboard } from 'react-native';
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useChatLogic } from '@/hooks/useChatLogic';
@@ -13,6 +13,7 @@ import MessageActionSheet from '@/components/chat/MessageActionSheet';
 import { chatsApi, type MessageReportReason } from '@/services/api/chats';
 import { usersApi } from '@/services/api/users';
 import { ChatMessage } from '@/types/chat';
+import SafeImage from '@/components/SafeImage';
 
 export default function ChatScreen() {
     const { t } = useTranslation();
@@ -244,7 +245,7 @@ export default function ChatScreen() {
                     activeOpacity={0.7}
                 >
                     {otherUserId && avatarByUserId[otherUserId] ? (
-                        <Image source={{ uri: avatarByUserId[otherUserId]! }} style={{ width: 44, height: 44, borderRadius: 22, marginLeft: 12 }} />
+                        <SafeImage source={{ uri: avatarByUserId[otherUserId]! }} style={{ width: 44, height: 44, borderRadius: 22, marginLeft: 12 }} />
                     ) : (
                         <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#E5E7EB', marginLeft: 12, alignItems: 'center', justifyContent: 'center' }}>
                             <Ionicons name={isPrivate ? "person" : "chatbubbles"} size={24} color="#9CA3AF" />

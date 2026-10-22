@@ -11,17 +11,6 @@ appId: com.yairklo.joinupapp
       id: profile-sign-out
 - tapOn:
     id: profile-sign-out
-# App quirk (reported, not fixed here): the game screen left mounted behind the profile refetches
-# after sign-out, gets 401 and shows a native "Failed to load game details" alert over the sign-in
-# screen. The alert hides the sign-in elements from Maestro, so dismiss it if it appears.
-- extendedWaitUntil:
-    visible:
-      id: "android:id/button1"
-    timeout: 8000
-    optional: true
-- tapOn:
-    id: "android:id/button1"
-    optional: true
 - extendedWaitUntil:
     visible:
       id: sign-in-to-sign-up

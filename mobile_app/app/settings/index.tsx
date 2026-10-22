@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import React, { useCallback, useState } from 'react';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -10,6 +10,7 @@ import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+import SafeImage from '@/components/SafeImage';
 
 // "1.0.0 · preview · a1b2c3d4" — which store build and which OTA update is running. The update id
 // is only present when the running JS came from EAS Update rather than the bundle embedded in the build.
@@ -116,7 +117,7 @@ export default function SettingsScreen() {
             <ScrollView className="flex-1 bg-gray-50">
                 {/* Profile Section */}
                 <View className="mt-6 mb-6 items-center">
-                    <Image
+                    <SafeImage
                         source={{ uri: avatarUrl }}
                         className="w-24 h-24 rounded-full bg-gray-200 mb-3"
                     />

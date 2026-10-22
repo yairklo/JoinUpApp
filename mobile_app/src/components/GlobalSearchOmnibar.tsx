@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, Image, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
 import { searchApi, GlobalSearchResults } from '@/services/api/search';
 import { SPORT_MAPPING } from '@/utils/sports';
+import SafeImage from '@/components/SafeImage';
 
 const EMPTY: GlobalSearchResults = { users: [], fields: [], games: [] };
 
@@ -105,7 +106,7 @@ export default function GlobalSearchOmnibar() {
                                             className="flex-row items-center px-4 py-3 border-b border-gray-50 dark:border-gray-800"
                                         >
                                             {u.imageUrl ? (
-                                                <Image
+                                                <SafeImage
                                                     source={{ uri: u.imageUrl }}
                                                     style={{ width: 32, height: 32, borderRadius: 16, marginRight: 12 }}
                                                 />

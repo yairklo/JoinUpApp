@@ -36,7 +36,7 @@ export default function MatchResultBadge({ gameId, sport, result }: Props) {
     const outcomeLabel = result.outcome ? OUTCOME_LABEL_HE[result.outcome] : "";
     const ariaLabel = [
         score ? `${outcomeLabel} ${score[0]}–${score[1]}`.trim() : "",
-        ...statKeys.map((k) => `${result.myStats[k]} ${getStatLabel(sportKey, k, "he")}`),
+        ...statKeys.map((k) => `${result.myStats[k]} ${getStatLabel(sportKey, k, "he", result.myStats[k])}`),
     ]
         .filter(Boolean)
         .join(", ");
