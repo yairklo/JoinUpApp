@@ -78,14 +78,14 @@ export default function MatchCard({
 
     const meta = [`#${match.number}`, time, match.courtLabel].filter(Boolean);
     const body = (
-        <Stack spacing={1}>
+        <Stack spacing={1.25}>
             <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
                 <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
                     <Typography
                         variant="caption"
                         color="text.secondary"
                         noWrap
-                        sx={{ textDecoration: postponed ? "line-through" : "none" }}
+                        sx={{ fontWeight: 600, textDecoration: postponed ? "line-through" : "none" }}
                     >
                         {meta.join(" · ")}
                     </Typography>
@@ -130,23 +130,23 @@ export default function MatchCard({
             </Stack>
 
             {showScore && match.homePenalties != null && match.awayPenalties != null && (
-                <Typography variant="caption" color="text.secondary" align="center" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                <Typography variant="caption" color="text.secondary" align="center" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
                     {`פנדלים ${match.homePenalties} : ${match.awayPenalties}`}
                 </Typography>
             )}
             {forfeitLoser && (
-                <Typography variant="caption" color="text.secondary" align="center">
+                <Typography variant="caption" color="text.secondary" align="center" fontWeight={500}>
                     {`${match[forfeitLoser].team?.name ?? ""} (הפסד טכני)`}
                 </Typography>
             )}
             {postponed && (
-                <Typography variant="caption" color="text.secondary" align="center">
+                <Typography variant="caption" color="text.secondary" align="center" fontWeight={500}>
                     מועד חדש ייקבע
                 </Typography>
             )}
 
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ minHeight: 24 }}>
-                <Typography variant="caption" color="text.secondary" noWrap>
+                <Typography variant="caption" color="text.secondary" noWrap fontWeight={500}>
                     {isMine ? (caption ? `הקבוצה שלך · ${caption}` : "הקבוצה שלך") : caption ?? ""}
                 </Typography>
             </Stack>
@@ -158,60 +158,69 @@ export default function MatchCard({
 
     return (
         <Box sx={changedFlashSx(!!changed)} style={{ borderRadius: 12 }}>
-        <Card
-            variant="outlined"
-            data-testid={id}
-            data-status={status}
-            data-mine={isMine ? "true" : undefined}
-            sx={(theme) => ({
+            <Card
+                variant="outlined"
+                data-testid={id}
+                data-status={status}
+                data-mine={isMine ? "true" : undefined}
+                sx={(theme) => ({
                     position: "relative",
-                    borderRadius: 2,
-                    p: 1.5,
+                    borderRadius: 2.5,
+                    p: 1.75,
+                    bgcolor: "background.paper",
+                    boxShadow: theme.shadows[1],
                     opacity: cancelled ? 0.6 : 1,
-                    borderColor: live ? alpha(theme.palette.error.main, 0.4) : "divider",
+                    borderColor: live ? alpha(theme.palette.error.main, 0.45) : "divider",
                     // 3px start-edge bar for my team (RTL aware via logical property)
                     borderInlineStart: isMine ? `3px solid ${theme.palette.primary.main}` : undefined,
-            })}
-        >
-            {href ? (
-                <Box
-                    component={Link}
-                    href={href}
-                    aria-label={`משחק ${match.number}: ${homeName} – ${awayName}`}
-                    sx={{ color: "inherit", textDecoration: "none", display: "block", "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 } }}
-                >
-                    {body}
-                </Box>
-            ) : (
-                body
-            )}
-            {(showCalendar || showScoreBtn) && (
-                <Stack direction="row" spacing={0.5} sx={{ position: "absolute", insetInlineEnd: 4, bottom: 4 }}>
-                    {showCalendar && (
-                        <IconButton
-                            size="small"
-                            aria-label="הוספה ליומן"
-                            data-testid={`match-card-calendar-${match.id}`}
-                            onClick={() => onAddToCalendar?.(match)}
-                            sx={{ width: 40, height: 40 }}
-                        >
-                            <EventAvailableRounded fontSize="small" />
-                        </IconButton>
-                    )}
-                    {showScoreBtn && (
-                        <IconButton
-                            size="small"
-                            aria-label={status === "FINISHED" || status === "FORFEIT" ? "עדכון תוצאה" : "הזנת תוצאה"}
-                            data-testid={`match-card-edit-${match.id}`}
-                            onClick={() => onScore?.(match)}
-                            sx={{ width: 40, height: 40 }}
-                        >
-                            <EditRounded fontSize="small" />
-                        </IconButton>
-                    )}
-                </Stack>
-            )}
-        </Card>
+                    transition: "box-shadow 0.15s ease, border-color 0.15s ease",
+                    "&:hover": href
+                        ? {
+                              boxShadow: theme.shadows[2],
+                              borderColor: live ? alpha(theme.palette.error.main, 0.6) : alpha(theme.palette.primary.main, 0.35),
+                          }
+                        : undefined,
+                })}
+            >
+                {href ? (
+                    <Box
+                        component={Link}
+                        href={href}
+                        aria-label={`משחק ${match.number}: ${homeName} – ${awayName}`}
+                        sx={{ color: "inherit", textDecoration: "none", display: "block", "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 } }}
+                    >
+                        {body}
+                    </Box>
+                ) : (
+                    body
+                )}
+                {(showCalendar || showScoreBtn) && (
+                    <Stack direction="row" spacing={0.5} sx={{ position: "absolute", insetInlineEnd: 6, bottom: 6 }}>
+                        {showCalendar && (
+                            <IconButton
+                                size="small"
+                                aria-label="הוספה ליומן"
+                                data-testid={`match-card-calendar-${match.id}`}
+                                onClick={() => onAddToCalendar?.(match)}
+                                sx={{ width: 40, height: 40 }}
+                            >
+                                <EventAvailableRounded fontSize="small" />
+                            </IconButton>
+                        )}
+                        {showScoreBtn && (
+                            <IconButton
+                                size="small"
+                                aria-label={status === "FINISHED" || status === "FORFEIT" ? "עדכון תוצאה" : "הזנת תוצאה"}
+                                data-testid={`match-card-edit-${match.id}`}
+                                onClick={() => onScore?.(match)}
+                                sx={{ width: 40, height: 40 }}
+                            >
+                                <EditRounded fontSize="small" />
+                            </IconButton>
+                        )}
+                    </Stack>
+                )}
+            </Card>
         </Box>
     );
 }

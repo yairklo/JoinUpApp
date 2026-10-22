@@ -35,18 +35,18 @@ export interface StandingsTableProps {
     sport?: "SOCCER" | "BASKETBALL" | "TENNIS";
 }
 
-const RANK_W = 28;
+const RANK_W = 32;
 const tabular = { fontVariantNumeric: "tabular-nums" } as const;
 
 const COLS: Array<{ key: "played" | "won" | "drawn" | "lost" | "gf" | "ga" | "gd" | "points"; head: string; title: string; compact: boolean; w: number }> = [
-    { key: "played", head: "מש׳", title: "משחקים", compact: true, w: 32 },
-    { key: "won", head: "נ׳", title: "ניצחונות", compact: false, w: 32 },
-    { key: "drawn", head: "ת׳", title: "תיקו", compact: false, w: 32 },
-    { key: "lost", head: "ה׳", title: "הפסדים", compact: false, w: 32 },
-    { key: "gf", head: "זכות", title: "זכות", compact: false, w: 40 },
-    { key: "ga", head: "חובה", title: "חובה", compact: false, w: 40 },
-    { key: "gd", head: "הפרש", title: "הפרש", compact: true, w: 40 },
-    { key: "points", head: "נק׳", title: "נקודות", compact: true, w: 40 },
+    { key: "played", head: "מש׳", title: "משחקים", compact: true, w: 34 },
+    { key: "won", head: "נ׳", title: "ניצחונות", compact: false, w: 34 },
+    { key: "drawn", head: "ת׳", title: "תיקו", compact: false, w: 34 },
+    { key: "lost", head: "ה׳", title: "הפסדים", compact: false, w: 34 },
+    { key: "gf", head: "זכות", title: "זכות", compact: false, w: 42 },
+    { key: "ga", head: "חובה", title: "חובה", compact: false, w: 42 },
+    { key: "gd", head: "הפרש", title: "הפרש", compact: true, w: 42 },
+    { key: "points", head: "נק׳", title: "נקודות", compact: true, w: 42 },
 ];
 
 function titleOf(t: StandingsTableData): string {
@@ -82,27 +82,35 @@ export default function StandingsTable({
     });
 
     const rowSx = (row: StandingsRow): SxProps<Theme> => (theme) => ({
-        height: 48,
+        height: 50,
         cursor: compact ? "pointer" : "default",
         bgcolor: row.team.id === myTeamId ? alpha(theme.palette.primary.main, 0.08) : undefined,
-        "& > td, & > th": { borderBottom: "none", py: 0, px: 0.5, ...tabular },
+        "& > td, & > th": {
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+            py: 0,
+            px: 0.75,
+            ...tabular,
+        },
+        "&:last-of-type > td, &:last-of-type > th": {
+            borderBottom: "none",
+        },
         "& > td:first-of-type": {
             boxShadow: hasZone && isQualifier(row, advanceCount) ? `inset 3px 0 0 ${theme.palette.success.main}` : undefined,
         },
         // dashed divider after the last qualifier
         ...(hasZone && row.rank === advanceCount
-            ? { "& > td, & > th": { borderBottom: `2px dashed ${theme.palette.divider}`, py: 0, px: 0.5, ...tabular } }
+            ? { "& > td, & > th": { borderBottom: `2px dashed ${theme.palette.divider}`, py: 0, px: 0.75, ...tabular } }
             : {}),
     });
 
     return (
         <Box data-testid={`standings-table-${table.stageId}-${idPart}`} sx={{ minWidth: 0 }}>
-            <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 0.5 }}>
+            <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
                 <Typography variant="subtitle1" fontWeight={800}>
                     {titleOf(table)}
                 </Typography>
                 {!table.complete && (
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" fontWeight={500}>
                         {played ? "הטבלה עדיין לא סופית" : "עוד לא שוחקו משחקים"}
                     </Typography>
                 )}
@@ -111,7 +119,7 @@ export default function StandingsTable({
             {table.needsManualRank && (
                 <Alert
                     severity="warning"
-                    sx={{ mb: 1 }}
+                    sx={{ mb: 1.5, borderRadius: 2 }}
                     data-testid="standings-needs-manual-rank"
                     action={
                         canManage && onSetManualRank ? (
@@ -125,14 +133,39 @@ export default function StandingsTable({
                 </Alert>
             )}
 
-            <TableContainer sx={{ overflowX: compact ? "visible" : "auto", maxWidth: "100%" }}>
+            <TableContainer
+                sx={(theme) => ({
+                    overflowX: compact ? "visible" : "auto",
+                    maxWidth: "100%",
+                    borderRadius: 2.5,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "background.paper",
+                    boxShadow: theme.shadows[1],
+                })}
+            >
                 <Table size="small" sx={{ tableLayout: compact ? "fixed" : "auto", minWidth: compact ? 0 : 520 }} aria-label={titleOf(table)}>
                     <TableHead>
-                        <TableRow sx={{ height: 32, "& th": { py: 0, px: 0.5, typography: "caption", fontWeight: 700, color: "text.secondary", borderBottomColor: "divider" } }}>
-                            <TableCell sx={{ width: RANK_W, textAlign: "center", ...(stickyCell(0) as object) }} title="דירוג">
+                        <TableRow
+                            sx={(theme) => ({
+                                height: 38,
+                                bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.04 : 0.025),
+                                "& th": {
+                                    py: 0,
+                                    px: 0.75,
+                                    typography: "caption",
+                                    fontWeight: 700,
+                                    color: "text.secondary",
+                                    borderBottomColor: "divider",
+                                },
+                            })}
+                        >
+                            <TableCell sx={{ width: RANK_W, textAlign: "center", ...(stickyCell(0) as object), bgcolor: "inherit" }} title="דירוג">
                                 #
                             </TableCell>
-                            <TableCell sx={{ ...(stickyCell(RANK_W) as object), width: compact ? undefined : 140, minWidth: compact ? 0 : 140 }}>קבוצה</TableCell>
+                            <TableCell sx={{ ...(stickyCell(RANK_W) as object), bgcolor: "inherit", width: compact ? undefined : 140, minWidth: compact ? 0 : 140 }}>
+                                קבוצה
+                            </TableCell>
                             {cols.map((c) => (
                                 <TableCell
                                     key={c.key}
@@ -178,12 +211,12 @@ export default function StandingsTable({
                                                 )}
                                                 {row.tied ? (
                                                     <Tooltip title="שוויון מלא בכל שוברי השוויון">
-                                                        <Typography component="span" variant="body2" color="text.secondary" sx={tabular}>
+                                                        <Typography component="span" variant="body2" color="text.secondary" sx={{ ...tabular, fontWeight: 700 }}>
                                                             {rankLabel(row)}
                                                         </Typography>
                                                     </Tooltip>
                                                 ) : (
-                                                    <Typography component="span" variant="body2" sx={tabular}>
+                                                    <Typography component="span" variant="body2" sx={{ ...tabular, fontWeight: 700 }}>
                                                         {rankLabel(row)}
                                                     </Typography>
                                                 )}
@@ -201,7 +234,7 @@ export default function StandingsTable({
                                         {cols.map((c) => (
                                             <TableCell
                                                 key={c.key}
-                                                sx={{ textAlign: "center", typography: "body2", fontWeight: c.key === "points" ? 800 : 400 }}
+                                                sx={{ textAlign: "center", typography: "body2", fontWeight: c.key === "points" ? 800 : 500 }}
                                             >
                                                 {c.key === "gd" ? <bdi dir="ltr">{formatGd(row.gd)}</bdi> : row[c.key]}
                                             </TableCell>
@@ -209,7 +242,7 @@ export default function StandingsTable({
                                     </TableRow>
                                     {expanded && (
                                         <TableRow data-testid={`standings-row-detail-${row.team.id}`}>
-                                            <TableCell colSpan={cols.length + 2} sx={{ py: 0.5, borderBottom: "none" }}>
+                                            <TableCell colSpan={cols.length + 2} sx={{ py: 0.75, px: 1.5, borderBottom: "none" }}>
                                                 <Typography variant="caption" color="text.secondary" sx={tabular}>
                                                     {`${row.won} נ׳ · ${row.drawn} ת׳ · ${row.lost} ה׳ · שערים `}
                                                     <bdi dir="ltr">{`${row.gf}:${row.ga}`}</bdi>
@@ -227,7 +260,7 @@ export default function StandingsTable({
             {hasZone && (
                 <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mt: 1 }}>
                     <Box aria-hidden sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "success.main" }} />
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
                         עולות לשלב הבא
                     </Typography>
                 </Stack>

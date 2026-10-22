@@ -1,9 +1,11 @@
 "use client";
 
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 import RosterMeter from "../RosterMeter";
 import NumberStepper from "./NumberStepper";
 import type { StepProps } from "./stepTypes";
@@ -14,8 +16,8 @@ export default function StepTeams({ values: v, errors, onChange, disabled, locke
     const byes = v.format === "KNOCKOUT" ? knockoutByes(v.maxTeams) : 0;
     return (
         <Stack spacing={3} data-testid="wizard-step-2">
-            <Stack spacing={1}>
-                <Typography variant="subtitle2" component="h3">מספר קבוצות</Typography>
+            <Stack spacing={1.5}>
+                <Typography variant="subtitle2" component="h3" fontWeight={800}>מספר קבוצות</Typography>
                 <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
                     <NumberStepper
                         label="מינימום"
@@ -51,7 +53,7 @@ export default function StepTeams({ values: v, errors, onChange, disabled, locke
             </Stack>
 
             <Stack spacing={1.5}>
-                <Typography variant="subtitle2" component="h3">גודל קבוצה</Typography>
+                <Typography variant="subtitle2" component="h3" fontWeight={800}>גודל קבוצה</Typography>
                 <NumberStepper
                     label="בהרכב (על המגרש)"
                     ariaLabel="מספר השחקנים בהרכב"
@@ -66,7 +68,7 @@ export default function StepTeams({ values: v, errors, onChange, disabled, locke
                 {errors.starters && (
                     <Typography variant="caption" color="error" data-testid="wizard-error-starters">{errors.starters}</Typography>
                 )}
-                <Typography variant="caption" color="text.secondary">שחקנים בקבוצה</Typography>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>שחקנים בקבוצה</Typography>
                 <Slider
                     data-testid="wizard-players-range"
                     value={[v.minPlayersPerTeam, v.maxPlayersPerTeam]}
@@ -111,22 +113,32 @@ export default function StepTeams({ values: v, errors, onChange, disabled, locke
                 {errors.players && (
                     <Typography variant="caption" color="error" data-testid="wizard-error-players">{errors.players}</Typography>
                 )}
-                {locked && <Alert severity="info" icon={false}>נעול אחרי בניית לוח המשחקים</Alert>}
+                {locked && <Alert severity="info" icon={false} sx={{ borderRadius: 2 }}>נעול אחרי בניית לוח המשחקים</Alert>}
             </Stack>
 
-            <Stack spacing={1}>
-                <Typography variant="caption" color="text.secondary">תצוגה</Typography>
-                <RosterMeter
-                    accepted={Math.min(v.minPlayersPerTeam, v.maxPlayersPerTeam)}
-                    min={v.minPlayersPerTeam}
-                    max={Math.max(v.maxPlayersPerTeam, 1)}
-                    starters={v.startersPerTeam}
-                    hideCaption
-                />
-                <Typography variant="body2">
-                    {`כל קבוצה תצטרך ${v.minPlayersPerTeam}–${v.maxPlayersPerTeam} שחקנים, ${v.startersPerTeam} מהם על המגרש.`}
-                </Typography>
-            </Stack>
+            <Box
+                sx={(theme) => ({
+                    p: 2,
+                    borderRadius: 2,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.03 : 0.015),
+                })}
+            >
+                <Stack spacing={1}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>תצוגה</Typography>
+                    <RosterMeter
+                        accepted={Math.min(v.minPlayersPerTeam, v.maxPlayersPerTeam)}
+                        min={v.minPlayersPerTeam}
+                        max={Math.max(v.maxPlayersPerTeam, 1)}
+                        starters={v.startersPerTeam}
+                        hideCaption
+                    />
+                    <Typography variant="body2" fontWeight={500}>
+                        {`כל קבוצה תצטרך ${v.minPlayersPerTeam}–${v.maxPlayersPerTeam} שחקנים, ${v.startersPerTeam} מהם על המגרש.`}
+                    </Typography>
+                </Stack>
+            </Box>
         </Stack>
     );
 }

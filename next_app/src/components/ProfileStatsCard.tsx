@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { alpha } from "@mui/material/styles";
+import type { Theme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -36,7 +37,14 @@ export interface ProfileStatsCardProps {
 const INITIAL_STAT_TILES = 4;
 const SOURCE_HINT = "התוצאות מוזנות על ידי מנהלי המשחקים ולא נבדקות.";
 
-const cardSx = { border: 1, borderColor: "divider", borderRadius: 2, p: { xs: 2, sm: 3 } } as const;
+const cardSx = (theme: Theme) => ({
+    border: 1,
+    borderColor: "divider",
+    borderRadius: 2.5,
+    bgcolor: "background.paper",
+    boxShadow: theme.shadows[2],
+    p: { xs: 2.25, sm: 3 },
+});
 
 function Header({ isOwner, emoji }: { isOwner?: boolean; emoji?: string }) {
     return (
@@ -47,11 +55,24 @@ function Header({ isOwner, emoji }: { isOwner?: boolean; emoji?: string }) {
             flexWrap="wrap"
             useFlexGap
             columnGap={1}
-            rowGap={0.25}
-            sx={{ mb: 1.5 }}
+            rowGap={0.5}
+            sx={{ mb: 2 }}
         >
             <Stack direction="row" alignItems="center" spacing={1}>
-                {emoji ? <span aria-hidden>{emoji}</span> : <InsightsRoundedIcon color="primary" fontSize="small" />}
+                <Box
+                    sx={(t) => ({
+                        width: 32,
+                        height: 32,
+                        borderRadius: 2,
+                        display: "grid",
+                        placeItems: "center",
+                        bgcolor: alpha(t.palette.primary.main, 0.12),
+                        color: "primary.main",
+                        fontSize: 16,
+                    })}
+                >
+                    {emoji ? <span aria-hidden>{emoji}</span> : <InsightsRoundedIcon fontSize="small" />}
+                </Box>
                 <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
                     {isOwner ? "הסטטיסטיקות שלי" : "סטטיסטיקות"}
                 </Typography>
@@ -63,10 +84,17 @@ function Header({ isOwner, emoji }: { isOwner?: boolean; emoji?: string }) {
                     spacing={0.5}
                     tabIndex={0}
                     aria-label={`לפי מנהלי המשחקים. ${SOURCE_HINT}`}
-                    sx={{ color: "text.secondary", cursor: "help" }}
+                    sx={{
+                        color: "text.secondary",
+                        cursor: "help",
+                        px: 1,
+                        py: 0.35,
+                        borderRadius: 999,
+                        bgcolor: "action.hover",
+                    }}
                 >
                     <InfoOutlinedIcon sx={{ fontSize: 14 }} />
-                    <Typography variant="caption" sx={{ whiteSpace: "nowrap" }}>
+                    <Typography variant="caption" sx={{ whiteSpace: "nowrap", fontWeight: 500 }}>
                         לפי מנהלי המשחקים
                     </Typography>
                 </Stack>
@@ -79,21 +107,32 @@ function Tile({ testId, value, label, outcome }: { testId: string; value: number
     return (
         <Box
             data-testid={testId}
-            sx={{ flex: 1, minWidth: 0, textAlign: "center", py: 1.25, borderRadius: 1.5, bgcolor: "action.hover" }}
+            sx={(t) => ({
+                flex: 1,
+                minWidth: 0,
+                textAlign: "center",
+                py: 1.5,
+                px: 0.75,
+                borderRadius: 2,
+                bgcolor: t.palette.mode === "dark" ? alpha(t.palette.text.primary, 0.04) : "action.hover",
+                border: "1px solid",
+                borderColor: "divider",
+            })}
         >
             <Typography
                 component="div"
                 sx={(theme) => ({
-                    fontSize: 22,
+                    fontSize: { xs: 22, sm: 24 },
                     fontWeight: 800,
-                    lineHeight: 1.2,
+                    lineHeight: 1.15,
+                    letterSpacing: "-0.02em",
                     fontVariantNumeric: "tabular-nums",
                     color: outcome ? outcomeSx(outcome)(theme).color : "text.primary",
                 })}
             >
                 {value}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: "block", mt: 0.25 }}>
                 {label}
             </Typography>
         </Box>
@@ -119,15 +158,15 @@ export default function ProfileStatsCard({
     if (state === "loading") {
         return (
             <Box data-testid="profile-stats-loading" sx={cardSx} aria-busy="true">
-                <Skeleton variant="rounded" width={140} height={24} sx={{ mb: 2 }} />
-                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                <Skeleton variant="rounded" width={160} height={28} sx={{ mb: 2, borderRadius: 1.5 }} />
+                <Stack direction="row" spacing={1.25} sx={{ mb: 2 }}>
                     {[0, 1, 2, 3].map((i) => (
-                        <Skeleton key={i} variant="rounded" height={64} sx={{ flex: 1 }} />
+                        <Skeleton key={i} variant="rounded" height={68} sx={{ flex: 1, borderRadius: 2 }} />
                     ))}
                 </Stack>
-                <Stack direction="row" spacing={1}>
-                    <Skeleton variant="rounded" height={72} sx={{ flex: 1 }} />
-                    <Skeleton variant="rounded" height={72} sx={{ flex: 1 }} />
+                <Stack direction="row" spacing={1.25}>
+                    <Skeleton variant="rounded" height={76} sx={{ flex: 1, borderRadius: 2 }} />
+                    <Skeleton variant="rounded" height={76} sx={{ flex: 1, borderRadius: 2 }} />
                 </Stack>
             </Box>
         );
@@ -137,12 +176,24 @@ export default function ProfileStatsCard({
         return (
             <Box data-testid="profile-stats-error" sx={cardSx}>
                 <Header isOwner={isOwner} />
-                <Stack direction="row" alignItems="center" spacing={1}>
-                    <Typography variant="body2" color="text.secondary">
+                <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    spacing={1.5}
+                    sx={(t) => ({
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: alpha(t.palette.error.main, 0.08),
+                        border: "1px solid",
+                        borderColor: alpha(t.palette.error.main, 0.2),
+                    })}
+                >
+                    <Typography variant="body2" color="text.secondary" fontWeight={500}>
                         לא הצלחנו לטעון את הסטטיסטיקות
                     </Typography>
                     {onRetry && (
-                        <Button size="small" variant="text" onClick={onRetry}>
+                        <Button size="small" variant="outlined" color="error" onClick={onRetry}>
                             נסו שוב
                         </Button>
                     )}
@@ -156,19 +207,32 @@ export default function ProfileStatsCard({
             <Box data-testid="profile-stats" sx={cardSx}>
                 <Header isOwner={isOwner} />
                 {isOwner ? (
-                    <Stack data-testid="profile-stats-empty" alignItems="center" spacing={0.5} sx={{ py: 2, textAlign: "center" }}>
-                        <Typography sx={{ fontSize: 32 }} aria-hidden>
+                    <Stack
+                        data-testid="profile-stats-empty"
+                        alignItems="center"
+                        spacing={1}
+                        sx={(t) => ({
+                            py: 3.5,
+                            px: 2,
+                            textAlign: "center",
+                            borderRadius: 2,
+                            bgcolor: t.palette.mode === "dark" ? alpha(t.palette.text.primary, 0.03) : "action.hover",
+                            border: "1px dashed",
+                            borderColor: "divider",
+                        })}
+                    >
+                        <Typography sx={{ fontSize: 32, lineHeight: 1 }} aria-hidden>
                             ⚽🏀🎾
                         </Typography>
-                        <Typography variant="subtitle1" fontWeight={700}>
+                        <Typography variant="subtitle1" fontWeight={800}>
                             עוד אין תוצאות
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360 }}>
                             כשמנהל משחק יזין תוצאה למשחק ששיחקתם בו, הסטטיסטיקות יופיעו כאן.
                         </Typography>
                     </Stack>
                 ) : (
-                    <Typography data-testid="profile-stats-empty" variant="body2" color="text.secondary">
+                    <Typography data-testid="profile-stats-empty" variant="body2" color="text.secondary" sx={{ py: 1 }}>
                         עוד אין תוצאות להצגה
                     </Typography>
                 )}
@@ -194,20 +258,34 @@ export default function ProfileStatsCard({
                     direction="row"
                     alignItems="center"
                     spacing={1}
-                    sx={{ bgcolor: "action.hover", borderRadius: 1.5, px: 1.5, py: 1, mb: 1.5, color: "text.secondary" }}
+                    sx={(t) => ({
+                        bgcolor: t.palette.mode === "dark" ? alpha(t.palette.text.primary, 0.06) : "action.hover",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        borderRadius: 2,
+                        px: 1.75,
+                        py: 1,
+                        mb: 2,
+                        color: "text.secondary",
+                    })}
                 >
                     <VisibilityOffRoundedIcon sx={{ fontSize: 18 }} />
-                    <Typography variant="caption" sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ flex: 1, fontWeight: 500 }}>
                         מוסתר מאחרים, רק לך זה מוצג
                     </Typography>
-                    <Typography variant="caption" component={Link} href={settingsHref} sx={{ color: "primary.main", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    <Typography
+                        variant="caption"
+                        component={Link}
+                        href={settingsHref}
+                        sx={{ color: "primary.main", fontWeight: 700, whiteSpace: "nowrap", textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
+                    >
                         שינוי בהגדרות
                     </Typography>
                 </Stack>
             )}
 
             {ordered.length > 1 && (
-                <Stack direction="row" spacing={1} sx={{ mb: 1.5, overflowX: "auto", pb: 0.5 }} role="group" aria-label="בחירת ענף">
+                <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: "auto", pb: 0.5 }} role="group" aria-label="בחירת ענף">
                     {ordered.map((s) => {
                         const selected = s.sport === current.sport;
                         const t = getSportTheme(s.sport);
@@ -222,18 +300,31 @@ export default function ProfileStatsCard({
                                 }}
                                 aria-pressed={selected}
                                 label={`${SPORT_EMOJI[s.sport] || "🏅"} ${SPORT_MAPPING[s.sport] || s.sport} · ${s.games}`}
-                                sx={{
-                                    fontWeight: 600,
+                                sx={(theme) => ({
+                                    fontWeight: 700,
                                     flexShrink: 0,
-                                    ...(selected ? { bgcolor: t.base, color: t.ink, "&:hover": { bgcolor: t.base } } : {}),
-                                }}
+                                    height: 34,
+                                    px: 0.5,
+                                    ...(selected
+                                        ? {
+                                              bgcolor: t.base,
+                                              color: t.ink,
+                                              boxShadow: `0 4px 12px -2px ${alpha(t.base, 0.45)}`,
+                                              "&:hover": { bgcolor: t.base },
+                                          }
+                                        : {
+                                              bgcolor: theme.palette.mode === "dark" ? alpha(theme.palette.text.primary, 0.06) : "action.hover",
+                                              border: "1px solid",
+                                              borderColor: "divider",
+                                          }),
+                                })}
                             />
                         );
                     })}
                 </Stack>
             )}
 
-            <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+            <Stack direction="row" spacing={{ xs: 1, sm: 1.25 }} sx={{ mb: 2 }}>
                 <Tile testId="profile-stats-tile-games" value={current.games} label="משחקים" />
                 <Tile testId="profile-stats-tile-wins" value={current.wins} label="ניצחונות" outcome="WIN" />
                 <Tile testId="profile-stats-tile-draws" value={current.draws} label="תיקו" outcome="DRAW" />
@@ -241,18 +332,18 @@ export default function ProfileStatsCard({
             </Stack>
 
             {sided > 0 && (
-                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
+                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2.25 }}>
                     <Box
                         role="img"
                         aria-label={`${current.wins} ניצחונות, ${current.draws} תיקו, ${current.losses} הפסדים`}
-                        sx={{ display: "flex", flex: 1, height: 8, borderRadius: 999, overflow: "hidden" }}
+                        sx={{ display: "flex", flex: 1, height: 8, borderRadius: 999, overflow: "hidden", bgcolor: "action.hover" }}
                     >
-                        <Box sx={{ width: `${(current.wins / sided) * 100}%`, bgcolor: "success.main" }} />
-                        <Box sx={{ width: `${(current.draws / sided) * 100}%`, bgcolor: "secondary.main" }} />
-                        <Box sx={{ width: `${(current.losses / sided) * 100}%`, bgcolor: "action.disabled" }} />
+                        <Box sx={{ width: `${(current.wins / sided) * 100}%`, bgcolor: "success.main", transition: "width 250ms ease" }} />
+                        <Box sx={{ width: `${(current.draws / sided) * 100}%`, bgcolor: "secondary.main", transition: "width 250ms ease" }} />
+                        <Box sx={{ width: `${(current.losses / sided) * 100}%`, bgcolor: "action.disabled", transition: "width 250ms ease" }} />
                     </Box>
                     {pct !== null && (
-                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
                             {pct}% ניצחונות
                         </Typography>
                     )}
@@ -260,7 +351,7 @@ export default function ProfileStatsCard({
             )}
 
             {shownKeys.length > 0 && (
-                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 1.25 }}>
                     {shownKeys.map((key) => {
                         const total = current.totals[key];
                         const binary = key === "mvp" || key === "cleanSheet";
@@ -274,23 +365,25 @@ export default function ProfileStatsCard({
                                 key={key}
                                 data-testid={`profile-stats-stat-${key}`}
                                 sx={(t) => ({
-                                    p: 1.5,
-                                    borderRadius: 1.5,
+                                    p: 1.75,
+                                    borderRadius: 2,
+                                    border: "1px solid",
+                                    borderColor: t.palette.mode === "dark" ? alpha(sportTheme.glow, 0.18) : alpha(sportTheme.deep, 0.14),
                                     bgcolor: t.palette.mode === "dark" ? alpha(sportTheme.deep, 0.35) : sportTheme.tint,
                                     color: t.palette.mode === "dark" ? sportTheme.glow : sportTheme.deep,
                                 })}
                             >
                                 <Typography
                                     component="div"
-                                    sx={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2, fontVariantNumeric: "tabular-nums" }}
+                                    sx={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}
                                 >
                                     {total}
                                 </Typography>
-                                <Typography variant="caption" component="div" sx={{ color: "inherit" }}>
+                                <Typography variant="caption" component="div" sx={{ color: "inherit", fontWeight: 700, mt: 0.25 }}>
                                     {caption}
                                 </Typography>
                                 {!binary && perGame != null && (
-                                    <Typography variant="caption" component="div" sx={{ color: "inherit", opacity: 0.8 }}>
+                                    <Typography variant="caption" component="div" sx={{ color: "inherit", opacity: 0.8, fontWeight: 500 }}>
                                         {formatPerGame(perGame)} למשחק
                                     </Typography>
                                 )}
@@ -301,7 +394,7 @@ export default function ProfileStatsCard({
             )}
 
             {!showAll && statKeys.length > INITIAL_STAT_TILES && (
-                <Button data-testid="profile-stats-show-all" size="small" variant="text" onClick={() => setShowAll(true)} sx={{ mt: 1 }}>
+                <Button data-testid="profile-stats-show-all" size="small" variant="text" onClick={() => setShowAll(true)} sx={{ mt: 1.5 }}>
                     הצגת כל הסטטיסטיקות
                 </Button>
             )}

@@ -5,6 +5,7 @@ import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 import type { WizardValues } from "./wizardModel";
 import { WIZARD_STEP_TITLES, matchCountText, reviewWarnings } from "./wizardModel";
 
@@ -43,24 +44,34 @@ export default function StepReview({ values: v, onEdit, errors }: StepReviewProp
     return (
         <Stack spacing={2} data-testid="wizard-step-5">
             {errors.length > 0 && (
-                <Alert severity="error" data-testid="wizard-review-errors">
+                <Alert severity="error" sx={{ borderRadius: 2 }} data-testid="wizard-review-errors">
                     <Stack component="ul" sx={{ m: 0, ps: 2 }}>{errors.map((e) => <li key={e}>{e}</li>)}</Stack>
                 </Alert>
             )}
             {warnings.length > 0 && (
-                <Alert severity="warning" data-testid="wizard-review-warnings">
+                <Alert severity="warning" sx={{ borderRadius: 2 }} data-testid="wizard-review-warnings">
                     <Stack component="ul" sx={{ m: 0, ps: 2 }}>{warnings.map((w) => <li key={w}>{w}</li>)}</Stack>
                 </Alert>
             )}
             {cards.map((c) => (
-                <Paper key={c.step} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                        <Typography variant="subtitle2" component="h3">{WIZARD_STEP_TITLES[c.step - 1]}</Typography>
-                        <Button size="small" onClick={() => onEdit(c.step)} aria-label={`עריכה: ${WIZARD_STEP_TITLES[c.step - 1]}`}>עריכה</Button>
+                <Paper
+                    key={c.step}
+                    variant="outlined"
+                    sx={(theme) => ({
+                        p: 2.25,
+                        borderRadius: 2.5,
+                        bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.025 : 0.015),
+                    })}
+                >
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.75 }}>
+                        <Typography variant="subtitle2" component="h3" fontWeight={800}>{WIZARD_STEP_TITLES[c.step - 1]}</Typography>
+                        <Button size="small" variant="outlined" onClick={() => onEdit(c.step)} aria-label={`עריכה: ${WIZARD_STEP_TITLES[c.step - 1]}`}>עריכה</Button>
                     </Stack>
-                    {c.lines.map((l) => (
-                        <Typography key={l} variant="body2" color="text.secondary">{l}</Typography>
-                    ))}
+                    <Stack spacing={0.25}>
+                        {c.lines.map((l) => (
+                            <Typography key={l} variant="body2" color="text.secondary" fontWeight={500}>{l}</Typography>
+                        ))}
+                    </Stack>
                 </Paper>
             ))}
         </Stack>

@@ -4,8 +4,10 @@ import { useMemo } from "react";
 import Link from "next/link";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 import MatchCard from "../MatchCard";
 import StandingsTable from "../StandingsTable";
 import UpdatedCue from "../UpdatedCue";
@@ -25,8 +27,13 @@ const TIEBREAK_LABEL: Record<string, string> = {
 function Section({ title, children, action, testId }: { title: string; children: React.ReactNode; action?: React.ReactNode; testId?: string }) {
     return (
         <Box component="section" data-testid={testId}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                <Typography variant="h6" component="h2" sx={{ fontWeight: 800 }}>{title}</Typography>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.25 }}>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                    <Box sx={{ width: 4, height: 18, borderRadius: 1, bgcolor: "primary.main" }} />
+                    <Typography variant="h6" component="h2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
+                        {title}
+                    </Typography>
+                </Stack>
                 {action}
             </Stack>
             {children}
@@ -69,7 +76,7 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
     if (loading && matches.length === 0 && !t.description) return <div data-testid="overview-tab"><TabSkeleton rows={3} /></div>;
 
     return (
-        <Stack spacing={3} data-testid="overview-tab">
+        <Stack spacing={3.5} data-testid="overview-tab">
             <UpdatedCue show={updated} />
             {error && matches.length === 0 && <TabError error={error} onRetry={reload} />}
             {mine && (
@@ -77,10 +84,10 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
                     {card(mine)}
                 </Section>
             )}
-            {live.length > 0 && <Section title="חי עכשיו">{<Stack spacing={1}>{live.map(card)}</Stack>}</Section>}
+            {live.length > 0 && <Section title="חי עכשיו">{<Stack spacing={1.25}>{live.map(card)}</Stack>}</Section>}
             {soon.length > 0 && (
                 <Section title="משחקים קרובים" action={<Button size="small" onClick={() => onGoTab("schedule")}>ללוח המלא</Button>}>
-                    <Stack spacing={1}>{soon.map(card)}</Stack>
+                    <Stack spacing={1.25}>{soon.map(card)}</Stack>
                 </Section>
             )}
             {tables.length > 0 && (
@@ -100,28 +107,87 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
                 </Section>
             )}
             <Section title="על הטורניר">
-                <Stack spacing={1.5}>
-                    {t.description && <Typography sx={{ whiteSpace: "pre-wrap" }}>{t.description}</Typography>}
-                    {t.customLocation && (
-                        <Typography variant="body2">
-                            {`📍 ${t.customLocation}`}{" "}
-                            <Link href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.customLocation)}`} target="_blank" rel="noopener noreferrer">
-                                פתיחה במפה
-                            </Link>
-                        </Typography>
+                <Stack spacing={2}>
+                    {(t.description || t.customLocation) && (
+                        <Box
+                            sx={(theme) => ({
+                                p: 2.25,
+                                borderRadius: 2.5,
+                                border: "1px solid",
+                                borderColor: "divider",
+                                bgcolor: "background.paper",
+                                boxShadow: theme.shadows[1],
+                            })}
+                        >
+                            {t.description && (
+                                <Typography sx={{ whiteSpace: "pre-wrap", lineHeight: 1.65 }}>
+                                    {t.description}
+                                </Typography>
+                            )}
+                            {t.customLocation && (
+                                <Typography variant="body2" sx={{ mt: t.description ? 1.5 : 0, fontWeight: 500 }}>
+                                    {`📍 ${t.customLocation}`}{" "}
+                                    <Link
+                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.customLocation)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        פתיחה במפה
+                                    </Link>
+                                </Typography>
+                            )}
+                        </Box>
                     )}
-                    <Box sx={{ p: 2, borderRadius: 2, border: 1, borderColor: "divider" }} data-testid="tournament-rules">
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>{`חוקים · ${FORMAT_LABEL[t.format]}`}</Typography>
-                        {rules?.points && <Typography variant="body2">{`ניצחון ${rules.points.win} · תיקו ${rules.points.draw} · הפסד ${rules.points.loss}`}</Typography>}
-                        <Typography variant="body2">{`${t.startersPerTeam} בהרכב · ${t.minPlayersPerTeam}–${t.maxPlayersPerTeam} שחקנים בקבוצה`}</Typography>
-                        {rules?.legs === 2 && <Typography variant="body2">שני משחקים בכל מפגש</Typography>}
-                        {rules?.bestOf && <Typography variant="body2">{`עד ${rules.bestOf} מערכות`}</Typography>}
+                    <Box
+                        sx={(theme) => ({
+                            p: 2.5,
+                            borderRadius: 2.5,
+                            border: "1px solid",
+                            borderColor: "divider",
+                            bgcolor: "background.paper",
+                            boxShadow: theme.shadows[1],
+                        })}
+                        data-testid="tournament-rules"
+                    >
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>
+                            {`חוקים · ${FORMAT_LABEL[t.format]}`}
+                        </Typography>
+                        <Stack spacing={0.75} sx={{ color: "text.secondary" }}>
+                            {rules?.points && (
+                                <Typography variant="body2" fontWeight={500}>
+                                    {`ניצחון ${rules.points.win} · תיקו ${rules.points.draw} · הפסד ${rules.points.loss}`}
+                                </Typography>
+                            )}
+                            <Typography variant="body2" fontWeight={500}>
+                                {`${t.startersPerTeam} בהרכב · ${t.minPlayersPerTeam}–${t.maxPlayersPerTeam} שחקנים בקבוצה`}
+                            </Typography>
+                            {rules?.legs === 2 && <Typography variant="body2" fontWeight={500}>שני משחקים בכל מפגש</Typography>}
+                            {rules?.bestOf && <Typography variant="body2" fontWeight={500}>{`עד ${rules.bestOf} מערכות`}</Typography>}
+                        </Stack>
                         {rules?.tiebreak && rules.tiebreak.length > 0 && (
                             <>
-                                <Typography variant="body2" sx={{ mt: 1, fontWeight: 700 }}>סדר שוברי שוויון</Typography>
-                                <Box component="ol" sx={{ m: 0, ps: 3 }}>
+                                <Divider sx={{ my: 1.75 }} />
+                                <Typography variant="body2" sx={{ mb: 1, fontWeight: 800 }}>
+                                    סדר שוברי שוויון
+                                </Typography>
+                                <Box
+                                    component="ol"
+                                    sx={(theme) => ({
+                                        m: 0,
+                                        ps: 3,
+                                        py: 1,
+                                        pe: 2,
+                                        borderRadius: 2,
+                                        bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.03 : 0.02),
+                                        "& li": { py: 0.25 },
+                                    })}
+                                >
                                     {rules.tiebreak.map((k) => (
-                                        <li key={k}><Typography variant="body2">{TIEBREAK_LABEL[k] ?? k}</Typography></li>
+                                        <li key={k}>
+                                            <Typography variant="body2" fontWeight={500}>
+                                                {TIEBREAK_LABEL[k] ?? k}
+                                            </Typography>
+                                        </li>
                                     ))}
                                 </Box>
                             </>
@@ -131,11 +197,22 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
             </Section>
             {(t.status === "DRAFT" || t.status === "REGISTRATION_OPEN" || t.status === "REGISTRATION_CLOSED") && (
                 <Section title="הרשמה" testId="tournament-registration-info">
-                    <Typography variant="body2">
-                        {t.registrationOpensAt && `נפתחת ב-${shortDate(t.registrationOpensAt)}. `}
-                        {t.registrationClosesAt && `נסגרת ב-${shortDate(t.registrationClosesAt)}. `}
-                        {t.requireApproval && "הקבוצות מאושרות ע״י המארגן."}
-                    </Typography>
+                    <Box
+                        sx={(theme) => ({
+                            p: 2.25,
+                            borderRadius: 2.5,
+                            border: "1px solid",
+                            borderColor: "divider",
+                            bgcolor: "background.paper",
+                            boxShadow: theme.shadows[1],
+                        })}
+                    >
+                        <Typography variant="body2" fontWeight={500} sx={{ lineHeight: 1.65 }}>
+                            {t.registrationOpensAt && `נפתחת ב-${shortDate(t.registrationOpensAt)}. `}
+                            {t.registrationClosesAt && `נסגרת ב-${shortDate(t.registrationClosesAt)}. `}
+                            {t.requireApproval && "הקבוצות מאושרות ע״י המארגן."}
+                        </Typography>
+                    </Box>
                 </Section>
             )}
         </Stack>
