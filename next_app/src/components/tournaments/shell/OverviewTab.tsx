@@ -16,13 +16,30 @@ import { useStandings, useTournamentSchedule } from "@/hooks/tournaments";
 import type { TournamentDetail, TournamentMatch } from "@/types/tournament";
 import { FORMAT_LABEL, shortDate, type TournamentTabKey } from "./shellModel";
 
-const TIEBREAK_LABEL: Record<string, string> = {
-    H2H: "ראש בראש",
-    GD: "הפרש שערים",
-    GF: "שערי זכות",
-    WINS: "מספר ניצחונות",
-    DRAW: "הגרלה",
-};
+/** `rules.tiebreak` stores the full enum. Short keys are kept for older rows. */
+function tiebreakLabel(key: string, sport: string | undefined): string {
+    const basket = sport === "BASKETBALL";
+    switch (key) {
+        case "HEAD_TO_HEAD":
+        case "H2H":
+            return "מפגש ישיר";
+        case "GOAL_DIFFERENCE":
+        case "GD":
+            return basket ? "הפרש סלים" : "הפרש שערים";
+        case "GOALS_FOR":
+        case "GF":
+            return basket ? "סלי זכות" : "שערי זכות";
+        case "WINS":
+            return "ניצחונות";
+        case "FAIR_PLAY":
+            return "משחק הוגן";
+        case "DRAW_LOT":
+        case "DRAW":
+            return "הגרלה";
+        default:
+            return key;
+    }
+}
 
 function Section({ title, children, action, testId }: { title: string; children: React.ReactNode; action?: React.ReactNode; testId?: string }) {
     return (
@@ -185,7 +202,7 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
                                     {rules.tiebreak.map((k) => (
                                         <li key={k}>
                                             <Typography variant="body2" fontWeight={500}>
-                                                {TIEBREAK_LABEL[k] ?? k}
+                                                {tiebreakLabel(k, t.sport)}
                                             </Typography>
                                         </li>
                                     ))}

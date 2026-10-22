@@ -21,6 +21,7 @@ import MapErrorBoundary from "@/components/MapErrorBoundary";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getLoadErrorMessage } from "@/utils/apiError";
 import { asLatLngTuple } from "@/utils/geo";
+import { canLeaveGame } from "@/utils/leaveGame";
 import HebrewDateInput from "@/components/HebrewDateInput";
 
 // MUI
@@ -344,11 +345,13 @@ function SearchPageInner() {
           href={`/games/${g.id}`}
         >
           {joined ? (
+            canLeaveGame(g, userId) ? (
             <LeaveGameButton
               gameId={g.id}
               currentPlayers={g.currentPlayers}
               onLeft={() => handleGameLeft(g.id)}
             />
+            ) : null
           ) : (
             <JoinGameButton
               gameId={g.id}

@@ -119,10 +119,10 @@ function buildPlan(t, teams, { seed } = {}) {
 
   if (t.format === 'CUSTOM') throw err(400, 'CUSTOM_FORMAT', 'CUSTOM tournaments are scheduled by hand');
   if (t.format === 'LEAGUE') {
-    plan.stages.push({ key: 's0', order: 0, type: 'LEAGUE', name: 'League', config: { legs: rules.legs || 1 }, groups: [] });
+    plan.stages.push({ key: 's0', order: 0, type: 'LEAGUE', name: 'ליגה', config: { legs: rules.legs || 1 }, groups: [] });
     addRoundRobin('s0', null, teamIds, rules.legs || 1, 'l');
   } else if (t.format === 'KNOCKOUT') {
-    plan.stages.push({ key: 's0', order: 0, type: 'KNOCKOUT', name: 'Knockout', config: { thirdPlace: !!rules.thirdPlace, seeding: rules.seeding || 'MANUAL' }, groups: [] });
+    plan.stages.push({ key: 's0', order: 0, type: 'KNOCKOUT', name: 'נוקאאוט', config: { thirdPlace: !!rules.thirdPlace, seeding: rules.seeding || 'MANUAL' }, groups: [] });
     addBracket('s0', teamIds, null);
   } else if (t.format === 'GROUPS_KNOCKOUT') {
     const groupCount = Math.min(rules.groupCount || 2, Math.floor(teamIds.length / 2));
@@ -130,9 +130,9 @@ function buildPlan(t, teams, { seed } = {}) {
     const split = splitIntoGroups(teamIds, groupCount, { shuffle, seed: `${seed}:groups` });
     const advance = Math.min(rules.advancePerGroup || 2, Math.min(...split.map((g) => g.length)));
     if (groupCount * advance < 2) throw err(409, 'TOO_FEW_TEAMS', 'At least two teams must advance from the groups');
-    const groups = split.map((ids, i) => ({ key: `g${i}`, name: `Group ${String.fromCharCode(65 + i)}`, teamIds: ids }));
-    plan.stages.push({ key: 's0', order: 0, type: 'GROUP', name: 'Groups', config: { groupCount, legs: rules.legs || 1 }, groups });
-    plan.stages.push({ key: 's1', order: 1, type: 'KNOCKOUT', name: 'Knockout', config: { advancePerGroup: advance, thirdPlace: !!rules.thirdPlace }, groups: [] });
+    const groups = split.map((ids, i) => ({ key: `g${i}`, name: i < 22 ? String.fromCharCode(0x05d0 + i) : String(i + 1), teamIds: ids }));
+    plan.stages.push({ key: 's0', order: 0, type: 'GROUP', name: 'בתים', config: { groupCount, legs: rules.legs || 1 }, groups });
+    plan.stages.push({ key: 's1', order: 1, type: 'KNOCKOUT', name: 'נוקאאוט', config: { advancePerGroup: advance, thirdPlace: !!rules.thirdPlace }, groups: [] });
     const groupMatchKeys = {};
     groups.forEach((g) => {
       addRoundRobin('s0', g.key, g.teamIds, rules.legs || 1, g.key);
@@ -348,7 +348,7 @@ async function createMatch(user, tournamentId, body) {
       stage = stages.find((s) => s.id === b.stageId);
       if (!stage) throw err(400, 'VALIDATION', 'stageId does not belong to this tournament');
     } else if (stages.length === 0) {
-      stage = await tx.tournamentStage.create({ data: { tournamentId, order: 0, type: 'LEAGUE', name: 'Matches', config: {} } });
+      stage = await tx.tournamentStage.create({ data: { tournamentId, order: 0, type: 'LEAGUE', name: 'משחקים', config: {} } });
     } else if (stages.length === 1) {
       [stage] = stages;
     } else {

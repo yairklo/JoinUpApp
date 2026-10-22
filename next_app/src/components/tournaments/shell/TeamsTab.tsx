@@ -63,7 +63,7 @@ function TeamRow({ team, mine, group, wide, manager, onOpen }: { team: Tournamen
             <Stack alignItems="flex-end" spacing={0.5}>
                 {mine && <Chip size="small" color="primary" variant="outlined" label="הקבוצה שלך" sx={{ fontWeight: 700 }} />}
                 {group && <Chip size="small" variant="outlined" label={group} sx={{ fontWeight: 600 }} />}
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>{`${team.memberCount} שחקנים`}</Typography>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>{team.memberCount === 1 ? "שחקן אחד" : `${team.memberCount} שחקנים`}</Typography>
                 {manager && team.seed != null && <Typography variant="caption" color="text.secondary" fontWeight={700}>{`#${team.seed}`}</Typography>}
             </Stack>
             {!wide && <ChevronLeftRounded aria-hidden color="disabled" />}

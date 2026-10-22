@@ -138,8 +138,8 @@ export default function ScheduleBuilder({ tournament: t }: ScheduleBuilderProps)
                 number: m.number,
                 scheduledAt: m.scheduledAt,
                 court: m.courtLabel,
-                home: slotLabel({ teamId: m.home.teamId, source: m.home.source }, sched.matchNumberById),
-                away: slotLabel({ teamId: m.away.teamId, source: m.away.source }, sched.matchNumberById),
+                home: m.home.team?.name || slotLabel({ teamId: m.home.teamId, source: m.home.source }, sched.matchNumberById),
+                away: m.away.team?.name || slotLabel({ teamId: m.away.teamId, source: m.away.source }, sched.matchNumberById),
             })),
         // eslint-disable-next-line react-hooks/exhaustive-deps -- slotLabel closes over nameById
         [sched.matches, sched.matchNumberById, nameById, sched.groupNameById]

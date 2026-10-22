@@ -10,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import StandingsTable from "../StandingsTable";
+import { displayGroupName, displayStageName } from "@/utils/tournamentViews";
 import UpdatedCue from "../UpdatedCue";
 import { TabEmpty, TabError, TabSkeleton } from "./TabStates";
 import { useStandings, useTournament } from "@/hooks/tournaments";
@@ -52,7 +53,7 @@ export default function StandingsTab({ tournamentId }: StandingsTabProps) {
                     {tables.map((t) => (
                         <Chip
                             key={keyOf(t)}
-                            label={t.groupName ? `בית ${t.groupName}` : t.stageName}
+                            label={t.groupName ? `בית ${displayGroupName(t.groupName)}` : displayStageName(t.stageName)}
                             clickable
                             color={selected && keyOf(selected) === keyOf(t) ? "primary" : "default"}
                             onClick={() => setGroup(keyOf(t))}

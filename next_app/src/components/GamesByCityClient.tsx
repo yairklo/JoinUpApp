@@ -15,6 +15,7 @@ import Dialog from "@mui/material/Dialog"; // Ensure imported
 import { useGamesByCity } from "@/hooks/useGamesByCity";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { SportFilter, sportLabel } from "@/utils/sports";
+import { canLeaveGame } from "@/utils/leaveGame";
 
 import GameHeaderCard from "@/components/GameHeaderCard";
 import JoinGameButton from "@/components/JoinGameButton";
@@ -22,6 +23,7 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import InlineErrorRow from "@/components/InlineErrorRow";
 import CityPicker from "@/components/CityPicker";
+import { canLeaveGame } from "@/utils/leaveGame";
 import { buildSearchHref } from "@/utils/searchHref";
 
 export default function GamesByCityClient({ city: initialCity, sportFilter = "ALL" }: { city?: string; sportFilter?: SportFilter }) {
@@ -90,6 +92,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                 href={`/games/${g.id}`}
             >
                 {joined ? (
+                    canLeaveGame(g, userId) ? (
                     <LeaveGameButton
                         gameId={g.id}
                         currentPlayers={g.currentPlayers}
@@ -98,6 +101,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                             router.refresh();
                         }}
                     />
+                    ) : null
                 ) : (
                     <JoinGameButton
                         gameId={g.id}

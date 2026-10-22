@@ -24,6 +24,7 @@ import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import InlineErrorRow from "@/components/InlineErrorRow";
+import { canLeaveGame } from "@/utils/leaveGame";
 import { buildSearchHref } from "@/utils/searchHref";
 import EmptyState from "@/components/ui/EmptyState";
 import EventBusyRoundedIcon from "@mui/icons-material/EventBusyRounded";
@@ -77,6 +78,7 @@ export default function GamesByDateClient({
         href={`/games/${g.id}`}
       >
         {joined ? (
+          canLeaveGame(g, userId) ? (
           <LeaveGameButton
             gameId={g.id}
             currentPlayers={g.currentPlayers}
@@ -85,6 +87,7 @@ export default function GamesByDateClient({
               router.refresh();
             }}
           />
+          ) : null
         ) : (
           <JoinGameButton
             gameId={g.id}
