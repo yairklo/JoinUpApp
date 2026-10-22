@@ -26,6 +26,8 @@ export default function UserProfileScreen() {
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    // Set when the profile request itself failed (429, offline, 5xx): show a retry, not "user not found".
+    const [loadError, setLoadError] = useState<'rateLimited' | 'failed' | null>(null);
     
     // Relationship state: 'friends', 'pending_incoming', 'pending_outgoing', 'none', 'self'
     const [relationship, setRelationship] = useState<string>('none');
@@ -88,6 +90,7 @@ export default function UserProfileScreen() {
     const loadUserData = async () => {
         try {
             setLoading(true);
+            setLoadError(null);
             const token = await getToken();
             if (!token) return;
 
@@ -121,7 +124,7 @@ export default function UserProfileScreen() {
             }
         } catch (error) {
             console.error('Error loading user profile:', error);
-            Alert.alert(t('common.error', 'Error'), t('profile.failedToLoadProfile', 'Failed to load user profile.'));
+            setLoadError((error as { status?: number })?.status === 429 ? 'rateLimited' : 'failed');
         } finally {
             setLoading(false);
         }
@@ -197,6 +200,21 @@ export default function UserProfileScreen() {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
                 <LoadingMotif id="crowd-wave" label={t('profile.loadingUser', 'טוען שחקן…')} />
+            </SafeAreaView>
+        );
+    }
+
+    if (loadError && !profile) {
+        return (
+            <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center px-6" testID="user-profile-error">
+                <Text className="text-gray-600 text-center">
+                    {loadError === 'rateLimited'
+                        ? t('profile.rateLimited', 'יותר מדי בקשות כרגע. חכו רגע ונסו שוב.')
+                        : t('profile.failedToLoadProfile', 'Failed to load user profile.')}
+                </Text>
+                <TouchableOpacity onPress={loadUserData} accessibilityRole="button" className="mt-4 px-5 h-11 items-center justify-center bg-gray-200 rounded-lg">
+                    <Text>{t('common.retry', 'נסו שוב')}</Text>
+                </TouchableOpacity>
             </SafeAreaView>
         );
     }
