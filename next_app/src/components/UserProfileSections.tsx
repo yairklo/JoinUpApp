@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import Link from "next/link";
 import { usersApi, UserProfile, ProfileMatch } from "@/services/api/users";
 import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
@@ -27,6 +28,7 @@ const PAGE_SIZE = 5;
 
 export default function UserProfileSections({ userId }: { userId: string }) {
     const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const { user: me } = useUser();
     const isOwner = !!me?.id && me.id === userId;
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -41,7 +43,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
         let active = true;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 const data = await usersApi.getProfile(userId, token || undefined);
                 if (!active) return;
                 setProfile(data);
@@ -57,7 +59,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
         return () => {
             active = false;
         };
-    }, [userId, getToken]);
+    }, [userId]);
 
     const handleLoadMore = async () => {
         setLoadingMore(true);

@@ -60,6 +60,8 @@ import { Game } from "@/types/game";
 import { gamesApi } from "@/services/api/games";
 import { fieldsApi } from "@/services/api/fields";
 import { usersApi } from "@/services/api/users";
+import { fetchRead } from "@/services/api/readBackoff";
+import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 
 type PublicUser = {
   id: string;
@@ -97,6 +99,7 @@ import { useRouter } from "next/navigation";
 export default function ProfilePage() {
   const { user } = useUser();
   const { getToken } = useAuth();
+  const getTokenRef = useAuthTokenRef();
   const { isAdmin } = useIsAdmin();
   const router = useRouter();
   const userId = user?.id;
@@ -184,9 +187,9 @@ export default function ProfilePage() {
     if (!userId) return;
     (async () => {
       try {
-        const token = await getToken({ template: undefined }).catch(() => "");
+        const token = await getTokenRef.current({ template: undefined }).catch(() => "");
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await fetch(`${API_BASE}/api/users/${userId}`, { headers });
+        const res = await fetchRead(`${API_BASE}/api/users/${userId}`, { headers });
         setProfile(await res.json());
 
         // Both endpoints need the token: the user listing is signed-in only, and the friends
@@ -194,8 +197,8 @@ export default function ProfilePage() {
         // Bounded to a handful of rows — this only feeds the "people you may know"
         // widget below, which renders at most 6 of them.
         const [usersRes, friendsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/users?take=7`, { headers }),
-          fetch(`${API_BASE}/api/users/${userId}/friends`, { headers }),
+          fetchRead(`${API_BASE}/api/users?take=7`, { headers }),
+          fetchRead(`${API_BASE}/api/users/${userId}/friends`, { headers }),
         ]);
         if (usersRes.ok) setAllUsers(await usersRes.json());
         if (friendsRes.ok) setFriends(await friendsRes.json());
@@ -204,12 +207,12 @@ export default function ProfilePage() {
     fieldsApi.getCities().then(setCities).catch(() => { });
     (async () => {
       try {
-        const token = await getToken({ template: undefined }).catch(() => "");
+        const token = await getTokenRef.current({ template: undefined }).catch(() => "");
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-        const inc = await fetch(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers });
+        const inc = await fetchRead(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers });
         if (inc.ok) setIncoming(await inc.json());
 
-        const out = await fetch(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers });
+        const out = await fetchRead(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers });
         if (out.ok) {
           const outgoing: Array<{ id: string; receiver: { id: string } }> = await out.json();
           setOutgoingPendingIds(new Set(outgoing.map(r => r.receiver.id)));
@@ -239,14 +242,14 @@ export default function ProfilePage() {
     let ignore = false;
     (async () => {
       try {
-        const token = await getToken({ template: undefined }).catch(() => "");
+        const token = await getTokenRef.current({ template: undefined }).catch(() => "");
         if (!token) return;
         const results = await usersApi.search(debouncedSearchQuery, token);
         if (!ignore) setSearchResults(results);
       } catch { }
     })();
     return () => { ignore = true; };
-  }, [debouncedSearchQuery, getToken]);
+  }, [debouncedSearchQuery]);
 
   useEffect(() => {
     if (!profile) return;

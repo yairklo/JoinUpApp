@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -49,6 +50,7 @@ export default function UserProfileActions({
     } = useUserActions(targetUserId, targetUserName, targetUserImage);
 
     const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const [isBlocked, setIsBlocked] = useState(false);
     const [blockLoaded, setBlockLoaded] = useState(false);
     // Blocking removes any friendship / pending request server-side; the hook's status is stale then.
@@ -65,7 +67,7 @@ export default function UserProfileActions({
         let active = true;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 if (!token) return;
                 const list = await usersApi.getBlockedUsers(token);
                 if (active) setIsBlocked(list.some((b) => b.id === targetUserId));
@@ -76,7 +78,7 @@ export default function UserProfileActions({
             }
         })();
         return () => { active = false; };
-    }, [isSelf, isLoaded, targetUserId, getToken]);
+    }, [isSelf, isLoaded, targetUserId]);
 
     const toggleBlock = async () => {
         setBlockBusy(true);

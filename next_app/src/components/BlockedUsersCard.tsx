@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import Link from "next/link";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -15,6 +16,7 @@ import { usersApi, type BlockedUser } from "@/services/api/users";
 
 export default function BlockedUsersCard() {
     const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const [items, setItems] = useState<BlockedUser[] | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -22,14 +24,14 @@ export default function BlockedUsersCard() {
 
     const load = useCallback(async () => {
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             setItems(await usersApi.getBlockedUsers(token));
         } catch (e) {
             console.error("Failed to load blocked users:", e);
             setLoadFailed(true);
         }
-    }, [getToken]);
+    }, []);
 
     useEffect(() => { load(); }, [load]);
 
