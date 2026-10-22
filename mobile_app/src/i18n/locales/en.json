@@ -1603,7 +1603,9 @@
         "valid": "Valid",
         "missing": "{{count}} short",
         "over": "{{count}} over max",
-        "promoted": "{{team}} moved up from the waitlist"
+        "promoted": "{{team}} moved up from the waitlist",
+        "empty": "No teams here",
+        "failed": "Couldn't update the team. Try again."
       },
       "seeding": "Seeding order",
       "seedingSave": "Save order",
@@ -1639,7 +1641,36 @@
         "deleteMatch": "Delete match",
         "matchReferenced": "Another match depends on this one, so it can't be deleted.",
         "matchFinished": "A finished match can't be deleted.",
-        "openSlot": "Open slot"
+        "openSlot": "Open slot",
+        "addCourt": "Add court",
+        "advanced": "Advanced",
+        "awayTeam": "Away team",
+        "homeTeam": "Home team",
+        "breakMinutes": "Break between matches",
+        "matchMinutes": "Match length",
+        "minRest": "Minimum rest per team",
+        "minShort": "min",
+        "conflictsChanged": "The conflicts changed since the preview. Preview again.",
+        "conflictsTitle": "{{count}} conflicts",
+        "courtCount": "Number of courts",
+        "courtLabel": "Court",
+        "date": "Date (YYYY-MM-DD)",
+        "failed": "Couldn't complete that. Try again.",
+        "matchStatus": "Match status",
+        "needClosed": "Close registration to build the schedule.",
+        "needDay": "Add at least one day",
+        "rebuild": "Rebuild",
+        "sameTeam": "Home and away must be different teams",
+        "seed": "Draw seed",
+        "stage": "Stage",
+        "tapToEdit": "Tap to edit",
+        "unscheduled": "No time yet",
+        "when": "Date and time",
+        "status": {
+          "SCHEDULED": "Scheduled",
+          "POSTPONED": "Postponed",
+          "CANCELLED": "Cancelled"
+        }
       },
       "conflict": {
         "COURT_OVERLAP": {
@@ -1679,7 +1710,11 @@
         "cancel": "Cancel tournament",
         "cancelConfirm": "All unplayed matches will be cancelled. This can't be undone.",
         "typeTitle": "Type the tournament name to confirm",
-        "forceStart": "Start anyway"
+        "forceStart": "Start anyway",
+        "failed": "Couldn't change the status. Try again.",
+        "publishConfirm": "The tournament will be published and teams will be able to register.",
+        "reopenConfirm": "Registration will open again until {{date}}.",
+        "reopenConfirmNoDate": "Registration will open again."
       },
       "problem": {
         "TOO_FEW_TEAMS": "Only {{approved}} approved teams, at least {{minTeams}} needed",
@@ -1696,8 +1731,10 @@
         "add": "Add a manager or scorekeeper",
         "change": "Change to…",
         "remove": "Remove",
-        "empty": "No other managers"
-      }
+        "empty": "No other managers",
+        "failed": "Couldn't update roles. Try again."
+      },
+      "loadFailed": "Couldn't load the console"
     },
     "score": {
       "inc": "Add a point for {{team}}",
@@ -1733,7 +1770,9 @@
       "conflictNow": "Now",
       "conflictMine": "Yours",
       "keepTheirs": "Keep theirs",
-      "keepMine": "Save mine"
+      "keepMine": "Save mine",
+      "retry": "Try again",
+      "setN": "Set {{n}}"
     },
     "profile": {
       "title": "Tournaments",

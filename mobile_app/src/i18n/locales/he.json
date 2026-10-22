@@ -1605,7 +1605,9 @@
         "valid": "תקינה",
         "missing": "חסרים {{count}}",
         "over": "{{count}} מעל המקסימום",
-        "promoted": "{{team}} עלתה מרשימת ההמתנה"
+        "promoted": "{{team}} עלתה מרשימת ההמתנה",
+        "empty": "אין קבוצות כאן",
+        "failed": "לא הצלחנו לעדכן את הקבוצה. נסו שוב."
       },
       "seeding": "סדר זריעה",
       "seedingSave": "שמירת סדר",
@@ -1641,7 +1643,36 @@
         "deleteMatch": "מחיקת משחק",
         "matchReferenced": "משחק אחר תלוי בתוצאה של המשחק הזה, אי אפשר למחוק.",
         "matchFinished": "אי אפשר למחוק משחק שהסתיים.",
-        "openSlot": "מקום פנוי"
+        "openSlot": "מקום פנוי",
+        "addCourt": "הוספת מגרש",
+        "advanced": "מתקדם",
+        "awayTeam": "קבוצת אורחת",
+        "homeTeam": "קבוצה מארחת",
+        "breakMinutes": "הפסקה בין משחקים",
+        "matchMinutes": "משך משחק",
+        "minRest": "מנוחה מינימלית לקבוצה",
+        "minShort": "דק׳",
+        "conflictsChanged": "ההתנגשויות השתנו מאז התצוגה המקדימה. הציגו תצוגה מקדימה שוב.",
+        "conflictsTitle": "{{count}} התנגשויות",
+        "courtCount": "מספר מגרשים",
+        "courtLabel": "מגרש",
+        "date": "תאריך (YYYY-MM-DD)",
+        "failed": "לא הצלחנו להשלים את הפעולה. נסו שוב.",
+        "matchStatus": "סטטוס המשחק",
+        "needClosed": "סגרו את ההרשמה כדי לבנות את לוח המשחקים.",
+        "needDay": "הוסיפו לפחות יום אחד",
+        "rebuild": "בנייה מחדש",
+        "sameTeam": "הקבוצות חייבות להיות שונות",
+        "seed": "מספר הגרלה",
+        "stage": "שלב",
+        "tapToEdit": "הקישו לעריכה",
+        "unscheduled": "ללא שעה",
+        "when": "תאריך ושעה",
+        "status": {
+          "SCHEDULED": "מתוכנן",
+          "POSTPONED": "נדחה",
+          "CANCELLED": "בוטל"
+        }
       },
       "conflict": {
         "COURT_OVERLAP": {
@@ -1681,7 +1712,11 @@
         "cancel": "ביטול הטורניר",
         "cancelConfirm": "כל המשחקים שלא שוחקו יבוטלו. אי אפשר לבטל את הפעולה.",
         "typeTitle": "הקלידו את שם הטורניר לאישור",
-        "forceStart": "התחלה בכל זאת"
+        "forceStart": "התחלה בכל זאת",
+        "failed": "לא הצלחנו לשנות את הסטטוס. נסו שוב.",
+        "publishConfirm": "הטורניר יפורסם וקבוצות יוכלו להירשם.",
+        "reopenConfirm": "ההרשמה תיפתח שוב עד {{date}}.",
+        "reopenConfirmNoDate": "ההרשמה תיפתח שוב."
       },
       "problem": {
         "TOO_FEW_TEAMS": "רק {{approved}} קבוצות מאושרות, צריך לפחות {{minTeams}}",
@@ -1698,8 +1733,10 @@
         "add": "הוספת מנהל או רשם",
         "change": "שינוי ל…",
         "remove": "הסרה",
-        "empty": "אין עוד מנהלים"
-      }
+        "empty": "אין עוד מנהלים",
+        "failed": "לא הצלחנו לעדכן הרשאות. נסו שוב."
+      },
+      "loadFailed": "לא הצלחנו לטעון את מסוף הניהול"
     },
     "score": {
       "inc": "הוספת נקודה ל{{team}}",
@@ -1735,7 +1772,9 @@
       "conflictNow": "עכשיו",
       "conflictMine": "שלך",
       "keepTheirs": "להשאיר את שלהם",
-      "keepMine": "לשמור את שלי"
+      "keepMine": "לשמור את שלי",
+      "retry": "נסו שוב",
+      "setN": "מערכה {{n}}"
     },
     "profile": {
       "title": "טורנירים",
