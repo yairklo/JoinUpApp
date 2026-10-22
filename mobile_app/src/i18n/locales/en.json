@@ -1266,7 +1266,9 @@
     "champion": {
       "title": "{{title}} champions",
       "share": "Share",
-      "shareText": "{{team}} won {{title}}! 🏆"
+      "shareText": "{{team}} won {{title}}! 🏆",
+      "runnerUp": "Runner-up",
+      "third": "Third place"
     },
     "overview": {
       "nextMatch": "Your next match",
@@ -1280,7 +1282,11 @@
       "rosterLine": "{{starters}} starters · {{min}}–{{max}} players per team",
       "approvalNote": "Teams are approved by the organizer",
       "organizer": "Organizer",
-      "managers": "Managers"
+      "managers": "Managers",
+      "venue": "Venue",
+      "registration": "Registration",
+      "registrationWindow": "Registration: {{from}} – {{to}}",
+      "noContent": "Nothing to show yet"
     },
     "match": {
       "number": "Match {{n}}",
@@ -1450,7 +1456,11 @@
     "teams": {
       "emptyBefore": "No teams yet. Registration opens {{date}}.",
       "emptyOpen": "No teams yet. Be the first!",
-      "toTeamPage": "Team page"
+      "toTeamPage": "Team page",
+      "yourTeam": "Your team",
+      "recentMatches": "Team matches",
+      "noMatches": "No matches for this team yet",
+      "close": "Close"
     },
     "errors": {
       "PLAYER_IN_OTHER_TEAM": "This player is already on another team in this tournament",
@@ -1815,6 +1825,21 @@
       "now": "Now!",
       "details": "Details",
       "moreTournaments": "+{{count}} more tournament"
+    },
+    "hero": {
+      "closedSoon": "Registration closed · the schedule will be published soon",
+      "closedPublished": "Registration closed · the schedule is published",
+      "invited": "You were invited to {{name}}",
+      "invitedAction": "View invite",
+      "menu": "More actions",
+      "edit": "Edit details",
+      "codeSubmit": "Continue",
+      "cancel": "Cancel"
+    },
+    "list": {
+      "cancelled": "Tournament cancelled",
+      "dates": "{{from}}–{{to}}",
+      "noResultsRetry": "Couldn't load tournaments"
     }
   }
 }
