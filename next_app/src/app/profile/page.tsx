@@ -104,6 +104,8 @@ export default function ProfilePage() {
   const userId = user?.id;
 
   const [profile, setProfile] = useState<PublicUser | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileLoad, setProfileLoad] = useState(0);
   const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; city?: string | null; email?: string | null; canAddFriend?: boolean }>>([]);
   const [friends, setFriends] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; mutualCount?: number }>>([]);
   const [incoming, setIncoming] = useState<Array<{ id: string; requester: PublicUser; createdAt: string }>>([]);
@@ -181,37 +183,63 @@ export default function ProfilePage() {
     }));
   };
 
-  // Fetch logic remains the same...
   useEffect(() => {
     if (!userId) return;
+    let active = true;
+    const failProfile = (status?: number) => {
+      if (!active) return;
+      setProfile(null);
+      setProfileError(status === 429
+        ? "יותר מדי בקשות כרגע. חכו רגע ונסו שוב."
+        : "לא הצלחנו לטעון את הפרופיל.");
+    };
     (async () => {
       try {
         const token = await getTokenRef.current({ template: undefined }).catch(() => "");
+        if (!active) return;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+        setProfileError(null);
         const res = await fetchRead(`${API_BASE}/api/users/${userId}`, { headers });
-        setProfile(await res.json());
+        if (!active) return;
+        if (!res.ok) {
+          failProfile(res.status);
+          return;
+        }
+        const body = await res.json();
+        if (!active) return;
+        if (!body || typeof body.id !== "string") {
+          failProfile();
+          return;
+        }
+        setProfile(body);
+        setProfileError(null);
 
-        // Both endpoints need the token: the user listing is signed-in only, and the friends
-        // list is gated by privacyFriends (the owner always passes, but only when identified).
-        // Bounded to a handful of rows — this only feeds the "people you may know"
-        // widget below, which renders at most 6 of them.
-        const [usersRes, friendsRes] = await Promise.all([
-          fetchRead(`${API_BASE}/api/users?take=7`, { headers }),
-          fetchRead(`${API_BASE}/api/users/${userId}/friends`, { headers }),
-        ]);
-        if (usersRes.ok) setAllUsers(await usersRes.json());
-        if (friendsRes.ok) setFriends(await friendsRes.json());
-      } catch { }
+        // A failure here leaves the profile up.
+        try {
+          const [usersRes, friendsRes] = await Promise.all([
+            fetchRead(`${API_BASE}/api/users?take=7`, { headers }),
+            fetchRead(`${API_BASE}/api/users/${userId}/friends`, { headers }),
+          ]);
+          if (!active) return;
+          if (usersRes.ok) setAllUsers(await usersRes.json());
+          if (friendsRes.ok) setFriends(await friendsRes.json());
+        } catch { }
+      } catch {
+        failProfile();
+      }
     })();
     fieldsApi.getCities().then(setCities).catch(() => { });
     (async () => {
       try {
         const token = await getTokenRef.current({ template: undefined }).catch(() => "");
+        if (!active) return;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         const inc = await fetchRead(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers });
+        if (!active) return;
         if (inc.ok) setIncoming(await inc.json());
 
         const out = await fetchRead(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers });
+        if (!active) return;
         if (out.ok) {
           const outgoing: Array<{ id: string; receiver: { id: string } }> = await out.json();
           setOutgoingPendingIds(new Set(outgoing.map(r => r.receiver.id)));
@@ -219,11 +247,13 @@ export default function ProfilePage() {
 
         if (token) {
             const games = await gamesApi.getMyGames(token);
+            if (!active) return;
             setMyGames(games);
         }
       } catch { }
     })();
-  }, [userId]);
+    return () => { active = false; };
+  }, [userId, profileLoad]);
 
   // Debounce the inline "search players" box, then search server-side
   // (the same /api/users/search endpoint the dedicated search-players page
@@ -427,7 +457,16 @@ export default function ProfilePage() {
       </SignedOut>
 
       <SignedIn>
-        {!profile ? (
+        {profileError ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+            <Alert
+              severity="error"
+              action={<Button color="inherit" size="small" onClick={() => setProfileLoad((n) => n + 1)}>נסו שוב</Button>}
+            >
+              {profileError}
+            </Alert>
+          </Box>
+        ) : !profile ? (
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
             <LoadingMotif id="brand-pulse" label="טוען פרופיל…" />
           </Box>
