@@ -2,6 +2,24 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { useSocket } from '@/context/SocketContext';
 import { notificationsApi, Notification as NotificationType } from '@/services/api';
+import { getActionErrorMessage, getErrorStatus } from '@/utils/apiError';
+
+/** Pause for background refetches after a 429 when the server sends no Retry-After. */
+export const NOTIFICATIONS_BACKOFF_DEFAULT_MS = 30_000;
+const NOTIFICATIONS_BACKOFF_MIN_MS = 1_000;
+const NOTIFICATIONS_BACKOFF_MAX_MS = 5 * 60_000;
+
+/** `Retry-After` is delta-seconds or an HTTP date. Missing or unparseable means the 30s default. */
+export function notificationsBackoffMs(error: unknown, now = Date.now()): number {
+    const raw = error && typeof error === 'object' && 'retryAfter' in error ? (error as { retryAfter?: unknown }).retryAfter : undefined;
+    let ms = NOTIFICATIONS_BACKOFF_DEFAULT_MS;
+    if (typeof raw === 'string' && raw.trim()) {
+        const seconds = Number(raw);
+        if (Number.isFinite(seconds)) ms = seconds * 1000;
+        else if (Number.isFinite(Date.parse(raw))) ms = Date.parse(raw) - now;
+    }
+    return Math.min(Math.max(ms, NOTIFICATIONS_BACKOFF_MIN_MS), NOTIFICATIONS_BACKOFF_MAX_MS);
+}
 
 const CHAT_NOTIFICATION_TYPES = new Set(['message', 'NEW_MESSAGE', 'CHAT_MESSAGE', 'chat_message']);
 
@@ -24,6 +42,8 @@ export function useNotifications() {
     const [notifications, setNotifications] = useState<NotificationType[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
+    // Only user-triggered actions (mark read) surface errors. Background fetches stay silent.
+    const [actionError, setActionError] = useState<string | null>(null);
     const { socket, isConnected } = useSocket();
     const getTokenRef = useRef(getToken);
 
@@ -37,10 +57,21 @@ export function useNotifications() {
     // only refetch on a later reconnect. If the socket is already connected
     // when we subscribe, the first connect already happened — don't skip the next one.
     const skipNextConnectFetchRef = useRef(true);
+    // After a 429, background fetches are paused until this time and one retry is scheduled.
+    const rateLimitedUntilRef = useRef(0);
+    const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const clearRetryTimer = () => {
+        if (retryTimerRef.current) {
+            clearTimeout(retryTimerRef.current);
+            retryTimerRef.current = null;
+        }
+    };
 
     useEffect(() => {
         hasFetchedRef.current = false;
         skipNextConnectFetchRef.current = true;
+        rateLimitedUntilRef.current = 0;
         if (!userId) {
             setNotifications([]);
             setUnreadCount(0);
@@ -50,6 +81,7 @@ export function useNotifications() {
     const fetchNotifications = useCallback(async () => {
         if (!userId) return;
         if (isFetchingRef.current) return;
+        if (Date.now() < rateLimitedUntilRef.current) return;
         isFetchingRef.current = true;
 
         if (!hasFetchedRef.current) {
@@ -64,11 +96,38 @@ export function useNotifications() {
             setUnreadCount(data.unreadCount || 0);
             hasFetchedRef.current = true;
         } catch (error) {
-            console.error('[NOTIFICATIONS] Failed to fetch:', error);
+            if (getErrorStatus(error) === 429) {
+                // Silent: no error UI for background polling. Pause, then retry once the window passes.
+                const waitMs = notificationsBackoffMs(error);
+                rateLimitedUntilRef.current = Date.now() + waitMs;
+                clearRetryTimer();
+                retryTimerRef.current = setTimeout(() => {
+                    retryTimerRef.current = null;
+                    rateLimitedUntilRef.current = 0;
+                    fetchNotificationsRef.current();
+                }, waitMs);
+            } else {
+                console.error('[NOTIFICATIONS] Failed to fetch:', error);
+            }
         } finally {
             setLoading(false);
             isFetchingRef.current = false;
         }
+    }, [userId]);
+
+    // The retry timer calls through a ref so it always uses the current user's fetch.
+    const fetchNotificationsRef = useRef(fetchNotifications);
+    useEffect(() => {
+        fetchNotificationsRef.current = fetchNotifications;
+    }, [fetchNotifications]);
+
+    // Drop a pending retry when the user changes or the hook unmounts.
+    useEffect(() => {
+        const timerRef = retryTimerRef;
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            timerRef.current = null;
+        };
     }, [userId]);
 
     useEffect(() => {
@@ -169,11 +228,14 @@ export function useNotifications() {
             await notificationsApi.markAsRead(id, token);
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to mark as read:', error);
+            setActionError(getActionErrorMessage(error));
             // Roll back the optimistic update — the server never confirmed the read.
             setNotifications(previousNotifications);
             setUnreadCount(previousUnreadCount);
         }
     };
+
+    const clearActionError = useCallback(() => setActionError(null), []);
 
     const markAllAsRead = async () => {
         let previousNotifications: NotificationType[] = [];
@@ -194,6 +256,7 @@ export function useNotifications() {
             await notificationsApi.markAllAsRead(token);
         } catch (error) {
             console.error('[NOTIFICATIONS] Failed to mark all as read:', error);
+            setActionError(getActionErrorMessage(error));
             // Roll back — a failed markAllAsRead must not leave the UI lying about read-state.
             setNotifications(previousNotifications);
             setUnreadCount(previousUnreadCount);
@@ -206,5 +269,7 @@ export function useNotifications() {
         loading,
         markAsRead,
         markAllAsRead,
+        actionError,
+        clearActionError,
     };
 }
