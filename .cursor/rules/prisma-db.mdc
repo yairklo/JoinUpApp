@@ -32,3 +32,7 @@ alwaysApply: false
   500, cascading `testGame.id` undefined in dependent tests).
   Fix: run `prisma generate` before `npm test` (already wired into `server`'s `npm test` script —
   keep it wired if the script changes).
+
+## Migrations & JSON columns
+- **Never regex a whole JSON column as text** (`data::text` -> `::jsonb`): the `n` of a `\n` escape can match an email pattern and corrupt the escape, aborting the migration. Rewrite JSON values (see `20261020140000_scrub_notification_emails`). Test migrations against a throwaway Docker Postgres.
+

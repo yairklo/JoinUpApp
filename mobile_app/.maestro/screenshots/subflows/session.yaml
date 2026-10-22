@@ -1,0 +1,14 @@
+appId: com.yairklo.joinupapp
+---
+- launchApp:
+    clearState: false
+- runFlow:
+    when:
+      visible:
+        id: sign-in-email
+    file: sign-in.yaml
+- extendedWaitUntil:
+    visible:
+      id: home-create-game
+    timeout: 30000
+- runFlow: theme.yaml

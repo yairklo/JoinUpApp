@@ -1,6 +1,8 @@
-# Dev environment runbook (Coolify + Neon + Clerk + Vercel)
+# Dev environment (Coolify + Neon + Clerk + Vercel)
 
-The VPS is managed by **Coolify**. Coolify terminates TLS, proxies to the container, and deploys on push. This repo does not add its own Caddy, docker-compose, or `deploy.sh`. Production stays on its current Coolify resource. Dev is a **second resource** with its own domain, its own empty database, and Clerk test keys.
+The shared Dev environment is live and active. The VPS is managed by **Coolify**. Coolify terminates TLS, proxies to the container, and auto-deploys on push to `Dev`. Production stays on its own Coolify resource. Dev is a **second resource** with its own domain (`https://joinup-dev-api.duckdns.org`), its own empty database on Neon, and Clerk test keys. Web preview tracks `Dev` on Vercel at `https://join-up-app-git-dev-yair-klausners-projects.vercel.app`.
+
+For day-to-day agent workflows, merge commands, test users, and QA instructions, see [`docs/agents/dev-env.md`](agents/dev-env.md).
 
 Nothing in git contains a secret. If a value looks like a production password, Clerk live key (`pk_live_` / `sk_live_`), the production Neon connection string, the production `REDIS_URL`, or a production Firebase private key, do not paste it into the dev resource.
 
@@ -17,37 +19,14 @@ Dev background jobs would then act on those rows. The game reminder worker sends
 
 `RUN_BACKGROUND_JOBS` defaults to **on** when the variable is unset (`server/index.js` only skips jobs for `false` or `0`). Set it to the string `false` until the database is the empty schema plus the dev seed.
 
-## Git branch `Dev` (Yair moves it; this PR does not)
+## Git branch `Dev` and Promotion
 
-Coolify branch names are case-sensitive. CI already watches `Dev` (capital D). There is no lowercase `dev` branch. Do not create one for this resource.
+Coolify branch names are case-sensitive. CI and Coolify watch `Dev` (capital D). There is no lowercase `dev` branch.
 
-`Dev` is behind `main`. At the time this was written, `origin/Dev` (`7990401`) was a direct ancestor of `origin/main` (`9d93f1c`): **173 commits behind, 0 commits of its own**. Check again before moving it:
+1. **Deploy to Dev**: Non-force merge the integration branch into `origin/Dev` via a temporary worktree/branch (see commands in [`docs/agents/dev-env.md`](agents/dev-env.md)). Coolify auto-deploys the API (`https://joinup-dev-api.duckdns.org`) and Vercel updates the dev web deployment.
+2. **Promote to Production**: Merge `main` only on Yair's explicit approval. Production Coolify auto-deploys `main`.
 
-```bash
-git fetch origin Dev main
-git rev-list --count origin/Dev..origin/main
-git rev-list --count origin/main..origin/Dev
-```
-
-**Yair fast-forwards `Dev` from `main` by hand before the dev resource deploys it.** Do not point Coolify at the stale tip. When the second count is `0`, this is a fast-forward (run it on a checkout of `Dev`, not from this pull request):
-
-```bash
-git checkout Dev
-git merge --ff-only origin/main
-git push origin Dev
-```
-
-If `Dev` has commits that are not in `main`, stop and decide with Yair. Do not force-push `Dev` from this runbook. This pull request does not push to `Dev`, `main`, or any other branch except its own.
-
-### Promotion
-
-After that fast-forward, the dev Coolify resource tracks `Dev`. Production keeps tracking `main`. Do not point the dev resource at `main`.
-
-1. Merge the change into `Dev`.
-2. Coolify auto-deploys the dev environment. Test on `https://joinup-dev-api.duckdns.org` and a Vercel preview.
-3. Promote by merging to `main`. Production Coolify deploys `main`.
-
-Do not merge to `main` until the first dev deploy of this image is healthy. See [Before production deploys this image](#before-production-deploys-this-image).
+Never force-push `Dev`, and never push directly to `main`.
 
 ## What you click
 
@@ -124,6 +103,7 @@ Do not merge to `main` until the first dev deploy of this image is healthy. See 
    | `CLOUDINARY_FOLDER` | `joinup-dev` |
    | `SENTRY_ENVIRONMENT` | `development` |
    | `RUN_BACKGROUND_JOBS` | `false` until this database is only the empty schema plus `seed:dev` and contains no production `UserDevice` rows. Unset means jobs **on**. After that check, you may set `true` on this single API container. A later worker resource: `false` on the API, `true` on the worker |
+   | `TOURNAMENT_CREATOR_IDS` | comma-separated Clerk user IDs permitted to create tournaments on dev (e.g. `organizer-o` = `user_3Kzk5XCXbkgNzoJMUklTDT9HwGL`) |
 
    Do **not** reuse production Redis or production push credentials. Same variable *names* are not the same as the same *values*.
 
@@ -183,13 +163,9 @@ Confirm the **first dev deploy** is healthy before merging to `main` (production
 - Logs include `[BOOT] Prisma migrations OK`.
 - `curl -fsS https://joinup-dev-api.duckdns.org/api/health` returns `"status":"OK"`.
 
-## Pull request #366
+## Legacy Pull Request #366 (Closed)
 
-[#366](https://github.com/yairklo/JoinUpApp/pull/366) adds `deploy/` with docker-compose, Caddy, `deploy.sh`, and a cutover runbook for a hand-built VPS. **Close it. Do not merge it.**
-
-Coolify already owns TLS, the reverse proxy, health checks, auto-deploy, and env vars. Landing that compose stack on the same VPS would bind ports 80/443 a second time and fight Coolify's proxy. The script also checks out commits on the server, which is the opposite of how Coolify builds.
-
-The useful facts from that PR are already how this repo works, and they are repeated above: port 3005, `GET /api/health` (not `/api/health/deep`), migrations before listen, `trust proxy` of one hop, Cloudinary required when `NODE_ENV=production`, Redis optional for a single API, `RUN_BACKGROUND_JOBS=false` on extra API instances. None of that needs a Caddyfile or `deploy.sh`.
+PR #366 previously proposed adding a manual Docker Compose and Caddy stack. It was closed because Coolify manages TLS, proxying, and auto-deployment natively.
 
 ## What not to do
 
@@ -197,8 +173,8 @@ The useful facts from that PR are already how this repo works, and they are repe
 - Do not paste production `DATABASE_URL`, `sk_live_`, `pk_live_`, `REDIS_URL`, or Firebase credentials into the dev resource.
 - Do not leave `RUN_BACKGROUND_JOBS` unset or `true` on a database that still has production `UserDevice` rows.
 - Do not point `DIRECT_DATABASE_URL` at a `-pooler` host.
-- Do not point the dev Coolify resource at `Dev` until Yair has fast-forwarded it from `main`, and do not push to `Dev` as part of this pull request.
+- Do not force-push `Dev`.
 - Do not set `NEXT_PUBLIC_CLERK_PROXY_URL` on Vercel Preview or Development, or in a local `pk_test_` env. `@clerk/nextjs` reads it even when `resolveClerkProxyUrl()` returns undefined.
 - Do not health-check `/api/health/deep` on a short interval.
-- Do not merge this to `main` until the first dev deploy is healthy.
+- Do not merge to `main` until the dev deploy is verified and approved.
 - Do not add a second Caddy or compose project on the VPS.

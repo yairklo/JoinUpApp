@@ -5,7 +5,9 @@
     "check:rules": "node scripts/check-rules-budget.mjs",
     "check:prisma-singleton": "node scripts/check-single-prisma-client.mjs",
     "test:pipeline-triage": "node --test scripts/pipeline-triage.test.mjs",
-    "prepare": "husky"
+    "prepare": "husky",
+    "screens:web": "npm run screens:web --prefix next_app",
+    "screens:mobile": "npm run screens:mobile --prefix mobile_app"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1"
