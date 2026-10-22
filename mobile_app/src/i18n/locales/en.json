@@ -1199,6 +1199,14 @@
     "leave": "Leave"
   },
   "tournaments": {
+    "view": {
+      "loadFailed": "Couldn't load this",
+      "retry": "Try again",
+      "rosters": "Rosters",
+      "noRoster": "No players to show",
+      "backToTournament": "Back to tournament",
+      "pathTitle": "Path"
+    },
     "title": "Tournaments",
     "new": "New tournament",
     "all": "All",

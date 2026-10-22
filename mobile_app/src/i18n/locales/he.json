@@ -1201,6 +1201,14 @@
     "leave": "יציאה"
   },
   "tournaments": {
+    "view": {
+      "loadFailed": "לא הצלחנו לטעון",
+      "retry": "נסו שוב",
+      "rosters": "סגלים",
+      "noRoster": "אין שחקנים להצגה",
+      "backToTournament": "חזרה לטורניר",
+      "pathTitle": "המסלול"
+    },
     "title": "טורנירים",
     "new": "טורניר חדש",
     "all": "הכל",
