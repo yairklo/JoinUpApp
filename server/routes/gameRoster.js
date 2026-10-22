@@ -187,9 +187,10 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
     }
 
     await safeUpsertUserFromAuth(prisma, req.user);
-    // Stale REJECTED rows are reused. The seat decision happens under the game-row lock.
+    // REJECTED, NOT_SELECTED, and CANCELLED rows are reused. A second insert would
+    // hit @@unique([gameId, userId]) and 500; a full game used to no-op those rows.
     const status = await claimJoinSeat(game.id, req.user.id, {
-      existingId: existing?.status === 'REJECTED' ? existing.id : null,
+      existingId: existing ? existing.id : null,
     });
     if (status === 'WAITLISTED') {
       notifyOrganizerOfWaitlistJoin(game, req.user, req.io);

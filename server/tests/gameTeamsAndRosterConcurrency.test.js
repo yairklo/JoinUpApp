@@ -230,5 +230,36 @@ describe('server/routes/gameTeams.js PUT /:id/teams permissions & gameRoster con
       expect(confirmedAfter).toBe(2);
       expect(waitlistedAfter).toBe(1);
     });
+
+    it('reuses a NOT_SELECTED row when a seat is free', async () => {
+      await prisma.participation.create({
+        data: { gameId: capacityGame.id, userId: 'gt_j1', status: 'NOT_SELECTED' },
+      });
+      const res = await request(app).post(`/api/games/${capacityGame.id}/join`).set(as(j1Token));
+      expect(res.statusCode).toBe(200);
+      const row = await prisma.participation.findUnique({
+        where: { gameId_userId: { gameId: capacityGame.id, userId: 'gt_j1' } },
+      });
+      expect(row.status).toBe('CONFIRMED');
+    });
+
+    it('waitlists a NOT_SELECTED player when the game is already full', async () => {
+      await prisma.participation.create({
+        data: { gameId: capacityGame.id, userId: 'gt_j2', status: 'CONFIRMED' },
+      });
+      await prisma.participation.create({
+        data: { gameId: capacityGame.id, userId: 'gt_j1', status: 'NOT_SELECTED' },
+      });
+      const res = await request(app).post(`/api/games/${capacityGame.id}/join`).set(as(j1Token));
+      expect(res.statusCode).toBe(200);
+      const row = await prisma.participation.findUnique({
+        where: { gameId_userId: { gameId: capacityGame.id, userId: 'gt_j1' } },
+      });
+      expect(row.status).toBe('WAITLISTED');
+      const confirmed = await prisma.participation.count({
+        where: { gameId: capacityGame.id, status: 'CONFIRMED' },
+      });
+      expect(confirmed).toBe(2);
+    });
   });
 });
