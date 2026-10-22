@@ -28,6 +28,7 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import StadiumOutlinedIcon from "@mui/icons-material/StadiumOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
+import EmojiEventsRounded from "@mui/icons-material/EmojiEventsRounded";
 
 // Internal Components & Context
 import AuthButtons from "@/components/AuthButtons";
@@ -37,6 +38,7 @@ import NotificationPanel from "@/components/NotificationPanel";
 import GlobalSearchOmnibar from "@/components/GlobalSearchOmnibar";
 import { useNotificationCounters } from "@/context/NotificationCountersContext";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useTournamentsNav } from "@/components/tournaments/shell/useTournamentsNav";
 
 export default function AppNavbar() {
   const [mounted, setMounted] = useState(false);
@@ -46,6 +48,7 @@ export default function AppNavbar() {
   const theme = useTheme();
   const { friendRequests } = useNotificationCounters();
   const { isAdmin } = useIsAdmin();
+  const showTournaments = useTournamentsNav();
 
   useEffect(() => {
     setMounted(true);
@@ -130,6 +133,17 @@ export default function AppNavbar() {
               >
                 מגרשים
               </Button>
+              {showTournaments && (
+                <Button
+                  component={Link}
+                  href="/tournaments"
+                  startIcon={<EmojiEventsRounded />}
+                  sx={navLinkSx}
+                  data-testid="nav-tournaments"
+                >
+                  טורנירים
+                </Button>
+              )}
               {isAdmin && (
                 <Button
                   component={Link}
