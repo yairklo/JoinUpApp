@@ -57,7 +57,8 @@ export default function TournamentPage({ id }: { id: string }) {
             if (tab === "overview") p.delete("tab");
             else p.set("tab", tab);
             const qs = p.toString();
-            router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+            const base = pathname ?? "";
+            router.replace(qs ? `${base}?${qs}` : base, { scroll: false });
         },
         [router, pathname, search]
     );
