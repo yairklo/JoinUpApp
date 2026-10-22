@@ -13,6 +13,7 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import CircularProgress from "@mui/material/CircularProgress";
+import { alpha } from "@mui/material/styles";
 import { usersApi } from "@/services/api/users";
 
 const CONFIRM_WORD = "מחק";
@@ -59,15 +60,24 @@ export default function DeleteAccountCard() {
 
     return (
         <>
-            <Card elevation={3} sx={{ borderRadius: 3, mt: 3, border: "1px solid", borderColor: "error.light" }}>
-                <CardContent>
-                    <Typography variant="h6" fontWeight="bold" color="error" gutterBottom>
+            <Card
+                elevation={0}
+                sx={(theme) => ({
+                    borderRadius: 2.5,
+                    mt: 2.5,
+                    border: "1px solid",
+                    borderColor: alpha(theme.palette.error.main, 0.35),
+                    bgcolor: alpha(theme.palette.error.main, theme.palette.mode === "dark" ? 0.06 : 0.025),
+                })}
+            >
+                <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+                    <Typography variant="h6" fontWeight={800} color="error" gutterBottom>
                         מחיקת חשבון
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" mb={2}>
+                    <Typography variant="body2" color="text.secondary" mb={2.5} sx={{ lineHeight: 1.6 }}>
                         מחיקת החשבון מסירה לצמיתות את הפרופיל והמידע האישי שלכם, כולל חברים, הרשמות למשחקים ותגובות. לא ניתן לשחזר פעולה זו.
                     </Typography>
-                    <Button variant="outlined" color="error" onClick={() => setOpen(true)}>
+                    <Button variant="outlined" color="error" onClick={() => setOpen(true)} sx={{ fontWeight: 700, minHeight: 40 }}>
                         מחק את החשבון שלי
                     </Button>
                 </CardContent>

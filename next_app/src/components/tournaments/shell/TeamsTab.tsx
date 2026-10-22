@@ -11,7 +11,7 @@ import Drawer from "@mui/material/Drawer";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import ChevronLeftRounded from "@mui/icons-material/ChevronLeftRounded";
 import TeamBadge from "../TeamBadge";
 import UpdatedCue from "../UpdatedCue";
@@ -36,27 +36,35 @@ function TeamRow({ team, mine, group, wide, manager, onOpen }: { team: Tournamen
         <ButtonBase
             onClick={onOpen}
             data-testid={`team-card-${team.id}`}
-            sx={{
+            sx={(theme) => ({
                 width: "100%",
                 textAlign: "start",
                 justifyContent: "flex-start",
                 gap: 1.5,
-                px: 2,
-                minHeight: wide ? 88 : 64,
-                borderRadius: 3,
-                border: 1,
+                px: 2.25,
+                py: 1.25,
+                minHeight: wide ? 88 : 68,
+                borderRadius: 2.5,
+                border: "1px solid",
                 borderColor: mine ? "primary.main" : "divider",
                 bgcolor: "background.paper",
+                boxShadow: theme.shadows[1],
                 opacity: withdrawn ? 0.6 : 1,
-            }}
+                transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+                "&:hover": {
+                    transform: "translateY(-1px)",
+                    boxShadow: theme.shadows[2],
+                    borderColor: mine ? "primary.main" : alpha(theme.palette.primary.main, 0.35),
+                },
+            })}
         >
             <TeamBadge team={team} size={wide ? 40 : 32} lines={2} strikeThrough={withdrawn} testId={`team-badge-${team.id}`} />
             <Box sx={{ flex: 1 }} />
             <Stack alignItems="flex-end" spacing={0.5}>
-                {mine && <Chip size="small" color="primary" variant="outlined" label="הקבוצה שלך" />}
-                {group && <Chip size="small" variant="outlined" label={group} />}
-                <Typography variant="caption" color="text.secondary">{`${team.memberCount} שחקנים`}</Typography>
-                {manager && team.seed != null && <Typography variant="caption" color="text.secondary">{`#${team.seed}`}</Typography>}
+                {mine && <Chip size="small" color="primary" variant="outlined" label="הקבוצה שלך" sx={{ fontWeight: 700 }} />}
+                {group && <Chip size="small" variant="outlined" label={group} sx={{ fontWeight: 600 }} />}
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>{`${team.memberCount} שחקנים`}</Typography>
+                {manager && team.seed != null && <Typography variant="caption" color="text.secondary" fontWeight={700}>{`#${team.seed}`}</Typography>}
             </Stack>
             {!wide && <ChevronLeftRounded aria-hidden color="disabled" />}
         </ButtonBase>
@@ -72,11 +80,19 @@ function Roster({ members }: { members: TeamMember[] }) {
     return (
         <Stack spacing={1} component="ul" sx={{ m: 0, p: 0, listStyle: "none" }}>
             {sorted.map((m) => (
-                <Stack key={m.userId} component="li" direction="row" alignItems="center" spacing={1.5} data-testid={`team-sheet-member-${m.userId}`}>
-                    <Avatar src={m.imageUrl ?? undefined} alt="" sx={{ width: 32, height: 32 }} />
+                <Stack
+                    key={m.userId}
+                    component="li"
+                    direction="row"
+                    alignItems="center"
+                    spacing={1.5}
+                    data-testid={`team-sheet-member-${m.userId}`}
+                    sx={{ p: 1, borderRadius: 2, border: "1px solid", borderColor: "divider" }}
+                >
+                    <Avatar src={m.imageUrl ?? undefined} alt="" sx={{ width: 34, height: 34 }} />
                     <Typography sx={{ flex: 1, fontWeight: 600 }} noWrap>{m.name}</Typography>
-                    {m.jerseyNumber != null && <Typography variant="caption" color="text.secondary">{`#${m.jerseyNumber}`}</Typography>}
-                    {m.role !== "PLAYER" && <Chip size="small" label={ROLE_LABEL[m.role]} />}
+                    {m.jerseyNumber != null && <Typography variant="caption" color="text.secondary" fontWeight={700}>{`#${m.jerseyNumber}`}</Typography>}
+                    {m.role !== "PLAYER" && <Chip size="small" label={ROLE_LABEL[m.role]} sx={{ fontWeight: 600 }} />}
                 </Stack>
             ))}
         </Stack>
@@ -100,14 +116,14 @@ function TeamSheet({ tournamentId, team, onClose, phone }: { tournamentId: strin
                     <TeamBadge team={team} size={40} lines={2} testId="team-sheet-badge" />
                     <Roster members={team.members ?? []} />
                     {shown.length > 0 && (
-                        <Stack spacing={1}>
+                        <Stack spacing={1.25}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>משחקי הקבוצה</Typography>
                             {shown.map((m) => (
                                 <MatchCard key={m.id} match={m} context={context} myTeamId={team.id} href={`/tournaments/${tournamentId}/matches/${m.id}`} />
                             ))}
                         </Stack>
                     )}
-                    <Button component={Link} href={`/tournaments/${tournamentId}/team/${team.id}`} variant="outlined">
+                    <Button component={Link} href={`/tournaments/${tournamentId}/team/${team.id}`} variant="outlined" sx={{ minHeight: 44 }}>
                         לעמוד הקבוצה
                     </Button>
                 </Stack>
@@ -145,10 +161,10 @@ export default function TeamsTab({ tournament, registerHref }: { tournament: Tou
         return out;
     }, [stages, active]);
 
-    if (loading && teams.length === 0) return <div data-testid="teams-tab"><TabSkeleton rows={6} height={wide ? 88 : 64} /></div>;
+    if (loading && teams.length === 0) return <div data-testid="teams-tab"><TabSkeleton rows={6} height={wide ? 88 : 68} /></div>;
     if (error && teams.length === 0) return <div data-testid="teams-tab"><TabError error={error} onRetry={reload} /></div>;
 
-    const gridSx = wide ? { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2 } : { display: "grid", gap: 1 };
+    const gridSx = wide ? { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2 } : { display: "grid", gap: 1.25 };
     const open = teams.find((t) => t.id === openId) ?? null;
 
     if (teams.length === 0) {
@@ -166,11 +182,11 @@ export default function TeamsTab({ tournament, registerHref }: { tournament: Tou
     }
 
     return (
-        <Stack spacing={2.5} data-testid="teams-tab">
+        <Stack spacing={3} data-testid="teams-tab">
             <UpdatedCue show={updated} />
             {sections.map((s) => (
                 <Box key={s.key}>
-                    {s.title && <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>{s.title}</Typography>}
+                    {s.title && <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1.25 }}>{s.title}</Typography>}
                     <Box sx={gridSx}>
                         {s.items.map((t) => (
                             <TeamRow key={t.id} team={t} mine={t.id === myId} group={s.title ? null : groupLabel(t.groupId, groupNameById)} wide={wide} manager={manager} onOpen={() => setOpenId(t.id)} />
@@ -180,7 +196,7 @@ export default function TeamsTab({ tournament, registerHref }: { tournament: Tou
             ))}
             {withdrawn.length > 0 && (
                 <Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }} color="text.secondary">יצאו מהטורניר</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1.25 }} color="text.secondary">יצאו מהטורניר</Typography>
                     <Box sx={gridSx}>
                         {withdrawn.map((t) => (
                             <TeamRow key={t.id} team={t} mine={false} group={null} wide={wide} manager={false} onOpen={() => setOpenId(t.id)} />
@@ -189,7 +205,7 @@ export default function TeamsTab({ tournament, registerHref }: { tournament: Tou
                 </Box>
             )}
             {manager && (
-                <Button component={Link} href={`/tournaments/${tournament.id}/manage`} size="small" sx={{ alignSelf: "flex-start" }}>
+                <Button component={Link} href={`/tournaments/${tournament.id}/manage`} size="small" variant="outlined" sx={{ alignSelf: "flex-start" }}>
                     ניהול תור הקבוצות
                 </Button>
             )}

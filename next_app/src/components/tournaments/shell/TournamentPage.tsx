@@ -11,6 +11,7 @@ import Container from "@mui/material/Container";
 import Skeleton from "@mui/material/Skeleton";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
+import { alpha } from "@mui/material/styles";
 import ScoreEntrySheet from "../ScoreEntrySheet";
 import UpdatedCue from "../UpdatedCue";
 import BracketTab from "../tabs/BracketTab";
@@ -27,9 +28,9 @@ import { TAB_LABEL, deriveChampion, heroCta, parseTab, visibleTabs, type Tournam
 function PageSkeleton() {
     return (
         <Container maxWidth="lg" sx={{ py: 3 }} dir="rtl" data-testid="tournament-loading" aria-busy="true" aria-label="טוען">
-            <Skeleton variant="rounded" height={260} sx={{ mb: 2 }} />
-            <Skeleton variant="rounded" height={48} sx={{ mb: 2 }} />
-            <Skeleton variant="rounded" height={200} />
+            <Skeleton variant="rounded" height={260} sx={{ mb: 2, borderRadius: 3 }} />
+            <Skeleton variant="rounded" height={48} sx={{ mb: 2, borderRadius: 2 }} />
+            <Skeleton variant="rounded" height={200} sx={{ borderRadius: 2.5 }} />
         </Container>
     );
 }
@@ -77,7 +78,7 @@ export default function TournamentPage({ id }: { id: string }) {
     if (notFound) {
         return (
             <Container maxWidth="sm" sx={{ py: 6 }} dir="rtl" data-testid="tournament-not-found">
-                <Alert severity="info" action={<Button component={Link} href="/tournaments" color="inherit" size="small">לטורנירים</Button>}>
+                <Alert severity="info" sx={{ borderRadius: 2.5 }} action={<Button component={Link} href="/tournaments" color="inherit" size="small">לטורנירים</Button>}>
                     הטורניר לא נמצא.
                 </Alert>
             </Container>
@@ -88,6 +89,7 @@ export default function TournamentPage({ id }: { id: string }) {
             <Container maxWidth="sm" sx={{ py: 6 }} dir="rtl" data-testid="tournament-error">
                 <Alert
                     severity={typeof navigator !== "undefined" && navigator.onLine === false ? "warning" : "error"}
+                    sx={{ borderRadius: 2.5 }}
                     action={<Button color="inherit" size="small" onClick={() => void reload()}>נסו שוב</Button>}
                 >
                     {error?.status === 429
@@ -104,7 +106,7 @@ export default function TournamentPage({ id }: { id: string }) {
     const onScoreMatch = canScore ? setScoreMatch : undefined;
 
     return (
-        <Container maxWidth="lg" sx={{ py: { xs: 2, md: 3 }, pb: { xs: 12, md: 4 } }} dir="rtl" data-testid="tournament-page">
+        <Container maxWidth="lg" sx={{ py: { xs: 2, md: 3.5 }, pb: { xs: 14, md: 6 } }} dir="rtl" data-testid="tournament-page">
             <TournamentHero
                 tournament={t}
                 cta={cta}
@@ -113,17 +115,44 @@ export default function TournamentPage({ id }: { id: string }) {
                 onScoreCta={() => setTab("schedule")}
                 onGoLive={() => setTab("schedule")}
             />
-            <Box sx={{ position: "sticky", top: { xs: 56, md: 64 }, zIndex: 10, bgcolor: "background.default", mt: 2, borderBottom: 1, borderColor: "divider" }}>
-                <Tabs value={active} onChange={(_, v: TournamentTabKey) => setTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile aria-label="אזורי הטורניר">
+            <Box
+                sx={(theme) => ({
+                    position: "sticky",
+                    top: { xs: 56, md: 64 },
+                    zIndex: 10,
+                    bgcolor: alpha(theme.palette.background.default, 0.92),
+                    backdropFilter: "blur(12px)",
+                    mt: 2.5,
+                    borderBottom: 1,
+                    borderColor: "divider",
+                })}
+            >
+                <Tabs
+                    value={active}
+                    onChange={(_, v: TournamentTabKey) => setTab(v)}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    allowScrollButtonsMobile
+                    aria-label="אזורי הטורניר"
+                    sx={{
+                        "& .MuiTabs-indicator": { height: 3, borderRadius: "3px 3px 0 0" },
+                    }}
+                >
                     {tabs.map((k) => (
-                        <Tab key={k} value={k} label={TAB_LABEL[k]} data-testid={`tournament-tab-${k}`} sx={{ minHeight: 48, fontWeight: 700 }} />
+                        <Tab
+                            key={k}
+                            value={k}
+                            label={TAB_LABEL[k]}
+                            data-testid={`tournament-tab-${k}`}
+                            sx={{ minHeight: 50, fontWeight: 800, fontSize: "0.95rem", px: { xs: 2, md: 2.5 } }}
+                        />
                     ))}
                 </Tabs>
             </Box>
-            <Box sx={{ mt: 1 }}>
+            <Box sx={{ mt: 1.5 }}>
                 <UpdatedCue show={updated} testId="tournament-updated-cue" />
             </Box>
-            <Box sx={{ mt: 1 }} role="tabpanel">
+            <Box sx={{ mt: 2 }} role="tabpanel">
                 {active === "overview" && <OverviewTab tournament={t} onGoTab={setTab} onScoreMatch={onScoreMatch} />}
                 {active === "teams" && (
                     <TeamsTab tournament={t} registerHref={t.capabilities.canRegisterTeam ? `/tournaments/${t.id}/team/new` : undefined} />
