@@ -34,5 +34,8 @@ These failures already broke a Vercel deploy. Do not repeat them.
 - Derive `proxyUrl` for `pk_live_` (or set `NEXT_PUBLIC_CLERK_PROXY_URL`). After deploy, **Verify** the proxy in the Clerk Dashboard.
 - Do not set `NEXT_PUBLIC_CLERK_PROXY_URL` on Vercel Preview/Development or in a local `pk_test_` env. `resolveClerkProxyUrl()` returns undefined for `pk_test_`, but `@clerk/nextjs@6.39.x` still reads that variable in `ClerkProvider` and `clerkMiddleware` (`props.proxyUrl || env`). Omitting the prop does not clear it. Production `pk_live_` still defaults to `/__clerk`.
 
+## Geolocation & maps (web /search)
+- `/search` must not auto-prompt geolocation on mount: many mobile browsers throw `SecurityError` (no user gesture / Permissions-Policy) instead of calling the error callback, which takes down the route error boundary. Only auto-detect when `permissions.query` already reports `granted`; always try/catch `getCurrentPosition` and validate lat/lng before `panTo` / AdvancedMarker. Wrap the map in a local error boundary so a Maps crash cannot replace the whole page.
+
 ## Merge / deploy
-- After gates are green, merge into `Dev` and push so Vercel builds from `Dev`.
+- After gates are green: PR into the integration branch; Dev deploy per docs/agents/dev-env.md.

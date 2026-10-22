@@ -13,8 +13,8 @@ const rulesDir = path.join(repoRoot, '.cursor', 'rules');
 const warnOnly = process.argv.includes('--warn-only');
 
 // Deliberately tight: this should only ever hold rules that apply before a file is even chosen
-// (e.g. worktree isolation). Anything glob-scopable belongs in its own non-alwaysApply file.
-const ALWAYS_APPLY_BUDGET = 600;
+// (e.g. worktree isolation, git & deploy). Anything glob-scopable belongs in its own non-alwaysApply file.
+const ALWAYS_APPLY_BUDGET = 750;
 
 if (!fs.existsSync(rulesDir)) {
   console.log('No .cursor/rules directory — nothing to check.');

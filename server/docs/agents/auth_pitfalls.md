@@ -25,7 +25,7 @@ function orderPair(a, b) {
 
 Grant admin in **one** of these ways (do not add a parallel `User.isAdmin` column):
 1. Clerk `publicMetadata` / `privateMetadata`: `{ "isAdmin": true }` or `{ "role": "admin" }`.
-2. Render env `ADMIN_USER_IDS` — comma-separated Clerk user ids (works even if the Clerk profile fetch fails).
+2. Coolify env `ADMIN_USER_IDS` — comma-separated Clerk user ids (works even if the Clerk profile fetch fails).
 
 Field create/update/delete and other admin-gated routes stay 403 until one of those is set.
 

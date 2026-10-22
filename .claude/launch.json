@@ -1,14 +1,15 @@
 {
   "version": "0.0.1",
+  "description": "Local server configurations (fallback only — test on shared Dev per docs/agents/dev-env.md)",
   "configurations": [
     {
-      "name": "next_app",
+      "name": "next_app (fallback only)",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "next_app"],
       "port": 3000
     },
     {
-      "name": "server",
+      "name": "server (fallback only)",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "server"],
       "port": 3005
