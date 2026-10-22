@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser, useAuth, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { useUser, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usersApi, PrivacyLevel, PrivacySettings } from "@/services/api/users";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import { defaultOptionLabel } from "@/utils/privacyLabels";
 
 import Container from "@mui/material/Container";
@@ -43,7 +44,7 @@ const FIELDS: { key: FieldKey; label: string }[] = [
 
 export default function PrivacySettingsPage() {
     const { user } = useUser();
-    const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const router = useRouter();
     const { isAdmin } = useIsAdmin();
 
@@ -65,7 +66,7 @@ export default function PrivacySettingsPage() {
         let active = true;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 const data = await usersApi.getProfile(user.id, token || undefined);
                 if (!active) return;
                 const ps = data.privacySettings;
@@ -87,13 +88,13 @@ export default function PrivacySettingsPage() {
         return () => {
             active = false;
         };
-    }, [user?.id, getToken]);
+    }, [user?.id]);
 
     const handleSave = async () => {
         setSaving(true);
         setError(null);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             const payload: Partial<Record<FieldKey, PrivacyLevel | null>> & { hideGroups?: boolean } = {
                 hideGroups,

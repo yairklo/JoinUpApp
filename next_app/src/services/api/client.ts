@@ -1,4 +1,5 @@
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
+import { fetchRead } from './readBackoff';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -44,7 +45,7 @@ export async function apiClient<T>(endpoint: string, { token, data, ...customCon
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
 
     try {
-        const response = await fetch(url, config);
+        const response = await fetchRead(url, config);
 
         if (!response.ok) {
             const errorBody = await response.json().catch(() => ({}));
