@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useColorMode } from '@/theme/ColorModeContext';
+import { classifyApiError, rateLimitCooldownMs } from '@/utils/apiErrorKind';
 
 /** Grey placeholder blocks, `count` rows of `height`. */
 export function SkeletonList({ count = 4, height = 88, testID = 'tab-skeleton' }: { count?: number; height?: number; testID?: string }) {
@@ -15,18 +16,45 @@ export function SkeletonList({ count = 4, height = 88, testID = 'tab-skeleton' }
     );
 }
 
-/** Load error with a retry button (real fetch errors, never an empty state). */
-export function ErrorState({ onRetry, testID = 'tab-error' }: { onRetry: () => void; testID?: string }) {
+/**
+ * Load error with a retry button (real fetch errors, never an empty state). A 429 `error` shows the
+ * rate-limit text and keeps the button disabled until Retry-After elapses (no auto-retry, no toast);
+ * anything else keeps the connection message.
+ */
+export function ErrorState({
+    onRetry,
+    error,
+    testID = 'tab-error',
+}: {
+    onRetry: () => void;
+    error?: { status?: number; retryAfterMs?: number } | null;
+    testID?: string;
+}) {
     const { t } = useTranslation();
     const { colorMode } = useColorMode();
+    const limited = classifyApiError(error) === 'rateLimited';
+    const [waiting, setWaiting] = useState(limited);
+    useEffect(() => {
+        if (!limited) {
+            setWaiting(false);
+            return;
+        }
+        setWaiting(true);
+        const timer = setTimeout(() => setWaiting(false), rateLimitCooldownMs(error));
+        return () => clearTimeout(timer);
+    }, [limited, error]);
     return (
         <View testID={testID} className="items-center py-10 px-6">
             <Ionicons name="cloud-offline-outline" size={32} color={colorMode === 'dark' ? '#9ca3af' : '#6b7280'} />
-            <Text className="text-[14px] text-gray-600 dark:text-cyber-muted text-center mt-2">{t('tournaments.view.loadFailed')}</Text>
+            <Text className="text-[14px] text-gray-600 dark:text-cyber-muted text-center mt-2">
+                {limited ? t('tournaments.view.rateLimited') : t('tournaments.view.loadFailed')}
+            </Text>
             <Pressable
                 onPress={onRetry}
+                disabled={waiting}
                 accessibilityRole="button"
-                className="mt-3 px-5 rounded-full bg-brand items-center justify-center"
+                accessibilityState={{ disabled: waiting }}
+                className={`mt-3 px-5 rounded-full bg-brand items-center justify-center ${waiting ? 'opacity-50' : ''}`}
                 style={{ minHeight: 44 }}
                 testID={`${testID}-retry`}
             >

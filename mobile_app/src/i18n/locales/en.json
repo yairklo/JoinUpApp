@@ -887,6 +887,8 @@
   },
   "errors": {
     "gatewayError": "Server is currently unavailable. Please try again in a moment.",
+    "tooManyRequests": "Too many requests, try again in a moment",
+    "uploadTimeout": "The upload took too long. Check your connection and try again.",
     "fetchFailed": "Error loading data",
     "loadMyGamesFailed": "Error loading my games",
     "loadSeriesFailed": "Error loading groups",
@@ -1204,6 +1206,7 @@
     "view": {
       "loadFailed": "Couldn't load this",
       "retry": "Try again",
+      "rateLimited": "Too many requests, try again in a moment",
       "rosters": "Rosters",
       "noRoster": "No players to show",
       "backToTournament": "Back to tournament",

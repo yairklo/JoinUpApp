@@ -30,7 +30,7 @@ export default function TopPlayersTab({ tournamentId }: TournamentTabProps) {
     const dark = colorMode === 'dark';
 
     if (loading && leaders.length === 0 && keys.length === 0) return <View testID="leaders-tab"><SkeletonList count={5} height={56} /></View>;
-    if (error && leaders.length === 0) return <View testID="leaders-tab"><ErrorState onRetry={refetch} /></View>;
+    if (error && leaders.length === 0) return <View testID="leaders-tab"><ErrorState onRetry={refetch} error={error} /></View>;
 
     const labelText = label ? (lang === 'he' ? label.he : label.en) : activeKey ? statLabel(sport, activeKey, lang) : '';
     const shown = more ? leaders : leaders.slice(0, TOP);

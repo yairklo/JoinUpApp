@@ -26,7 +26,7 @@ export default function StandingsTab({ tournamentId, onSetManualRank }: Standing
     const canManage = !!tournament?.capabilities?.canManage;
 
     if (loading && tables.length === 0) return <View testID="standings-tab"><SkeletonList count={7} height={48} /></View>;
-    if (error && tables.length === 0) return <View testID="standings-tab"><ErrorState onRetry={refetch} /></View>;
+    if (error && tables.length === 0) return <View testID="standings-tab"><ErrorState onRetry={refetch} error={error} /></View>;
     if (tables.length === 0) {
         return (
             <View testID="standings-tab">

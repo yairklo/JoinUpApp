@@ -122,7 +122,7 @@ export default function TournamentsListScreen() {
                     {loading && tournaments.length === 0 ? (
                         <SkeletonList count={6} height={210} testID="tournaments-skeleton" />
                     ) : error && tournaments.length === 0 ? (
-                        <ErrorState onRetry={refetch} testID="tournaments-error" />
+                        <ErrorState onRetry={refetch} error={error} testID="tournaments-error" />
                     ) : tournaments.length === 0 ? (
                         filtered ? (
                             <EmptyState icon="funnel-outline" text={t('tournaments.emptyFiltered')} actionLabel={t('tournaments.clearFilters')} onAction={clear} testID="tournaments-empty" />

@@ -26,7 +26,7 @@ export default function BracketTab({ tournamentId }: TournamentTabProps) {
     const myTeamId = tournament?.myTeam?.id ?? null;
 
     if (loading && stages.length === 0) return <View testID="bracket-tab"><SkeletonList count={4} height={96} /></View>;
-    if (error && stages.length === 0) return <View testID="bracket-tab"><ErrorState onRetry={refetch} /></View>;
+    if (error && stages.length === 0) return <View testID="bracket-tab"><ErrorState onRetry={refetch} error={error} /></View>;
 
     // GROUPS_KNOCKOUT: only the knockout stage; take the last stage that has rounds.
     const stage = [...stages].reverse().find((s) => s.rounds.some((r) => r.matches.length > 0));

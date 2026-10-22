@@ -14,7 +14,8 @@
     "screens:mobile": "node .maestro/screenshots/run.mjs",
     "update:development": "node scripts/eas-update.mjs development",
     "update:preview": "node scripts/eas-update.mjs preview",
-    "update:production": "node scripts/eas-update.mjs production"
+    "update:production": "node scripts/eas-update.mjs production",
+    "test:unit": "node --test src/utils/apiErrorKind.test.mjs src/services/api/uploadPolicy.test.mjs"
   },
   "dependencies": {
     "@babel/runtime": "^7.20.0",
