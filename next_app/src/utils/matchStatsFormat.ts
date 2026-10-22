@@ -22,7 +22,7 @@ export function orderedStatKeys(sport: string, values: StatValues): string[] {
     return ordered.filter((k) => (values[k] ?? 0) > 0);
 }
 
-/** "2 שערים" / "1 שער" (singular label from the shared defs); binary keys are label only. */
+/** "2 שערים" / "שער אחד"; binary keys are label only. */
 export function formatStatText(sport: string, key: string, value: number): string {
     const label = getStatLabel(sport, key, 'he', value);
     if (key === 'mvp') return `⭐ ${label}`;

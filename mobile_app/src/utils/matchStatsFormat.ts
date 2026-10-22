@@ -6,15 +6,15 @@ type Lang = 'he' | 'en';
 
 export const toLang = (language?: string): Lang => (language && language.startsWith('en') ? 'en' : 'he');
 
-/** Stat label; pass `count` to get the singular form when it is exactly 1 ("1 שער"). */
+/** Label for a stat key; pass the count so 1 renders the singular form where one exists. */
 export const statLabel = (sport: string, key: string, lang: Lang, count?: number): string =>
     getStatLabel(sport, key, lang, count);
 
-/** "2 שערים", "1 שער", binary keys render the label only, MVP as a star. */
+/** "2 שערים", "שער אחד"-style singular for 1, binary keys render the label only, MVP as a star. */
 export function formatStatInline(sport: string, key: string, value: number, lang: Lang): string {
     if (key === 'mvp') return '⭐';
+    if (BINARY_KEYS.has(key)) return statLabel(sport, key, lang);
     const label = statLabel(sport, key, lang, value);
-    if (BINARY_KEYS.has(key)) return label;
     return `${value} ${label}`;
 }
 

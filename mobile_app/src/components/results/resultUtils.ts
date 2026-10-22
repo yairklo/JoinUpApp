@@ -28,7 +28,7 @@ export function sideSwatchColor(side: { order: number; teamId: string | null }, 
     return side.order === 0 ? getSportTheme(sport).base : '#9ca3af';
 }
 
-/** Non-zero stats in STAT_DEFS order as display strings; value 1 uses the singular label ("1 שער"). MVP/cleanSheet are badges. */
+/** Non-zero stats in STAT_DEFS order as display strings; value 1 uses the singular label. MVP/cleanSheet are badges. */
 export function describeStats(sport: string, values: Record<string, number>, lang: Lang): { key: string; text: string }[] {
     const out: { key: string; text: string }[] = [];
     for (const def of getStatDefs(sport)) {

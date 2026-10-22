@@ -24,7 +24,7 @@ export interface ProfileStatsCardProps {
     /** false (hidden/private) renders nothing at all. */
     visible: boolean;
     isOwner?: boolean;
-    /** Owner has hideMatchStats on; the banner is omitted when unknown (spec 12.1 fallback). */
+    /** Owner has hideMatchStats on (server `ownerHidden`). */
     ownerHidden?: boolean;
     sports: SportStatsAggregate[];
     selectedSport?: string | null;

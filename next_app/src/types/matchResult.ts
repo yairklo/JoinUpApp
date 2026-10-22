@@ -144,6 +144,8 @@ export type StatsHiddenReason = 'USER_HIDDEN' | 'PRIVATE';
 export interface UserStatsResponse {
     visible: boolean;
     hiddenReason?: StatsHiddenReason;
+    /** Owner-only: their stats are hidden from everyone else. */
+    ownerHidden?: boolean;
     sports: SportStatsAggregate[];
 }
 
@@ -210,7 +212,11 @@ export interface AdminUserReport {
     reporter: AdminUserReportPerson;
     target: AdminUserReportPerson;
     /** start/field are null when the game no longer exists. */
-    game: { id: string; start: string | null; field: { name: string } | null } | null;
+    game: { id: string; title: string | null; start: string | null; field: { name: string } | null } | null;
+    tournamentId: string | null;
+    tournament: { id: string; title: string | null } | null;
+    /** OPEN reports against the same player (this one included while open). */
+    openReportsOnTarget: number;
 }
 
 export type UserReportResolveAction = 'NONE' | 'BAN';

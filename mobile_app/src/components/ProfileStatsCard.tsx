@@ -13,7 +13,7 @@ export interface ProfileStatsCardProps {
     /** Server said the viewer may see stats. When false and not loading/error, nothing is rendered. */
     visible: boolean;
     isOwner: boolean;
-    /** Owner has hideMatchStats on (from the settings payload). Missing flag = no banner. */
+    /** Server `ownerHidden`: the owner's stats are hidden from everyone else. */
     ownerHidden?: boolean;
     sports: UserSportStats[];
     selectedSport: string | null;
