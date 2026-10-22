@@ -163,6 +163,7 @@ export default async function GameDetails(props: {
               id: game.id,
               time: game.time,
               date: game.date,
+              start: game.start,
               duration: game.duration,
               title: game.title,
               fieldName: game.fieldName,

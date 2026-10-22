@@ -19,6 +19,7 @@ import MatchCard from "../MatchCard";
 import { TabEmpty, TabError, TabSkeleton } from "../tabs/TabStates";
 import { useTournamentSchedule, useTournamentTeams } from "@/hooks/tournaments";
 import type { TeamMember, TournamentDetail, TournamentTeam } from "@/types/tournament";
+import { displayGroupName } from "@/utils/tournamentViews";
 import { shortDate } from "./shellModel";
 
 const ROLE_ORDER = { CAPTAIN: 0, PLAYER: 1, SUBSTITUTE: 2 } as const;
@@ -63,7 +64,7 @@ function TeamRow({ team, mine, group, wide, manager, onOpen }: { team: Tournamen
             <Stack alignItems="flex-end" spacing={0.5}>
                 {mine && <Chip size="small" color="primary" variant="outlined" label="הקבוצה שלך" sx={{ fontWeight: 700 }} />}
                 {group && <Chip size="small" variant="outlined" label={group} sx={{ fontWeight: 600 }} />}
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>{`${team.memberCount} שחקנים`}</Typography>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>{team.memberCount === 1 ? "שחקן אחד" : `${team.memberCount} שחקנים`}</Typography>
                 {manager && team.seed != null && <Typography variant="caption" color="text.secondary" fontWeight={700}>{`#${team.seed}`}</Typography>}
             </Stack>
             {!wide && <ChevronLeftRounded aria-hidden color="disabled" />}
@@ -154,7 +155,7 @@ export default function TeamsTab({ tournament, registerHref }: { tournament: Tou
         const out: Array<{ key: string; title: string | null; items: TournamentTeam[] }> = [];
         for (const g of stages.flatMap((s) => s.groups)) {
             const items = active.filter((t) => t.groupId === g.id);
-            if (items.length) out.push({ key: g.id, title: `בית ${g.name}`, items });
+            if (items.length) out.push({ key: g.id, title: `בית ${displayGroupName(g.name)}`, items });
         }
         const rest = active.filter((t) => !t.groupId);
         if (rest.length) out.push({ key: "rest", title: null, items: rest });

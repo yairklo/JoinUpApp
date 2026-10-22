@@ -103,7 +103,7 @@ export default function TopPlayersTab({ tournamentId }: TopPlayersTabProps) {
                                 })}
                             >
                                 <Typography variant="body2" color="text.secondary" sx={{ width: 24, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
-                                    {positions[i]}
+                                    <bdi dir="ltr">{positions[i]}</bdi>
                                 </Typography>
                                 <Avatar src={r.imageUrl ?? undefined} alt="" sx={{ width: 40, height: 40 }} />
                                 <Box sx={{ flex: 1, minWidth: 0 }}>

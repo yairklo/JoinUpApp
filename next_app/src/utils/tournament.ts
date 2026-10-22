@@ -6,6 +6,7 @@ import type {
     TournamentStage,
     TournamentStatus,
 } from '@/types/tournament';
+import { displayGroupName } from '@/utils/tournamentViews';
 
 // Pure helpers for the tournament UI: status tokens (design spec D0 sections 0.3, 0.4) and score/slot
 // logic shared by the presentational components. No React, no MUI theme access.
@@ -69,7 +70,7 @@ export function matchNumberMap(matches: ReadonlyArray<Pick<TournamentMatch, 'id'
 
 export function groupNameMap(stages: ReadonlyArray<Pick<TournamentStage, 'groups'>>): Map<string, string> {
     const out = new Map<string, string>();
-    for (const s of stages) for (const g of s.groups) out.set(g.id, g.name);
+    for (const s of stages) for (const g of s.groups) out.set(g.id, displayGroupName(g.name));
     return out;
 }
 

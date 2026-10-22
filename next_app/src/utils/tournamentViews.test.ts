@@ -6,6 +6,8 @@ import {
     dayKey,
     defaultDay,
     filterMatches,
+    displayGroupName,
+    displayStageName,
     formatGd,
     groupMatches,
     isByeMatch,
@@ -59,6 +61,16 @@ test('groupMatches groups by day when multi-day, by round otherwise', () => {
     const single = groupMatches([match({ id: '1', round: 1 }), match({ id: '2', round: 2, number: 2 }), match({ id: '3', round: 2, number: 3 })]);
     expect(single.map((g) => g.title)).toEqual(['מחזור 1', 'מחזור 2']);
     expect(single[1].matches).toHaveLength(2);
+});
+
+test('display names translate stored English stage and group names', () => {
+    expect(displayStageName('League')).toBe('ליגה');
+    expect(displayStageName('Matches')).toBe('משחקים');
+    expect(displayGroupName('Group A')).toBe('א');
+    expect(displayGroupName('Group K')).toBe('כ');
+    expect(displayGroupName('Group P')).toBe('ע');
+    expect(displayGroupName('ך')).toBe('כ');
+    expect(displayGroupName('א')).toBe('א');
 });
 
 test('formatGd uses a real minus', () => {

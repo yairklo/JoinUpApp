@@ -35,6 +35,29 @@ export interface Grid {
 
 const collator = new Intl.Collator("he", { numeric: true });
 
+function gcd(a: number, b: number): number {
+    let x = Math.abs(Math.round(a));
+    let y = Math.abs(Math.round(b));
+    while (y) {
+        const t = y;
+        y = x % y;
+        x = t;
+    }
+    return x || 1;
+}
+
+/**
+ * Row size for the court grid. A 30-minute step with a 40-minute match rounds the
+ * block up to 60 minutes and paints the next match on top of it. The greatest
+ * common divisor keeps each block the real length and on its real start minute.
+ */
+export function gridStep(step: number, durationMinutes: number): number {
+    const s = Math.max(5, Math.round(step) || 5);
+    const d = Math.max(1, Math.round(durationMinutes) || 1);
+    const g = gcd(s, d);
+    return g >= 5 ? g : s;
+}
+
 export function itemDays(items: ReadonlyArray<Pick<GridItem, "scheduledAt">>): string[] {
     const days = new Set<string>();
     for (const it of items) {
@@ -57,7 +80,7 @@ export function buildGrid(
     day: string,
     opts: { step: number; durationMinutes: number; extraCourts?: ReadonlyArray<string> }
 ): Grid {
-    const step = Math.max(5, opts.step);
+    const step = gridStep(opts.step, opts.durationMinutes);
     const span = Math.max(1, Math.ceil(opts.durationMinutes / step));
     const dayItems: Array<{ item: GridItem; min: number }> = [];
     for (const item of items) {
