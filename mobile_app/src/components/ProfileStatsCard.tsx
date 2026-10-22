@@ -13,7 +13,7 @@ export interface ProfileStatsCardProps {
     /** Server said the viewer may see stats. When false and not loading/error, nothing is rendered. */
     visible: boolean;
     isOwner: boolean;
-    /** Owner has hideMatchStats on (from the settings payload). Missing flag = no banner. */
+    /** Server `ownerHidden`: the owner's stats are hidden from everyone else. */
     ownerHidden?: boolean;
     sports: UserSportStats[];
     selectedSport: string | null;
@@ -215,7 +215,7 @@ export default function ProfileStatsCard(props: ProfileStatsCardProps) {
                                     {binary ? `×${total}` : total}
                                 </Text>
                                 <Text className="text-xs text-gray-600 dark:text-cyber-muted" numberOfLines={1}>
-                                    {statLabel(current.sport, k, lang)}
+                                    {statLabel(current.sport, k, lang, total)}
                                 </Text>
                                 {!binary && per != null && (
                                     <Text className="text-xs text-gray-500 dark:text-cyber-muted">

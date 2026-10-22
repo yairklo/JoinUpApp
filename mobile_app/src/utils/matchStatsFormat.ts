@@ -1,4 +1,4 @@
-import { getStatDefs, getSummaryKeys } from '@joinup/shared/matchStats';
+import { getStatDefs, getStatLabel, getSummaryKeys } from '@joinup/shared/matchStats';
 
 const BINARY_KEYS = new Set(['cleanSheet', 'mvp']);
 
@@ -6,18 +6,16 @@ type Lang = 'he' | 'en';
 
 export const toLang = (language?: string): Lang => (language && language.startsWith('en') ? 'en' : 'he');
 
-export const statLabel = (sport: string, key: string, lang: Lang): string => {
-    const d = getStatDefs(sport).find((x: { key: string }) => x.key === key);
-    if (!d) return key;
-    return lang === 'he' ? d.he : d.en;
-};
+/** Label for a stat key; pass the count so 1 renders the singular form where one exists. */
+export const statLabel = (sport: string, key: string, lang: Lang, count?: number): string =>
+    getStatLabel(sport, key, lang, count);
 
-/** "2 שערים", "בישולים: 1" (no singular labels in shared yet), binary keys render the label only, MVP as a star. */
+/** "2 שערים", "שער אחד"-style singular for 1, binary keys render the label only, MVP as a star. */
 export function formatStatInline(sport: string, key: string, value: number, lang: Lang): string {
     if (key === 'mvp') return '⭐';
-    const label = statLabel(sport, key, lang);
-    if (BINARY_KEYS.has(key)) return label;
-    return value === 1 ? `${label}: 1` : `${value} ${label}`;
+    if (BINARY_KEYS.has(key)) return statLabel(sport, key, lang);
+    const label = statLabel(sport, key, lang, value);
+    return `${value} ${label}`;
 }
 
 /** Non-zero keys of `values`: summary keys first, then the rest, both in STAT_DEFS order. */
