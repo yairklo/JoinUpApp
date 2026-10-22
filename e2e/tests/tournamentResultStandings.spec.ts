@@ -1,8 +1,15 @@
 import { expect, signIn, signOut, test } from "../support/auth";
 
 test.describe("Tournament match result entry and standings update", () => {
-  const tournamentId = "cmvjad6r3000gqe0iifmjp349";
-  const matchId = "aadf456d-ce2f-472b-8d7a-5a4d6f35737b";
+  // This test targets live seeded entities on the persistent Dev environment.
+  // Skip during standard local/CI runs using fresh isolated databases unless explicitly requested.
+  test.skip(
+    !process.env.RUN_DEV_E2E && !process.env.E2E_SKIP_SEED,
+    "Targeted against persistent Dev environment; run via scripts/run-e2e-dev.js"
+  );
+
+  const tournamentId = process.env.DEV_TOURNAMENT_ID || "cmvjad6r3000gqe0iifmjp349";
+  const matchId = process.env.DEV_MATCH_ID || "aadf456d-ce2f-472b-8d7a-5a4d6f35737b";
   const organizerEmail = "organizer-o+clerk_test@example.com";
   const participantEmail = "adult-a+clerk_test@example.com";
 
