@@ -28,16 +28,25 @@ const router = express.Router();
 async function claimJoinSeat(gameId, userId, { existingId = null, countOffers = true } = {}) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "Game" WHERE id = ${gameId} FOR UPDATE`;
+    if (existingId) {
+      const current = await tx.participation.findUnique({
+        where: { id: existingId },
+        select: { status: true },
+      });
+      // The twin request already took or queued this same row. Do not recount it as a filled seat.
+      if (current && (current.status === 'CONFIRMED' || current.status === 'WAITLISTED')) {
+        return { status: current.status, wrote: false };
+      }
+    }
+    const seatFilter = countOffers
+      ? { OR: [{ status: 'CONFIRMED' }, { status: 'PENDING', isWaitlistOffer: true }] }
+      : { status: 'CONFIRMED' };
     const allocated = await tx.participation.count({
-      where: countOffers
-        ? {
-            gameId,
-            OR: [
-              { status: 'CONFIRMED' },
-              { status: 'PENDING', isWaitlistOffer: true },
-            ],
-          }
-        : { gameId, status: 'CONFIRMED' },
+      where: {
+        gameId,
+        ...(existingId ? { id: { not: existingId } } : {}),
+        ...seatFilter,
+      },
     });
     const game = await tx.game.findUnique({ where: { id: gameId }, select: { maxPlayers: true } });
     const status = allocated >= game.maxPlayers ? 'WAITLISTED' : 'CONFIRMED';
@@ -46,7 +55,7 @@ async function claimJoinSeat(gameId, userId, { existingId = null, countOffers = 
     } else {
       await tx.participation.create({ data: { gameId, userId, status } });
     }
-    return status;
+    return { status, wrote: true };
   });
 }
 
@@ -166,7 +175,7 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 
         await safeUpsertUserFromAuth(prisma, req.user);
         // Confirm up to capacity; beyond capacity -> waitlist. Offers are not seats until the draw.
-        const status = await claimJoinSeat(game.id, req.user.id, { countOffers: false });
+        const { status } = await claimJoinSeat(game.id, req.user.id, { countOffers: false });
         if (status === 'WAITLISTED') {
           notifyOrganizerOfWaitlistJoin(game, req.user, req.io);
         } else {
@@ -189,9 +198,12 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
     await safeUpsertUserFromAuth(prisma, req.user);
     // REJECTED, NOT_SELECTED, and CANCELLED rows are reused. A second insert would
     // hit @@unique([gameId, userId]) and 500; a full game used to no-op those rows.
-    const status = await claimJoinSeat(game.id, req.user.id, {
+    const { status, wrote } = await claimJoinSeat(game.id, req.user.id, {
       existingId: existing ? existing.id : null,
     });
+    if (!wrote) {
+      return finishJoinResponse();
+    }
     if (status === 'WAITLISTED') {
       notifyOrganizerOfWaitlistJoin(game, req.user, req.io);
     } else {

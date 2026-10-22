@@ -261,5 +261,25 @@ describe('server/routes/gameTeams.js PUT /:id/teams permissions & gameRoster con
       });
       expect(confirmed).toBe(2);
     });
+
+    it('keeps the seat when the same NOT_SELECTED player joins twice at once', async () => {
+      await prisma.participation.create({
+        data: { gameId: capacityGame.id, userId: 'gt_j1', status: 'NOT_SELECTED' },
+      });
+      const [a, b] = await Promise.all([
+        request(app).post(`/api/games/${capacityGame.id}/join`).set(as(j1Token)),
+        request(app).post(`/api/games/${capacityGame.id}/join`).set(as(j1Token)),
+      ]);
+      expect(a.statusCode).toBe(200);
+      expect(b.statusCode).toBe(200);
+      const row = await prisma.participation.findUnique({
+        where: { gameId_userId: { gameId: capacityGame.id, userId: 'gt_j1' } },
+      });
+      expect(row.status).toBe('CONFIRMED');
+      const confirmed = await prisma.participation.count({
+        where: { gameId: capacityGame.id, status: 'CONFIRMED' },
+      });
+      expect(confirmed).toBe(2);
+    });
   });
 });
