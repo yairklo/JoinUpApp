@@ -354,7 +354,7 @@ export interface StatusAction {
 
 export const STATUS_ORDER: TournamentStatus[] = ['DRAFT', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'IN_PROGRESS', 'COMPLETED'];
 
-export function nextStatusAction(status: TournamentStatus, closesAt?: string | null): StatusAction | null {
+export function nextStatusAction(status: TournamentStatus): StatusAction | null {
     switch (status) {
         case 'DRAFT':
             return { to: 'REGISTRATION_OPEN', label: 'פרסום ופתיחת הרשמה', confirm: 'הטורניר יפורסם וקבוצות יוכלו להירשם.' };
@@ -476,7 +476,7 @@ export function bestOfFor(t: Pick<TournamentDetail, 'rules'>, match?: Pick<Tourn
     return t.rules?.bestOf === 5 ? 5 : 3;
 }
 
-export function initScoreForm(match: TournamentMatch, sport: string, bestOf: number): ScoreForm {
+export function initScoreForm(match: TournamentMatch, sport: string): ScoreForm {
     const status: ScoreStatus = match.status === 'LIVE' ? 'LIVE' : match.status === 'FORFEIT' ? 'FORFEIT' : 'FINISHED';
     const sets = (match.details?.sets ?? []).map(([a, b]) => [a, b] as [number, number]);
     const forfeitBy =
@@ -505,7 +505,7 @@ export function isKnockoutMatch(t: Pick<TournamentDetail, 'format'>, m: Pick<Tou
 }
 
 export function tennisCheck(sets: Array<[number, number]>, bestOf: number) {
-    const r = validateTennisSets(sets, { bestOf });
+    const r = validateTennisSets(sets, { bestOf: bestOf as 3 | 5 });
     const rows: Record<number, string> = {};
     let match: string | null = null;
     for (const e of r.errors) {

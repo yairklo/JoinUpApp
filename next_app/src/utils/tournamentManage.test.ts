@@ -214,15 +214,15 @@ describe('score form', () => {
         sport: 'SOCCER', bestOf: 3, knockout: false, homeTeamId: 'h', awayTeamId: 'a', penaltiesShown: false, ...over,
     });
     const form = (over: Partial<ScoreForm> = {}): ScoreForm => ({
-        ...initScoreForm(match(), 'SOCCER', 3), ...over,
+        ...initScoreForm(match(), 'SOCCER'), ...over,
     });
 
     it('defaults to FINISHED 0:0 and keeps LIVE', () => {
-        expect(initScoreForm(match(), 'SOCCER', 3)).toMatchObject({ status: 'FINISHED', home: 0, away: 0 });
-        expect(initScoreForm(match({ status: 'LIVE', homeScore: 1, awayScore: 0 }), 'SOCCER', 3)).toMatchObject({ status: 'LIVE', home: 1 });
+        expect(initScoreForm(match(), 'SOCCER')).toMatchObject({ status: 'FINISHED', home: 0, away: 0 });
+        expect(initScoreForm(match({ status: 'LIVE', homeScore: 1, awayScore: 0 }), 'SOCCER')).toMatchObject({ status: 'LIVE', home: 1 });
     });
     it('recovers the forfeiting team from the winner', () => {
-        const f = initScoreForm(match({ status: 'FORFEIT', winnerTeamId: 'a', homeScore: 0, awayScore: 3 }), 'SOCCER', 3);
+        const f = initScoreForm(match({ status: 'FORFEIT', winnerTeamId: 'a', homeScore: 0, awayScore: 3 }), 'SOCCER');
         expect(f.forfeitBy).toBe('h');
     });
     it('knockout detection by format and group', () => {
