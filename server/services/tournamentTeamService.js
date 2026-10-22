@@ -4,6 +4,7 @@
 // race-free even though Prisma cannot express them as constraints.
 const crypto = require('crypto');
 const { prisma, TournamentError, lockTournament, loadTournament, loadForViewer } = require('./tournamentService');
+const results = require('./tournamentResultService');
 const { canAddMember, validateRoster } = require('../shared/tournament/rosterRules');
 const { getAgeInJerusalem, ADULT_AGE } = require('../shared/ageGate');
 const { publicDisplayName } = require('../utils/publicName');
@@ -167,12 +168,10 @@ const memberView = (m) => ({
   jerseyNumber: m.jerseyNumber,
 });
 
-/** `canSeeAll`: captain / manager view (join code, invited + declined members). */
-async function serializeTeam(db, teamId, { canSeeAll = false } = {}) {
-  const team = await db.tournamentTeam.findUnique({
-    where: { id: teamId },
-    include: { members: { include: { user: { select: { id: true, name: true, imageUrl: true } } }, orderBy: { createdAt: 'asc' } } },
-  });
+const TEAM_WITH_MEMBERS = { members: { include: { user: { select: { id: true, name: true, imageUrl: true } } }, orderBy: { createdAt: 'asc' } } };
+
+/** Shapes a team row loaded with TEAM_WITH_MEMBERS. `canSeeAll`: captain / manager view (join code, invited + declined members). */
+function shapeTeam(team, { canSeeAll = false } = {}) {
   const members = team.members.filter((m) => (canSeeAll ? m.status !== 'REMOVED' : m.status === 'ACCEPTED'));
   return {
     id: team.id,
@@ -191,6 +190,11 @@ async function serializeTeam(db, teamId, { canSeeAll = false } = {}) {
   };
 }
 
+async function serializeTeam(db, teamId, { canSeeAll = false } = {}) {
+  const team = await db.tournamentTeam.findUnique({ where: { id: teamId }, include: TEAM_WITH_MEMBERS });
+  return shapeTeam(team, { canSeeAll });
+}
+
 async function listTeams(user, tournamentId, query = {}) {
   const { tournament, role } = await loadForViewer(prisma, tournamentId, user);
   const isManager = hasRoleAtLeast(role, 'MANAGER');
@@ -203,13 +207,15 @@ async function listTeams(user, tournamentId, query = {}) {
   const mineIds = new Set(mine.map((m) => m.teamId));
   const where = { tournamentId };
   if (query.status) where.status = { in: String(query.status).split(',') };
-  const teams = await prisma.tournamentTeam.findMany({ where, orderBy: [{ seed: 'asc' }, { createdAt: 'asc' }], select: { id: true, status: true, captainId: true } });
-  const visible = teams.filter((tm) => isManager || tm.status === 'APPROVED' || mineIds.has(tm.id));
-  const out = [];
-  for (const tm of visible) {
-    const canSeeAll = isManager || (!!user && tm.captainId === user.id);
-    out.push({ ...(await serializeTeam(prisma, tm.id, { canSeeAll })), isMine: mineIds.has(tm.id) });
-  }
+  const teams = await prisma.tournamentTeam.findMany({
+    where, orderBy: [{ seed: 'asc' }, { createdAt: 'asc' }], include: TEAM_WITH_MEMBERS,
+  });
+  const out = teams
+    .filter((tm) => isManager || tm.status === 'APPROVED' || mineIds.has(tm.id))
+    .map((tm) => {
+      const canSeeAll = isManager || (!!user && tm.captainId === user.id);
+      return { ...shapeTeam(tm, { canSeeAll }), isMine: mineIds.has(tm.id) };
+    });
   return { tournamentId: tournament.id, teams: out };
 }
 
@@ -432,15 +438,9 @@ async function withdrawTeam(user, tournamentId, teamId) {
     const wasHolding = HELD.includes(team.status);
     await tx.tournamentTeam.update({ where: { id: teamId }, data: { status: 'WITHDRAWN' } });
     const promoted = wasHolding ? await promoteWaitlist(tx, t, teamId) : [];
-    const affected = await tx.tournamentMatch.findMany({
-      where: {
-        tournamentId,
-        status: { in: ['SCHEDULED', 'LIVE', 'POSTPONED'] },
-        OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
-      },
-      select: { id: true },
-    });
-    return { ok: true, affectedMatchIds: affected.map((m) => m.id), promoted, t, team, role };
+    // Same transaction as the status change: a failure cannot leave a withdrawn team with live matches.
+    const affectedMatchIds = await results.forfeitTeamMatchesTx(tx, t, user, teamId);
+    return { ok: true, affectedMatchIds, promoted, t, team, role };
   });
 }
 

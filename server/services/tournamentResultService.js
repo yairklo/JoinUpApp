@@ -31,19 +31,42 @@ const toStandingsMatch = (m) => ({
 });
 
 /**
+ * The teams that belong in one table: APPROVED teams plus WITHDRAWN teams that appear in `matches`
+ * (their forfeited matches still count for the opponents). Shared by getStandings and resolveSlots.
+ */
+function tableTeams(teams, matches) {
+  const inMatches = new Set(matches.flatMap((m) => [m.homeTeamId, m.awayTeamId]).filter(Boolean));
+  return teams.filter((x) => x.status === 'APPROVED' || (x.status === 'WITHDRAWN' && inMatches.has(x.id)));
+}
+
+/**
  * Ranks `teams` from `matches`, applying the organizer's manualRank override.
+ * A manualRank pins that team at that position (clamped to the table size); the other teams fill the
+ * remaining positions in computed order. Two pins on the same position: the better computed rank keeps
+ * it and the other takes the nearest free position below (above when none is left).
  * `unresolved` rows are ties the tiebreakers could not separate and no manualRank resolves.
  */
 function rankTable(t, teams, matches) {
   const rows = computeStandings(teams.map((x) => x.id), matches.map(toStandingsMatch), standingsOptions(t));
   const byId = new Map(teams.map((x) => [x.id, x]));
-  const decorated = rows.map((r) => ({ ...r, manualRank: byId.get(r.teamId).manualRank ?? null }));
-  decorated.sort((a, b) => {
-    const ka = a.manualRank != null ? a.manualRank : a.rank;
-    const kb = b.manualRank != null ? b.manualRank : b.rank;
-    return ka - kb || a.rank - b.rank;
-  });
-  return decorated.map((r, i) => ({ ...r, rank: i + 1, unresolved: r.tied && r.manualRank == null }));
+  const decorated = rows.map((r) => ({
+    ...r, manualRank: byId.get(r.teamId).manualRank ?? null, withdrawn: byId.get(r.teamId).status === 'WITHDRAWN',
+  }));
+  const n = decorated.length;
+  const slots = new Array(n).fill(null);
+  const pinned = decorated.filter((r) => r.manualRank != null).sort((a, b) => a.manualRank - b.manualRank || a.rank - b.rank);
+  for (const r of pinned) {
+    let pos = Math.min(Math.max(r.manualRank, 1), n) - 1;
+    while (pos < n && slots[pos]) pos += 1;
+    if (pos >= n) pos = slots.lastIndexOf(null);
+    slots[pos] = r;
+  }
+  const rest = decorated.filter((r) => r.manualRank == null);
+  let next = 0;
+  for (let i = 0; i < n; i += 1) {
+    if (!slots[i]) { slots[i] = rest[next]; next += 1; }
+  }
+  return slots.map((r, i) => ({ ...r, rank: i + 1, unresolved: r.tied && r.manualRank == null }));
 }
 
 const groupComplete = (matches) => matches.length > 0 && matches.every((m) => DONE.includes(m.status));
@@ -59,7 +82,7 @@ async function resolveSlots(tx, t, { force }) {
   const [stages, matchRows, teams] = await Promise.all([
     tx.tournamentStage.findMany({ where: { tournamentId: t.id }, select: { id: true, order: true } }),
     tx.tournamentMatch.findMany({ where: { tournamentId: t.id } }),
-    tx.tournamentTeam.findMany({ where: { tournamentId: t.id, status: { not: 'WITHDRAWN' } }, select: { id: true, groupId: true, manualRank: true } }),
+    tx.tournamentTeam.findMany({ where: { tournamentId: t.id, status: { in: ['APPROVED', 'WITHDRAWN'] } }, select: { id: true, groupId: true, manualRank: true, status: true } }),
   ]);
   const stageOrder = new Map(stages.map((s) => [s.id, s.order]));
   const ms = matchRows.map((m) => ({ ...m }));
@@ -70,7 +93,7 @@ async function resolveSlots(tx, t, { force }) {
   const groupRanking = (groupId) => {
     const gm = ms.filter((m) => m.groupId === groupId);
     if (!groupComplete(gm)) return null;
-    return rankTable(t, teams.filter((x) => x.groupId === groupId), gm);
+    return rankTable(t, tableTeams(teams.filter((x) => x.groupId === groupId), gm), gm);
   };
   const desiredFor = (src) => {
     if (!src) return undefined;
@@ -270,34 +293,49 @@ async function recomputeAdvancement(user, tournamentId) {
   });
 }
 
-/** After a team withdrew: forfeit its unfinished matches (or postpone when the opponent is unknown). */
+/**
+ * Forfeits (or postpones, when the opponent is unknown) the unfinished matches of a team that withdrew.
+ * Runs on the caller's transaction (which already holds the tournament lock) so withdrawing and
+ * forfeiting are atomic. A forfeit also clears stale details (keeping the reminder sentinel),
+ * penalties and the match's player stats. Returns the ids of every match it touched.
+ */
+async function forfeitTeamMatchesTx(tx, t, user, teamId) {
+  const matches = await tx.tournamentMatch.findMany({
+    where: { tournamentId: t.id, status: { in: ['SCHEDULED', 'LIVE', 'POSTPONED'] }, OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }] },
+  });
+  const fs = (t.rules || {}).forfeitScore || { winner: 3, loser: 0 };
+  const flagged = [];
+  const forfeitedIds = [];
+  for (const m of matches) {
+    const opponent = m.homeTeamId === teamId ? m.awayTeamId : m.homeTeamId;
+    if (!opponent) {
+      await tx.tournamentMatch.update({ where: { id: m.id }, data: { status: 'POSTPONED', version: { increment: 1 }, updatedById: user.id } });
+    } else {
+      const homeWins = opponent === m.homeTeamId;
+      const keep = m.details && m.details[REMINDER_KEY] ? { [REMINDER_KEY]: m.details[REMINDER_KEY] } : null;
+      await tx.tournamentMatch.update({
+        where: { id: m.id },
+        data: {
+          status: 'FORFEIT', winnerTeamId: opponent, homeScore: homeWins ? fs.winner : fs.loser, awayScore: homeWins ? fs.loser : fs.winner,
+          homePenalties: null, awayPenalties: null, details: keep || Prisma.DbNull,
+          version: { increment: 1 }, updatedById: user.id,
+        },
+      });
+      forfeitedIds.push(m.id);
+    }
+    flagged.push(m.id);
+  }
+  if (forfeitedIds.length) await tx.playerStatEntry.deleteMany({ where: { tournamentMatchId: { in: forfeitedIds } } });
+  if (flagged.length) await resolveSlots(tx, t, { force: false }).catch((e) => { if (!(e instanceof TournamentError)) throw e; });
+  return flagged;
+}
+
+/** Standalone wrapper around forfeitTeamMatchesTx (withdrawTeam calls the Tx form inside its own transaction). */
 async function forfeitWithdrawnTeam(user, tournamentId, teamId) {
   return prisma.$transaction(async (tx) => {
     await lockTournament(tx, tournamentId);
     const t = await tx.tournament.findUnique({ where: { id: tournamentId } });
-    const matches = await tx.tournamentMatch.findMany({
-      where: { tournamentId, status: { in: ['SCHEDULED', 'LIVE', 'POSTPONED'] }, OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }] },
-    });
-    const fs = (t.rules || {}).forfeitScore || { winner: 3, loser: 0 };
-    const flagged = [];
-    for (const m of matches) {
-      const opponent = m.homeTeamId === teamId ? m.awayTeamId : m.homeTeamId;
-      if (!opponent) {
-        await tx.tournamentMatch.update({ where: { id: m.id }, data: { status: 'POSTPONED', version: { increment: 1 }, updatedById: user.id } });
-      } else {
-        const homeWins = opponent === m.homeTeamId;
-        await tx.tournamentMatch.update({
-          where: { id: m.id },
-          data: {
-            status: 'FORFEIT', winnerTeamId: opponent, homeScore: homeWins ? fs.winner : fs.loser, awayScore: homeWins ? fs.loser : fs.winner,
-            version: { increment: 1 }, updatedById: user.id,
-          },
-        });
-      }
-      flagged.push(m.id);
-    }
-    if (flagged.length) await resolveSlots(tx, t, { force: false }).catch((e) => { if (!(e instanceof TournamentError)) throw e; });
-    return { matchIds: flagged };
+    return { matchIds: await forfeitTeamMatchesTx(tx, t, user, teamId) };
   });
 }
 
@@ -331,7 +369,7 @@ async function getStandings(user, tournamentId) {
   const [stages, matches, teams] = await Promise.all([
     prisma.tournamentStage.findMany({ where: { tournamentId, type: { not: 'KNOCKOUT' } }, orderBy: { order: 'asc' }, include: { groups: { orderBy: { name: 'asc' } } } }),
     prisma.tournamentMatch.findMany({ where: { tournamentId } }),
-    prisma.tournamentTeam.findMany({ where: { tournamentId, status: 'APPROVED' } }),
+    prisma.tournamentTeam.findMany({ where: { tournamentId, status: { in: ['APPROVED', 'WITHDRAWN'] } } }),
   ]);
   const tables = [];
   const build = (stage, group, tTeams, tMatches) => {
@@ -344,17 +382,20 @@ async function getStandings(user, tournamentId) {
       needsManualRank: groupComplete(tMatches) && rows.some((r) => r.unresolved),
       rows: rows.map((r) => ({
         rank: r.rank, team: teamRef(byId.get(r.teamId)), played: r.played, won: r.won, drawn: r.drawn, lost: r.lost,
-        gf: r.gf, ga: r.ga, gd: r.gd, points: r.points, tied: r.tied, manualRank: r.manualRank,
+        gf: r.gf, ga: r.ga, gd: r.gd, points: r.points, tied: r.tied, manualRank: r.manualRank, withdrawn: r.withdrawn,
       })),
     });
   };
   for (const stage of stages) {
     const stageMatches = matches.filter((m) => m.stageId === stage.id);
     if (stage.type === 'GROUP') {
-      for (const g of stage.groups) build(stage, g, teams.filter((x) => x.groupId === g.id), stageMatches.filter((m) => m.groupId === g.id));
+      for (const g of stage.groups) {
+        const gm = stageMatches.filter((m) => m.groupId === g.id);
+        build(stage, g, tableTeams(teams.filter((x) => x.groupId === g.id), gm), gm);
+      }
     } else {
       const ids = new Set(stageMatches.flatMap((m) => [m.homeTeamId, m.awayTeamId]).filter(Boolean));
-      build(stage, null, teams.filter((x) => ids.has(x.id)), stageMatches);
+      build(stage, null, tableTeams(teams.filter((x) => ids.has(x.id)), stageMatches), stageMatches);
     }
   }
   return { tournamentId, tables };
@@ -421,6 +462,8 @@ async function getLeaders(user, tournamentId, query = {}) {
 module.exports = {
   putResult,
   forfeitWithdrawnTeam,
+  forfeitTeamMatchesTx,
+  tableTeams,
   recomputeAdvancement,
   resolveSlots,
   rankTable,

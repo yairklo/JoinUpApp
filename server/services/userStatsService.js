@@ -25,7 +25,18 @@ async function getStatsVisibility(viewerId, target, { isFriend } = {}) {
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
-/** Per-sport aggregates over a user's recorded game stats. */
+function countOutcome(agg, outcome, outcomeKnown, gameId) {
+  outcomeKnown.add(gameId);
+  agg.gamesWithOutcome += 1;
+  if (outcome === 'WIN') agg.wins += 1;
+  else if (outcome === 'DRAW') agg.draws += 1;
+  else agg.losses += 1;
+}
+
+/**
+ * Per-sport aggregates over a user's recorded game stats.
+ * Response shape per sport: { sport, games, gamesWithOutcome, wins, draws, losses, totals, perGame }.
+ */
 async function computeUserStats(userId, { sport } = {}) {
   const entries = await prisma.playerStatEntry.findMany({
     where: { userId, gameId: { not: null }, ...(sport ? { game: { sport } } : {}) },
@@ -39,19 +50,25 @@ async function computeUserStats(userId, { sport } = {}) {
 
   const bySport = new Map();
   const seenGames = new Set();
+  const outcomeKnown = new Set();
   for (const e of entries) {
     const sp = e.game?.sport;
     if (!sp) continue;
-    if (!bySport.has(sp)) bySport.set(sp, { sport: sp, games: 0, wins: 0, draws: 0, losses: 0, entries: [] });
+    if (!bySport.has(sp)) bySport.set(sp, { sport: sp, games: 0, gamesWithOutcome: 0, wins: 0, draws: 0, losses: 0, entries: [] });
     const agg = bySport.get(sp);
     agg.entries.push({ key: e.key, value: e.value });
-    if (seenGames.has(e.gameId)) continue;
+    const outcome = outcomeBySide.get(e.sideId);
+    const known = outcome === 'WIN' || outcome === 'DRAW' || outcome === 'LOSS';
+    // `games` counts every game with stats (per-game averages use it); `gamesWithOutcome` counts only
+    // games whose W/D/L is known, so wins + draws + losses === gamesWithOutcome (use it for win rate).
+    // A game is counted once, upgraded to "known" if any of its rows carries a side with an outcome.
+    if (seenGames.has(e.gameId)) {
+      if (known && !outcomeKnown.has(e.gameId)) countOutcome(agg, outcome, outcomeKnown, e.gameId);
+      continue;
+    }
     seenGames.add(e.gameId);
     agg.games += 1;
-    const outcome = outcomeBySide.get(e.sideId);
-    if (outcome === 'WIN') agg.wins += 1;
-    else if (outcome === 'DRAW') agg.draws += 1;
-    else if (outcome === 'LOSS') agg.losses += 1;
+    if (known) countOutcome(agg, outcome, outcomeKnown, e.gameId);
   }
 
   return [...bySport.values()]
@@ -90,6 +107,7 @@ function buildStatsSummary(sports) {
   return {
     sport: top.sport,
     games: top.games,
+    gamesWithOutcome: top.gamesWithOutcome ?? top.games,
     wins: top.wins,
     draws: top.draws,
     losses: top.losses,

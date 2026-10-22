@@ -239,6 +239,22 @@ describe('gameResultService', () => {
       expect(rows[0].sideId).toBeTruthy();
     });
 
+    test('a player without a side and without values gets no placeholder row', async () => {
+      const g = await makeGame();
+      await upsertGameResult(g.id, U.org, soccerBody({ stats: [{ userId: U.p1, sideOrder: null }, { userId: U.p2, sideOrder: 1, values: { goals: 1 } }] }));
+      const rows = await prisma.playerStatEntry.findMany({ where: { gameId: g.id } });
+      expect(rows.map((r) => r.userId)).toEqual([U.p2]);
+    });
+
+    test('re-saving replaces all previous stat rows (create and update paths)', async () => {
+      const g = await makeGame();
+      await upsertGameResult(g.id, U.org, soccerBody());
+      expect(await entryCount(g.id)).toBe(3);
+      await upsertGameResult(g.id, U.org, soccerBody({ stats: [{ userId: U.p3, sideOrder: 0, values: { goals: 1 } }] }));
+      const rows = await prisma.playerStatEntry.findMany({ where: { gameId: g.id } });
+      expect(rows.map((r) => r.userId)).toEqual([U.p3]);
+    });
+
     test('transaction rolls back when a late write fails', async () => {
       const g = await makeGame();
       await upsertGameResult(g.id, U.org, soccerBody());

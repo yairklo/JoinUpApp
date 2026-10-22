@@ -288,15 +288,14 @@ async function upsertGameResult(gameId, actorId, body, { isAdmin = false } = {})
       throw httpError('Only confirmed participants can have stats', 400, 'NOT_CONFIRMED_PARTICIPANT', outsiders.map((userId) => ({ userId })));
     }
 
+    await tx.playerStatEntry.deleteMany({ where: { gameId } });
     let result;
     if (existing) {
-      await tx.playerStatEntry.deleteMany({ where: { gameId } });
       result = await tx.gameResult.update({
         where: { id: existing.id },
         data: { sport: game.sport, status: 'FINAL', notes: model.notes, editedById: actorId, editedAt: now },
       });
     } else {
-      await tx.playerStatEntry.deleteMany({ where: { gameId } });
       result = await tx.gameResult.create({
         data: {
           gameId,
@@ -335,7 +334,8 @@ async function upsertGameResult(gameId, actorId, body, { isAdmin = false } = {})
       const sideId = p.sideOrder === null ? null : sideIds[p.sideOrder];
       const entries = Object.entries(p.values);
       // A player with a side always keeps at least one row: W/D/L is derived from entries.
-      if (!entries.length) entries.push([keys[0], 0]);
+      // A player without a side has no outcome to carry, so no placeholder row.
+      if (!entries.length && sideId) entries.push([keys[0], 0]);
       for (const [key, value] of entries) rows.push({ gameId, userId: p.userId, sideId, key, value });
     }
     if (rows.length) await tx.playerStatEntry.createMany({ data: rows });
