@@ -132,7 +132,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const { requestContext } = require('./middleware/requestContext');
-const { createRateLimiter, writeMethodLimiter, readMethodLimiter } = require('./middleware/rateLimit');
+const { createRateLimiter, writeMethodLimiter, readMethodLimiter, verifiedUserId } = require('./middleware/rateLimit');
 app.use(requestContext);
 // Read/polling traffic (GET/HEAD). One signed-in screen fires about 12-15 GETs (the
 // screen plus users/me, notification counts, the notification list, chats and tournament
@@ -145,8 +145,10 @@ app.use(readMethodLimiter(createRateLimiter({
   max: 300,
   anonymousMax: 120,
   prefix: 'read',
+  resolveUserId: verifiedUserId,
 })));
-// Mutations (POST/PUT/PATCH/DELETE) keep the existing, deliberately stricter limiter untouched.
+// Mutations stay one bucket per IP. Do not pass resolveUserId here: a per-user
+// write bucket would multiply the 60/minute cap by the number of accounts.
 app.use(writeMethodLimiter(createRateLimiter({ windowMs: 60 * 1000, max: 60, prefix: 'write' })));
 
 require('./middleware/uploadsStatic').mountUploads(app, path.join(__dirname, 'uploads'));

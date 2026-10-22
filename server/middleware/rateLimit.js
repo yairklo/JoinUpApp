@@ -14,15 +14,28 @@ function bearerToken(req) {
   return match ? match[1] : null;
 }
 
+function pruneVerifiedUsers(now) {
+  for (const [key, entry] of verifiedUserIds) {
+    if (entry.until <= now) verifiedUserIds.delete(key);
+  }
+}
+
 async function verifiedUserId(req) {
   const token = bearerToken(req);
   if (!token) return null;
+  const now = Date.now();
   const cached = verifiedUserIds.get(token);
-  if (cached && cached.until > Date.now()) return cached.sub;
+  if (cached) {
+    if (cached.until > now) return cached.sub;
+    verifiedUserIds.delete(token);
+  }
   try {
     const claims = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
     const sub = typeof claims?.sub === 'string' && claims.sub ? claims.sub : null;
-    if (sub) verifiedUserIds.set(token, { sub, until: Date.now() + USER_ID_CACHE_MS });
+    if (sub) {
+      pruneVerifiedUsers(now);
+      verifiedUserIds.set(token, { sub, until: now + USER_ID_CACHE_MS });
+    }
     return sub;
   } catch {
     return null;
@@ -65,16 +78,18 @@ function resolveStore({ windowMs }) {
 }
 
 /**
- * Fixed-window counter. A verified Clerk subject gets its own bucket (`max`);
- * everyone else, including a bearer token that does not verify, shares the IP
- * bucket (`anonymousMax`, default `max`). Disabled in Jest unless forceEnable is set.
- * Socket.IO polling and /api/health are never counted.
- * `store` and `resolveUserId` may be injected (tests).
+ * Fixed-window counter per IP. Pass `resolveUserId` (the read limiter uses
+ * `verifiedUserId`) to give a verified Clerk subject its own bucket at `max`;
+ * a null id, including a bearer token that does not verify, stays on the IP
+ * bucket at `anonymousMax` (default `max`). The default resolver is IP-only,
+ * so write and abuse limiters are not split per account.
+ * Disabled in Jest unless forceEnable is set. Socket.IO polling and /api/health
+ * are never counted. `store` and `resolveUserId` may be injected (tests).
  */
 function createRateLimiter({ windowMs, max, anonymousMax, prefix, forceEnable = false, store: injected, resolveUserId }) {
   let store = injected || null;
   const disabled = !forceEnable && (process.env.NODE_ENV === 'test' || !!process.env.JEST_WORKER_ID);
-  const identify = resolveUserId || verifiedUserId;
+  const identify = resolveUserId || (async () => null);
   const guestMax = anonymousMax ?? max;
 
   return async function rateLimitMiddleware(req, res, next) {

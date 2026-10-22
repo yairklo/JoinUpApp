@@ -187,51 +187,64 @@ export default function ProfilePage() {
   // Fetch logic remains the same...
   useEffect(() => {
     if (!userId) return;
+    let active = true;
+    const failProfile = (status?: number) => {
+      if (!active) return;
+      setProfile(null);
+      setProfileError(status === 429
+        ? "יותר מדי בקשות כרגע. חכו רגע ונסו שוב."
+        : "לא הצלחנו לטעון את הפרופיל.");
+    };
     (async () => {
       try {
         const token = await getTokenRef.current({ template: undefined }).catch(() => "");
+        if (!active) return;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         setProfileError(null);
         const res = await fetchRead(`${API_BASE}/api/users/${userId}`, { headers });
+        if (!active) return;
         if (!res.ok) {
-          setProfile(null);
-          setProfileError(res.status === 429
-            ? "יותר מדי בקשות כרגע. חכו רגע ונסו שוב."
-            : "לא הצלחנו לטעון את הפרופיל.");
+          failProfile(res.status);
           return;
         }
         const body = await res.json();
+        if (!active) return;
         if (!body || typeof body.id !== "string") {
-          setProfile(null);
-          setProfileError("לא הצלחנו לטעון את הפרופיל.");
+          failProfile();
           return;
         }
         setProfile(body);
+        setProfileError(null);
 
         // Both endpoints need the token: the user listing is signed-in only, and the friends
         // list is gated by privacyFriends (the owner always passes, but only when identified).
         // Bounded to a handful of rows — this only feeds the "people you may know"
-        // widget below, which renders at most 6 of them.
-        const [usersRes, friendsRes] = await Promise.all([
-          fetchRead(`${API_BASE}/api/users?take=7`, { headers }),
-          fetchRead(`${API_BASE}/api/users/${userId}/friends`, { headers }),
-        ]);
-        if (usersRes.ok) setAllUsers(await usersRes.json());
-        if (friendsRes.ok) setFriends(await friendsRes.json());
+        // widget below, which renders at most 6 of them. A failure here leaves the profile up.
+        try {
+          const [usersRes, friendsRes] = await Promise.all([
+            fetchRead(`${API_BASE}/api/users?take=7`, { headers }),
+            fetchRead(`${API_BASE}/api/users/${userId}/friends`, { headers }),
+          ]);
+          if (!active) return;
+          if (usersRes.ok) setAllUsers(await usersRes.json());
+          if (friendsRes.ok) setFriends(await friendsRes.json());
+        } catch { }
       } catch {
-        setProfile(null);
-        setProfileError("לא הצלחנו לטעון את הפרופיל.");
+        failProfile();
       }
     })();
     fieldsApi.getCities().then(setCities).catch(() => { });
     (async () => {
       try {
         const token = await getTokenRef.current({ template: undefined }).catch(() => "");
+        if (!active) return;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
         const inc = await fetchRead(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers });
+        if (!active) return;
         if (inc.ok) setIncoming(await inc.json());
 
         const out = await fetchRead(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers });
+        if (!active) return;
         if (out.ok) {
           const outgoing: Array<{ id: string; receiver: { id: string } }> = await out.json();
           setOutgoingPendingIds(new Set(outgoing.map(r => r.receiver.id)));
@@ -239,10 +252,12 @@ export default function ProfilePage() {
 
         if (token) {
             const games = await gamesApi.getMyGames(token);
+            if (!active) return;
             setMyGames(games);
         }
       } catch { }
     })();
+    return () => { active = false; };
   }, [userId, profileLoad]);
 
   // Debounce the inline "search players" box, then search server-side

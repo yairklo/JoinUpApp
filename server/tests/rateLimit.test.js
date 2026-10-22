@@ -154,6 +154,17 @@ describe('HTTP rate limiter', () => {
     expect((await request(app).get('/ok')).statusCode).toEqual(429);
   });
 
+  test('writes stay on one IP bucket while reads are split per user', async () => {
+    const resolveUserId = (req) => {
+      const id = req.headers['x-user'];
+      return typeof id === 'string' && id ? id : null;
+    };
+    const app = appWithLimiter({ readMax: 5, writeMax: 1, resolveUserId });
+    expect((await request(app).post('/write').set('x-user', 'user_a')).statusCode).toEqual(200);
+    expect((await request(app).post('/write').set('x-user', 'user_b')).statusCode).toEqual(429);
+    expect((await request(app).get('/ok').set('x-user', 'user_b')).statusCode).toEqual(200);
+  });
+
   test('a bearer token that does not resolve still shares the IP bucket', async () => {
     const app = appWithLimiter({ readMax: 5, anonymousMax: 1, resolveUserId: async () => null });
     expect((await request(app).get('/ok').set('Authorization', 'Bearer not-a-session')).statusCode).toEqual(200);
