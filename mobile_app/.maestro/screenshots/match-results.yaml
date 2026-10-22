@@ -1,0 +1,8 @@
+appId: com.yairklo.joinupapp
+name: match-results screens
+---
+- runFlow: subflows/session.yaml
+- tapOn:
+    id: "game-card-.*"
+- takeScreenshot:
+    path: ../../../docs/design-screens/mobile/match-results/game-${THEME}

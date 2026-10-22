@@ -1,0 +1,25 @@
+appId: com.yairklo.joinupapp
+---
+# header-theme-<mode> is the in-app toggle (SecureStore), not the OS night mode.
+- runFlow:
+    when:
+      visible:
+        id: header-theme-light
+    commands:
+      - runFlow:
+          when:
+            true: ${THEME == "dark"}
+          commands:
+            - tapOn:
+                id: header-theme-light
+- runFlow:
+    when:
+      visible:
+        id: header-theme-dark
+    commands:
+      - runFlow:
+          when:
+            true: ${THEME == "light"}
+          commands:
+            - tapOn:
+                id: header-theme-dark

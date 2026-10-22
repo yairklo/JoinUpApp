@@ -1,0 +1,18 @@
+appId: com.yairklo.joinupapp
+name: profile screens
+---
+- runFlow: subflows/session.yaml
+- tapOn:
+    id: header-profile
+- extendedWaitUntil:
+    visible:
+      id: profile-sign-out
+    timeout: 20000
+- takeScreenshot:
+    path: ../../../docs/design-screens/mobile/profile/profile-${THEME}
+- tapOn:
+    text: "הגדרות"
+    optional: true
+- openLink: joinup://profile/settings
+- takeScreenshot:
+    path: ../../../docs/design-screens/mobile/profile/profile-settings-${THEME}
