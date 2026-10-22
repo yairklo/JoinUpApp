@@ -39,10 +39,10 @@ Use a row only when `last captured` is a sha and a date. `failed` and `stale` ar
 | tournaments-invites-desktop | web | /tournaments/invites | next_app/src/app/tournaments/invites/page.tsx | dark | 91ce4a0 2026-10-22 |
 | tournaments-invites-mobile | web | /tournaments/invites | next_app/src/app/tournaments/invites/page.tsx | light | 91ce4a0 2026-10-22 |
 | tournaments-invites-mobile | web | /tournaments/invites | next_app/src/app/tournaments/invites/page.tsx | dark | 91ce4a0 2026-10-22 |
-| tournament-desktop | web | /tournaments/cmvjab6px0001qe0iqqd47k50 | next_app/src/components/tournaments/shell/TournamentPage.tsx | light | 91ce4a0 2026-10-22 |
-| tournament-desktop | web | /tournaments/cmvjab6px0001qe0iqqd47k50 | next_app/src/components/tournaments/shell/TournamentPage.tsx | dark | 91ce4a0 2026-10-22 |
-| tournament-mobile | web | /tournaments/cmvjab6px0001qe0iqqd47k50 | next_app/src/components/tournaments/shell/TournamentPage.tsx | light | 91ce4a0 2026-10-22 |
-| tournament-mobile | web | /tournaments/cmvjab6px0001qe0iqqd47k50 | next_app/src/components/tournaments/shell/TournamentPage.tsx | dark | 91ce4a0 2026-10-22 |
+| tournament-desktop | web | /tournaments/cmvjad6r3000gqe0iifmjp349 | next_app/src/components/tournaments/shell/TournamentPage.tsx | light | 52e7afa 2026-10-22 |
+| tournament-desktop | web | /tournaments/cmvjad6r3000gqe0iifmjp349 | next_app/src/components/tournaments/shell/TournamentPage.tsx | dark | 52e7afa 2026-10-22 |
+| tournament-mobile | web | /tournaments/cmvjad6r3000gqe0iifmjp349 | next_app/src/components/tournaments/shell/TournamentPage.tsx | light | 52e7afa 2026-10-22 |
+| tournament-mobile | web | /tournaments/cmvjad6r3000gqe0iifmjp349 | next_app/src/components/tournaments/shell/TournamentPage.tsx | dark | 52e7afa 2026-10-22 |
 | profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | light | not yet |
 | profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | dark | not yet |
 | profile-settings | mobile | /profile/settings | mobile_app/app/profile/settings.tsx | light | not yet |
