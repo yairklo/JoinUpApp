@@ -82,14 +82,11 @@ router.patch('/:id/teams/:teamId', authenticateToken, handle(async (req) => {
 
 router.delete('/:id/teams/:teamId', authenticateToken, handle(async (req) => {
   const out = await teams.withdrawTeam(req.user, req.params.id, req.params.teamId);
-  // Scheduled matches of a withdrawn team are forfeited (or postponed when the opponent is TBD).
-  const forfeited = out.affectedMatchIds.length
-    ? await results.forfeitWithdrawnTeam(req.user, req.params.id, req.params.teamId)
-    : { matchIds: [] };
+  // Scheduled matches of a withdrawn team were forfeited (or postponed when the opponent is TBD) in the same transaction.
   emit(req, 'teams');
-  if (forfeited.matchIds.length) emit(req, 'schedule');
+  if (out.affectedMatchIds.length) emit(req, 'schedule');
   notify.notifyPromoted({ tournament: out.t, teamIds: out.promoted, io: req.app.get('io') });
-  return { ok: true, affectedMatchIds: forfeited.matchIds, promotedTeamIds: out.promoted };
+  return { ok: true, affectedMatchIds: out.affectedMatchIds, promotedTeamIds: out.promoted };
 }));
 
 router.post('/:id/teams/:teamId/decision', authenticateToken, handle(async (req) => {
