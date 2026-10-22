@@ -43,6 +43,7 @@ export default function TabLayout() {
   const HeaderRight = useCallback(() => (
     <View className="flex-row items-center gap-2 pr-4 pl-4">
       <TouchableOpacity
+        testID={`header-theme-${colorMode}`}
         onPress={toggleColorMode}
         className="w-8 h-8 rounded-xl bg-brand-mist dark:bg-cyber-card items-center justify-center border border-brand-pale dark:border-cyber-border"
       >

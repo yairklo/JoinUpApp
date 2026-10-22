@@ -11,6 +11,7 @@
     "e2e:build:android": "node maestro/scripts/build-android.mjs",
     "e2e": "node maestro/scripts/run.mjs --tags all",
     "e2e:smoke": "node maestro/scripts/run.mjs --tags smoke",
+    "screens:mobile": "node .maestro/screenshots/run.mjs",
     "update:development": "node scripts/eas-update.mjs development",
     "update:preview": "node scripts/eas-update.mjs preview",
     "update:production": "node scripts/eas-update.mjs production"
