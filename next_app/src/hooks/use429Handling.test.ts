@@ -43,7 +43,8 @@ describe('Hook 429 rate limit handling (Bug D-01 test coverage)', () => {
     setters = [];
     stateCursor = 0;
 
-    jest.spyOn(React, 'useState').mockImplementation((initial: any) => {
+    // useState is overloaded/generic; this positional fake is cast once to the real signature.
+    const fakeUseState = ((initial: unknown) => {
       const idx = stateCursor++;
       if (states[idx] === undefined) {
         states[idx] = typeof initial === 'function' ? initial() : initial;
@@ -54,7 +55,8 @@ describe('Hook 429 rate limit handling (Bug D-01 test coverage)', () => {
         });
       }
       return [states[idx], setters[idx]];
-    });
+    }) as unknown as typeof React.useState;
+    jest.spyOn(React, 'useState').mockImplementation(fakeUseState);
 
     jest.spyOn(React, 'useCallback').mockImplementation((fn: any) => fn);
     jest.spyOn(React, 'useRef').mockImplementation((val: any) => ({ current: val }));
