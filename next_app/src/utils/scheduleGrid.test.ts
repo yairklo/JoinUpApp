@@ -1,4 +1,4 @@
-import { buildGrid, cellOccupants, cellToIso, gridStep, itemDays, unscheduled, type GridItem } from "./scheduleGrid";
+import { courtKey, courtLabelForMove, dedupeCourts, normalizeCourt, buildGrid, cellOccupants, cellToIso, gridStep, itemDays, unscheduled, type GridItem } from "./scheduleGrid";
 import { israelToIso } from "./tournamentManage";
 
 const at = (date: string, time: string) => israelToIso(date, time) as string;
@@ -62,5 +62,57 @@ describe("scheduleGrid", () => {
         expect(cellOccupants(g, 0, 1, 2).map((c) => c.item.key)).toEqual(["a", "c"]);
         expect(cellOccupants(g, 0, 1, 2, "a").map((c) => c.item.key)).toEqual(["c"]);
         expect(cellOccupants(g, 1, 4, 1)).toEqual([]);
+    });
+    it("places matches with bare-number court labels under the matching named court column", () => {
+        const items = [item("a", 1, "2026-10-25", "10:00", "1"), item("b", 2, "2026-10-25", "10:00", "2")];
+        const g = buildGrid(items, "2026-10-25", { step: 30, durationMinutes: 30, extraCourts: ["מגרש 1", "מגרש 2"] });
+        expect(g.courts).toEqual(["מגרש 1", "מגרש 2"]);
+        expect(g.cells.map((c) => c.col)).toEqual([0, 1]);
+    });
+    it("keeps the stored court label when a match is dropped on its own normalized column", () => {
+        expect(courtLabelForMove("1", "מגרש 1")).toBe("1");
+        expect(courtLabelForMove("1", "מגרש 2")).toBe("מגרש 2");
+        expect(courtLabelForMove(null, "מגרש 1")).toBe("מגרש 1");
+        expect(courtLabelForMove("Center", "center")).toBe("Center");
+    });
+    it("dedupes court names that differ only by the bare-number form", () => {
+        expect(dedupeCourts(["מגרש 1", "מגרש 2", "1", "3", "A"])).toEqual(["מגרש 1", "מגרש 2", "מגרש 3", "A"]);
+        expect(normalizeCourt(" 4 ")).toBe("מגרש 4");
+    });
+});
+
+// Same table is asserted against the server's shared courtKey in server/tests/scheduleCourtKey.test.js.
+const COURT_KEY_TABLE: Array<[unknown, string]> = [
+    ["1", "1"],
+    [1, "1"],
+    ["01", "1"],
+    ["מגרש 1", "1"],
+    ["מגרש 01", "1"],
+    [" מגרש  2 ", "2"],
+    ["Center", "center"],
+    [" center ", "center"],
+    ["", ""],
+    [null, ""],
+    [undefined, ""],
+];
+
+describe("courtKey (web mirrors the server key)", () => {
+    it.each(COURT_KEY_TABLE)("courtKey(%j) = %j", (input, expected) => {
+        expect(courtKey(input)).toBe(expected);
+    });
+    it("agrees with the shared scheduler courtKey on the same inputs", () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const shared = require("../../../shared/tournament/scheduler") as { courtKey: (v: unknown) => string };
+        for (const [input] of COURT_KEY_TABLE) expect(courtKey(input)).toBe(shared.courtKey(input));
+    });
+    it("dedupes and groups by case and padding", () => {
+        expect(dedupeCourts(["Center", "center", "מגרש 01", "1", "מגרש 1"])).toEqual(["Center", "מגרש 1"]);
+        const g = buildGrid(
+            [item("a", 1, "2026-10-25", "10:00", "center"), item("b", 2, "2026-10-25", "10:00", "מגרש 01")],
+            "2026-10-25",
+            { step: 30, durationMinutes: 30, extraCourts: ["Center", "מגרש 1"] }
+        );
+        expect(g.courts).toHaveLength(2);
+        expect(g.cells.map((c) => g.courts[c.col])).toEqual(["Center", "מגרש 1"]);
     });
 });

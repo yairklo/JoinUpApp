@@ -154,8 +154,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   // Scroll To Bottom Action
   const scrollToBottom = () => {
-    if (refs.messagesEndRef.current) {
-      refs.messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    // Scroll only the chat's own container; scrollIntoView would also scroll the window.
+    const container = refs.scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
       actions.setUnreadNewMessages(0);
       actions.setShowScrollButton(false);
       refs.isUserAtBottomRef.current = true;

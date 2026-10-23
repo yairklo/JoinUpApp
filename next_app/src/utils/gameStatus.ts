@@ -27,10 +27,6 @@ export function getGameVisibility(game: GameStatusInput, now: number = Date.now(
     const cancelled = game.status === "CANCELLED";
     return {
         finished,
-        showSeatCounter: !finished,
-        showEmptySlots: !finished,
-        showInvite: !finished,
         showJoinCtas: !finished && !cancelled,
-        showCountdown: !finished,
     };
 }

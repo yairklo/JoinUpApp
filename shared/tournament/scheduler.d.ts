@@ -75,3 +75,6 @@ export function findConflicts(
   entries: readonly ScheduledEntry[],
   config: Omit<ScheduleConfig, 'windows' | 'existing'> & { windows?: TimeWindow[] },
 ): ScheduleConflict[];
+
+/** Canonical court identity: "1" and "מגרש 1" are the same court; other names compare trimmed, case-insensitive. */
+export function courtKey(court: unknown): string;
