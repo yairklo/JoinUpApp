@@ -63,4 +63,10 @@ describe("scheduleGrid", () => {
         expect(cellOccupants(g, 0, 1, 2, "a").map((c) => c.item.key)).toEqual(["c"]);
         expect(cellOccupants(g, 1, 4, 1)).toEqual([]);
     });
+    it("places matches with bare-number court labels under the matching named court column", () => {
+        const items = [item("a", 1, "2026-10-25", "10:00", "1"), item("b", 2, "2026-10-25", "10:00", "2")];
+        const g = buildGrid(items, "2026-10-25", { step: 30, durationMinutes: 30, extraCourts: ["מגרש 1", "מגרש 2"] });
+        expect(g.courts).toEqual(["מגרש 1", "מגרש 2"]);
+        expect(g.cells.map((c) => c.col)).toEqual([0, 1]);
+    });
 });
