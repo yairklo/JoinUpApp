@@ -59,18 +59,19 @@ const clashes = (s1, e1, s2, e2, pad) => s1 < e2 + pad && s2 < e1 + pad;
  */
 function scheduleMatches(matches, config) {
   const cfg = normalizeConfig(config);
-  const placed = []; // { id, s, e, court, teams }
+  const placed = []; // { id, s, e, court, key (precomputed courtKey), teams }
+  const courtKeys = cfg.courts.map(courtKey); // once, not per candidate slot
   cfg.existing.forEach((x) => {
     const s = toMs(x.scheduledAt);
-    placed.push({ id: x.id, s, e: s + (x.durationMinutes ? x.durationMinutes * MINUTE : cfg.matchMs), court: x.court, teams: teamsOf(x) });
+    placed.push({ id: x.id, s, e: s + (x.durationMinutes ? x.durationMinutes * MINUTE : cfg.matchMs), court: x.court, key: courtKey(x.court), teams: teamsOf(x) });
   });
   const byId = new Map(placed.map((p) => [p.id, p]));
   const scheduled = [];
   const conflicts = [];
   let pending = matches.slice();
 
-  const fits = (s, e, court, teams) => !placed.some((p) => (
-    (courtKey(p.court) === courtKey(court) && clashes(s, e, p.s, p.e, cfg.breakMs))
+  const fits = (s, e, key, teams) => !placed.some((p) => (
+    (p.key === key && clashes(s, e, p.s, p.e, cfg.breakMs))
     || (p.teams.some((t) => teams.includes(t)) && clashes(s, e, p.s, p.e, cfg.restMs))
   ));
 
@@ -84,9 +85,10 @@ function scheduleMatches(matches, config) {
       let s = w.start;
       if (lower > s) s += Math.ceil((lower - s) / cfg.stepMs) * cfg.stepMs;
       for (; s + dur <= w.end; s += cfg.stepMs) {
-        const court = cfg.courts.find((c) => fits(s, s + dur, c, teams));
-        if (court !== undefined) {
-          const rec = { id: m.id, s, e: s + dur, court, teams };
+        const ci = courtKeys.findIndex((k) => fits(s, s + dur, k, teams));
+        if (ci !== -1) {
+          const court = cfg.courts[ci];
+          const rec = { id: m.id, s, e: s + dur, court, key: courtKeys[ci], teams };
           placed.push(rec);
           byId.set(m.id, rec);
           scheduled.push({ matchId: m.id, scheduledAt: new Date(s).toISOString(), endsAt: new Date(s + dur).toISOString(), court });
@@ -137,7 +139,7 @@ function findConflicts(entries, config) {
   const cfg = normalizeConfig(config);
   const items = entries.map((x) => {
     const s = toMs(x.scheduledAt);
-    return { id: x.id, s, e: s + (x.durationMinutes ? x.durationMinutes * MINUTE : cfg.matchMs), court: x.court, teams: teamsOf(x) };
+    return { id: x.id, s, e: s + (x.durationMinutes ? x.durationMinutes * MINUTE : cfg.matchMs), court: x.court, key: courtKey(x.court), teams: teamsOf(x) };
   });
   const conflicts = [];
   if (cfg.windows.length) {
@@ -152,7 +154,7 @@ function findConflicts(entries, config) {
       const a = items[i];
       const b = items[j];
       const ids = [a.id, b.id];
-      if (courtKey(a.court) === courtKey(b.court) && clashes(a.s, a.e, b.s, b.e, cfg.breakMs)) {
+      if (a.key === b.key && clashes(a.s, a.e, b.s, b.e, cfg.breakMs)) {
         conflicts.push({ type: 'COURT_OVERLAP', matchIds: ids, court: a.court, message: `matches ${a.id} and ${b.id} collide on court ${a.court}` });
       }
       a.teams.filter((t) => b.teams.includes(t)).forEach((teamId) => {
