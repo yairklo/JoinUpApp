@@ -59,6 +59,8 @@ import { Game } from "@/types/game";
 import { gamesApi } from "@/services/api/games";
 import { fieldsApi } from "@/services/api/fields";
 import { usersApi } from "@/services/api/users";
+import { fetchRead } from "@/services/api/readBackoff";
+import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 
 type PublicUser = {
   id: string;
@@ -96,11 +98,14 @@ import { useRouter } from "next/navigation";
 export default function ProfilePage() {
   const { user } = useUser();
   const { getToken } = useAuth();
+  const getTokenRef = useAuthTokenRef();
   const { isAdmin } = useIsAdmin();
   const router = useRouter();
   const userId = user?.id;
 
   const [profile, setProfile] = useState<PublicUser | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileLoad, setProfileLoad] = useState(0);
   const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; city?: string | null; email?: string | null; canAddFriend?: boolean }>>([]);
   const [friends, setFriends] = useState<Array<{ id: string; name: string | null; imageUrl?: string | null; mutualCount?: number }>>([]);
   const [incoming, setIncoming] = useState<Array<{ id: string; requester: PublicUser; createdAt: string }>>([]);
@@ -178,48 +183,97 @@ export default function ProfilePage() {
     }));
   };
 
-  // Fetch logic remains the same...
   useEffect(() => {
     if (!userId) return;
+    // The signal, not the ignore flag, is what stops a 429 retry: fetchRead waits
+    // out Retry-After and would still send the second request after unmount.
+    const controller = new AbortController();
+    const signal = controller.signal;
+    let active = true;
+    const failProfile = (status?: number) => {
+      if (!active || signal.aborted) return;
+      setProfile(null);
+      setProfileError(status === 429
+        ? "יותר מדי בקשות כרגע. חכו רגע ונסו שוב."
+        : "לא הצלחנו לטעון את הפרופיל.");
+    };
     (async () => {
       try {
-        const token = await getToken({ template: undefined }).catch(() => "");
+        const token = await getTokenRef.current({ template: undefined }).catch(() => "");
+        if (!active) return;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await fetch(`${API_BASE}/api/users/${userId}`, { headers });
-        setProfile(await res.json());
+        setProfileError(null);
+        const res = await fetchRead(`${API_BASE}/api/users/${userId}`, { headers, signal });
+        if (!active) return;
+        if (!res.ok) {
+          failProfile(res.status);
+          return;
+        }
+        const body = await res.json();
+        if (!active) return;
+        if (!body || typeof body.id !== "string") {
+          failProfile();
+          return;
+        }
+        setProfile(body);
+        setProfileError(null);
 
-        // Both endpoints need the token: the user listing is signed-in only, and the friends
-        // list is gated by privacyFriends (the owner always passes, but only when identified).
-        // Bounded to a handful of rows — this only feeds the "people you may know"
-        // widget below, which renders at most 6 of them.
-        const [usersRes, friendsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/users?take=7`, { headers }),
-          fetch(`${API_BASE}/api/users/${userId}/friends`, { headers }),
-        ]);
-        if (usersRes.ok) setAllUsers(await usersRes.json());
-        if (friendsRes.ok) setFriends(await friendsRes.json());
-      } catch { }
+        // A failure here leaves the profile up.
+        try {
+          const [usersRes, friendsRes] = await Promise.all([
+            fetchRead(`${API_BASE}/api/users?take=7`, { headers, signal }),
+            fetchRead(`${API_BASE}/api/users/${userId}/friends`, { headers, signal }),
+          ]);
+          if (!active) return;
+          if (usersRes.ok) setAllUsers(await usersRes.json());
+          if (friendsRes.ok) setFriends(await friendsRes.json());
+        } catch { }
+      } catch {
+        failProfile();
+      }
     })();
-    fieldsApi.getCities().then(setCities).catch(() => { });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [userId, profileLoad]);
+
+  // Kept off profileLoad so "נסו שוב" repeats only the failed profile read.
+  useEffect(() => {
+    if (!userId) return;
+    const controller = new AbortController();
+    const signal = controller.signal;
+    let active = true;
+    fieldsApi.getCities(signal).then((next) => {
+      if (active) setCities(next);
+    }).catch(() => { });
     (async () => {
       try {
-        const token = await getToken({ template: undefined }).catch(() => "");
+        const token = await getTokenRef.current({ template: undefined }).catch(() => "");
+        if (!active) return;
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-        const inc = await fetch(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers });
+        const inc = await fetchRead(`${API_BASE}/api/users/${userId}/requests/incoming`, { headers, signal });
+        if (!active) return;
         if (inc.ok) setIncoming(await inc.json());
 
-        const out = await fetch(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers });
+        const out = await fetchRead(`${API_BASE}/api/users/${userId}/requests/outgoing`, { headers, signal });
+        if (!active) return;
         if (out.ok) {
           const outgoing: Array<{ id: string; receiver: { id: string } }> = await out.json();
           setOutgoingPendingIds(new Set(outgoing.map(r => r.receiver.id)));
         }
 
         if (token) {
-            const games = await gamesApi.getMyGames(token);
+            const games = await gamesApi.getMyGames(token, signal);
+            if (!active) return;
             setMyGames(games);
         }
       } catch { }
     })();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [userId]);
 
   // Debounce the inline "search players" box, then search server-side
@@ -238,14 +292,14 @@ export default function ProfilePage() {
     let ignore = false;
     (async () => {
       try {
-        const token = await getToken({ template: undefined }).catch(() => "");
+        const token = await getTokenRef.current({ template: undefined }).catch(() => "");
         if (!token) return;
         const results = await usersApi.search(debouncedSearchQuery, token);
         if (!ignore) setSearchResults(results);
       } catch { }
     })();
     return () => { ignore = true; };
-  }, [debouncedSearchQuery, getToken]);
+  }, [debouncedSearchQuery]);
 
   useEffect(() => {
     if (!profile) return;
@@ -424,7 +478,16 @@ export default function ProfilePage() {
       </SignedOut>
 
       <SignedIn>
-        {!profile ? (
+        {profileError ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+            <Alert
+              severity="error"
+              action={<Button color="inherit" size="small" onClick={() => setProfileLoad((n) => n + 1)}>נסו שוב</Button>}
+            >
+              {profileError}
+            </Alert>
+          </Box>
+        ) : !profile ? (
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
             <LoadingMotif id="brand-pulse" label="טוען פרופיל…" />
           </Box>

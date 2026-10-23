@@ -65,8 +65,8 @@ export const gamesApi = {
         return apiClient<Game[]>(`/api/games/search?${params.toString()}`, { token, signal });
     },
 
-    getMyGames: (token: string) => {
-        return apiClient<Game[]>('/api/games/my', { token });
+    getMyGames: (token: string, signal?: AbortSignal) => {
+        return apiClient<Game[]>('/api/games/my', { token, signal });
     },
 
     getByCity: (city: string, token?: string) => {

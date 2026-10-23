@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import Link from "next/link";
 import { usersApi, UserProfile, ProfileMatch } from "@/services/api/users";
 import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
@@ -24,7 +24,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 const PAGE_SIZE = 5;
 
 export default function UserProfileSections({ userId }: { userId: string }) {
-    const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -37,7 +37,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
         let active = true;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 const data = await usersApi.getProfile(userId, token || undefined);
                 if (!active) return;
                 setProfile(data);
@@ -53,12 +53,12 @@ export default function UserProfileSections({ userId }: { userId: string }) {
         return () => {
             active = false;
         };
-    }, [userId, getToken]);
+    }, [userId]);
 
     const handleLoadMore = async () => {
         setLoadingMore(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             const next = await usersApi.getMatchHistory(userId, matches.length, PAGE_SIZE, token || undefined);
             setMatches((prev) => [...prev, ...next]);
             setHasMore(next.length === PAGE_SIZE);

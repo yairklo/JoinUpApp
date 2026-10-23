@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useUser, useAuth } from '@clerk/clerk-expo';
+import { useUser } from '@clerk/clerk-expo';
 import { useRouter } from './useRouter.adapter';
 import { usersApi, chatsApi } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
 import { Alert, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
+import { useAuthTokenRef } from './useAuthTokenRef';
 
 export type FriendStatus = 'FRIEND' | 'REQUEST_SENT' | 'REQUEST_RECEIVED' | 'NONE' | 'SELF' | 'LOADING';
 
@@ -17,7 +18,8 @@ interface UseUserActionsProps {
 
 export function useUserActions({ targetUserId, targetUserName, targetUserImage }: UseUserActionsProps) {
     const { user, isLoaded } = useUser();
-    const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
+    const viewerId = user?.id ?? null;
     const router = useRouter();
     const { openChat } = useChat();
     const { t } = useTranslation();
@@ -30,23 +32,23 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
     const [actionLoading, setActionLoading] = useState(false);
 
     const checkStatus = useCallback(async () => {
-        if (!isLoaded || !user) {
+        if (!isLoaded || !viewerId) {
             setStatus('NONE');
             return;
         }
-        if (user.id === targetUserId) {
+        if (viewerId === targetUserId) {
             setStatus('SELF');
             return;
         }
 
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
 
             const [friends, outgoing, incoming] = await Promise.all([
-                usersApi.getFriends(user.id, token),
-                usersApi.getOutgoingRequests(user.id, token),
-                usersApi.getIncomingRequests(user.id, token)
+                usersApi.getFriends(viewerId, token),
+                usersApi.getOutgoingRequests(viewerId, token),
+                usersApi.getIncomingRequests(viewerId, token)
             ]);
 
             if (friends.some((f: any) => f.id === targetUserId)) {
@@ -73,7 +75,7 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
             console.error(e);
             setStatus('NONE');
         }
-    }, [user, isLoaded, targetUserId, getToken]);
+    }, [viewerId, isLoaded, targetUserId]);
 
     useEffect(() => {
         checkStatus();
@@ -82,7 +84,7 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
     const addFriend = async () => {
         setLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             await usersApi.sendFriendRequest(targetUserId, token);
             await checkStatus();
@@ -103,7 +105,7 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
         if (!user) return;
         setLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             await usersApi.removeFriend(user.id, targetUserId, token);
             await checkStatus();
@@ -118,7 +120,7 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
         if (!requestId) return;
         setLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             await usersApi.acceptFriendRequest(requestId, token);
             await checkStatus();
@@ -133,7 +135,7 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
         if (!requestId) return;
         setLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             await usersApi.cancelFriendRequest(requestId, token);
             await checkStatus();
@@ -148,7 +150,7 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
         if (!user) return;
         setActionLoading(true);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
 
             const { chatId } = await chatsApi.createPrivate(targetUserId, token);
