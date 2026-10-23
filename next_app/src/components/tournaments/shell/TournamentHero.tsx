@@ -199,7 +199,9 @@ export default function TournamentHero({ tournament: t, cta, champion, liveCount
                         </Stack>
                     </Stack>
                     <Typography color="text.secondary" sx={{ mt: 1.25, fontWeight: 500 }}>
-                        {`📅 ${dateRangeLabel(t.startsAt, t.endsAt)}${t.customLocation ? ` · 📍 ${t.customLocation}` : ""} · 👥 ${t.counts.teamsApproved} קבוצות`}
+                        <bdi>{`📅 ${dateRangeLabel(t.startsAt, t.endsAt)}`}</bdi>
+                        {t.customLocation ? <>{" · "}<bdi>{`📍 ${t.customLocation}`}</bdi></> : null}
+                        {" · "}<bdi>{`👥 ${t.counts.teamsApproved} קבוצות`}</bdi>
                     </Typography>
                     {caption && (
                         <Typography
