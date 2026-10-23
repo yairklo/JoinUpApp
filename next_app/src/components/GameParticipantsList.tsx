@@ -44,6 +44,8 @@ interface GameParticipantsListProps {
   organizerId: string;
   initialManagers: Manager[];
   maxPlayers: number;
+  /** Finished game: who played only -- no empty slots, seat total or invite box. */
+  finished?: boolean;
   /** Server count; falls back to the roster length. The roster can be hidden for outsiders. */
   confirmedCount?: number;
   teams?: Team[]; // Added teams prop
@@ -55,6 +57,7 @@ export default function GameParticipantsList({
   organizerId,
   initialManagers,
   maxPlayers,
+  finished = false,
   confirmedCount,
   teams = [],
 }: GameParticipantsListProps) {
@@ -333,7 +336,7 @@ export default function GameParticipantsList({
 
   // Open seats are drawn as dashed placeholders so a half-empty game reads as "room for you".
   const filledCount = confirmedCount ?? participants.length;
-  const openSlots = Math.max(0, maxPlayers - filledCount);
+  const openSlots = finished ? 0 : Math.max(0, maxPlayers - filledCount);
   const shownSlots = Math.min(openSlots, 6);
   const renderOpenSlots = () =>
     Array.from({ length: shownSlots }, (_, i) => {
@@ -418,11 +421,11 @@ export default function GameParticipantsList({
               bgcolor: alpha(t.palette.primary.main, 0.1),
             })}
           >
-            {filledCount}/{maxPlayers}
+            {finished ? filledCount : `${filledCount}/${maxPlayers}`}
           </Box>
         </Box>
 
-        {canManage && (
+        {canManage && !finished && (
           <Box
             mb={2.5}
             dir="rtl"
@@ -523,7 +526,7 @@ export default function GameParticipantsList({
         ) : (
           /* --- VIEW MODE 2: FLAT GRID (Default) --- */
           <Box>
-            {participants.length === 0 && (
+            {participants.length === 0 && !finished && (
               <Typography variant="body2" color="text.secondary" fontWeight={600} align="center" pb={2}>
                 עוד אין שחקנים — היו הראשונים להצטרף!
               </Typography>

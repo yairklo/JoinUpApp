@@ -9,6 +9,7 @@ import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
 import type { FriendsOnlyLinkPolicy } from "@/types/game";
+import { isGameFinished } from "@/utils/gameStatus";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -260,7 +261,7 @@ export default async function GameDetails(props: {
           </Box>
         </Box>
 
-        {!userId && game.status !== "CANCELLED" && <GuestJoinBar />}
+        {!userId && game.status !== "CANCELLED" && !isGameFinished(game) && <GuestJoinBar />}
 
       </Container>
     </main>
