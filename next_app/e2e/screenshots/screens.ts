@@ -9,7 +9,8 @@ export const USERS = {
   "minor-c": "minor-c+clerk_test@example.com",
 } as const;
 
-export type UserKey = keyof typeof USERS;
+/** "guest" = signed out (no Clerk session, empty storage state). */
+export type UserKey = keyof typeof USERS | "guest";
 
 export const VIEWPORTS = {
   mobile: { width: 390, height: 844 },
@@ -18,7 +19,7 @@ export const VIEWPORTS = {
 
 export type ViewportName = keyof typeof VIEWPORTS;
 export type ThemeName = "light" | "dark";
-export type FeatureName = "match-results" | "tournaments" | "profile";
+export type FeatureName = "match-results" | "tournaments" | "profile" | "home";
 
 export type ScreenAction =
   | "profile-history"
@@ -88,6 +89,36 @@ export const screens: ScreenDef[] = [
     user: "adult-a",
     source: "next_app/src/components/gameResult/GameResultPanel.tsx",
     action: "finished-game",
+  },
+  {
+    id: "game-upcoming",
+    feature: "match-results",
+    // Upcoming seeded game organized by organizer-o; viewed as a non-organizer player.
+    route: "/games/seed_game_approval",
+    user: "adult-a",
+    source: "next_app/src/app/games/[id]/page.tsx",
+  },
+  {
+    id: "game-upcoming-guest",
+    feature: "match-results",
+    route: "/games/seed_game_approval",
+    user: "guest",
+    source: "next_app/src/app/games/[id]/page.tsx",
+  },
+  {
+    id: "game-finished-guest",
+    feature: "match-results",
+    // Finished game "QA results A" (id looked up from adult-a's profile history).
+    route: "/games/cmvimszfo0038nw0ihwu88lkm",
+    user: "guest",
+    source: "next_app/src/app/games/[id]/page.tsx",
+  },
+  {
+    id: "home-managed",
+    feature: "home",
+    route: "/games",
+    user: "organizer-o",
+    source: "next_app/src/components/GamesPageContent.tsx",
   },
   {
     id: "game-report-user",
