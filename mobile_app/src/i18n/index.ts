@@ -5,6 +5,8 @@ import * as SecureStore from 'expo-secure-store';
 import { I18nManager, Platform, Alert } from 'react-native';
 import * as Updates from 'expo-updates';
 
+import { resolveDeviceLanguage } from './deviceLanguage';
+
 import en from './locales/en.json';
 import he from './locales/he.json';
 
@@ -90,8 +92,7 @@ export const initI18n = async () => {
   let savedLanguage = await safeGetLang();
 
   if (!savedLanguage) {
-    const deviceLanguage = getLocales()[0]?.languageCode;
-    savedLanguage = deviceLanguage === 'he' ? 'he' : 'en';
+    savedLanguage = resolveDeviceLanguage(getLocales()[0]);
   }
 
   // The native layout direction only applies after a restart. If it does not match the

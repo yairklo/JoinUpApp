@@ -11,7 +11,7 @@ name: tournaments screens
     path: tournaments/tournaments-list-${THEME}
 - openLink: joinup://tournaments/cmvjad6r3000gqe0iifmjp349
 - extendedWaitUntil:
-    visible: 'Overview'
+    visible: 'Overview|סקירה'
     timeout: 60000
 - waitForAnimationToEnd
 - takeScreenshot:
