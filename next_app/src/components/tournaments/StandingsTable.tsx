@@ -241,7 +241,10 @@ export default function StandingsTable({
                                         <TableCell sx={{ ...(stickyCell(RANK_W) as object), maxWidth: compact ? undefined : 140, minWidth: 0 }}>
                                             <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
                                                 {crown && row.rank === 1 && <span aria-label="מנצחת הליגה" role="img">🏆</span>}
-                                                <TeamBadge team={row.team} emphasis={mine ? "winner" : undefined} testId={`standings-team-${row.team.id}`} />
+                                                <TeamBadge team={row.team} emphasis={mine ? "winner" : undefined} strikeThrough={!!row.withdrawn} testId={`standings-team-${row.team.id}`} />
+                                                {row.withdrawn && (
+                                                    <Chip label="פרשה" size="small" variant="outlined" data-testid={`standings-withdrawn-${row.team.id}`} sx={{ flexShrink: 0 }} />
+                                                )}
                                                 {!compact && table.complete && isQualifier(row, advanceCount) && hasZone && (
                                                     <Chip label="עולה" size="small" color="success" variant="outlined" sx={{ display: { xs: "none", sm: "inline-flex" } }} />
                                                 )}

@@ -23,6 +23,7 @@ const {
   getUserStats,
   getStatsSummary,
   attachResults,
+  pastGamesWhere,
 } = require('../services/userStatsService');
 const { safeUpsertUserFromAuth } = require('../utils/userSync');
 const { notificationName, publicDisplayName } = require('../utils/publicName');
@@ -37,16 +38,6 @@ const {
 } = require('../shared/ageGate');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile, isManagedUploadUrl } = require('../middleware/upload');
 const { formatJerusalemDate, formatJerusalemTime } = require('../shared/timezone');
-function pastGamesWhere(userId, now) {
-  return {
-    start: { lt: now },
-    status: { not: 'CANCELLED' },
-    OR: [
-      { participants: { some: { userId, status: 'CONFIRMED' } } },
-      { organizerId: userId },
-    ],
-  };
-}
 
 function mapHistoryGame(game) {
   return {

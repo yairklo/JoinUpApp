@@ -130,7 +130,10 @@ export type GameResultErrorCode =
 
 export interface SportStatsAggregate {
     sport: string;
+    /** Games with recorded stats (denominator of perGame). */
     games: number;
+    /** Past games played, same set as the match-history list. */
+    gamesPlayed?: number;
     wins: number;
     draws: number;
     losses: number;
