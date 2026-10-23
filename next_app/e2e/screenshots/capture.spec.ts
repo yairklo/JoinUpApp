@@ -26,7 +26,7 @@ type CaptureUpdate = {
 };
 
 const updates: CaptureUpdate[] = [];
-const sessions = new Map<UserKey, string>();
+const sessions = new Map<string, string>();
 
 function stamp() {
   const sha = (process.env.SCREENSHOT_SHA || "unknown").slice(0, 7);
@@ -56,7 +56,7 @@ async function signInOnce(browser: Browser, user: UserKey, file: string) {
   }
 }
 
-async function storageFor(browser: Browser, user: UserKey) {
+async function storageFor(browser: Browser, user: Exclude<UserKey, "guest">) {
   const cached = sessions.get(user);
   if (cached) return cached;
   fs.mkdirSync(SESSION_DIR, { recursive: true });
@@ -119,6 +119,22 @@ async function openDetail(page: Page, screen: ScreenDef) {
 
 async function waitReady(page: Page, screen: ScreenDef) {
   const timeout = 25_000;
+  if (screen.id === "home-managed") {
+    await page.getByRole("heading", { name: "הניהול שלי" }).waitFor({ timeout });
+    // Lazy home sections only load once scrolled into view.
+    for (let y = 0; y <= 4000; y += 500) {
+      await page.evaluate((top) => window.scrollTo(0, top), y);
+      await page.waitForTimeout(300);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    return;
+  }
+  if (screen.user === "guest") {
+    // Guests are redirected to /sign-in (game details are signed-in only); wait for the Clerk form.
+    await page.waitForURL(/\/sign-in/, { timeout });
+    await page.getByLabel(/דוא"ל/).first().waitFor({ timeout });
+    return;
+  }
   if (screen.id === "profile") {
     await page.getByRole("button", { name: "ערוך פרופיל" }).waitFor({ timeout });
     return;
@@ -311,7 +327,7 @@ test.describe("design screens", () => {
       for (const theme of ["light", "dark"] as const) {
         test(`${screen.feature} ${screen.id} ${viewport} ${theme}`, async ({ browser }) => {
           test.setTimeout(240_000);
-          const storageState = await storageFor(browser, screen.user);
+          const storageState = screen.user === "guest" ? undefined : await storageFor(browser, screen.user);
           const context = await browser.newContext({
             storageState,
             viewport: VIEWPORTS[viewport],

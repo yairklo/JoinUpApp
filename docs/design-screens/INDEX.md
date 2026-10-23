@@ -27,10 +27,26 @@ Earlier hand-captured frames live in `docs/plans/d1-feature1-screens/`.
 | profile-minor-desktop | web | /profile | next_app/src/app/profile/page.tsx | dark | 0ed3a729 2026-10-22 |
 | profile-minor-mobile | web | /profile | next_app/src/app/profile/page.tsx | light | 0ed3a729 2026-10-22 |
 | profile-minor-mobile | web | /profile | next_app/src/app/profile/page.tsx | dark | 0ed3a729 2026-10-22 |
-| game-desktop | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/gameResult/GameResultPanel.tsx | light | 0ed3a729 2026-10-22 |
-| game-desktop | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/gameResult/GameResultPanel.tsx | dark | 0ed3a729 2026-10-22 |
-| game-mobile | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/gameResult/GameResultPanel.tsx | light | 0ed3a729 2026-10-22 |
-| game-mobile | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/gameResult/GameResultPanel.tsx | dark | 0ed3a729 2026-10-22 |
+| game-desktop | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/gameResult/GameResultPanel.tsx | light | 7042743 2026-10-23 |
+| game-desktop | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/gameResult/GameResultPanel.tsx | dark | 7042743 2026-10-23 |
+| game-mobile | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/gameResult/GameResultPanel.tsx | light | 7042743 2026-10-23 |
+| game-mobile | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/gameResult/GameResultPanel.tsx | dark | 7042743 2026-10-23 |
+| game-upcoming-desktop | web | /games/seed_game_approval | next_app/src/app/games/[id]/page.tsx | light | 7042743 2026-10-23 |
+| game-upcoming-desktop | web | /games/seed_game_approval | next_app/src/app/games/[id]/page.tsx | dark | 7042743 2026-10-23 |
+| game-upcoming-mobile | web | /games/seed_game_approval | next_app/src/app/games/[id]/page.tsx | light | 7042743 2026-10-23 |
+| game-upcoming-mobile | web | /games/seed_game_approval | next_app/src/app/games/[id]/page.tsx | dark | 7042743 2026-10-23 |
+| game-upcoming-guest-desktop | web | /games/seed_game_approval | next_app/src/app/games/[id]/page.tsx | light | 7042743 2026-10-23 |
+| game-upcoming-guest-desktop | web | /games/seed_game_approval | next_app/src/app/games/[id]/page.tsx | dark | 7042743 2026-10-23 |
+| game-upcoming-guest-mobile | web | /games/seed_game_approval | next_app/src/app/games/[id]/page.tsx | light | 7042743 2026-10-23 |
+| game-upcoming-guest-mobile | web | /games/seed_game_approval | next_app/src/app/games/[id]/page.tsx | dark | 7042743 2026-10-23 |
+| game-finished-guest-desktop | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/app/games/[id]/page.tsx | light | 7042743 2026-10-23 |
+| game-finished-guest-desktop | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/app/games/[id]/page.tsx | dark | 7042743 2026-10-23 |
+| game-finished-guest-mobile | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/app/games/[id]/page.tsx | light | 7042743 2026-10-23 |
+| game-finished-guest-mobile | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/app/games/[id]/page.tsx | dark | 7042743 2026-10-23 |
+| home-managed-desktop | web | /games | next_app/src/components/GamesPageContent.tsx | light | 7042743 2026-10-23 |
+| home-managed-desktop | web | /games | next_app/src/components/GamesPageContent.tsx | dark | 7042743 2026-10-23 |
+| home-managed-mobile | web | /games | next_app/src/components/GamesPageContent.tsx | light | 7042743 2026-10-23 |
+| home-managed-mobile | web | /games | next_app/src/components/GamesPageContent.tsx | dark | 7042743 2026-10-23 |
 | game-report-user-desktop | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/ReportUserDialog.tsx | light | 0ed3a729 2026-10-22 |
 | game-report-user-desktop | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/ReportUserDialog.tsx | dark | 0ed3a729 2026-10-22 |
 | game-report-user-mobile | web | /games/cmvimszfo0038nw0ihwu88lkm | next_app/src/components/ReportUserDialog.tsx | light | 0ed3a729 2026-10-22 |
@@ -87,15 +103,15 @@ Earlier hand-captured frames live in `docs/plans/d1-feature1-screens/`.
 | tournament-score-sheet-desktop | web | /tournaments/cmvjad6r3000gqe0iifmjp349 | next_app/src/components/tournaments/ScoreEntrySheet.tsx | dark | 0ed3a729 2026-10-22 |
 | tournament-score-sheet-mobile | web | /tournaments/cmvjad6r3000gqe0iifmjp349 | next_app/src/components/tournaments/ScoreEntrySheet.tsx | light | 0ed3a729 2026-10-22 |
 | tournament-score-sheet-mobile | web | /tournaments/cmvjad6r3000gqe0iifmjp349 | next_app/src/components/tournaments/ScoreEntrySheet.tsx | dark | 0ed3a729 2026-10-22 |
-| profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | light | 2a5f61dd 2026-10-22 |
-| profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | dark | 2a5f61dd 2026-10-22 (screen renders light UI in dark mode) |
+| profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | light | 263553f8 2026-10-23 |
+| profile | mobile | /user/profile | mobile_app/app/user/profile.tsx | dark | 263553f8 2026-10-23 |
 | profile-settings | mobile | /profile/settings | mobile_app/app/profile/settings.tsx | light | failed (deep link did not open settings) |
 | profile-settings | mobile | /profile/settings | mobile_app/app/profile/settings.tsx | dark | failed (deep link did not open settings) |
-| game | mobile | /(tabs)/game/[id] | mobile_app/app/(tabs)/game/[id].tsx | light | 2a5f61dd 2026-10-22 |
-| game | mobile | /(tabs)/game/[id] | mobile_app/app/(tabs)/game/[id].tsx | dark | 2a5f61dd 2026-10-22 |
-| tournaments-list | mobile | /tournaments | mobile_app/app/tournaments/index.tsx | light | 2a5f61dd 2026-10-22 |
-| tournaments-list | mobile | /tournaments | mobile_app/app/tournaments/index.tsx | dark | 2a5f61dd 2026-10-22 |
+| game | mobile | /(tabs)/game/[id] | mobile_app/app/(tabs)/game/[id].tsx | light | 263553f8 2026-10-23 |
+| game | mobile | /(tabs)/game/[id] | mobile_app/app/(tabs)/game/[id].tsx | dark | 263553f8 2026-10-23 |
+| tournaments-list | mobile | /tournaments | mobile_app/app/tournaments/index.tsx | light | 263553f8 2026-10-23 |
+| tournaments-list | mobile | /tournaments | mobile_app/app/tournaments/index.tsx | dark | 263553f8 2026-10-23 |
 | tournaments-new | mobile | /tournaments/new | mobile_app/app/tournaments/new.tsx | light | failed (deep link did not open the form) |
 | tournaments-new | mobile | /tournaments/new | mobile_app/app/tournaments/new.tsx | dark | failed (deep link did not open the form) |
-| tournament | mobile | /tournaments/[id] | mobile_app/app/tournaments/[id]/index.tsx | light | 2a5f61dd 2026-10-22 |
-| tournament | mobile | /tournaments/[id] | mobile_app/app/tournaments/[id]/index.tsx | dark | 2a5f61dd 2026-10-22 |
+| tournament | mobile | /tournaments/[id] | mobile_app/app/tournaments/[id]/index.tsx | light | 263553f8 2026-10-23 |
+| tournament | mobile | /tournaments/[id] | mobile_app/app/tournaments/[id]/index.tsx | dark | 263553f8 2026-10-23 |
