@@ -106,7 +106,9 @@ export default function ScoreEntrySheet({ open, tournament, match, onClose, onSa
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, match?.id]);
 
-    useEffect(() => () => closeTimer.current && clearTimeout(closeTimer.current), []);
+    useEffect(() => () => {
+        if (closeTimer.current) clearTimeout(closeTimer.current);
+    }, []);
 
     const homeTeam = match?.home.team ?? null;
     const awayTeam = match?.away.team ?? null;
