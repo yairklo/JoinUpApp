@@ -1,6 +1,8 @@
 "use client";
 
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import EmojiEventsOutlined from "@mui/icons-material/EmojiEventsOutlined";
 import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
@@ -35,23 +37,40 @@ export function TabError({ error, onRetry, testId = "tab-error" }: { error: Tour
     );
 }
 
-export function TabEmpty({ children, action, testId = "tab-empty" }: { children: ReactNode; action?: ReactNode; testId?: string }) {
+export function TabEmpty({ children, action, icon, testId = "tab-empty" }: { children: ReactNode; action?: ReactNode; icon?: ReactNode; testId?: string }) {
     return (
         <Stack
             alignItems="center"
             spacing={1.5}
             sx={(theme) => ({
-                py: 6,
+                py: { xs: 5, md: 6 },
                 px: 3,
                 textAlign: "center",
-                borderRadius: 2.5,
+                borderRadius: 3,
                 border: "1px dashed",
                 borderColor: "divider",
-                bgcolor: alpha(theme.palette.background.paper, 0.5),
+                bgcolor: alpha(theme.palette.background.paper, 0.6),
             })}
             data-testid={testId}
         >
-            <Typography color="text.secondary" fontWeight={500}>{children}</Typography>
+            <Box
+                aria-hidden
+                sx={(theme) => ({
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    display: "grid",
+                    placeItems: "center",
+                    color: "primary.main",
+                    bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.16 : 0.1),
+                    "& svg": { fontSize: 28 },
+                })}
+            >
+                {icon ?? <EmojiEventsOutlined />}
+            </Box>
+            <Typography color="text.secondary" fontWeight={500} sx={{ maxWidth: 360, lineHeight: 1.6 }}>
+                {children}
+            </Typography>
             {action}
         </Stack>
     );

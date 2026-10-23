@@ -72,7 +72,7 @@ export default function OverviewTab({ tournamentId, canScore, onScoreMatch, onGo
 
     if (!tournament) return <View testID="overview-tab"><SkeletonList count={3} height={96} /></View>;
     if (loading && matches.length === 0 && !tournament.description) return <View testID="overview-tab"><SkeletonList count={3} height={96} /></View>;
-    if (error && matches.length === 0 && !tournament.description) return <View testID="overview-tab"><ErrorState onRetry={refetch} /></View>;
+    if (error && matches.length === 0 && !tournament.description) return <View testID="overview-tab"><ErrorState onRetry={refetch} error={error} /></View>;
 
     const card = (m: TournamentMatch, testID?: string) => (
         <MatchCard

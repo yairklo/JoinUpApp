@@ -6,6 +6,7 @@
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mobileRows, webRows, writeIndex } from "./index-table.mjs";
@@ -115,8 +116,14 @@ process.env.NODE_PATH = process.env.NODE_PATH
   ? `${e2eModules}${path.delimiter}${process.env.NODE_PATH}`
   : e2eModules;
 
+// Keep Playwright output (traces, sessions) outside next_app/: writes under the Next project dir make
+// `next dev` recompile continuously, which reloads pages mid-capture ("Execution context was destroyed").
+const artifacts = process.env.SCREENSHOT_ARTIFACTS_DIR || path.join(os.tmpdir(), "joinup-design-screens");
+process.env.SCREENSHOT_ARTIFACTS_DIR = artifacts;
+fs.mkdirSync(artifacts, { recursive: true });
+
 const extra = process.argv.slice(2).filter((arg) => arg !== "--" && arg !== "--index-only");
-const result = spawnSync(process.execPath, [cli, "test", "-c", "e2e/playwright.screenshots.config.ts", ...extra], {
+const result = spawnSync(process.execPath, [cli, "test", "-c", "e2e/playwright.screenshots.config.ts", "--output", path.join(artifacts, "test-results"), ...extra], {
   cwd: nextApp,
   stdio: "inherit",
   env: process.env,

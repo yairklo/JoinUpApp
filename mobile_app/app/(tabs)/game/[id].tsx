@@ -259,8 +259,8 @@ export default function GameDetailsScreen() {
 
     if (!game) {
         return (
-            <View className="flex-1 justify-center items-center bg-white px-6">
-                <Text className="text-gray-500 text-center">
+            <View className="flex-1 justify-center items-center bg-white dark:bg-cyber-card px-6">
+                <Text className="text-gray-500 dark:text-cyber-muted text-center">
                     {friendsOnlyLocked ? t('friendsOnly.gameLocked') : t('game.notFound', 'המשחק לא נמצא')}
                 </Text>
             </View>
@@ -399,7 +399,7 @@ export default function GameDetailsScreen() {
                             <TouchableOpacity
                                 onPress={() => handleWaitlistConfirm(false)}
                                 disabled={actionLoading}
-                                className={`flex-1 p-4 rounded-xl items-center border border-red-300 bg-white`}
+                                className={`flex-1 p-4 rounded-xl items-center border border-red-300 bg-white dark:bg-cyber-card`}
                             >
                                 <Text className="text-red-600 font-bold text-base">{t('game.declineSpot', 'ויתור')}</Text>
                             </TouchableOpacity>
@@ -479,9 +479,9 @@ export default function GameDetailsScreen() {
                 <GameResultSection game={game} />
 
                 {/* Map Section */}
-                <View className="bg-white p-4 mb-4 shadow-sm border-b border-gray-100">
-                    <Text className="text-lg font-bold text-gray-800 mb-3">{t('game.fieldLocation', 'מיקום המגרש')}</Text>
-                    <View className="h-48 rounded-xl overflow-hidden bg-gray-100">
+                <View className="bg-white dark:bg-cyber-card p-4 mb-4 shadow-sm border-b border-gray-100 dark:border-cyber-border">
+                    <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text mb-3">{t('game.fieldLocation', 'מיקום המגרש')}</Text>
+                    <View className="h-48 rounded-xl overflow-hidden bg-gray-100 dark:bg-cyber-border">
                         <MapView 
                             style={{ flex: 1 }}
                             initialRegion={{
@@ -504,10 +504,10 @@ export default function GameDetailsScreen() {
                 </View>
 
                 {/* Participants Section */}
-                <View className="bg-white p-6 mb-4 shadow-sm">
+                <View className="bg-white dark:bg-cyber-card p-6 mb-4 shadow-sm">
                     <View className="flex-row justify-between items-center mb-4">
-                        <Text className="text-lg font-bold text-gray-800">{t('game.players')}</Text>
-                        <Text className="text-gray-500">
+                        <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text">{t('game.players')}</Text>
+                        <Text className="text-gray-500 dark:text-cyber-muted">
                             {game.currentPlayers} / {game.maxPlayers}
                         </Text>
                     </View>
@@ -533,16 +533,16 @@ export default function GameDetailsScreen() {
                                         {displayTeams.map(team => {
                                             if (!team.playerIds || team.playerIds.length === 0) return null;
                                             return (
-                                                <View key={team.id} className="border border-gray-100 rounded-xl p-3 bg-gray-50" style={{ borderRightWidth: 4, borderRightColor: team.color }}>
-                                                    <Text className="font-bold text-gray-800 mb-2">{team.name} ({team.playerIds.length})</Text>
+                                                <View key={team.id} className="border border-gray-100 dark:border-cyber-border rounded-xl p-3 bg-gray-50 dark:bg-cyber-bg" style={{ borderRightWidth: 4, borderRightColor: team.color }}>
+                                                    <Text className="font-bold text-gray-800 dark:text-cyber-text mb-2">{team.name} ({team.playerIds.length})</Text>
                                                     <View className="flex-row flex-wrap">
                                                         {team.playerIds.map(pid => {
                                                             const p = game.participants?.find(part => part.id === pid);
                                                             if (!p) return null;
                                                             return (
                                                                 <TouchableOpacity key={pid} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
-                                                                    <SafeImage source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
-                                                                    <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
+                                                                    <SafeImage source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-cyber-border mb-1" />
+                                                                    <Text className="text-[10px] text-center text-gray-600 dark:text-cyber-muted" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
                                                                 </TouchableOpacity>
                                                             )
                                                         })}
@@ -552,13 +552,13 @@ export default function GameDetailsScreen() {
                                         })}
 
                                         {bench.length > 0 && (
-                                            <View className="border border-gray-100 rounded-xl p-3 bg-white">
-                                                <Text className="font-bold text-gray-500 mb-2">{t('game.unassignedBench', 'לא שובצו')} ({bench.length})</Text>
+                                            <View className="border border-gray-100 dark:border-cyber-border rounded-xl p-3 bg-white dark:bg-cyber-card">
+                                                <Text className="font-bold text-gray-500 dark:text-cyber-muted mb-2">{t('game.unassignedBench', 'לא שובצו')} ({bench.length})</Text>
                                                 <View className="flex-row flex-wrap">
                                                     {bench.map(p => (
                                                         <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="mr-3 mb-2 items-center w-12">
-                                                            <SafeImage source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 mb-1" />
-                                                            <Text className="text-[10px] text-center text-gray-600" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
+                                                            <SafeImage source={{ uri: p.avatar || "https://ui-avatars.com/api/?name=" + p.name }} className="w-10 h-10 rounded-full bg-gray-200 dark:bg-cyber-border mb-1" />
+                                                            <Text className="text-[10px] text-center text-gray-600 dark:text-cyber-muted" numberOfLines={1}>{p.name?.split(' ')[0]}</Text>
                                                         </TouchableOpacity>
                                                     ))}
                                                 </View>
@@ -572,10 +572,10 @@ export default function GameDetailsScreen() {
                                 <TouchableOpacity key={p.id} onPress={() => router.push(`/user/${p.id}`)} className="ml-4 mb-4 items-center w-16">
                                     <SafeImage
                                         source={{ uri: p.avatar || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" }}
-                                        className="w-12 h-12 rounded-full bg-gray-200 mb-1"
+                                        className="w-12 h-12 rounded-full bg-gray-200 dark:bg-cyber-border mb-1"
                                     />
                                     <Text
-                                        className="text-xs text-center text-gray-600"
+                                        className="text-xs text-center text-gray-600 dark:text-cyber-muted"
                                         numberOfLines={1}
                                     >
                                         {p.name || t('game.user', 'משתמש')}
@@ -752,32 +752,32 @@ export default function GameDetailsScreen() {
                 onRequestClose={() => series.actions.setOpen(false)}
             >
                 <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white rounded-t-3xl p-6 h-[70%]">
+                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6 h-[70%]">
                         <View className="flex-row justify-between items-center mb-6">
-                            <Text className="text-xl font-bold text-gray-800">{t('series.createGroup', 'צור קבוצה')}</Text>
+                            <Text className="text-xl font-bold text-gray-800 dark:text-cyber-text">{t('series.createGroup', 'צור קבוצה')}</Text>
                             <TouchableOpacity onPress={() => series.actions.setOpen(false)}>
                                 <Text className="text-brand font-bold">{t('common.cancel', 'ביטול')}</Text>
                             </TouchableOpacity>
                         </View>
 
-                        <View className="flex-row mb-6 bg-gray-100 p-1 rounded-lg">
+                        <View className="flex-row mb-6 bg-gray-100 dark:bg-cyber-border p-1 rounded-lg">
                             <TouchableOpacity
                                 onPress={() => series.actions.setTabValue(0)}
-                                className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 0 ? 'bg-white shadow-sm' : ''}`}
+                                className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 0 ? 'bg-white dark:bg-cyber-card shadow-sm' : ''}`}
                             >
-                                <Text className={`font-bold ${series.state.tabValue === 0 ? 'text-brand' : 'text-gray-500'}`}>{t('series.weekly', 'שבועי')}</Text>
+                                <Text className={`font-bold ${series.state.tabValue === 0 ? 'text-brand' : 'text-gray-500 dark:text-cyber-muted'}`}>{t('series.weekly', 'שבועי')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => series.actions.setTabValue(1)}
-                                className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 1 ? 'bg-white shadow-sm' : ''}`}
+                                className={`flex-1 p-2 rounded-md items-center ${series.state.tabValue === 1 ? 'bg-white dark:bg-cyber-card shadow-sm' : ''}`}
                             >
-                                <Text className={`font-bold ${series.state.tabValue === 1 ? 'text-brand' : 'text-gray-500'}`}>{t('series.customDates', 'תאריכים מותאמים אישית')}</Text>
+                                <Text className={`font-bold ${series.state.tabValue === 1 ? 'text-brand' : 'text-gray-500 dark:text-cyber-muted'}`}>{t('series.customDates', 'תאריכים מותאמים אישית')}</Text>
                             </TouchableOpacity>
                         </View>
 
                         {series.state.tabValue === 0 ? (
                             <View>
-                                <Text className="text-gray-600 mb-4 leading-6">
+                                <Text className="text-gray-600 dark:text-cyber-muted mb-4 leading-6">
                                     • {t('series.weeklyBullet1', 'יוצר משחק בכל שבוע בשעה')} <Text className="font-bold">{game.time}</Text>.{'\n'}
                                     • {t('series.weeklyBullet2', 'מייצר מיד את 4 המשחקים הבאים.')}{'\n'}
                                     • {t('series.weeklyBullet3', 'שחקנים יכולים להירשם להצטרפות אוטומטית.')}
@@ -785,7 +785,7 @@ export default function GameDetailsScreen() {
                             </View>
                         ) : (
                             <View>
-                                <Text className="text-gray-600 mb-4">{t('series.customDatesHint', 'בחר תאריכים ספציפיים לקבוצה זו.')}</Text>
+                                <Text className="text-gray-600 dark:text-cyber-muted mb-4">{t('series.customDatesHint', 'בחר תאריכים ספציפיים לקבוצה זו.')}</Text>
                                 <Text className="text-orange-500 italic">
                                     {t('series.customDatesWebHint', 'בחירת תאריכים מותאמים אישית מותאמת יותר לשימוש באתר. באפליקציה מומלץ להשתמש באפשרות השבועית.')}
                                 </Text>

@@ -84,7 +84,20 @@ export default function TopPlayersTab({ tournamentId }: TopPlayersTabProps) {
             ) : leaders.length === 0 ? (
                 <TabEmpty testId="leaders-empty">{`אף אחד עוד לא רשם ${label}`}</TabEmpty>
             ) : (
-                <Stack component="ol" sx={{ listStyle: "none", m: 0, p: 0 }}>
+                <Stack
+                    component="ol"
+                    sx={(theme) => ({
+                        listStyle: "none",
+                        m: 0,
+                        p: 0.75,
+                        borderRadius: 3,
+                        border: 1,
+                        borderColor: "divider",
+                        bgcolor: "background.paper",
+                        boxShadow: theme.shadows[1],
+                        "& > li + li": { mt: 0.25 },
+                    })}
+                >
                     {leaders.map((r, i) => {
                         const mine = !!myTeamName && r.teamName === myTeamName;
                         return (
@@ -102,9 +115,27 @@ export default function TopPlayersTab({ tournamentId }: TopPlayersTabProps) {
                                     bgcolor: mine ? alpha(theme.palette.primary.main, 0.08) : undefined,
                                 })}
                             >
-                                <Typography variant="body2" color="text.secondary" sx={{ width: 24, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+                                <Box
+                                    sx={(theme) => {
+                                        const medal = ["#f59e0b", "#94a3b8", "#c2410c"][i];
+                                        const podium = !!medal;
+                                        return {
+                                            width: 28,
+                                            height: 28,
+                                            flexShrink: 0,
+                                            borderRadius: "50%",
+                                            display: "grid",
+                                            placeItems: "center",
+                                            typography: "caption",
+                                            fontWeight: 800,
+                                            fontVariantNumeric: "tabular-nums",
+                                            color: podium ? medal : "text.secondary",
+                                            bgcolor: podium ? alpha(medal, theme.palette.mode === "dark" ? 0.2 : 0.14) : "transparent",
+                                        };
+                                    }}
+                                >
                                     <bdi dir="ltr">{positions[i]}</bdi>
-                                </Typography>
+                                </Box>
                                 <Avatar src={r.imageUrl ?? undefined} alt="" sx={{ width: 40, height: 40 }} />
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <Typography variant="body2" fontWeight={700} noWrap title={r.name}>

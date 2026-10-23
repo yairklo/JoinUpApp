@@ -887,6 +887,8 @@
   },
   "errors": {
     "gatewayError": "השרת לא זמין כרגע. נסה שוב בעוד רגע.",
+    "tooManyRequests": "יותר מדי בקשות, נסו שוב בעוד רגע",
+    "uploadTimeout": "ההעלאה נמשכה יותר מדי זמן. בדקו את החיבור ונסו שוב.",
     "fetchFailed": "שגיאה בטעינת הנתונים",
     "loadMyGamesFailed": "שגיאה בטעינת המשחקים שלי",
     "loadSeriesFailed": "שגיאה בטעינת קבוצות",
@@ -1206,6 +1208,7 @@
     "view": {
       "loadFailed": "לא הצלחנו לטעון",
       "retry": "נסו שוב",
+      "rateLimited": "יותר מדי בקשות, נסו שוב בעוד רגע",
       "rosters": "סגלים",
       "noRoster": "אין שחקנים להצגה",
       "backToTournament": "חזרה לטורניר",
@@ -1229,6 +1232,7 @@
     "registrationUntil": "ההרשמה פתוחה עד {{date}}",
     "progress": "{{finished}}/{{total}} משחקים שוחקו",
     "liveNow": "{{count}} משחקים חיים עכשיו",
+    "liveNow_one": "משחק אחד חי עכשיו",
     "cancelledBanner": "הטורניר בוטל. המשחקים שלא שוחקו בוטלו.",
     "draftBanner": "טיוטה: רק מנהלי הטורניר רואים אותה",
     "publish": "פרסום",

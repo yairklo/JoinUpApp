@@ -108,15 +108,16 @@ function SideLabel({ side, color, testId, align }: { side: GameResultSide; color
     <Stack
       data-testid={testId}
       spacing={0.75}
-      sx={{ minWidth: 0, alignItems: align === "start" ? "flex-start" : "flex-end", textAlign: align === "start" ? "start" : "end" }}
+      data-align={align}
+      sx={{ minWidth: 0, alignItems: "center", textAlign: "center" }}
     >
       <Box sx={swatchSx(color, side.order === 0 ? "accent" : "neutral")} />
       <Typography
         variant="subtitle1"
-        fontWeight={700}
+        fontWeight={800}
         title={side.label}
         sx={{
-          fontSize: { xs: 14, sm: 16 },
+          fontSize: { xs: 15, sm: 18 },
           lineHeight: 1.3,
           overflow: "hidden",
           display: "-webkit-box",
@@ -162,11 +163,11 @@ function Scoreboard({ sides, teams }: { sides: GameResultSide[]; teams?: ResultT
   return (
     <Box
       sx={(t) => ({
-        p: { xs: 2, sm: 2.5 },
-        borderRadius: 2.5,
-        bgcolor: alpha(t.palette.text.primary, t.palette.mode === "dark" ? 0.04 : 0.025),
+        p: { xs: 2, sm: 3 },
+        borderRadius: 3,
+        background: `linear-gradient(180deg, ${alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.12 : 0.07)}, ${alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.03 : 0.015)})`,
         border: "1px solid",
-        borderColor: "divider",
+        borderColor: alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.25 : 0.18),
       })}
     >
       <Box

@@ -188,7 +188,10 @@ describe('user stats, privacy and match-history results', () => {
       expect(res.body).toHaveLength(4);
       const soccerWin = res.body.find((g) => g.result?.score === '3-1');
       expect(soccerWin.result).toEqual({ outcome: 'WIN', score: '3-1', myStats: { goals: 2, assists: 1 } });
-      expect(Object.keys(soccerWin).sort()).toEqual(['id', 'result', 'sport', 'start', 'title']);
+      expect(Object.keys(soccerWin).sort()).toEqual(['date', 'id', 'result', 'sport', 'start', 'time', 'title']);
+      // date/time are the Asia/Jerusalem display strings added by mapHistoryGame (#436).
+      expect(soccerWin.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(soccerWin.time).toMatch(/^\d{2}:\d{2}$/);
       const loss = res.body.find((g) => g.result?.score === '0-2');
       expect(loss.result.outcome).toBe('LOSS');
     });

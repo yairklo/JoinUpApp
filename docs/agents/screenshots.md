@@ -23,7 +23,9 @@ cd next_app && npm run screens:web -- --index-only
 ```
 - Targets `BASE_URL`, defaulting to the Dev preview (`https://join-up-app-git-dev-yair-klausners-projects.vercel.app`).
 - Uses Clerk test keys in the shell or `server/.env.maestro` (`CLERK_SECRET_KEY` / `CLERK_PUBLISHABLE_KEY`: `sk_test_...` / `pk_test_...`).
-- Does not start a local web server.
+- Does not start a local web server. To capture against local dev: run `npx next dev -p 3000` in `next_app` (port 3000 is the only localhost origin the Dev API's CORS allows; `.env.local` needs `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` with test keys), warm `/`, `/tournaments`, `/profile`, then `BASE_URL=http://localhost:3000 npm run screens:web`.
+- Screens with an `action` (profile history, finished game, report dialog, wizard steps, score sheet) perform it before capture; every capture waits for no skeletons/spinners. A failed capture deletes its PNG and marks the INDEX row `failed`.
+- Playwright output/sessions go to the OS temp dir (`SCREENSHOT_ARTIFACTS_DIR` to override), never under `next_app/`: writes there make `next dev` recompile and reload pages mid-capture.
 
 ### Mobile (Maestro)
 ```bash
@@ -34,6 +36,7 @@ cd mobile_app && npm run screens:mobile -- --feature <profile|match-results|tour
 - Runs Maestro flows under `mobile_app/.maestro/screenshots/`.
 - `--device <id>` (or `ANDROID_SERIAL`) is forwarded as `maestro --device <id> test ...`; always pass it (e.g. `--device emulator-5554`) so Maestro does not pick a physical phone.
 - Maestro binary: `MAESTRO_BIN` (executable or its `bin` dir), else `PATH`, else `~/tools/maestro/bin`.
+- Switches the device to Hebrew (he-IL) first so captures are RTL; pass `--keep-locale` to skip. Needs adb and an emulator/userdebug device.
 - Requires an Android device/emulator with the Dev API build.
 - Seeded users (`adult-a`, `adult-b`, `minor-c`, `organizer-o`) have no password; the flow inputs code `424242` when `sign-in-code` is visible, otherwise expects an existing session.
 

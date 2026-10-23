@@ -111,7 +111,7 @@ export default function ScheduleTab({ tournamentId, canScore, onScoreMatch }: To
     };
 
     if (loading && matches.length === 0) return <View testID="schedule-tab"><SkeletonList count={4} /></View>;
-    if (error && matches.length === 0) return <View testID="schedule-tab"><ErrorState onRetry={refetch} /></View>;
+    if (error && matches.length === 0) return <View testID="schedule-tab"><ErrorState onRetry={refetch} error={error} /></View>;
     if (matches.length === 0) {
         return (
             <View testID="schedule-tab">
