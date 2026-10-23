@@ -376,6 +376,8 @@ export interface StandingsRow {
     points: number;
     tied: boolean;
     manualRank: number | null;
+    /** Team withdrew after playing: results stay in the table but the row is marked. */
+    withdrawn?: boolean;
 }
 export interface StandingsTableData {
     stageId: string;

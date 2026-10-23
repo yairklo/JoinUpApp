@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usersApi, UserProfile, ProfileMatch } from "@/services/api/users";
 import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 import Avatar from "@/components/Avatar";
+import { formatHistoryDateTime } from "@/utils/historyDate";
 import MatchResultBadge from "@/components/MatchResultBadge";
 import ProfileStatsSection from "@/components/ProfileStatsSection";
 
@@ -187,7 +188,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
                                                             {m.title || sportLabel || "משחק"}
                                                         </Typography>
                                                         <Typography variant="caption" color="text.secondary">
-                                                            {[`${emoji} ${sportLabel}`, m.date, m.time].filter(Boolean).join(" · ")}
+                                                            {[`${emoji} ${sportLabel}`, formatHistoryDateTime(m.date, m.time)].filter(Boolean).join(" · ")}
                                                         </Typography>
                                                     </Box>
                                                     <MatchResultBadge gameId={m.id} sport={m.sport} result={m.result} />

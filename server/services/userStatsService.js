@@ -23,6 +23,18 @@ async function getStatsVisibility(viewerId, target, { isFriend } = {}) {
   return { visible: true, isOwner };
 }
 
+/** Past, non-cancelled games a user took part in (or organised): the match-history set. */
+function pastGamesWhere(userId, now = new Date()) {
+  return {
+    start: { lt: now },
+    status: { not: 'CANCELLED' },
+    OR: [
+      { participants: { some: { userId, status: 'CONFIRMED' } } },
+      { organizerId: userId },
+    ],
+  };
+}
+
 const round2 = (n) => Math.round(n * 100) / 100;
 
 function countOutcome(agg, outcome, outcomeKnown, gameId) {
@@ -81,6 +93,26 @@ async function computeUserStats(userId, { sport } = {}) {
     });
 }
 
+/**
+ * Adds `gamesPlayed` (the match-history count, same filter as the profile list) to each sport.
+ * `games` stays "games with recorded stats" because per-game averages divide by it. Sports with played
+ * games but no stat rows get a zeroed entry so the tile and the history list agree.
+ */
+async function withPlayedCounts(userId, sports, { sport } = {}) {
+  const grouped = await prisma.game.groupBy({
+    by: ['sport'],
+    where: { ...pastGamesWhere(userId), ...(sport ? { sport } : {}) },
+    _count: { _all: true },
+  });
+  const played = new Map(grouped.map((g) => [g.sport, g._count._all]));
+  const out = sports.map((s) => ({ ...s, gamesPlayed: Math.max(played.get(s.sport) || 0, s.games) }));
+  for (const [sp, count] of played) {
+    if (!sp || out.some((s) => s.sport === sp)) continue;
+    out.push({ sport: sp, games: 0, gamesWithOutcome: 0, wins: 0, draws: 0, losses: 0, totals: {}, perGame: {}, gamesPlayed: count });
+  }
+  return out.sort((a, b) => b.gamesPlayed - a.gamesPlayed || a.sport.localeCompare(b.sport));
+}
+
 /** GET /users/:id/stats payload for a target the viewer is allowed to see (or the hidden stub). */
 async function getUserStats(viewerId, target, { sport } = {}) {
   if (sport !== undefined && !SPORT_KEYS.includes(sport)) {
@@ -90,7 +122,7 @@ async function getUserStats(viewerId, target, { sport } = {}) {
   }
   const vis = await getStatsVisibility(viewerId, target);
   if (!vis.visible) return { visible: false, hiddenReason: vis.hiddenReason, sports: [] };
-  const payload = { visible: true, sports: await computeUserStats(target.id, { sport }) };
+  const payload = { visible: true, sports: await withPlayedCounts(target.id, await computeUserStats(target.id, { sport }), { sport }) };
   // Only the owner ever sees their own stats while hidden from everyone else.
   if (vis.isOwner && target.hideMatchStats) payload.ownerHidden = true;
   return payload;
@@ -107,6 +139,7 @@ function buildStatsSummary(sports) {
   return {
     sport: top.sport,
     games: top.games,
+    gamesPlayed: top.gamesPlayed ?? top.games,
     gamesWithOutcome: top.gamesWithOutcome ?? top.games,
     wins: top.wins,
     draws: top.draws,
@@ -116,7 +149,7 @@ function buildStatsSummary(sports) {
 }
 
 async function getStatsSummary(userId) {
-  return buildStatsSummary(await computeUserStats(userId));
+  return buildStatsSummary(await withPlayedCounts(userId, await computeUserStats(userId)));
 }
 
 /**
@@ -181,6 +214,8 @@ async function attachResults(userId, games) {
 }
 
 module.exports = {
+  pastGamesWhere,
+  withPlayedCounts,
   getStatsVisibility,
   computeUserStats,
   getUserStats,

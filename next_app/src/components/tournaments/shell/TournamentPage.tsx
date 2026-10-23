@@ -23,7 +23,7 @@ import TeamsTab from "./TeamsTab";
 import TournamentHero from "./TournamentHero";
 import { useBracket, useStandings, useTournament, useTournamentSchedule } from "@/hooks/tournaments";
 import type { TournamentMatch } from "@/types/tournament";
-import { TAB_LABEL, deriveChampion, heroCta, parseTab, visibleTabs, type TournamentTabKey } from "./shellModel";
+import { TAB_LABEL, deriveChampion, heroCta, parseTab, tabHref, visibleTabs, type TournamentTabKey } from "./shellModel";
 
 function PageSkeleton() {
     return (
@@ -49,25 +49,26 @@ export default function TournamentPage({ id }: { id: string }) {
 
     const hasKnockout = bracket.stages.some((s) => s.rounds.some((r) => r.matches.length > 0));
     const tabs = useMemo(() => (tournament ? visibleTabs(tournament, { hasKnockout }) : []), [tournament, hasKnockout]);
-    const active = parseTab(search?.get("tab"), tabs);
+    // The panel follows local state so a click renders at once; `?tab=` stays the shareable source of truth
+    // (router.replace alone left the panel stale until a reload).
+    const urlTab = search?.get("tab") ?? null;
+    const [pickedTab, setPickedTab] = useState<string | null>(urlTab);
+    useEffect(() => setPickedTab(urlTab), [urlTab]);
+    const active = parseTab(pickedTab, tabs);
     const liveCount = matches.filter((m) => m.status === "LIVE").length;
 
     const setTab = useCallback(
         (tab: TournamentTabKey) => {
-            const p = new URLSearchParams(search?.toString() ?? "");
-            if (tab === "overview") p.delete("tab");
-            else p.set("tab", tab);
-            const qs = p.toString();
-            const base = pathname ?? "";
-            router.replace(qs ? `${base}?${qs}` : base, { scroll: false });
+            setPickedTab(tab === "overview" ? null : tab);
+            router.replace(tabHref(pathname ?? "", search?.toString() ?? "", tab), { scroll: false });
         },
         [router, pathname, search]
     );
 
     // A shared link to a tab that is not visible (yet) falls back to the overview.
     useEffect(() => {
-        if (tournament && search?.get("tab") && active === "overview" && search.get("tab") !== "overview") setTab("overview");
-    }, [tournament, active, search, setTab]);
+        if (tournament && urlTab && active === "overview" && urlTab !== "overview") setTab("overview");
+    }, [tournament, active, urlTab, setTab]);
 
     const champion = useMemo(
         () => (tournament ? deriveChampion(tournament, bracket.stages, standings.tables) : { champion: null, second: null, third: null }),
@@ -106,7 +107,7 @@ export default function TournamentPage({ id }: { id: string }) {
     const onScoreMatch = canScore ? setScoreMatch : undefined;
 
     return (
-        <Container maxWidth="lg" sx={{ py: { xs: 2, md: 3.5 }, pb: { xs: 14, md: 6 } }} dir="rtl" data-testid="tournament-page">
+        <Container maxWidth="lg" sx={{ py: { xs: 2, md: 3.5 }, pb: { xs: 3, md: 6 } }} dir="rtl" data-testid="tournament-page">
             <TournamentHero
                 tournament={t}
                 cta={cta}
@@ -123,6 +124,8 @@ export default function TournamentPage({ id }: { id: string }) {
                     bgcolor: alpha(theme.palette.background.default, 0.92),
                     backdropFilter: "blur(12px)",
                     mt: 2.5,
+                    // Bleed to the screen edge so the first/last tab is not clipped by the container gutter.
+                    mx: { xs: -2, sm: -3, lg: 0 },
                     borderBottom: 1,
                     borderColor: "divider",
                 })}
@@ -136,6 +139,7 @@ export default function TournamentPage({ id }: { id: string }) {
                     sx={{
                         "& .MuiTabs-indicator": { height: 3, borderRadius: "3px 3px 0 0" },
                         "& .MuiTab-root": { minWidth: 0 },
+                        "& .MuiTabs-flexContainer": { px: { xs: 1, sm: 2, lg: 0 } },
                     }}
                 >
                     {tabs.map((k) => (
