@@ -98,7 +98,14 @@ export default function GameActions({
       <Stack
         direction="row"
         spacing={1}
-        sx={{ p: 1.5, borderTop: "1px solid", borderColor: "divider", "& > *": { flex: { xs: 1, sm: "0 0 auto" } } }}
+        sx={{
+          px: { xs: 2, sm: 2.5 },
+          pt: 1.5,
+          pb: { xs: 2, sm: 2 },
+          borderTop: "1px solid",
+          borderColor: "divider",
+          "& > *": { flex: { xs: 1, sm: "0 0 auto" }, minHeight: 44 },
+        }}
       >
         {isLoc && navHref && (
           <Button
