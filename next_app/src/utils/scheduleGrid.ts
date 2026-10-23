@@ -39,12 +39,25 @@ export interface Grid {
  */
 export function normalizeCourt(label: string | null | undefined): string {
     const t = (label ?? "").trim();
-    return /^\d+$/.test(t) ? `מגרש ${Number(t)}` : t;
+    const m = COURT_NUMBER.exec(t);
+    return m ? `מגרש ${Number(m[1])}` : t;
+}
+
+const COURT_NUMBER = /^(?:מגרש\s*)?(\d+)$/;
+
+/**
+ * Canonical court identity. MUST match `courtKey` in shared/tournament/scheduler.js (the server's conflict check):
+ * bare digits and "מגרש N" (any zero padding) are one court; other names compare trimmed and case-insensitive.
+ */
+export function courtKey(label: unknown): string {
+    const t = String(label ?? "").trim().toLowerCase();
+    const m = COURT_NUMBER.exec(t);
+    return m ? String(Number(m[1])) : t;
 }
 
 /** Label to store when a match lands on grid column `target`: keep its stored label when it is already that court. */
 export function courtLabelForMove(current: string | null | undefined, target: string): string {
-    return current && normalizeCourt(current) === normalizeCourt(target) ? current : target;
+    return current && courtKey(current) === courtKey(target) ? current : target;
 }
 
 /** Court names for pickers, one per canonical court ("1" and "מגרש 1" collapse), in first-seen order. */
@@ -53,8 +66,9 @@ export function dedupeCourts(labels: Iterable<string>): string[] {
     const out: string[] = [];
     for (const l of labels) {
         const n = normalizeCourt(l);
-        if (n && !seen.has(n)) {
-            seen.add(n);
+        const k = courtKey(n);
+        if (n && !seen.has(k)) {
+            seen.add(k);
             out.push(n);
         }
     }
@@ -117,16 +131,17 @@ export function buildGrid(
         const min = timeToMinutes(p.time);
         if (min !== null) dayItems.push({ item, min });
     }
-    const courtSet = new Set<string>((opts.extraCourts ?? []).map(normalizeCourt));
-    for (const { item } of dayItems) courtSet.add(normalizeCourt(item.court));
-    const courts = [...courtSet].sort((a, b) => collator.compare(a, b));
+    const display = new Map<string, string>(); // court key -> first-seen display name
+    for (const c of opts.extraCourts ?? []) if (!display.has(courtKey(c))) display.set(courtKey(c), normalizeCourt(c));
+    for (const { item } of dayItems) if (!display.has(courtKey(item.court))) display.set(courtKey(item.court), normalizeCourt(item.court));
+    const courts = [...display.values()].sort((a, b) => collator.compare(a, b));
     if (dayItems.length === 0) return { courts, startMin: 8 * 60, slots: 8, step, cells: [] };
     const first = Math.floor(Math.min(...dayItems.map((d) => d.min)) / step) * step;
     const last = Math.max(...dayItems.map((d) => d.min));
     const slots = Math.floor((last - first) / step) + span + 1;
     const cells = dayItems.map(({ item, min }) => ({
         item,
-        col: courts.indexOf(normalizeCourt(item.court)),
+        col: courts.indexOf(display.get(courtKey(item.court)) as string),
         row: Math.floor((min - first) / step),
         span,
     }));
