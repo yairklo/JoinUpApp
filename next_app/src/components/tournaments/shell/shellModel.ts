@@ -43,6 +43,15 @@ export function parseTab(raw: string | null | undefined, tabs: readonly Tourname
     return (tabs as readonly string[]).includes(raw ?? "") ? (raw as TournamentTabKey) : "overview";
 }
 
+/** URL for switching tab: `?tab=<key>` (overview drops it), other query params kept. */
+export function tabHref(base: string, currentQuery: string, tab: TournamentTabKey): string {
+    const p = new URLSearchParams(currentQuery);
+    if (tab === "overview") p.delete("tab");
+    else p.set("tab", tab);
+    const qs = p.toString();
+    return qs ? `${base}?${qs}` : base;
+}
+
 export type HeroCta =
     | { kind: "manage"; label: string; href: string }
     | { kind: "score"; label: string }

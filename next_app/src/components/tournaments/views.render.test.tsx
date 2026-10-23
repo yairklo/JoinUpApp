@@ -66,6 +66,13 @@ describe("StandingsTable", () => {
         expect(html).toContain("עולות לשלב הבא");
         expect(html).toContain("standings-needs-manual-rank");
     });
+    test("a withdrawn team keeps its row but is marked", () => {
+        const t = { ...table, rows: [row("a", 1), row("w", 2, { withdrawn: true })] };
+        const html = renderToStaticMarkup(<StandingsTable table={t} mode="full" />);
+        expect(html).toContain("standings-row-w");
+        expect(html).toContain("standings-withdrawn-w");
+        expect(html).not.toContain("standings-withdrawn-a");
+    });
     test("full has all columns and the manual-rank button for managers", () => {
         const html = renderToStaticMarkup(<StandingsTable table={table} mode="full" canManage onSetManualRank={() => {}} />);
         expect(html).toContain(">נ׳<");

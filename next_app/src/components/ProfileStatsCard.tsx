@@ -240,7 +240,7 @@ export default function ProfileStatsCard({
         );
     }
 
-    const ordered = [...sports].sort((a, b) => b.games - a.games);
+    const ordered = [...sports].sort((a, b) => (b.gamesPlayed ?? b.games) - (a.gamesPlayed ?? a.games));
     const current = ordered.find((s) => s.sport === selectedSport) ?? ordered[0];
     const sportTheme = getSportTheme(current.sport);
     const sided = current.wins + current.draws + current.losses;
@@ -299,7 +299,7 @@ export default function ProfileStatsCard({
                                     onSelectSport?.(s.sport);
                                 }}
                                 aria-pressed={selected}
-                                label={`${SPORT_EMOJI[s.sport] || "🏅"} ${SPORT_MAPPING[s.sport] || s.sport} · ${s.games}`}
+                                label={`${SPORT_EMOJI[s.sport] || "🏅"} ${SPORT_MAPPING[s.sport] || s.sport} · ${s.gamesPlayed ?? s.games}`}
                                 sx={(theme) => ({
                                     fontWeight: 700,
                                     flexShrink: 0,
@@ -325,7 +325,7 @@ export default function ProfileStatsCard({
             )}
 
             <Stack direction="row" spacing={{ xs: 1, sm: 1.25 }} sx={{ mb: 2 }}>
-                <Tile testId="profile-stats-tile-games" value={current.games} label="משחקים" />
+                <Tile testId="profile-stats-tile-games" value={current.gamesPlayed ?? current.games} label="משחקים" />
                 <Tile testId="profile-stats-tile-wins" value={current.wins} label="ניצחונות" outcome="WIN" />
                 <Tile testId="profile-stats-tile-draws" value={current.draws} label="תיקו" outcome="DRAW" />
                 <Tile testId="profile-stats-tile-losses" value={current.losses} label="הפסדים" outcome="LOSS" />
