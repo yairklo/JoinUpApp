@@ -308,7 +308,7 @@ export default function GameHero({
                 </Box>
             </SportCover>
 
-            <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 }, display: "flex", flexDirection: "column", gap: { xs: 1.5, md: 2 } }}>
+            <Box sx={{ p: { xs: 2, md: 2.5 }, pb: { xs: 2.5, md: 3 }, display: "flex", flexDirection: "column", gap: { xs: 1.5, md: 2 } }}>
                 {seriesHref && (
                     <Box
                         component={NextLink}
@@ -416,6 +416,17 @@ export default function GameHero({
                             flexWrap: "wrap",
                             gap: 1,
                             "& > *": { flex: { xs: "1 1 100%", sm: "0 0 auto" } },
+                            // The action buttons (join / request / leave) are the page's main CTA:
+                            // full width and touch-sized on phones, a solid pill at the end on desktop.
+                            "& > * .MuiBox-root": { alignItems: { xs: "stretch", sm: "flex-end" } },
+                            "& .MuiButton-root": {
+                                minHeight: { xs: 48, sm: 44 },
+                                px: 3,
+                                fontSize: { xs: "1rem", sm: "0.95rem" },
+                                fontWeight: 800,
+                                borderRadius: 999,
+                            },
+                            "& > * > .MuiButton-root, & > * > .MuiBox-root > .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
                         }}
                     >
                         {children}
