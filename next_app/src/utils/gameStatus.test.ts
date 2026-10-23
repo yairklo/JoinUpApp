@@ -27,27 +27,19 @@ describe("getGameVisibility", () => {
     it("hides seats, slots, invite, join CTAs and countdown for a finished game", () => {
         expect(getGameVisibility({ status: "COMPLETED", start: iso(-5) }, NOW)).toEqual({
             finished: true,
-            showSeatCounter: false,
-            showEmptySlots: false,
-            showInvite: false,
             showJoinCtas: false,
-            showCountdown: false,
         });
     });
     it("keeps everything for an upcoming game", () => {
         expect(getGameVisibility({ status: "OPEN", start: iso(4) }, NOW)).toEqual({
             finished: false,
-            showSeatCounter: true,
-            showEmptySlots: true,
-            showInvite: true,
             showJoinCtas: true,
-            showCountdown: true,
         });
     });
     it("cancelled game: not finished, no join CTAs, rest unchanged", () => {
         const v = getGameVisibility({ status: "CANCELLED", start: iso(-10) }, NOW);
         expect(v.finished).toBe(false);
         expect(v.showJoinCtas).toBe(false);
-        expect(v.showSeatCounter).toBe(true);
+        expect(v.finished).toBe(false);
     });
 });

@@ -106,7 +106,8 @@ export default function TournamentCard({ t }: { t: Tournament }) {
                     {t.title}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" noWrap sx={{ mt: 0.75, fontWeight: 500 }}>
-                    {`📅 ${dateRangeLabel(t.startsAt, t.endsAt)}${t.customLocation ? ` · 📍 ${t.customLocation}` : ""}`}
+                    <bdi>{`📅 ${dateRangeLabel(t.startsAt, t.endsAt)}`}</bdi>
+                    {t.customLocation ? <>{" · "}<bdi>{`📍 ${t.customLocation}`}</bdi></> : null}
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mt: "auto", pt: 1.75 }}>
                     <Box

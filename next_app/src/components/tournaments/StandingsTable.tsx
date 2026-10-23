@@ -120,7 +120,7 @@ export default function StandingsTable({
     });
 
     return (
-        <Box data-testid={`standings-table-${table.stageId}-${idPart}`} sx={{ minWidth: 0 }}>
+        <Box data-testid={`standings-table-${table.stageId}-${idPart}`} sx={{ minWidth: 0, px: { xs: 1, sm: 0 } }}>
             <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
                 <Typography variant="subtitle1" fontWeight={800}>
                     {titleOf(table)}
