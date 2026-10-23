@@ -37,6 +37,8 @@ interface WrapperProps {
   organizerId: string;
   initialManagers: Manager[];
   maxPlayers: number;
+  /** Finished game: roster only, no empty slots / invite box. */
+  finished?: boolean;
   /** Server count; the roster itself can be shorter (hidden for outsiders / minors for guests). */
   confirmedCount?: number;
   currentUserId: string;
@@ -58,6 +60,7 @@ export default function TeamBuilderWrapper({
   organizerId,
   initialManagers,
   maxPlayers,
+  finished = false,
   confirmedCount,
   currentUserId,
   initialTeams = [],
@@ -192,6 +195,7 @@ export default function TeamBuilderWrapper({
         organizerId={organizerId}
         initialManagers={initialManagers}
         maxPlayers={maxPlayers}
+        finished={finished}
         confirmedCount={confirmedCount}
         teams={initialTeams}
       />
