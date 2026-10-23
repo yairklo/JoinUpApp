@@ -5,6 +5,17 @@
 
 const MINUTE = 60 * 1000;
 
+/**
+ * Canonical court identity for comparisons (stored labels are never rewritten): the generator stores
+ * unnamed courts as bare numbers ("1") while the editor uses "מגרש 1"; both are the same court.
+ * Keep in sync with normalizeCourt in next_app/src/utils/scheduleGrid.ts.
+ */
+function courtKey(court) {
+  const t = String(court ?? '').trim().toLowerCase();
+  const m = /^(?:מגרש\s*)?(\d+)$/.exec(t);
+  return m ? String(Number(m[1])) : t;
+}
+
 function toMs(value) {
   const ms = typeof value === 'number' ? value : Date.parse(value);
   if (!Number.isFinite(ms)) throw new Error(`invalid date: ${value}`);
@@ -60,7 +71,7 @@ function scheduleMatches(matches, config) {
   let pending = matches.slice();
 
   const fits = (s, e, court, teams) => !placed.some((p) => (
-    (p.court === court && clashes(s, e, p.s, p.e, cfg.breakMs))
+    (courtKey(p.court) === courtKey(court) && clashes(s, e, p.s, p.e, cfg.breakMs))
     || (p.teams.some((t) => teams.includes(t)) && clashes(s, e, p.s, p.e, cfg.restMs))
   ));
 
@@ -142,7 +153,7 @@ function findConflicts(entries, config) {
       const a = items[i];
       const b = items[j];
       const ids = [a.id, b.id];
-      if (a.court === b.court && clashes(a.s, a.e, b.s, b.e, cfg.breakMs)) {
+      if (courtKey(a.court) === courtKey(b.court) && clashes(a.s, a.e, b.s, b.e, cfg.breakMs)) {
         conflicts.push({ type: 'COURT_OVERLAP', matchIds: ids, court: a.court, message: `matches ${a.id} and ${b.id} collide on court ${a.court}` });
       }
       a.teams.filter((t) => b.teams.includes(t)).forEach((teamId) => {
@@ -157,4 +168,4 @@ function findConflicts(entries, config) {
   return conflicts;
 }
 
-module.exports = { scheduleMatches, findConflicts };
+module.exports = { scheduleMatches, findConflicts, courtKey };
