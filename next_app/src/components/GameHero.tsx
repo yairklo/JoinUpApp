@@ -149,6 +149,7 @@ export default function GameHero({
     price,
     coverImage,
     viewerState = null,
+    finished = false,
     children,
 }: {
     time: string;
@@ -167,6 +168,8 @@ export default function GameHero({
     /** Game, series or field photo shown under the sport wash. */
     coverImage?: string | null;
     viewerState?: HeroViewerState;
+    /** Finished game: static "המשחק הסתיים" chip, no seat counter / capacity warnings. */
+    finished?: boolean;
     children?: React.ReactNode;
 }) {
     const theme = getSportTheme(sport);
@@ -177,7 +180,7 @@ export default function GameHero({
     const almostFull = !isFull && spotsLeft <= 2;
     const sportLabel = sport ? SPORT_MAPPING[sport] : undefined;
     const isFree = !price || price <= 0;
-    const countdown = countdownLabel(date, time, end);
+    const countdown = finished ? null : countdownLabel(date, time, end);
 
     const statusPill =
         viewerState === "joined" ? (
@@ -191,7 +194,7 @@ export default function GameHero({
             <Chip size="small" label="ברשימת המתנה" sx={glassChipSx} />
         ) : viewerState === "pending" ? (
             <Chip size="small" label="ממתין לאישור" sx={glassChipSx} />
-        ) : isFull ? (
+        ) : finished ? null : isFull ? (
             <Chip size="small" label="מלא" sx={{ ...glassChipSx, bgcolor: "#ef4444", border: "none" }} />
         ) : almostFull ? (
             <Chip
@@ -244,6 +247,9 @@ export default function GameHero({
                     </Stack>
 
                     <Box sx={{ minWidth: 0 }}>
+                        {finished && (
+                            <Chip size="small" label="המשחק הסתיים" sx={{ ...glassChipSx, mb: 1 }} />
+                        )}
                         {countdown && (
                             <Box
                                 suppressHydrationWarning
@@ -357,10 +363,11 @@ export default function GameHero({
                         value={
                             <>
                                 {currentPlayers}
-                                <Box component="span" sx={{ color: "text.secondary", fontWeight: 600 }}>/{maxPlayers}</Box>
+                                {!finished && <Box component="span" sx={{ color: "text.secondary", fontWeight: 600 }}>/{maxPlayers}</Box>}
                             </>
                         }
                     >
+                        {!finished && (<>
                         <Box
                             role="progressbar"
                             aria-label="תפוסה"
@@ -397,6 +404,7 @@ export default function GameHero({
                                 </>
                             )}
                         </Typography>
+                        </>)}
                     </StatTile>
                     <StatTile
                         accent={theme.base}
