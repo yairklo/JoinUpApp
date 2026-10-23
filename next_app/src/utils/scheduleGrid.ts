@@ -42,6 +42,25 @@ export function normalizeCourt(label: string | null | undefined): string {
     return /^\d+$/.test(t) ? `מגרש ${Number(t)}` : t;
 }
 
+/** Label to store when a match lands on grid column `target`: keep its stored label when it is already that court. */
+export function courtLabelForMove(current: string | null | undefined, target: string): string {
+    return current && normalizeCourt(current) === normalizeCourt(target) ? current : target;
+}
+
+/** Court names for pickers, one per canonical court ("1" and "מגרש 1" collapse), in first-seen order. */
+export function dedupeCourts(labels: Iterable<string>): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const l of labels) {
+        const n = normalizeCourt(l);
+        if (n && !seen.has(n)) {
+            seen.add(n);
+            out.push(n);
+        }
+    }
+    return out;
+}
+
 const collator = new Intl.Collator("he", { numeric: true });
 
 function gcd(a: number, b: number): number {

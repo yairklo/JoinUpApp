@@ -1,4 +1,4 @@
-import { buildGrid, cellOccupants, cellToIso, gridStep, itemDays, unscheduled, type GridItem } from "./scheduleGrid";
+import { courtLabelForMove, dedupeCourts, normalizeCourt, buildGrid, cellOccupants, cellToIso, gridStep, itemDays, unscheduled, type GridItem } from "./scheduleGrid";
 import { israelToIso } from "./tournamentManage";
 
 const at = (date: string, time: string) => israelToIso(date, time) as string;
@@ -68,5 +68,15 @@ describe("scheduleGrid", () => {
         const g = buildGrid(items, "2026-10-25", { step: 30, durationMinutes: 30, extraCourts: ["מגרש 1", "מגרש 2"] });
         expect(g.courts).toEqual(["מגרש 1", "מגרש 2"]);
         expect(g.cells.map((c) => c.col)).toEqual([0, 1]);
+    });
+    it("keeps the stored court label when a match is dropped on its own normalized column", () => {
+        expect(courtLabelForMove("1", "מגרש 1")).toBe("1");
+        expect(courtLabelForMove("1", "מגרש 2")).toBe("מגרש 2");
+        expect(courtLabelForMove(null, "מגרש 1")).toBe("מגרש 1");
+        expect(courtLabelForMove("Center", "center")).toBe("center");
+    });
+    it("dedupes court names that differ only by the bare-number form", () => {
+        expect(dedupeCourts(["מגרש 1", "מגרש 2", "1", "3", "A"])).toEqual(["מגרש 1", "מגרש 2", "מגרש 3", "A"]);
+        expect(normalizeCourt(" 4 ")).toBe("מגרש 4");
     });
 });

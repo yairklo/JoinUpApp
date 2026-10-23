@@ -18,7 +18,7 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import { useScheduleMutations, useTournamentSchedule, useTournamentTeams } from "@/hooks/tournaments";
 import { ScheduleConflictError, tournamentErrorMessage } from "@/services/api/tournaments";
 import { describeSlot } from "@/utils/tournament";
-import { itemDays, type GridItem } from "@/utils/scheduleGrid";
+import { courtLabelForMove, dedupeCourts, itemDays, type GridItem } from "@/utils/scheduleGrid";
 import {
     buildGenerateInput,
     groupConflicts,
@@ -155,7 +155,7 @@ export default function ScheduleBuilder({ tournament: t }: ScheduleBuilderProps)
         const set = new Set<string>(params.namedCourts ? params.courtNames : []);
         if (!params.namedCourts) for (let i = 1; i <= params.courtCount; i++) set.add(`מגרש ${i}`);
         for (const it of committedItems) if (it.court) set.add(it.court);
-        return [...set];
+        return dedupeCourts(set);
     }, [params, committedItems]);
 
     // ---- actions ----
@@ -210,7 +210,8 @@ export default function ScheduleBuilder({ tournament: t }: ScheduleBuilderProps)
     };
 
     const move = async (key: string, iso: string, court: string, force = false) => {
-        const res = await mut.updateMatch(key, { scheduledAt: iso, courtLabel: court, ...(force ? { force: true } : {}) });
+        const current = sched.matches.find((x) => x.id === key)?.courtLabel;
+        const res = await mut.updateMatch(key, { scheduledAt: iso, courtLabel: courtLabelForMove(current, court), ...(force ? { force: true } : {}) });
         if (res) {
             setMoveConflict(null);
             setToast(res.conflicts.length ? "נשמר עם התנגשויות" : "המשחק הועבר");
