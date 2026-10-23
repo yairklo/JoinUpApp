@@ -1,4 +1,4 @@
-const { scheduleMatches, findConflicts } = require('./scheduler');
+const { scheduleMatches, findConflicts, courtKey } = require('./scheduler');
 const { generateRoundRobin, flattenRounds } = require('./roundRobin');
 const { generateBracket } = require('./bracket');
 
@@ -140,5 +140,24 @@ describe('findConflicts', () => {
       { id: 'b', homeTeamId: null, awayTeamId: null, scheduledAt: '2026-11-07T09:00:00Z', court: 2 },
     ];
     expect(findConflicts(entries, base)).toEqual([]);
+  });
+});
+
+describe('courtKey', () => {
+  it('treats bare numbers and "מגרש N" as the same court; other names compare trimmed, case-insensitive', () => {
+    expect(courtKey('1')).toBe(courtKey('מגרש 1'));
+    expect(courtKey(1)).toBe(courtKey(' מגרש  01 '));
+    expect(courtKey('1')).not.toBe(courtKey('מגרש 2'));
+    expect(courtKey(' Center ')).toBe(courtKey('center'));
+    expect(courtKey(null)).toBe('');
+  });
+
+  it('detects COURT_OVERLAP between "1" and "מגרש 1"', () => {
+    const entries = [
+      { id: 'a', homeTeamId: 'A', awayTeamId: 'B', scheduledAt: '2026-11-07T09:00:00Z', court: '1' },
+      { id: 'b', homeTeamId: 'C', awayTeamId: 'D', scheduledAt: '2026-11-07T09:00:00Z', court: 'מגרש 1' },
+    ];
+    const types = findConflicts(entries, { windows: [{ start: '2026-11-07T08:00:00Z', end: '2026-11-07T12:00:00Z' }], matchMinutes: 60 }).map((c) => c.type);
+    expect(types).toContain('COURT_OVERLAP');
   });
 });
