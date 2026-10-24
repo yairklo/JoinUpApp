@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTournament } from '@/hooks/useTournament';
+import { useStandingsOverride } from '@/hooks/useTournamentMutations';
 import { useStandings } from '@/hooks/useTournamentViews';
+import { tournamentErrorKey } from '@/utils/tournamentErrors';
 import { displayStageName } from '../matchFormat';
 import StandingsTable from '../StandingsTable';
+import StandingsOverrideSheet from '../StandingsOverrideSheet';
 import { EmptyState, ErrorState, Pill, SkeletonList } from './TabState';
+import type { StandingsOverrideInput, StandingsTable as StandingsTableData } from '@/types/tournament';
 import type { TournamentTabProps } from './ScheduleTab';
 
 export interface StandingsTabProps extends TournamentTabProps {
@@ -23,9 +27,49 @@ export default function StandingsTab({ tournamentId, onSetManualRank }: Standing
     const lang = i18n.language?.startsWith('en') ? 'en' : 'he';
     const { tournament } = useTournament(tournamentId);
     const { tables, loading, error, refetch } = useStandings(tournamentId);
+    const override = useStandingsOverride(tournamentId);
     const [group, setGroup] = useState<string | null>(null);
+    const [editing, setEditing] = useState<StandingsTableData | null>(null);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const myTeamId = tournament?.myTeam?.id ?? null;
     const canManage = !!tournament?.capabilities?.canManage;
+
+    const failText = (err: unknown) => {
+        const key = tournamentErrorKey(err as { code?: string });
+        return key ? t(key) : t('tournaments.standings.override.saveFailed');
+    };
+    const saveOverride = async (input: StandingsOverrideInput) => {
+        try {
+            await override.save(input);
+            setEditing(null);
+            setSaveError(null);
+            void refetch();
+        } catch (err) {
+            setSaveError(failText(err));
+        }
+    };
+    const resetOverride = (table: StandingsTableData) => {
+        Alert.alert(t('tournaments.standings.override.resetTitle'), t('tournaments.standings.override.resetBody'), [
+            { text: t('tournaments.standings.override.cancel'), style: 'cancel' },
+            {
+                text: t('tournaments.standings.override.resetConfirm'),
+                style: 'destructive',
+                onPress: () => {
+                    void (async () => {
+                        try {
+                            await override.reset({ stageId: table.stageId, groupId: table.groupId });
+                            setEditing(null);
+                            setSaveError(null);
+                            void refetch();
+                        } catch (err) {
+                            setSaveError(failText(err));
+                            setEditing(table);
+                        }
+                    })();
+                },
+            },
+        ]);
+    };
 
     if (loading && tables.length === 0) return <View testID="standings-tab"><SkeletonList count={7} height={48} /></View>;
     if (error && tables.length === 0) return <View testID="standings-tab"><ErrorState onRetry={refetch} error={error} /></View>;
@@ -66,8 +110,19 @@ export default function StandingsTab({ tournamentId, onSetManualRank }: Standing
                     tournamentCompleted={tournament?.status === 'COMPLETED'}
                     canManage={canManage}
                     onSetManualRank={onSetManualRank}
+                    onEditStandings={canManage ? () => { setSaveError(null); setEditing(table); } : undefined}
+                    onResetStandings={canManage && table.manualOrder ? () => resetOverride(table) : undefined}
                 />
             ))}
+            <StandingsOverrideSheet
+                open={!!editing}
+                table={editing}
+                busy={override.pending}
+                errorText={saveError}
+                onClose={() => { if (!override.pending) setEditing(null); }}
+                onSave={(input) => { void saveOverride(input); }}
+                onReset={editing?.manualOrder ? () => resetOverride(editing) : undefined}
+            />
         </View>
     );
 }

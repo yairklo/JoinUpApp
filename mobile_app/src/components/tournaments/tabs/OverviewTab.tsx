@@ -10,6 +10,7 @@ import StandingsTable from '../StandingsTable';
 import { registrationWindowCopy } from '../shellUtils';
 import { ltrIsolate, type Lang } from '../matchFormat';
 import { ErrorState, SkeletonList } from './TabState';
+import OpenInMapButton from '@/components/OpenInMapButton';
 import type { TournamentTabProps } from './ScheduleTab';
 
 export interface OverviewTabProps extends TournamentTabProps {
@@ -92,7 +93,14 @@ export default function OverviewTab({ tournamentId, canScore, onScoreMatch, onGo
 
     const r = tournament.rules;
     const preStart = tournament.status === 'DRAFT' || tournament.status === 'REGISTRATION_OPEN' || tournament.status === 'REGISTRATION_CLOSED';
-    const venue = tournament.customLocation;
+    const venue = tournament.customLocation || tournament.fieldLocation || tournament.fieldName || '';
+    const venueLocation = {
+        lat: tournament.fieldLat,
+        lng: tournament.fieldLng,
+        customLocation: tournament.customLocation,
+        address: tournament.fieldLocation,
+        name: tournament.fieldName,
+    };
     const registration = preStart ? registrationWindowCopy(tournament.registrationOpensAt, tournament.registrationClosesAt, lang) : null;
     const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
 
@@ -130,11 +138,12 @@ export default function OverviewTab({ tournamentId, canScore, onScoreMatch, onGo
                         <Text className="text-[12px] font-bold text-gray-500 dark:text-cyber-muted">{t('tournaments.overview.venue')}</Text>
                         {tournament.fieldId ? (
                             <Pressable onPress={() => router.push(`/field/${tournament.fieldId}` as any)} accessibilityRole="link" style={{ minHeight: 44, justifyContent: 'center' }}>
-                                <Text className="text-brand font-semibold text-[14px]">{venue ?? t('tournaments.overview.venue')}</Text>
+                                <Text className="text-brand font-semibold text-[14px]">{venue || t('tournaments.overview.venue')}</Text>
                             </Pressable>
                         ) : (
                             <Text className="text-[14px] text-gray-800 dark:text-cyber-text">{venue}</Text>
                         )}
+                        <OpenInMapButton location={venueLocation} />
                     </View>
                 ) : null}
                 {r || tournament.startersPerTeam ? (

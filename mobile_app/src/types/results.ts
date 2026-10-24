@@ -1,4 +1,5 @@
 import type { ResultOutcome, StatSport } from '@joinup/shared/matchStats';
+import type { EveningSummary, ResultLineupMode } from '@joinup/shared/eveningSummary';
 
 export type { ResultOutcome, StatSport };
 
@@ -30,6 +31,13 @@ export interface GameResultSide {
     score: number;
     sets: TennisSets | null;
     outcome: ResultOutcome;
+    players?: Array<{ userId: string; goals: number }>;
+}
+
+export interface GameResultRound {
+    id: string | null;
+    order: number;
+    sides: GameResultSide[];
 }
 
 export interface GameResultPlayerStats {
@@ -47,7 +55,10 @@ export interface GameResultRecord {
     id: string;
     status: 'FINAL';
     sport: StatSport;
+    lineupMode?: ResultLineupMode | null;
     sides: GameResultSide[];
+    rounds?: GameResultRound[];
+    summary?: EveningSummary | null;
     /** Already privacy-filtered for the viewer (empty when only a link-holder). */
     stats: GameResultPlayerStats[];
     notes: string | null;
@@ -61,6 +72,7 @@ export interface GameResultRosterEntry {
     userId: string;
     name: string;
     imageUrl: string | null;
+    teamId?: string | null;
     sideId: string | null;
 }
 
@@ -106,7 +118,7 @@ export interface GameResultPlayerInput {
     values?: Record<string, number>;
 }
 
-export interface SaveGameResultInput {
+export interface SaveSingleGameResultInput {
     /** Exactly two sides, in order [home, away]. */
     sides: [GameResultSideInput, GameResultSideInput];
     stats?: GameResultPlayerInput[];
@@ -114,6 +126,14 @@ export interface SaveGameResultInput {
     /** Tennis only. */
     bestOf?: 3 | 5;
 }
+
+export interface SaveEveningResultInput {
+    lineupMode: ResultLineupMode;
+    rounds: Array<{ sides: Array<{ label: string; teamId?: string | null; score?: number; players?: Array<{ userId: string; goals?: number }> }> }>;
+    notes?: string | null;
+}
+
+export type SaveGameResultInput = SaveSingleGameResultInput | SaveEveningResultInput;
 
 /** Error `code` values the result endpoints can return (apiClient errors carry `err.code` and `err.status`). */
 export type GameResultErrorCode =
@@ -130,7 +150,10 @@ export type GameResultErrorCode =
     | 'INVALID_SIDES'
     | 'INVALID_RESULT'
     | 'INVALID_STATS'
-    | 'DUPLICATE_PLAYER';
+    | 'DUPLICATE_PLAYER'
+    | 'INVALID_ROUNDS'
+    | 'LINEUP_MODE_REQUIRED'
+    | 'MULTI_ROUND_RESULT';
 
 export interface UserSportStats {
     sport: StatSport;
@@ -138,6 +161,9 @@ export interface UserSportStats {
     wins: number;
     draws: number;
     losses: number;
+    roundWins?: number;
+    roundDraws?: number;
+    roundLosses?: number;
     /** stat key -> total (see getStatDefs(sport) for keys/labels). */
     totals: Record<string, number>;
     perGame: Record<string, number>;

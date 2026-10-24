@@ -177,6 +177,16 @@ export default function ProfileStatsCard(props: ProfileStatsCardProps) {
                 ))}
             </View>
 
+            {(current.roundWins ?? 0) + (current.roundDraws ?? 0) + (current.roundLosses ?? 0) > decided && (
+                <Text testID="profile-stats-rounds" className="text-xs text-gray-500 dark:text-cyber-muted mt-2">
+                    {t('stats.roundLine', {
+                        w: current.roundWins ?? 0,
+                        d: current.roundDraws ?? 0,
+                        l: current.roundLosses ?? 0,
+                    })}
+                </Text>
+            )}
+
             {decided > 0 && (
                 <View className="mt-3">
                     <View

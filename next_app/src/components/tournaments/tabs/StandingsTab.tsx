@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
@@ -10,11 +15,13 @@ import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import StandingsTable from "../StandingsTable";
+import StandingsOverrideDialog from "../StandingsOverrideDialog";
 import { displayGroupName, displayStageName } from "@/utils/tournamentViews";
 import UpdatedCue from "../UpdatedCue";
 import { TabEmpty, TabError, TabSkeleton } from "./TabStates";
-import { useStandings, useTournament } from "@/hooks/tournaments";
-import type { TournamentMatch } from "@/types/tournament";
+import { useStandings, useStandingsOverride, useTournament } from "@/hooks/tournaments";
+import { tournamentErrorMessage } from "@/services/api/tournaments";
+import type { StandingsOverrideInput, StandingsTableData, TournamentMatch } from "@/types/tournament";
 
 export interface StandingsTabProps {
     tournamentId: string;
@@ -30,8 +37,30 @@ export default function StandingsTab({ tournamentId }: StandingsTabProps) {
     const wide = useMediaQuery(theme.breakpoints.up("sm"));
     const { tournament } = useTournament(tournamentId);
     const { tables, loading, error, reload, updated } = useStandings(tournamentId);
+    const override = useStandingsOverride(tournamentId);
     const [full, setFull] = useState(false);
     const [group, setGroup] = useState<string | null>(null);
+    const [editing, setEditing] = useState<StandingsTableData | null>(null);
+    const [resetting, setResetting] = useState<StandingsTableData | null>(null);
+    const canManage = !!tournament?.capabilities.canManage;
+    const overrideError = tournamentErrorMessage(override.error) ?? (override.error ? "לא הצלחנו לשמור את הדירוג. נסו שוב." : null);
+
+    const saveOverride = async (input: StandingsOverrideInput) => {
+        const res = await override.save(input);
+        if (res) {
+            setEditing(null);
+            void reload();
+        }
+    };
+    const confirmReset = async () => {
+        if (!resetting) return;
+        const res = await override.reset({ stageId: resetting.stageId, groupId: resetting.groupId });
+        if (res) {
+            setResetting(null);
+            setEditing(null);
+            void reload();
+        }
+    };
 
     if (loading && tables.length === 0) return <div data-testid="standings-tab"><TabSkeleton rows={7} height={48} /></div>;
     if (error && tables.length === 0) return <div data-testid="standings-tab"><TabError error={error} onRetry={reload} /></div>;
@@ -72,10 +101,38 @@ export default function StandingsTab({ tournamentId }: StandingsTabProps) {
                     mode={mode}
                     sport={tournament?.sport}
                     tournamentCompleted={tournament?.status === "COMPLETED"}
-                    canManage={!!tournament?.capabilities.canManage}
+                    canManage={canManage}
                     onSetManualRank={() => router.push(`/tournaments/${tournamentId}/manage`)}
+                    onEditStandings={canManage ? (tb) => { override.clearError(); setEditing(tb); } : undefined}
+                    onResetStandings={canManage ? (tb) => { override.clearError(); setResetting(tb); } : undefined}
                 />
             ))}
+            <StandingsOverrideDialog
+                open={!!editing}
+                table={editing}
+                saving={override.pending}
+                error={editing ? overrideError : null}
+                onClose={() => { if (!override.pending) setEditing(null); }}
+                onSave={(input) => { void saveOverride(input); }}
+                onReset={editing?.manualOrder ? () => { setResetting(editing); } : undefined}
+            />
+            <Dialog open={!!resetting} onClose={override.pending ? undefined : () => setResetting(null)} dir="rtl" data-testid="standings-reset-dialog">
+                <DialogTitle>איפוס לדירוג אוטומטי</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2">
+                        לחזור לדירוג האוטומטי? הסדר הידני והתאמות הנקודות יימחקו. תוצאות המשחקים לא משתנות.
+                    </Typography>
+                    {resetting && overrideError && (
+                        <Typography variant="body2" color="error" sx={{ mt: 1 }}>{overrideError}</Typography>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setResetting(null)} disabled={override.pending}>ביטול</Button>
+                    <Button variant="contained" onClick={() => { void confirmReset(); }} disabled={override.pending} data-testid="standings-reset-confirm">
+                        איפוס
+                    </Button>
+                </DialogActions>
+            </Dialog>
             {!wide && (
                 <FormControlLabel
                     sx={{ alignSelf: "flex-start" }}

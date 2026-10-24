@@ -13,6 +13,8 @@ import type {
     ScheduleGenerateInput,
     SchedulePreviewResponse,
     ScheduleResponse,
+    StandingsOverrideInput,
+    StandingsOverrideResult,
     StandingsResponse,
     TeamDecision,
     TeamMember,
@@ -197,6 +199,14 @@ export const tournamentsApi = {
     // ---- computed views
     getStandings: (id: string, token: string | undefined, opts: Opts = {}) =>
         apiClient<StandingsResponse>(`${base(id)}/standings`, { token, cache: 'no-store', ...opts }),
+
+    /** Manager+: publish a manual order. Points adjustments are additive and do not re-sort. */
+    putStandingsOverride: (id: string, data: StandingsOverrideInput, token: string) =>
+        apiClient<StandingsOverrideResult>(`${base(id)}/standings/override`, { method: 'PUT', data, token }),
+
+    /** Manager+: delete the override so the table is automatic again. */
+    deleteStandingsOverride: (id: string, data: { stageId: string; groupId: string | null }, token: string) =>
+        apiClient<StandingsOverrideResult>(`${base(id)}/standings/override`, { method: 'DELETE', data, token }),
 
     getBracket: (id: string, token: string | undefined, opts: Opts = {}) =>
         apiClient<BracketResponse>(`${base(id)}/bracket`, { token, cache: 'no-store', ...opts }),

@@ -9,6 +9,7 @@ import type {
     SaveMatchResultInput,
     SaveMatchResultResponse,
     ScheduleGenerateInput,
+    StandingsOverrideInput,
     TeamDecision,
     TournamentAssignableRole,
     TournamentInput,
@@ -177,4 +178,15 @@ export function useSaveMatchResult(tournamentId: string | undefined, matchId: st
     }, [save, downstreamFinished]);
 
     return { pending, save, versionConflict, downstreamFinished, warnings, resolveKeepMine, forceSave, dismiss };
+}
+
+/** Manager+: publish or clear a manual standings order for one group/league table. */
+export function useStandingsOverride(tournamentId: string | undefined) {
+    const { run, pending } = useTournamentMutationRunner();
+    return {
+        pending,
+        save: (data: StandingsOverrideInput) => run((t) => tournamentsApi.putStandingsOverride(needId(tournamentId), data, t)),
+        reset: (data: { stageId: string; groupId: string | null }) =>
+            run((t) => tournamentsApi.deleteStandingsOverride(needId(tournamentId), data, t)),
+    };
 }

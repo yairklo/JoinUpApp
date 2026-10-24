@@ -160,4 +160,61 @@ function computeStandings(teamIds, matches, options = {}) {
   });
 }
 
-module.exports = { DEFAULT_OPTIONS, computeStandings };
+/**
+ * Apply a manager's manual table override on top of automatic rows from `computeStandings`.
+ *
+ * The automatic row is never rewritten in storage. Callers recompute it from match results
+ * on every read, then pass it here when an override row exists. Until that override is
+ * deleted (reset):
+ *
+ * - Order is `override.teamOrder` (best first). Ids that are not in `rows` are ignored.
+ *   Teams that joined the table after the override was saved are appended in automatic order.
+ *   Adjusted points do not re-sort the table. A later result changes the automatic columns
+ *   and therefore the displayed points, but the saved order stays.
+ * - Displayed `points` = automatic points + the team's adjustment (0 when that team has none).
+ *   Adjustments are additive. They do not change played, W/D/L, goals, goal difference, or
+ *   `pointsPerGame` (that ratio stays automatic points / played).
+ * - `autoPoints` is the unadjusted total. `tied` and `unresolved` are false: the manager's order
+ *   separates ties, so per-team `manualRank` pins are not applied while an override exists.
+ *
+ * `override`: `{ teamOrder: string[], adjustments?: [{ teamId, points, reason }] }`.
+ * Returns a new array and does not mutate `rows`.
+ */
+function applyStandingsOverride(rows, override) {
+  const order = Array.isArray(override && override.teamOrder) ? override.teamOrder : [];
+  const adjustments = new Map(
+    (override && Array.isArray(override.adjustments) ? override.adjustments : [])
+      .filter((a) => a && a.teamId)
+      .map((a) => [a.teamId, a]),
+  );
+  const byId = new Map(rows.map((r) => [r.teamId, r]));
+  const placed = [];
+  const seen = new Set();
+  for (const id of order) {
+    const row = byId.get(id);
+    if (!row || seen.has(id)) continue;
+    placed.push(row);
+    seen.add(id);
+  }
+  for (const row of rows) {
+    if (!seen.has(row.teamId)) placed.push(row);
+  }
+  return placed.map((row, i) => {
+    const adj = adjustments.get(row.teamId);
+    const delta = adj && Number.isFinite(adj.points) ? adj.points : 0;
+    const reason = adj && typeof adj.reason === 'string' ? adj.reason : '';
+    return {
+      ...row,
+      rank: i + 1,
+      autoPoints: row.points,
+      pointsAdjustment: delta,
+      adjustmentReason: delta !== 0 && reason ? reason : null,
+      points: row.points + delta,
+      manualOrder: true,
+      tied: false,
+      unresolved: false,
+    };
+  });
+}
+
+module.exports = { DEFAULT_OPTIONS, computeStandings, applyStandingsOverride };

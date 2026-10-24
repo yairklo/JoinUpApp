@@ -1,5 +1,5 @@
 import { checkPlayerTotals, getStatDefs, validateStats, validateTennisSets, MAX_TEAM_SCORE } from "@joinup/shared/matchStats";
-import type { GameResultData, GameResultRosterPlayer, SaveGameResultInput, StatValues } from "@/types/matchResult";
+import type { GameResultData, GameResultRosterPlayer, SaveSingleGameResultInput, StatValues } from "@/types/matchResult";
 
 export const NOTES_MAX = 500;
 export const SIDE_LABEL_MAX = 40;
@@ -113,13 +113,13 @@ export function isFormValid(sport: string, form: EditorFormState): boolean {
   return true;
 }
 
-export function buildSaveInput(sport: string, form: EditorFormState): SaveGameResultInput {
+export function buildSaveInput(sport: string, form: EditorFormState): SaveSingleGameResultInput {
   const side = (i: 0 | 1) => ({
     label: form.labels[i].trim().slice(0, SIDE_LABEL_MAX),
     teamId: form.teamIds[i],
     ...(sport === "TENNIS" ? {} : { score: form.scores[i] }),
   });
-  const sides: SaveGameResultInput["sides"] = [side(0), side(1)];
+  const sides: SaveSingleGameResultInput["sides"] = [side(0), side(1)];
   if (sport === "TENNIS") sides[0].sets = form.sets;
   const stats = Object.entries(form.players)
     .map(([userId, p]) => {

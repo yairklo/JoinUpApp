@@ -31,6 +31,7 @@ export interface ProfileMatchResult {
     outcome: 'WIN' | 'DRAW' | 'LOSS' | null;
     score: string | null;
     myStats: Record<string, number>;
+    rounds?: { wins: number; draws: number; losses: number };
 }
 
 export interface ProfileGroup {

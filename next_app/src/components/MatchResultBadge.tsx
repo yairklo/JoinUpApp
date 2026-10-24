@@ -28,9 +28,11 @@ interface Props {
 export default function MatchResultBadge({ gameId, sport, result }: Props) {
     if (!result) return null;
     const score = parseScore(result.score);
+    const rounds = result.rounds;
+    const roundTotal = rounds ? rounds.wins + rounds.draws + rounds.losses : 0;
     const sportKey = sport || "";
     const statKeys = orderedStatKeys(sportKey, result.myStats || {}).slice(0, 2);
-    if (!score && statKeys.length === 0) return null;
+    if (!score && statKeys.length === 0 && roundTotal === 0) return null;
 
     const statTexts = statKeys.map((k) => formatStatText(sportKey, k, result.myStats[k]));
     const outcomeLabel = result.outcome ? OUTCOME_LABEL_HE[result.outcome] : "";
@@ -50,6 +52,21 @@ export default function MatchResultBadge({ gameId, sport, result }: Props) {
             spacing={0.25}
             sx={{ flexShrink: 0, maxWidth: { xs: 96, sm: 112 } }}
         >
+            {roundTotal > 0 && !score && (
+                <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={0.5}
+                    aria-label={`${rounds!.wins} ניצחונות, ${rounds!.draws} תיקו, ${rounds!.losses} הפסדים בסיבובים`}
+                    sx={{ height: 28, px: 1.25, borderRadius: 999, fontSize: 13, fontWeight: 700, bgcolor: "action.hover" }}
+                >
+                    <span>{rounds!.wins}</span>
+                    <span>–</span>
+                    <span>{rounds!.draws}</span>
+                    <span>–</span>
+                    <span>{rounds!.losses}</span>
+                </Stack>
+            )}
             {score && (
                 <Stack
                     direction="row"

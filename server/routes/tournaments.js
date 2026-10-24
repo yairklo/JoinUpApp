@@ -174,6 +174,18 @@ router.put('/:id/matches/:matchId/result', authenticateToken, handle(async (req)
 
 router.get('/:id/schedule', attachOptionalUser, handle((req) => results.getSchedule(req.user, req.params.id, req.query)));
 router.get('/:id/standings', attachOptionalUser, handle((req) => results.getStandings(req.user, req.params.id)));
+
+router.put('/:id/standings/override', authenticateToken, handle(async (req) => {
+  const out = await results.putStandingsOverride(req.user, req.params.id, req.body);
+  emit(req, 'result', { changedMatchIds: out.changedMatchIds });
+  return out;
+}));
+
+router.delete('/:id/standings/override', authenticateToken, handle(async (req) => {
+  const out = await results.deleteStandingsOverride(req.user, req.params.id, req.body);
+  emit(req, 'result', { changedMatchIds: out.changedMatchIds });
+  return out;
+}));
 router.get('/:id/bracket', attachOptionalUser, handle((req) => results.getBracket(req.user, req.params.id)));
 router.get('/:id/stats/leaders', attachOptionalUser, handle((req) => results.getLeaders(req.user, req.params.id, req.query)));
 

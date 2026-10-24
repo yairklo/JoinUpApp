@@ -51,6 +51,11 @@ export interface Tournament {
     startsAt: string;
     endsAt?: string | null;
     fieldId?: string | null;
+    /** Catalog field, when the tournament is tied to one. */
+    fieldName?: string | null;
+    fieldLocation?: string | null;
+    fieldLat?: number | null;
+    fieldLng?: number | null;
     customLocation?: string | null;
     imageUrl?: string | null;
     isPublic?: boolean;
@@ -423,6 +428,12 @@ export interface StandingsRow {
     ga: number;
     gd: number;
     points: number;
+    /** Automatic points from results. Equals `points` when there is no adjustment. */
+    autoPoints?: number;
+    /** Added to `autoPoints` while a table override is active. Does not re-sort the table. */
+    pointsAdjustment?: number;
+    /** Shown on the row when a manager recorded a points adjustment. */
+    adjustmentReason?: string | null;
     tied: boolean;
     manualRank: number | null;
 }
@@ -436,7 +447,24 @@ export interface StandingsTable {
     /** All matches of the table are finished. */
     complete: boolean;
     needsManualRank: boolean;
+    /** True while a manager's manual order is published. Reset clears it. */
+    manualOrder?: boolean;
     rows: StandingsRow[];
+}
+export interface StandingsAdjustmentInput {
+    teamId: string;
+    points: number;
+    reason: string;
+}
+export interface StandingsOverrideInput {
+    stageId: string;
+    groupId: string | null;
+    teamOrder: string[];
+    adjustments?: StandingsAdjustmentInput[];
+}
+export interface StandingsOverrideResult {
+    ok: true;
+    changedMatchIds: string[];
 }
 
 export interface StandingsResponse {
@@ -523,4 +551,7 @@ export type TournamentErrorCode =
     | 'INVALID_STATS'
     | 'NOT_IN_PROGRESS'
     | 'TEAMS_UNKNOWN'
-    | 'WRONG_STATUS';
+    | 'WRONG_STATUS'
+    | 'VALIDATION'
+    | 'OVERRIDE_BLOCKED'
+    | 'TOURNAMENT_CLOSED';

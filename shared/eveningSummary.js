@@ -1,0 +1,353 @@
+// Pickup evenings: several rounds inside one game result.
+//
+// Profile stat policy (also docs/plans/2026-10-multi-round-results.md):
+// - The evening counts as ONE game played. Rounds never multiply `games` / `gamesPlayed`.
+// - Match W/D/L (`wins` / `draws` / `losses`) counts a game only when it has a single round,
+//   which is every result recorded before this feature and every new one-score save.
+// - Round W/D/L (`roundWins` / `roundDraws` / `roundLosses`) is a separate counter: one
+//   increment per round the player took part in. A single-round game contributes one
+//   round outcome as well, so for those games the two counters match.
+// - Goals/points on the profile are the sum across the evening, stored once on PlayerStatEntry.
+
+const MAX_ROUNDS = 24;
+const LINEUP_MODES = ['FIXED_TEAMS', 'ROTATING_LINEUPS'];
+const NOTES_MAX = 500;
+const LABEL_MAX = 60;
+
+function outcomeFromScores(score, other) {
+  const a = Number(score) || 0;
+  const b = Number(other) || 0;
+  if (a > b) return 'WIN';
+  if (a < b) return 'LOSS';
+  return 'DRAW';
+}
+
+function sidesInOrder(round) {
+  return [...(round?.sides || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+function withOutcomes(round) {
+  const sides = sidesInOrder(round);
+  const [a, b] = sides;
+  const left = Number(a?.score) || 0;
+  const right = Number(b?.score) || 0;
+  return sides.map((side, i) => ({
+    ...side,
+    outcome: side.outcome || outcomeFromScores(i === 0 ? left : right, i === 0 ? right : left),
+  }));
+}
+
+/**
+ * Fixed-team evenings: every confirmed player of a side's team took part, even with 0 goals.
+ * Explicit `players` are scorers (and anyone the organizer added who has no team row).
+ * Sides without a teamId keep only the players that were sent.
+ */
+function expandFixedRounds(rounds, roster) {
+  const people = roster || [];
+  return (rounds || []).map((round) => ({
+    ...round,
+    sides: sidesInOrder(round).map((side) => {
+      if (!side.teamId) return { ...side, players: [...(side.players || [])] };
+      const goals = new Map((side.players || []).map((p) => [p.userId, Number(p.goals) || 0]));
+      const members = people.filter((p) => p.teamId === side.teamId).map((p) => p.userId);
+      const ids = [...new Set([...members, ...goals.keys()])];
+      return {
+        ...side,
+        players: ids.map((userId) => ({ userId, goals: goals.get(userId) || 0 })),
+      };
+    }),
+  }));
+}
+
+function addOutcome(row, outcome) {
+  if (outcome === 'WIN') row.wins += 1;
+  else if (outcome === 'DRAW') row.draws += 1;
+  else if (outcome === 'LOSS') row.losses += 1;
+}
+
+/**
+ * Evening table.
+ * Fixed mode: per-team W/D/L and goals, plus per-player wins and goals (from the team roster).
+ * Rotating mode: per-player only. `teams` is empty.
+ */
+function summarizeEvening({ lineupMode, rounds, roster } = {}) {
+  const expanded = lineupMode === 'FIXED_TEAMS' ? expandFixedRounds(rounds, roster) : (rounds || []);
+  const teams = new Map();
+  const players = new Map();
+
+  const playerRow = (userId) => {
+    if (!players.has(userId)) {
+      players.set(userId, { userId, rounds: 0, wins: 0, draws: 0, losses: 0, goals: 0 });
+    }
+    return players.get(userId);
+  };
+
+  for (const round of expanded) {
+    const sides = withOutcomes(round);
+    if (lineupMode === 'FIXED_TEAMS') {
+      for (const side of sides) {
+        const key = side.teamId || `label:${side.label}`;
+        if (!teams.has(key)) {
+          teams.set(key, {
+            teamId: side.teamId || null,
+            label: side.label || '',
+            played: 0,
+            wins: 0,
+            draws: 0,
+            losses: 0,
+            goalsFor: 0,
+            goalsAgainst: 0,
+          });
+        }
+        const row = teams.get(key);
+        const opp = sides.find((s) => s !== side);
+        row.label = side.label || row.label;
+        row.played += 1;
+        row.goalsFor += Number(side.score) || 0;
+        row.goalsAgainst += Number(opp?.score) || 0;
+        addOutcome(row, side.outcome);
+      }
+    }
+    for (const side of sides) {
+      const seen = new Set();
+      for (const p of side.players || []) {
+        if (!p?.userId || seen.has(p.userId)) continue;
+        seen.add(p.userId);
+        const row = playerRow(p.userId);
+        row.rounds += 1;
+        addOutcome(row, side.outcome);
+        row.goals += Number(p.goals) || 0;
+      }
+    }
+  }
+
+  const byLabel = (a, b) => String(a.label || '').localeCompare(String(b.label || ''));
+  return {
+    teams: lineupMode === 'FIXED_TEAMS'
+      ? [...teams.values()].sort((a, b) => b.wins - a.wins || b.goalsFor - a.goalsFor || byLabel(a, b))
+      : [],
+    players: [...players.values()].sort((a, b) => b.wins - a.wins || b.goals - a.goals || a.userId.localeCompare(b.userId)),
+  };
+}
+
+/**
+ * Next pairing for the quick-add button.
+ * Fixed + 3 teams, winner stays: the winner stays, the team that sat out comes on.
+ * A draw: the previous challenger stays and the team that sat out comes on.
+ * Two teams: they play again. Rotating: copy the previous lineup with goals cleared.
+ */
+function suggestNextRound({ lineupMode, rounds, teams } = {}) {
+  const list = rounds || [];
+  if (!list.length) return null;
+  const last = withOutcomes(list[list.length - 1]);
+  const [a, b] = last;
+  if (!a || !b) return null;
+
+  if (lineupMode === 'ROTATING_LINEUPS') {
+    return {
+      sides: last.map((s) => ({
+        label: s.label || '',
+        teamId: s.teamId || null,
+        score: 0,
+        players: (s.players || []).map((p) => ({ userId: p.userId, goals: 0 })),
+      })),
+    };
+  }
+
+  const catalog = teams && teams.length
+    ? teams
+    : last.map((s) => ({ id: s.teamId, name: s.label }));
+  const nameOf = (id, fallback) => catalog.find((t) => t.id && t.id === id)?.name || fallback || '';
+  const waiting = catalog.map((t) => t.id).find((id) => id && id !== a.teamId && id !== b.teamId);
+
+  let stay;
+  let challenge;
+  if (a.outcome === 'WIN') {
+    stay = a;
+    challenge = waiting ? { teamId: waiting, label: nameOf(waiting, '') } : b;
+  } else if (b.outcome === 'WIN') {
+    stay = b;
+    challenge = waiting ? { teamId: waiting, label: nameOf(waiting, '') } : a;
+  } else {
+    stay = b;
+    challenge = waiting ? { teamId: waiting, label: nameOf(waiting, '') } : a;
+  }
+
+  return {
+    sides: [
+      { label: nameOf(stay.teamId, stay.label), teamId: stay.teamId || null, score: 0, players: [] },
+      { label: challenge.label || nameOf(challenge.teamId, ''), teamId: challenge.teamId || null, score: 0, players: [] },
+    ],
+  };
+}
+
+function blankSide(teams, index) {
+  const team = teams && teams[index];
+  return {
+    label: team?.name || (index === 0 ? 'צד א׳' : 'צד ב׳'),
+    teamId: team?.id || null,
+    score: 0,
+    playerIds: [],
+    goals: {},
+  };
+}
+
+function blankRound(teams) {
+  return { sides: [blankSide(teams, 0), blankSide(teams, 1)] };
+}
+
+function rosterFromTeams(roster, teams) {
+  const list = teams || [];
+  return (roster || []).map((p) => ({
+    userId: p.userId,
+    teamId: p.teamId || list.find((t) => (t.playerIds || []).includes(p.userId))?.id || null,
+  }));
+}
+
+/** Editor state for the quick-add screen. `result` may be a saved evening or a single score. */
+function initEveningForm({ result, teams, roster } = {}) {
+  const teamList = teams || [];
+  const defaultMode = teamList.length >= 2 ? 'FIXED_TEAMS' : 'ROTATING_LINEUPS';
+  const mode = result?.lineupMode || defaultMode;
+  const source = result?.rounds?.length
+    ? result.rounds
+    : result?.sides?.length
+      ? [{ sides: result.sides }]
+      : null;
+  const rounds = (source || [blankRound(teamList)]).map((round) => {
+    const ordered = sidesInOrder(round);
+    return {
+      sides: [0, 1].map((i) => {
+        const s = ordered[i];
+        if (!s) return blankSide(teamList, i);
+        const players = s.players || [];
+        return {
+          label: s.label || '',
+          teamId: s.teamId || null,
+          score: Number(s.score) || 0,
+          playerIds: mode === 'ROTATING_LINEUPS' ? players.map((p) => p.userId) : [],
+          goals: Object.fromEntries(players.filter((p) => (Number(p.goals) || 0) > 0).map((p) => [p.userId, Number(p.goals)])),
+        };
+      }),
+    };
+  });
+  return { lineupMode: mode, notes: result?.notes || '', rounds, roster: roster || [] };
+}
+
+function appendEveningRound(form, teams) {
+  if (!form || form.rounds.length >= MAX_ROUNDS) return form;
+  const next = suggestNextRound({
+    lineupMode: form.lineupMode,
+    teams,
+    rounds: form.rounds.map((round) => ({
+      sides: round.sides.map((s) => ({
+        teamId: s.teamId,
+        label: s.label,
+        score: s.score,
+        players: (s.playerIds || []).map((userId) => ({ userId, goals: s.goals?.[userId] || 0 })),
+      })),
+    })),
+  });
+  if (!next) return form;
+  return {
+    ...form,
+    rounds: [
+      ...form.rounds,
+      {
+        sides: next.sides.map((s) => ({
+          label: s.label,
+          teamId: s.teamId,
+          score: 0,
+          playerIds: (s.players || []).map((p) => p.userId),
+          goals: {},
+        })),
+      },
+    ],
+  };
+}
+
+function removeEveningRound(form, index) {
+  if (!form || form.rounds.length <= 1) return form;
+  return { ...form, rounds: form.rounds.filter((_, i) => i !== index) };
+}
+
+function setEveningLineupMode(form, mode, teams, roster) {
+  if (!form || form.lineupMode === mode) return form;
+  if (!LINEUP_MODES.includes(mode)) return form;
+  const people = rosterFromTeams(roster || form.roster, teams);
+  return {
+    ...form,
+    lineupMode: mode,
+    rounds: form.rounds.map((round) => ({
+      sides: round.sides.map((side) => {
+        if (mode !== 'ROTATING_LINEUPS' || side.playerIds.length) return side;
+        const ids = people.filter((p) => side.teamId && p.teamId === side.teamId).map((p) => p.userId);
+        return { ...side, playerIds: ids };
+      }),
+    })),
+  };
+}
+
+function eveningFormErrors(form) {
+  const errors = [];
+  if (!form || !Array.isArray(form.rounds) || !form.rounds.length) {
+    errors.push({ code: 'NO_ROUNDS' });
+    return errors;
+  }
+  if (form.rounds.length > MAX_ROUNDS) errors.push({ code: 'TOO_MANY_ROUNDS' });
+  form.rounds.forEach((round, index) => {
+    const [a, b] = round.sides || [];
+    if (!a || !b || !String(a.label || '').trim() || !String(b.label || '').trim()) {
+      errors.push({ code: 'INVALID_SIDES', index });
+    }
+    if (form.lineupMode === 'FIXED_TEAMS' && a?.teamId && a.teamId === b?.teamId) {
+      errors.push({ code: 'SAME_TEAM', index });
+    }
+    if (form.lineupMode === 'ROTATING_LINEUPS') {
+      const left = a?.playerIds || [];
+      const right = b?.playerIds || [];
+      if (!left.length || !right.length) errors.push({ code: 'EMPTY_SIDE', index });
+      if (left.some((id) => right.includes(id))) errors.push({ code: 'DUPLICATE_PLAYER', index });
+    }
+  });
+  return errors;
+}
+
+/** PUT body. Omits the legacy `stats` sheet; the server sums scorers into profile goals. */
+function toEveningResultBody(form) {
+  const notes = typeof form.notes === 'string' ? form.notes.trim().slice(0, NOTES_MAX) : '';
+  return {
+    lineupMode: form.lineupMode,
+    notes: notes || null,
+    rounds: form.rounds.map((round) => ({
+      sides: round.sides.map((side) => {
+        const players = form.lineupMode === 'ROTATING_LINEUPS'
+          ? (side.playerIds || []).map((userId) => ({ userId, goals: side.goals?.[userId] || 0 }))
+          : Object.entries(side.goals || {})
+              .filter(([, goals]) => Number(goals) > 0)
+              .map(([userId, goals]) => ({ userId, goals: Number(goals) }));
+        return {
+          label: String(side.label || '').trim().slice(0, LABEL_MAX),
+          teamId: side.teamId || null,
+          score: Number(side.score) || 0,
+          players,
+        };
+      }),
+    })),
+  };
+}
+
+module.exports = {
+  MAX_ROUNDS,
+  LINEUP_MODES,
+  expandFixedRounds,
+  summarizeEvening,
+  suggestNextRound,
+  rosterFromTeams,
+  initEveningForm,
+  appendEveningRound,
+  removeEveningRound,
+  setEveningLineupMode,
+  eveningFormErrors,
+  toEveningResultBody,
+};

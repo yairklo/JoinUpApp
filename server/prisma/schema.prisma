@@ -70,12 +70,15 @@ model User {
   /// Opt-out: hide the player match-stats summary from other viewers of the profile.
   hideMatchStats            Boolean                    @default(false)
   playerStatEntries         PlayerStatEntry[]
+  roundAppearances          GameResultRoundPlayer[]
   reportsFiled              UserReport[]               @relation("ReportsFiled")
   reportsReceived           UserReport[]               @relation("ReportsReceived")
   organizedTournaments      Tournament[]               @relation("TournamentOrganizer")
   tournamentRoles           TournamentRole[]
   tournamentMemberships     TournamentTeamMember[]
   captainedTournamentTeams  TournamentTeam[]           @relation("TournamentTeamCaptain")
+  standingsOverridesCreated TournamentStandingsOverride[] @relation("StandingsOverrideCreatedBy")
+  standingsOverridesUpdated TournamentStandingsOverride[] @relation("StandingsOverrideUpdatedBy")
 }
 
 /// One-directional user block (App Store UGC requirement): blocker no longer sees the blocked
@@ -1029,6 +1032,14 @@ enum ResultOutcome {
   DRAW
 }
 
+/// How the sides of a multi-round evening are formed.
+/// FIXED_TEAMS: the game's teams stay; only the pairing changes (winner stays).
+/// ROTATING_LINEUPS: each round's sides are player lists, copied from the previous round and edited.
+enum ResultLineupMode {
+  FIXED_TEAMS
+  ROTATING_LINEUPS
+}
+
 enum UserReportReason {
   HARASSMENT
   VIOLENCE
@@ -1046,28 +1057,48 @@ enum UserReportStatus {
   DISMISSED
 }
 
-/// One recorded result per game.
+/// One recorded result per game. A single score is round 1 with `lineupMode` null.
+/// Several rounds are one pickup evening (winner-stays or rotating lineups).
+/// Profile stats: the evening counts as one game played; per-round W/D/L is separate.
+/// See docs/plans/2026-10-multi-round-results.md.
 model GameResult {
-  id           String           @id @default(cuid())
-  gameId       String           @unique
+  id           String            @id @default(cuid())
+  gameId       String            @unique
   sport        SportType
-  status       GameResultStatus @default(FINAL)
+  status       GameResultStatus  @default(FINAL)
   recordedById String
-  recordedAt   DateTime         @default(now())
+  recordedAt   DateTime          @default(now())
   editedById   String?
   editedAt     DateTime?
   /// recordedAt + 7 days; only admin edits after.
   lockedAt     DateTime?
   notes        String?
-  game         Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  /// Null = one score (legacy and new single-round saves). Set when the evening has a lineup rule.
+  lineupMode   ResultLineupMode?
+  game         Game              @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  rounds       GameResultRound[]
   sides        GameResultSide[]
+}
+
+/// One match inside an evening. Existing results are backfilled as order 1.
+model GameResultRound {
+  id       String           @id @default(cuid())
+  resultId String
+  /// 1-based sequence.
+  order    Int
+  result   GameResult       @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  sides    GameResultSide[]
+
+  @@unique([resultId, order])
+  @@index([resultId])
 }
 
 /// A side = a game Team, or an ad-hoc side (tennis singles / games without Team rows).
 model GameResultSide {
   id       String        @id @default(cuid())
   resultId String
-  /// 0 = home/A, 1 = away/B
+  roundId  String
+  /// 0 = home/A, 1 = away/B, within the round.
   order    Int
   /// Optional link to Team (no FK: label is the durable snapshot).
   teamId   String?
@@ -1078,9 +1109,28 @@ model GameResultSide {
   sets     Json?
   outcome  ResultOutcome
   result   GameResult    @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  round    GameResultRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
   statEntries PlayerStatEntry[]
+  players  GameResultRoundPlayer[]
 
-  @@unique([resultId, order])
+  @@unique([roundId, order])
+  @@index([resultId])
+}
+
+/// Who played on a side in one round, and how many they scored.
+/// Fixed-team evenings store every confirmed player of that team (goals 0 if they did not score).
+/// Rotating evenings store the lineup the organizer entered.
+model GameResultRoundPlayer {
+  id     String         @id @default(cuid())
+  sideId String
+  userId String
+  /// Scoring units this round: soccer goals or basketball points. 0 = played, did not score.
+  goals  Int            @default(0)
+  side   GameResultSide @relation(fields: [sideId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sideId, userId])
+  @@index([userId])
 }
 
 /// Per-player stat as key/value rows so new stats need no migration.
@@ -1233,6 +1283,7 @@ model Tournament {
   matches              TournamentMatch[]
   roles                TournamentRole[]
   reports              UserReport[]
+  standingsOverrides   TournamentStandingsOverride[]
 
   @@index([status, startsAt])
   @@index([organizerId])
@@ -1247,7 +1298,8 @@ model TournamentTeam {
   captainId    String
   status       TournamentTeamStatus   @default(PENDING)
   seed         Int?
-  /// Organizer's manual final ranking override.
+  /// Tie-break pin used only when this table has no TournamentStandingsOverride.
+  /// A table override (manual order until reset) wins over these pins.
   manualRank   Int?
   groupId      String?
   /// Invite link code.
@@ -1259,6 +1311,7 @@ model TournamentTeam {
   members      TournamentTeamMember[]
   homeMatches  TournamentMatch[]      @relation("TournamentMatchHome")
   awayMatches  TournamentMatch[]      @relation("TournamentMatchAway")
+  standingsAdjustments TournamentStandingsAdjustment[]
 
   @@unique([tournamentId, name])
   @@index([tournamentId, status])
@@ -1294,6 +1347,7 @@ model TournamentStage {
   tournament   Tournament          @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   groups       TournamentGroup[]
   matches      TournamentMatch[]
+  standingsOverrides TournamentStandingsOverride[]
 
   @@unique([tournamentId, order])
 }
@@ -1305,6 +1359,7 @@ model TournamentGroup {
   stage   TournamentStage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
   teams   TournamentTeam[]
   matches TournamentMatch[]
+  standingsOverrides TournamentStandingsOverride[]
 
   @@index([stageId])
 }
@@ -1345,6 +1400,49 @@ model TournamentMatch {
 
   @@index([tournamentId, stageId, round])
   @@index([tournamentId, scheduledAt])
+}
+
+/// Manual order for one group or league table. Absent means the table is fully automatic.
+/// While the row exists, viewers see `teamOrder` (teams missing from it append in automatic
+/// order) until a manager deletes it. Match results keep updating automatic stats.
+/// `points` on TournamentStandingsAdjustment are added to those automatic points and do not
+/// re-sort the table. Per-team TournamentTeam.manualRank pins are ignored while this row exists.
+/// `tableKey` is `stageId` for a league table and `stageId:groupId` for a group, so a null
+/// groupId cannot collide under Postgres unique-null rules.
+model TournamentStandingsOverride {
+  id           String   @id @default(cuid())
+  tournamentId String
+  stageId      String
+  groupId      String?
+  tableKey     String   @unique
+  /// Best-first team ids.
+  teamOrder    String[]
+  createdById  String
+  updatedById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tournament   Tournament                        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  stage        TournamentStage                   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  group        TournamentGroup?                  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy    User                              @relation("StandingsOverrideCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User                              @relation("StandingsOverrideUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  adjustments  TournamentStandingsAdjustment[]
+
+  @@index([tournamentId])
+}
+
+/// Signed points added to one team's automatic total for the parent override. Never zero.
+model TournamentStandingsAdjustment {
+  id         String                       @id @default(cuid())
+  overrideId String
+  teamId     String
+  points     Int
+  reason     String
+  override   TournamentStandingsOverride  @relation(fields: [overrideId], references: [id], onDelete: Cascade)
+  team       TournamentTeam               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([overrideId, teamId])
+  @@index([teamId])
 }
 
 model TournamentRole {

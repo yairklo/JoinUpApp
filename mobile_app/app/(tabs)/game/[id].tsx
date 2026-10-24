@@ -24,6 +24,7 @@ import SportCover, { resolveSportKey, SPORT_GLYPH } from '@/components/ui/SportC
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SPORT_MAPPING } from '@/utils/sports';
 import SafeImage from '@/components/SafeImage';
+import OpenInMapButton from '@/components/OpenInMapButton';
 
 const HERO_HEIGHT = 200;
 
@@ -490,18 +491,18 @@ export default function GameDetailsScreen() {
                         <Text className="text-xs text-gray-600 dark:text-cyber-muted font-bold">{t('game.share', 'שתף')}</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity 
-                        className="items-center"
-                        onPress={() => {
-                            const query = encodeURIComponent(game.field?.location || game.fieldLocation || '');
-                            Linking.openURL(`https://maps.google.com/?q=${query}`);
+                    <OpenInMapButton
+                        variant="utility"
+                        location={{
+                            customLat: game.customLat,
+                            customLng: game.customLng,
+                            lat: game.fieldLat ?? game.field?.lat,
+                            lng: game.fieldLng ?? game.field?.lng,
+                            customLocation: game.customLocation,
+                            address: game.field?.location || game.fieldLocation,
+                            name: game.field?.name || game.fieldName,
                         }}
-                    >
-                        <View className="w-12 h-12 bg-brand-mist dark:bg-cyber-border rounded-full items-center justify-center mb-1">
-                            <FontAwesome name="location-arrow" size={20} color="#059669" />
-                        </View>
-                        <Text className="text-xs text-gray-600 dark:text-cyber-muted font-bold">{t('game.navigate', 'נווט')}</Text>
-                    </TouchableOpacity>
+                    />
 
                     <TouchableOpacity 
                         className="items-center"

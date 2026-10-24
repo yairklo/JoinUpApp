@@ -52,6 +52,9 @@ type Game = {
   participants: Participant[];
   fieldLat?: number | null;
   fieldLng?: number | null;
+  customLat?: number | null;
+  customLng?: number | null;
+  customLocation?: string | null;
   lotteryEnabled?: boolean;
   lotteryAt?: string | null;
   lotteryPending?: boolean;
@@ -238,6 +241,10 @@ export default async function GameDetails(props: {
                 fieldName={game.fieldName}
                 lat={game.fieldLat ?? null}
                 lng={game.fieldLng ?? null}
+                address={game.fieldLocation}
+                customLat={game.customLat ?? null}
+                customLng={game.customLng ?? null}
+                customLocation={game.customLocation}
               />
             </SectionErrorBoundary>
 
