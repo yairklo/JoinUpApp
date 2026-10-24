@@ -374,6 +374,12 @@ export interface StandingsRow {
     ga: number;
     gd: number;
     points: number;
+    /** Automatic points from results. Equals `points` when there is no adjustment. */
+    autoPoints?: number;
+    /** Added to `autoPoints` while a table override is active. Does not re-sort the table. */
+    pointsAdjustment?: number;
+    /** Shown on the row when a manager recorded a points adjustment. */
+    adjustmentReason?: string | null;
     tied: boolean;
     manualRank: number | null;
     /** Team withdrew after playing: results stay in the table but the row is marked. */
@@ -387,7 +393,24 @@ export interface StandingsTableData {
     groupName: string | null;
     complete: boolean;
     needsManualRank: boolean;
+    /** True while a manager's manual order is published. Reset clears it. */
+    manualOrder?: boolean;
     rows: StandingsRow[];
+}
+export interface StandingsAdjustmentInput {
+    teamId: string;
+    points: number;
+    reason: string;
+}
+export interface StandingsOverrideInput {
+    stageId: string;
+    groupId: string | null;
+    teamOrder: string[];
+    adjustments?: StandingsAdjustmentInput[];
+}
+export interface StandingsOverrideResult {
+    ok: true;
+    changedMatchIds: string[];
 }
 export interface StandingsResponse {
     tournamentId: string;

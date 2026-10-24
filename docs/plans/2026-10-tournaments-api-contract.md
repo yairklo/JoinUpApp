@@ -62,7 +62,19 @@ Winners/losers advance automatically (WINNER_OF / LOSER_OF); group ranks resolve
 
 ## Computed views (opt auth, visibility as `GET /:id`)
 - `GET /:id/schedule?teamId=&status=&stageId=&from=&to=` -> `{ tournamentId, stages:[{id,order,type,name,config,groups:[{id,name}]}], matches: Match[] }`
-- `GET /:id/standings` -> `{ tournamentId, tables:[{ stageId, stageName, stageType, groupId, groupName, complete, needsManualRank, rows:[{ rank, team:{id,name,color,logoUrl}, played, won, drawn, lost, gf, ga, gd, points, tied, manualRank }] }] }`
+- `GET /:id/standings` -> `{ tournamentId, tables:[{ stageId, stageName, stageType, groupId, groupName, complete, needsManualRank, manualOrder, rows:[{ rank, team:{id,name,color,logoUrl}, played, won, drawn, lost, gf, ga, gd, points, autoPoints, pointsAdjustment, adjustmentReason, tied, manualRank, withdrawn? }] }] }`
+- `PUT /:id/standings/override` (manager+) `{ stageId, groupId|null, teamOrder:[teamId...], adjustments?:[{ teamId, points, reason }] }` -> `{ ok, changedMatchIds }`. `teamOrder` must list every team currently in that group/league table once. `points` is a non-zero integer from -100 to 100; `reason` is required (1–200 chars). Replaces any previous override for that table.
+- `DELETE /:id/standings/override` (manager+) `{ stageId, groupId|null }` -> `{ ok, changedMatchIds }`. 404 when that table has no override.
+
+### How a standings override interacts with automatic results
+Automatic columns (`played`, W/D/L, goals, goal difference, `autoPoints`) are always recomputed from finished/forfeit matches and are not stored. With no override, the table order is that automatic ranking; `TournamentTeam.manualRank` still pins a team to break a tie the tiebreakers could not separate.
+
+When an override exists (`manualOrder: true`):
+- The published order is `teamOrder` until a manager resets (deletes) it. Teams that join the table later and are missing from the saved list are appended in automatic order.
+- Displayed `points` = `autoPoints` + `pointsAdjustment`. Adjustments do not change W/D/L or goals, and they do **not** re-sort the table. A new result updates the automatic columns (and therefore the displayed points) on the next read; the saved order stays.
+- `needsManualRank` is false: the manual order separates ties. Per-team `manualRank` pins are ignored for ordering until reset, then they apply again.
+- Knockout `GROUP_RANK` slots follow this same order. The write is refused with `409 OVERRIDE_BLOCKED` when a finished downstream match would have to change, and nothing is saved.
+- Draft and cancelled tournaments refuse the write with `409 TOURNAMENT_CLOSED`. Scorekeepers and other users get `403`. Viewers only see the note and the per-row reason; they cannot edit.
 - `GET /:id/bracket` -> `{ tournamentId, stages:[{ stageId, name, rounds:[{ round, name, matches:[Match & {isThirdPlace}] }] }] }`
 - `GET /:id/stats/leaders?key=&limit=` -> `{ tournamentId, key, label:{he,en}, keys, leaders:[{ rank, userId, name, imageUrl, teamId, teamName, value, matches }] }` (users with `hideMatchStats` excluded)
 

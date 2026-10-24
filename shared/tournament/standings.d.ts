@@ -64,3 +64,35 @@ export function computeStandings(
   matches: readonly StandingsMatch[],
   options?: StandingsOptions,
 ): StandingsRow[];
+
+/** Signed points added to one team's automatic total while a table override is active. */
+export interface StandingsAdjustment {
+  teamId: string;
+  points: number;
+  reason?: string | null;
+}
+
+/**
+ * Manual order for one group or league table. See `applyStandingsOverride`.
+ * The order is kept until the override is removed; points adjustments are additive
+ * and do not re-sort the table.
+ */
+export interface StandingsOverride {
+  teamOrder: readonly string[];
+  adjustments?: readonly StandingsAdjustment[];
+}
+
+export function applyStandingsOverride<T extends { teamId: string; points: number }>(
+  rows: readonly T[],
+  override: StandingsOverride,
+): Array<
+  T & {
+    rank: number;
+    autoPoints: number;
+    pointsAdjustment: number;
+    adjustmentReason: string | null;
+    points: number;
+    manualOrder: true;
+    unresolved: false;
+  }
+>;

@@ -15,6 +15,7 @@ import type {
     ResultWarning,
     SaveMatchResultInput,
     ScheduleGenerateInput,
+    StandingsOverrideInput,
     TeamDecision,
     TournamentMatch,
     TournamentRole,
@@ -214,4 +215,19 @@ export function useMatchResult(tournamentId: string, matchId: string, version: n
         error: a.error,
         errorCode: a.errorCode,
     };
+}
+
+/** Manager+: publish or clear a manual standings order for one group/league table. */
+export function useStandingsOverride(tournamentId: string) {
+    const a = useAction();
+    const { run } = a;
+    const api = useMemo(
+        () => ({
+            save: (data: StandingsOverrideInput) => run((t) => tournamentsApi.putStandingsOverride(tournamentId, data, t)),
+            reset: (data: { stageId: string; groupId: string | null }) =>
+                run((t) => tournamentsApi.deleteStandingsOverride(tournamentId, data, t)),
+        }),
+        [run, tournamentId]
+    );
+    return { ...api, pending: a.pending, error: a.error, errorCode: a.errorCode, clearError: a.clearError };
 }

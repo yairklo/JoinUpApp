@@ -78,6 +78,25 @@ describe("StandingsTable", () => {
         expect(html).toContain(">נ׳<");
         expect(html).toContain("קביעת סדר");
     });
+    test("a manual override shows the Hebrew note, the adjustment reason, and manager actions", () => {
+        const overridden: StandingsTableData = {
+            ...table,
+            needsManualRank: false,
+            manualOrder: true,
+            rows: [row("a", 1, { autoPoints: 7, points: 6, pointsAdjustment: -1, adjustmentReason: "עבירה" })],
+        };
+        const html = renderToStaticMarkup(
+            <StandingsTable table={overridden} mode="full" canManage onEditStandings={() => {}} onResetStandings={() => {}} />
+        );
+        expect(html).toContain("standings-manual-note");
+        expect(html).toContain("דירוג עודכן ידנית");
+        expect(html).toContain("standings-adjustment-a");
+        expect(html).toContain("עבירה");
+        expect(html).toContain("−1");
+        expect(html).toContain("standings-edit-order");
+        expect(html).toContain("standings-reset-order");
+        expect(html).not.toContain("standings-needs-manual-rank");
+    });
 });
 
 describe("BracketView", () => {
