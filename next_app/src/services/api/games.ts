@@ -66,12 +66,12 @@ export const gamesApi = {
         return apiClient<Game[]>(`/api/games/search?${params.toString()}`, { token, signal });
     },
 
-    getMyGames: (token: string) => {
-        return apiClient<Game[]>('/api/games/my', { token });
+    getMyGames: (token: string, signal?: AbortSignal) => {
+        return apiClient<Game[]>('/api/games/my', { token, signal });
     },
 
-    getMyHistory: (token: string) => {
-        return apiClient<Array<Game & { result?: MatchHistoryResult | null }>>('/api/games/my/history', { token });
+    getMyHistory: (token: string, signal?: AbortSignal) => {
+        return apiClient<Array<Game & { result?: MatchHistoryResult | null }>>('/api/games/my/history', { token, signal });
     },
 
     getByCity: (city: string, token?: string) => {
