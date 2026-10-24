@@ -30,6 +30,11 @@ export interface UpdateSeriesDTO {
     organizerInLottery?: boolean;
     teamSize?: number | null;
     welcomeMessage?: string | null;
+    membersOnlyPriority?: boolean;
+    guestRegistrationOpenHours?: number | null;
+    guestWelcomeMessage?: string | null;
+    guestDescription?: string | null;
+    guestPrice?: number | null;
     fieldId?: string | null;
     fieldName?: string;
     fieldLocation?: string;

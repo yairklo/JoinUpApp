@@ -121,6 +121,13 @@ export default function EditGameScreen() {
     const [price, setPrice] = useState('0');
     const [description, setDescription] = useState('');
     const [welcomeMessage, setWelcomeMessage] = useState('');
+    // Members vs guests (group games only)
+    const [isSeriesGame, setIsSeriesGame] = useState(false);
+    const [membersOnlyPriority, setMembersOnlyPriority] = useState(false);
+    const [guestHours, setGuestHours] = useState('');
+    const [guestPrice, setGuestPrice] = useState('');
+    const [guestDescription, setGuestDescription] = useState('');
+    const [guestWelcomeMessage, setGuestWelcomeMessage] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
     const [friendsOnlyLinkPolicy, setFriendsOnlyLinkPolicy] = useState<FriendsOnlyLinkPolicy>('REQUEST_TO_JOIN');
     const [requiresApproval, setRequiresApproval] = useState(false);
@@ -239,6 +246,14 @@ export default function EditGameScreen() {
             setPrice(data.price?.toString() || '0');
             setDescription(data.description || '');
             setWelcomeMessage(data.welcomeMessage || '');
+            setIsSeriesGame(!!data.seriesId);
+            setMembersOnlyPriority(!!data.membersOnlyPriority);
+            setGuestHours(data.guestRegistrationOpensAt && data.start
+                ? String(Math.round(((new Date(data.start).getTime() - new Date(data.guestRegistrationOpensAt).getTime()) / 3600000) * 2) / 2)
+                : '');
+            setGuestPrice(data.guestPrice != null ? String(data.guestPrice) : '');
+            setGuestDescription(data.guestDescription || '');
+            setGuestWelcomeMessage(data.guestWelcomeMessage || '');
             setIsPrivate(data.isFriendsOnly || false);
             setFriendsOnlyLinkPolicy(data.friendsOnlyLinkPolicy === 'BLOCKED' ? 'BLOCKED' : 'REQUEST_TO_JOIN');
             setRequiresApproval(data.joinPolicy === 'REQUIRES_APPROVAL');
@@ -467,6 +482,17 @@ export default function EditGameScreen() {
                 price: parseInt(price),
                 description,
                 welcomeMessage,
+                ...(isSeriesGame
+                    ? {
+                        membersOnlyPriority,
+                        guestRegistrationOpensAt: membersOnlyPriority && guestHours.trim() !== '' && Number.isFinite(Number(guestHours))
+                            ? new Date(new Date(start).getTime() - Number(guestHours) * 3600000).toISOString()
+                            : null,
+                        guestPrice: guestPrice.trim() === '' ? null : parseInt(guestPrice, 10),
+                        guestDescription: guestDescription || null,
+                        guestWelcomeMessage: guestWelcomeMessage || null,
+                    }
+                    : {}),
                 isFriendsOnly: isPrivate,
                 friendsOnlyLinkPolicy,
                 joinPolicy: (requiresApproval ? 'REQUIRES_APPROVAL' : 'INSTANT') as 'REQUIRES_APPROVAL' | 'INSTANT',
@@ -775,6 +801,28 @@ export default function EditGameScreen() {
                         className={`bg-gray-100 p-3 rounded-lg h-24 text-top ${isRtl ? 'text-right' : 'text-left'}`}
                     />
                 </View>
+
+                {/* Members vs guests (group games only) */}
+                {isSeriesGame && (
+                    <View className="bg-white p-4 rounded-xl mb-4 shadow-sm" testID="guest-settings">
+                        <View className={`flex-row justify-between items-center ${isRtl ? 'flex-row-reverse' : ''}`}>
+                            <Text className="text-lg font-bold text-gray-800">עדיפות לחברי הקבוצה</Text>
+                            <Switch value={membersOnlyPriority} onValueChange={setMembersOnlyPriority} trackColor={{ true: '#059669' }} />
+                        </View>
+                        {membersOnlyPriority && (
+                            <View className="mt-3">
+                                <Text className={`font-bold mb-1 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>הרשמה לאורחים נפתחת (שעות לפני המשחק)</Text>
+                                <TextInput value={guestHours} onChangeText={setGuestHours} keyboardType="decimal-pad" className={`bg-gray-100 p-3 rounded-lg mb-3 ${isRtl ? 'text-right' : 'text-left'}`} />
+                                <Text className={`font-bold mb-1 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>מחיר לאורחים (₪, להצגה בלבד)</Text>
+                                <TextInput value={guestPrice} onChangeText={setGuestPrice} keyboardType="number-pad" className={`bg-gray-100 p-3 rounded-lg mb-3 ${isRtl ? 'text-right' : 'text-left'}`} />
+                                <Text className={`font-bold mb-1 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>תיאור לאורחים</Text>
+                                <TextInput value={guestDescription} onChangeText={setGuestDescription} multiline className={`bg-gray-100 p-3 rounded-lg mb-3 h-20 text-top ${isRtl ? 'text-right' : 'text-left'}`} />
+                                <Text className={`font-bold mb-1 text-gray-700 ${isRtl ? 'text-right' : 'text-left'}`}>הודעת פתיחה לאורחים (נשלחת בפרטי)</Text>
+                                <TextInput value={guestWelcomeMessage} onChangeText={setGuestWelcomeMessage} multiline className={`bg-gray-100 p-3 rounded-lg h-20 text-top ${isRtl ? 'text-right' : 'text-left'}`} />
+                            </View>
+                        )}
+                    </View>
+                )}
 
                 {/* Advanced Options */}
                 <View className="bg-white p-4 rounded-xl mb-6 shadow-sm">

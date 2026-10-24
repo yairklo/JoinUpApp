@@ -2,7 +2,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { getLocales } from 'expo-localization';
 import * as SecureStore from 'expo-secure-store';
-import { I18nManager, Platform, Alert } from 'react-native';
+import { I18nManager, Platform, Alert, type AlertButton, type AlertOptions } from 'react-native';
 import * as Updates from 'expo-updates';
 
 import { resolveDeviceLanguage } from './deviceLanguage';
@@ -158,5 +158,20 @@ export const changeLanguage = async (lang: 'en' | 'he') => {
       : 'Close and reopen the app to apply the layout direction.'
   );
 };
+
+/**
+ * React Native's default alert button is the English word "OK".
+ * Calls that omit `buttons` get the app language's common.ok ("אישור" in Hebrew).
+ */
+function alertOkLabel(): string {
+  if (!i18n.isInitialized) return 'אישור';
+  return String(i18n.t('common.ok'));
+}
+
+const nativeAlert = Alert.alert.bind(Alert);
+Alert.alert = ((title: string, message?: string, buttons?: AlertButton[], options?: AlertOptions) => {
+  const resolved = buttons && buttons.length > 0 ? buttons : [{ text: alertOkLabel() }];
+  return nativeAlert(title, message, resolved, options);
+}) as typeof Alert.alert;
 
 export default i18n;

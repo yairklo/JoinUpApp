@@ -1260,6 +1260,7 @@ function nextWeeklyOccurrenceFrom(now, targetDay, hhmm) {
 }
 
 const { resolveSeriesRegistrationOpensAt } = require('./utils/seriesRegistrationRule');
+const { guestGameData } = require('./utils/membersGuests');
 
 let seriesGenRunning = false;
 // `shouldContinue` lets a deposed job leader stop between series/occurrences.
@@ -1354,7 +1355,8 @@ async function runWeeklySeriesGeneration({ shouldContinue = () => true } = {}) {
               participants: { create: participantsCreate },
               roles: { create: { userId: s.organizerId, role: 'ORGANIZER' } },
               sport: s.sport || 'SOCCER',
-              registrationOpensAt: regOpen
+              registrationOpensAt: regOpen,
+              ...guestGameData(s, nextStart)
             }
           });
 

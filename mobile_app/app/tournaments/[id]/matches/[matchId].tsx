@@ -15,7 +15,7 @@ import ScoreEntrySheet from '@/components/tournaments/ScoreEntrySheet';
 import SlotLabel from '@/components/tournaments/SlotLabel';
 import { UpdatedCue } from '@/components/tournaments/UpdatedCue';
 import { bracketRoundKey, TOURNAMENT_ICONS } from '@/components/tournaments/tournamentTokens';
-import { calendarUrl, deviceTzDiffers, fmtDateTime, fmtTime, matchWinner, type Lang, type Side } from '@/components/tournaments/matchFormat';
+import { calendarUrl, deviceTzDiffers, displayStageName, fmtDateTime, fmtTime, matchWinner, type Lang, type Side } from '@/components/tournaments/matchFormat';
 import { ErrorState, SkeletonList } from '@/components/tournaments/tabs/TabState';
 import type { MatchSlot, TournamentMatch, TournamentTeam } from '@/types/tournament';
 
@@ -117,7 +117,7 @@ export default function TournamentMatchDetailScreen() {
     const bracketRound = bracketStages.flatMap((s) => s.rounds).find((r) => r.matches.some((x) => x.id === m.id));
     const rk = bracketRoundKey(bracketRound?.name);
     const roundName = rk ? (t(rk.key, rk.params as any) as string) : m.round != null && stage?.type !== 'KNOCKOUT' ? (t('tournaments.schedule.round', { n: m.round }) as string) : '';
-    const caption = [t('tournaments.match.number', { n: m.number }), stage?.name, m.groupId ? groupNames[m.groupId] : '', roundName].filter(Boolean).join(' · ');
+    const caption = [t('tournaments.match.number', { n: m.number }), displayStageName(stage?.name, lang), m.groupId ? groupNames[m.groupId] : '', roundName].filter(Boolean).join(' · ');
     const forfeitLoser: Side | null = m.status === 'FORFEIT' && winner ? (winner === 'home' ? 'away' : 'home') : null;
     const cancelled = m.status === 'CANCELLED';
     const canEnterScore = !!tournament?.capabilities.canScore && tournament.status === 'IN_PROGRESS' && !cancelled;

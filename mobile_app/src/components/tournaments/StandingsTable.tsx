@@ -6,7 +6,7 @@ import { useColorMode } from '@/theme/ColorModeContext';
 import { tabular } from '@/components/results/resultUtils';
 import type { StandingsRow, StandingsTable as StandingsTableData } from '@/types/tournament';
 import TeamBadge from './TeamBadge';
-import { fmtGd } from './matchFormat';
+import { displayStageName, fmtGd } from './matchFormat';
 import { TOURNAMENT_ICONS } from './tournamentTokens';
 
 interface Props {
@@ -42,7 +42,8 @@ function cell(row: StandingsRow, k: NumKey): string {
  * pinned rank+team column and a horizontal scroller for the numbers. Props only.
  */
 export default function StandingsTable({ table, myTeamId, advanceCount, tournamentCompleted, canManage, onSetManualRank, mode, showTitle = true }: Props) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const lang = i18n.language?.startsWith('en') ? 'en' : 'he';
     const { colorMode } = useColorMode();
     const { width } = useWindowDimensions();
     const wide = width >= 600;
@@ -207,7 +208,7 @@ export default function StandingsTable({ table, myTeamId, advanceCount, tourname
         <View testID={tid} className="mb-4">
             {showTitle ? (
                 <Text className="text-base font-extrabold text-gray-900 dark:text-cyber-text mb-1">
-                    {table.groupName ?? table.stageName}
+                    {table.groupName ?? displayStageName(table.stageName, lang)}
                 </Text>
             ) : null}
             {!table.complete ? (

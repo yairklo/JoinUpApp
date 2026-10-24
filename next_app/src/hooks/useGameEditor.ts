@@ -38,6 +38,13 @@ export interface GameEditorProps {
     initialDuration?: number;
     initialDescription?: string | null;
     initialWelcomeMessage?: string | null;
+    /** Group games only: members-vs-guests overrides (see server utils/membersGuests.js). */
+    isSeriesGame?: boolean;
+    initialMembersOnlyPriority?: boolean | null;
+    initialGuestRegistrationOpensAt?: string | null;
+    initialGuestWelcomeMessage?: string | null;
+    initialGuestDescription?: string | null;
+    initialGuestPrice?: number | null;
     initialFieldId?: string | null;
     initialFieldName?: string | null;
     initialFieldLocation?: string | null;
@@ -61,6 +68,12 @@ export function useGameEditor({
     initialDuration = 1,
     initialDescription,
     initialWelcomeMessage,
+    isSeriesGame,
+    initialMembersOnlyPriority,
+    initialGuestRegistrationOpensAt,
+    initialGuestWelcomeMessage,
+    initialGuestDescription,
+    initialGuestPrice,
     initialFieldId,
     initialFieldName,
     initialFieldLocation,
@@ -106,6 +119,15 @@ export function useGameEditor({
     const [futureRegEnabled, setFutureRegEnabled] = useState(!!initialRegistrationOpensAt);
     const [regDate, setRegDate] = useState(getIsoDatePart(initialRegistrationOpensAt));
     const [regTime, setRegTime] = useState(getIsoTimePart(initialRegistrationOpensAt));
+
+    // Guest registration window (members-only priority): guests open at their own date/time.
+    const [membersOnlyPriority, setMembersOnlyPriority] = useState(!!initialMembersOnlyPriority);
+    const [guestRegEnabled, setGuestRegEnabled] = useState(!!initialGuestRegistrationOpensAt);
+    const [guestRegDate, setGuestRegDate] = useState(getIsoDatePart(initialGuestRegistrationOpensAt));
+    const [guestRegTime, setGuestRegTime] = useState(getIsoTimePart(initialGuestRegistrationOpensAt));
+    const [guestWelcomeMessage, setGuestWelcomeMessage] = useState<string>(initialGuestWelcomeMessage || "");
+    const [guestDescription, setGuestDescription] = useState<string>(initialGuestDescription || "");
+    const [guestPrice, setGuestPrice] = useState<number | null>(initialGuestPrice ?? null);
 
     // Public Later State
     const [makePublicLater, setMakePublicLater] = useState(!!initialFriendsOnlyUntil);
@@ -184,6 +206,14 @@ export function useGameEditor({
             setRegTime("");
         }
 
+        setMembersOnlyPriority(!!initialMembersOnlyPriority);
+        setGuestRegEnabled(!!initialGuestRegistrationOpensAt);
+        setGuestRegDate(getIsoDatePart(initialGuestRegistrationOpensAt));
+        setGuestRegTime(getIsoTimePart(initialGuestRegistrationOpensAt));
+        setGuestWelcomeMessage(initialGuestWelcomeMessage || "");
+        setGuestDescription(initialGuestDescription || "");
+        setGuestPrice(initialGuestPrice ?? null);
+
         setMakePublicLater(!!initialFriendsOnlyUntil);
         if (initialFriendsOnlyUntil) {
             setPublicDate(getIsoDatePart(initialFriendsOnlyUntil));
@@ -220,6 +250,17 @@ export function useGameEditor({
                 registrationOpensAt = parseJerusalemTimeToUTC(regDate, regTime).toISOString();
             }
 
+            let guestRegistrationOpensAt: string | null = null;
+            if (guestRegEnabled && guestRegDate && guestRegTime) {
+                guestRegistrationOpensAt = parseJerusalemTimeToUTC(guestRegDate, guestRegTime).toISOString();
+            }
+            if (isSeriesGame && membersOnlyPriority && guestRegistrationOpensAt && registrationOpensAt
+                && new Date(guestRegistrationOpensAt) < new Date(registrationOpensAt)) {
+                alert("פתיחת ההרשמה לאורחים חייבת להיות אחרי פתיחת ההרשמה לחברים (או באותו זמן)");
+                setLoading(false);
+                return false;
+            }
+
             let friendsOnlyUntil = null;
             if (makePublicLater && publicDate && publicTime) {
                 friendsOnlyUntil = parseJerusalemTimeToUTC(publicDate, publicTime).toISOString();
@@ -245,6 +286,15 @@ export function useGameEditor({
                 duration,
                 description,
                 welcomeMessage,
+                ...(isSeriesGame
+                    ? {
+                        membersOnlyPriority,
+                        guestRegistrationOpensAt: membersOnlyPriority ? guestRegistrationOpensAt : null,
+                        guestWelcomeMessage: guestWelcomeMessage || null,
+                        guestDescription: guestDescription || null,
+                        guestPrice,
+                    }
+                    : {}),
                 ...(newFieldMode
                     ? {
                         fieldId: "",
@@ -307,6 +357,8 @@ export function useGameEditor({
             open, loading,
             time, date, maxPlayers, sport, title, teamSize, price, isFriendsOnly, friendsOnlyLinkPolicy, requiresApproval,
             futureRegEnabled, regDate, regTime,
+            isSeriesGame: !!isSeriesGame,
+            membersOnlyPriority, guestRegEnabled, guestRegDate, guestRegTime, guestWelcomeMessage, guestDescription, guestPrice,
             makePublicLater, publicDate, publicTime,
             duration, description, welcomeMessage, imageUrl,
             fields, selectedField, newFieldMode, newField,
@@ -314,6 +366,7 @@ export function useGameEditor({
         actions: {
             setOpen, setTime, setDate, setMaxPlayers, setSport, setTitle, setTeamSize, setPrice, setIsFriendsOnly, setFriendsOnlyLinkPolicy, setRequiresApproval,
             setFutureRegEnabled, setRegDate, setRegTime,
+            setMembersOnlyPriority, setGuestRegEnabled, setGuestRegDate, setGuestRegTime, setGuestWelcomeMessage, setGuestDescription, setGuestPrice,
             setMakePublicLater, setPublicDate, setPublicTime,
             setDuration, setDescription, setWelcomeMessage,
             setSelectedField, setNewFieldMode, setNewField,

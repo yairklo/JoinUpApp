@@ -323,6 +323,81 @@ export default function GameDetailsEditor(props: ComponentProps) {
                 </Paper>
               </Grid>
 
+              {/* Members vs guests (group games only): per-game override of the group's guest settings */}
+              {state.isSeriesGame && (
+                <Grid size={{ xs: 12 }} mt={2}>
+                  <Paper variant="outlined" sx={{ p: 2 }} data-testid="guest-settings">
+                    <FormControlLabel
+                      control={<Switch checked={state.membersOnlyPriority} onChange={(e) => actions.setMembersOnlyPriority(e.target.checked)} />}
+                      label="עדיפות לחברי הקבוצה"
+                      sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                    />
+                    <Collapse in={state.membersOnlyPriority}>
+                      <FormControlLabel
+                        control={<Switch checked={state.guestRegEnabled} onChange={(e) => actions.setGuestRegEnabled(e.target.checked)} />}
+                        label="פתיחת רישום לאורחים במועד מותאם"
+                        sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                      />
+                      <Collapse in={state.guestRegEnabled}>
+                        <Grid container spacing={2} mt={1}>
+                          <Grid size={{ xs: 6 }}>
+                            <HebrewDateField
+                              label="תאריך פתיחה לאורחים"
+                              fullWidth
+                              value={state.guestRegDate}
+                              onChange={(e) => actions.setGuestRegDate(e.target.value)}
+                              helperText={formatHebrewDate(state.guestRegDate)}
+                            />
+                          </Grid>
+                          <Grid size={{ xs: 6 }}>
+                            <HebrewTimeField
+                              label="שעה"
+                              fullWidth
+                              value={state.guestRegTime}
+                              onChange={(e) => actions.setGuestRegTime(e.target.value)}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Collapse>
+                      <TextField
+                        margin="dense"
+                        label="מחיר לאורחים (₪, להצגה בלבד)"
+                        type="number"
+                        fullWidth
+                        variant="outlined"
+                        value={state.guestPrice ?? ""}
+                        onChange={(e) => actions.setGuestPrice(e.target.value ? parseInt(e.target.value) : null)}
+                        InputProps={{ inputProps: { min: 0 } }}
+                      />
+                      <TextField
+                        margin="dense"
+                        label="תיאור לאורחים"
+                        fullWidth
+                        multiline
+                        rows={2}
+                        variant="outlined"
+                        value={state.guestDescription}
+                        onChange={(e) => actions.setGuestDescription(e.target.value)}
+                        dir="rtl"
+                        InputProps={{ inputProps: { maxLength: 2000 } }}
+                      />
+                      <TextField
+                        margin="dense"
+                        label="הודעת פתיחה לאורחים (נשלחת בפרטי)"
+                        fullWidth
+                        multiline
+                        rows={2}
+                        variant="outlined"
+                        value={state.guestWelcomeMessage}
+                        onChange={(e) => actions.setGuestWelcomeMessage(e.target.value)}
+                        dir="rtl"
+                        InputProps={{ inputProps: { maxLength: 2000 } }}
+                      />
+                    </Collapse>
+                  </Paper>
+                </Grid>
+              )}
+
               {/* Friends Only / Private Section */}
               <Grid size={{ xs: 12 }} mt={2}>
                 <Paper variant="outlined" sx={{ p: 2, borderColor: state.isFriendsOnly ? 'primary.main' : 'divider' }}>
