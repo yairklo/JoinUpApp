@@ -1,4 +1,4 @@
-const { computeStandings } = require('./standings');
+const { applyStandingsOverride, computeStandings } = require('./standings');
 
 const fin = (h, a, hs, as) => ({ homeTeamId: h, awayTeamId: a, homeScore: hs, awayScore: as, status: 'FINISHED' });
 const order = (rows) => rows.map((r) => r.teamId);
@@ -93,5 +93,47 @@ describe('computeStandings', () => {
       expect(rows.reduce((s, r) => s + r.gf, 0)).toBe(rows.reduce((s, r) => s + r.ga, 0));
       for (let i = 1; i < rows.length; i += 1) expect(rows[i - 1].points).toBeGreaterThanOrEqual(rows[i].points);
     }
+  });
+});
+
+describe('applyStandingsOverride', () => {
+  const auto = () => computeStandings(['A', 'B', 'C'], [fin('A', 'B', 2, 0), fin('A', 'C', 1, 0)]);
+
+  it('keeps the manual order and adds adjustments on top of automatic points', () => {
+    const rows = applyStandingsOverride(auto(), {
+      teamOrder: ['C', 'B', 'A'],
+      adjustments: [{ teamId: 'A', points: -1, reason: 'עבירה' }],
+    });
+    expect(order(rows)).toEqual(['C', 'B', 'A']);
+    const a = rows.find((r) => r.teamId === 'A');
+    expect(a).toMatchObject({
+      rank: 3, played: 2, won: 2, gf: 3, autoPoints: 6, points: 5, pointsAdjustment: -1, adjustmentReason: 'עבירה', manualOrder: true, unresolved: false,
+    });
+    expect(a.pointsPerGame).toBe(3);
+    expect(rows.every((r) => r.tied === false && r.unresolved === false)).toBe(true);
+    expect(rows.find((r) => r.teamId === 'C')).toMatchObject({ points: 0, pointsAdjustment: 0, adjustmentReason: null, autoPoints: 0 });
+  });
+
+  it('does not re-sort when an adjustment would change the automatic ranking', () => {
+    const rows = applyStandingsOverride(auto(), {
+      teamOrder: ['B', 'C', 'A'],
+      adjustments: [{ teamId: 'B', points: 10, reason: 'נקודות בונוס' }],
+    });
+    expect(order(rows)).toEqual(['B', 'C', 'A']);
+    expect(rows[0].points).toBe(10);
+  });
+
+  it('appends teams that were not in the saved order, in automatic order', () => {
+    const rows = applyStandingsOverride(auto(), { teamOrder: ['C', 'A'] });
+    expect(order(rows)).toEqual(['C', 'A', 'B']);
+  });
+
+  it('ignores adjustment ids that are not in the table and a zero delta', () => {
+    const rows = applyStandingsOverride(auto(), {
+      teamOrder: ['A', 'B', 'C'],
+      adjustments: [{ teamId: 'Z', points: -5, reason: 'לא בטבלה' }, { teamId: 'B', points: 0, reason: 'ריק' }],
+    });
+    expect(rows.find((r) => r.teamId === 'B').pointsAdjustment).toBe(0);
+    expect(rows.find((r) => r.teamId === 'B').adjustmentReason).toBeNull();
   });
 });

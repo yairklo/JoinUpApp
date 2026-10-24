@@ -76,6 +76,8 @@ model User {
   tournamentRoles           TournamentRole[]
   tournamentMemberships     TournamentTeamMember[]
   captainedTournamentTeams  TournamentTeam[]           @relation("TournamentTeamCaptain")
+  standingsOverridesCreated TournamentStandingsOverride[] @relation("StandingsOverrideCreatedBy")
+  standingsOverridesUpdated TournamentStandingsOverride[] @relation("StandingsOverrideUpdatedBy")
 }
 
 /// One-directional user block (App Store UGC requirement): blocker no longer sees the blocked
@@ -1233,6 +1235,7 @@ model Tournament {
   matches              TournamentMatch[]
   roles                TournamentRole[]
   reports              UserReport[]
+  standingsOverrides   TournamentStandingsOverride[]
 
   @@index([status, startsAt])
   @@index([organizerId])
@@ -1247,7 +1250,8 @@ model TournamentTeam {
   captainId    String
   status       TournamentTeamStatus   @default(PENDING)
   seed         Int?
-  /// Organizer's manual final ranking override.
+  /// Tie-break pin used only when this table has no TournamentStandingsOverride.
+  /// A table override (manual order until reset) wins over these pins.
   manualRank   Int?
   groupId      String?
   /// Invite link code.
@@ -1259,6 +1263,7 @@ model TournamentTeam {
   members      TournamentTeamMember[]
   homeMatches  TournamentMatch[]      @relation("TournamentMatchHome")
   awayMatches  TournamentMatch[]      @relation("TournamentMatchAway")
+  standingsAdjustments TournamentStandingsAdjustment[]
 
   @@unique([tournamentId, name])
   @@index([tournamentId, status])
@@ -1294,6 +1299,7 @@ model TournamentStage {
   tournament   Tournament          @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   groups       TournamentGroup[]
   matches      TournamentMatch[]
+  standingsOverrides TournamentStandingsOverride[]
 
   @@unique([tournamentId, order])
 }
@@ -1305,6 +1311,7 @@ model TournamentGroup {
   stage   TournamentStage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
   teams   TournamentTeam[]
   matches TournamentMatch[]
+  standingsOverrides TournamentStandingsOverride[]
 
   @@index([stageId])
 }
@@ -1345,6 +1352,49 @@ model TournamentMatch {
 
   @@index([tournamentId, stageId, round])
   @@index([tournamentId, scheduledAt])
+}
+
+/// Manual order for one group or league table. Absent means the table is fully automatic.
+/// While the row exists, viewers see `teamOrder` (teams missing from it append in automatic
+/// order) until a manager deletes it. Match results keep updating automatic stats.
+/// `points` on TournamentStandingsAdjustment are added to those automatic points and do not
+/// re-sort the table. Per-team TournamentTeam.manualRank pins are ignored while this row exists.
+/// `tableKey` is `stageId` for a league table and `stageId:groupId` for a group, so a null
+/// groupId cannot collide under Postgres unique-null rules.
+model TournamentStandingsOverride {
+  id           String   @id @default(cuid())
+  tournamentId String
+  stageId      String
+  groupId      String?
+  tableKey     String   @unique
+  /// Best-first team ids.
+  teamOrder    String[]
+  createdById  String
+  updatedById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tournament   Tournament                        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  stage        TournamentStage                   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  group        TournamentGroup?                  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy    User                              @relation("StandingsOverrideCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User                              @relation("StandingsOverrideUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  adjustments  TournamentStandingsAdjustment[]
+
+  @@index([tournamentId])
+}
+
+/// Signed points added to one team's automatic total for the parent override. Never zero.
+model TournamentStandingsAdjustment {
+  id         String                       @id @default(cuid())
+  overrideId String
+  teamId     String
+  points     Int
+  reason     String
+  override   TournamentStandingsOverride  @relation(fields: [overrideId], references: [id], onDelete: Cascade)
+  team       TournamentTeam               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([overrideId, teamId])
+  @@index([teamId])
 }
 
 model TournamentRole {
