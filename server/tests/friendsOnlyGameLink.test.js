@@ -227,11 +227,12 @@ describe('Friends-only games: link policy', () => {
       expect((await participation(game.id, STRANGER)).status).toBe('WAITLISTED');
     });
 
-    test('an outsider cannot request once the lottery window closed', async () => {
+    test('a missed draw runs lazily and the outsider can still request (no "window closed")', async () => {
       const game = await makeGame({ lotteryEnabled: true, lotteryAt: new Date(Date.now() - 60000) });
       const res = await request(app).post(`/api/games/${game.id}/join`).set(auth('tok_stranger'));
-      expect(res.statusCode).toBe(400);
-      expect(await participation(game.id, STRANGER)).toBeNull();
+      expect(res.statusCode).toBe(200);
+      expect((await prisma.game.findUnique({ where: { id: game.id } })).lotteryExecutedAt).toBeTruthy();
+      expect((await participation(game.id, STRANGER)).status).toBe('PENDING');
     });
 
     test('after the lottery ran, approval confirms when there is room', async () => {

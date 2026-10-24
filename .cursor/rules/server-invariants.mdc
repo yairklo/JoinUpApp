@@ -22,6 +22,11 @@ they don't fit one narrower `.mdc` glob — but they're still server-only, so th
 - Roster joins, waitlist promotion, and game creation must be atomic.
 - Game + group chat pairing must happen in the same interactive transaction, where the group chat
   `id` exactly equals the `game.id`.
+- The lottery draw's `lotteryExecutedAt` claim, participant re-read, and CONFIRMED/NOT_SELECTED
+  writes share one transaction that takes `lockGameRow` first (`utils/gameRowLock.js`). A join
+  that counts CONFIRMED between the claim and those writes overbooks. A claim that commits before
+  a throw leaves the pool stuck WAITLISTED. A pre-draw join that locked after the claim must
+  re-read `lotteryExecutedAt` and take a normal seat, not insert another WAITLISTED pool row.
 
 ## Prisma client lifecycle
 - Import `prisma` from `server/lib/prisma.js`. Never instantiate `new PrismaClient()` inside an

@@ -97,6 +97,13 @@ export function mapJoinError(error: unknown): string {
   if (normalized.includes("declined")) return "בקשת ההצטרפות נדחתה";
   if (normalized.includes("spot is already offered")) return "כבר הוצע לך מקום";
   if (normalized.includes("failed to join")) return "ההצטרפות נכשלה, נסה שוב";
+  if (normalized.includes("lottery time is not set")) return "מועד ההגרלה טרם נקבע למשחק זה";
+  if (normalized.includes("was cancelled")) return "המשחק בוטל";
+  // Any other 4xx carries the server's own reason -- show it instead of the generic failure copy.
+  const status = getErrorStatus(error);
+  if (raw && typeof status === "number" && status >= 400 && status < 500 && ![401, 403, 429].includes(status)) {
+    return raw;
+  }
   return getActionErrorMessage(error);
 }
 
