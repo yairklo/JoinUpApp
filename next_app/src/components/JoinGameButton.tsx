@@ -24,6 +24,7 @@ export default function JoinGameButton({
   joinPolicy,
   viewerParticipationStatus,
   waitlistOfferPending,
+  lotteryEnabled,
   lotteryPending,
   lotteryAt,
   joinLabel,
@@ -35,6 +36,7 @@ export default function JoinGameButton({
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
   viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
   waitlistOfferPending?: boolean;
+  lotteryEnabled?: boolean;
   lotteryPending?: boolean;
   lotteryAt?: string | null;
   /** Overrides the default join label (not-selected rejoin: join vs waitlist). */
@@ -52,7 +54,7 @@ export default function JoinGameButton({
   const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
   const poolCopy = viewerParticipationStatus === "WAITLISTED"
     ? lotteryViewerCopy({
-        lotteryEnabled: !!lotteryPending,
+        lotteryEnabled: !!lotteryEnabled,
         lotteryPending: !!lotteryPending,
         lotteryAt,
         viewerParticipationStatus: "WAITLISTED",

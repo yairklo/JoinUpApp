@@ -358,6 +358,7 @@ function SearchPageInner() {
               registrationOpensAt={g.registrationOpensAt}
               joinPolicy={g.joinPolicy}
               viewerParticipationStatus={g.viewerParticipationStatus}
+              lotteryEnabled={!!g.lotteryEnabled}
               lotteryPending={!!g.lotteryPending}
               lotteryAt={g.lotteryAt}
               onJoined={() => handleGameJoined(g.id)}

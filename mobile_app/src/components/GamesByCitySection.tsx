@@ -51,6 +51,7 @@ export default function GamesByCitySection({ sportFilter }: { sportFilter?: stri
                                                 registrationOpensAt={game.registrationOpensAt}
                                                 joinPolicy={game.joinPolicy}
                                                 viewerParticipationStatus={game.viewerParticipationStatus}
+                                                lotteryEnabled={!!game.lotteryEnabled}
                                                 lotteryPending={!!game.lotteryPending}
                                                 lotteryAt={game.lotteryAt}
                                                 waitlistOfferPending={game.waitlistOfferPending}

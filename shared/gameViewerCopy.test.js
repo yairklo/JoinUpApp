@@ -1,7 +1,9 @@
 const {
   lotteryViewerCopy,
+  resolveNotSelectedJoinLabel,
   guestRegistrationNotOpenMessage,
   guestRegistrationOpensAtFromError,
+  formatHebrewWhen,
 } = require('./gameViewerCopy');
 
 const DRAW_AT = '2026-10-24T15:00:00.000Z'; // 24/10/2026 18:00 Asia/Jerusalem
@@ -142,6 +144,43 @@ describe('lotteryViewerCopy leaves ordinary states alone', () => {
     expect(lotteryViewerCopy({
       viewerParticipationStatus: 'CONFIRMED',
     })).toBeNull();
+  });
+});
+
+describe('formatHebrewWhen', () => {
+  it('guards DD/MM/YYYY and 24-hour Jerusalem time, day before month', () => {
+    expect(formatHebrewWhen(DRAW_AT)).toBe('24/10/2026 בשעה 18:00');
+    // 1 Dec 16:00Z is 18:00 in Jerusalem (UTC+2). Month-first would be 12/01.
+    expect(formatHebrewWhen('2026-12-01T16:00:00.000Z')).toBe('01/12/2026 בשעה 18:00');
+    expect(formatHebrewWhen('not-a-date')).toBeNull();
+    expect(formatHebrewWhen(null)).toBeNull();
+  });
+});
+
+describe('resolveNotSelectedJoinLabel', () => {
+  const missed = (seatsFree) => lotteryViewerCopy({
+    lotteryEnabled: true,
+    lotteryPending: false,
+    viewerParticipationStatus: 'NOT_SELECTED',
+    seatsFree,
+  });
+
+  it('uses join or waitlist when approval is not required', () => {
+    expect(resolveNotSelectedJoinLabel(missed(true), { requiresApproval: false })).toBe('הצטרף למשחק');
+    expect(resolveNotSelectedJoinLabel(missed(false), { requiresApproval: false })).toBe('הצטרף לרשימת המתנה');
+  });
+
+  it('falls back to the request label when approval is required', () => {
+    expect(resolveNotSelectedJoinLabel(missed(true), { requiresApproval: true })).toBe('בקש להצטרף');
+    expect(resolveNotSelectedJoinLabel(missed(false), { requiresApproval: true })).toBe('בקש להצטרף');
+  });
+
+  it('returns null outside the not-selected state', () => {
+    expect(resolveNotSelectedJoinLabel(null, { requiresApproval: true })).toBeNull();
+    expect(resolveNotSelectedJoinLabel(
+      lotteryViewerCopy({ lotteryEnabled: true, lotteryPending: true, lotteryAt: DRAW_AT, viewerParticipationStatus: 'WAITLISTED' }),
+      { requiresApproval: true },
+    )).toBeNull();
   });
 });
 

@@ -117,6 +117,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                         registrationOpensAt={g.registrationOpensAt}
                         joinPolicy={g.joinPolicy}
                         viewerParticipationStatus={g.viewerParticipationStatus}
+                        lotteryEnabled={!!g.lotteryEnabled}
                         lotteryPending={!!g.lotteryPending}
                         lotteryAt={g.lotteryAt}
                         onJoined={() => {

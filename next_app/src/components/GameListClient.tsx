@@ -76,6 +76,7 @@ export default function GameListClient({ games }: { games: Game[] }) {
                     registrationOpensAt={g.registrationOpensAt}
                     joinPolicy={g.joinPolicy}
                     viewerParticipationStatus={g.viewerParticipationStatus}
+                    lotteryEnabled={!!g.lotteryEnabled}
                     lotteryPending={!!g.lotteryPending}
                     lotteryAt={g.lotteryAt}
                   />

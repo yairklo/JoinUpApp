@@ -10,6 +10,7 @@ const NOT_SELECTED_FREE = 'יש מקומות פנויים, אפשר להצטרף
 const NOT_SELECTED_FULL = 'אין מקום פנוי, אפשר להצטרף לרשימת המתנה';
 const JOIN_LABEL = 'הצטרף למשחק';
 const WAITLIST_JOIN_LABEL = 'הצטרף לרשימת המתנה';
+const APPROVAL_JOIN_LABEL = 'בקש להצטרף';
 const SELECTED_NOTE = 'נבחרת בהגרלה';
 const GUEST_BASE = 'ההרשמה לאורחים טרם נפתחה - חברי הקבוצה נרשמים ראשונים';
 
@@ -95,6 +96,17 @@ function lotteryViewerCopy(input = {}) {
   return null;
 }
 
+/**
+ * Button label after a missed draw. Approval-gated viewers do not take a seat
+ * directly, so they get the request label instead of join / waitlist.
+ * Returns null when the viewer is not in the not-selected state.
+ */
+function resolveNotSelectedJoinLabel(copy, { requiresApproval = false } = {}) {
+  if (!copy || copy.kind !== 'not_selected') return null;
+  if (requiresApproval) return APPROVAL_JOIN_LABEL;
+  return copy.joinLabel;
+}
+
 function guestRegistrationNotOpenMessage(opensAt) {
   const when = formatHebrewWhen(opensAt);
   if (!when) return GUEST_BASE;
@@ -118,6 +130,7 @@ function guestRegistrationOpensAtFromError(error) {
 
 module.exports = {
   lotteryViewerCopy,
+  resolveNotSelectedJoinLabel,
   guestRegistrationNotOpenMessage,
   guestRegistrationOpensAtFromError,
   formatHebrewWhen,

@@ -107,6 +107,7 @@ export default function GamesByCityClient({ city: initialCity, sportFilter = "AL
                         registrationOpensAt={g.registrationOpensAt}
                         joinPolicy={g.joinPolicy}
                         viewerParticipationStatus={g.viewerParticipationStatus}
+                        lotteryEnabled={!!g.lotteryEnabled}
                         lotteryPending={!!g.lotteryPending}
                         lotteryAt={g.lotteryAt}
                         onJoined={() => {

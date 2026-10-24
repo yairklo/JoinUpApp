@@ -27,6 +27,12 @@ export interface LotteryViewerCopy {
 }
 
 export function lotteryViewerCopy(input?: LotteryViewerInput): LotteryViewerCopy | null;
+
+/** Request label used when a not-selected viewer still needs approval. */
+export function resolveNotSelectedJoinLabel(
+  copy: LotteryViewerCopy | null | undefined,
+  options?: { requiresApproval?: boolean },
+): string | null;
 export function guestRegistrationNotOpenMessage(opensAt?: string | null): string;
 export function guestRegistrationOpensAtFromError(error: unknown): string | null;
 export function formatHebrewWhen(iso?: string | null): string | null;

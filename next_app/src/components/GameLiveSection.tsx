@@ -32,7 +32,7 @@ import { getGameVisibility } from "@/utils/gameStatus";
 import { normalizeIncomingGame } from "@/utils/timezone";
 import { gamesApi } from "@/services/api/games";
 import { useAuth } from "@clerk/nextjs";
-import { lotteryViewerCopy } from "@joinup/shared/gameViewerCopy";
+import { lotteryViewerCopy, resolveNotSelectedJoinLabel } from "@joinup/shared/gameViewerCopy";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 
@@ -268,10 +268,9 @@ export default function GameLiveSection({
     organizerInLottery: game.organizerInLottery,
   });
   const isLotteryPool = lotteryCopy?.kind === "pool" && !finished;
-  const notSelectedJoinLabel =
-    lotteryCopy?.kind === "not_selected" && !game.viewerJoinRequiresApproval
-      ? lotteryCopy.joinLabel
-      : null;
+  const notSelectedJoinLabel = resolveNotSelectedJoinLabel(lotteryCopy, {
+    requiresApproval: !!game.viewerJoinRequiresApproval,
+  });
 
   return (
     <>
@@ -485,6 +484,7 @@ export default function GameLiveSection({
             joinPolicy={game.joinPolicy}
             viewerParticipationStatus={game.viewerParticipationStatus}
             waitlistOfferPending={game.waitlistOfferPending}
+            lotteryEnabled={!!game.lotteryEnabled}
             lotteryPending={!!game.lotteryPending}
             lotteryAt={game.lotteryAt}
             joinLabel={notSelectedJoinLabel}

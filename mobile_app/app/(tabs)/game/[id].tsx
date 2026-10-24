@@ -15,7 +15,7 @@ import GameResultSection from '@/components/GameResultSection';
 import GameDetailsSkeleton from '@/components/GameDetailsSkeleton';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
-import { lotteryViewerCopy } from '@joinup/shared/gameViewerCopy';
+import { lotteryViewerCopy, resolveNotSelectedJoinLabel } from '@joinup/shared/gameViewerCopy';
 import { mapJoinAlert } from '@/utils/apiError';
 import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { tryParseJerusalemTimeToUTC } from '@/utils/timezone';
@@ -303,9 +303,9 @@ export default function GameDetailsScreen() {
         organizerInLottery: game.organizerInLottery,
     });
     const isLotteryPool = lotteryCopy?.kind === 'pool';
-    const notSelectedJoinLabel = lotteryCopy?.kind === 'not_selected' && !game.viewerJoinRequiresApproval
-        ? lotteryCopy.joinLabel
-        : null;
+    const notSelectedJoinLabel = resolveNotSelectedJoinLabel(lotteryCopy, {
+        requiresApproval: !!game.viewerJoinRequiresApproval,
+    });
     const approvalOnlyHint = isOrganizerApprovalPending(game);
     const isCancelled = game.status === 'CANCELLED';
     const heroSportKey = resolveSportKey(game.sport);

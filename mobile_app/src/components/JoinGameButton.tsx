@@ -16,6 +16,7 @@ export default function JoinGameButton({
     viewerParticipationStatus,
     waitlistOfferPending,
     isFull,
+    lotteryEnabled,
     lotteryPending,
     lotteryAt,
     onJoined,
@@ -26,6 +27,8 @@ export default function JoinGameButton({
     joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
     viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
     waitlistOfferPending?: boolean;
+    /** Game.lotteryEnabled. Separate from lotteryPending so a finished draw is not treated as still open. */
+    lotteryEnabled?: boolean;
     lotteryPending?: boolean;
     lotteryAt?: string | null;
     /** When true, join goes to the standby queue — do not bump currentPlayers. */
@@ -69,7 +72,7 @@ export default function JoinGameButton({
     const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
     const poolCopy = viewerParticipationStatus === "WAITLISTED"
         ? lotteryViewerCopy({
-            lotteryEnabled: !!lotteryPending,
+            lotteryEnabled: !!lotteryEnabled,
             lotteryPending: !!lotteryPending,
             lotteryAt,
             viewerParticipationStatus: "WAITLISTED",
