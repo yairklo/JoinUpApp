@@ -2,6 +2,8 @@
 // game completion, reminders, review queue). Each item's due timestamp gets its own in-memory
 // timer instead of the whole table being scanned every 30-60s — that polling never let Neon's
 // compute suspend, since the DB was touched every tick regardless of whether anything was due.
+const { lockGameRow } = require('../utils/gameRowLock');
+
 const MAX_TIMEOUT = 2_147_000_000; // ~24.8 days, safely under Node's 2^31-1 ms setTimeout cap
 // A timer may fire a hair before its due time; anything further out is a STALE timer (the row was
 // edited to a later time, or another process owns the schedule) and must not execute early.
@@ -209,56 +211,65 @@ class GameScheduler {
 
   // Idempotent: the updateMany claim means exactly one caller draws. Also called lazily from the
   // join route when the timer was missed (process down at lotteryAt), with the route's own client.
+  //
+  // Claim, participant read, and CONFIRMED/NOT_SELECTED writes are one transaction that holds
+  // lockGameRow the whole time. A /join that sees lotteryExecutedAt already set would otherwise
+  // count CONFIRMED before the winners exist, take a seat, and then the draw would fill
+  // maxPlayers - confirmedBefore on top (overbook). A throw after the claim rolls the claim
+  // back too, so a later join or boot can draw again instead of leaving the pool WAITLISTED.
   async drawLottery(prisma, gameId) {
     const now = new Date();
-    // Due-time re-check (defence in depth): a stale timer must not run the lottery early.
+    // Cheap pre-check so a stale timer does not lock the row. The re-check under the lock is
+    // the one that excludes a concurrent join.
     const due = await prisma.game.findUnique({
       where: { id: gameId },
       select: { lotteryEnabled: true, lotteryExecutedAt: true, lotteryAt: true },
     });
     if (!due || !due.lotteryEnabled || due.lotteryExecutedAt || !isDue(due.lotteryAt)) return;
-    const claimed = await prisma.game.updateMany({
-      where: { id: gameId, lotteryEnabled: true, lotteryExecutedAt: null },
-      data: { lotteryExecutedAt: now },
-    });
-    if (claimed.count === 0) return;
 
-    const game = await prisma.game.findUnique({
-      where: { id: gameId },
-      include: { participants: true },
-    });
-    if (!game) return;
+    const drew = await prisma.$transaction(async (tx) => {
+      await lockGameRow(tx, gameId);
+      const game = await tx.game.findUnique({
+        where: { id: gameId },
+        include: { participants: true },
+      });
+      if (!game || !game.lotteryEnabled || game.lotteryExecutedAt || !isDue(game.lotteryAt)) return false;
 
-    const confirmed = game.participants.filter(p => p.status === 'CONFIRMED');
-    const waitlisted = game.participants.filter(p => p.status === 'WAITLISTED');
-    const slotsRemaining = Math.max(0, game.maxPlayers - confirmed.length);
+      const claimed = await tx.game.updateMany({
+        where: { id: gameId, lotteryEnabled: true, lotteryExecutedAt: null },
+        data: { lotteryExecutedAt: now },
+      });
+      if (claimed.count === 0) return false;
 
-    const updates = [];
-    if (slotsRemaining > 0 && waitlisted.length > 0) {
-      shuffleInPlace(waitlisted);
-      const winners = waitlisted.slice(0, slotsRemaining);
-      const losers = waitlisted.slice(slotsRemaining);
-      if (winners.length) {
-        updates.push(prisma.participation.updateMany({
-          where: { id: { in: winners.map(w => w.id) } },
-          data: { status: 'CONFIRMED' },
-        }));
+      const confirmed = game.participants.filter(p => p.status === 'CONFIRMED');
+      const waitlisted = game.participants.filter(p => p.status === 'WAITLISTED');
+      const slotsRemaining = Math.max(0, game.maxPlayers - confirmed.length);
+
+      // Sequential on the interactive transaction's one connection. Starting these in parallel
+      // would interleave queries on that connection.
+      const apply = async (ids, status) => {
+        if (!ids.length) return;
+        await tx.participation.updateMany({
+          where: { id: { in: ids } },
+          data: { status },
+        });
+      };
+
+      if (slotsRemaining > 0 && waitlisted.length > 0) {
+        shuffleInPlace(waitlisted);
+        const winners = waitlisted.slice(0, slotsRemaining);
+        const losers = waitlisted.slice(slotsRemaining);
+        await apply(winners.map(w => w.id), 'CONFIRMED');
+        await apply(losers.map(l => l.id), 'NOT_SELECTED');
+      } else if (waitlisted.length > 0) {
+        await apply(waitlisted.map(w => w.id), 'NOT_SELECTED');
       }
-      if (losers.length) {
-        updates.push(prisma.participation.updateMany({
-          where: { id: { in: losers.map(l => l.id) } },
-          data: { status: 'NOT_SELECTED' },
-        }));
-      }
-    } else if (waitlisted.length > 0) {
-      updates.push(prisma.participation.updateMany({
-        where: { id: { in: waitlisted.map(w => w.id) } },
-        data: { status: 'NOT_SELECTED' },
-      }));
+      return true;
+    }, { timeout: 20000, maxWait: 10000 });
+
+    if (drew) {
+      console.log(`🎲 [SCHEDULER] Lottery executed for game ${gameId} at ${now.toISOString()}`);
     }
-
-    if (updates.length) await prisma.$transaction(updates);
-    console.log(`🎲 [SCHEDULER] Lottery executed for game ${game.id} at ${now.toISOString()}`);
   }
 
   async _runPickDraw(gameId) {
