@@ -14,7 +14,12 @@ const { isSeriesSlotConflict, SERIES_SLOT_CONFLICT_MESSAGE, notificationService 
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
 const { getAgeInJerusalem } = require('../shared/ageGate');
-const { getSeriesAccess, seriesVisibilityWhere, normalizeLinkPolicy } = require('../utils/friendsOnlyAccess');
+const { getSeriesAccess, getSeriesJoinAccess, seriesVisibilityWhere, normalizeLinkPolicy } = require('../utils/friendsOnlyAccess');
+const {
+  isValidGuestOpenHours,
+  resolveGuestRegistrationOpensAt,
+  isGuestWindowOrderValid,
+} = require('../utils/membersGuests');
 const { publicDisplayName } = require('../utils/publicName');
 
 const WELCOME_MESSAGE_MAX_LENGTH = 2000;
@@ -130,6 +135,7 @@ function mapGameForClient(game) {
     sport: game.sport,
     city: game.field?.city || null,
     registrationOpensAt: game.registrationOpensAt ? new Date(game.registrationOpensAt).toISOString() : null,
+    guestRegistrationOpensAt: game.guestRegistrationOpensAt ? new Date(game.guestRegistrationOpensAt).toISOString() : null,
     chatRoomId: game.id
   };
 }
@@ -307,6 +313,16 @@ router.get('/:seriesId', authenticateToken, async (req, res) => {
       organizerInLottery: series.organizerInLottery,
       teamSize: series.teamSize ?? null,
       welcomeMessage: series.welcomeMessage ?? null,
+      membersOnlyPriority: series.membersOnlyPriority,
+      guestRegistrationOpenHours: series.guestRegistrationOpenHours ?? null,
+      guestDescription: series.guestDescription ?? null,
+      guestPrice: series.guestPrice ?? null,
+      // The guest welcome message is a private chat message to the joining guest, so only managers see it.
+      ...(canManage ? { guestWelcomeMessage: series.guestWelcomeMessage ?? null } : {}),
+      viewerIsMember: !!viewerId && (series.organizerId === viewerId || (subscribers || []).some((s) => s.userId === viewerId)),
+      // Members-priority group: a non-member's subscribe becomes a join request even on a public group.
+      viewerJoinRequiresApproval: !!series.membersOnlyPriority && !!viewerId && !req.user?.isAdmin
+        && series.organizerId !== viewerId && !(subscribers || []).some((s) => s.userId === viewerId),
       autoOpenRegistrationHours: series.autoOpenRegistrationHours,
       registrationOpenDayOfWeek: series.registrationOpenDayOfWeek ?? null,
       registrationOpenTime: series.registrationOpenTime ?? null,
@@ -346,10 +362,10 @@ router.post('/:seriesId/subscribe', authenticateToken, async (req, res) => {
     const series = await prisma.gameSeries.findUnique({ where: { id: seriesId } });
     if (!series) return res.status(404).json({ error: 'Series not found' });
 
-    const access = await getSeriesAccess(prisma, series, userId, { isAdmin: !!req.user?.isAdmin });
+    const access = await getSeriesJoinAccess(prisma, series, userId, { isAdmin: !!req.user?.isAdmin });
     if (access === 'NONE') return seriesFriendsOnly(res);
     if (access === 'REQUEST') {
-      // Outsider on a friends-only group: the managers approve the membership first.
+      // Outsider on a friends-only or members-only-priority group: the managers approve the membership first.
       const existing = await prisma.seriesJoinRequest.findUnique({
         where: { seriesId_userId: { seriesId, userId } },
       });
@@ -433,6 +449,11 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       organizerInLottery,
       teamSize,
       welcomeMessage,
+      membersOnlyPriority,
+      guestRegistrationOpenHours,
+      guestWelcomeMessage,
+      guestDescription,
+      guestPrice,
       updateFutureGames = true,
     } = req.body || {};
 
@@ -543,6 +564,24 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       const cleaned = welcomeMessage === null ? null : sanitizeFreeText(String(welcomeMessage), WELCOME_MESSAGE_MAX_LENGTH);
       data.welcomeMessage = cleaned && cleaned.trim() ? cleaned : null;
     }
+    if (typeof membersOnlyPriority !== 'undefined') data.membersOnlyPriority = !!membersOnlyPriority;
+    if (typeof guestRegistrationOpenHours !== 'undefined') {
+      if (guestRegistrationOpenHours !== null && !isValidGuestOpenHours(Number(guestRegistrationOpenHours))) {
+        return res.status(400).json({ error: 'guestRegistrationOpenHours must be a non-negative number or null' });
+      }
+      data.guestRegistrationOpenHours = guestRegistrationOpenHours === null ? null : Number(guestRegistrationOpenHours);
+    }
+    if (typeof guestPrice !== 'undefined') {
+      if (guestPrice !== null && !(Number.isInteger(Number(guestPrice)) && Number(guestPrice) >= 0)) {
+        return res.status(400).json({ error: 'guestPrice must be a non-negative integer or null' });
+      }
+      data.guestPrice = guestPrice === null ? null : Number(guestPrice);
+    }
+    for (const [key, raw] of [['guestWelcomeMessage', guestWelcomeMessage], ['guestDescription', guestDescription]]) {
+      if (typeof raw === 'undefined') continue;
+      const cleaned = raw === null ? null : sanitizeFreeText(String(raw), WELCOME_MESSAGE_MAX_LENGTH);
+      data[key] = cleaned && cleaned.trim() ? cleaned : null;
+    }
     // dayOfWeek intentionally blocked when updating existing weekly series (see above)
 
     // Game (seriesId, start) is unique, and only OPEN future games move below. A changed time can
@@ -566,6 +605,27 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
             conflicts: blocking.map((g) => g.start.toISOString()),
           });
         }
+      }
+    }
+
+    // Guests must never open before members (A <= B). Checked on the next occurrence, since
+    // both windows are fixed offsets from the game start (the weekday rule only shifts with DST).
+    const windowSeries = { ...series, ...data };
+    if (windowSeries.membersOnlyPriority && isValidGuestOpenHours(windowSeries.guestRegistrationOpenHours)) {
+      const next = await prisma.game.findFirst({
+        where: { seriesId, start: { gte: new Date() }, status: 'OPEN' },
+        orderBy: { start: 'asc' },
+        select: { start: true },
+      });
+      const sampleStart = next ? next.start : new Date(Date.now() + 7 * 24 * 3600000);
+      if (!isGuestWindowOrderValid(
+        resolveSeriesRegistrationOpensAt(windowSeries, sampleStart),
+        resolveGuestRegistrationOpensAt(windowSeries, sampleStart),
+      )) {
+        return res.status(400).json({
+          error: 'Guest registration must not open before the members registration',
+          code: 'GUEST_WINDOW_BEFORE_MEMBERS',
+        });
       }
     }
 
@@ -627,6 +687,13 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
       const timeMoved = !!gd.start && seriesHasRegistrationRule(updatedSeries);
       if (ruleProvided || hoursProvided || timeMoved) {
         gd.registrationOpensAt = resolveSeriesRegistrationOpensAt(updatedSeries, gd.start || g.start);
+      }
+      const guestWindowChanged = ['membersOnlyPriority', 'guestRegistrationOpenHours'].some((k) => typeof data[k] !== 'undefined');
+      if (guestWindowChanged || ruleProvided || hoursProvided || timeMoved) {
+        gd.guestRegistrationOpensAt = resolveGuestRegistrationOpensAt(updatedSeries, gd.start || g.start);
+      }
+      for (const k of ['membersOnlyPriority', 'guestWelcomeMessage', 'guestDescription', 'guestPrice']) {
+        if (typeof data[k] !== 'undefined') gd[k] = data[k];
       }
       if (typeof sport !== 'undefined') gd.sport = sport;
       if (typeof isOpenToJoin !== 'undefined') gd.isOpenToJoin = !!isOpenToJoin;

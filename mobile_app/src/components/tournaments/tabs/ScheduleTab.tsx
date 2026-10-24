@@ -6,7 +6,7 @@ import { useTournament } from '@/hooks/useTournament';
 import { useTournamentSchedule } from '@/hooks/useTournamentViews';
 import type { TournamentMatch } from '@/types/tournament';
 import MatchCard from '../MatchCard';
-import { dayKey, fmtDayChip, fmtDayHeader, type Lang } from '../matchFormat';
+import { dayKey, displayStageName, fmtDayChip, fmtDayHeader, type Lang } from '../matchFormat';
 import { EmptyState, ErrorState, Pill, SkeletonList } from './TabState';
 
 export interface TournamentTabProps {
@@ -70,9 +70,9 @@ export default function ScheduleTab({ tournamentId, canScore, onScoreMatch }: To
             const st = m.stageId ? stageById[m.stageId] : undefined;
             const g = m.groupId ? groupNames[m.groupId] : undefined;
             const r = m.round != null && st?.type !== 'KNOCKOUT' ? t('tournaments.schedule.round', { n: m.round }) : '';
-            return [g ?? st?.name, r].filter(Boolean).join(' · ');
+            return [g ?? displayStageName(st?.name, lang), r].filter(Boolean).join(' · ');
         },
-        [stageById, groupNames, t]
+        [stageById, groupNames, t, lang]
     );
 
     const filtered = useMemo(

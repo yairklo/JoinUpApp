@@ -7,8 +7,8 @@ import { useStandings, useTournamentSchedule } from '@/hooks/useTournamentViews'
 import type { TournamentMatch } from '@/types/tournament';
 import MatchCard from '../MatchCard';
 import StandingsTable from '../StandingsTable';
-import { fmtShortDate } from '../shellUtils';
-import type { Lang } from '../matchFormat';
+import { registrationWindowCopy } from '../shellUtils';
+import { ltrIsolate, type Lang } from '../matchFormat';
 import { ErrorState, SkeletonList } from './TabState';
 import type { TournamentTabProps } from './ScheduleTab';
 
@@ -93,6 +93,8 @@ export default function OverviewTab({ tournamentId, canScore, onScoreMatch, onGo
     const r = tournament.rules;
     const preStart = tournament.status === 'DRAFT' || tournament.status === 'REGISTRATION_OPEN' || tournament.status === 'REGISTRATION_CLOSED';
     const venue = tournament.customLocation;
+    const registration = preStart ? registrationWindowCopy(tournament.registrationOpensAt, tournament.registrationClosesAt, lang) : null;
+    const rtlText = { textAlign: 'right' as const, writingDirection: 'rtl' as const };
 
     return (
         <View testID="overview-tab">
@@ -139,28 +141,28 @@ export default function OverviewTab({ tournamentId, canScore, onScoreMatch, onGo
                     <View className="rounded-2xl bg-white dark:bg-cyber-card border border-gray-100 dark:border-cyber-border p-3" testID="overview-rules">
                         <Text className="text-[13px] font-extrabold text-gray-900 dark:text-cyber-text mb-1">{t('tournaments.overview.rules')}</Text>
                         {r?.points ? (
-                            <Text className="text-[13px] text-gray-700 dark:text-cyber-text">
-                                {t('tournaments.overview.pointsLine', { win: r.points.win, draw: r.points.draw, loss: r.points.loss })}
+                            <Text className="text-[13px] text-gray-700 dark:text-cyber-text" style={rtlText}>
+                                {t('tournaments.overview.pointsLine', {
+                                    win: ltrIsolate(String(r.points.win)),
+                                    draw: ltrIsolate(String(r.points.draw)),
+                                    loss: ltrIsolate(String(r.points.loss)),
+                                })}
                             </Text>
                         ) : null}
-                        <Text className="text-[13px] text-gray-700 dark:text-cyber-text">
+                        <Text className="text-[13px] text-gray-700 dark:text-cyber-text" style={rtlText}>
                             {t('tournaments.overview.rosterLine', {
-                                starters: tournament.startersPerTeam,
-                                min: tournament.minPlayersPerTeam,
-                                max: tournament.maxPlayersPerTeam,
+                                starters: ltrIsolate(String(tournament.startersPerTeam ?? '')),
+                                range: ltrIsolate(`${tournament.minPlayersPerTeam ?? ''}–${tournament.maxPlayersPerTeam ?? ''}`),
                             })}
                         </Text>
                     </View>
                 ) : null}
             </Section>
 
-            {preStart && (tournament.registrationOpensAt || tournament.registrationClosesAt) ? (
+            {registration ? (
                 <Section title={t('tournaments.overview.registration')} testID="overview-registration">
-                    <Text className="text-[14px] text-gray-800 dark:text-cyber-text">
-                        {t('tournaments.overview.registrationWindow', {
-                            from: tournament.registrationOpensAt ? fmtShortDate(tournament.registrationOpensAt, lang) : '–',
-                            to: tournament.registrationClosesAt ? fmtShortDate(tournament.registrationClosesAt, lang) : '–',
-                        })}
+                    <Text className="text-[14px] text-gray-800 dark:text-cyber-text" style={rtlText}>
+                        {t(registration.key, registration.values)}
                     </Text>
                     {tournament.requireApproval ? (
                         <Text className="text-[12px] text-gray-500 dark:text-cyber-muted mt-1">{t('tournaments.overview.approvalNote')}</Text>

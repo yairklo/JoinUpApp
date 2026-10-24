@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { tabular } from '@/components/results/resultUtils';
 import type { CreateMatchInput, ScheduleStage, TournamentMatch, TournamentTeam, UpdateMatchInput } from '@/types/tournament';
 import { isDateStr, isTimeStr, israelHm, israelDateKey, israelToIso, padTime, type ConflictView } from './manageUtils';
+import { displayStageName } from '../matchFormat';
 import ConflictsPanel from './ConflictsPanel';
 
 type EditableStatus = 'SCHEDULED' | 'POSTPONED' | 'CANCELLED';
@@ -50,7 +51,8 @@ function Chip({ label, selected, onPress, testID }: { label: string; selected: b
 
 /** Add / edit one match (spec 11.2 phone edit sheet): teams, Israel date+time, court, status, delete. Props + local form state. */
 export default function MatchEditSheet({ open, match, stages, teams, knownCourts, conflicts, errorText, busy, onClose, onSubmit, onDelete }: Props) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const stageLang = i18n.language?.startsWith('en') ? 'en' : 'he';
     const insets = useSafeAreaInsets();
     const adding = !match;
     const [homeId, setHomeId] = useState<string | null>(null);
@@ -179,7 +181,7 @@ export default function MatchEditSheet({ open, match, stages, teams, knownCourts
                                     <Text className="text-xs font-semibold text-gray-500 dark:text-cyber-muted mb-1">{t('tournaments.manage.sched.stage')}</Text>
                                     <View className="flex-row flex-wrap" style={{ gap: 8 }}>
                                         {stages.map((s) => (
-                                            <Chip key={s.id} label={s.name} selected={stageId === s.id} onPress={() => setStageId(s.id)} />
+                                            <Chip key={s.id} label={displayStageName(s.name, stageLang)} selected={stageId === s.id} onPress={() => setStageId(s.id)} />
                                         ))}
                                     </View>
                                 </View>

@@ -1287,13 +1287,15 @@
       "about": "על הטורניר",
       "rules": "חוקים",
       "pointsLine": "ניצחון {{win}} · תיקו {{draw}} · הפסד {{loss}}",
-      "rosterLine": "{{starters}} בהרכב · {{min}}–{{max}} שחקנים בקבוצה",
+      "rosterLine": "{{starters}} בהרכב · {{range}} שחקנים בקבוצה",
       "approvalNote": "הקבוצות מאושרות ע״י המארגן",
       "organizer": "מארגן",
       "managers": "מנהלים",
       "venue": "מיקום",
       "registration": "הרשמה",
-      "registrationWindow": "ההרשמה: {{from}} – {{to}}",
+      "registrationWindow": "ההרשמה: {{range}}",
+      "registrationFrom": "ההרשמה מ־{{date}}",
+      "registrationUntil": "ההרשמה עד {{date}}",
       "noContent": "עוד אין מידע להצגה"
     },
     "match": {

@@ -20,14 +20,43 @@ const {
 const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 const { isBlockedEitherWay } = require('../utils/blocks');
 const { getGameAccess, applyViewerAccess } = require('../utils/friendsOnlyAccess');
+const { isGameInsider, isGuestWindowClosed } = require('../utils/membersGuests');
+const { lockGameRow } = require('../utils/gameRowLock');
+
+const gameScheduler = require('../services/gameScheduler');
 
 const router = express.Router();
 
-// Serialise roster writes for one game: concurrent joins wait here, so each one sees the
-// others' rows when it counts free spots. Returns the capacity as read under the lock.
-async function lockGameRow(tx, gameId) {
-  const rows = await tx.$queryRaw`SELECT "maxPlayers" FROM "Game" WHERE id = ${gameId} FOR UPDATE`;
-  return rows[0]?.maxPlayers ?? 0;
+const REJOINABLE_STATUSES = ['REJECTED', 'NOT_SELECTED', 'CANCELLED'];
+
+// Capacity check and the participation write, already inside the caller's transaction.
+// lockGameRow is taken here even if the caller locked already: a second FOR UPDATE in the
+// same transaction is a no-op, and every seat assignment must hold it.
+async function assignSeatUnderLock(tx, gameId, userId) {
+  const maxPlayers = await lockGameRow(tx, gameId);
+  const current = await tx.participation.findFirst({
+    where: { gameId, userId },
+  });
+  if (current && !REJOINABLE_STATUSES.includes(current.status)) return 'UNCHANGED';
+
+  const allocatedSlotsCount = await tx.participation.count({
+    where: {
+      gameId,
+      OR: [
+        { status: 'CONFIRMED' },
+        { status: 'PENDING', isWaitlistOffer: true },
+      ],
+    },
+  });
+  const status = allocatedSlotsCount >= maxPlayers ? 'WAITLISTED' : 'CONFIRMED';
+  if (current) {
+    await tx.participation.update({ where: { id: current.id }, data: { status } });
+  } else {
+    await tx.participation.create({
+      data: { gameId, userId, status },
+    });
+  }
+  return status;
 }
 
 // A cancelled game is frozen: no joins, leaves, approvals or roster edits. In particular /leave
@@ -46,15 +75,21 @@ async function rejectIfCancelled(req, res, next) {
 
 router.post('/:id/join', authenticateToken, async (req, res) => {
   try {
-    const game = await prisma.game.findUnique({
-      where: { id: req.params.id },
-      include: { participants: true, roles: true }
-    });
+    const gameInclude = { participants: true, roles: true };
+    let game = await prisma.game.findUnique({ where: { id: req.params.id }, include: gameInclude });
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
     }
     if (game.status === 'CANCELLED') {
       return res.status(400).json({ error: 'Game was cancelled' });
+    }
+
+    // The draw timer was missed (process down at lotteryAt): run the draw now. The draw holds
+    // the same game-row lock as /join, so this request cannot take a seat until winners exist.
+    // After it, the join falls through to the normal capacity/waitlist path below.
+    if (game.lotteryEnabled && !game.lotteryExecutedAt && game.lotteryAt && new Date() >= new Date(game.lotteryAt)) {
+      await gameScheduler.drawLottery(prisma, game.id);
+      game = await prisma.game.findUnique({ where: { id: game.id }, include: gameInclude });
     }
 
     // Friends-only: outsiders can't join a BLOCKED-link game at all, and on a REQUEST_TO_JOIN
@@ -70,6 +105,19 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 
     if (game.registrationOpensAt && new Date() < new Date(game.registrationOpensAt)) {
       return res.status(400).json({ error: 'Registration is not yet open' });
+    }
+
+    // Members-only priority: guests (non-members, the organizer's friends included) wait for the
+    // later guest window. Someone already on the roster keeps their spot.
+    if (game.membersOnlyPriority && isGuestWindowClosed(game)) {
+      const onRoster = game.participants.some((p) => p.userId === req.user.id);
+      if (!onRoster && !(await isGameInsider(prisma, game, req.user.id, { isAdmin: !!req.user?.isAdmin }))) {
+        return res.status(400).json({
+          error: 'Registration is not yet open for guests',
+          code: 'GUEST_REGISTRATION_NOT_OPEN',
+          guestRegistrationOpensAt: new Date(game.guestRegistrationOpensAt).toISOString(),
+        });
+      }
     }
 
     const existing = await prisma.participation.findFirst({
@@ -114,9 +162,6 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
         if (!game.lotteryAt) {
           return res.status(400).json({ error: 'Lottery time is not set for this game' });
         }
-        if (new Date() >= new Date(game.lotteryAt)) {
-          return res.status(400).json({ error: 'Lottery window is closed for this game' });
-        }
       }
 
       await safeUpsertUserFromAuth(prisma, req.user);
@@ -129,81 +174,68 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
       return finishJoinResponse({ pending: true });
     }
 
-    // If lottery is enabled and hasn't executed yet, allow waitlist joins beyond capacity until lottery time
+    // If lottery is enabled and hasn't executed yet, allow waitlist joins beyond capacity until lottery time.
+    // `outcome` stays unset when this request is not a pre-draw pool join, so the capacity path below runs.
+    let outcome;
     if (game.lotteryEnabled) {
       const cutoff = game.lotteryAt ? new Date(game.lotteryAt) : null;
-      const now = new Date();
       if (!game.lotteryExecutedAt) {
         if (!cutoff) {
           return res.status(400).json({ error: 'Lottery time is not set for this game' });
         }
-        if (now >= cutoff) {
-          return res.status(400).json({ error: 'Lottery window is closed for this game' });
-        }
-        if (existing) {
+        // Pre-draw: everyone joins the lottery pool (WAITLISTED); seats are only assigned by the draw.
+        if (existing && existing.status !== 'REJECTED' && existing.status !== 'NOT_SELECTED' && existing.status !== 'CANCELLED') {
           return res.status(400).json({ error: 'You are already a participant' });
         }
 
         await safeUpsertUserFromAuth(prisma, req.user);
-        // Confirm up to capacity; beyond capacity -> waitlist. Count and insert under the game lock.
-        const status = await prisma.$transaction(async (tx) => {
-          const maxPlayers = await lockGameRow(tx, game.id);
-          const confirmedCountPre = await tx.participation.count({ where: { gameId: game.id, status: 'CONFIRMED' } });
-          const s = confirmedCountPre < maxPlayers ? 'CONFIRMED' : 'WAITLISTED';
-          await tx.participation.create({ data: { gameId: game.id, userId: req.user.id, status: s } });
-          return s;
-        });
-        if (status === 'WAITLISTED') {
+        outcome = await prisma.$transaction(async (tx) => {
+          await lockGameRow(tx, game.id);
+          const locked = await tx.game.findUnique({
+            where: { id: game.id },
+            select: { lotteryExecutedAt: true },
+          });
+          // This request read the game before the draw claimed it. Under the lock the draw has
+          // already assigned seats, so a WAITLISTED insert would put them in a pool that will
+          // never be drawn. Take a normal seat instead, still holding the lock.
+          if (locked?.lotteryExecutedAt) {
+            return assignSeatUnderLock(tx, game.id, req.user.id);
+          }
+          const current = await tx.participation.findFirst({ where: { gameId: game.id, userId: req.user.id } });
+          if (current && !REJOINABLE_STATUSES.includes(current.status)) return 'UNCHANGED';
+          if (current) {
+            await tx.participation.update({ where: { id: current.id }, data: { status: 'WAITLISTED' } });
+          } else {
+            await tx.participation.create({ data: { gameId: game.id, userId: req.user.id, status: 'WAITLISTED' } });
+          }
+          return 'POOL';
+        }, { timeout: 20000, maxWait: 10000 });
+        if (outcome === 'POOL') {
           notifyOrganizerOfWaitlistJoin(game, req.user, req.io);
-        } else {
-          notifyOrganizerOfInstantJoin(game, req.user, req.io);
-          sendAutoWelcomeMessage(game, req.user.id);
-        }
 
-        // Add to Chat
-        try {
-          await prisma.chatParticipant.create({ data: { userId: req.user.id, chatId: game.id } });
-        } catch (e) {
-          // Ignore if chat room doesn't exist or already participant
-        }
+          // Add to Chat
+          try {
+            await prisma.chatParticipant.create({ data: { userId: req.user.id, chatId: game.id } });
+          } catch (e) {
+            // Ignore if chat room doesn't exist or already participant
+          }
 
-        return finishJoinResponse();
+          return finishJoinResponse();
+        }
       }
       // If lottery already ran, fall through to capacity check based on confirmed count
     }
 
-    await safeUpsertUserFromAuth(prisma, req.user);
+    if (outcome === undefined) {
+      await safeUpsertUserFromAuth(prisma, req.user);
 
-    // The capacity check and the write must be one atomic step: without the game row lock, two
-    // concurrent joiners both count the same free spot and both become CONFIRMED (overbooking).
-    const outcome = await prisma.$transaction(async (tx) => {
-      const maxPlayers = await lockGameRow(tx, game.id);
-      // Re-read under the lock: a concurrent request from the same user may have written already.
-      const current = await tx.participation.findFirst({
-        where: { gameId: game.id, userId: req.user.id }
-      });
-      if (current && current.status !== 'REJECTED') return 'UNCHANGED';
-
-      const allocatedSlotsCount = await tx.participation.count({
-        where: {
-          gameId: game.id,
-          OR: [
-            { status: 'CONFIRMED' },
-            { status: 'PENDING', isWaitlistOffer: true }
-          ]
-        }
-      });
-      const status = allocatedSlotsCount >= maxPlayers ? 'WAITLISTED' : 'CONFIRMED';
-      if (current) {
-        // Stale rejected row on an instant-join game — reuse it instead of inserting a duplicate
-        await tx.participation.update({ where: { id: current.id }, data: { status } });
-      } else {
-        await tx.participation.create({
-          data: { gameId: game.id, userId: req.user.id, status }
-        });
-      }
-      return status;
-    });
+      // The capacity check and the write must be one atomic step: without the game row lock, two
+      // concurrent joiners both count the same free spot and both become CONFIRMED (overbooking).
+      outcome = await prisma.$transaction(
+        (tx) => assignSeatUnderLock(tx, game.id, req.user.id),
+        { timeout: 20000, maxWait: 10000 },
+      );
+    }
 
     if (outcome === 'UNCHANGED') {
       return finishJoinResponse();

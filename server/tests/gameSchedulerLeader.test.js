@@ -24,14 +24,16 @@ function futureGame(id) {
 }
 
 function lotteryPrisma() {
-  return {
+  const prisma = {
     game: {
       findUnique: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
-    participation: { updateMany: jest.fn() },
-    $transaction: jest.fn(),
+    participation: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    $queryRaw: jest.fn().mockResolvedValue([{ maxPlayers: 10 }]),
   };
+  prisma.$transaction = jest.fn(async (fn) => fn(prisma));
+  return prisma;
 }
 
 afterEach(() => {
@@ -69,7 +71,14 @@ describe('due-time re-checks', () => {
       const prisma = lotteryPrisma();
       prisma.game.findUnique
         .mockResolvedValueOnce({ lotteryEnabled: true, lotteryExecutedAt: null, lotteryAt: inMs(offset) })
-        .mockResolvedValueOnce({ id: 'g1', maxPlayers: 10, participants: [] });
+        .mockResolvedValueOnce({
+          id: 'g1',
+          maxPlayers: 10,
+          lotteryEnabled: true,
+          lotteryExecutedAt: null,
+          lotteryAt: inMs(offset),
+          participants: [],
+        });
       gameScheduler.init({ prisma, io: null, notificationService: null });
       await gameScheduler._runLottery('g1');
       expect(prisma.game.updateMany).toHaveBeenCalledTimes(1);

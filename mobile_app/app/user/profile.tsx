@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList, KeyboardAvoidingView, Platform, I18nManager } from 'react-native';
 import { gameStartMs } from '@/utils/timezone';
 import React, { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
@@ -277,6 +277,13 @@ export default function ProfileScreen() {
         );
     }
 
+    const profileRtl = I18nManager.isRTL || i18n.language?.startsWith('he');
+    const fieldAlign = {
+        textAlign: (profileRtl ? 'right' : 'left') as 'right' | 'left',
+        writingDirection: (profileRtl ? 'rtl' : 'ltr') as 'rtl' | 'ltr',
+    };
+    const fieldText = { ...fieldAlign, width: '100%' as const };
+
     return (
         <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg" edges={['top', 'bottom']}>
             <Stack.Screen options={{ 
@@ -358,7 +365,7 @@ export default function ProfileScreen() {
                 {/* Personal Details Form */}
                 <View className="bg-white dark:bg-cyber-card p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100 dark:border-cyber-border">
                     <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 dark:border-cyber-border pb-2">
-                        <Text className="text-lg font-black text-gray-900 dark:text-cyber-text">{t('profile.personalDetails', 'פרטים אישיים')}</Text>
+                        <Text className="flex-1 text-lg font-black text-gray-900 dark:text-cyber-text" style={fieldAlign}>{t('profile.personalDetails', 'פרטים אישיים')}</Text>
                         {!isEditing && (
                             <TouchableOpacity
                                 onPress={() => setIsEditing(true)}
@@ -373,11 +380,12 @@ export default function ProfileScreen() {
                     {/* Name */}
                     {isEditing && (
                         <View className="mb-4">
-                            <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.name', 'שם')}</Text>
+                            <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1" style={fieldText}>{t('profile.name', 'שם')}</Text>
                             <TextInput
                                 value={form.name}
                                 onChangeText={(val) => setForm(prev => ({ ...prev, name: val }))}
-                                className="bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-4 py-3 text-gray-800 dark:text-cyber-text text-right text-sm"
+                                className="bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-4 py-3 text-gray-800 dark:text-cyber-text text-sm"
+                                style={fieldText}
                                 maxLength={60}
                                 placeholderTextColor="#9ca3af"
                             />
@@ -386,44 +394,45 @@ export default function ProfileScreen() {
 
                     {/* City */}
                     <View className="mb-4">
-                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.city', 'עיר')}</Text>
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1" style={fieldText}>{t('profile.city', 'עיר')}</Text>
                         {isEditing ? (
                             <TouchableOpacity
                                 onPress={() => setCityModalVisible(true)}
                                 className="bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-4 py-3 flex-row items-center"
                             >
                                 <FontAwesome name="chevron-left" size={12} color="#9ca3af" style={{ marginLeft: 8 }} />
-                                <Text className={form.city ? "text-gray-800 text-right text-sm flex-1" : "text-gray-400 text-right text-sm flex-1"}>
+                                <Text className={form.city ? "text-gray-800 text-sm flex-1" : "text-gray-400 text-sm flex-1"} style={fieldAlign}>
                                     {form.city || t('profile.selectCityFromList', 'בחרו עיר מהרשימה')}
                                 </Text>
                             </TouchableOpacity>
                         ) : (
-                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">{profile?.city || t('profile.unknownCity', 'לא צוין')}</Text>
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-base" style={fieldText}>{profile?.city || t('profile.unknownCity', 'לא צוין')}</Text>
                         )}
                     </View>
 
                     {/* Phone */}
                     <View className="mb-4">
-                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.phone', 'טלפון')}</Text>
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1" style={fieldText}>{t('profile.phone', 'טלפון')}</Text>
                         {isEditing ? (
                             <TextInput
                                 value={form.phone}
                                 onChangeText={(val) => setForm(prev => ({ ...prev, phone: val }))}
-                                className="bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-4 py-3 text-gray-800 dark:text-cyber-text text-right text-sm"
+                                className="bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-4 py-3 text-gray-800 dark:text-cyber-text text-sm"
+                                style={fieldText}
                                 placeholder={t('profile.phonePlaceholder', 'למשל: 0501234567')}
                                 keyboardType="phone-pad"
                                 placeholderTextColor="#9ca3af"
                             />
                         ) : (
-                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">{profile?.phone || t('profile.unknownPhone', 'לא צוין')}</Text>
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-base" style={fieldText}>{profile?.phone || t('profile.unknownPhone', 'לא צוין')}</Text>
                         )}
                     </View>
 
                     {/* Gender */}
                     <View className="mb-4">
-                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.gender', 'מין')}</Text>
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1" style={fieldText}>{t('profile.gender', 'מין')}</Text>
                         {isEditing ? (
-                            <View className="flex-row justify-end gap-2">
+                            <View className="flex-row justify-start gap-2">
                                 {([
                                     { value: 'MALE' as const, label: genderLabels.MALE },
                                     { value: 'FEMALE' as const, label: genderLabels.FEMALE },
@@ -446,7 +455,7 @@ export default function ProfileScreen() {
                                 })}
                             </View>
                         ) : (
-                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-base" style={fieldText}>
                                 {profile?.gender && (profile.gender === 'MALE' || profile.gender === 'FEMALE') ? genderLabels[profile.gender] : t('profile.unknownGender', 'לא צוין')}
                             </Text>
                         )}
@@ -454,22 +463,22 @@ export default function ProfileScreen() {
 
                     {/* Email */}
                     <View className="mb-4">
-                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.email', 'אימייל')}</Text>
-                        <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1" style={fieldText}>{t('profile.email', 'אימייל')}</Text>
+                        <Text className="text-gray-800 dark:text-cyber-text font-bold text-base" style={fieldText}>
                             {profile?.email || user?.primaryEmailAddress?.emailAddress || t('profile.unknownEmail', 'לא צוין')}
                         </Text>
                     </View>
 
                     {/* Age */}
                     <View className="mb-2">
-                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.age', 'גיל')}</Text>
-                        <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1" style={fieldText}>{t('profile.age', 'גיל')}</Text>
+                        <Text className="text-gray-800 dark:text-cyber-text font-bold text-base" style={fieldText}>
                             {calculateAge(profile?.birthDate) || t('profile.unknownAge', 'לא ידוע')}
                         </Text>
                     </View>
 
                     {isEditing && avatarError && (
-                        <Text className="text-red-600 text-xs mt-4 text-right">{avatarError}</Text>
+                        <Text className="text-red-600 text-xs mt-4" style={fieldText}>{avatarError}</Text>
                     )}
                     {isEditing && (
                         <View className="flex-row gap-3 mt-4">
