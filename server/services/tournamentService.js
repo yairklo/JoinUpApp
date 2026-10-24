@@ -183,7 +183,10 @@ function parseCreateInput(body) {
   return data;
 }
 
+const FIELD_SUMMARY_SELECT = { name: true, city: true, location: true, lat: true, lng: true };
+
 function summarize(t, extra = {}) {
+  const field = t.field || null;
   return {
     id: t.id,
     title: t.title,
@@ -191,8 +194,11 @@ function summarize(t, extra = {}) {
     sport: t.sport,
     imageUrl: t.imageUrl,
     fieldId: t.fieldId,
-    fieldName: t.field ? t.field.name : null,
-    city: t.field ? t.field.city || null : null,
+    fieldName: field ? field.name : null,
+    fieldLocation: field && field.location ? field.location : null,
+    fieldLat: typeof field?.lat === 'number' ? field.lat : null,
+    fieldLng: typeof field?.lng === 'number' ? field.lng : null,
+    city: field ? field.city || null : null,
     customLocation: t.customLocation,
     startsAt: t.startsAt,
     endsAt: t.endsAt,
@@ -301,7 +307,7 @@ async function listTournaments(user, query = {}) {
     take: limit,
     skip: offset,
     include: {
-      field: { select: { name: true, city: true } },
+      field: { select: FIELD_SUMMARY_SELECT },
       _count: { select: { teams: { where: { status: 'APPROVED' } } } },
     },
   });
@@ -310,7 +316,7 @@ async function listTournaments(user, query = {}) {
 
 async function getOverview(user, id) {
   const { tournament, role } = await loadForViewer(prisma, id, user, {
-    include: { field: { select: { name: true, city: true } } },
+    include: { field: { select: FIELD_SUMMARY_SELECT } },
   });
   const [teamCounts, matchCounts, myMember] = await Promise.all([
     prisma.tournamentTeam.groupBy({ by: ['status'], where: { tournamentId: id }, _count: { _all: true } }),

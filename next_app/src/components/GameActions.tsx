@@ -13,38 +13,43 @@ import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 
 // Icons
-import NavigationRoundedIcon from "@mui/icons-material/NavigationRounded";
 import IosShareRoundedIcon from "@mui/icons-material/IosShareRounded";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
+import OpenInMapLinks from "@/components/OpenInMapLinks";
+import { venueMapInput, type MapLocationInput } from "@joinup/shared/mapLinks";
 
 export default function GameActions({
   gameId,
   fieldName,
   lat,
   lng,
+  address,
+  customLat,
+  customLng,
+  customLocation,
 }: {
   gameId: string;
   fieldName?: string;
   lat?: number | null;
   lng?: number | null;
+  address?: string | null;
+  customLat?: number | null;
+  customLng?: number | null;
+  customLocation?: string | null;
 }) {
-  const isLoc = typeof lat === "number" && typeof lng === "number";
-
-  // Compute a native-friendly navigation URL (iOS -> Apple Maps; others -> Google Maps)
-  const isIOS =
-    typeof navigator !== "undefined" &&
-    (/iPad|iPhone|iPod/.test(navigator.userAgent) || /Macintosh/.test(navigator.userAgent) && "ontouchend" in document);
-  const isAndroid =
-    typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
-  const navHref =
-    isLoc && isIOS
-      ? `http://maps.apple.com/?ll=${lat},${lng}&q=${encodeURIComponent(fieldName || "Destination")}`
-      : isLoc && isAndroid
-      // geo: scheme tends to trigger the Android intent picker when no default is pinned
-      ? `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(fieldName || "Destination")})`
-      : isLoc
-      ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
-      : undefined;
+  const location: MapLocationInput = {
+    lat,
+    lng,
+    customLat,
+    customLng,
+    address,
+    customLocation,
+    name: fieldName,
+  };
+  const venue = venueMapInput(location);
+  const pinLat = venue?.lat;
+  const pinLng = venue?.lng;
+  const isLoc = typeof pinLat === "number" && typeof pinLng === "number";
 
   const { open, setOpen, url, copyState, copyLink, share } = useShareDialog();
   const shareText = (link: string) => `${fieldName ? `${fieldName} – ` : ""}הצטרפו למשחק: ${link}`;
@@ -91,7 +96,7 @@ export default function GameActions({
 
       {isLoc && (
         <Box sx={{ borderTop: "1px solid", borderColor: "divider" }}>
-          <GameLocationMap lat={lat as number} lng={lng as number} title={fieldName} height={200} />
+          <GameLocationMap lat={pinLat as number} lng={pinLng as number} title={fieldName} height={200} />
         </Box>
       )}
 
@@ -107,20 +112,7 @@ export default function GameActions({
           "& > *": { flex: { xs: 1, sm: "0 0 auto" }, minHeight: 44 },
         }}
       >
-        {isLoc && navHref && (
-          <Button
-            component="a"
-            variant="contained"
-            disableElevation
-            startIcon={<NavigationRoundedIcon fontSize="small" />}
-            href={navHref}
-            target="_blank"
-            rel="noreferrer"
-            sx={{ borderRadius: 999, fontWeight: 800, px: 2.5 }}
-          >
-            ניווט
-          </Button>
-        )}
+        <OpenInMapLinks location={location} />
 
         <Button
           variant="outlined"

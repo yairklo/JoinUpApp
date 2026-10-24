@@ -60,6 +60,10 @@
       "types": "./chatSend.d.ts",
       "default": "./chatSend.js"
     },
+    "./mapLinks": {
+      "types": "./mapLinks.d.ts",
+      "default": "./mapLinks.js"
+    },
     "./tournament/*": {
       "types": "./tournament/*.d.ts",
       "default": "./tournament/*.js"

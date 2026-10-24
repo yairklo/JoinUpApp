@@ -1852,5 +1852,11 @@
       "dates": "{{from}}–{{to}}",
       "noResultsRetry": "Couldn't load tournaments"
     }
+  },
+  "map": {
+    "openInMap": "Open in map",
+    "waze": "Waze",
+    "googleMaps": "Google Maps",
+    "appleMaps": "Apple Maps"
   }
 }

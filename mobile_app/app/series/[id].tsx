@@ -22,6 +22,7 @@ import FriendsOnlyLinkPolicyPicker from '@/components/FriendsOnlyLinkPolicyPicke
 import SeriesJoinRequests from '@/components/series/SeriesJoinRequests';
 import type { FriendsOnlyLinkPolicy } from '@/types/game';
 import SafeImage from '@/components/SafeImage';
+import OpenInMapButton from '@/components/OpenInMapButton';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -451,6 +452,14 @@ export default function SeriesScreen() {
                             </Text>
                         </View>
                     )}
+                    <OpenInMapButton
+                        location={{
+                            lat: series.fieldLat,
+                            lng: series.fieldLng,
+                            address: series.fieldLocation,
+                            name: series.fieldName,
+                        }}
+                    />
                     <View className="flex-row items-center mb-5">
                         <FontAwesome name="clock-o" size={16} color="#6b7280" style={{ width: 24 }} />
                         <Text className="text-gray-600 text-base">{dayName}, {series.time}</Text>

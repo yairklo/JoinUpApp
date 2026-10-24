@@ -9,6 +9,8 @@ import SeriesMembersPanel from "@/components/SeriesMembersPanel";
 import SeriesJoinRequestsPanel from "@/components/SeriesJoinRequestsPanel";
 import type { FriendsOnlyLinkPolicy } from "@/types/game";
 import GameLocationMap from "@/components/GameLocationMap";
+import OpenInMapLinks from "@/components/OpenInMapLinks";
+import { buildMapLinks } from "@joinup/shared/mapLinks";
 
 // MUI Imports
 import Container from "@mui/material/Container";
@@ -268,9 +270,37 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                 </CardContent>
             </Card>
 
-            {typeof series.fieldLat === "number" && typeof series.fieldLng === "number" && (
+            {buildMapLinks({
+                lat: series.fieldLat,
+                lng: series.fieldLng,
+                address: series.fieldLocation,
+                name: series.fieldName,
+            }) && (
                 <Card sx={{ mb: 4, overflow: "hidden" }}>
-                    <GameLocationMap lat={series.fieldLat} lng={series.fieldLng} title={series.fieldName} height={240} />
+                    {typeof series.fieldLat === "number" && typeof series.fieldLng === "number" && (
+                        <GameLocationMap lat={series.fieldLat} lng={series.fieldLng} title={series.fieldName} height={240} />
+                    )}
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        useFlexGap
+                        flexWrap="wrap"
+                        sx={{
+                            p: 2,
+                            borderTop: typeof series.fieldLat === "number" && typeof series.fieldLng === "number" ? "1px solid" : "none",
+                            borderColor: "divider",
+                            "& > *": { minHeight: 44 },
+                        }}
+                    >
+                        <OpenInMapLinks
+                            location={{
+                                lat: series.fieldLat,
+                                lng: series.fieldLng,
+                                address: series.fieldLocation,
+                                name: series.fieldName,
+                            }}
+                        />
+                    </Stack>
                 </Card>
             )}
 
