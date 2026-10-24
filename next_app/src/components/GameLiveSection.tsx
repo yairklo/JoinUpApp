@@ -32,6 +32,7 @@ import { getGameVisibility } from "@/utils/gameStatus";
 import { normalizeIncomingGame } from "@/utils/timezone";
 import { gamesApi } from "@/services/api/games";
 import { useAuth } from "@clerk/nextjs";
+import { lotteryViewerCopy } from "@joinup/shared/gameViewerCopy";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 
@@ -68,10 +69,12 @@ export type LiveGame = {
   participants: Participant[];
   registrationOpensAt?: string | null;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
   waitlistOfferPending?: boolean;
+  viewerJoinRequiresApproval?: boolean;
   lotteryEnabled?: boolean;
   lotteryPending?: boolean;
+  organizerInLottery?: boolean;
   totalSignups?: number;
   organizerId: string;
   chatRoomId?: string;
@@ -253,6 +256,22 @@ export default function GameLiveSection({
   const { finished, showJoinCtas } = getGameVisibility(game);
   const isWaitlistOfferPending = game.waitlistOfferPending === true && !finished;
   const isWaitlisted = game.viewerParticipationStatus === "WAITLISTED" && !finished;
+  const lotteryCopy = lotteryViewerCopy({
+    lotteryEnabled: game.lotteryEnabled,
+    lotteryPending: game.lotteryPending,
+    lotteryAt: game.lotteryAt,
+    viewerParticipationStatus: game.viewerParticipationStatus,
+    // `participants` is the confirmed roster. `currentPlayers` is sometimes the
+    // pre-draw signup total (the page header), which would hide free seats.
+    seatsFree: (game.participants?.length || 0) < (game.maxPlayers || 0),
+    viewerIsOrganizer: !!viewerId && viewerId === game.organizerId,
+    organizerInLottery: game.organizerInLottery,
+  });
+  const isLotteryPool = lotteryCopy?.kind === "pool" && !finished;
+  const notSelectedJoinLabel =
+    lotteryCopy?.kind === "not_selected" && !game.viewerJoinRequiresApproval
+      ? lotteryCopy.joinLabel
+      : null;
 
   return (
     <>
@@ -308,8 +327,73 @@ export default function GameLiveSection({
         </Alert>
       )}
 
+      {/* ── Lottery pool: this banner is what a WAITLISTED member sees while the draw is pending. ── */}
+      {isLotteryPool && lotteryCopy && !isWaitlistOfferPending && (
+        <Alert
+          severity="info"
+          dir="rtl"
+          data-testid="lottery-pool-banner"
+          sx={{
+            mb: 2,
+            borderRadius: 2,
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+        >
+          <AlertTitle sx={{ fontWeight: "bold" }}>{lotteryCopy.title}</AlertTitle>
+          {lotteryCopy.detail && (
+            <Typography variant="body2" mb={1.5}>
+              {lotteryCopy.detail}
+            </Typography>
+          )}
+          {waitlistError && (
+            <Typography variant="caption" color="error" display="block" mb={1}>
+              {waitlistError}
+            </Typography>
+          )}
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            disabled={waitlistActionLoading}
+            onClick={leaveWaitlist}
+            data-testid="lottery-cancel"
+          >
+            {lotteryCopy.cancelLabel}
+          </Button>
+        </Alert>
+      )}
+
+      {lotteryCopy?.kind === "not_selected" && !finished && (
+        <Alert
+          severity="warning"
+          dir="rtl"
+          data-testid="lottery-not-selected-banner"
+          sx={{
+            mb: 2,
+            borderRadius: 2,
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+        >
+          <AlertTitle sx={{ fontWeight: "bold" }}>{lotteryCopy.title}</AlertTitle>
+          {showJoinCtas && lotteryCopy.detail && (
+            <Typography variant="body2">{lotteryCopy.detail}</Typography>
+          )}
+        </Alert>
+      )}
+
+      {lotteryCopy?.kind === "selected" && !finished && (
+        <Alert
+          severity="success"
+          dir="rtl"
+          data-testid="lottery-selected-banner"
+          sx={{ mb: 2, borderRadius: 2 }}
+        >
+          <AlertTitle sx={{ fontWeight: "bold", mb: 0 }}>{lotteryCopy.title}</AlertTitle>
+        </Alert>
+      )}
+
       {/* ── Waitlist Status Banner (user waiting, no active offer yet) ── */}
-      {isWaitlisted && !isWaitlistOfferPending && (
+      {isWaitlisted && !isWaitlistOfferPending && !isLotteryPool && (
         <Alert
           severity="info"
           dir="rtl"
@@ -323,6 +407,11 @@ export default function GameLiveSection({
           <Typography variant="body2" mb={1.5}>
             הרשמת כמחליף. אם יתפנה מקום, תקבל הודעה ותוכל לאשר כאן.
           </Typography>
+          {waitlistError && (
+            <Typography variant="caption" color="error" display="block" mb={1}>
+              {waitlistError}
+            </Typography>
+          )}
           <Button
             variant="outlined"
             color="error"
@@ -370,11 +459,13 @@ export default function GameLiveSection({
         viewerState={
           joined
             ? "joined"
-            : isWaitlisted || isWaitlistOfferPending
-              ? "waitlisted"
-              : game.viewerParticipationStatus === "PENDING"
-                ? "pending"
-                : null
+            : isLotteryPool
+              ? "lottery"
+              : isWaitlisted || isWaitlistOfferPending
+                ? "waitlisted"
+                : game.viewerParticipationStatus === "PENDING"
+                  ? "pending"
+                  : null
         }
       >
         {!showJoinCtas ? null : joined ? (
@@ -395,6 +486,8 @@ export default function GameLiveSection({
             viewerParticipationStatus={game.viewerParticipationStatus}
             waitlistOfferPending={game.waitlistOfferPending}
             lotteryPending={!!game.lotteryPending}
+            lotteryAt={game.lotteryAt}
+            joinLabel={notSelectedJoinLabel}
             onJoined={mergeAndSet}
             onRequestSent={mergeAndSet}
           />

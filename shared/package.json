@@ -60,6 +60,10 @@
       "types": "./chatSend.d.ts",
       "default": "./chatSend.js"
     },
+    "./gameViewerCopy": {
+      "types": "./gameViewerCopy.d.ts",
+      "default": "./gameViewerCopy.js"
+    },
     "./tournament/*": {
       "types": "./tournament/*.d.ts",
       "default": "./tournament/*.js"

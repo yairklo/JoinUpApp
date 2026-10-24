@@ -15,6 +15,8 @@ import GameResultSection from '@/components/GameResultSection';
 import GameDetailsSkeleton from '@/components/GameDetailsSkeleton';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
+import { lotteryViewerCopy } from '@joinup/shared/gameViewerCopy';
+import { mapJoinAlert } from '@/utils/apiError';
 import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { tryParseJerusalemTimeToUTC } from '@/utils/timezone';
 import BackButton from '@/components/ui/BackButton';
@@ -172,7 +174,7 @@ export default function GameDetailsScreen() {
             }
             setGame(result);
         } catch (err: any) {
-            Alert.alert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || t('game.joinFailed', 'ההצטרפות למשחק נכשלה'));
+            Alert.alert(t('common.error', 'שגיאה'), mapJoinAlert(err, t('game.joinFailed', 'ההצטרפות למשחק נכשלה')));
         } finally {
             setActionLoading(false);
         }
@@ -289,6 +291,20 @@ export default function GameDetailsScreen() {
     const isPendingApproval = false;
     const isRejected = game.viewerParticipationStatus === 'REJECTED';
     const isWaitlisted = game.viewerParticipationStatus === 'WAITLISTED' && !isWaitlistOfferPending;
+    const seatsFree = (game.currentPlayers || 0) < game.maxPlayers;
+    const lotteryCopy = lotteryViewerCopy({
+        lotteryEnabled: game.lotteryEnabled,
+        lotteryPending: game.lotteryPending,
+        lotteryAt: game.lotteryAt,
+        viewerParticipationStatus: game.viewerParticipationStatus,
+        seatsFree,
+        viewerIsOrganizer: isOrganizer,
+        organizerInLottery: game.organizerInLottery,
+    });
+    const isLotteryPool = lotteryCopy?.kind === 'pool';
+    const notSelectedJoinLabel = lotteryCopy?.kind === 'not_selected' && !game.viewerJoinRequiresApproval
+        ? lotteryCopy.joinLabel
+        : null;
     const approvalOnlyHint = isOrganizerApprovalPending(game);
     const isCancelled = game.status === 'CANCELLED';
     const heroSportKey = resolveSportKey(game.sport);
@@ -418,7 +434,31 @@ export default function GameDetailsScreen() {
                     </View>
                 )}
 
-                {isWaitlisted && !isWaitlistOfferPending && (
+                {isLotteryPool && lotteryCopy && (
+                    <View testID="lottery-pool-banner" className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
+                        <Text className="text-brand-ink font-bold text-base text-center mb-1">{lotteryCopy.title}</Text>
+                        {!!lotteryCopy.detail && (
+                            <Text className="text-brand-dark text-sm text-center">{lotteryCopy.detail}</Text>
+                        )}
+                    </View>
+                )}
+
+                {lotteryCopy?.kind === 'not_selected' && !isCancelled && game.status !== 'COMPLETED' && (
+                    <View testID="lottery-not-selected-banner" className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                        <Text className="text-amber-900 font-bold text-base text-center mb-1">{lotteryCopy.title}</Text>
+                        {!!lotteryCopy.detail && (
+                            <Text className="text-amber-800 text-sm text-center">{lotteryCopy.detail}</Text>
+                        )}
+                    </View>
+                )}
+
+                {lotteryCopy?.kind === 'selected' && !isCancelled && (
+                    <View testID="lottery-selected-banner" className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-green-50 border border-green-200">
+                        <Text className="text-green-800 font-bold text-base text-center">{lotteryCopy.title}</Text>
+                    </View>
+                )}
+
+                {isWaitlisted && !isWaitlistOfferPending && !isLotteryPool && (
                     <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
                         <Text className="text-brand-ink font-bold text-base text-center mb-1">{t('game.waitlisted', 'ברשימת המתנה')}</Text>
                         <Text className="text-brand-dark text-sm text-center">
@@ -705,6 +745,21 @@ export default function GameDetailsScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : isWaitlisted ? (
+                        isLotteryPool && lotteryCopy ? (
+                            <View testID="lottery-pool-action">
+                                <Text className="text-gray-800 dark:text-cyber-text font-bold text-[15px] text-center">{lotteryCopy.title}</Text>
+                                {!!lotteryCopy.detail && (
+                                    <Text className="text-gray-600 dark:text-cyber-muted text-[13px] text-center mt-1 mb-2">{lotteryCopy.detail}</Text>
+                                )}
+                                <TouchableOpacity
+                                    onPress={handleעזוב}
+                                    disabled={actionLoading}
+                                    className="h-[52px] rounded-2xl items-center justify-center border border-red-200 bg-white dark:bg-cyber-card"
+                                >
+                                    <Text className="text-red-600 font-bold text-[15px]">{lotteryCopy.cancelLabel}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
                         <View className="flex-row gap-3 items-center">
                             <View className="flex-1 min-h-[52px] px-3 py-2 rounded-2xl items-center justify-center bg-gray-100 dark:bg-cyber-border">
                                 <Text className="text-gray-700 dark:text-cyber-text font-bold text-[14px] text-center">{t('game.waitlistStatus', 'הרשמת כמחליף (ברשימת המתנה)')}</Text>
@@ -717,6 +772,7 @@ export default function GameDetailsScreen() {
                                 <Text className="text-red-600 font-bold text-[14px]">{t('game.cancelWaitlist', 'בטל הרשמה כמחליף')}</Text>
                             </TouchableOpacity>
                         </View>
+                        )
                     ) : isPendingApproval ? (
                         <View className="h-[52px] rounded-2xl items-center justify-center bg-amber-50 border border-amber-200">
                             <Text className="text-amber-700 font-bold text-[16px]">{t('game.requestPending')}</Text>
@@ -743,11 +799,12 @@ export default function GameDetailsScreen() {
                                 <ActivityIndicator color="white" />
                             ) : (
                                 <Text className="text-white font-bold text-[16px]">
-                                    {isFull
-                                        ? t('game.joinWaitlist', 'הצטרף לרשימת המתנה')
-                                        : game.joinPolicy === 'REQUIRES_APPROVAL'
-                                            ? t('game.requestToJoin', 'בקש להצטרף')
-                                            : t('game.joinGame', 'הצטרף למשחק')}
+                                    {notSelectedJoinLabel
+                                        || (isFull
+                                            ? t('game.joinWaitlist', 'הצטרף לרשימת המתנה')
+                                            : game.joinPolicy === 'REQUIRES_APPROVAL'
+                                                ? t('game.requestToJoin', 'בקש להצטרף')
+                                                : t('game.joinGame', 'הצטרף למשחק'))}
                                 </Text>
                             )}
                         </TouchableOpacity>

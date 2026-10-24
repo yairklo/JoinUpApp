@@ -16,7 +16,7 @@ interface Props {
   gameDate?: string;
   teams?: Array<{ id: string; name: string; color: string; playerIds: string[] }>;
   viewerId: string;
-  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
 }
 
 /** Thin container: wires the presentational panel/editor/dispute dialog to useGameResult. */

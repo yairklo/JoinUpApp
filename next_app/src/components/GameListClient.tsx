@@ -26,7 +26,7 @@ type Game = {
   registrationOpensAt?: string | null;
   title?: string | null;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
 };
 
 export default function GameListClient({ games }: { games: Game[] }) {
@@ -76,6 +76,8 @@ export default function GameListClient({ games }: { games: Game[] }) {
                     registrationOpensAt={g.registrationOpensAt}
                     joinPolicy={g.joinPolicy}
                     viewerParticipationStatus={g.viewerParticipationStatus}
+                    lotteryPending={!!g.lotteryPending}
+                    lotteryAt={g.lotteryAt}
                   />
                 ) : null}
               </div>

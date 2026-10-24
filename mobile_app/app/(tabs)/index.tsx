@@ -80,6 +80,8 @@ export default function HomeScreen() {
                                 joinPolicy={item.joinPolicy}
                                 viewerParticipationStatus={item.viewerParticipationStatus}
                                 waitlistOfferPending={item.waitlistOfferPending}
+                                lotteryPending={!!item.lotteryPending}
+                                lotteryAt={item.lotteryAt}
                                 isFull={item.currentPlayers >= item.maxPlayers}
                                 onJoined={() => { }}
                             />

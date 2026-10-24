@@ -55,6 +55,7 @@ type Game = {
   lotteryEnabled?: boolean;
   lotteryAt?: string | null;
   lotteryPending?: boolean;
+  organizerInLottery?: boolean;
   overbooked?: boolean;
   totalSignups?: number;
   waitlistCount?: number;
@@ -70,7 +71,7 @@ type Game = {
   friendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;
   viewerJoinRequiresApproval?: boolean;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
   waitlistOfferPending?: boolean;
   teamSize?: number | null;
   price?: number | null;
@@ -187,8 +188,10 @@ export default async function GameDetails(props: {
               joinPolicy: game.joinPolicy,
               viewerParticipationStatus: game.viewerParticipationStatus,
               waitlistOfferPending: game.waitlistOfferPending,
+              viewerJoinRequiresApproval: game.viewerJoinRequiresApproval,
               lotteryEnabled: game.lotteryEnabled,
               lotteryPending: game.lotteryPending,
+              organizerInLottery: game.organizerInLottery,
               totalSignups: game.totalSignups,
               organizerId: game.organizerId,
               chatRoomId: game.chatRoomId,

@@ -6,6 +6,8 @@ import { useGameUpdate } from "@/context/GameUpdateContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { hasWaitlistOffer } from "@/utils/waitlistOffer";
+import { lotteryViewerCopy } from "@joinup/shared/gameViewerCopy";
+import { mapJoinAlert } from "@/utils/apiError";
 
 export default function JoinGameButton({
     gameId,
@@ -14,14 +16,18 @@ export default function JoinGameButton({
     viewerParticipationStatus,
     waitlistOfferPending,
     isFull,
+    lotteryPending,
+    lotteryAt,
     onJoined,
     onRequestSent,
 }: {
     gameId: string;
     registrationOpensAt?: string | null;
     joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-    viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+    viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
     waitlistOfferPending?: boolean;
+    lotteryPending?: boolean;
+    lotteryAt?: string | null;
     /** When true, join goes to the standby queue — do not bump currentPlayers. */
     isFull?: boolean;
     onJoined?: () => void;
@@ -61,6 +67,14 @@ export default function JoinGameButton({
     // A REQUIRES_APPROVAL rejection is terminal (server blocks re-requesting); an INSTANT game lets
     // a previously-rejected user join normally, so this only locks the button for the approval flow.
     const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
+    const poolCopy = viewerParticipationStatus === "WAITLISTED"
+        ? lotteryViewerCopy({
+            lotteryEnabled: !!lotteryPending,
+            lotteryPending: !!lotteryPending,
+            lotteryAt,
+            viewerParticipationStatus: "WAITLISTED",
+        })
+        : null;
 
     const now = new Date();
     const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
@@ -93,7 +107,7 @@ export default function JoinGameButton({
             if (onJoined) onJoined();
         } catch (e: any) {
             console.error("Join Failed:", e);
-            Alert.alert(t('common.error', 'שגיאה'), e?.message || t('game.joinFailed', 'ההצטרפות למשחק נכשלה'));
+            Alert.alert(t('common.error', 'שגיאה'), mapJoinAlert(e, t('game.joinFailed', 'ההצטרפות למשחק נכשלה')));
         } finally {
             setLoading(false);
         }
@@ -165,7 +179,7 @@ export default function JoinGameButton({
             >
                 <Ionicons name="time-outline" size={16} color="#6b7280" />
                 <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-600 font-bold flex-shrink">
-                    {t('game.waitlisted', 'ברשימת המתנה')}
+                    {poolCopy ? poolCopy.title : t('game.waitlisted', 'ברשימת המתנה')}
                 </Text>
             </TouchableOpacity>
         );

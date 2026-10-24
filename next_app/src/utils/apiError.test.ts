@@ -42,6 +42,17 @@ describe("mapJoinError guest window", () => {
     const err = Object.assign(new Error("Registration is not yet open for guests"), { status: 400, code: "GUEST_REGISTRATION_NOT_OPEN" });
     expect(mapJoinError(err)).toBe("ההרשמה לאורחים טרם נפתחה - חברי הקבוצה נרשמים ראשונים");
   });
+
+  test("includes the guest opening time when the server returns it", () => {
+    const err = Object.assign(new Error("Registration is not yet open for guests"), {
+      status: 400,
+      code: "GUEST_REGISTRATION_NOT_OPEN",
+      body: { guestRegistrationOpensAt: "2026-10-24T15:00:00.000Z" },
+    });
+    expect(mapJoinError(err)).toBe(
+      "ההרשמה לאורחים טרם נפתחה - חברי הקבוצה נרשמים ראשונים. נפתחת ב-24/10/2026 בשעה 18:00",
+    );
+  });
 });
 
 describe("mapFriendRequestError", () => {
