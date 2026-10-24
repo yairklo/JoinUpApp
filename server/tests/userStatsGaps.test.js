@@ -59,10 +59,11 @@ describe('user stats gaps: ownerHidden + team-derived history badge', () => {
     const result = await prisma.gameResult.create({
       data: { gameId: game.id, sport: 'SOCCER', recordedById: OPP, lockedAt: new Date(Date.now() + 7 * 24 * HOUR) },
     });
+    const round = await prisma.gameResultRound.create({ data: { resultId: result.id, order: 1 } });
     await prisma.gameResultSide.createMany({
       data: [
-        { resultId: result.id, order: 0, teamId: red.id, label: 'Red', score: 1, outcome: 'LOSS' },
-        { resultId: result.id, order: 1, teamId: blue.id, label: 'Blue', score: 4, outcome: 'WIN' },
+        { resultId: result.id, roundId: round.id, order: 0, teamId: red.id, label: 'Red', score: 1, outcome: 'LOSS' },
+        { resultId: result.id, roundId: round.id, order: 1, teamId: blue.id, label: 'Blue', score: 4, outcome: 'WIN' },
       ],
     });
   });

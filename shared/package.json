@@ -56,6 +56,10 @@
       "types": "./matchStats.d.ts",
       "default": "./matchStats.js"
     },
+    "./eveningSummary": {
+      "types": "./eveningSummary.d.ts",
+      "default": "./eveningSummary.js"
+    },
     "./chatSend": {
       "types": "./chatSend.d.ts",
       "default": "./chatSend.js"

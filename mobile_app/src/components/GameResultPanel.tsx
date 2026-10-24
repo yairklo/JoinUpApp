@@ -38,6 +38,74 @@ const cardShell =
     'bg-white dark:bg-cyber-card rounded-2xl p-5 border border-gray-100 dark:border-cyber-border mx-4 mt-4 overflow-hidden';
 const COLLAPSE_AT = 6;
 
+function EveningBoard({ result, roster }: { result: GameResultRecord; roster: GameResultRosterEntry[] }) {
+    const { t } = useTranslation();
+    const rounds = result.rounds || [];
+    const summary = result.summary;
+    const nameOf = (id: string) => roster.find((p) => p.userId === id)?.name || t('results.evening.player');
+    return (
+        <View testID="evening-board" className="mt-4">
+            {rounds.map((round) => {
+                const [a, b] = [...round.sides].sort((x, y) => x.order - y.order);
+                if (!a || !b) return null;
+                return (
+                    <View
+                        key={round.order}
+                        testID={`evening-round-row-${round.order}`}
+                        accessible
+                        accessibilityLabel={`${a.label} ${a.score}, ${b.label} ${b.score}`}
+                        className="flex-row items-center min-h-[44px]"
+                    >
+                        <Text
+                            numberOfLines={1}
+                            className={`flex-1 text-[15px] text-gray-900 dark:text-cyber-text ${a.outcome === 'WIN' ? 'font-extrabold' : 'font-semibold'}`}
+                        >
+                            {a.label}
+                        </Text>
+                        <Text className="text-xl font-extrabold text-gray-900 dark:text-cyber-text px-2" style={tabular}>
+                            {a.score}–{b.score}
+                        </Text>
+                        <Text
+                            numberOfLines={1}
+                            className={`flex-1 text-[15px] text-end text-gray-900 dark:text-cyber-text ${b.outcome === 'WIN' ? 'font-extrabold' : 'font-semibold'}`}
+                        >
+                            {b.label}
+                        </Text>
+                    </View>
+                );
+            })}
+            {summary && (summary.teams.length > 0 || summary.players.length > 0) ? (
+                <View testID="evening-summary" className="mt-3 p-3 rounded-2xl bg-gray-50 dark:bg-cyber-bg">
+                    <Text className="font-extrabold text-gray-900 dark:text-cyber-text mb-1">{t('results.evening.summary')}</Text>
+                    {summary.teams.map((team) => (
+                        <Text key={team.teamId || team.label} className="text-gray-800 dark:text-cyber-text py-0.5">
+                            {t('results.evening.teamRecord', {
+                                label: team.label,
+                                w: team.wins,
+                                d: team.draws,
+                                l: team.losses,
+                                gf: team.goalsFor,
+                                ga: team.goalsAgainst,
+                            })}
+                        </Text>
+                    ))}
+                    {summary.players.map((player) => (
+                        <Text key={player.userId} className="text-gray-500 dark:text-cyber-muted py-0.5">
+                            {t('results.evening.playerRecord', {
+                                name: nameOf(player.userId),
+                                w: player.wins,
+                                d: player.draws,
+                                l: player.losses,
+                            })}
+                            {player.goals ? ` · ${t('results.evening.goals', { n: player.goals })}` : ''}
+                        </Text>
+                    ))}
+                </View>
+            ) : null}
+        </View>
+    );
+}
+
 function Swatch({ color }: { color: string }) {
     return (
         <View
@@ -272,6 +340,10 @@ export default function GameResultPanel({
                 ) : null}
             </View>
 
+            {(result.rounds?.length ?? 0) > 1 ? (
+                <EveningBoard result={result} roster={roster} />
+            ) : (
+            <>
             {/* Scoreboard: three separate flex children so RTL puts side 0 at the start edge (rule 1.1) */}
             <View accessible accessibilityLabel={a11y} className="mt-5">
                 <View className="flex-row items-center" importantForAccessibility="no-hide-descendants">
@@ -366,6 +438,8 @@ export default function GameResultPanel({
                     })}
                 </View>
             ) : null}
+            </>
+            )}
 
             {result.notes ? (
                 <View testID="game-result-notes" className="mt-2 ps-3 border-s-[3px] border-gray-200 dark:border-cyber-border">

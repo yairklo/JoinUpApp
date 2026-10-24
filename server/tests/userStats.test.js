@@ -62,12 +62,14 @@ describe('user stats, privacy and match-history results', () => {
     const result = await prisma.gameResult.create({
       data: { gameId: game.id, sport, recordedById: OPP, lockedAt: new Date(Date.now() + 7 * 24 * HOUR) },
     });
+    const round = await prisma.gameResultRound.create({ data: { resultId: result.id, order: 1 } });
     const mine = await prisma.gameResultSide.create({
-      data: { resultId: result.id, order: 0, label: 'Mine', score: scores[0], outcome },
+      data: { resultId: result.id, roundId: round.id, order: 0, label: 'Mine', score: scores[0], outcome },
     });
     await prisma.gameResultSide.create({
       data: {
         resultId: result.id,
+        roundId: round.id,
         order: 1,
         label: 'Theirs',
         score: scores[1],

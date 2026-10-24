@@ -37,17 +37,64 @@ function pastGamesWhere(userId, now = new Date()) {
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
-function countOutcome(agg, outcome, outcomeKnown, gameId) {
-  outcomeKnown.add(gameId);
+/**
+ * Profile stat policy for multi-round evenings (docs/plans/2026-10-multi-round-results.md):
+ * - `games` counts the evening once, never once per round.
+ * - `wins` / `draws` / `losses` are match results. A game contributes one of them only when it
+ *   has a single round (every historical result and every new one-score save). A multi-round
+ *   evening has no single winner, so it does not change these and does not increment
+ *   `gamesWithOutcome`.
+ * - `roundWins` / `roundDraws` / `roundLosses` count each round the player took part in.
+ *   A single-round game contributes one round outcome too, so the counters match until an
+ *   evening with several rounds is recorded.
+ * - Goal totals stay the sum of PlayerStatEntry (one row per player per game, summed across rounds).
+ */
+function emptyAgg(sport) {
+  return {
+    sport,
+    games: 0,
+    gamesWithOutcome: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    roundWins: 0,
+    roundDraws: 0,
+    roundLosses: 0,
+    entries: [],
+  };
+}
+
+function countOutcome(agg, outcome, matchOutcomeByGame, gameId) {
+  matchOutcomeByGame.set(gameId, outcome);
   agg.gamesWithOutcome += 1;
   if (outcome === 'WIN') agg.wins += 1;
   else if (outcome === 'DRAW') agg.draws += 1;
   else agg.losses += 1;
 }
 
+function undoOutcome(agg, outcome, matchOutcomeByGame, gameId) {
+  if (!matchOutcomeByGame.has(gameId)) return;
+  matchOutcomeByGame.delete(gameId);
+  agg.gamesWithOutcome = Math.max(0, agg.gamesWithOutcome - 1);
+  if (outcome === 'WIN') agg.wins = Math.max(0, agg.wins - 1);
+  else if (outcome === 'DRAW') agg.draws = Math.max(0, agg.draws - 1);
+  else agg.losses = Math.max(0, agg.losses - 1);
+}
+
+function addRound(agg, outcome) {
+  if (outcome === 'WIN') agg.roundWins += 1;
+  else if (outcome === 'DRAW') agg.roundDraws += 1;
+  else if (outcome === 'LOSS') agg.roundLosses += 1;
+}
+
+function isKnownOutcome(outcome) {
+  return outcome === 'WIN' || outcome === 'DRAW' || outcome === 'LOSS';
+}
+
 /**
  * Per-sport aggregates over a user's recorded game stats.
- * Response shape per sport: { sport, games, gamesWithOutcome, wins, draws, losses, totals, perGame }.
+ * Response shape per sport: { sport, games, gamesWithOutcome, wins, draws, losses,
+ * roundWins, roundDraws, roundLosses, totals, perGame }.
  */
 async function computeUserStats(userId, { sport } = {}) {
   const entries = await prisma.playerStatEntry.findMany({
@@ -59,28 +106,93 @@ async function computeUserStats(userId, { sport } = {}) {
     ? await prisma.gameResultSide.findMany({ where: { id: { in: sideIds } }, select: { id: true, outcome: true } })
     : [];
   const outcomeBySide = new Map(sides.map((s) => [s.id, s.outcome]));
+  // Absent on hermetic mocks that predate round rows. Real Prisma always has the delegate.
+  const roundRows = typeof prisma.gameResultRoundPlayer?.findMany === 'function'
+    ? await prisma.gameResultRoundPlayer.findMany({
+        where: {
+          userId,
+          ...(sport ? { side: { round: { result: { game: { sport } } } } } : {}),
+        },
+        select: {
+          side: {
+            select: {
+              outcome: true,
+              round: {
+                select: {
+                  id: true,
+                  result: {
+                    select: {
+                      gameId: true,
+                      game: { select: { sport: true } },
+                      _count: { select: { rounds: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      })
+    : [];
 
   const bySport = new Map();
   const seenGames = new Set();
-  const outcomeKnown = new Set();
+  const matchOutcomeByGame = new Map();
+  const sportByGame = new Map();
   for (const e of entries) {
     const sp = e.game?.sport;
     if (!sp) continue;
-    if (!bySport.has(sp)) bySport.set(sp, { sport: sp, games: 0, gamesWithOutcome: 0, wins: 0, draws: 0, losses: 0, entries: [] });
+    sportByGame.set(e.gameId, sp);
+    if (!bySport.has(sp)) bySport.set(sp, emptyAgg(sp));
     const agg = bySport.get(sp);
     agg.entries.push({ key: e.key, value: e.value });
     const outcome = outcomeBySide.get(e.sideId);
-    const known = outcome === 'WIN' || outcome === 'DRAW' || outcome === 'LOSS';
+    const known = isKnownOutcome(outcome);
     // `games` counts every game with stats (per-game averages use it); `gamesWithOutcome` counts only
     // games whose W/D/L is known, so wins + draws + losses === gamesWithOutcome (use it for win rate).
     // A game is counted once, upgraded to "known" if any of its rows carries a side with an outcome.
     if (seenGames.has(e.gameId)) {
-      if (known && !outcomeKnown.has(e.gameId)) countOutcome(agg, outcome, outcomeKnown, e.gameId);
+      if (known && !matchOutcomeByGame.has(e.gameId)) countOutcome(agg, outcome, matchOutcomeByGame, e.gameId);
       continue;
     }
     seenGames.add(e.gameId);
     agg.games += 1;
-    if (known) countOutcome(agg, outcome, outcomeKnown, e.gameId);
+    if (known) countOutcome(agg, outcome, matchOutcomeByGame, e.gameId);
+  }
+
+  const roundByGame = new Map();
+  for (const row of roundRows) {
+    const result = row.side?.round?.result;
+    const gameId = result?.gameId;
+    const sp = result?.game?.sport;
+    const roundId = row.side?.round?.id;
+    if (!gameId || !sp || !roundId) continue;
+    sportByGame.set(gameId, sp);
+    if (!roundByGame.has(gameId)) {
+      roundByGame.set(gameId, { sport: sp, total: result._count?.rounds ?? 1, rounds: new Map() });
+    }
+    const info = roundByGame.get(gameId);
+    if (!info.rounds.has(roundId)) info.rounds.set(roundId, row.side.outcome);
+  }
+  for (const [gameId, info] of roundByGame) {
+    if (!bySport.has(info.sport)) bySport.set(info.sport, emptyAgg(info.sport));
+    const agg = bySport.get(info.sport);
+    if (!seenGames.has(gameId)) {
+      seenGames.add(gameId);
+      agg.games += 1;
+    }
+    for (const outcome of info.rounds.values()) addRound(agg, outcome);
+    if (info.total > 1 && matchOutcomeByGame.has(gameId)) {
+      undoOutcome(agg, matchOutcomeByGame.get(gameId), matchOutcomeByGame, gameId);
+    } else if (info.total <= 1 && !matchOutcomeByGame.has(gameId)) {
+      const known = [...info.rounds.values()].find(isKnownOutcome);
+      if (known) countOutcome(agg, known, matchOutcomeByGame, gameId);
+    }
+  }
+  for (const [gameId, outcome] of matchOutcomeByGame) {
+    if (roundByGame.has(gameId)) continue;
+    const agg = bySport.get(sportByGame.get(gameId));
+    if (agg) addRound(agg, outcome);
   }
 
   return [...bySport.values()]
@@ -108,7 +220,20 @@ async function withPlayedCounts(userId, sports, { sport } = {}) {
   const out = sports.map((s) => ({ ...s, gamesPlayed: Math.max(played.get(s.sport) || 0, s.games) }));
   for (const [sp, count] of played) {
     if (!sp || out.some((s) => s.sport === sp)) continue;
-    out.push({ sport: sp, games: 0, gamesWithOutcome: 0, wins: 0, draws: 0, losses: 0, totals: {}, perGame: {}, gamesPlayed: count });
+    out.push({
+      sport: sp,
+      games: 0,
+      gamesWithOutcome: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      roundWins: 0,
+      roundDraws: 0,
+      roundLosses: 0,
+      totals: {},
+      perGame: {},
+      gamesPlayed: count,
+    });
   }
   return out.sort((a, b) => b.gamesPlayed - a.gamesPlayed || a.sport.localeCompare(b.sport));
 }
@@ -144,6 +269,9 @@ function buildStatsSummary(sports) {
     wins: top.wins,
     draws: top.draws,
     losses: top.losses,
+    roundWins: top.roundWins ?? 0,
+    roundDraws: top.roundDraws ?? 0,
+    roundLosses: top.roundLosses ?? 0,
     headline,
   };
 }
@@ -175,16 +303,52 @@ async function getResultsForGames(userId, gameIds) {
   if (!candidateGames.length) return new Map();
   const results = await prisma.gameResult.findMany({
     where: { gameId: { in: candidateGames } },
-    select: { gameId: true, sides: { select: { id: true, order: true, score: true, outcome: true, teamId: true } } },
+    select: {
+      gameId: true,
+      rounds: {
+        orderBy: { order: 'asc' },
+        select: {
+          sides: {
+            orderBy: { order: 'asc' },
+            select: {
+              id: true,
+              order: true,
+              score: true,
+              outcome: true,
+              teamId: true,
+              players: { where: { userId }, select: { goals: true } },
+            },
+          },
+        },
+      },
+      sides: { select: { id: true, order: true, score: true, outcome: true, teamId: true } },
+    },
   });
   const resultByGame = new Map(results.map((r) => [r.gameId, r]));
 
+  const singleSides = (r) => (r.rounds?.[0]?.sides?.length ? r.rounds[0].sides : [...r.sides].sort((a, b) => a.order - b.order));
+  const multi = (r) => (r.rounds?.length || 0) > 1;
+
   const badge = (r, mineId, teamId) => {
-    const sorted = [...r.sides].sort((a, b) => a.order - b.order);
+    const sorted = singleSides(r);
     const mine = sorted.find((s) => s.id === mineId) || (teamId ? sorted.find((s) => s.teamId === teamId) : undefined);
     const other = mine ? sorted.find((s) => s !== mine) : null;
     const [a, b] = mine && other ? [mine, other] : sorted;
     return { outcome: mine ? mine.outcome : null, score: a && b ? `${a.score}-${b.score}` : null, myStats: {} };
+  };
+
+  // Several rounds have no single match score. The badge carries the round record instead.
+  const roundBadge = (r, teamId) => {
+    const record = { wins: 0, draws: 0, losses: 0 };
+    for (const round of r.rounds) {
+      const side = round.sides.find((s) => (s.players || []).length)
+        || (teamId ? round.sides.find((s) => s.teamId === teamId) : undefined);
+      if (!side) continue;
+      if (side.outcome === 'WIN') record.wins += 1;
+      else if (side.outcome === 'DRAW') record.draws += 1;
+      else if (side.outcome === 'LOSS') record.losses += 1;
+    }
+    return { outcome: null, score: null, myStats: {}, rounds: record };
   };
 
   const out = new Map();
@@ -193,7 +357,7 @@ async function getResultsForGames(userId, gameIds) {
     if (!r) continue;
     let item = out.get(e.gameId);
     if (!item) {
-      item = badge(r, e.sideId, teamByGame.get(e.gameId));
+      item = multi(r) ? roundBadge(r, teamByGame.get(e.gameId)) : badge(r, e.sideId, teamByGame.get(e.gameId));
       out.set(e.gameId, item);
     }
     item.myStats[e.key] = e.value;
@@ -201,6 +365,11 @@ async function getResultsForGames(userId, gameIds) {
   for (const [gameId, teamId] of teamByGame) {
     const r = resultByGame.get(gameId);
     if (out.has(gameId) || !r) continue;
+    if (multi(r)) {
+      const item = roundBadge(r, teamId);
+      if (item.rounds.wins + item.rounds.draws + item.rounds.losses > 0) out.set(gameId, item);
+      continue;
+    }
     const item = badge(r, null, teamId);
     if (item.outcome) out.set(gameId, item); // no badge when the team matches no side
   }
