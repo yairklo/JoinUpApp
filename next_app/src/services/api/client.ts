@@ -67,7 +67,10 @@ export async function apiClient<T>(endpoint: string, { token, data, ...customCon
         const result = await response.json();
         return mapGameTimezones(result) as T;
     } catch (error) {
-        console.error(`API Call Failed [${url}]:`, error);
+        // Leaving a page aborts the read. That is not a failed call.
+        if ((error as { name?: string } | null)?.name !== 'AbortError') {
+            console.error(`API Call Failed [${url}]:`, error);
+        }
         throw error;
     }
 }
