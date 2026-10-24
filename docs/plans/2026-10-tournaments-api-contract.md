@@ -65,6 +65,8 @@ Winners/losers advance automatically (WINNER_OF / LOSER_OF); group ranks resolve
 - `GET /:id/standings` -> `{ tournamentId, tables:[{ stageId, stageName, stageType, groupId, groupName, complete, needsManualRank, manualOrder, rows:[{ rank, team:{id,name,color,logoUrl}, played, won, drawn, lost, gf, ga, gd, points, autoPoints, pointsAdjustment, adjustmentReason, tied, manualRank, withdrawn? }] }] }`
 - `PUT /:id/standings/override` (manager+) `{ stageId, groupId|null, teamOrder:[teamId...], adjustments?:[{ teamId, points, reason }] }` -> `{ ok, changedMatchIds }`. `teamOrder` must list every team currently in that group/league table once. `points` is a non-zero integer from -100 to 100; `reason` is required (1–200 chars). Replaces any previous override for that table.
 - `DELETE /:id/standings/override` (manager+) `{ stageId, groupId|null }` -> `{ ok, changedMatchIds }`. 404 when that table has no override.
+- `GET /:id/bracket` -> `{ tournamentId, stages:[{ stageId, name, rounds:[{ round, name, matches:[Match & {isThirdPlace}] }] }] }`
+- `GET /:id/stats/leaders?key=&limit=` -> `{ tournamentId, key, label:{he,en}, keys, leaders:[{ rank, userId, name, imageUrl, teamId, teamName, value, matches }] }` (users with `hideMatchStats` excluded)
 
 ### How a standings override interacts with automatic results
 Automatic columns (`played`, W/D/L, goals, goal difference, `autoPoints`) are always recomputed from finished/forfeit matches and are not stored. With no override, the table order is that automatic ranking; `TournamentTeam.manualRank` still pins a team to break a tie the tiebreakers could not separate.
@@ -75,8 +77,6 @@ When an override exists (`manualOrder: true`):
 - `needsManualRank` is false: the manual order separates ties. Per-team `manualRank` pins are ignored for ordering until reset, then they apply again.
 - Knockout `GROUP_RANK` slots follow this same order. The write is refused with `409 OVERRIDE_BLOCKED` when a finished downstream match would have to change, and nothing is saved.
 - Draft and cancelled tournaments refuse the write with `409 TOURNAMENT_CLOSED`. Scorekeepers and other users get `403`. Viewers only see the note and the per-row reason; they cannot edit.
-- `GET /:id/bracket` -> `{ tournamentId, stages:[{ stageId, name, rounds:[{ round, name, matches:[Match & {isThirdPlace}] }] }] }`
-- `GET /:id/stats/leaders?key=&limit=` -> `{ tournamentId, key, label:{he,en}, keys, leaders:[{ rank, userId, name, imageUrl, teamId, teamName, value, matches }] }` (users with `hideMatchStats` excluded)
 
 ## Notifications (types already in the schema)
 `TOURNAMENT_TEAM_INVITE` (invitee), `TOURNAMENT_TEAM_DECISION` (captain, also waitlist promotion), `TOURNAMENT_MATCH_SCHEDULED` (players of both teams; one digest per player on bulk generation), `TOURNAMENT_STARTING_SOON` (players, 60 min before, from the leader-locked job). Preference categories reuse `invitations` / `myGames` / `gameReminders`. `data` always has `tournamentId` and `link: '/tournaments/<id>'`; match notifications add `matchId`.
