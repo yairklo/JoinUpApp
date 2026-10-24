@@ -82,7 +82,33 @@ export function calendarUrl(m: TournamentMatch, title: string, location?: string
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${f(start)}/${f(end)}&location=${encodeURIComponent(location ?? '')}`;
 }
 
-/** Signed goal difference with a real minus (U+2212). */
+const LRI = '\u2066';
+const PDI = '\u2069';
+
+/** LTR isolate so a leading sign stays in front ("+4", "−1") inside an RTL paragraph. */
+export function ltrIsolate(text: string): string {
+    return `${LRI}${text}${PDI}`;
+}
+
+/**
+ * English stage labels stored by older schedule builders. New schedules already
+ * write Hebrew (`ליגה`, `נוקאאוט`, `בתים`, `משחקים`); this only covers those leftovers.
+ */
+const STAGE_NAME_HE: Record<string, string> = {
+    League: 'ליגה',
+    Knockout: 'נוקאאוט',
+    Groups: 'בתים',
+    Matches: 'משחקים',
+};
+
+export function displayStageName(name: string | null | undefined, lang: Lang = 'he'): string {
+    if (!name) return '';
+    if (lang === 'en') return name;
+    return STAGE_NAME_HE[name] ?? name;
+}
+
+/** Signed goal difference with a real minus (U+2212), isolated LTR. */
 export function fmtGd(n: number): string {
-    return n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0';
+    const body = n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0';
+    return ltrIsolate(body);
 }

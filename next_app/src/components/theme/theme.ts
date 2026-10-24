@@ -107,6 +107,12 @@ const componentOverrides: ThemeOptions["components"] = {
       root: { fontWeight: 700 },
     },
   },
+  MuiRating: {
+    defaultProps: {
+      emptyLabelText: "ריק",
+      getLabelText: (value: number) => `${value} ${value === 1 ? "כוכב" : "כוכבים"}`,
+    },
+  },
 };
 
 // --- LIGHT THEME ---

@@ -7,7 +7,7 @@ import type {
     TournamentMatch,
     TournamentStatus,
 } from '@/types/tournament';
-import { dayKey, type Lang } from './matchFormat';
+import { dayKey, ltrIsolate, type Lang } from './matchFormat';
 
 const TZ = 'Asia/Jerusalem';
 const loc = (lang: Lang) => (lang === 'he' ? 'he-IL' : 'en-US');
@@ -22,6 +22,23 @@ function fmt(iso: string, lang: Lang, opts: Intl.DateTimeFormatOptions): string 
 
 /** "12/11" */
 export const fmtShortDate = (iso: string, lang: Lang) => fmt(iso, lang, { day: 'numeric', month: 'numeric' });
+
+/**
+ * Registration window copy. Omits a missing bound instead of printing a placeholder dash
+ * ("ההרשמה: – – 24.10"). Dates are LTR-isolated so "24.10" is not reordered.
+ */
+export function registrationWindowCopy(
+    opensAt: string | null | undefined,
+    closesAt: string | null | undefined,
+    lang: Lang,
+): { key: string; values: Record<string, string> } | null {
+    const from = opensAt ? fmtShortDate(opensAt, lang) : '';
+    const to = closesAt ? fmtShortDate(closesAt, lang) : '';
+    if (from && to) return { key: 'tournaments.overview.registrationWindow', values: { range: ltrIsolate(`${from} – ${to}`) } };
+    if (to) return { key: 'tournaments.overview.registrationUntil', values: { date: ltrIsolate(to) } };
+    if (from) return { key: 'tournaments.overview.registrationFrom', values: { date: ltrIsolate(from) } };
+    return null;
+}
 
 /** "12–14/11" for a range within one month, "12/11–2/12" otherwise, a single date when there is no end. */
 export function fmtDateRange(startsAt: string, endsAt: string | null | undefined, lang: Lang): string {

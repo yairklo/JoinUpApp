@@ -255,7 +255,7 @@ export default function StandingsTable({
                                                 key={c.key}
                                                 sx={{ textAlign: "center", typography: "body2", fontWeight: c.key === "points" ? 800 : 500 }}
                                             >
-                                                {c.key === "gd" ? <bdi dir="ltr">{formatGd(row.gd)}</bdi> : row[c.key]}
+                                                {c.key === "gd" ? <bdi dir="ltr">{`\u2066${formatGd(row.gd)}\u2069`}</bdi> : row[c.key]}
                                             </TableCell>
                                         ))}
                                     </TableRow>
