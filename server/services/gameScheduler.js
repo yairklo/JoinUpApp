@@ -204,7 +204,12 @@ class GameScheduler {
   // (e.g. right after a rearm) is always a safe no-op. --------------------------------------
 
   async _runLottery(gameId) {
-    const prisma = this.prisma;
+    return this.drawLottery(this.prisma, gameId);
+  }
+
+  // Idempotent: the updateMany claim means exactly one caller draws. Also called lazily from the
+  // join route when the timer was missed (process down at lotteryAt), with the route's own client.
+  async drawLottery(prisma, gameId) {
     const now = new Date();
     // Due-time re-check (defence in depth): a stale timer must not run the lottery early.
     const due = await prisma.game.findUnique({

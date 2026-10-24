@@ -22,7 +22,8 @@ export default function JoinGameButton({
   registrationOpensAt,
   joinPolicy,
   viewerParticipationStatus,
-  waitlistOfferPending
+  waitlistOfferPending,
+  lotteryPending
 }: {
   gameId: string;
   onJoined?: (updatedGame?: any) => void;
@@ -31,6 +32,7 @@ export default function JoinGameButton({
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
   viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
   waitlistOfferPending?: boolean;
+  lotteryPending?: boolean;
 }) {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -158,7 +160,7 @@ export default function JoinGameButton({
         ) : viewerParticipationStatus === "WAITLISTED" ? (
           <Box display="flex" flexDirection="column" gap={1} alignItems="flex-end">
             <Typography variant="body2" color="text.secondary" fontWeight="bold" align="right" sx={{ mb: 0.5 }}>
-              הרשמת כמחליף (ברשימת המתנה)
+              {lotteryPending ? "נרשמת להגרלה – המקומות יוגרלו במועד ההגרלה" : "הרשמת כמחליף (ברשימת המתנה)"}
             </Typography>
             <Button
               onClick={leaveWaitlist}
@@ -167,7 +169,7 @@ export default function JoinGameButton({
               color="error"
               size="small"
             >
-              בטל הרשמה כמחליף
+              {lotteryPending ? "בטל הרשמה להגרלה" : "בטל הרשמה כמחליף"}
             </Button>
           </Box>
         ) : viewerParticipationStatus === "CONFIRMED" ? (

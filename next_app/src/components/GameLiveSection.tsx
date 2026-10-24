@@ -394,6 +394,7 @@ export default function GameLiveSection({
             joinPolicy={game.joinPolicy}
             viewerParticipationStatus={game.viewerParticipationStatus}
             waitlistOfferPending={game.waitlistOfferPending}
+            lotteryPending={!!game.lotteryPending}
             onJoined={mergeAndSet}
             onRequestSent={mergeAndSet}
           />

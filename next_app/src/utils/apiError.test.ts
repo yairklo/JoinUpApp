@@ -55,3 +55,14 @@ describe("mapFriendRequestError", () => {
   });
 });
 
+
+describe("mapJoinError server reasons", () => {
+  test("shows the server reason for an unmapped 400", () => {
+    const e = Object.assign(new Error("Some specific reason"), { status: 400 });
+    expect(mapJoinError(e)).toBe("Some specific reason");
+  });
+  test("keeps generic copy for 5xx", () => {
+    const e = Object.assign(new Error("boom"), { status: 500 });
+    expect(mapJoinError(e)).toBe("שגיאת שרת זמנית, נסה שוב בעוד רגע");
+  });
+});
