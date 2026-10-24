@@ -20,6 +20,7 @@ const {
 const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 const { isBlockedEitherWay } = require('../utils/blocks');
 const { getGameAccess, applyViewerAccess } = require('../utils/friendsOnlyAccess');
+const { isGameInsider, isGuestWindowClosed } = require('../utils/membersGuests');
 
 const router = express.Router();
 
@@ -70,6 +71,19 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 
     if (game.registrationOpensAt && new Date() < new Date(game.registrationOpensAt)) {
       return res.status(400).json({ error: 'Registration is not yet open' });
+    }
+
+    // Members-only priority: guests (non-members, the organizer's friends included) wait for the
+    // later guest window. Someone already on the roster keeps their spot.
+    if (game.membersOnlyPriority && isGuestWindowClosed(game)) {
+      const onRoster = game.participants.some((p) => p.userId === req.user.id);
+      if (!onRoster && !(await isGameInsider(prisma, game, req.user.id, { isAdmin: !!req.user?.isAdmin }))) {
+        return res.status(400).json({
+          error: 'Registration is not yet open for guests',
+          code: 'GUEST_REGISTRATION_NOT_OPEN',
+          guestRegistrationOpensAt: new Date(game.guestRegistrationOpensAt).toISOString(),
+        });
+      }
     }
 
     const existing = await prisma.participation.findFirst({

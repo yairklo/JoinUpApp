@@ -70,6 +70,11 @@ export default function SeriesScreen() {
     const [organizerInLottery, setOrganizerInLottery] = useState(false);
     const [teamSize, setTeamSize] = useState('');
     const [welcomeMessage, setWelcomeMessage] = useState('');
+    const [membersOnlyPriority, setMembersOnlyPriority] = useState(false);
+    const [guestHours, setGuestHours] = useState('');
+    const [guestPrice, setGuestPrice] = useState('');
+    const [guestDescription, setGuestDescription] = useState('');
+    const [guestWelcomeMessage, setGuestWelcomeMessage] = useState('');
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [duration, setDuration] = useState('1');
     const [regMode, setRegMode] = useState<RegistrationOpenMode>('none');
@@ -111,6 +116,11 @@ export default function SeriesScreen() {
             setOrganizerInLottery(!!data.organizerInLottery);
             setTeamSize(data.teamSize ? String(data.teamSize) : '');
             setWelcomeMessage(data.welcomeMessage || '');
+            setMembersOnlyPriority(!!data.membersOnlyPriority);
+            setGuestHours(data.guestRegistrationOpenHours != null ? String(data.guestRegistrationOpenHours) : '');
+            setGuestPrice(data.guestPrice != null ? String(data.guestPrice) : '');
+            setGuestDescription(data.guestDescription || '');
+            setGuestWelcomeMessage(data.guestWelcomeMessage || '');
             setImageUrl(data.imageUrl || null);
             setDuration(data.duration ? String(data.duration) : '1');
             setRegMode(initialRegMode(data.registrationOpenDayOfWeek, data.registrationOpenTime, data.autoOpenRegistrationHours));
@@ -189,6 +199,17 @@ export default function SeriesScreen() {
             if (organizerInLottery !== !!series.organizerInLottery) changes.organizerInLottery = organizerInLottery;
             if (nextTeamSize !== (series.teamSize ?? null)) changes.teamSize = nextTeamSize;
             if (welcomeMessage !== (series.welcomeMessage || '')) changes.welcomeMessage = welcomeMessage || null;
+            if (membersOnlyPriority !== !!series.membersOnlyPriority) changes.membersOnlyPriority = membersOnlyPriority;
+            const nextGuestHours = guestHours.trim() === '' ? null : Number(guestHours);
+            if (nextGuestHours !== null && !(Number.isFinite(nextGuestHours) && nextGuestHours >= 0)) {
+                Alert.alert(t('common.error', 'שגיאה'), t('series.guestHoursInvalid', 'שעות פתיחה לאורחים חייבות להיות מספר חיובי'));
+                return;
+            }
+            if (nextGuestHours !== (series.guestRegistrationOpenHours ?? null)) changes.guestRegistrationOpenHours = nextGuestHours;
+            const nextGuestPrice = guestPrice.trim() === '' ? null : parseInt(guestPrice, 10);
+            if (nextGuestPrice !== (series.guestPrice ?? null)) changes.guestPrice = nextGuestPrice;
+            if (guestDescription !== (series.guestDescription || '')) changes.guestDescription = guestDescription || null;
+            if (guestWelcomeMessage !== (series.guestWelcomeMessage || '')) changes.guestWelcomeMessage = guestWelcomeMessage || null;
 
             // Registration opening: send exactly one mode, and only when it changed -- the server rewrites
             // registrationOpensAt on every future game whenever these fields are sent.
@@ -306,7 +327,7 @@ export default function SeriesScreen() {
         // Cancelling a pending request uses the same call as leaving (DELETE subscribe).
         const leaving = prev || requestStatus === 'PENDING';
         if (leaving) setIsSubscribed(false);
-        else if (series?.viewerAccess !== 'REQUEST') setIsSubscribed(true);
+        else if (series?.viewerAccess !== 'REQUEST' && !series?.viewerJoinRequiresApproval) setIsSubscribed(true);
         try {
             const token = await getToken();
             if (!token) return;
@@ -435,6 +456,19 @@ export default function SeriesScreen() {
                         <Text className="text-gray-600 text-base">{dayName}, {series.time}</Text>
                     </View>
 
+                    {!!series.description && (
+                        <Text className="text-gray-700 text-base mb-5" testID="series-description">{series.description}</Text>
+                    )}
+                    {!!series.membersOnlyPriority && !series.viewerIsMember && (!!series.guestDescription || series.guestPrice != null) && (
+                        <View className="bg-gray-50 rounded-xl p-3 mb-5" testID="series-guest-info">
+                            <Text className="text-gray-800 font-bold mb-1">{t('series.guestsTitle', 'לאורחים')}</Text>
+                            {!!series.guestDescription && <Text className="text-gray-700">{series.guestDescription}</Text>}
+                            {series.guestPrice != null && (
+                                <Text className="text-gray-700">{t('series.guestPriceLine', 'מחיר לאורחים')}: ₪{series.guestPrice}</Text>
+                            )}
+                        </View>
+                    )}
+
                     {typeof series.fieldLat === 'number' && typeof series.fieldLng === 'number' && (
                         <View style={{ height: 160, borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
                             <MapView
@@ -482,7 +516,7 @@ export default function SeriesScreen() {
                             <Text className={`font-bold text-base ${isSubscribed ? 'text-brand-dark' : 'text-white'}`}>
                                 {isSubscribed
                                     ? t('series.subscribed', 'Subscribed ✓')
-                                    : series.viewerAccess === 'REQUEST'
+                                    : (series.viewerAccess === 'REQUEST' || series.viewerJoinRequiresApproval)
                                         ? t('series.requestToJoin')
                                         : t('series.subscribe', 'Subscribe to Group')}
                             </Text>
@@ -766,6 +800,47 @@ export default function SeriesScreen() {
                                     multiline
                                     className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 text-base min-h-[60px]"
                                 />
+
+                                <View className="flex-row justify-between items-center mb-4">
+                                    <Text className="text-gray-700 font-bold w-3/4">{t('series.membersOnlyPriority', 'עדיפות לחברי הקבוצה (הרשמה מוקדמת)')}</Text>
+                                    <Switch
+                                        value={membersOnlyPriority}
+                                        onValueChange={setMembersOnlyPriority}
+                                        trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                                    />
+                                </View>
+                                {membersOnlyPriority && (
+                                    <View className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200" testID="guest-settings">
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.guestHours', 'הרשמה לאורחים נפתחת (שעות לפני המשחק)')}</Text>
+                                        <TextInput
+                                            value={guestHours}
+                                            onChangeText={setGuestHours}
+                                            keyboardType="decimal-pad"
+                                            className="bg-white p-3 rounded-lg border border-gray-200 mb-3 text-base"
+                                        />
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.guestPrice', 'מחיר לאורחים (₪, להצגה בלבד)')}</Text>
+                                        <TextInput
+                                            value={guestPrice}
+                                            onChangeText={setGuestPrice}
+                                            keyboardType="number-pad"
+                                            className="bg-white p-3 rounded-lg border border-gray-200 mb-3 text-base"
+                                        />
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.guestDescription', 'תיאור לאורחים')}</Text>
+                                        <TextInput
+                                            value={guestDescription}
+                                            onChangeText={setGuestDescription}
+                                            multiline
+                                            className="bg-white p-3 rounded-lg border border-gray-200 mb-3 text-base min-h-[60px]"
+                                        />
+                                        <Text className="text-gray-700 font-bold mb-2">{t('series.guestWelcomeMessage', 'הודעת פתיחה לאורחים (נשלחת בפרטי)')}</Text>
+                                        <TextInput
+                                            value={guestWelcomeMessage}
+                                            onChangeText={setGuestWelcomeMessage}
+                                            multiline
+                                            className="bg-white p-3 rounded-lg border border-gray-200 text-base min-h-[60px]"
+                                        />
+                                    </View>
+                                )}
 
                                 <View className="flex-row justify-between items-center mb-4">
                                     <Text className="text-gray-700 font-bold w-3/4">{t('series.friendsOnly', 'Friends-only games')}</Text>

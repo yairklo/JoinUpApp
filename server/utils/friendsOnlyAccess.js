@@ -76,7 +76,8 @@ async function getGameAccess(prisma, game, viewerId, { isAdmin = false } = {}) {
           select: { id: true },
         })
       : null,
-    areFriends(prisma, game.organizerId, viewerId),
+    // With members-only priority the organizer's friends are outsiders unless they are members.
+    game.membersOnlyPriority ? false : areFriends(prisma, game.organizerId, viewerId),
   ]);
   if (role || member || friend) return 'FULL';
 
@@ -137,6 +138,22 @@ async function getSeriesAccess(prisma, series, viewerId, { isAdmin = false } = {
   return outsiderAccess(series.friendsOnlyLinkPolicy);
 }
 
+/**
+ * What joining the group (becoming a member) takes for this viewer: 'FULL' joins directly,
+ * 'REQUEST' needs a manager's approval, 'NONE' may not join. On a members-only-priority group
+ * every non-member needs approval, the organizer's friends included.
+ */
+async function getSeriesJoinAccess(prisma, series, viewerId, { isAdmin = false } = {}) {
+  const access = await getSeriesAccess(prisma, series, viewerId, { isAdmin });
+  if (access !== 'FULL' || !series.membersOnlyPriority) return access;
+  if (isAdmin || !viewerId || series.organizerId === viewerId) return viewerId ? 'FULL' : access;
+  const member = await prisma.seriesParticipant.findUnique({
+    where: { seriesId_userId: { seriesId: series.id, userId: viewerId } },
+    select: { id: true },
+  });
+  return member ? 'FULL' : 'REQUEST';
+}
+
 /** Prisma `where` for group lists: friends-only groups only for insiders (like buildVisibilityWhere). */
 function seriesVisibilityWhere(viewerId) {
   if (!viewerId) return { isFriendsOnly: false };
@@ -159,5 +176,6 @@ module.exports = {
   applyViewerAccess,
   organizerIsFriendWhere,
   getSeriesAccess,
+  getSeriesJoinAccess,
   seriesVisibilityWhere,
 };

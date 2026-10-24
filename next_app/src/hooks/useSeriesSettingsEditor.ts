@@ -33,6 +33,11 @@ export interface SeriesSettingsEditorHookProps {
     initialOrganizerInLottery?: boolean | null;
     initialTeamSize?: number | null;
     initialWelcomeMessage?: string | null;
+    initialMembersOnlyPriority?: boolean | null;
+    initialGuestRegistrationOpenHours?: number | null;
+    initialGuestWelcomeMessage?: string | null;
+    initialGuestDescription?: string | null;
+    initialGuestPrice?: number | null;
 }
 
 const MIN_MAX_PLAYERS = 2;
@@ -62,6 +67,11 @@ export function useSeriesSettingsEditor({
     seriesType,
     initialTitle,
     initialDescription,
+    initialMembersOnlyPriority,
+    initialGuestRegistrationOpenHours,
+    initialGuestWelcomeMessage,
+    initialGuestDescription,
+    initialGuestPrice,
     initialImageUrl,
     initialAutoOpenHours,
     initialRegOpenDay,
@@ -113,6 +123,14 @@ export function useSeriesSettingsEditor({
     const [organizerInLottery, setOrganizerInLottery] = useState<boolean>(!!initialOrganizerInLottery);
     const [teamSize, setTeamSize] = useState<number | null>(initialTeamSize ?? null);
     const [welcomeMessage, setWelcomeMessage] = useState<string>(initialWelcomeMessage || "");
+    // Members vs guests: members get the early window, guests open `guestHours` before the game.
+    const [membersOnlyPriority, setMembersOnlyPriority] = useState<boolean>(!!initialMembersOnlyPriority);
+    const [guestHours, setGuestHours] = useState<string>(
+        initialGuestRegistrationOpenHours !== null && initialGuestRegistrationOpenHours !== undefined ? String(initialGuestRegistrationOpenHours) : "",
+    );
+    const [guestWelcomeMessage, setGuestWelcomeMessage] = useState<string>(initialGuestWelcomeMessage || "");
+    const [guestDescription, setGuestDescription] = useState<string>(initialGuestDescription || "");
+    const [guestPrice, setGuestPrice] = useState<number | null>(initialGuestPrice ?? null);
 
     // Field / venue state (same mechanism as game editing)
     const [fields, setFields] = useState<FieldOption[]>([]);
@@ -173,6 +191,11 @@ export function useSeriesSettingsEditor({
         setFriendsOnlyLinkPolicy(initialFriendsOnlyLinkPolicy || "REQUEST_TO_JOIN");
         setRequiresApproval(initialJoinPolicy === "REQUIRES_APPROVAL");
         setLotteryEnabled(!!initialLotteryEnabled);
+        setMembersOnlyPriority(!!initialMembersOnlyPriority);
+        setGuestHours(initialGuestRegistrationOpenHours !== null && initialGuestRegistrationOpenHours !== undefined ? String(initialGuestRegistrationOpenHours) : "");
+        setGuestWelcomeMessage(initialGuestWelcomeMessage || "");
+        setGuestDescription(initialGuestDescription || "");
+        setGuestPrice(initialGuestPrice ?? null);
         setOrganizerInLottery(!!initialOrganizerInLottery);
         setTeamSize(initialTeamSize ?? null);
         setWelcomeMessage(initialWelcomeMessage || "");
@@ -233,6 +256,12 @@ export function useSeriesSettingsEditor({
                 if (organizerInLottery !== !!initialOrganizerInLottery) changed.organizerInLottery = organizerInLottery;
                 if (teamSize !== (initialTeamSize ?? null)) changed.teamSize = teamSize;
                 if (welcomeMessage !== (initialWelcomeMessage || "")) changed.welcomeMessage = welcomeMessage;
+                if (membersOnlyPriority !== !!initialMembersOnlyPriority) changed.membersOnlyPriority = membersOnlyPriority;
+                const guestHoursValue = guestHours.trim() === "" ? null : Number(guestHours);
+                if (guestHoursValue !== (initialGuestRegistrationOpenHours ?? null)) changed.guestRegistrationOpenHours = guestHoursValue;
+                if (guestWelcomeMessage !== (initialGuestWelcomeMessage || "")) changed.guestWelcomeMessage = guestWelcomeMessage || null;
+                if (guestDescription !== (initialGuestDescription || "")) changed.guestDescription = guestDescription || null;
+                if (guestPrice !== (initialGuestPrice ?? null)) changed.guestPrice = guestPrice;
                 return changed;
             };
 
@@ -284,7 +313,14 @@ export function useSeriesSettingsEditor({
                 body: JSON.stringify(payload),
             });
 
-            if (!res.ok) throw new Error("Failed to update series");
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                if (body?.code === "GUEST_WINDOW_BEFORE_MEMBERS") {
+                    alert("פתיחת ההרשמה לאורחים חייבת להיות אחרי פתיחת ההרשמה לחברים (או באותו זמן)");
+                    return;
+                }
+                throw new Error("Failed to update series");
+            }
 
             router.refresh();
             handleClose();
@@ -328,12 +364,14 @@ export function useSeriesSettingsEditor({
             open, loading, deleteDialogOpen,
             title, description, imageUrl, hours, regMode, regDay, regTime, time, duration, updateFutureGames,
             maxPlayers, price, sport, isFriendsOnly, friendsOnlyLinkPolicy, requiresApproval, lotteryEnabled, organizerInLottery, teamSize, welcomeMessage,
+            membersOnlyPriority, guestHours, guestWelcomeMessage, guestDescription, guestPrice,
             fields, selectedField, newFieldMode, newField,
             seriesType, initialDayOfWeek,
         },
         actions: {
             setTitle, setDescription, setImageUrl, setHours, setRegMode, setRegDay, setRegTime, setTime, setDuration, setUpdateFutureGames,
             setMaxPlayers, setPrice, setSport, setIsFriendsOnly, setFriendsOnlyLinkPolicy, setRequiresApproval, setLotteryEnabled, setOrganizerInLottery, setTeamSize, setWelcomeMessage,
+            setMembersOnlyPriority, setGuestHours, setGuestWelcomeMessage, setGuestDescription, setGuestPrice,
             setSelectedField, setNewFieldMode, setNewField, setDeleteDialogOpen,
             handleOpen, handleClose, handleSave, handleDeleteSuccess,
             uploadImage, removeImage, handleImageUploaded, handleImageRemoved,

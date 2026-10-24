@@ -362,6 +362,14 @@ model Game {
   isOpenToJoin         Boolean           @default(true)
   description          String?
   welcomeMessage       String?
+  /// Members-vs-guests (see utils/membersGuests.js). Copied from the group; per-game overridable.
+  membersOnlyPriority  Boolean           @default(false)
+  /// Guests (non-members of the group) may join from this moment; members from registrationOpensAt.
+  guestRegistrationOpensAt DateTime?
+  guestWelcomeMessage  String?
+  guestDescription     String?
+  /// Display-only ILS amount shown to guests. Not billed in-app.
+  guestPrice           Int?
   organizerId          String
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
@@ -689,6 +697,15 @@ model GameSeries {
   organizerInLottery        Boolean             @default(false)
   teamSize                  Int?
   welcomeMessage            String?
+  /// Members get early registration; non-members (even the organizer's friends) request
+  /// membership (SeriesJoinRequest) and register at the guest window.
+  membersOnlyPriority       Boolean             @default(false)
+  /// Guests may register this many hours before game start (<= the members' lead time).
+  guestRegistrationOpenHours Float?
+  guestWelcomeMessage       String?
+  guestDescription          String?
+  /// Display-only ILS amount shown to guests. Not billed in-app.
+  guestPrice                Int?
   organizer                 User                @relation("OrganizerSeries", fields: [organizerId], references: [id])
   games                     Game[]
   subscribers               SeriesParticipant[]
