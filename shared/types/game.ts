@@ -69,6 +69,13 @@ export type Game = {
     title?: string | null;
     description?: string | null;
     welcomeMessage?: string | null;
+    membersOnlyPriority?: boolean;
+    guestRegistrationOpensAt?: string | null;
+    guestWelcomeMessage?: string | null;
+    guestDescription?: string | null;
+    guestPrice?: number | null;
+    /** Present on members-priority games: the viewer is a member/organizer/manager (not a guest). */
+    viewerIsInsider?: boolean;
     teamSize?: number | null;
     price?: number | null;
     organizerId?: string;

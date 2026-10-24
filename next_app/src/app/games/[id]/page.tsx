@@ -15,6 +15,7 @@ import { isGameFinished } from "@/utils/gameStatus";
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
+import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 import Button from "@mui/material/Button";
 import GameManagePanel from "@/components/GameManagePanel";
@@ -39,6 +40,13 @@ type Game = {
   duration?: number;
   description: string;
   welcomeMessage?: string;
+  membersOnlyPriority?: boolean;
+  guestRegistrationOpensAt?: string | null;
+  guestWelcomeMessage?: string | null;
+  guestDescription?: string | null;
+  guestPrice?: number | null;
+  /** Present on members-priority games: the viewer is an insider (member/organizer/manager). */
+  viewerIsInsider?: boolean;
   maxPlayers: number;
   currentPlayers: number;
   participants: Participant[];
@@ -202,6 +210,24 @@ export default async function GameDetails(props: {
           />
           </SectionErrorBoundary>
 
+          {game.membersOnlyPriority && game.viewerIsInsider === false
+            && (game.guestDescription || game.guestPrice != null || game.guestRegistrationOpensAt) && (
+            <Box mt={2} p={1.5} borderRadius={1} sx={{ bgcolor: "action.hover" }} data-testid="game-guest-info">
+              <Typography variant="subtitle2" fontWeight="bold">לאורחים</Typography>
+              {game.guestDescription && (
+                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{game.guestDescription}</Typography>
+              )}
+              {game.guestPrice != null && (
+                <Typography variant="body2">מחיר לאורחים: ₪{game.guestPrice}</Typography>
+              )}
+              {game.guestRegistrationOpensAt && new Date(game.guestRegistrationOpensAt) > new Date() && (
+                <Typography variant="body2">
+                  ההרשמה לאורחים נפתחת ב-{formatJerusalemDate(game.guestRegistrationOpensAt).split("-").reverse().join("/")} {formatJerusalemTime(game.guestRegistrationOpensAt)}
+                </Typography>
+              )}
+            </Box>
+          )}
+
           <Box mt={2}>
             <SectionErrorBoundary label="ניווט והצגת המגרש">
               <GameActions
@@ -231,6 +257,12 @@ export default async function GameDetails(props: {
                     initialDuration={game.duration}
                     initialDescription={game.description}
                     initialWelcomeMessage={game.welcomeMessage}
+                    isSeriesGame={!!game.seriesId}
+                    initialMembersOnlyPriority={game.membersOnlyPriority}
+                    initialGuestRegistrationOpensAt={game.guestRegistrationOpensAt}
+                    initialGuestWelcomeMessage={game.guestWelcomeMessage}
+                    initialGuestDescription={game.guestDescription}
+                    initialGuestPrice={game.guestPrice}
                     initialFieldId={game.fieldId}
                     initialFieldName={game.fieldName}
                     initialFieldLocation={game.fieldLocation}

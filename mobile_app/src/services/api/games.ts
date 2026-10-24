@@ -17,6 +17,11 @@ export interface UpdateGameDTO {
     duration?: number;
     description?: string;
     welcomeMessage?: string;
+    membersOnlyPriority?: boolean;
+    guestRegistrationOpensAt?: string | null;
+    guestWelcomeMessage?: string | null;
+    guestDescription?: string | null;
+    guestPrice?: number | null;
     lotteryEnabled?: boolean;
     lotteryAt?: string | null;
     organizerInLottery?: boolean;

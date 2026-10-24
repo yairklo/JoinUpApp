@@ -37,6 +37,13 @@ describe("apiError 429 rate limit handling", () => {
   });
 });
 
+describe("mapJoinError guest window", () => {
+  test("guest registration not open yet gets its own copy", () => {
+    const err = Object.assign(new Error("Registration is not yet open for guests"), { status: 400, code: "GUEST_REGISTRATION_NOT_OPEN" });
+    expect(mapJoinError(err)).toBe("ההרשמה לאורחים טרם נפתחה - חברי הקבוצה נרשמים ראשונים");
+  });
+});
+
 describe("mapFriendRequestError", () => {
   test("USER_BLOCKED uses the same copy as a generic failure", () => {
     const blocked = Object.assign(new Error("Cannot send a request to this user"), {

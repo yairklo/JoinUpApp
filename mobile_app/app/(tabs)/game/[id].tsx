@@ -366,6 +366,17 @@ export default function GameDetailsScreen() {
                     <StatTile label={t('game.statPrice', 'מחיר')} value={game.price ? `₪${game.price}` : t('game.free')} />
                 </View>
 
+                {!!game.membersOnlyPriority && game.viewerIsInsider === false
+                    && (!!game.guestDescription || game.guestPrice != null) && (
+                    <View className="mx-4 mt-3 p-3 rounded-xl bg-gray-50 dark:bg-cyber-card" testID="game-guest-info">
+                        <Text className="font-bold text-gray-800 dark:text-white mb-1">{t('game.guestsTitle', 'לאורחים')}</Text>
+                        {!!game.guestDescription && <Text className="text-gray-700 dark:text-cyber-muted">{game.guestDescription}</Text>}
+                        {game.guestPrice != null && (
+                            <Text className="text-gray-700 dark:text-cyber-muted">{t('game.guestPriceLine', 'מחיר לאורחים')}: ₪{game.guestPrice}</Text>
+                        )}
+                    </View>
+                )}
+
                 <View className="flex-row items-center px-5 pt-3 pb-1">
                     <FontAwesome name="map-marker" size={15} color="#9ca3af" style={{ width: 20 }} />
                     <Text className="text-gray-600 dark:text-cyber-muted text-[14px] flex-1" numberOfLines={2}>

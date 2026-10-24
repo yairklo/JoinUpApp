@@ -87,6 +87,9 @@ export function mapJoinError(error: unknown): string {
   if (normalized.includes("already a participant") || normalized.includes("already a confirmed")) {
     return "אתה כבר רשום למשחק זה";
   }
+  if (getErrorCode(error) === "GUEST_REGISTRATION_NOT_OPEN" || normalized.includes("not yet open for guests")) {
+    return "ההרשמה לאורחים טרם נפתחה - חברי הקבוצה נרשמים ראשונים";
+  }
   if (normalized.includes("not yet open") || normalized.includes("registration is not yet open")) {
     return "ההרשמה טרם נפתחה";
   }

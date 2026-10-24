@@ -23,6 +23,13 @@ const {
   getGameAccess, applyViewerAccess, normalizeLinkPolicy, organizerIsFriendWhere, isGameFriendsOnlyNow,
 } = require('../utils/friendsOnlyAccess');
 const gameScheduler = require('./gameScheduler');
+const {
+  guestGameData,
+  isGameInsider,
+  isGuestWindowOrderValid,
+  isValidGuestOpenHours,
+  pickWelcomeMessage,
+} = require('../utils/membersGuests');
 
 // Defense-in-depth limits for free-text fields written by end users. React auto-escapes these
 // on render (games/[id]/page.tsx, GameHeaderCard, GameDetailsEditor all use plain JSX
@@ -35,10 +42,15 @@ const FIELD_NAME_MAX_LENGTH = 200;
 const FIELD_LOCATION_MAX_LENGTH = 300;
 
 async function sendAutoWelcomeMessage(game, newPlayerId) {
-  if (!game || !game.welcomeMessage || !game.organizerId || game.organizerId === newPlayerId) {
+  if (!game || !(game.welcomeMessage || game.guestWelcomeMessage) || !game.organizerId || game.organizerId === newPlayerId) {
     return;
   }
   try {
+    // Members get the regular message, guests of a members-priority group their own.
+    const insider = game.membersOnlyPriority ? await isGameInsider(prisma, game, newPlayerId) : true;
+    const welcomeText = pickWelcomeMessage(game, insider);
+    if (!welcomeText) return;
+
     // 1. Get or create private chat room between organizer and new player
     let chatRoom = await prisma.chatRoom.findFirst({
       where: {
@@ -68,7 +80,7 @@ async function sendAutoWelcomeMessage(game, newPlayerId) {
     await prisma.message.create({
       data: {
         chatRoomId: chatRoom.id,
-        text: game.welcomeMessage,
+        text: welcomeText,
         userId: game.organizerId
       }
     });
@@ -237,6 +249,14 @@ function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
     pickTurnOrder,
     pickCurrentTurnIndex: game.pickCurrentTurnIndex || 0,
     welcomeMessage: game.welcomeMessage || null,
+    membersOnlyPriority: !!game.membersOnlyPriority,
+    guestRegistrationOpensAt: game.guestRegistrationOpensAt ? new Date(game.guestRegistrationOpensAt).toISOString() : null,
+    guestDescription: game.guestDescription || null,
+    guestPrice: game.guestPrice ?? null,
+    // Private chat text for joining guests: only the people who edit the game need it.
+    guestWelcomeMessage: (viewerId && (game.organizerId === viewerId || (game.roles || []).some((r) => r.userId === viewerId)))
+      ? (game.guestWelcomeMessage || null)
+      : null,
     managerPickChatId: game.managerPickChatId || null,
   };
 }
@@ -814,6 +834,12 @@ async function createGame(payload, creatorUser, io) {
     pickDrawAt,
     pickingStartsAt,
     seriesId,
+    membersOnlyPriority: rawMembersOnly,
+    guestRegistrationOpenHours: rawGuestHours,
+    guestRegistrationOpensAt: rawGuestOpensAt,
+    guestWelcomeMessage: rawGuestWelcome,
+    guestDescription: rawGuestDescription,
+    guestPrice: rawGuestPrice,
   } = payload || {};
 
   // Sanitize free-text fields once, up front -- everything below keeps using the plain
@@ -893,6 +919,28 @@ async function createGame(payload, creatorUser, io) {
     ? welcomeMessage
     : (series ? sanitizeFreeText(series.welcomeMessage, DESCRIPTION_MAX_LENGTH) : welcomeMessage);
 
+  // Members vs guests: payload values win, else a game attached to a group inherits the group's.
+  const pickGuest = (payloadValue, seriesValue) => (typeof payloadValue === 'undefined' ? seriesValue : payloadValue);
+  const guestCfg = {
+    membersOnlyPriority: !!pickGuest(rawMembersOnly, series?.membersOnlyPriority),
+    guestRegistrationOpenHours: (() => {
+      const v = pickGuest(rawGuestHours, series?.guestRegistrationOpenHours);
+      return v === null || v === undefined || v === '' ? null : Number(v);
+    })(),
+    guestWelcomeMessage: sanitizeFreeText(pickGuest(rawGuestWelcome, series?.guestWelcomeMessage), DESCRIPTION_MAX_LENGTH) || null,
+    guestDescription: sanitizeFreeText(pickGuest(rawGuestDescription, series?.guestDescription), DESCRIPTION_MAX_LENGTH) || null,
+    guestPrice: (() => {
+      const v = pickGuest(rawGuestPrice, series?.guestPrice);
+      return v === null || v === undefined || v === '' ? null : Number(v);
+    })(),
+  };
+  if (guestCfg.guestRegistrationOpenHours !== null && !isValidGuestOpenHours(guestCfg.guestRegistrationOpenHours)) {
+    throw httpError('guestRegistrationOpenHours must be a non-negative number', 400);
+  }
+  if (guestCfg.guestPrice !== null && !(Number.isInteger(guestCfg.guestPrice) && guestCfg.guestPrice >= 0)) {
+    throw httpError('guestPrice must be a non-negative integer', 400);
+  }
+
   const requestedInviteIds = Array.isArray(invitedParticipantIds)
     ? invitedParticipantIds.filter(id => typeof id === 'string' && id !== creatorUser.id)
     : [];
@@ -959,6 +1007,13 @@ async function createGame(payload, creatorUser, io) {
 
   const start = payloadStart ? new Date(payloadStart) : parseJerusalemTimeToUTC(date, time);
 
+  if (guestCfg.membersOnlyPriority && !Number.isNaN(start.getTime())) {
+    const guestAt = guestGameData(guestCfg, start, rawGuestOpensAt).guestRegistrationOpensAt;
+    if (!isGuestWindowOrderValid(registrationOpensAt, guestAt)) {
+      throw httpError('Guest registration must not open before the members registration', 400, { code: 'GUEST_WINDOW_BEFORE_MEMBERS' });
+    }
+  }
+
   // Recurrence handling (flexible: WEEKLY or CUSTOM). Returns the first generated instance.
   // Each occurrence is created with a paired group ChatRoom (id === game.id) in the same transaction.
   const isRecurring = !!recurrence && (recurrence.type || recurrence.isRecurring);
@@ -997,6 +1052,11 @@ async function createGame(payload, creatorUser, io) {
         organizerInLottery: effectiveOrganizerInLottery,
         teamSize: Number.isFinite(effectiveTeamSize) ? effectiveTeamSize : null,
         welcomeMessage: effectiveWelcomeMessage || null,
+        membersOnlyPriority: guestCfg.membersOnlyPriority,
+        guestRegistrationOpenHours: guestCfg.guestRegistrationOpenHours,
+        guestWelcomeMessage: guestCfg.guestWelcomeMessage,
+        guestDescription: guestCfg.guestDescription,
+        guestPrice: guestCfg.guestPrice,
         autoOpenRegistrationHours
       },
     });
@@ -1055,6 +1115,7 @@ async function createGame(payload, creatorUser, io) {
               roles: { create: { userId: creatorUser.id, role: 'ORGANIZER' } },
               sport: sport || 'SOCCER',
               registrationOpensAt: instanceRegOpen,
+              ...guestGameData(guestCfg, occStart),
               friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null,
               teamSize: teamSize ? parseInt(teamSize) : null,
               price: price ? parseInt(price) : null
@@ -1101,6 +1162,7 @@ async function createGame(payload, creatorUser, io) {
               roles: { create: { userId: creatorUser.id, role: 'ORGANIZER' } },
               sport: sport || 'SOCCER',
               registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
+              ...guestGameData(guestCfg, occStart),
               friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null,
               teamSize: teamSize ? parseInt(teamSize) : null,
               price: price ? parseInt(price) : null
@@ -1213,6 +1275,7 @@ async function createGame(payload, creatorUser, io) {
         },
         sport: effectiveSport,
         registrationOpensAt: registrationOpensAt ? new Date(registrationOpensAt) : null,
+        ...guestGameData(guestCfg, start, rawGuestOpensAt),
         friendsOnlyUntil: friendsOnlyUntil ? new Date(friendsOnlyUntil) : null
       },
       include: GAME_CREATE_INCLUDE,
@@ -1460,7 +1523,16 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
       lotteryEnabled: existing.lotteryEnabled,
       organizerInLottery: existing.organizerInLottery,
       teamSize: existing.teamSize,
+      // The new group starts with the game's description as its own (editable in the group settings).
+      description: existing.description || null,
       welcomeMessage: existing.welcomeMessage,
+      membersOnlyPriority: existing.membersOnlyPriority,
+      guestRegistrationOpenHours: existing.guestRegistrationOpensAt
+        ? (start.getTime() - new Date(existing.guestRegistrationOpensAt).getTime()) / 3600000
+        : null,
+      guestWelcomeMessage: existing.guestWelcomeMessage,
+      guestDescription: existing.guestDescription,
+      guestPrice: existing.guestPrice,
       autoOpenRegistrationHours: existing.registrationOpensAt
         ? (start.getTime() - new Date(existing.registrationOpensAt).getTime()) / 3600000
         : null
@@ -1540,7 +1612,14 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
         sport: existing.sport,
         registrationOpensAt: (existing.registrationOpensAt)
           ? new Date(occStart.getTime() - (start.getTime() - new Date(existing.registrationOpensAt).getTime()))
-          : null
+          : null,
+        membersOnlyPriority: existing.membersOnlyPriority,
+        guestRegistrationOpensAt: existing.guestRegistrationOpensAt
+          ? new Date(occStart.getTime() - (start.getTime() - new Date(existing.guestRegistrationOpensAt).getTime()))
+          : null,
+        guestWelcomeMessage: existing.guestWelcomeMessage,
+        guestDescription: existing.guestDescription,
+        guestPrice: existing.guestPrice,
       },
     });
   }
@@ -1674,6 +1753,7 @@ async function patchGame(gameId, body, userId, io) {
     time, date, start, maxPlayers, sport, registrationOpensAt,
     title, friendsOnlyUntil, isFriendsOnly, friendsOnlyLinkPolicy, teamSize, joinPolicy,
     pickDrawAt, pickingStartsAt, duration, description, welcomeMessage, price,
+    membersOnlyPriority, guestRegistrationOpensAt, guestWelcomeMessage, guestDescription, guestPrice,
   } = body || {};
 
   const game = await prisma.game.findUnique({
@@ -1753,6 +1833,30 @@ async function patchGame(gameId, body, userId, io) {
   if (typeof welcomeMessage !== 'undefined') updates.welcomeMessage = welcomeMessage || null;
   if (typeof price !== 'undefined') {
     updates.price = price === null || price === '' ? null : Number(price);
+  }
+  // Per-game override of the group's members/guests settings.
+  if (typeof membersOnlyPriority === 'boolean') updates.membersOnlyPriority = membersOnlyPriority;
+  if (guestRegistrationOpensAt !== undefined) {
+    updates.guestRegistrationOpensAt = guestRegistrationOpensAt ? new Date(guestRegistrationOpensAt) : null;
+  }
+  if (typeof guestWelcomeMessage !== 'undefined') {
+    updates.guestWelcomeMessage = sanitizeFreeText(guestWelcomeMessage, DESCRIPTION_MAX_LENGTH) || null;
+  }
+  if (typeof guestDescription !== 'undefined') {
+    updates.guestDescription = sanitizeFreeText(guestDescription, DESCRIPTION_MAX_LENGTH) || null;
+  }
+  if (typeof guestPrice !== 'undefined') {
+    const gp = guestPrice === null || guestPrice === '' ? null : Number(guestPrice);
+    if (gp !== null && !(Number.isInteger(gp) && gp >= 0)) throw httpError('guestPrice must be a non-negative integer', 400);
+    updates.guestPrice = gp;
+  }
+  {
+    const effOn = updates.membersOnlyPriority ?? game.membersOnlyPriority;
+    const effMembers = updates.registrationOpensAt !== undefined ? updates.registrationOpensAt : game.registrationOpensAt;
+    const effGuests = updates.guestRegistrationOpensAt !== undefined ? updates.guestRegistrationOpensAt : game.guestRegistrationOpensAt;
+    if (effOn && !isGuestWindowOrderValid(effMembers, effGuests)) {
+      throw httpError('Guest registration must not open before the members registration', 400, { code: 'GUEST_WINDOW_BEFORE_MEMBERS' });
+    }
   }
 
   const fieldUpdate = await resolveFieldUpdateFromBody(body);
@@ -2189,7 +2293,12 @@ async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
 
   // Per-viewer response: an outsider sees the game as approval-gated, so the existing
   // "request to join" UI kicks in on web and mobile.
-  return applyViewerAccess(mapGameForClient(game, viewerId, { anonymous: !viewerId }), access);
+  const dto = applyViewerAccess(mapGameForClient(game, viewerId, { anonymous: !viewerId }), access);
+  // Members-only priority: clients show the guest info / "guests open at" hint to non-members only.
+  if (game.membersOnlyPriority) {
+    dto.viewerIsInsider = await isGameInsider(prisma, game, viewerId, { isAdmin });
+  }
+  return dto;
 }
 
 async function getGameRatings(gameId, viewerId) {

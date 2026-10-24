@@ -404,6 +404,71 @@ export default function SeriesSettingsEditor({ canManage, ...hookProps }: Series
                                     <FormControlLabel
                                         control={
                                             <Switch
+                                                checked={state.membersOnlyPriority}
+                                                onChange={(e) => actions.setMembersOnlyPriority(e.target.checked)}
+                                            />
+                                        }
+                                        label="עדיפות לחברי הקבוצה (הרשמה מוקדמת לחברים)"
+                                        sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0 }}
+                                    />
+                                    <Collapse in={state.membersOnlyPriority}>
+                                        <Box my={1} p={2} bgcolor="grey.50" borderRadius={1} border={1} borderColor="divider" data-testid="guest-settings">
+                                            <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                                                חברי הקבוצה נרשמים לפי זמן פתיחת ההרשמה שלמעלה. מי שאינו חבר (גם חבר של המארגן) מבקש להצטרף לקבוצה ומאושר על ידי המנהל, ונרשם למשחקים רק בחלון האורחים.
+                                            </Typography>
+                                            <Grid container spacing={2}>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField
+                                                        label="הרשמה לאורחים נפתחת (שעות לפני המשחק)"
+                                                        type="number"
+                                                        fullWidth
+                                                        size="small"
+                                                        value={state.guestHours}
+                                                        onChange={(e) => actions.setGuestHours(e.target.value)}
+                                                        InputProps={{ inputProps: { min: 0, step: 0.5 } }}
+                                                    />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField
+                                                        label="מחיר לאורחים (₪, להצגה בלבד)"
+                                                        type="number"
+                                                        fullWidth
+                                                        size="small"
+                                                        value={state.guestPrice ?? ""}
+                                                        onChange={(e) => actions.setGuestPrice(e.target.value ? parseInt(e.target.value) : null)}
+                                                        InputProps={{ inputProps: { min: 0 } }}
+                                                    />
+                                                </Grid>
+                                                <Grid size={{ xs: 12 }}>
+                                                    <TextField
+                                                        label="תיאור לאורחים (מוצג למי שאינו חבר)"
+                                                        fullWidth
+                                                        multiline
+                                                        rows={2}
+                                                        size="small"
+                                                        value={state.guestDescription}
+                                                        onChange={(e) => actions.setGuestDescription(e.target.value)}
+                                                        InputProps={{ inputProps: { maxLength: 2000 } }}
+                                                    />
+                                                </Grid>
+                                                <Grid size={{ xs: 12 }}>
+                                                    <TextField
+                                                        label="הודעת פתיחה לאורחים (נשלחת בפרטי למצטרפים שאינם חברים)"
+                                                        fullWidth
+                                                        multiline
+                                                        rows={2}
+                                                        size="small"
+                                                        value={state.guestWelcomeMessage}
+                                                        onChange={(e) => actions.setGuestWelcomeMessage(e.target.value)}
+                                                        InputProps={{ inputProps: { maxLength: 2000 } }}
+                                                    />
+                                                </Grid>
+                                            </Grid>
+                                        </Box>
+                                    </Collapse>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
                                                 checked={state.isFriendsOnly}
                                                 onChange={(e) => actions.setIsFriendsOnly(e.target.checked)}
                                             />

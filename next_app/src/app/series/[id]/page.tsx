@@ -63,6 +63,8 @@ type SeriesDetails = {
     friendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;
     /** REQUEST: a friends-only group seen by an outsider (joining sends a request). */
     viewerAccess?: 'FULL' | 'REQUEST';
+    /** Members-priority group: joining as a non-member sends a request the managers approve. */
+    viewerJoinRequiresApproval?: boolean;
     viewerJoinRequestStatus?: 'PENDING' | 'REJECTED' | null;
     /** Managers only. */
     pendingJoinRequestCount?: number;
@@ -71,6 +73,13 @@ type SeriesDetails = {
     organizerInLottery: boolean;
     teamSize: number | null;
     welcomeMessage: string | null;
+    membersOnlyPriority?: boolean;
+    guestRegistrationOpenHours?: number | null;
+    guestWelcomeMessage?: string | null;
+    guestDescription?: string | null;
+    guestPrice?: number | null;
+    /** The viewer is the organizer or a member (guests see the guest description / price). */
+    viewerIsMember?: boolean;
     organizer: { id: string; name: string | null; avatar: string | null };
     subscribers: {
         userId: string;
@@ -192,6 +201,22 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     <Typography variant="body2">יום {dayName} בשעה {series.time}</Typography>
                                 </Box>
                             </Stack>
+                            {series.description && (
+                                <Typography variant="body2" sx={{ mt: 1.5, whiteSpace: 'pre-wrap' }} data-testid="series-description">
+                                    {series.description}
+                                </Typography>
+                            )}
+                            {series.membersOnlyPriority && !series.viewerIsMember && (series.guestDescription || series.guestPrice != null) && (
+                                <Box sx={{ mt: 1.5, p: 1.5, borderRadius: 1, bgcolor: 'action.hover' }} data-testid="series-guest-info">
+                                    <Typography variant="subtitle2" fontWeight="bold">לאורחים</Typography>
+                                    {series.guestDescription && (
+                                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{series.guestDescription}</Typography>
+                                    )}
+                                    {series.guestPrice != null && (
+                                        <Typography variant="body2">מחיר לאורחים: ₪{series.guestPrice}</Typography>
+                                    )}
+                                </Box>
+                            )}
                         </Box>
 
                         <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -221,13 +246,18 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                     initialOrganizerInLottery={series.organizerInLottery}
                                     initialTeamSize={series.teamSize}
                                     initialWelcomeMessage={series.welcomeMessage}
+                                    initialMembersOnlyPriority={series.membersOnlyPriority}
+                                    initialGuestRegistrationOpenHours={series.guestRegistrationOpenHours}
+                                    initialGuestWelcomeMessage={series.guestWelcomeMessage}
+                                    initialGuestDescription={series.guestDescription}
+                                    initialGuestPrice={series.guestPrice}
                                     canManage={true}
                                 />
                             )}
                             <SeriesSubscribeButton
                                 seriesId={series.id}
                                 initialSubscribed={isSubscribed}
-                                viewerAccess={series.viewerAccess}
+                                viewerAccess={series.viewerAccess === 'REQUEST' || series.viewerJoinRequiresApproval ? 'REQUEST' : 'FULL'}
                                 initialRequestStatus={series.viewerJoinRequestStatus ?? null}
                             />
                             {isSubscribed && (
