@@ -23,8 +23,12 @@ import LeaveGameButton from "@/components/LeaveGameButton";
 import PendingJoinRequests from "@/components/PendingJoinRequests";
 import TeamBuilderWrapper from "@/components/TeamBuilderWrapper";
 import GameRatingsPanel from "@/components/GameRatingsPanel";
+import GameResultSection from "@/components/gameResult/GameResultSection";
+import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import Chat from "@/components/Chat";
 import { useSocket } from "@/context/SocketContext";
+import { canLeaveGame } from "@/utils/leaveGame";
+import { getGameVisibility } from "@/utils/gameStatus";
 import { normalizeIncomingGame } from "@/utils/timezone";
 import { gamesApi } from "@/services/api/games";
 import { useAuth } from "@clerk/nextjs";
@@ -246,8 +250,9 @@ export default function GameLiveSection({
       ? game.totalSignups ?? game.currentPlayers
       : game.currentPlayers) || 0;
 
-  const isWaitlistOfferPending = game.waitlistOfferPending === true;
-  const isWaitlisted = game.viewerParticipationStatus === "WAITLISTED";
+  const { finished, showJoinCtas } = getGameVisibility(game);
+  const isWaitlistOfferPending = game.waitlistOfferPending === true && !finished;
+  const isWaitlisted = game.viewerParticipationStatus === "WAITLISTED" && !finished;
 
   return (
     <>
@@ -355,6 +360,7 @@ export default function GameLiveSection({
         }
         fieldHref={game.fieldId ? `/fields/${game.fieldId}` : undefined}
         seriesHref={game.seriesId ? `/series/${game.seriesId}` : undefined}
+        finished={finished}
         currentPlayers={headerCount}
         maxPlayers={game.maxPlayers}
         sport={game.sport}
@@ -371,7 +377,8 @@ export default function GameLiveSection({
                 : null
         }
       >
-        {game.status === "CANCELLED" ? null : joined ? (
+        {!showJoinCtas ? null : joined ? (
+          canLeaveGame(game, viewerId) ? (
           <LeaveGameButton
             gameId={game.id}
             currentPlayers={game.participants?.length || 0}
@@ -379,6 +386,7 @@ export default function GameLiveSection({
             alwaysConfirm
             leaveLabel="בטל השתתפות"
           />
+          ) : null
         ) : !isWaitlistOfferPending && !isWaitlisted ? (
           <JoinGameButton
             gameId={game.id}
@@ -453,6 +461,20 @@ export default function GameLiveSection({
         </Box>
       )}
 
+      <Box mt={2}>
+        <SectionErrorBoundary label="תוצאת המשחק">
+          <GameResultSection
+            gameId={game.id}
+            sport={game.sport}
+            gameTitle={game.title || game.fieldName}
+            gameDate={game.date && game.date.includes("-") ? game.date.split("-").reverse().join("/") : game.date}
+            teams={game.teams || []}
+            viewerId={viewerId}
+            viewerParticipationStatus={game.viewerParticipationStatus}
+          />
+        </SectionErrorBoundary>
+      </Box>
+
       <Grid container spacing={{ xs: 3, md: 4 }} mt={0.5}>
         <Grid size={{ xs: 12, md: joined ? 7 : 12 }}>
           <TeamBuilderWrapper
@@ -460,6 +482,7 @@ export default function GameLiveSection({
             participants={game.participants}
             organizerId={game.organizerId}
             initialManagers={game.managers || []}
+            finished={finished}
             maxPlayers={game.maxPlayers}
             confirmedCount={game.currentPlayers}
             currentUserId={viewerId}

@@ -13,7 +13,7 @@ You are the Executor (the current fast/cheap-tier model, see project config for 
 
 ## Execution Rules
 - **Tactical Syntax**: Always ensure imports are correct and TypeScript typings are strictly adhered to.
-- **Quality Gates**: `next_app` build/typecheck and `server` tests run after your edits (see `PROMPT.md` quality-gate loop). You must fix any reported errors before finishing.
+- **Quality Gates**: `next_app` build/typecheck and `server` tests run after your edits (per `.cursorrules` quality gates). You must fix any reported errors before finishing.
 - **Git Commits**: If you are requested to commit, use clean, descriptive commit messages.
 
 ## Long-running verification & honest completion

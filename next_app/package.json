@@ -9,6 +9,7 @@
     "build": "node ./scripts/next-build.mjs",
     "start": "next start",
     "lint": "next lint",
+    "screens:web": "node ./e2e/screenshots/run.mjs",
     "test": "jest"
   },
   "dependencies": {

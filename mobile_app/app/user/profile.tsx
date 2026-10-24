@@ -16,7 +16,9 @@ import { SPORT_MAPPING } from '@/utils/sports';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useMyAvatar, useMyName, notifyAvatarChanged, notifyNameChanged } from '@/hooks/useMyAvatar';
 import { pickOneImage } from '@/utils/pickImage';
+import ProfileStats from '@/components/ProfileStats';
 import SafeImage from '@/components/SafeImage';
+import { useColorMode } from '@/theme/ColorModeContext';
 
 const getPositionOptions = (t: any): Record<string, string[]> => ({
     SOCCER: [
@@ -55,6 +57,10 @@ const getGenderLabels = (t: any): Record<'MALE' | 'FEMALE', string> => ({
 });
 
 export default function ProfileScreen() {
+    const { colorMode } = useColorMode();
+    // Header and close icons: gray-700 on light, cyber-text on dark.
+    const iconColor = colorMode === 'dark' ? '#f1f5f9' : '#374151';
+    const closeIconColor = colorMode === 'dark' ? '#94a3b8' : '#6b7280';
     const { t, i18n } = useTranslation();
     const positionOptions = React.useMemo(() => getPositionOptions(t), [t]);
     const genderLabels = React.useMemo(() => getGenderLabels(t), [t]);
@@ -265,24 +271,24 @@ export default function ProfileScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
+            <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg items-center justify-center">
                 <LoadingMotif id="brand-pulse" label={t('profile.loadingProfile', 'טוען פרופיל…')} />
             </SafeAreaView>
         );
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'bottom']}>
+        <SafeAreaView className="flex-1 bg-gray-50 dark:bg-cyber-bg" edges={['top', 'bottom']}>
             <Stack.Screen options={{ 
                 headerShown: false
             }} />
             
             {/* Custom Header Bar */}
-            <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-150 shadow-sm">
+            <View className="flex-row items-center px-4 py-3 bg-white dark:bg-cyber-card border-b border-gray-150 dark:border-cyber-border shadow-sm">
                 <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
-                    <FontAwesome name="chevron-right" size={18} color="#374151" />
+                    <FontAwesome name="chevron-right" size={18} color={iconColor} />
                 </TouchableOpacity>
-                <Text className="flex-1 text-center font-extrabold text-lg text-gray-900">
+                <Text className="flex-1 text-center font-extrabold text-lg text-gray-900 dark:text-cyber-text">
                     {t('profile.personalDetails', 'הפרופיל שלי')}
                 </Text>
                 {isAdmin && (
@@ -291,7 +297,7 @@ export default function ProfileScreen() {
                         className="w-10 h-10 items-center justify-center"
                         accessibilityLabel={t('profile.admin', 'ניהול')}
                     >
-                        <FontAwesome name="shield" size={19} color="#374151" />
+                        <FontAwesome name="shield" size={19} color={iconColor} />
                     </TouchableOpacity>
                 )}
                 {/* Main settings hub: notifications, privacy, blocked users, sign out, account deletion. */}
@@ -300,7 +306,7 @@ export default function ProfileScreen() {
                     className="w-10 h-10 items-center justify-center"
                     accessibilityLabel={t('settings.title', 'הגדרות')}
                 >
-                    <FontAwesome name="cog" size={20} color="#374151" />
+                    <FontAwesome name="cog" size={20} color={iconColor} />
                 </TouchableOpacity>
             </View>
 
@@ -309,7 +315,7 @@ export default function ProfileScreen() {
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'android' ? 'padding' : undefined}>
             <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingTop: 10 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
                 {/* Header details */}
-                <View className="items-center py-6 bg-white rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
+                <View className="items-center py-6 bg-white dark:bg-cyber-card rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100 dark:border-cyber-border">
                     <TouchableOpacity
                         onPress={handlePickAvatar}
                         disabled={!isEditing || avatarBusy}
@@ -318,7 +324,7 @@ export default function ProfileScreen() {
                     >
                         <SafeImage
                             source={{ uri: displayAvatar }}
-                            className="w-24 h-24 rounded-full bg-gray-200 border-2 border-brand-mist"
+                            className="w-24 h-24 rounded-full bg-gray-200 dark:bg-cyber-border border-2 border-brand-mist"
                         />
                         {avatarBusy && (
                             <View className="absolute inset-0 rounded-full bg-black/40 items-center justify-center">
@@ -334,7 +340,7 @@ export default function ProfileScreen() {
                     {isEditing && (
                         <View className="items-center mb-3">
                             {avatarBusy ? (
-                                <Text className="text-gray-500 text-xs">{t('upload.avatarUploading', 'מעלה תמונה…')}</Text>
+                                <Text className="text-gray-500 dark:text-cyber-muted text-xs">{t('upload.avatarUploading', 'מעלה תמונה…')}</Text>
                             ) : (
                                 hasAvatar && (
                                     <TouchableOpacity onPress={handleRemoveAvatar}>
@@ -345,14 +351,14 @@ export default function ProfileScreen() {
                             {avatarError && <Text className="text-red-600 text-xs mt-1 text-center">{avatarError}</Text>}
                         </View>
                     )}
-                    <Text className="text-xl font-black text-gray-900">{myName || 'User'}</Text>
-                    <Text className="text-gray-400 text-sm mt-1">{user?.primaryEmailAddress?.emailAddress}</Text>
+                    <Text className="text-xl font-black text-gray-900 dark:text-cyber-text">{myName || 'User'}</Text>
+                    <Text className="text-gray-400 dark:text-cyber-muted text-sm mt-1">{user?.primaryEmailAddress?.emailAddress}</Text>
                 </View>
 
                 {/* Personal Details Form */}
-                <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
-                    <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 pb-2">
-                        <Text className="text-lg font-black text-gray-900">{t('profile.personalDetails', 'פרטים אישיים')}</Text>
+                <View className="bg-white dark:bg-cyber-card p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100 dark:border-cyber-border">
+                    <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 dark:border-cyber-border pb-2">
+                        <Text className="text-lg font-black text-gray-900 dark:text-cyber-text">{t('profile.personalDetails', 'פרטים אישיים')}</Text>
                         {!isEditing && (
                             <TouchableOpacity
                                 onPress={() => setIsEditing(true)}
@@ -367,11 +373,11 @@ export default function ProfileScreen() {
                     {/* Name */}
                     {isEditing && (
                         <View className="mb-4">
-                            <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.name', 'שם')}</Text>
+                            <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.name', 'שם')}</Text>
                             <TextInput
                                 value={form.name}
                                 onChangeText={(val) => setForm(prev => ({ ...prev, name: val }))}
-                                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-right text-sm"
+                                className="bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-4 py-3 text-gray-800 dark:text-cyber-text text-right text-sm"
                                 maxLength={60}
                                 placeholderTextColor="#9ca3af"
                             />
@@ -380,11 +386,11 @@ export default function ProfileScreen() {
 
                     {/* City */}
                     <View className="mb-4">
-                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.city', 'עיר')}</Text>
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.city', 'עיר')}</Text>
                         {isEditing ? (
                             <TouchableOpacity
                                 onPress={() => setCityModalVisible(true)}
-                                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex-row items-center"
+                                className="bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-4 py-3 flex-row items-center"
                             >
                                 <FontAwesome name="chevron-left" size={12} color="#9ca3af" style={{ marginLeft: 8 }} />
                                 <Text className={form.city ? "text-gray-800 text-right text-sm flex-1" : "text-gray-400 text-right text-sm flex-1"}>
@@ -392,30 +398,30 @@ export default function ProfileScreen() {
                                 </Text>
                             </TouchableOpacity>
                         ) : (
-                            <Text className="text-gray-800 font-bold text-base text-right">{profile?.city || t('profile.unknownCity', 'לא צוין')}</Text>
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">{profile?.city || t('profile.unknownCity', 'לא צוין')}</Text>
                         )}
                     </View>
 
                     {/* Phone */}
                     <View className="mb-4">
-                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.phone', 'טלפון')}</Text>
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.phone', 'טלפון')}</Text>
                         {isEditing ? (
                             <TextInput
                                 value={form.phone}
                                 onChangeText={(val) => setForm(prev => ({ ...prev, phone: val }))}
-                                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-right text-sm"
+                                className="bg-gray-50 dark:bg-cyber-bg border border-gray-200 dark:border-cyber-border rounded-xl px-4 py-3 text-gray-800 dark:text-cyber-text text-right text-sm"
                                 placeholder={t('profile.phonePlaceholder', 'למשל: 0501234567')}
                                 keyboardType="phone-pad"
                                 placeholderTextColor="#9ca3af"
                             />
                         ) : (
-                            <Text className="text-gray-800 font-bold text-base text-right">{profile?.phone || t('profile.unknownPhone', 'לא צוין')}</Text>
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">{profile?.phone || t('profile.unknownPhone', 'לא צוין')}</Text>
                         )}
                     </View>
 
                     {/* Gender */}
                     <View className="mb-4">
-                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.gender', 'מין')}</Text>
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.gender', 'מין')}</Text>
                         {isEditing ? (
                             <View className="flex-row justify-end gap-2">
                                 {([
@@ -430,9 +436,9 @@ export default function ProfileScreen() {
                                                 ...prev,
                                                 gender: prev.gender === opt.value ? '' : opt.value,
                                             }))}
-                                            className={`px-4 py-2 rounded-xl border ${selected ? 'bg-brand border-brand' : 'bg-gray-50 border-gray-200'}`}
+                                            className={`px-4 py-2 rounded-xl border ${selected ? 'bg-brand border-brand' : 'bg-gray-50 dark:bg-cyber-bg border-gray-200 dark:border-cyber-border'}`}
                                         >
-                                            <Text className={`font-bold text-sm ${selected ? 'text-white' : 'text-gray-700'}`}>
+                                            <Text className={`font-bold text-sm ${selected ? 'text-white' : 'text-gray-700 dark:text-cyber-text'}`}>
                                                 {opt.label}
                                             </Text>
                                         </TouchableOpacity>
@@ -440,7 +446,7 @@ export default function ProfileScreen() {
                                 })}
                             </View>
                         ) : (
-                            <Text className="text-gray-800 font-bold text-base text-right">
+                            <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">
                                 {profile?.gender && (profile.gender === 'MALE' || profile.gender === 'FEMALE') ? genderLabels[profile.gender] : t('profile.unknownGender', 'לא צוין')}
                             </Text>
                         )}
@@ -448,16 +454,16 @@ export default function ProfileScreen() {
 
                     {/* Email */}
                     <View className="mb-4">
-                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.email', 'אימייל')}</Text>
-                        <Text className="text-gray-800 font-bold text-base text-right">
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.email', 'אימייל')}</Text>
+                        <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">
                             {profile?.email || user?.primaryEmailAddress?.emailAddress || t('profile.unknownEmail', 'לא צוין')}
                         </Text>
                     </View>
 
                     {/* Age */}
                     <View className="mb-2">
-                        <Text className="text-gray-400 text-xs mb-1 text-right">{t('profile.age', 'גיל')}</Text>
-                        <Text className="text-gray-800 font-bold text-base text-right">
+                        <Text className="text-gray-400 dark:text-cyber-muted text-xs mb-1 text-right">{t('profile.age', 'גיל')}</Text>
+                        <Text className="text-gray-800 dark:text-cyber-text font-bold text-base text-right">
                             {calculateAge(profile?.birthDate) || t('profile.unknownAge', 'לא ידוע')}
                         </Text>
                     </View>
@@ -469,7 +475,7 @@ export default function ProfileScreen() {
                         <View className="flex-row gap-3 mt-4">
                             <TouchableOpacity
                                 onPress={handleCancelEdit}
-                                className="flex-1 py-3 rounded-xl border border-gray-200 items-center bg-gray-50"
+                                className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-cyber-border items-center bg-gray-50 dark:bg-cyber-bg"
                             >
                                 <Text className="text-red-600 font-bold">{t('profile.cancel', 'ביטול')}</Text>
                             </TouchableOpacity>
@@ -486,8 +492,8 @@ export default function ProfileScreen() {
 
                 {/* My groups (recurring series) */}
                 {!isEditing && profile?.groups && profile.groups.length > 0 && (
-                    <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
-                        <Text className="text-lg font-black text-gray-900 mb-3 text-right">{t('profile.myGroups', 'הקבוצות שלי')}</Text>
+                    <View className="bg-white dark:bg-cyber-card p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100 dark:border-cyber-border">
+                        <Text className="text-lg font-black text-gray-900 dark:text-cyber-text mb-3 text-right">{t('profile.myGroups', 'הקבוצות שלי')}</Text>
                         <View className="flex-row flex-wrap gap-2">
                             {profile.groups.map((g) => (
                                 <TouchableOpacity
@@ -503,9 +509,9 @@ export default function ProfileScreen() {
                 )}
 
                 {/* Sports & Positions */}
-                <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
-                    <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 pb-2">
-                        <Text className="text-lg font-black text-gray-900">{t('profile.sportsAndPositions', 'ספורט ועמדות')}</Text>
+                <View className="bg-white dark:bg-cyber-card p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100 dark:border-cyber-border">
+                    <View className="flex-row justify-between items-center mb-4 border-b border-gray-100 dark:border-cyber-border pb-2">
+                        <Text className="text-lg font-black text-gray-900 dark:text-cyber-text">{t('profile.sportsAndPositions', 'ספורט ועמדות')}</Text>
                         {isEditing && (
                             <TouchableOpacity
                                 onPress={() => setSportModalVisible(true)}
@@ -521,7 +527,7 @@ export default function ProfileScreen() {
                     {(isEditing ? form.sportsData : profile?.sports?.map(s => ({ sportId: s.id, position: s.position || '' })) || []).length === 0 ? (
                         <View className="items-center py-4">
                             <FontAwesome name="futbol-o" size={32} color="#d1d5db" />
-                            <Text className="text-gray-400 mt-2 text-center text-sm">
+                            <Text className="text-gray-400 dark:text-cyber-muted mt-2 text-center text-sm">
                                 {isEditing ? t('profile.pressAddSport', 'לחץ "הוסף" כדי להוסיף ענף ספורט') : t('profile.noSportsDefined', 'לא הוגדרו ענפי ספורט')}
                             </Text>
                         </View>
@@ -531,13 +537,13 @@ export default function ProfileScreen() {
                                 const sportName = t(`sports.${s.sportId.toLowerCase()}`, SPORT_MAPPING[s.sportId] || s.sportId);
                                 const positions = positionOptions[s.sportId] || [];
                                 return (
-                                    <View key={s.sportId} className="mb-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
+                                    <View key={s.sportId} className="mb-4 bg-gray-50 dark:bg-cyber-bg rounded-xl p-3 border border-gray-100 dark:border-cyber-border">
                                         <View className="flex-row justify-between items-center mb-2">
                                             <View className="flex-row items-center">
                                                 <View className="w-8 h-8 bg-brand-pale rounded-full items-center justify-center mr-2">
                                                     <FontAwesome name="futbol-o" size={14} color="#059669" />
                                                 </View>
-                                                <Text className="font-bold text-gray-800">{sportName}</Text>
+                                                <Text className="font-bold text-gray-800 dark:text-cyber-text">{sportName}</Text>
                                             </View>
                                             <TouchableOpacity onPress={() => removeSport(s.sportId)} className="p-1">
                                                 <FontAwesome name="times-circle" size={20} color="#ef4444" />
@@ -565,7 +571,7 @@ export default function ProfileScreen() {
                                         {/* Preset positions */}
                                         {positions.length > 0 && (
                                             <View className="mb-2">
-                                                <Text className="text-xs text-gray-500 mb-2">{t('profile.selectPositionsHint', 'בחר עמדות (ניתן לבחור מספר):')}</Text>
+                                                <Text className="text-xs text-gray-500 dark:text-cyber-muted mb-2">{t('profile.selectPositionsHint', 'בחר עמדות (ניתן לבחור מספר):')}</Text>
                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                     <View className="flex-row">
                                                         {positions.map(pos => {
@@ -574,9 +580,9 @@ export default function ProfileScreen() {
                                                                 <TouchableOpacity
                                                                     key={pos}
                                                                     onPress={() => togglePosition(s.sportId, pos)}
-                                                                    className={`px-3 py-1.5 rounded-full mr-2 border ${selected ? 'bg-brand-pale border-brand-light' : 'bg-white border-gray-200'}`}
+                                                                    className={`px-3 py-1.5 rounded-full mr-2 border ${selected ? 'bg-brand-pale border-brand-light' : 'bg-white dark:bg-cyber-card border-gray-200 dark:border-cyber-border'}`}
                                                                 >
-                                                                    <Text className={`text-xs font-medium ${selected ? 'text-brand-dark' : 'text-gray-600'}`}>{pos}</Text>
+                                                                    <Text className={`text-xs font-medium ${selected ? 'text-brand-dark' : 'text-gray-600 dark:text-cyber-muted'}`}>{pos}</Text>
                                                                 </TouchableOpacity>
                                                             );
                                                         })}
@@ -587,13 +593,13 @@ export default function ProfileScreen() {
 
                                         {/* Free text custom position */}
                                         <View className="mt-1">
-                                            <Text className="text-xs text-gray-500 mb-1">{t('profile.addCustomPosition', 'הוסף עמדה חופשית:')}</Text>
+                                            <Text className="text-xs text-gray-500 dark:text-cyber-muted mb-1">{t('profile.addCustomPosition', 'הוסף עמדה חופשית:')}</Text>
                                             <View className="flex-row">
                                                 <TextInput
                                                     value={customTexts[s.sportId] || ''}
                                                     onChangeText={(v) => setCustomTexts(prev => ({ ...prev, [s.sportId]: v }))}
                                                     placeholder={t('profile.customPositionPlaceholder', 'למשל: קשר פוגעני, חלוץ שני...')}
-                                                    className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 mr-2 text-right"
+                                                    className="bg-white dark:bg-cyber-card border border-gray-200 dark:border-cyber-border rounded-lg px-3 py-2 text-sm flex-1 mr-2 text-right"
                                                     placeholderTextColor="#9ca3af"
                                                     onSubmitEditing={() => {
                                                         addCustomPosition(s.sportId, customTexts[s.sportId] || '');
@@ -607,7 +613,7 @@ export default function ProfileScreen() {
                                                         setCustomTexts(prev => ({ ...prev, [s.sportId]: '' }));
                                                     }}
                                                     disabled={!(customTexts[s.sportId] || '').trim()}
-                                                    className={`px-3 rounded-lg items-center justify-center ${(customTexts[s.sportId] || '').trim() ? 'bg-brand' : 'bg-gray-200'}`}
+                                                    className={`px-3 rounded-lg items-center justify-center ${(customTexts[s.sportId] || '').trim() ? 'bg-brand' : 'bg-gray-200 dark:bg-cyber-border'}`}
                                                 >
                                                     <FontAwesome name="plus" size={14} color={(customTexts[s.sportId] || '').trim() ? 'white' : '#9ca3af'} />
                                                 </TouchableOpacity>
@@ -629,7 +635,7 @@ export default function ProfileScreen() {
                                             <View className="w-7 h-7 bg-brand-pale rounded-full items-center justify-center mr-2">
                                                 <FontAwesome name="futbol-o" size={12} color="#059669" />
                                             </View>
-                                            <Text className="font-bold text-gray-800">{sportDisplayName}</Text>
+                                            <Text className="font-bold text-gray-800 dark:text-cyber-text">{sportDisplayName}</Text>
                                         </View>
                                         {positions.length > 0 ? (
                                             <View className="flex-row flex-wrap mr-9">
@@ -640,7 +646,7 @@ export default function ProfileScreen() {
                                                 ))}
                                             </View>
                                         ) : (
-                                            <Text className="text-gray-400 text-xs mr-9">{t('profile.general', 'כללי')}</Text>
+                                            <Text className="text-gray-400 dark:text-cyber-muted text-xs mr-9">{t('profile.general', 'כללי')}</Text>
                                         )}
                                     </View>
                                 );
@@ -650,19 +656,19 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Games Tabs */}
-                <View className="bg-white p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100">
-                    <View className="flex-row border-b border-gray-100 mb-4">
+                <View className="bg-white dark:bg-cyber-card p-6 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100 dark:border-cyber-border">
+                    <View className="flex-row border-b border-gray-100 dark:border-cyber-border mb-4">
                         <TouchableOpacity 
                             onPress={() => setGamesTab(0)}
                             className={`flex-1 pb-3 items-center border-b-2 ${gamesTab === 0 ? 'border-brand' : 'border-transparent'}`}
                         >
-                            <Text className={`font-bold ${gamesTab === 0 ? 'text-brand' : 'text-gray-400'}`}>{t('profile.upcomingGames', 'משחקים קרובים')}</Text>
+                            <Text className={`font-bold ${gamesTab === 0 ? 'text-brand' : 'text-gray-400 dark:text-cyber-muted'}`}>{t('profile.upcomingGames', 'משחקים קרובים')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                             onPress={() => setGamesTab(1)}
                             className={`flex-1 pb-3 items-center border-b-2 ${gamesTab === 1 ? 'border-brand' : 'border-transparent'}`}
                         >
-                            <Text className={`font-bold ${gamesTab === 1 ? 'text-brand' : 'text-gray-400'}`}>{t('profile.pastGames', 'היסטוריית משחקים')}</Text>
+                            <Text className={`font-bold ${gamesTab === 1 ? 'text-brand' : 'text-gray-400 dark:text-cyber-muted'}`}>{t('profile.pastGames', 'היסטוריית משחקים')}</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -678,15 +684,15 @@ export default function ProfileScreen() {
                                         <TouchableOpacity 
                                             key={g.id} 
                                             onPress={() => router.push(`/game/${g.id}`)}
-                                            className="mb-3 p-3 border border-gray-100 rounded-xl bg-gray-50"
+                                            className="mb-3 p-3 border border-gray-100 dark:border-cyber-border rounded-xl bg-gray-50 dark:bg-cyber-bg"
                                         >
-                                            <Text className="font-bold text-gray-800">{g.title || g.fieldName}</Text>
-                                            <Text className="text-gray-500 text-sm mt-1">{new Date(g.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} • {g.time}</Text>
-                                            {g.fieldLocation && <Text className="text-gray-400 text-xs mt-1">{g.fieldLocation}</Text>}
+                                            <Text className="font-bold text-gray-800 dark:text-cyber-text">{g.title || g.fieldName}</Text>
+                                            <Text className="text-gray-500 dark:text-cyber-muted text-sm mt-1">{new Date(g.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} • {g.time}</Text>
+                                            {g.fieldLocation && <Text className="text-gray-400 dark:text-cyber-muted text-xs mt-1">{g.fieldLocation}</Text>}
                                         </TouchableOpacity>
                                     ))
                                 ) : (
-                                    <Text className="text-gray-400 text-center py-2">{t('profile.noUpcomingGames', 'אין משחקים קרובים.')}</Text>
+                                    <Text className="text-gray-400 dark:text-cyber-muted text-center py-2">{t('profile.noUpcomingGames', 'אין משחקים קרובים.')}</Text>
                                 );
                             } else {
                                 return pastGames.length > 0 ? (
@@ -694,31 +700,38 @@ export default function ProfileScreen() {
                                         <TouchableOpacity 
                                             key={g.id} 
                                             onPress={() => router.push(`/game/${g.id}`)}
-                                            className="mb-3 p-3 border border-gray-100 rounded-xl bg-gray-50"
+                                            className="mb-3 p-3 border border-gray-100 dark:border-cyber-border rounded-xl bg-gray-50 dark:bg-cyber-bg"
                                         >
-                                            <Text className="font-bold text-gray-800">{g.title || g.fieldName}</Text>
-                                            <Text className="text-gray-500 text-sm mt-1">{new Date(g.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} • {g.time}</Text>
-                                            {g.fieldLocation && <Text className="text-gray-400 text-xs mt-1">{g.fieldLocation}</Text>}
+                                            <Text className="font-bold text-gray-800 dark:text-cyber-text">{g.title || g.fieldName}</Text>
+                                            <Text className="text-gray-500 dark:text-cyber-muted text-sm mt-1">{new Date(g.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL')} • {g.time}</Text>
+                                            {g.fieldLocation && <Text className="text-gray-400 dark:text-cyber-muted text-xs mt-1">{g.fieldLocation}</Text>}
                                         </TouchableOpacity>
                                     ))
                                 ) : (
-                                    <Text className="text-gray-400 text-center py-2">{t('profile.noPastGames', 'אין היסטוריית משחקים.')}</Text>
+                                    <Text className="text-gray-400 dark:text-cyber-muted text-center py-2">{t('profile.noPastGames', 'אין היסטוריית משחקים.')}</Text>
                                 );
                             }
                         })()}
                     </View>
                 </View>
 
+                {/* Own match stats; banner shows when hidden from others */}
+                {user?.id ? (
+                    <View className="mx-4 mb-4">
+                        <ProfileStats userId={user.id} isOwner />
+                    </View>
+                ) : null}
+
                 {/* Bug Report / Feedback */}
                 <TouchableOpacity
                     onPress={() => router.push('/settings/feedback' as any)}
-                    className="bg-white p-4 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100 flex-row items-center justify-between"
+                    className="bg-white dark:bg-cyber-card p-4 rounded-2xl mx-4 shadow-sm mb-4 border border-gray-100 dark:border-cyber-border flex-row items-center justify-between"
                 >
                     <View className="flex-row items-center">
                         <View className="w-9 h-9 rounded-full bg-brand-pale items-center justify-center mr-3">
                             <FontAwesome name="commenting-o" size={16} color="#059669" />
                         </View>
-                        <Text className="text-base font-bold text-gray-800">
+                        <Text className="text-base font-bold text-gray-800 dark:text-cyber-text">
                             {t('settings.feedback', 'דיווח על באג / יצירת קשר')}
                         </Text>
                     </View>
@@ -744,11 +757,11 @@ export default function ProfileScreen() {
                 onRequestClose={() => setSportModalVisible(false)}
             >
                 <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '60%' }}>
+                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6" style={{ maxHeight: '60%' }}>
                         <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-xl font-bold text-gray-800">{t('profile.selectSportModalTitle', 'בחר ענף ספורט')}</Text>
+                            <Text className="text-xl font-bold text-gray-800 dark:text-cyber-text">{t('profile.selectSportModalTitle', 'בחר ענף ספורט')}</Text>
                             <TouchableOpacity onPress={() => setSportModalVisible(false)}>
-                                <FontAwesome name="times" size={22} color="#6b7280" />
+                                <FontAwesome name="times" size={22} color={closeIconColor} />
                             </TouchableOpacity>
                         </View>
                         <FlatList
@@ -757,12 +770,12 @@ export default function ProfileScreen() {
                             renderItem={({ item }) => (
                                 <TouchableOpacity
                                     onPress={() => addSport(item.id)}
-                                    className="flex-row items-center py-4 border-b border-gray-100"
+                                    className="flex-row items-center py-4 border-b border-gray-100 dark:border-cyber-border"
                                 >
                                     <View className="w-10 h-10 bg-brand-mist rounded-full items-center justify-center mr-3">
                                         <FontAwesome name="futbol-o" size={18} color="#059669" />
                                     </View>
-                                    <Text className="text-gray-800 font-semibold text-base">
+                                    <Text className="text-gray-800 dark:text-cyber-text font-semibold text-base">
                                         {t(`sports.${item.id.toLowerCase()}`, SPORT_MAPPING[item.id] || SPORT_MAPPING[item.name] || item.name)}
                                     </Text>
                                     <FontAwesome name="chevron-left" size={12} color="#d1d5db" style={{ marginRight: 'auto' }} />
@@ -770,7 +783,7 @@ export default function ProfileScreen() {
                             )}
                             ListEmptyComponent={
                                 <View className="items-center py-8">
-                                    <Text className="text-gray-400">{t('profile.allSportsAdded', 'כבר הוספת את כל ענפי הספורט הזמינים')}</Text>
+                                    <Text className="text-gray-400 dark:text-cyber-muted">{t('profile.allSportsAdded', 'כבר הוספת את כל ענפי הספורט הזמינים')}</Text>
                                 </View>
                             }
                         />
@@ -786,11 +799,11 @@ export default function ProfileScreen() {
                 onRequestClose={() => setCityModalVisible(false)}
             >
                 <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '60%' }}>
+                    <View className="bg-white dark:bg-cyber-card rounded-t-3xl p-6" style={{ maxHeight: '60%' }}>
                         <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-xl font-bold text-gray-800">{t('profile.selectCityModalTitle', 'בחרו עיר')}</Text>
+                            <Text className="text-xl font-bold text-gray-800 dark:text-cyber-text">{t('profile.selectCityModalTitle', 'בחרו עיר')}</Text>
                             <TouchableOpacity onPress={() => setCityModalVisible(false)}>
-                                <FontAwesome name="times" size={22} color="#6b7280" />
+                                <FontAwesome name="times" size={22} color={closeIconColor} />
                             </TouchableOpacity>
                         </View>
                         <FlatList
@@ -802,9 +815,9 @@ export default function ProfileScreen() {
                                         setForm(prev => ({ ...prev, city: item }));
                                         setCityModalVisible(false);
                                     }}
-                                    className="py-4 border-b border-gray-100"
+                                    className="py-4 border-b border-gray-100 dark:border-cyber-border"
                                 >
-                                    <Text className={`text-lg text-right ${form.city === item ? 'text-brand font-bold' : 'text-gray-800'}`}>
+                                    <Text className={`text-lg text-right ${form.city === item ? 'text-brand font-bold' : 'text-gray-800 dark:text-cyber-text'}`}>
                                         {item}
                                     </Text>
                                 </TouchableOpacity>

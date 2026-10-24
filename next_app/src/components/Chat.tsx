@@ -154,8 +154,10 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
 
   // Scroll To Bottom Action
   const scrollToBottom = () => {
-    if (refs.messagesEndRef.current) {
-      refs.messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    // Scroll only the chat's own container; scrollIntoView would also scroll the window.
+    const container = refs.scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
       actions.setUnreadNewMessages(0);
       actions.setShowScrollButton(false);
       refs.isUserAtBottomRef.current = true;
@@ -283,7 +285,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
         <Box
           ref={refs.scrollContainerRef}
           onScroll={handleScroll}
-          sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50' }}
+          sx={{ flex: 1, overflowY: "auto", p: 2, display: "flex", flexDirection: "column", bgcolor: theme.palette.mode === 'dark' ? 'background.default' : 'grey.50' }}
         >
           {state.isLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -291,6 +293,12 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             </Box>
           ) : (
             <>
+              {visibleMessages.length === 0 && (
+                <Box data-testid="chat-empty" sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 0.5, color: "text.secondary", textAlign: "center", py: 4 }}>
+                  <Typography variant="subtitle2" fontWeight={700}>עוד אין הודעות</Typography>
+                  <Typography variant="body2">כתבו את ההודעה הראשונה</Typography>
+                </Box>
+              )}
               {visibleMessages.map((m, index) => {
                 const isMine = m.userId === user?.id;
                 const prevMsg = visibleMessages[index - 1]; const nextMsg = visibleMessages[index + 1];

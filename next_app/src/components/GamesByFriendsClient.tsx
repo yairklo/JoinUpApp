@@ -16,6 +16,7 @@ import JoinGameButton from "@/components/JoinGameButton";
 import LeaveGameButton from "@/components/LeaveGameButton";
 import GamesHorizontalList from "@/components/GamesHorizontalList";
 import InlineErrorRow from "@/components/InlineErrorRow";
+import { canLeaveGame } from "@/utils/leaveGame";
 import { buildSearchHref } from "@/utils/searchHref";
 import EmptyState from "@/components/ui/EmptyState";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
@@ -100,6 +101,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                 href={`/games/${g.id}`}
             >
                 {joined ? (
+                    canLeaveGame(g, userId) ? (
                     <LeaveGameButton
                         gameId={g.id}
                         currentPlayers={g.currentPlayers}
@@ -108,6 +110,7 @@ export default function GamesByFriendsClient({ sportFilter = "ALL" }: { sportFil
                             router.refresh();
                         }}
                     />
+                    ) : null
                 ) : (
                     <JoinGameButton
                         gameId={g.id}

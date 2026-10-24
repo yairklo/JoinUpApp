@@ -10,6 +10,9 @@ import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING, SPORT_EMOJI } from '@/utils/sports';
 import MuteNotificationsButton from '@/components/MuteNotificationsButton';
 import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
+import ProfileStats from '@/components/ProfileStats';
+import MatchResultBadge from '@/components/MatchResultBadge';
+import ReportPlayerEntry from '@/components/ReportPlayerEntry';
 import SafeImage from '@/components/SafeImage';
 
 const PAGE_SIZE = 5;
@@ -23,6 +26,8 @@ export default function UserProfileScreen() {
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
+    // Set when the profile request itself failed (429, offline, 5xx): show a retry, not "user not found".
+    const [loadError, setLoadError] = useState<'rateLimited' | 'failed' | null>(null);
     
     // Relationship state: 'friends', 'pending_incoming', 'pending_outgoing', 'none', 'self'
     const [relationship, setRelationship] = useState<string>('none');
@@ -85,8 +90,10 @@ export default function UserProfileScreen() {
     const loadUserData = async () => {
         try {
             setLoading(true);
+            setLoadError(null);
             const token = await getToken();
-            if (!token) return;
+            // No token yet (e.g. right after app resume): a retriable failure, not "user not found".
+            if (!token) throw new Error('No auth token');
 
             // Fetch profile
             const profileData = await usersApi.getProfile(id, token);
@@ -118,7 +125,7 @@ export default function UserProfileScreen() {
             }
         } catch (error) {
             console.error('Error loading user profile:', error);
-            Alert.alert(t('common.error', 'Error'), t('profile.failedToLoadProfile', 'Failed to load user profile.'));
+            setLoadError((error as { status?: number })?.status === 429 ? 'rateLimited' : 'failed');
         } finally {
             setLoading(false);
         }
@@ -194,6 +201,21 @@ export default function UserProfileScreen() {
         return (
             <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center">
                 <LoadingMotif id="crowd-wave" label={t('profile.loadingUser', 'טוען שחקן…')} />
+            </SafeAreaView>
+        );
+    }
+
+    if (loadError && !profile) {
+        return (
+            <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center px-6" testID="user-profile-error">
+                <Text className="text-gray-600 text-center">
+                    {loadError === 'rateLimited'
+                        ? t('profile.rateLimited', 'יותר מדי בקשות כרגע. חכו רגע ונסו שוב.')
+                        : t('profile.failedToLoadProfile', 'Failed to load user profile.')}
+                </Text>
+                <TouchableOpacity onPress={loadUserData} accessibilityRole="button" className="mt-4 px-5 h-11 items-center justify-center bg-gray-200 rounded-lg">
+                    <Text>{t('profile.retry', 'נסו שוב')}</Text>
+                </TouchableOpacity>
             </SafeAreaView>
         );
     }
@@ -339,6 +361,9 @@ export default function UserProfileScreen() {
                             </Text>
                         </TouchableOpacity>
                     )}
+                    {relationship !== 'self' && typeof id === 'string' && (
+                        <ReportPlayerEntry testID="profile-report-player" target={{ id, name: profile.name ?? null, imageUrl: profile.imageUrl }} />
+                    )}
                 </View>
 
 
@@ -428,6 +453,9 @@ export default function UserProfileScreen() {
                     </View>
                 )}
 
+                {/* Match stats: the card hides itself when the server says they are not visible */}
+                {typeof id === 'string' && !profile.profileRestricted && <ProfileStats userId={id} />}
+
                 {/* Match history (privacy-filtered) */}
                 {profile.sections?.matchHistory && profile.matchHistory && (
                     <View className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
@@ -464,6 +492,7 @@ export default function UserProfileScreen() {
                                             <Text className="text-gray-800 font-medium">{m.title || sportLabel || t('search.game', 'משחק')}</Text>
                                             <Text className="text-gray-500 text-xs mt-0.5">{meta}</Text>
                                         </View>
+                                        <MatchResultBadge gameId={m.id} result={m.result} sport={m.sport} compact />
                                     </TouchableOpacity>
                                 );
                             })

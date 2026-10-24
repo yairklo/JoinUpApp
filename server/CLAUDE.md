@@ -38,7 +38,7 @@ To prevent context bloat, exhaustive edge cases are offloaded to sub-documents. 
 ---
 
 ## 4. STANDARD TERMINAL COMMANDS (Tier 2 Only)
-- **Run Dev Server**: `npm run dev` (starts Express locally on port 3005).
+- **Run Dev Server**: `npm run dev` (starts Express locally on port 3005; fallback only — test on shared Dev per `docs/agents/dev-env.md`).
 - **Run Integration Tests**: `npm run test` (runs Jest-based roster, lottery, and auth mocks).
 - **Prisma Studio**: `npx prisma studio` (opens database explorer GUI).
 - **Run Migration**: `npx prisma migrate dev --name <migration_name>` (applies schema variations).

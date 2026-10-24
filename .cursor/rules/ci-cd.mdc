@@ -1,6 +1,6 @@
 ---
 description: Required CI gates for GitHub Actions
-globs: .github/workflows/**
+globs: .github/workflows/**,e2e/**,server/lib/loadEnv.js,server/scripts/seedDev*.js
 alwaysApply: false
 ---
 
@@ -11,3 +11,6 @@ alwaysApply: false
   `Dev`.
 - Do not scope it to Next-only builds on PRs to `main`, and do not pin Node 18 — both have shipped
   broken before (server tests silently never ran).
+
+## Playwright & dev seed isolation
+- Playwright must not inherit `server/.env`. `e2e/global-setup.ts` refuses unless `DATABASE_URL` and `DIRECT_DATABASE_URL` are already in the shell; the API it starts gets an explicit env and `JOINUP_SKIP_DOTENV=1` (`server/lib/loadEnv.js`). Every remote host needs `SEED_ALLOWED_DB_HOST` (pooler and direct count as one host). `JOINUP_SEED_CONFIRM=dev` does not choose the database. `MODERATION_PROVIDER=stub` is the CI moderation provider and must throw when `NODE_ENV=production`.

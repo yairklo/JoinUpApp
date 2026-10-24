@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@clerk/clerk-expo';
+import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { useNotifications } from '@/context/NotificationContext';
 import { notificationsApi, type Notification, type NotificationSettingsUpdate } from '@/services/api/notifications';
 import { chatsApi } from '@/services/api/chats';
@@ -19,7 +20,8 @@ import {
 export default function NotificationsScreen() {
     const router = useRouter();
     const { t } = useTranslation();
-    const { getToken, userId } = useAuth();
+    const { userId } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const {
         notifications,
         unreadCount,
@@ -40,7 +42,7 @@ export default function NotificationsScreen() {
         cityPromptChecked.current = true;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 if (!token) return;
                 const s = await notificationsApi.getSettings(token);
                 setShowCityPrompt(s.pushEnabled && !s.cityGamesPush && !s.cityPromptDismissedAt);
@@ -48,12 +50,12 @@ export default function NotificationsScreen() {
                 console.error('[NOTIFICATIONS] Failed to load settings for city prompt:', error);
             }
         })();
-    }, [hasCityNotification, getToken]);
+    }, [hasCityNotification, getTokenRef]);
 
     const answerCityPrompt = async (enable: boolean) => {
         setShowCityPrompt(false);
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             await notificationsApi.updateSettings(
                 { cityPromptDismissedAt: new Date().toISOString(), ...(enable ? { cityGamesPush: true } : {}) },
@@ -66,7 +68,7 @@ export default function NotificationsScreen() {
 
     const withToken = async (fn: (token: string) => Promise<unknown>, doneText: string) => {
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             await fn(token);
             Alert.alert(doneText);
@@ -100,7 +102,7 @@ export default function NotificationsScreen() {
 
     const handleDirectMessage = async (userId: string) => {
         try {
-            const token = await getToken();
+            const token = await getTokenRef.current();
             if (!token) return;
             const res = await chatsApi.createPrivate(userId, token);
             if (res && res.chatId) {

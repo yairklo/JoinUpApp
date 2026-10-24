@@ -8,3 +8,4 @@ alwaysApply: false
 
 - Shared client/server contracts live in `shared/` (`@joinup/shared`). Do not copy timezone/sports/
   `Game` types between `next_app` and `mobile_app` — import the shared definition instead.
+- Live pick bench: managers/captains must be excluded from bench calculations; web and mobile derived bench/unassigned lists must mirror this server-side filter (see `server-invariants.mdc`).

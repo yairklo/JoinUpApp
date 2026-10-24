@@ -1,6 +1,7 @@
 import type { AgeGateInfo } from '@joinup/shared/ageGate';
 import { apiClient, API_BASE } from './client';
 import type { FieldFlagReason } from './fields';
+import type { MatchHistoryResult, StatsSummary } from '@/types/matchResult';
 
 export type PrivacyLevel = 'EVERYONE' | 'FRIENDS_ONLY';
 
@@ -22,6 +23,8 @@ export interface ProfileMatch {
     start: string;
     date?: string;
     time?: string;
+    /** Viewer-filtered result badge; absent when hidden or no result. */
+    result?: MatchHistoryResult | null;
 }
 
 export interface ProfileGroup {
@@ -33,6 +36,7 @@ export interface ProfileGroup {
 
 export interface PrivacySettings {
     hideGroups?: boolean;
+    hideMatchStats?: boolean;
     privacyFriends: PrivacyLevel | null;
     privacyGames: PrivacyLevel | null;
     privacyMessages: PrivacyLevel | null;
@@ -61,6 +65,8 @@ export interface UserProfile {
     friends?: ProfileFriend[] | null;
     matchHistory?: ProfileMatch[] | null;
     sportStats?: SportStat[];
+    /** Profile hero block; absent when stats are hidden or none recorded. */
+    statsSummary?: StatsSummary;
     /** null when the user hides their groups from other viewers. */
     groups?: ProfileGroup[] | null;
     privacySettings?: PrivacySettings;
@@ -345,7 +351,7 @@ export const usersApi = {
     },
 
     updatePrivacySettings: (
-        data: Partial<Record<'privacyFriends' | 'privacyGames' | 'privacyMessages', PrivacyLevel | null>> & { hideGroups?: boolean },
+        data: Partial<Record<'privacyFriends' | 'privacyGames' | 'privacyMessages', PrivacyLevel | null>> & { hideGroups?: boolean; hideMatchStats?: boolean },
         token: string
     ) => {
         return apiClient<PrivacySettings>('/api/users/profile/settings', {

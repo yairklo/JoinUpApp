@@ -22,6 +22,15 @@ export interface ProfileMatch {
     start: string;
     date?: string;
     time?: string;
+    /** Present only when the user has a recorded result for this game and stats are visible. */
+    result?: ProfileMatchResult | null;
+}
+
+/** `score` is "mine-theirs" (e.g. "3-2"); `outcome` is null when the player has stats but no side. */
+export interface ProfileMatchResult {
+    outcome: 'WIN' | 'DRAW' | 'LOSS' | null;
+    score: string | null;
+    myStats: Record<string, number>;
 }
 
 export interface ProfileGroup {
@@ -33,6 +42,8 @@ export interface ProfileGroup {
 
 export interface PrivacySettings {
     hideGroups?: boolean;
+    /** Hide my match stats from others. Absent on older servers. */
+    hideMatchStats?: boolean;
     privacyFriends: PrivacyLevel | null;
     privacyGames: PrivacyLevel | null;
     privacyMessages: PrivacyLevel | null;
@@ -156,13 +167,22 @@ export interface BlockedUser {
     blockedAt: string;
 }
 
+const meInflight = new Map<string, Promise<CurrentUser>>();
+
 export const usersApi = {
     getProfile: (userId: string, token: string) => {
         return apiClient<UserProfile>(`/api/users/${userId}`, { token });
     },
 
     getMe: (token: string) => {
-        return apiClient<CurrentUser>('/api/users/me', { token, cache: 'no-store' });
+        // AgeGate, useIsAdmin and the avatar store each call this on mount. Share the in-flight
+        // request so one screen does not spend three reads on the same user.
+        const existing = meInflight.get(token);
+        if (existing) return existing;
+        const request = apiClient<CurrentUser>('/api/users/me', { token, cache: 'no-store' })
+            .finally(() => { meInflight.delete(token); });
+        meInflight.set(token, request);
+        return request;
     },
 
     submitAgeGate: (body: AgeGateSubmission, token: string) => {
@@ -269,7 +289,7 @@ export const usersApi = {
     },
 
     updatePrivacySettings: (
-        data: Partial<Record<'privacyFriends' | 'privacyGames' | 'privacyMessages', PrivacyLevel | null>> & { hideGroups?: boolean },
+        data: Partial<Record<'privacyFriends' | 'privacyGames' | 'privacyMessages', PrivacyLevel | null>> & { hideGroups?: boolean; hideMatchStats?: boolean },
         token: string
     ) => {
         return apiClient<PrivacySettings>('/api/users/profile/settings', {

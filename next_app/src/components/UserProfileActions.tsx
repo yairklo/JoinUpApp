@@ -10,6 +10,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import ChatIcon from "@mui/icons-material/Chat";
 import BlockIcon from "@mui/icons-material/Block";
+import FlagOutlinedIcon from "@mui/icons-material/FlagOutlined";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -17,6 +18,7 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import { usersApi } from "@/services/api/users";
 import { useUserActions } from "@/hooks/useUserActions";
+import ReportUserDialog from "@/components/ReportUserDialog";
 import MuteNotificationsButton from "@/components/notifications/MuteNotificationsButton";
 
 export default function UserProfileActions({
@@ -54,6 +56,7 @@ export default function UserProfileActions({
     const [blockBusy, setBlockBusy] = useState(false);
     const [blockError, setBlockError] = useState<string | null>(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
 
     const isSelf = status === 'SELF';
 
@@ -169,6 +172,16 @@ export default function UserProfileActions({
                     <MuteNotificationsButton targetType="USER" targetId={targetUserId} muteLabel="השתק התראות" />
                 )}
             </Box>
+            <Box display="flex" gap={1} justifyContent="center" flexWrap="wrap">
+            <Button
+                size="small"
+                color="inherit"
+                startIcon={<FlagOutlinedIcon fontSize="small" />}
+                onClick={() => setReportOpen(true)}
+                data-testid="profile-report-user"
+            >
+                דווח על משתמש
+            </Button>
             <Button
                 size="small"
                 color={isBlocked ? "inherit" : "error"}
@@ -178,6 +191,8 @@ export default function UserProfileActions({
             >
                 {isBlocked ? "בטל חסימה" : "חסום משתמש"}
             </Button>
+            </Box>
+            <ReportUserDialog open={reportOpen} onClose={() => setReportOpen(false)} targetId={targetUserId} targetName={targetUserName} />
             {(error || (blockError && !confirmOpen)) && (
                 <Typography variant="caption" color="error" role="alert">
                     {error || blockError}

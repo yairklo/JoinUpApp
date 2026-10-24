@@ -1,0 +1,18 @@
+appId: com.yairklo.joinupapp
+name: tournaments screens
+---
+- runFlow: subflows/session.yaml
+- openLink: joinup://tournaments
+- extendedWaitUntil:
+    visible: 'QA Cup'
+    timeout: 60000
+- waitForAnimationToEnd
+- takeScreenshot:
+    path: tournaments/tournaments-list-${THEME}
+- openLink: joinup://tournaments/cmvjad6r3000gqe0iifmjp349
+- extendedWaitUntil:
+    visible: 'Overview|סקירה'
+    timeout: 60000
+- waitForAnimationToEnd
+- takeScreenshot:
+    path: tournaments/tournament-${THEME}

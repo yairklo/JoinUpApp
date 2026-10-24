@@ -1,5 +1,6 @@
 import { apiClient, API_BASE } from './client';
 import { Game, FriendsOnlyLinkPolicy } from '@/types/game';
+import type { MatchHistoryResult } from '@/types/matchResult';
 
 export interface UpdateGameDTO {
     time?: string;
@@ -67,6 +68,10 @@ export const gamesApi = {
 
     getMyGames: (token: string, signal?: AbortSignal) => {
         return apiClient<Game[]>('/api/games/my', { token, signal });
+    },
+
+    getMyHistory: (token: string, signal?: AbortSignal) => {
+        return apiClient<Array<Game & { result?: MatchHistoryResult | null }>>('/api/games/my/history', { token, signal });
     },
 
     getByCity: (city: string, token?: string) => {

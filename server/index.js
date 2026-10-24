@@ -135,10 +135,11 @@ const { requestContext } = require('./middleware/requestContext');
 const { createRateLimiter, writeMethodLimiter, readMethodLimiter, verifiedUserId } = require('./middleware/rateLimit');
 app.use(requestContext);
 // Read/polling traffic (GET/HEAD). One signed-in screen fires about 12-15 GETs (the
-// screen plus users/me, notification counts, the notification list and chats). 120/minute
-// per IP is only ~8 of those screens, so a short burst of reloads 429s and the page then
-// paints empty. Signed-in reads are counted per Clerk user at 300/minute. Guests stay on
-// the IP bucket at 120/minute.
+// screen plus users/me, notification counts, the notification list, chats and tournament
+// capabilities). 120/minute per IP is only ~8 of those screens, so a short burst of reloads
+// 429s and the page then paints empty. Signed-in reads are counted per Clerk user at
+// 300/minute, enough for that burst and ordinary navigation, still inside one minute so a
+// runaway loop recovers quickly. Guests stay on the IP bucket at 120/minute.
 app.use(readMethodLimiter(createRateLimiter({
   windowMs: 60 * 1000,
   max: 300,
@@ -216,6 +217,8 @@ console.log('✅ [ROUTES] Notification routes mounted at /api/notifications');
 app.use('/api/chats', require('./routes/chats'));
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/tournaments', require('./routes/tournaments'));
+app.use('/api/user-reports', require('./routes/userReports'));
 app.use('/api/field-suggestions', require('./routes/fieldSuggestions'));
 
 // 'on' = jobs running here, 'standby' = waiting for the leader lock, 'off' = disabled.
@@ -522,6 +525,23 @@ io.on('connection', async (socket) => {
       socket.join(room);
       console.log(`Socket ${socket.id} joined room: ${room}`);
     }
+  });
+
+  // Live tournament updates (`tournament:update`): only viewers allowed to see the tournament.
+  socket.on('joinTournament', async (tournamentId) => {
+    try {
+      if (typeof tournamentId !== 'string' || !tournamentId) return;
+      const { canViewTournament } = require('./utils/tournamentAccess');
+      const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+      const viewer = socket.userId ? { id: socket.userId, isAdmin: !!socket.data?.isAdmin } : null;
+      if (t && (await canViewTournament(prisma, t, viewer))) socket.join(`tournament:${tournamentId}`);
+    } catch (e) {
+      console.warn('[socket] joinTournament failed:', e && e.message);
+    }
+  });
+
+  socket.on('leaveTournament', (tournamentId) => {
+    if (typeof tournamentId === 'string') socket.leave(`tournament:${tournamentId}`);
   });
 
   // Live team-management pick room (managers)
@@ -1462,6 +1482,8 @@ const jobsRuntime = createJobsRuntime({
   startCleanupWorker,
   stopCleanupWorker,
   runWeeklySeriesGeneration,
+  runTournamentReminders: ({ io: jobIo, shouldContinue }) => require('./services/tournamentReminders')
+    .runReminderSweep({ prisma, notificationService, io: jobIo, shouldContinue }),
   createLeaderLock,
   getRedis,
   adapterEnabled: () => socketAdapter.enabled,

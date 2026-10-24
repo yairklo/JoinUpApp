@@ -1,0 +1,14 @@
+# Email + password sign-in. EMAIL and PASSWORD come from run.mjs (-e); the
+# password is never echoed by the runner. The password field is not captured
+# in any screenshot (no takeScreenshot here).
+appId: com.yairklo.joinupapp
+---
+- tapOn:
+    id: sign-in-email
+- inputText: ${EMAIL}
+- tapOn:
+    id: sign-in-password
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: sign-in-submit

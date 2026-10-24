@@ -80,7 +80,7 @@ export default function GamesHorizontalList({
         px={{ xs: 2, sm: 1 }}
         gap={1}
       >
-        <Box display="flex" alignItems="center" gap={1} minWidth={0}>
+        <Box display="flex" alignItems="center" flexWrap="wrap" columnGap={1} rowGap={0.5} minWidth={0}>
           <Box
             sx={{
               width: 4,
@@ -95,6 +95,8 @@ export default function GamesHorizontalList({
             fontWeight="800"
             noWrap
             sx={{
+              flexShrink: 0,
+              maxWidth: "100%",
               fontSize: { xs: "1.1rem", sm: "1.35rem" },
               letterSpacing: "-0.02em",
               color: isOnColoredBackground ? "common.white" : "text.primary",

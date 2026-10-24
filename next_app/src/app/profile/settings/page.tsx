@@ -27,6 +27,7 @@ import LoadingMotif from "@/components/motion/LoadingMotif";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
+import { alpha } from "@mui/material/styles";
 import LockIcon from "@mui/icons-material/Lock";
 import BlockedUsersCard from "@/components/BlockedUsersCard";
 import DeleteAccountCard from "@/components/DeleteAccountCard";
@@ -54,6 +55,7 @@ export default function PrivacySettingsPage() {
         privacyMessages: "DEFAULT",
     });
     const [hideGroups, setHideGroups] = useState(false);
+    const [hideMatchStats, setHideMatchStats] = useState(false);
     // Age-based default per field; fixed for the user, so the "default" option label never changes.
     const [ageDefaults, setAgeDefaults] = useState<PrivacySettings["ageDefaults"] | null>(null);
     const [loading, setLoading] = useState(true);
@@ -77,6 +79,7 @@ export default function PrivacySettingsPage() {
                         privacyMessages: ps.privacyMessages ?? "DEFAULT",
                     });
                     setHideGroups(!!ps.hideGroups);
+                    setHideMatchStats(!!ps.hideMatchStats);
                     setAgeDefaults(ps.ageDefaults ?? null);
                 }
             } catch (e) {
@@ -96,8 +99,9 @@ export default function PrivacySettingsPage() {
         try {
             const token = await getTokenRef.current();
             if (!token) return;
-            const payload: Partial<Record<FieldKey, PrivacyLevel | null>> & { hideGroups?: boolean } = {
+            const payload: Partial<Record<FieldKey, PrivacyLevel | null>> & { hideGroups?: boolean; hideMatchStats?: boolean } = {
                 hideGroups,
+                hideMatchStats,
                 privacyFriends: values.privacyFriends === "DEFAULT" ? null : values.privacyFriends,
                 privacyGames: values.privacyGames === "DEFAULT" ? null : values.privacyGames,
                 privacyMessages: values.privacyMessages === "DEFAULT" ? null : values.privacyMessages,
@@ -114,9 +118,17 @@ export default function PrivacySettingsPage() {
     };
 
     return (
-        <Container maxWidth="sm" sx={{ py: 6 }} dir="rtl">
+        <Container maxWidth="sm" sx={{ pt: { xs: 3, md: 5 }, pb: { xs: 12, md: 6 } }} dir="rtl">
             <SignedOut>
-                <Card sx={{ borderRadius: 3 }}>
+                <Card
+                    elevation={0}
+                    sx={(theme) => ({
+                        borderRadius: 2.5,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        boxShadow: theme.shadows[2],
+                    })}
+                >
                     <CardContent sx={{ textAlign: "center", py: 6 }}>
                         <Typography gutterBottom>עליך להתחבר כדי לגשת להגדרות הפרטיות.</Typography>
                         <SignInButton mode="modal">
@@ -127,20 +139,47 @@ export default function PrivacySettingsPage() {
             </SignedOut>
 
             <SignedIn>
-                <Card elevation={3} sx={{ borderRadius: 3 }}>
-                    <CardContent>
-                        <Stack direction="row" alignItems="center" spacing={1} mb={1}>
-                            <LockIcon color="primary" />
-                            <Typography variant="h5" fontWeight="bold">הגדרות פרטיות</Typography>
+                <Card
+                    elevation={0}
+                    sx={(theme) => ({
+                        borderRadius: 2.5,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        bgcolor: "background.paper",
+                        boxShadow: theme.shadows[2],
+                        overflow: "hidden",
+                    })}
+                >
+                    <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+                        <Stack direction="row" alignItems="center" spacing={1.5} mb={1}>
+                            <Box
+                                sx={(theme) => ({
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: 2,
+                                    display: "grid",
+                                    placeItems: "center",
+                                    bgcolor: alpha(theme.palette.primary.main, 0.12),
+                                    color: "primary.main",
+                                    flexShrink: 0,
+                                })}
+                            >
+                                <LockIcon fontSize="small" />
+                            </Box>
+                            <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>
+                                הגדרות פרטיות
+                            </Typography>
                         </Stack>
-                        <Typography variant="body2" color="text.secondary" mb={3}>
+                        <Typography variant="body2" color="text.secondary" mb={2.5} sx={{ lineHeight: 1.6 }}>
                             שלוט מי יכול לראות את המידע שלך וליצור איתך קשר. בחירת &quot;ברירת מחדל&quot; נקבעת אוטומטית לפי הגיל.
                         </Typography>
 
                         <Divider sx={{ mb: 3 }} />
 
                         {isAdmin && (
-                            <Alert severity="info" sx={{ mb: 3 }}
+                            <Alert
+                                severity="info"
+                                sx={{ mb: 3, borderRadius: 2 }}
                                 action={
                                     <Stack direction="row" spacing={1}>
                                         <Button color="inherit" size="small" component={Link} href="/admin/fields">
@@ -161,7 +200,7 @@ export default function PrivacySettingsPage() {
                                 <LoadingMotif id="brand-pulse" />
                             </Box>
                         ) : (
-                            <Stack spacing={3}>
+                            <Stack spacing={2.5}>
                                 {FIELDS.map((f) => (
                                     <FormControl key={f.key} fullWidth>
                                         <InputLabel id={`${f.key}-label`}>{f.label}</InputLabel>
@@ -172,6 +211,7 @@ export default function PrivacySettingsPage() {
                                             onChange={(e) =>
                                                 setValues((prev) => ({ ...prev, [f.key]: e.target.value as FieldValue }))
                                             }
+                                            sx={{ borderRadius: 2 }}
                                         >
                                             <MenuItem value="DEFAULT">
                                                 {defaultOptionLabel(ageDefaults, f.key)}
@@ -182,13 +222,63 @@ export default function PrivacySettingsPage() {
                                     </FormControl>
                                 ))}
 
-                                <FormControlLabel
-                                    control={<Switch checked={hideGroups} onChange={(e) => setHideGroups(e.target.checked)} />}
-                                    label="הסתר את הקבוצות שלי בפרופיל"
-                                />
+                                <Box
+                                    sx={(theme) => ({
+                                        p: 1.75,
+                                        borderRadius: 2,
+                                        border: "1px solid",
+                                        borderColor: "divider",
+                                        bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.03 : 0.015),
+                                    })}
+                                >
+                                    <FormControlLabel
+                                        control={<Switch checked={hideGroups} onChange={(e) => setHideGroups(e.target.checked)} />}
+                                        label={<Typography variant="body2" fontWeight={600}>הסתר את הקבוצות שלי בפרופיל</Typography>}
+                                        sx={{ mx: 0, width: "100%" }}
+                                    />
+                                </Box>
 
-                                <Stack direction="row" spacing={2} justifyContent="flex-end">
-                                    <Button variant="text" onClick={() => router.push("/profile")}>
+                                <Box
+                                    sx={(theme) => ({
+                                        p: 1.75,
+                                        borderRadius: 2,
+                                        border: "1px solid",
+                                        borderColor: "divider",
+                                        bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.03 : 0.015),
+                                    })}
+                                >
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={hideMatchStats}
+                                                onChange={(e) => setHideMatchStats(e.target.checked)}
+                                                inputProps={{ "aria-describedby": "hide-match-stats-help" }}
+                                                data-testid="settings-hide-match-stats"
+                                            />
+                                        }
+                                        label={<Typography variant="body2" fontWeight={600}>הסתר את הסטטיסטיקות שלי מאחרים</Typography>}
+                                        sx={{ mx: 0, width: "100%" }}
+                                    />
+                                    <Typography
+                                        id="hide-match-stats-help"
+                                        variant="caption"
+                                        color="text.secondary"
+                                        display="block"
+                                        sx={{ paddingInlineStart: "58px", mt: 0.25, lineHeight: 1.5 }}
+                                    >
+                                        התוצאות והסטטיסטיקות שלך לא יוצגו לאחרים בפרופיל ובעמודי המשחקים. עדיין אפשר לראות אותן בעצמך.
+                                    </Typography>
+                                </Box>
+
+                                <Divider sx={{ pt: 0.5 }} />
+
+                                <Stack direction="row" spacing={1.5} justifyContent="flex-end" alignItems="center">
+                                    <Button
+                                        variant="outlined"
+                                        color="inherit"
+                                        onClick={() => router.push("/profile")}
+                                        sx={{ minHeight: 42, px: 2.5, borderColor: "divider" }}
+                                    >
                                         חזרה לפרופיל
                                     </Button>
                                     <Button
@@ -196,6 +286,7 @@ export default function PrivacySettingsPage() {
                                         onClick={handleSave}
                                         disabled={saving}
                                         startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+                                        sx={{ minHeight: 42, px: 3.5 }}
                                     >
                                         שמירה
                                     </Button>

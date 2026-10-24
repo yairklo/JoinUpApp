@@ -1,0 +1,11 @@
+appId: com.yairklo.joinupapp
+name: match-results screens
+---
+- runFlow: subflows/session.yaml
+- openLink: joinup://game/seed_game_approval
+- extendedWaitUntil:
+    visible: 'Share|Navigate|שתף|נווט'
+    timeout: 45000
+- waitForAnimationToEnd
+- takeScreenshot:
+    path: match-results/game-${THEME}

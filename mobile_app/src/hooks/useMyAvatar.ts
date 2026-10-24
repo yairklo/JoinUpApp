@@ -1,7 +1,8 @@
 import { useEffect, useSyncExternalStore } from 'react';
-import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useUser } from '@clerk/clerk-expo';
 import { usersApi } from '@/services/api/users';
 import { createProfileStore } from '@/lib/profileStore';
+import { useAuthTokenRef } from './useAuthTokenRef';
 
 /**
  * The current user's display profile (name, avatar) from our DB (users/me), which is the source of
@@ -18,7 +19,7 @@ export const notifyNameChanged = store.setName;
 
 function useMyProfile() {
     const { user } = useUser();
-    const { getToken } = useAuth();
+    const getTokenRef = useAuthTokenRef();
     const userId = user?.id ?? null;
     const snap = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
 
@@ -30,7 +31,7 @@ function useMyProfile() {
         if (!store.signIn(userId)) return;
         (async () => {
             try {
-                const token = await getToken();
+                const token = await getTokenRef.current();
                 if (!token) return store.loadFailed(userId);
                 store.applyLoaded(userId, await usersApi.getMe(token));
             } catch (err) {
@@ -38,7 +39,7 @@ function useMyProfile() {
                 store.loadFailed(userId);
             }
         })();
-    }, [userId, snap.userId, getToken]);
+    }, [userId, snap.userId, getTokenRef]);
 
     return { user, own: snap.userId === userId ? snap : null };
 }

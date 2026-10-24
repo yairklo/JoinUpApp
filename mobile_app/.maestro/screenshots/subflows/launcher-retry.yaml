@@ -1,0 +1,13 @@
+appId: com.yairklo.joinupapp
+---
+- runFlow:
+    when:
+      visible: 'Error loading app'
+    commands:
+      - pressKey: back
+      - tapOn:
+          text: 'http://10[.]0[.]2[.]2:8081'
+      - extendedWaitUntil:
+          visible: 'Error loading app|Continue|.*home-create-game.*|.*sign-in-email.*'
+          timeout: 40000
+          optional: true

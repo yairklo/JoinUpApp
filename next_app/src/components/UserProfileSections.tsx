@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useAuthTokenRef } from "@/hooks/useAuthTokenRef";
 import Link from "next/link";
 import { usersApi, UserProfile, ProfileMatch } from "@/services/api/users";
 import { SPORT_MAPPING, SPORT_EMOJI } from "@/utils/sports";
 import Avatar from "@/components/Avatar";
+import { formatHistoryDateTime } from "@/utils/historyDate";
+import MatchResultBadge from "@/components/MatchResultBadge";
+import ProfileStatsSection from "@/components/ProfileStatsSection";
 
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -25,6 +29,8 @@ const PAGE_SIZE = 5;
 
 export default function UserProfileSections({ userId }: { userId: string }) {
     const getTokenRef = useAuthTokenRef();
+    const { user: me } = useUser();
+    const isOwner = !!me?.id && me.id === userId;
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -137,6 +143,11 @@ export default function UserProfileSections({ userId }: { userId: string }) {
                 </Box>
             )}
 
+            {/* Match stats: hidden/private renders nothing; own view shows an empty state */}
+            <Box mb={4} sx={{ "&:empty": { display: "none" } }}>
+                <ProfileStatsSection userId={userId} isOwner={isOwner} />
+            </Box>
+
             {/* Match history */}
             {showHistory && (
                 <Box mb={2}>
@@ -172,14 +183,15 @@ export default function UserProfileSections({ userId }: { userId: string }) {
                                             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
                                                 <Stack direction="row" alignItems="center" spacing={1.5}>
                                                     <SportsSoccerIcon color="primary" fontSize="small" />
-                                                    <Box flex={1}>
+                                                    <Box flex={1} minWidth={0}>
                                                         <Typography variant="body1" fontWeight={600}>
                                                             {m.title || sportLabel || "משחק"}
                                                         </Typography>
                                                         <Typography variant="caption" color="text.secondary">
-                                                            {[`${emoji} ${sportLabel}`, m.date, m.time].filter(Boolean).join(" · ")}
+                                                            {[`${emoji} ${sportLabel}`, formatHistoryDateTime(m.date, m.time)].filter(Boolean).join(" · ")}
                                                         </Typography>
                                                     </Box>
+                                                    <MatchResultBadge gameId={m.id} sport={m.sport} result={m.result} />
                                                 </Stack>
                                             </CardContent>
                                         </Card>

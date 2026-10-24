@@ -124,6 +124,20 @@ router.post('/flagged-messages/:id/remove-message', authenticateToken, requireAd
   }
 });
 
+// Suspend an account via Clerk privateMetadata (shared by the ban endpoint and report resolution).
+async function banUserAccount(targetId, adminId, reason) {
+  await clerkClient.users.updateUserMetadata(targetId, {
+    privateMetadata: {
+      isBanned: true,
+      banReason: reason,
+      bannedAt: new Date().toISOString(),
+      bannedBy: adminId,
+    },
+  });
+  // Drop the cached Clerk user so the ban applies on the target's next request, not after the TTL.
+  invalidateClerkUser(targetId);
+}
+
 // Suspend an account: blocks future authenticateToken calls (HTTP + socket).
 router.post('/users/:id/ban', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -132,16 +146,7 @@ router.post('/users/:id/ban', authenticateToken, requireAdmin, async (req, res) 
       return res.status(400).json({ error: 'Cannot ban your own account' });
     }
     const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
-    await clerkClient.users.updateUserMetadata(targetId, {
-      privateMetadata: {
-        isBanned: true,
-        banReason: reason,
-        bannedAt: new Date().toISOString(),
-        bannedBy: req.user.id,
-      },
-    });
-    // Drop the cached Clerk user so the ban applies on the target's next request, not after the TTL.
-    invalidateClerkUser(targetId);
+    await banUserAccount(targetId, req.user.id, reason);
     res.json({ ok: true });
   } catch (error) {
     console.error('Ban user error:', error);
@@ -337,6 +342,120 @@ router.post('/field-issue-flags/:id/dismiss', authenticateToken, requireAdmin, a
   } catch (error) {
     console.error('Dismiss field issue flag error:', error);
     res.status(500).json({ error: 'Failed to dismiss flag' });
+  }
+});
+
+// GET /api/admin/user-reports?status=OPEN|RESOLVED|DISMISSED - player-behaviour reports (default OPEN).
+router.get('/user-reports', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const status = String(req.query.status || 'OPEN').toUpperCase();
+    if (!['OPEN', 'RESOLVED', 'DISMISSED'].includes(status)) {
+      return res.status(400).json({ error: 'status must be OPEN, RESOLVED or DISMISSED' });
+    }
+    const rows = await prisma.userReport.findMany({
+      where: { status },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: {
+        reporter: { select: { id: true, name: true, imageUrl: true } },
+        target: { select: { id: true, name: true, imageUrl: true } },
+      },
+    });
+    const gameIds = [...new Set(rows.map((r) => r.gameId).filter(Boolean))];
+    const games = gameIds.length
+      ? await prisma.game.findMany({ where: { id: { in: gameIds } }, select: { id: true, title: true, start: true, field: { select: { name: true } } } })
+      : [];
+    const gameById = new Map(games.map((g) => [g.id, g]));
+    const tournamentIds = [...new Set(rows.map((r) => r.tournamentId).filter(Boolean))];
+    const tournaments = tournamentIds.length
+      ? await prisma.tournament.findMany({ where: { id: { in: tournamentIds } }, select: { id: true, title: true } })
+      : [];
+    const tournamentById = new Map(tournaments.map((t) => [t.id, t]));
+    const targetIds = [...new Set(rows.map((r) => r.targetId))];
+    const openCounts = targetIds.length
+      ? await prisma.userReport.groupBy({ by: ['targetId'], where: { targetId: { in: targetIds }, status: 'OPEN' }, _count: { _all: true } })
+      : [];
+    const openByTarget = new Map(openCounts.map((c) => [c.targetId, c._count._all]));
+    res.json(rows.map((r) => ({
+      id: r.id,
+      reason: r.reason,
+      details: r.details,
+      status: r.status,
+      resolution: r.resolution,
+      resolvedById: r.resolvedById,
+      resolvedAt: r.resolvedAt,
+      createdAt: r.createdAt,
+      reporter: r.reporter,
+      target: r.target,
+      game: r.gameId ? (gameById.get(r.gameId) || { id: r.gameId, title: null, start: null, field: null }) : null,
+      tournamentId: r.tournamentId,
+      tournament: r.tournamentId ? (tournamentById.get(r.tournamentId) || { id: r.tournamentId, title: null }) : null,
+      // OPEN reports against the same player (this one included while it is open).
+      openReportsOnTarget: openByTarget.get(r.targetId) || 0,
+    })));
+  } catch (error) {
+    console.error('List user reports error:', error);
+    res.status(500).json({ error: 'Failed to list user reports' });
+  }
+});
+
+// Closes an OPEN report; the status guard makes a double click / race a 409 instead of a re-close.
+async function closeUserReport(id, data) {
+  const { count } = await prisma.userReport.updateMany({ where: { id, status: 'OPEN' }, data });
+  if (count > 0) return 'closed';
+  const exists = await prisma.userReport.findUnique({ where: { id }, select: { id: true } });
+  return exists ? 'already_closed' : 'not_found';
+}
+
+// POST /api/admin/user-reports/:id/resolve - { resolution, action?: 'NONE' | 'BAN' }
+router.post('/user-reports/:id/resolve', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const resolution = typeof req.body?.resolution === 'string' ? req.body.resolution.trim().slice(0, 500) : '';
+    const action = req.body?.action == null ? 'NONE' : String(req.body.action).toUpperCase();
+    if (!resolution) return res.status(400).json({ error: 'resolution is required' });
+    if (!['NONE', 'BAN'].includes(action)) {
+      return res.status(400).json({ error: "action must be 'NONE' or 'BAN'" });
+    }
+    const report = await prisma.userReport.findUnique({ where: { id: req.params.id } });
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+    if (report.status !== 'OPEN') return res.status(409).json({ error: 'Report already closed' });
+    if (action === 'BAN' && report.targetId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot ban your own account' });
+    }
+
+    const outcome = await closeUserReport(report.id, {
+      status: 'RESOLVED',
+      resolution,
+      resolvedById: req.user.id,
+      resolvedAt: new Date(),
+    });
+    if (outcome !== 'closed') {
+      return res.status(outcome === 'not_found' ? 404 : 409).json({ error: 'Report already closed' });
+    }
+    if (action === 'BAN') {
+      await banUserAccount(report.targetId, req.user.id, resolution);
+    }
+    res.json({ ok: true, action });
+  } catch (error) {
+    console.error('Resolve user report error:', error);
+    res.status(500).json({ error: 'Failed to resolve report' });
+  }
+});
+
+// POST /api/admin/user-reports/:id/dismiss - close without action
+router.post('/user-reports/:id/dismiss', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const outcome = await closeUserReport(req.params.id, {
+      status: 'DISMISSED',
+      resolvedById: req.user.id,
+      resolvedAt: new Date(),
+    });
+    if (outcome === 'not_found') return res.status(404).json({ error: 'Report not found' });
+    if (outcome === 'already_closed') return res.status(409).json({ error: 'Report already closed' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Dismiss user report error:', error);
+    res.status(500).json({ error: 'Failed to dismiss report' });
   }
 });
 

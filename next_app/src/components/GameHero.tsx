@@ -149,6 +149,7 @@ export default function GameHero({
     price,
     coverImage,
     viewerState = null,
+    finished = false,
     children,
 }: {
     time: string;
@@ -167,6 +168,8 @@ export default function GameHero({
     /** Game, series or field photo shown under the sport wash. */
     coverImage?: string | null;
     viewerState?: HeroViewerState;
+    /** Finished game: static "המשחק הסתיים" chip, no seat counter / capacity warnings. */
+    finished?: boolean;
     children?: React.ReactNode;
 }) {
     const theme = getSportTheme(sport);
@@ -177,7 +180,7 @@ export default function GameHero({
     const almostFull = !isFull && spotsLeft <= 2;
     const sportLabel = sport ? SPORT_MAPPING[sport] : undefined;
     const isFree = !price || price <= 0;
-    const countdown = countdownLabel(date, time, end);
+    const countdown = finished ? null : countdownLabel(date, time, end);
 
     const statusPill =
         viewerState === "joined" ? (
@@ -191,7 +194,7 @@ export default function GameHero({
             <Chip size="small" label="ברשימת המתנה" sx={glassChipSx} />
         ) : viewerState === "pending" ? (
             <Chip size="small" label="ממתין לאישור" sx={glassChipSx} />
-        ) : isFull ? (
+        ) : finished ? null : isFull ? (
             <Chip size="small" label="מלא" sx={{ ...glassChipSx, bgcolor: "#ef4444", border: "none" }} />
         ) : almostFull ? (
             <Chip
@@ -244,6 +247,9 @@ export default function GameHero({
                     </Stack>
 
                     <Box sx={{ minWidth: 0 }}>
+                        {finished && (
+                            <Chip size="small" label="המשחק הסתיים" sx={{ ...glassChipSx, mb: 1 }} />
+                        )}
                         {countdown && (
                             <Box
                                 suppressHydrationWarning
@@ -308,7 +314,7 @@ export default function GameHero({
                 </Box>
             </SportCover>
 
-            <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 }, display: "flex", flexDirection: "column", gap: { xs: 1.5, md: 2 } }}>
+            <Box sx={{ p: { xs: 2, md: 2.5 }, pb: { xs: 2.5, md: 3 }, display: "flex", flexDirection: "column", gap: { xs: 1.5, md: 2 } }}>
                 {seriesHref && (
                     <Box
                         component={NextLink}
@@ -357,10 +363,11 @@ export default function GameHero({
                         value={
                             <>
                                 {currentPlayers}
-                                <Box component="span" sx={{ color: "text.secondary", fontWeight: 600 }}>/{maxPlayers}</Box>
+                                {!finished && <Box component="span" sx={{ color: "text.secondary", fontWeight: 600 }}>/{maxPlayers}</Box>}
                             </>
                         }
                     >
+                        {!finished && (<>
                         <Box
                             role="progressbar"
                             aria-label="תפוסה"
@@ -397,6 +404,7 @@ export default function GameHero({
                                 </>
                             )}
                         </Typography>
+                        </>)}
                     </StatTile>
                     <StatTile
                         accent={theme.base}
@@ -416,6 +424,17 @@ export default function GameHero({
                             flexWrap: "wrap",
                             gap: 1,
                             "& > *": { flex: { xs: "1 1 100%", sm: "0 0 auto" } },
+                            // The action buttons (join / request / leave) are the page's main CTA:
+                            // full width and touch-sized on phones, a solid pill at the end on desktop.
+                            "& > * .MuiBox-root": { alignItems: { xs: "stretch", sm: "flex-end" } },
+                            "& .MuiButton-root": {
+                                minHeight: { xs: 48, sm: 44 },
+                                px: 3,
+                                fontSize: { xs: "1rem", sm: "0.95rem" },
+                                fontWeight: 800,
+                                borderRadius: 999,
+                            },
+                            "& > * > .MuiButton-root, & > * > .MuiBox-root > .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
                         }}
                     >
                         {children}
