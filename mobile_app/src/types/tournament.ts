@@ -51,6 +51,11 @@ export interface Tournament {
     startsAt: string;
     endsAt?: string | null;
     fieldId?: string | null;
+    /** Catalog field, when the tournament is tied to one. */
+    fieldName?: string | null;
+    fieldLocation?: string | null;
+    fieldLat?: number | null;
+    fieldLng?: number | null;
     customLocation?: string | null;
     imageUrl?: string | null;
     isPublic?: boolean;

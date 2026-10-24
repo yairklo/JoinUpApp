@@ -1854,5 +1854,11 @@
       "dates": "{{from}}–{{to}}",
       "noResultsRetry": "לא הצלחנו לטעון טורנירים"
     }
+  },
+  "map": {
+    "openInMap": "פתיחה במפה",
+    "waze": "Waze",
+    "googleMaps": "Google Maps",
+    "appleMaps": "Apple Maps"
   }
 }
