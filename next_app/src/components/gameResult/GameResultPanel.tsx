@@ -363,6 +363,48 @@ function StatsBlock({ result, roster, teams }: { result: GameResultData; roster:
   );
 }
 
+function EveningBoard({ result, roster }: { result: GameResultData; roster: GameResultRosterPlayer[] }) {
+  const rounds = result.rounds || [];
+  const summary = result.summary;
+  const nameOf = (id: string) => roster.find((p) => p.userId === id)?.name || "שחקן";
+  return (
+    <Stack spacing={1.5} data-testid="evening-board">
+      {rounds.map((round) => {
+        const [a, b] = [...round.sides].sort((x, y) => x.order - y.order);
+        if (!a || !b) return null;
+        return (
+          <Stack key={round.order} direction="row" alignItems="center" spacing={1} data-testid={`evening-round-row-${round.order}`}>
+            <Typography variant="body2" fontWeight={a.outcome === "WIN" ? 800 : 600} sx={{ flex: 1, minWidth: 0 }} noWrap>
+              {a.label}
+            </Typography>
+            <Typography variant="h6" fontWeight={800} sx={{ fontVariantNumeric: "tabular-nums" }}>
+              {a.score}–{b.score}
+            </Typography>
+            <Typography variant="body2" fontWeight={b.outcome === "WIN" ? 800 : 600} sx={{ flex: 1, minWidth: 0, textAlign: "end" }} noWrap>
+              {b.label}
+            </Typography>
+          </Stack>
+        );
+      })}
+      {summary && (summary.teams.length > 0 || summary.players.length > 0) && (
+        <Box data-testid="evening-summary" sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover" }}>
+          <Typography variant="subtitle2" fontWeight={800} mb={0.5}>סיכום הערב</Typography>
+          {summary.teams.map((t) => (
+            <Typography key={t.teamId || t.label} variant="body2">
+              {t.label}: {t.wins} נ׳ · {t.draws} ת׳ · {t.losses} ה׳ · {t.goalsFor}:{t.goalsAgainst}
+            </Typography>
+          ))}
+          {summary.players.map((p) => (
+            <Typography key={p.userId} variant="body2" color="text.secondary">
+              {nameOf(p.userId)}: {p.wins}–{p.draws}–{p.losses}{p.goals ? ` · ${p.goals} שערים` : ""}
+            </Typography>
+          ))}
+        </Box>
+      )}
+    </Stack>
+  );
+}
+
 function ManagerCta({ onEdit }: { onEdit: () => void }) {
   return (
     <Card
@@ -475,9 +517,15 @@ export default function GameResultPanel(props: GameResultPanelProps) {
         </Stack>
       </Stack>
 
-      <Scoreboard sides={result.sides} teams={teams} />
-      {sport === "TENNIS" && <TennisGrid sides={result.sides} />}
-      <StatsBlock result={result} roster={roster} teams={teams} />
+      {(result.rounds?.length ?? 0) > 1 ? (
+        <EveningBoard result={result} roster={roster} />
+      ) : (
+        <>
+          <Scoreboard sides={result.sides} teams={teams} />
+          {sport === "TENNIS" && <TennisGrid sides={result.sides} />}
+          <StatsBlock result={result} roster={roster} teams={teams} />
+        </>
+      )}
 
       {result.notes && (
         <Typography

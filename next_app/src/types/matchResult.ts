@@ -2,6 +2,7 @@
 // Mirrors server/services/gameResultService.js, userStatsService.js, routes/userReports.js and the
 // user-reports handlers in routes/admin.js. Stat keys/labels live in @joinup/shared/matchStats.
 import type { ResultOutcome, StatSport, TennisSets } from '@joinup/shared/matchStats';
+import type { EveningSummary, ResultLineupMode } from '@joinup/shared/eveningSummary';
 
 export type { ResultOutcome, StatSport, TennisSets };
 
@@ -21,6 +22,15 @@ export interface GameResultSide {
     /** Tennis only: this side's games per set, e.g. [[6,4],[3,6]]. Null for team sports. */
     sets: TennisSets | null;
     outcome: ResultOutcome;
+    /** Who played this side in this round, when the side is nested under a round. */
+    players?: Array<{ userId: string; goals: number }>;
+}
+
+export interface GameResultRound {
+    id: string | null;
+    /** 1-based. */
+    order: number;
+    sides: GameResultSide[];
 }
 
 export interface GameResultPlayerStats {
@@ -38,7 +48,13 @@ export interface GameResultData {
     id: string;
     status: GameResultStatus;
     sport: string;
+    /** Null for a single score. */
+    lineupMode?: ResultLineupMode | null;
+    /** Round 1, so a one-score result keeps the same shape. */
     sides: GameResultSide[];
+    /** Present once a result exists. Length 1 for a single score. */
+    rounds?: GameResultRound[];
+    summary?: EveningSummary | null;
     /** Already privacy-filtered for the viewer (managers who can edit see all rows). */
     stats: GameResultPlayerStats[];
     notes: string | null;
@@ -52,6 +68,7 @@ export interface GameResultRosterPlayer {
     userId: string;
     name: string;
     imageUrl: string | null;
+    teamId?: string | null;
     /** Side the player is on (from saved stats, else from their team); null if unknown. */
     sideId: string | null;
 }
@@ -100,14 +117,32 @@ export interface GameResultPlayerInput {
     values?: StatValues;
 }
 
-/** PUT /api/games/:id/result body. Exactly two sides. */
-export interface SaveGameResultInput {
+/** PUT /api/games/:id/result body for one score. Exactly two sides. */
+export interface SaveSingleGameResultInput {
     sides: [GameResultSideInput, GameResultSideInput];
     stats?: GameResultPlayerInput[];
     notes?: string | null;
     /** Tennis only. */
     bestOf?: 3 | 5;
 }
+
+export interface SaveEveningSideInput {
+    label: string;
+    teamId?: string | null;
+    score?: number;
+    sets?: TennisSets;
+    players?: Array<{ userId: string; goals?: number }>;
+}
+
+/** PUT body for one or more rounds of the same game. */
+export interface SaveEveningResultInput {
+    lineupMode: ResultLineupMode;
+    rounds: Array<{ sides: [SaveEveningSideInput, SaveEveningSideInput] | SaveEveningSideInput[] }>;
+    notes?: string | null;
+    bestOf?: 3 | 5;
+}
+
+export type SaveGameResultInput = SaveSingleGameResultInput | SaveEveningResultInput;
 
 /** Server error `code`s a result call can return (see apiClient error.code). */
 export type GameResultErrorCode =
@@ -122,6 +157,9 @@ export type GameResultErrorCode =
     | 'INVALID_RESULT'
     | 'INVALID_STATS'
     | 'DUPLICATE_PLAYER'
+    | 'INVALID_ROUNDS'
+    | 'LINEUP_MODE_REQUIRED'
+    | 'MULTI_ROUND_RESULT'
     | 'NO_RESULT'
     | 'NOT_PARTICIPANT'
     | 'OWN_RESULT';
@@ -137,6 +175,10 @@ export interface SportStatsAggregate {
     wins: number;
     draws: number;
     losses: number;
+    /** Per-round W/D/L. Separate from match wins: an evening counts as one game. */
+    roundWins?: number;
+    roundDraws?: number;
+    roundLosses?: number;
     totals: StatValues;
     perGame: StatValues;
 }
@@ -155,9 +197,11 @@ export interface UserStatsResponse {
 /** Badge on a match-history item (profile `matchHistory[].result`). */
 export interface MatchHistoryResult {
     outcome: ResultOutcome | null;
-    /** "mine-theirs". */
+    /** "mine-theirs". Null when the evening has several rounds. */
     score: string | null;
     myStats: StatValues;
+    /** Set only for a multi-round evening. */
+    rounds?: { wins: number; draws: number; losses: number };
 }
 
 export interface StatsSummary {

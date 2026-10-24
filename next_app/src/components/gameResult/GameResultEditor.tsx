@@ -36,6 +36,8 @@ import {
   EditorFormState, EditorTeam, MAX_TENNIS_SETS, NOTES_MAX, SIDE_LABEL_MAX, TENNIS_ERROR_HE,
   buildSaveInput, clampScore, initEditorState, isDirty, isFormValid, liveWarnings, tennisErrors,
 } from "./resultEditorState";
+import EveningRoundsEditor from "./EveningRoundsEditor";
+import { eveningFormErrors, initEveningForm, toEveningResultBody, type EveningForm } from "@joinup/shared/eveningSummary";
 
 export interface GameResultEditorProps {
   open: boolean;
@@ -79,6 +81,9 @@ export default function GameResultEditor(props: GameResultEditorProps) {
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const baseline = useRef<EditorFormState>(initEditorState(sport, initial, roster, teams));
   const [form, setForm] = useState<EditorFormState>(baseline.current);
+  const eveningBaseline = useRef<EveningForm>(initEveningForm({ result: initial, teams, roster }));
+  const [eveningOn, setEveningOn] = useState(!!(initial?.lineupMode || (initial?.rounds?.length ?? 0) > 1));
+  const [eveningForm, setEveningForm] = useState<EveningForm>(eveningBaseline.current);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | "delete" | "leave">(null);
   const [showErrors, setShowErrors] = useState(false);
@@ -90,6 +95,10 @@ export default function GameResultEditor(props: GameResultEditorProps) {
     const next = initEditorState(sport, initial, roster, teams);
     setForm((prev) => (isDirty(prev, baseline.current) ? prev : next));
     baseline.current = next;
+    const eveningNext = initEveningForm({ result: initial, teams, roster });
+    setEveningForm((prev) => (JSON.stringify(prev) !== JSON.stringify(eveningBaseline.current) ? prev : eveningNext));
+    eveningBaseline.current = eveningNext;
+    setEveningOn(!!(initial?.lineupMode || (initial?.rounds?.length ?? 0) > 1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial, roster]);
   useEffect(() => {
@@ -102,7 +111,9 @@ export default function GameResultEditor(props: GameResultEditorProps) {
     if (error) errorRef.current?.scrollIntoView?.({ block: "nearest" });
   }, [error]);
 
-  const dirty = isDirty(form, baseline.current);
+  const eveningDirty = JSON.stringify(eveningForm) !== JSON.stringify(eveningBaseline.current);
+  const dirty = eveningOn ? eveningDirty : isDirty(form, baseline.current);
+  const eveningErrors = eveningFormErrors(eveningForm);
   const raced = errorCode === "RESULT_LOCKED" || (locked && !isAdmin);
   const defs = getStatDefs(sport);
   const quickKey = defs[0]?.key;
@@ -126,6 +137,11 @@ export default function GameResultEditor(props: GameResultEditorProps) {
   const requestClose = () => (dirty && !saving ? setConfirm("leave") : onClose());
   const submit = () => {
     setShowErrors(true);
+    if (eveningOn) {
+      if (eveningErrors.length || saving) return;
+      onSave(toEveningResultBody(eveningForm));
+      return;
+    }
     if (!valid || saving) return;
     onSave(buildSaveInput(sport, form));
   };
@@ -366,6 +382,33 @@ export default function GameResultEditor(props: GameResultEditorProps) {
             </Alert>
           )}
 
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            size="small"
+            value={eveningOn ? "evening" : "single"}
+            sx={{ mb: 2 }}
+            onChange={(_, value: "single" | "evening" | null) => {
+              if (value) setEveningOn(value === "evening");
+            }}
+            aria-label="סוג התוצאה"
+          >
+            <ToggleButton value="single" sx={{ minHeight: 44, fontWeight: 700 }}>תוצאה אחת</ToggleButton>
+            <ToggleButton value="evening" data-testid="result-editor-evening" sx={{ minHeight: 44, fontWeight: 700 }}>כמה משחקים</ToggleButton>
+          </ToggleButtonGroup>
+
+          {eveningOn ? (
+            <EveningRoundsEditor
+              form={eveningForm}
+              teams={teams}
+              roster={roster}
+              sport={sport}
+              disabled={saving}
+              showErrors={showErrors}
+              onChange={setEveningForm}
+            />
+          ) : (
+            <>
           <Box sx={{ mb: 2 }}>{sport === "TENNIS" ? tennisSection : teamSection}</Box>
           {outcome && (
             <Stack alignItems="center" mb={2}>
@@ -396,12 +439,20 @@ export default function GameResultEditor(props: GameResultEditorProps) {
             )
           )}
 
+            </>
+          )}
+
           <TextField
             fullWidth multiline minRows={3} sx={{ mt: 2 }} disabled={saving}
             label="הערות (לא חובה)" placeholder="משהו שקרה במשחק ששווה לזכור"
-            value={form.notes} onChange={(e) => set({ notes: e.target.value.slice(0, NOTES_MAX) })}
+            value={eveningOn ? eveningForm.notes : form.notes}
+            onChange={(e) => {
+              const notes = e.target.value.slice(0, NOTES_MAX);
+              if (eveningOn) setEveningForm((f) => ({ ...f, notes }));
+              else set({ notes });
+            }}
             inputProps={{ maxLength: NOTES_MAX, "data-testid": "result-editor-notes" }}
-            helperText={`${form.notes.length}/${NOTES_MAX}`}
+            helperText={`${(eveningOn ? eveningForm.notes : form.notes).length}/${NOTES_MAX}`}
             FormHelperTextProps={{ sx: { textAlign: "end" } }}
           />
 
@@ -421,7 +472,7 @@ export default function GameResultEditor(props: GameResultEditorProps) {
             <>
               {warningTexts.length > 0 && <Typography variant="caption" color="warning.main">{warningTexts[0]}</Typography>}
               <Button
-                variant="contained" size="large" onClick={submit} disabled={saving || (showErrors && !valid)}
+                variant="contained" size="large" onClick={submit} disabled={saving || (showErrors && (eveningOn ? eveningErrors.length > 0 : !valid))}
                 startIcon={saving ? <CircularProgress size={18} color="inherit" /> : undefined}
                 data-testid="result-editor-save"
               >

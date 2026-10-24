@@ -34,11 +34,13 @@ export default function MatchResultBadge({ gameId, result, sport, compact }: Mat
     const letter = result.outcome ? t(`results.letter${cap(result.outcome)}`, LETTER[result.outcome]) : null;
     const [mine, theirs] = result.score ? result.score.split('-') : [null, null];
 
+    const rounds = result.rounds;
+    const roundTotal = rounds ? rounds.wins + rounds.draws + rounds.losses : 0;
     const statKeys = sport ? orderedNonZeroKeys(sport, result.myStats || {}).slice(0, compact ? 1 : 2) : [];
     const statTexts = sport ? statKeys.map((k) => formatStatInline(sport, k, result.myStats[k], lang)) : [];
     const outcomeWord = result.outcome ? t(`results.${result.outcome.toLowerCase()}`, WORD[result.outcome]) : '';
 
-    if (mine == null && statTexts.length === 0) return null;
+    if (mine == null && statTexts.length === 0 && roundTotal === 0) return null;
 
     const a11y = [
         [outcomeWord, mine != null ? `${mine}–${theirs}` : ''].filter(Boolean).join(' '),
@@ -53,6 +55,16 @@ export default function MatchResultBadge({ gameId, result, sport, compact }: Mat
             className="items-center ms-3 shrink-0"
             style={{ maxWidth: compact ? 96 : 112 }}
         >
+            {roundTotal > 0 && mine == null && (
+                <View
+                    className="h-7 px-2.5 rounded-full flex-row items-center justify-center bg-gray-100 dark:bg-cyber-border"
+                    accessibilityLabel={t('results.evening.roundRecord', { w: rounds!.wins, d: rounds!.draws, l: rounds!.losses })}
+                >
+                    <Text className="text-[13px] font-bold text-gray-800 dark:text-cyber-text" style={{ fontVariant: ['tabular-nums'] }}>
+                        {rounds!.wins}–{rounds!.draws}–{rounds!.losses}
+                    </Text>
+                </View>
+            )}
             {mine != null && (
                 <View className={`h-7 px-2.5 rounded-full flex-row items-center justify-center ${tone.pill}`}>
                     {letter ? <Text className={`text-[13px] font-bold me-1.5 ${tone.text}`}>{letter}</Text> : null}
