@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTournament } from '@/hooks/useTournament';
 import { useStandings } from '@/hooks/useTournamentViews';
+import { displayStageName } from '../matchFormat';
 import StandingsTable from '../StandingsTable';
 import { EmptyState, ErrorState, Pill, SkeletonList } from './TabState';
 import type { TournamentTabProps } from './ScheduleTab';
@@ -18,7 +19,8 @@ export interface StandingsTabProps extends TournamentTabProps {
  * tables only).
  */
 export default function StandingsTab({ tournamentId, onSetManualRank }: StandingsTabProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const lang = i18n.language?.startsWith('en') ? 'en' : 'he';
     const { tournament } = useTournament(tournamentId);
     const { tables, loading, error, refetch } = useStandings(tournamentId);
     const [group, setGroup] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export default function StandingsTab({ tournamentId, onSetManualRank }: Standing
                         <Pill
                             key={x.groupId as string}
                             testID={`standings-group-${x.groupId}`}
-                            label={x.groupName ?? x.stageName}
+                            label={x.groupName ?? displayStageName(x.stageName, lang)}
                             selected={x.groupId === selected}
                             onPress={() => setGroup(x.groupId)}
                         />

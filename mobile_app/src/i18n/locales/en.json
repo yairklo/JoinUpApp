@@ -1285,13 +1285,15 @@
       "about": "About",
       "rules": "Rules",
       "pointsLine": "Win {{win}} · Draw {{draw}} · Loss {{loss}}",
-      "rosterLine": "{{starters}} starters · {{min}}–{{max}} players per team",
+      "rosterLine": "{{starters}} starters · {{range}} players per team",
       "approvalNote": "Teams are approved by the organizer",
       "organizer": "Organizer",
       "managers": "Managers",
       "venue": "Venue",
       "registration": "Registration",
-      "registrationWindow": "Registration: {{from}} – {{to}}",
+      "registrationWindow": "Registration: {{range}}",
+      "registrationFrom": "Registration from {{date}}",
+      "registrationUntil": "Registration until {{date}}",
       "noContent": "Nothing to show yet"
     },
     "match": {

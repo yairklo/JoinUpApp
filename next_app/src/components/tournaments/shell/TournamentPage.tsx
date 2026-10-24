@@ -126,6 +126,9 @@ export default function TournamentPage({ id }: { id: string }) {
                     mt: 2.5,
                     // Bleed to the screen edge so the first/last tab is not clipped by the container gutter.
                     mx: { xs: -2, sm: -3, lg: 0 },
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    overflowX: "hidden",
                     borderBottom: 1,
                     borderColor: "divider",
                 })}
@@ -135,11 +138,30 @@ export default function TournamentPage({ id }: { id: string }) {
                     onChange={(_, v: TournamentTabKey) => setTab(v)}
                     variant="scrollable"
                     scrollButtons="auto"
+                    allowScrollButtonsMobile
                     aria-label="אזורי הטורניר"
                     sx={{
+                        width: "100%",
+                        minWidth: 0,
+                        maxWidth: "100%",
+                        overflow: "visible !important",
                         "& .MuiTabs-indicator": { height: 3, borderRadius: "3px 3px 0 0" },
-                        "& .MuiTab-root": { minWidth: 0 },
-                        "& .MuiTabs-flexContainer": { px: { xs: 1, sm: 2, lg: 0 } },
+                        "& .MuiTab-root": { minWidth: 0, flexShrink: 0 },
+                        // Phone width (390px): wrap so the last tab is on screen. Wider: one scrolling row.
+                        "& .MuiTabs-scroller": {
+                            // minWidth: 0 lets the row shrink inside a narrow RTL page; otherwise
+                            // the scroller stays as wide as the tabs and the last one is clipped.
+                            minWidth: 0,
+                            width: "100%",
+                            overflow: { xs: "visible !important", sm: "auto !important" },
+                            whiteSpace: { xs: "normal", sm: "nowrap" },
+                            WebkitOverflowScrolling: "touch",
+                        },
+                        "& .MuiTabs-flexContainer": {
+                            px: { xs: 1, sm: 2, lg: 0 },
+                            width: { xs: "100%", sm: "max-content" },
+                            flexWrap: { xs: "wrap", sm: "nowrap" },
+                        },
                     }}
                 >
                     {tabs.map((k) => (

@@ -183,14 +183,25 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
                         <Stack spacing={0.75} sx={{ color: "text.secondary" }}>
                             {rules?.points && (
                                 <Typography variant="body2" fontWeight={500}>
-                                    {`ניצחון ${rules.points.win} · תיקו ${rules.points.draw} · הפסד ${rules.points.loss}`}
+                                    ניצחון <bdi dir="ltr">{rules.points.win}</bdi>
+                                    {" · תיקו "}
+                                    <bdi dir="ltr">{rules.points.draw}</bdi>
+                                    {" · הפסד "}
+                                    <bdi dir="ltr">{rules.points.loss}</bdi>
                                 </Typography>
                             )}
                             <Typography variant="body2" fontWeight={500}>
-                                {`${t.startersPerTeam} בהרכב · ${t.minPlayersPerTeam}–${t.maxPlayersPerTeam} שחקנים בקבוצה`}
+                                <bdi dir="ltr">{t.startersPerTeam}</bdi>
+                                {" בהרכב · "}
+                                <bdi dir="ltr">{`${t.minPlayersPerTeam}–${t.maxPlayersPerTeam}`}</bdi>
+                                {" שחקנים בקבוצה"}
                             </Typography>
                             {rules?.legs === 2 && <Typography variant="body2" fontWeight={500}>שני משחקים בכל מפגש</Typography>}
-                            {rules?.bestOf && <Typography variant="body2" fontWeight={500}>{`עד ${rules.bestOf} מערכות`}</Typography>}
+                            {rules?.bestOf && (
+                                <Typography variant="body2" fontWeight={500}>
+                                    עד <bdi dir="ltr">{rules.bestOf}</bdi> מערכות
+                                </Typography>
+                            )}
                         </Stack>
                         {rules?.tiebreak && rules.tiebreak.length > 0 && (
                             <>
@@ -236,8 +247,16 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
                         })}
                     >
                         <Typography variant="body2" fontWeight={500} sx={{ lineHeight: 1.65 }}>
-                            {t.registrationOpensAt && `נפתחת ב-${shortDate(t.registrationOpensAt)}. `}
-                            {t.registrationClosesAt && `נסגרת ב-${shortDate(t.registrationClosesAt)}. `}
+                            {t.registrationOpensAt && (
+                                <>
+                                    נפתחת ב-<bdi dir="ltr">{shortDate(t.registrationOpensAt)}</bdi>.{" "}
+                                </>
+                            )}
+                            {t.registrationClosesAt && (
+                                <>
+                                    נסגרת ב-<bdi dir="ltr">{shortDate(t.registrationClosesAt)}</bdi>.{" "}
+                                </>
+                            )}
                             {t.requireApproval && "הקבוצות מאושרות ע״י המארגן."}
                         </Typography>
                     </Box>
