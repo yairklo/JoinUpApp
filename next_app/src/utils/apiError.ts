@@ -1,3 +1,5 @@
+import { guestRegistrationNotOpenMessage, guestRegistrationOpensAtFromError } from "@joinup/shared/gameViewerCopy";
+
 // Shared helpers for turning a failed apiClient() call into user-facing Hebrew copy.
 // apiClient() (see services/api/client.ts) throws a plain Error with an optional
 // `.status` property set to the HTTP status code for non-2xx responses.
@@ -88,7 +90,7 @@ export function mapJoinError(error: unknown): string {
     return "אתה כבר רשום למשחק זה";
   }
   if (getErrorCode(error) === "GUEST_REGISTRATION_NOT_OPEN" || normalized.includes("not yet open for guests")) {
-    return "ההרשמה לאורחים טרם נפתחה - חברי הקבוצה נרשמים ראשונים";
+    return guestRegistrationNotOpenMessage(guestRegistrationOpensAtFromError(error));
   }
   if (normalized.includes("not yet open") || normalized.includes("registration is not yet open")) {
     return "ההרשמה טרם נפתחה";

@@ -14,6 +14,7 @@ import LockIcon from "@mui/icons-material/LockClock";
 
 import { gamesApi } from "@/services/api/games";
 import { mapJoinError } from "@/utils/apiError";
+import { lotteryViewerCopy } from "@joinup/shared/gameViewerCopy";
 
 export default function JoinGameButton({
   gameId,
@@ -23,16 +24,23 @@ export default function JoinGameButton({
   joinPolicy,
   viewerParticipationStatus,
   waitlistOfferPending,
-  lotteryPending
+  lotteryEnabled,
+  lotteryPending,
+  lotteryAt,
+  joinLabel,
 }: {
   gameId: string;
   onJoined?: (updatedGame?: any) => void;
   onRequestSent?: (updatedGame?: any) => void;
   registrationOpensAt?: string | null;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
   waitlistOfferPending?: boolean;
+  lotteryEnabled?: boolean;
   lotteryPending?: boolean;
+  lotteryAt?: string | null;
+  /** Overrides the default join label (not-selected rejoin: join vs waitlist). */
+  joinLabel?: string | null;
 }) {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -44,6 +52,14 @@ export default function JoinGameButton({
   // A REQUIRES_APPROVAL rejection is terminal (server blocks re-requesting); an INSTANT game lets
   // a previously-rejected user join normally, so this only locks the button for the approval flow.
   const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
+  const poolCopy = viewerParticipationStatus === "WAITLISTED"
+    ? lotteryViewerCopy({
+        lotteryEnabled: !!lotteryEnabled,
+        lotteryPending: !!lotteryPending,
+        lotteryAt,
+        viewerParticipationStatus: "WAITLISTED",
+      })
+    : null;
 
   useEffect(() => {
     const isOffer = !!waitlistOfferPending;
@@ -160,8 +176,13 @@ export default function JoinGameButton({
         ) : viewerParticipationStatus === "WAITLISTED" ? (
           <Box display="flex" flexDirection="column" gap={1} alignItems="flex-end">
             <Typography variant="body2" color="text.secondary" fontWeight="bold" align="right" sx={{ mb: 0.5 }}>
-              {lotteryPending ? "נרשמת להגרלה – המקומות יוגרלו במועד ההגרלה" : "הרשמת כמחליף (ברשימת המתנה)"}
+              {poolCopy ? poolCopy.title : "הרשמת כמחליף (ברשימת המתנה)"}
             </Typography>
+            {poolCopy?.detail && (
+              <Typography variant="caption" color="text.secondary" align="right">
+                {poolCopy.detail}
+              </Typography>
+            )}
             <Button
               onClick={leaveWaitlist}
               disabled={loading}
@@ -169,7 +190,7 @@ export default function JoinGameButton({
               color="error"
               size="small"
             >
-              {lotteryPending ? "בטל הרשמה להגרלה" : "בטל הרשמה כמחליף"}
+              {poolCopy?.cancelLabel || "בטל הרשמה כמחליף"}
             </Button>
           </Box>
         ) : viewerParticipationStatus === "CONFIRMED" ? (
@@ -232,7 +253,7 @@ export default function JoinGameButton({
               },
             }}
           >
-            {loading ? "מצטרף..." : joinPolicy === "REQUIRES_APPROVAL" ? "בקש להצטרף" : "הצטרף למשחק"}
+            {loading ? "מצטרף..." : joinLabel || (joinPolicy === "REQUIRES_APPROVAL" ? "בקש להצטרף" : "הצטרף למשחק")}
           </Button>
         )}
 

@@ -94,6 +94,9 @@ export default function GamesByDateClient({
             registrationOpensAt={g.registrationOpensAt}
             joinPolicy={g.joinPolicy}
             viewerParticipationStatus={g.viewerParticipationStatus}
+            lotteryEnabled={!!g.lotteryEnabled}
+            lotteryPending={!!g.lotteryPending}
+            lotteryAt={g.lotteryAt}
             onJoined={() => {
               notifyGameUpdate(g.id, 'join', userId);
               router.refresh();

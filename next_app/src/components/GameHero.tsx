@@ -58,7 +58,7 @@ const glassChipSx = {
     backdropFilter: "blur(10px)",
 } as const;
 
-export type HeroViewerState = "joined" | "waitlisted" | "pending" | null;
+export type HeroViewerState = "joined" | "waitlisted" | "lottery" | "pending" | null;
 
 function StatTile({
     icon,
@@ -190,6 +190,8 @@ export default function GameHero({
                 label="אתה בפנים"
                 sx={{ ...glassChipSx, color: theme.ink, bgcolor: "#fff", border: "none" }}
             />
+        ) : viewerState === "lottery" ? (
+            <Chip size="small" label="נרשמת להגרלה" sx={glassChipSx} />
         ) : viewerState === "waitlisted" ? (
             <Chip size="small" label="ברשימת המתנה" sx={glassChipSx} />
         ) : viewerState === "pending" ? (

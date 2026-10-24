@@ -92,7 +92,7 @@ export type Game = {
     viewerJoinRequiresApproval?: boolean;
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     pendingRequestCount?: number;
-    viewerParticipationStatus?: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'REJECTED' | null;
+    viewerParticipationStatus?: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'REJECTED' | 'NOT_SELECTED' | null;
     waitlistCount?: number;
     waitlistParticipants?: GameParticipant[];
     waitlistOfferPending?: boolean;
