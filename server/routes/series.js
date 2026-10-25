@@ -11,11 +11,11 @@ const {
   isValidRegistrationOpenTime,
 } = require('../utils/seriesRegistrationRule');
 const gameScheduler = require('../services/gameScheduler');
-const { isSeriesSlotConflict, SERIES_SLOT_CONFLICT_MESSAGE, notificationService } = require('../services/gameService');
+const { isSeriesSlotConflict, SERIES_SLOT_CONFLICT_MESSAGE, notificationService, mapGameForClient: mapGameForBroadcast } = require('../services/gameService');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { SPORT_KEYS } = require('../utils/sports');
 const { getAgeInJerusalem } = require('../shared/ageGate');
-const { getSeriesAccess, getSeriesJoinAccess, seriesVisibilityWhere, normalizeLinkPolicy } = require('../utils/friendsOnlyAccess');
+const { getSeriesAccess, getSeriesJoinAccess, seriesVisibilityWhere, normalizeLinkPolicy, isGameFriendsOnlyNow } = require('../utils/friendsOnlyAccess');
 const {
   isValidGuestOpenHours,
   resolveGuestRegistrationOpensAt,
@@ -1055,9 +1055,13 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
             }
           });
 
-          if (heir) {
-            const mapped = mapGameForClient(heir);
-            io.emit('game:created', mapped);
+          // Friends-only games stay off the public socket (roster and location). A public heir
+          // goes to its city room as a viewer-agnostic payload, same as game creation.
+          if (heir && !isGameFriendsOnlyNow(heir) && heir.field?.city) {
+            io.to(`city_${heir.field.city}`).emit(
+              'game:created',
+              mapGameForBroadcast(heir, undefined, { anonymous: true }),
+            );
           }
         } catch (heirErr) {
           console.error("Failed to promote heir game (series delete)", heirErr);

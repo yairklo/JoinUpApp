@@ -1309,37 +1309,23 @@ async function runWeeklySeriesGeneration({ shouldContinue = () => true } = {}) {
         const TARGET = 4;
         if (futureGames.length >= TARGET) continue;
 
-        // Fetch subscribers
-        const subs = await prisma.seriesParticipant.findMany({
-          where: { seriesId: s.id },
-          select: { userId: true }
-        });
-        const subscriberIds = Array.from(new Set((subs || []).map(x => x.userId).filter(Boolean)));
-
         // Compute next start
         let nextStart = futureGames.length
           ? new Date(futureGames[futureGames.length - 1].start.getTime() + 7 * 24 * 60 * 60 * 1000)
           : nextWeeklyOccurrenceFrom(now, s.dayOfWeek, s.time);
 
+        const { buildOccurrenceParticipants } = require('./services/gameService');
         const pendingCreates = [];
         while (futureGames.length + pendingCreates.length < TARGET) {
-          // Participants: organizer + subscribers within capacity
-          const maxCap = Number(s.maxPlayers);
-          const participantsCreate = [];
-          participantsCreate.push({
-            userId: s.organizerId,
-            status: 'CONFIRMED'
+          // Same roster as create / convert-to-series: the organizer is seated, and subscribers
+          // are not auto-confirmed. They join later under join policy, the registration window,
+          // and block rules.
+          const participantsCreate = buildOccurrenceParticipants({
+            organizerId: s.organizerId,
+            organizerInLottery: false,
+            maxPlayers: Number(s.maxPlayers),
+            invitedUserIds: [],
           });
-          let remaining = Math.max(0, maxCap - 1);
-          for (const uid of subscriberIds) {
-            if (uid === s.organizerId) continue;
-            if (remaining > 0) {
-              participantsCreate.push({ userId: uid, status: 'CONFIRMED' });
-              remaining -= 1;
-            } else {
-              participantsCreate.push({ userId: uid, status: 'WAITLISTED' });
-            }
-          }
 
           const regOpen = resolveSeriesRegistrationOpensAt(s, nextStart);
 

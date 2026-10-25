@@ -1577,7 +1577,12 @@ async function convertGameToSeries(gameId, copyParticipants, creatorUserId, isAd
   });
 
   if (copyParticipants) {
-    const uniqueUserIds = Array.from(new Set((existing.participants || []).map(p => p.userId).filter(Boolean)));
+    const uniqueUserIds = Array.from(new Set(
+      (existing.participants || [])
+        .filter((p) => p.status === 'CONFIRMED')
+        .map((p) => p.userId)
+        .filter(Boolean)
+    ));
     const upserts = uniqueUserIds.map(uid =>
       prisma.seriesParticipant.upsert({
         where: { seriesId_userId: { seriesId: series.id, userId: uid } },
@@ -2443,6 +2448,7 @@ module.exports = {
   notificationService,
   isSeriesSlotConflict,
   SERIES_SLOT_CONFLICT_MESSAGE,
+  buildOccurrenceParticipants,
   mapGameForClient,
   toGuestGameView,
   loadGameForImageEdit,
