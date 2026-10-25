@@ -8,7 +8,7 @@ module.exports = {
             colors: {
                 // Brand aligned with next_app MUI theme
                 brand: {
-                    DEFAULT: '#059669',
+                    DEFAULT: '#047857',
                     soft: '#10b981',
                     light: '#34d399',
                     pale: '#a7f3d0',

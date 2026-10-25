@@ -161,7 +161,7 @@ function PickLocationLayer({
 
   return picked ? (
     <AdvancedMarker position={picked}>
-      <Pin background="#059669" borderColor="#047857" glyphColor="#fff" />
+      <Pin background="#047857" borderColor="#065f46" glyphColor="#fff" />
     </AdvancedMarker>
   ) : null;
 }

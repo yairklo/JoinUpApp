@@ -179,7 +179,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
                                 const emoji = m.sport ? SPORT_EMOJI[m.sport] || "🏅" : "🏅";
                                 return (
                                     <Link key={m.id} href={`/games/${m.id}`} style={{ textDecoration: "none" }}>
-                                        <Card variant="outlined" sx={{ borderRadius: 2 }}>
+                                        <Card variant="outlined" sx={(t) => ({ borderRadius: 2, ...(t.palette.mode === "light" && { border: "none", bgcolor: "action.hover" }) })}>
                                             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
                                                 <Stack direction="row" alignItems="center" spacing={1.5}>
                                                     <SportsSoccerIcon color="primary" fontSize="small" />

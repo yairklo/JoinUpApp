@@ -136,10 +136,10 @@ const lightTheme = createTheme({
     secondary: {
       main: "#4f46e5",
       light: "#a5b4fc",
-      dark: "#4f46e5",
+      dark: "#4338ca",
       contrastText: "#ffffff",
     },
-    success: { main: "#059669", light: "#6ee7b7", dark: "#047857" },
+    success: { main: "#047857", light: "#6ee7b7", dark: "#065f46" },
     warning: { main: "#f59e0b" },
     error: { main: "#dc2626" },
     background: {

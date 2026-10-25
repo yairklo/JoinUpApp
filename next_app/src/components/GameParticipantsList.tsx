@@ -356,7 +356,7 @@ export default function GameParticipantsList({
             borderRadius: 3,
             border: "1.5px dashed",
             borderColor: "divider",
-            color: "text.disabled",
+            color: "text.secondary",
             minWidth: 0,
           }}
         >

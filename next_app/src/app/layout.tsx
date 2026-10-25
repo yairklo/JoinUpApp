@@ -32,7 +32,7 @@ const heebo = Heebo({
 });
 
 export const viewport: Viewport = {
-  themeColor: "#059669",
+  themeColor: "#047857",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

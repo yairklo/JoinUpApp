@@ -483,7 +483,7 @@ function NewGamePageInner() {
 
       <SignedOut>
         <Box sx={{ textAlign: "center", py: 6, px: 2 }}>
-          <Typography variant="h5" fontWeight={700} mb={1.5}>
+          <Typography variant="h5" component="h2" fontWeight={700} mb={1.5}>
             רוצה ליצור משחק?
           </Typography>
           <Typography variant="body1" color="text.secondary" mb={3} maxWidth={420} mx="auto">
@@ -544,7 +544,7 @@ function NewGamePageInner() {
                     <Grid size={{ xs: 12, sm: 9 }}>
                       {newFieldMode ? (
                         <Box border={1} borderColor="divider" borderRadius={1} p={2} bgcolor="action.hover">
-                          <Typography variant="subtitle2" align="right">מיקום למשחק הזה</Typography>
+                          <Typography variant="subtitle2" component="h3" align="right">מיקום למשחק הזה</Typography>
                           <Typography variant="caption" color="text.secondary" display="block" align="right" mb={1}>
                             המיקום ישמש רק למשחק הזה ולא יתווסף לרשימת המגרשים
                           </Typography>
@@ -758,7 +758,7 @@ function NewGamePageInner() {
 
               {/* --- 4. INVITE FRIENDS --- */}
               <Box>
-                <Typography variant="subtitle2" color="text.secondary" mb={1} align="right">
+                <Typography variant="subtitle2" component="h2" color="text.secondary" mb={1} align="right">
                   צרף חברים למשחק (אופציונלי)
                 </Typography>
                 <Autocomplete
@@ -817,7 +817,7 @@ function NewGamePageInner() {
                     />
 
                     <Paper variant="outlined" sx={{ p: 2 }}>
-                      <Typography variant="subtitle1" fontWeight={800} mb={0.5}>גישה ופרטיות</Typography>
+                      <Typography variant="subtitle1" component="h2" fontWeight={800} mb={0.5}>גישה ופרטיות</Typography>
                       <Typography variant="caption" color="text.secondary" display="block" mb={2}>
                         משחק לחברים בלבד מוסתר מהחיפוש הציבורי. אישור ידני דורש שהמארגן יאשר כל מצטרף.
                       </Typography>
@@ -852,7 +852,7 @@ function NewGamePageInner() {
                             sx={{ flexDirection: 'row-reverse', width: '100%', justifyContent: 'flex-end', mr: 0, mb: form.makePublicLater ? 2 : 0 }}
                           />
                           <Collapse in={form.makePublicLater}>
-                            <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" mb={2} align="right">
+                            <Typography variant="subtitle2" component="h3" fontWeight="bold" color="text.secondary" mb={2} align="right">
                               מועד הפיכת המשחק לציבורי
                             </Typography>
                             <Grid container spacing={2} direction="row-reverse">
@@ -882,7 +882,7 @@ function NewGamePageInner() {
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 2 }}>
-                      <Typography variant="subtitle1" fontWeight={800} mb={0.5}>הרשמה ומקומות</Typography>
+                      <Typography variant="subtitle1" component="h2" fontWeight={800} mb={0.5}>הרשמה ומקומות</Typography>
                       <Typography variant="caption" color="text.secondary" display="block" mb={2}>
                         הגרלה בוחרת שחקנים במועד שנקבע. פתיחה עתידית להרשמה חוסמת הצטרפות עד התאריך שבחרת.
                       </Typography>
@@ -893,7 +893,7 @@ function NewGamePageInner() {
                       />
                       <Collapse in={form.lotteryEnabled}>
                         <Paper variant="outlined" sx={{ p: 2, bgcolor: 'warning.light', borderColor: 'warning.main', mt: 1 }}>
-                          <Typography variant="subtitle2" fontWeight="bold" color="warning.contrastText" mb={2} align="right">
+                          <Typography variant="subtitle2" component="h3" fontWeight="bold" color="warning.contrastText" mb={2} align="right">
                             הגדרות הגרלה
                           </Typography>
                           <Grid container spacing={2} direction="row-reverse">
@@ -934,7 +934,7 @@ function NewGamePageInner() {
                       />
                       <Collapse in={form.futureRegistration}>
                         <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.light', borderColor: 'info.main', mt: 1 }}>
-                          <Typography variant="subtitle2" fontWeight="bold" color="info.contrastText" mb={2} align="right">
+                          <Typography variant="subtitle2" component="h3" fontWeight="bold" color="info.contrastText" mb={2} align="right">
                             מועד פתיחת הרשמה
                           </Typography>
                           <Grid container spacing={2} direction="row-reverse">
@@ -963,7 +963,7 @@ function NewGamePageInner() {
                     </Paper>
 
                     <Paper variant="outlined" sx={{ p: 2 }}>
-                      <Typography variant="subtitle1" fontWeight={800} mb={0.5}>תקשורת</Typography>
+                      <Typography variant="subtitle1" component="h2" fontWeight={800} mb={0.5}>תקשורת</Typography>
                       <Typography variant="caption" color="text.secondary" display="block" mb={2}>
                         הודעת פתיחה נשלחת אוטומטית בפרטי לכל מי שמצטרף למשחק.
                       </Typography>

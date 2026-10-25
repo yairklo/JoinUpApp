@@ -7,7 +7,7 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
-import { alpha } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
@@ -174,6 +174,7 @@ export default function GameHero({
     children?: React.ReactNode;
 }) {
     const theme = getSportTheme(sport);
+    const errorMain = useTheme().palette.error.main;
     const end = formatEndTime(time, durationHours);
     const pct = maxPlayers > 0 ? Math.min((currentPlayers / maxPlayers) * 100, 100) : 0;
     const isFull = currentPlayers >= maxPlayers;
@@ -200,7 +201,7 @@ export default function GameHero({
         ) : viewerState === "pending" ? (
             <Chip size="small" label="ממתין לאישור" sx={glassChipSx} />
         ) : finished ? null : isFull ? (
-            <Chip size="small" label="מלא" sx={{ ...glassChipSx, bgcolor: "#ef4444", border: "none" }} />
+            <Chip size="small" label="מלא" sx={{ ...glassChipSx, bgcolor: errorMain, border: "none" }} />
         ) : almostFull ? (
             <Chip
                 size="small"
@@ -362,7 +363,7 @@ export default function GameHero({
                         caption={date ? <span suppressHydrationWarning>{formatHebrewDateRelative(date)}</span> : undefined}
                     />
                     <StatTile
-                        accent={isFull ? "#ef4444" : almostFull ? "#f59e0b" : theme.base}
+                        accent={isFull ? errorMain : almostFull ? "#f59e0b" : theme.base}
                         icon={<GroupsRoundedIcon />}
                         label="שחקנים"
                         value={
@@ -387,7 +388,7 @@ export default function GameHero({
                                     width: `${Math.max(pct, 4)}%`,
                                     borderRadius: 999,
                                     background: isFull
-                                        ? "#ef4444"
+                                        ? errorMain
                                         : almostFull
                                           ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
                                           : `linear-gradient(90deg, ${theme.base}, ${theme.glow})`,

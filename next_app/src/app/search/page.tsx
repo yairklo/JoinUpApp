@@ -327,6 +327,7 @@ function SearchPageInner() {
         }}
       >
         <GameHeaderCard
+          titleComponent="h2"
           testId={`game-card-${g.id}`}
           time={g.time}
           date={g.date && g.date.includes('-') ? g.date.split('-').reverse().join('/') : g.date}

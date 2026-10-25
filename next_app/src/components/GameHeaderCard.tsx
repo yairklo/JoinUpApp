@@ -59,6 +59,7 @@ export default function GameHeaderCard({
   href,
   fieldHref,
   testId,
+  titleComponent = "h3",
 }: {
   time: string;
   date?: string;
@@ -82,6 +83,8 @@ export default function GameHeaderCard({
   /** When set, the subtitle (field name/location) becomes its own link to the field's profile page. */
   fieldHref?: string;
   testId?: string;
+  /** Heading level of the title; use "h2" when the card sits directly under the page h1. */
+  titleComponent?: "h2" | "h3";
 }) {
   const router = useRouter();
   function formatEndTime(startTime: string, hours: number | undefined): string {
@@ -248,7 +251,7 @@ export default function GameHeaderCard({
         <Box sx={{ minWidth: 0 }}>
           <Typography
             variant="h6"
-            component="h3"
+            component={titleComponent}
             fontWeight={800}
             sx={{
               lineHeight: 1.25,

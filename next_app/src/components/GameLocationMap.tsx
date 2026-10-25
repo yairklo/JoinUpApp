@@ -45,7 +45,7 @@ function GameLocationMarker({
     if (!map || !markerLib) return;
 
     const pin = new markerLib.PinElement({
-      background: "#059669",
+      background: "#047857",
       borderColor: "#047857",
       glyphColor: "#fff",
     });

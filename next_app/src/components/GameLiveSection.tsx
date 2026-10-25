@@ -217,7 +217,7 @@ export default function GameLiveSection({
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
     el.style.transition = "box-shadow 0.3s ease";
-    el.style.boxShadow = "0 0 0 3px var(--mui-palette-primary-main, #059669)";
+    el.style.boxShadow = "0 0 0 3px var(--mui-palette-primary-main, #047857)";
     window.setTimeout(() => {
       el.style.boxShadow = "";
     }, 1400);
@@ -681,7 +681,7 @@ export default function GameLiveSection({
                 </Box>
                 <Box sx={{ minWidth: 0 }}>
                   <Stack direction="row" spacing={0.75} alignItems="center">
-                    <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+                    <Typography variant="h6" component="h2" fontWeight={800} sx={{ letterSpacing: "-0.02em", lineHeight: 1.2 }}>
                       צ&apos;אט המשחק
                     </Typography>
                     <Box
