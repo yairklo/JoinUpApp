@@ -1068,9 +1068,13 @@ router.get('/:id/friends', attachOptionalUser, async (req, res) => {
       const ids = await getFriendIds(viewerId);
       viewerMutual = new Set(ids);
     }
+    // Same rule as GET /:id: a minor's age, city, gender and sports are only shown to
+    // the minor themself and their confirmed friends.
     const mapped = friends.map(u => ({
-      ...mapUserPublic(u),
-      mutualCount: Array.from(viewerMutual).includes(u.id) ? 1 : 0 // simple approx
+      ...mapUserPublic(u, {
+        hideDetails: isKnownMinor(u.birthDate) && viewerId !== u.id && !viewerMutual.has(u.id),
+      }),
+      mutualCount: viewerMutual.has(u.id) ? 1 : 0 // simple approx
     }));
     res.json(mapped);
   } catch (e) {
@@ -1261,7 +1265,12 @@ router.get('/:id/requests/incoming', authenticateToken, async (req, res) => {
       where: { receiverId: req.user.id, status: 'PENDING', ...(hidden.length ? { requesterId: { notIn: hidden } } : {}) },
       include: { requester: true },
     });
-    res.json(list.map(r => ({ id: r.id, requester: mapUserPublic(r.requester), createdAt: r.createdAt })));
+    // A pending request is not a friendship yet, so a minor's details stay hidden.
+    res.json(list.map(r => ({
+      id: r.id,
+      requester: mapUserPublic(r.requester, { hideDetails: isKnownMinor(r.requester?.birthDate) }),
+      createdAt: r.createdAt,
+    })));
   } catch (e) {
     console.error('Incoming requests error:', e);
     res.status(500).json({ error: 'Failed to fetch requests' });
@@ -1273,7 +1282,11 @@ router.get('/:id/requests/outgoing', authenticateToken, async (req, res) => {
   try {
     if (req.params.id !== req.user.id) return res.status(403).json({ error: 'Access denied' });
     const list = await prisma.friendRequest.findMany({ where: { requesterId: req.user.id, status: 'PENDING' }, include: { receiver: true } });
-    res.json(list.map(r => ({ id: r.id, receiver: mapUserPublic(r.receiver), createdAt: r.createdAt })));
+    res.json(list.map(r => ({
+      id: r.id,
+      receiver: mapUserPublic(r.receiver, { hideDetails: isKnownMinor(r.receiver?.birthDate) }),
+      createdAt: r.createdAt,
+    })));
   } catch (e) {
     console.error('Outgoing requests error:', e);
     res.status(500).json({ error: 'Failed to fetch requests' });
