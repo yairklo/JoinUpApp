@@ -453,6 +453,28 @@ router.post('/:id/waitlist-bypass/:userId', authenticateToken, rejectIfCancelled
   }
 });
 
+// Next organizer when the current one leaves: a confirmed participant, managers first,
+// earliest participation createdAt within that group. Pending, rejected, and waitlisted
+// rows are not eligible.
+async function pickOrganizerSuccessor(db, gameId, leavingUserId) {
+  const confirmed = await db.participation.findMany({
+    where: { gameId, status: 'CONFIRMED', userId: { not: leavingUserId } },
+    orderBy: { createdAt: 'asc' },
+    select: { userId: true },
+  });
+  if (!confirmed.length) return null;
+  const managers = await db.gameRole.findMany({
+    where: {
+      gameId,
+      role: 'MANAGER',
+      userId: { in: confirmed.map((p) => p.userId) },
+    },
+    select: { userId: true },
+  });
+  const managerIds = new Set(managers.map((r) => r.userId));
+  return confirmed.find((p) => managerIds.has(p.userId)) || confirmed[0];
+}
+
 // Leave game
 router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res) => {
   try {
@@ -498,25 +520,40 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
     // request) must not get the roster back in the response.
     const leaverAccess = await getGameAccess(prisma, { ...game, participants, roles: undefined }, req.user.id, { isAdmin: !!req.user?.isAdmin });
 
-    // Normal leave logic
-    await prisma.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
+    const isOrganizer = game.organizerId === req.user.id;
+    let successor = null;
+    if (isOrganizer) {
+      successor = await pickOrganizerSuccessor(prisma, game.id, req.user.id);
+      if (!successor) {
+        return res.status(400).json({
+          error: 'לא ניתן לעזוב את המשחק כי אין משתתף מאושר שאפשר להעביר אליו את ניהול המשחק',
+          code: 'NO_CONFIRMED_SUCCESSOR',
+        });
+      }
+    }
 
-    // Remove from Chat
-    try {
-      await prisma.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
-    } catch (e) { /* Ignore */ }
+    if (isOrganizer) {
+      await prisma.$transaction(async (tx) => {
+        await tx.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
+        await tx.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
+        await tx.game.update({ where: { id: game.id }, data: { organizerId: successor.userId } });
+        await tx.gameRole.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
+        await tx.gameRole.upsert({
+          where: { gameId_userId: { gameId: game.id, userId: successor.userId } },
+          update: { role: 'ORGANIZER' },
+          create: { gameId: game.id, userId: successor.userId, role: 'ORGANIZER' },
+        });
+      });
+    } else {
+      await prisma.participation.deleteMany({ where: { gameId: game.id, userId: req.user.id } });
+      try {
+        await prisma.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
+      } catch (e) { /* Ignore */ }
+    }
 
     // If a confirmed player left, offer the spot to the next waitlisted user
     if (wasConfirmed) {
       await offerSpotToNextWaitlistUser(game.id, req.io);
-    }
-
-    // If organizer left (but others remain), reassign organizer
-    const remaining = await prisma.participation.findMany({ where: { gameId: game.id } });
-    if (game.organizerId === req.user.id) {
-      if (remaining.length > 0) {
-        await prisma.game.update({ where: { id: game.id }, data: { organizerId: remaining[0].userId } });
-      }
     }
 
     const updated = await prisma.game.findUnique({

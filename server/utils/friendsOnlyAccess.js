@@ -4,10 +4,11 @@
 //   'REQUEST' -> sees it, but joining becomes a request the managers approve
 //   'NONE'    -> may not see it at all
 //
-// "Insiders" (organizer, admin, friends of the organizer, anyone already on the roster / in the
-// group, game managers) always get FULL. Everyone else gets REQUEST or NONE depending on the
-// game's / group's friendsOnlyLinkPolicy. Checks run cheapest-first so the common cases (public
-// game, organizer, rostered player) cost no extra queries.
+// "Insiders" (organizer, admin, friends of the organizer, anyone already on the roster,
+// game managers, and members of a friends-only or approval-gated group) get FULL. Membership
+// of a public instant group does not: anyone can subscribe to it. Everyone else gets REQUEST
+// or NONE depending on the game's / group's friendsOnlyLinkPolicy. Checks run cheapest-first
+// so the common cases (public game, organizer, rostered player) cost no extra queries.
 
 const BLOCKED = 'BLOCKED';
 const REQUEST_TO_JOIN = 'REQUEST_TO_JOIN';
@@ -19,6 +20,29 @@ function normalizeLinkPolicy(value) {
 
 function outsiderAccess(policy) {
   return policy === BLOCKED ? 'NONE' : 'REQUEST';
+}
+
+// A group member may see that group's friends-only games only when the group itself is closed.
+// Friends-only, members-only priority, and join-requires-approval are not self-service.
+// A public instant group is: subscribing must not unlock a friends-only game inside it.
+function seriesMembershipGrantsGameAccess(series) {
+  if (!series) return false;
+  if (series.isFriendsOnly) return true;
+  if (series.membersOnlyPriority) return true;
+  if (series.joinPolicy === 'REQUIRES_APPROVAL') return true;
+  return false;
+}
+
+function seriesGateFromLoaded(series) {
+  if (!series || typeof series !== 'object') return null;
+  if (
+    Object.prototype.hasOwnProperty.call(series, 'isFriendsOnly')
+    || Object.prototype.hasOwnProperty.call(series, 'joinPolicy')
+    || Object.prototype.hasOwnProperty.call(series, 'membersOnlyPriority')
+  ) {
+    return series;
+  }
+  return null;
 }
 
 async function areFriends(prisma, a, b) {
@@ -63,10 +87,11 @@ async function getGameAccess(prisma, game, viewerId, { isAdmin = false } = {}) {
   const hasLoadedRole = Array.isArray(game.roles) && game.roles.some((r) => r.userId === viewerId);
   if (hasLoadedRole) return 'FULL';
 
-  // Independent checks, run together: a game role (when roles weren't loaded), membership of the
-  // game's group (members can join every game of it, including ones generated before they were
-  // approved), and friendship with the organizer.
-  const [role, member, friend] = await Promise.all([
+  // Independent checks, run together: a game role (when roles weren't loaded), membership of a
+  // closed group (friends-only or approval-gated — members can join every game of it, including
+  // ones generated before they were approved), and friendship with the organizer.
+  const loadedSeries = seriesGateFromLoaded(game.series);
+  const [role, member, friend, series] = await Promise.all([
     Array.isArray(game.roles)
       ? null
       : prisma.gameRole.findFirst({ where: { gameId: game.id, userId: viewerId }, select: { id: true } }),
@@ -78,8 +103,14 @@ async function getGameAccess(prisma, game, viewerId, { isAdmin = false } = {}) {
       : null,
     // With members-only priority the organizer's friends are outsiders unless they are members.
     game.membersOnlyPriority ? false : areFriends(prisma, game.organizerId, viewerId),
+    !game.seriesId
+      ? null
+      : (loadedSeries || prisma.gameSeries.findUnique({
+          where: { id: game.seriesId },
+          select: { isFriendsOnly: true, joinPolicy: true, membersOnlyPriority: true },
+        })),
   ]);
-  if (role || member || friend) return 'FULL';
+  if (role || (member && seriesMembershipGrantsGameAccess(series)) || friend) return 'FULL';
 
   if (row) return 'REQUEST';
   return outsiderAccess(game.friendsOnlyLinkPolicy);
