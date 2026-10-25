@@ -153,7 +153,7 @@ export default function PendingJoinRequests({
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Box display="flex" alignItems="center" gap={1.5}>
               <Avatar src={activeOffer.avatar || undefined}>{activeOffer.name?.[0] || "U"}</Avatar>
-              <Typography fontWeight="bold">{activeOffer.name || "User"}</Typography>
+              <Typography fontWeight="bold">{activeOffer.name || "משתמש"}</Typography>
             </Box>
             <Button
               size="small"
@@ -184,7 +184,7 @@ export default function PendingJoinRequests({
               >
                 <Box display="flex" alignItems="center" gap={1.5}>
                   <Avatar src={req.avatar || undefined}>{req.name?.[0] || "U"}</Avatar>
-                  <Typography>{req.name || "User"}</Typography>
+                  <Typography>{req.name || "משתמש"}</Typography>
                 </Box>
                 <Box display="flex" gap={1}>
                   <Button
@@ -239,7 +239,7 @@ export default function PendingJoinRequests({
               >
                 <Box display="flex" alignItems="center" gap={1.5}>
                   <Avatar src={req.avatar || undefined}>{req.name?.[0] || "U"}</Avatar>
-                  <Typography>{req.name || "User"}</Typography>
+                  <Typography>{req.name || "משתמש"}</Typography>
                 </Box>
                 {entrantList ? (
                   entrantList.rowLabel ? (
@@ -289,7 +289,7 @@ export default function PendingJoinRequests({
                 >
                   <Box display="flex" alignItems="center" gap={1.5} sx={{ opacity: 0.7 }}>
                     <Avatar src={req.avatar || undefined}>{req.name?.[0] || "U"}</Avatar>
-                    <Typography color="text.secondary">{req.name || "User"}</Typography>
+                    <Typography color="text.secondary">{req.name || "משתמש"}</Typography>
                   </Box>
                   <Button
                     size="small"

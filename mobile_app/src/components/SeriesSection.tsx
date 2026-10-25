@@ -89,14 +89,14 @@ export default function SeriesSection() {
             >
                 <SportCover sport={s.sport} height={112}>
                     <View className="flex-1 p-3 justify-between">
-                        <View className="bg-brand self-start px-2 py-1 rounded-full flex-row items-center">
+                        <View className="bg-brand-dark self-start px-2 py-1 rounded-full flex-row items-center">
                             <Ionicons name="people" size={10} color="#fff" />
-                            <Text className="text-white text-[10px] font-bold ml-1">{t('series.badge')}</Text>
+                            <Text className="text-white text-xs font-bold ml-1">{t('series.badge')}</Text>
                         </View>
                         {(dayName || s.time) && (
                             <View className="bg-black/55 self-start px-2 py-1 rounded-full flex-row items-center max-w-full">
                                 <Ionicons name="calendar-outline" size={10} color="#fff" />
-                                <Text className="text-white text-[10px] font-bold ml-1" numberOfLines={1}>
+                                <Text className="text-white text-xs font-bold ml-1" numberOfLines={1}>
                                     {dayName ? t('series.dayPrefix', { day: dayName, defaultValue: `יום ${dayName}` }) : ''}
                                     {s.time ? ` • ${s.time}` : ''}
                                 </Text>

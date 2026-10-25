@@ -63,9 +63,9 @@ export default function ManageItemCard({ item }: { item: ManageItem }) {
         <View className="mx-5 mb-3 rounded-2xl bg-white dark:bg-cyber-card border border-brand-pale dark:border-cyber-border p-4">
             <TouchableOpacity onPress={() => router.push(mainPath as any)} activeOpacity={0.85} accessibilityRole="button">
                 <View className="flex-row items-center mb-2">
-                    <View className={`flex-row items-center px-2 py-1 rounded-full ${isGroup ? 'bg-brand' : 'bg-slate-600'}`}>
+                    <View className={`flex-row items-center px-2 py-1 rounded-full ${isGroup ? 'bg-brand-dark' : 'bg-slate-600'}`}>
                         <Ionicons name={isGroup ? 'people' : 'football-outline'} size={10} color="#fff" />
-                        <Text className="text-white text-[10px] font-bold ml-1">
+                        <Text className="text-white text-xs font-bold ml-1">
                             {isGroup ? t('manage.badgeGroup') : t('manage.badgeGame')}
                         </Text>
                     </View>

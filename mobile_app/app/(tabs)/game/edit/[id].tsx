@@ -844,7 +844,7 @@ export default function EditGameScreen() {
                                 {futureRegistration && (
                                     <View className={`flex-row justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
                                         <TouchableOpacity onPress={() => setActivePicker('futureRegDate')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-gray-200">
-                                            <Text className="text-center">{futureRegDate.toLocaleDateString()}</Text>
+                                            <Text className="text-center">{futureRegDate.toLocaleDateString('he-IL')}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity onPress={() => setActivePicker('futureRegTime')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-gray-200">
                                             <Text className="text-center">{futureRegTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
@@ -863,7 +863,7 @@ export default function EditGameScreen() {
                                     <>
                                         <View className={`flex-row justify-between mb-4 ${isRtl ? 'flex-row-reverse' : ''}`}>
                                             <TouchableOpacity onPress={() => setActivePicker('lotteryDate')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-orange-200">
-                                                <Text className="text-center">{lotteryDate.toLocaleDateString()}</Text>
+                                                <Text className="text-center">{lotteryDate.toLocaleDateString('he-IL')}</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity onPress={() => setActivePicker('lotteryTime')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-orange-200">
                                                 <Text className="text-center">{lotteryTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
@@ -887,7 +887,7 @@ export default function EditGameScreen() {
                                     {makePublicLater && (
                                         <View className={`flex-row justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
                                             <TouchableOpacity onPress={() => setActivePicker('publicDate')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-green-200">
-                                                <Text className="text-center">{publicDate.toLocaleDateString()}</Text>
+                                                <Text className="text-center">{publicDate.toLocaleDateString('he-IL')}</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity onPress={() => setActivePicker('publicTime')} className="flex-1 bg-white p-2 rounded-lg mx-1 border border-green-200">
                                                 <Text className="text-center">{publicTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>

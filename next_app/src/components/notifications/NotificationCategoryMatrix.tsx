@@ -99,7 +99,7 @@ export default function NotificationCategoryMatrix({ settings, onChange }: Props
             {grouped.map(({ group, items }) => (
                 <Box key={group}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-                        <Typography variant="subtitle2" color="text.secondary" fontWeight={700}>
+                        <Typography variant="subtitle2" component="h2" color="text.secondary" fontWeight={700}>
                             {GROUP_TITLES[group]}
                         </Typography>
                         <Stack direction="row">

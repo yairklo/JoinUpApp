@@ -97,7 +97,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
             {/* Groups (recurring series) the user belongs to; absent when hidden */}
             {groups.length > 0 && (
                 <Box mb={4}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    <Typography variant="h6" component="h2" fontWeight="bold" gutterBottom>
                         קבוצות
                     </Typography>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -121,7 +121,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
             {/* Friends */}
             {showFriends && (
                 <Box mb={4}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    <Typography variant="h6" component="h2" fontWeight="bold" gutterBottom>
                         חברים
                     </Typography>
                     {profile.friends!.length === 0 ? (
@@ -151,7 +151,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
             {/* Match history */}
             {showHistory && (
                 <Box mb={2}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    <Typography variant="h6" component="h2" fontWeight="bold" gutterBottom>
                         היסטוריית משחקים
                     </Typography>
 

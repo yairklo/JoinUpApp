@@ -539,7 +539,7 @@ function NewGamePageInner() {
               {/* Only show selection if NOT preset by URL */}
               {!urlFieldId && (
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary" mb={1} align="right">איפה ומתי</Typography>
+                  <Typography variant="subtitle2" component="h2" color="text.secondary" mb={1} align="right">איפה ומתי</Typography>
                   <Grid container spacing={2} alignItems="flex-start" direction="row-reverse">
                     <Grid size={{ xs: 12, sm: 9 }}>
                       {newFieldMode ? (

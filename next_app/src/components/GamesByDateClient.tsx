@@ -111,7 +111,7 @@ export default function GamesByDateClient({
     <Box>
       <Box display="flex" alignItems="center" gap={1} mb={0.5} px={1}>
         <CalendarTodayIcon sx={{ fontSize: 18, color: "text.secondary" }} />
-        <Typography variant="subtitle2" color="text.secondary" fontWeight={700}>
+        <Typography variant="subtitle2" component="h2" color="text.secondary" fontWeight={700}>
           חפש לפי תאריך
         </Typography>
       </Box>

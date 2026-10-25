@@ -407,7 +407,7 @@ export default function GameParticipantsList({
       <CardContent sx={{ p: { xs: 2, sm: 2.5 }, "&:last-child": { pb: { xs: 2, sm: 2.5 } } }}>
         {/* Header Summary */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={1}>
-          <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>
+          <Typography variant="h6" component="h2" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>
             השחקנים
           </Typography>
           <Box

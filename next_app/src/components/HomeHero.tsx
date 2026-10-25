@@ -38,36 +38,6 @@ function greetingForHour(hour: number): string {
 function HeroBackdrop() {
     return (
         <>
-            <Box
-                aria-hidden
-                className="joinup-blob"
-                sx={{
-                    position: "absolute",
-                    width: { xs: 280, md: 480 },
-                    height: { xs: 280, md: 480 },
-                    borderRadius: "50%",
-                    background: "radial-gradient(circle, rgba(52,211,153,0.35) 0%, transparent 70%)",
-                    top: { xs: -120, md: -160 },
-                    insetInlineEnd: { xs: -90, md: -120 },
-                    pointerEvents: "none",
-                }}
-            />
-            <Box
-                aria-hidden
-                className="joinup-blob"
-                sx={{
-                    position: "absolute",
-                    width: { xs: 220, md: 380 },
-                    height: { xs: 220, md: 380 },
-                    borderRadius: "50%",
-                    background: "radial-gradient(circle, rgba(249,115,22,0.22) 0%, transparent 70%)",
-                    bottom: { xs: -110, md: -140 },
-                    insetInlineStart: { xs: -80, md: -100 },
-                    pointerEvents: "none",
-                    animationDelay: "-6s",
-                    animationDirection: "reverse",
-                }}
-            />
             <Box aria-hidden className="joinup-grain" />
         </>
     );
@@ -224,10 +194,7 @@ function WelcomeHero() {
                         <Box
                             component="span"
                             sx={{
-                                backgroundImage: "linear-gradient(90deg, #6ee7b7 0%, #fde047 55%, #fdba74 100%)",
-                                backgroundClip: "text",
-                                WebkitBackgroundClip: "text",
-                                color: "transparent",
+                                color: "#6ee7b7",
                             }}
                         >
                             מצטרפים. משחקים.

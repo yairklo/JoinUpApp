@@ -73,7 +73,7 @@ function Header({ isOwner, emoji }: { isOwner?: boolean; emoji?: string }) {
                 >
                     {emoji ? <span aria-hidden>{emoji}</span> : <InsightsRoundedIcon fontSize="small" />}
                 </Box>
-                <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
+                <Typography variant="h6" component="h2" fontWeight={800} sx={{ letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
                     {isOwner ? "הסטטיסטיקות שלי" : "סטטיסטיקות"}
                 </Typography>
             </Stack>
@@ -115,7 +115,7 @@ function Tile({ testId, value, label, outcome }: { testId: string; value: number
                 px: 0.75,
                 borderRadius: 2,
                 bgcolor: t.palette.mode === "dark" ? alpha(t.palette.text.primary, 0.04) : "action.hover",
-                border: "1px solid",
+                border: t.palette.mode === "dark" ? "1px solid" : "none",
                 borderColor: "divider",
             })}
         >
@@ -373,8 +373,8 @@ export default function ProfileStatsCard({
                                 sx={(t) => ({
                                     p: 1.75,
                                     borderRadius: 2,
-                                    border: "1px solid",
-                                    borderColor: t.palette.mode === "dark" ? alpha(sportTheme.glow, 0.18) : alpha(sportTheme.deep, 0.14),
+                                    border: t.palette.mode === "dark" ? "1px solid" : "none",
+                                    borderColor: alpha(sportTheme.glow, 0.18),
                                     bgcolor: t.palette.mode === "dark" ? alpha(sportTheme.deep, 0.35) : sportTheme.tint,
                                     color: t.palette.mode === "dark" ? sportTheme.glow : sportTheme.deep,
                                 })}

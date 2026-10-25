@@ -167,9 +167,9 @@ function MessageBubble({
                         )}
 
                         {message.replyTo && (
-                            <View className={`mb-2 p-2 rounded-xl border-l-4 ${isMe ? 'bg-brand-dark/50 border-brand-light' : 'bg-gray-200 border-gray-400'}`}>
-                                <Text className={`text-[10px] font-bold ${isMe ? 'text-brand-pale' : 'text-gray-500'}`}>
-                                    {message.replyTo.senderName || "User"}
+                            <View className={`mb-2 p-2 rounded-xl border-s-2 ${isMe ? 'bg-brand-dark/50 border-brand-light' : 'bg-gray-200 border-gray-400'}`}>
+                                <Text className={`text-xs font-bold ${isMe ? 'text-brand-pale' : 'text-gray-600'}`}>
+                                    {message.replyTo.senderName || t('common.user', 'משתמש')}
                                 </Text>
                                 <Text className={`text-xs ${isMe ? 'text-brand-mist' : 'text-gray-600'}`} numberOfLines={1}>
                                     {message.replyTo.text}
@@ -183,9 +183,9 @@ function MessageBubble({
 
                         <View className="flex-row items-center justify-end mt-1">
                             {message.isEdited && !message.isDeleted && (
-                                <Text className={`text-[9px] mr-1 ${isMe ? 'text-brand-pale' : 'text-gray-400'}`}>{t('chat.edited', 'Edited')}</Text>
+                                <Text className={`text-xs mr-1 ${isMe ? 'text-brand-pale' : 'text-gray-600'}`}>{t('chat.edited', 'Edited')}</Text>
                             )}
-                            <Text className={`text-[9px] font-medium ${isMe ? 'text-brand-pale' : 'text-gray-400'}`}>
+                            <Text className={`text-xs font-medium ${isMe ? 'text-brand-pale' : 'text-gray-600'}`}>
                                 {new Date(message.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </Text>
                             {isMe && tick !== 'none' && (

@@ -305,9 +305,9 @@ export default function FieldProfileScreen() {
                                                     )}
                                                 </View>
                                                 {hour % 3 === 0 ? (
-                                                    <Text className="text-gray-400 mt-1" style={{ fontSize: 9 }}>{hour}</Text>
+                                                    <Text className="text-gray-600 mt-1" style={{ fontSize: 12 }}>{hour}</Text>
                                                 ) : (
-                                                    <Text style={{ fontSize: 9 }}> </Text>
+                                                    <Text style={{ fontSize: 12 }}> </Text>
                                                 )}
                                             </View>
                                         );

@@ -92,6 +92,7 @@ export default function GamesHorizontalList({
           />
           <Typography
             variant="h5"
+            component="h2"
             fontWeight="800"
             noWrap
             sx={{

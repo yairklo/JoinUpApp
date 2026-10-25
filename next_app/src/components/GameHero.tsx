@@ -83,8 +83,8 @@ function StatTile({
                 p: { xs: 1.25, sm: 1.75 },
                 borderRadius: 3,
                 bgcolor: alpha(accent, t.palette.mode === "dark" ? 0.14 : 0.08),
-                border: "1px solid",
-                borderColor: alpha(accent, t.palette.mode === "dark" ? 0.28 : 0.16),
+                border: t.palette.mode === "dark" ? "1px solid" : "none",
+                borderColor: alpha(accent, 0.28),
             })}
         >
             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.75, minWidth: 0 }}>
@@ -270,7 +270,7 @@ export default function GameHero({
                                     color: theme.ink,
                                     fontWeight: 800,
                                     fontSize: { xs: "0.78rem", md: "0.85rem" },
-                                    boxShadow: `0 6px 20px -6px ${alpha(theme.glow, 0.8)}`,
+                                    boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
                                 }}
                             >
                                 <BoltRoundedIcon sx={{ fontSize: 16 }} />
