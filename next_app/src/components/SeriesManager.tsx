@@ -64,7 +64,7 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
     if (!wantsCreateGroup) return;
     if (!seriesId && canManage) setOpen(true);
     router.replace(pathname ?? `/games/${gameId}`, { scroll: false });
-  }, [wantsCreateGroup, seriesId, canManage, setOpen, router, pathname]);
+  }, [wantsCreateGroup, seriesId, canManage, setOpen, router, pathname, gameId]);
 
   if (seriesId) {
     return (
