@@ -42,7 +42,7 @@ Team: `{ id, tournamentId, name, color, logoUrl, captainId, status: PENDING|APPR
 Roster errors (`code`): `PLAYER_IN_OTHER_TEAM`(409) `TOO_MANY_PLAYERS`(409) `MINORS_NOT_ALLOWED`(403) `ROSTER_LOCKED`(409) `REGISTRATION_CLOSED`(409) `NAME_TAKEN`(409) `INVALID_CODE`(404) `CAPTAIN_CANNOT_LEAVE`(409).
 
 ## Schedule and matches
-Match: `{ id, number, stageId, groupId, round, status: SCHEDULED|LIVE|FINISHED|FORFEIT|POSTPONED|CANCELLED, home: {teamId, team:{id,name,color,logoUrl}|null, source}, away: {...}, scheduledAt, fieldId, courtLabel, homeScore, awayScore, homePenalties, awayPenalties, details ({sets:[[6,4],..], bestOf}), winnerTeamId, version }`. `source` = `{ type:'WINNER_OF'|'LOSER_OF', matchId }` or `{ type:'GROUP_RANK', groupId, rank, pos }` or null.
+Match: `{ id, number, stageId, groupId, round, status: SCHEDULED|LIVE|FINISHED|FORFEIT|POSTPONED|CANCELLED, home: {teamId, team:{id,name,color,logoUrl}|null, source}, away: {...}, scheduledAt, fieldId, courtLabel, homeScore, awayScore, homePenalties, awayPenalties, details ({sets:[[6,4],..], bestOf}), winnerTeamId, version }`. `source` = `{ type:'WINNER_OF'|'LOSER_OF', matchId }` or `{ type:'GROUP_RANK', groupId, rank, pos }` or `{ type:'LEAGUE_RANK', stageId, rank, pos }` or null.
 
 | Route | Auth | Request | Response |
 | --- | --- | --- | --- |
@@ -75,7 +75,7 @@ When an override exists (`manualOrder: true`):
 - The published order is `teamOrder` until a manager resets (deletes) it. Teams that join the table later and are missing from the saved list are appended in automatic order.
 - Displayed `points` = `autoPoints` + `pointsAdjustment`. Adjustments do not change W/D/L or goals, and they do **not** re-sort the table. A new result updates the automatic columns (and therefore the displayed points) on the next read; the saved order stays.
 - `needsManualRank` is false: the manual order separates ties. Per-team `manualRank` pins are ignored for ordering until reset, then they apply again.
-- Knockout `GROUP_RANK` slots follow this same order. The write is refused with `409 OVERRIDE_BLOCKED` when a finished downstream match would have to change, and nothing is saved.
+- Knockout `GROUP_RANK` slots follow this same order. A knockout slot seeded from a single-table stage (`LEAGUE_RANK`, or `GROUP_RANK` with `stageId` and no `groupId`) uses that same published table, including points adjustments. A single-table stage is any stage that is not `GROUP` and not `KNOCKOUT`, the same rule as this endpoint. Group-fed `GROUP_RANK` slots are unchanged. The write is refused with `409 OVERRIDE_BLOCKED` when a finished downstream match would have to change, and nothing is saved.
 - Draft and cancelled tournaments refuse the write with `409 TOURNAMENT_CLOSED`. Scorekeepers and other users get `403`. Viewers only see the note and the per-row reason; they cannot edit.
 
 ## Notifications (types already in the schema)

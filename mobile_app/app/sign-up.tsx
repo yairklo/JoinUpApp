@@ -1,11 +1,12 @@
 import * as React from 'react'
-import { Text, TextInput, TouchableOpacity, View, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native'
+import { Text, TextInput, TouchableOpacity, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSignUp } from '@clerk/clerk-expo'
 import { useRouter, Link } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useTranslation } from 'react-i18next'
 import { OAuth } from "@/components/OAuth";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { appAlert } from '@/i18n/appAlert'
 
 export default function SignUpScreen() {
     const { t } = useTranslation()
@@ -22,7 +23,7 @@ export default function SignUpScreen() {
     const onSignUpPress = async () => {
         if (!isLoaded) return
         if (!agreedToTerms) {
-            Alert.alert(t('common.error', 'שגיאה'), t('auth.agreeToTermsRequired', 'יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך'))
+            appAlert(t('common.error', 'שגיאה'), t('auth.agreeToTermsRequired', 'יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך'))
             return
         }
         setLoading(true)
@@ -38,7 +39,7 @@ export default function SignUpScreen() {
             setPendingVerification(true)
         } catch (err: any) {
             console.error(JSON.stringify(err, null, 2))
-            Alert.alert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.signUpFailed', 'ההרשמה נכשלה'))
+            appAlert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.signUpFailed', 'ההרשמה נכשלה'))
         } finally {
             setLoading(false)
         }
@@ -61,7 +62,7 @@ export default function SignUpScreen() {
             }
         } catch (err: any) {
             console.error(JSON.stringify(err, null, 2))
-            Alert.alert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.verificationFailed', 'Verification failed'))
+            appAlert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.verificationFailed', 'Verification failed'))
         } finally {
             setLoading(false)
         }

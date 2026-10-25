@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { usersApi } from '@/services/api/users';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -8,6 +8,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { mapFriendRequestError } from '@/utils/apiError';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 /**
  * Inline player search + add-friend list, embedded directly in the friends page
@@ -48,7 +49,7 @@ export default function PlayerSearch() {
             } catch (error) {
                 if (!cancelled) {
                     console.error('Search players failed:', error);
-                    Alert.alert(t('common.error', 'שגיאה'), t('profile.searchFailed', 'החיפוש נכשל, נסה שוב.'));
+                    appAlert(t('common.error', 'שגיאה'), t('profile.searchFailed', 'החיפוש נכשל, נסה שוב.'));
                 }
             } finally {
                 if (!cancelled) setLoading(false);
@@ -70,7 +71,7 @@ export default function PlayerSearch() {
             )));
         } catch (error) {
             console.error('Failed to send friend request:', error);
-            Alert.alert(t('common.error', 'שגיאה'), mapFriendRequestError(error));
+            appAlert(t('common.error', 'שגיאה'), mapFriendRequestError(error));
         } finally {
             setActionLoadingId(null);
         }

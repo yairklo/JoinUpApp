@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { TouchableOpacity, ActivityIndicator } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/services/api';
+import { appAlert } from '@/i18n/appAlert';
 
 // Module-level favorite-ids cache + a subscriber list, shared by every mounted
 // FavoriteButton for the signed-in user. A toggle updates this cache and
@@ -82,7 +83,7 @@ export default function FavoriteButton({ fieldId, size = 20 }: { fieldId: string
             setFavorite(fieldId, next);
         } catch (e) {
             console.error('Failed to toggle favorite', e);
-            Alert.alert(t('common.error', 'שגיאה'), t('favorites.updateFailed', 'לא ניתן היה לעדכן את המועדפים, נסה שוב'));
+            appAlert(t('common.error', 'שגיאה'), t('favorites.updateFailed', 'לא ניתן היה לעדכן את המועדפים, נסה שוב'));
         } finally {
             setLoading(false);
         }

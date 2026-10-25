@@ -72,6 +72,10 @@
       "types": "./autocompleteCopy.d.ts",
       "default": "./autocompleteCopy.js"
     },
+    "./ratingsCopy": {
+      "types": "./ratingsCopy.d.ts",
+      "default": "./ratingsCopy.js"
+    },
     "./mapLinks": {
       "types": "./mapLinks.d.ts",
       "default": "./mapLinks.js"

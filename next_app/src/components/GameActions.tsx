@@ -110,9 +110,8 @@ export default function GameActions({
           pb: { xs: 2, sm: 2 },
           borderTop: "1px solid",
           borderColor: "divider",
-          flexWrap: "nowrap",
+          flexWrap: "wrap",
           alignItems: "center",
-          overflowX: "auto",
           "& > *": { flex: "0 0 auto", minHeight: 44 },
         }}
       >

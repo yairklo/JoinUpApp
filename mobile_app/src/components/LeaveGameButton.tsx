@@ -5,6 +5,7 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { appAlert } from "@/i18n/appAlert";
 
 export default function LeaveGameButton({
     gameId,
@@ -41,7 +42,7 @@ export default function LeaveGameButton({
             if (onLeft) onLeft();
         } catch (e: any) {
             console.error("Leave Failed:", e);
-            Alert.alert(t('common.error'), e.message || t('game.leaveFailed'));
+            appAlert(t('common.error'), e.message || t('game.leaveFailed'));
         } finally {
             setLoading(false);
         }

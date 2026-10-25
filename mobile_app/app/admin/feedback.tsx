@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supportApi, SupportMessage } from '@/services/api';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import BackButton from '@/components/ui/BackButton';
+import { appAlert } from '@/i18n/appAlert';
 
 const TYPE_LABELS: Record<string, string> = {
     BUG: 'באג',
@@ -56,7 +57,7 @@ export default function AdminFeedbackScreen() {
             setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, ...updated } : r)));
         } catch (e) {
             console.error('Failed to resolve support message', e);
-            Alert.alert('', 'הפעולה נכשלה, נסה שוב.');
+            appAlert('', 'הפעולה נכשלה, נסה שוב.');
         } finally {
             setBusyId(null);
         }

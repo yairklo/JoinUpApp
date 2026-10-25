@@ -11,6 +11,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 // "1.0.0 · preview · a1b2c3d4" — which store build and which OTA update is running. The update id
 // is only present when the running JS came from EAS Update rather than the bundle embedded in the build.
@@ -71,7 +72,7 @@ export default function SettingsScreen() {
             router.replace('/sign-in');
         } catch (error) {
             console.error('[SETTINGS] Failed to delete account:', error);
-            Alert.alert(
+            appAlert(
                 t('settings.deleteAccountFailedTitle', 'מחיקת החשבון נכשלה'),
                 t('settings.deleteAccountFailedBody', 'משהו השתבש. בדקו את החיבור ונסו שוב.')
             );

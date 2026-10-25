@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { SPORT_EMOJI } from '@joinup/shared/sports';
@@ -7,6 +7,7 @@ import { getStatDefs, getSummaryKeys } from '@joinup/shared/matchStats';
 import type { UserSportStats } from '@/types/results';
 import { getSportTheme } from '@/components/ui/SportCover';
 import { formatPerGame, statLabel, toLang } from '@/utils/matchStatsFormat';
+import { appAlert } from '@/i18n/appAlert';
 
 export interface ProfileStatsCardProps {
     state: 'loading' | 'error' | 'ready';
@@ -125,7 +126,7 @@ export default function ProfileStatsCard(props: ProfileStatsCardProps) {
                     <Text className="text-lg font-bold text-gray-900 dark:text-cyber-text mx-2" numberOfLines={1}>{title}</Text>
                 </View>
                 <TouchableOpacity
-                    onPress={() => Alert.alert('', t('stats.sourceHint'))}
+                    onPress={() => appAlert('', t('stats.sourceHint'))}
                     accessibilityRole="button"
                     accessibilityLabel={t('stats.sourceHint')}
                     className="flex-row items-center min-h-[44px]"

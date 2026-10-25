@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
 import { supportApi, SupportMessageType } from '@/services/api';
+import { appAlert } from '@/i18n/appAlert';
 
 const MAX_MESSAGE_LENGTH = 2000;
 
@@ -30,15 +31,15 @@ export default function FeedbackScreen() {
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert(t('common.error', 'Error'), t('feedback.signInRequired'));
+                appAlert(t('common.error', 'Error'), t('feedback.signInRequired'));
                 return;
             }
             await supportApi.submit({ type, message: trimmed, context: 'mobile:/settings/feedback' }, token);
-            Alert.alert('', t('feedback.success'));
+            appAlert('', t('feedback.success'));
             router.back();
         } catch (e) {
             console.error('Failed to submit feedback', e);
-            Alert.alert(t('common.error', 'Error'), t('feedback.failure'));
+            appAlert(t('common.error', 'Error'), t('feedback.failure'));
         } finally {
             setSubmitting(false);
         }

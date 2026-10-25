@@ -21,6 +21,7 @@ import { normalizeCity } from '@joinup/shared/cityAliases';
 import { notificationsApi } from '@/services/api/notifications';
 import { SPORT_MAPPING } from '@/utils/sports';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 const SAVE_DEBOUNCE_MS = 400;
 const SPORTS = Object.keys(SPORT_MAPPING) as NotificationSport[];
@@ -137,7 +138,7 @@ export default function NotificationSettingsScreen() {
             if (Object.keys(pendingRef.current).length && !timerRef.current) {
                 timerRef.current = setTimeout(flush, SAVE_DEBOUNCE_MS);
             }
-            Alert.alert(t('common.error', 'שגיאה'), t('notificationSettings.saveFailed'));
+            appAlert(t('common.error', 'שגיאה'), t('notificationSettings.saveFailed'));
         }
     }, [t]);
 
@@ -182,7 +183,7 @@ export default function NotificationSettingsScreen() {
             onDone(await fn(token));
         } catch (error) {
             console.error('[NOTIFICATION_SETTINGS] Action failed:', error);
-            Alert.alert(t('common.error', 'שגיאה'), t('notificationSettings.actionFailed'));
+            appAlert(t('common.error', 'שגיאה'), t('notificationSettings.actionFailed'));
         } finally {
             setBusy(false);
         }

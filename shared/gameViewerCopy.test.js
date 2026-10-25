@@ -3,6 +3,8 @@ const {
   resolveNotSelectedJoinLabel,
   guestRegistrationNotOpenMessage,
   guestRegistrationOpensAtFromError,
+  guestJoinClosedLabel,
+  isGuestRegistrationClosed,
   formatHebrewWhen,
 } = require('./gameViewerCopy');
 
@@ -45,6 +47,38 @@ describe('lotteryViewerCopy pool (pre-draw)', () => {
     expect(copy.title).not.toContain('המתנה');
     expect(copy.detail).not.toContain('מחליף');
     expect(copy.cancelLabel).not.toContain('מחליף');
+  });
+});
+
+describe('lotteryViewerCopy while the overdue draw has not run', () => {
+  it('tells a pool member the draw is in progress instead of the substitute waitlist', () => {
+    expect(lotteryViewerCopy({
+      lotteryEnabled: true,
+      lotteryPending: false,
+      lotteryExecutedAt: null,
+      lotteryAt: DRAW_AT,
+      viewerParticipationStatus: 'WAITLISTED',
+      now: AFTER_DRAW,
+    })).toEqual({
+      kind: 'drawing',
+      title: 'ההגרלה מתבצעת',
+      detail: null,
+      cancelLabel: null,
+      canRejoin: false,
+      joinMode: null,
+      joinLabel: null,
+      selectedNote: null,
+    });
+  });
+
+  it('does not treat a missing executed timestamp as an overdue draw', () => {
+    expect(lotteryViewerCopy({
+      lotteryEnabled: true,
+      lotteryPending: false,
+      lotteryAt: DRAW_AT,
+      viewerParticipationStatus: 'WAITLISTED',
+      now: AFTER_DRAW,
+    })).toBeNull();
   });
 });
 
@@ -129,6 +163,7 @@ describe('lotteryViewerCopy leaves ordinary states alone', () => {
     expect(lotteryViewerCopy({
       lotteryEnabled: true,
       lotteryPending: false,
+      lotteryExecutedAt: DRAW_AT,
       lotteryAt: DRAW_AT,
       viewerParticipationStatus: 'WAITLISTED',
       now: AFTER_DRAW,
@@ -181,6 +216,39 @@ describe('resolveNotSelectedJoinLabel', () => {
       lotteryViewerCopy({ lotteryEnabled: true, lotteryPending: true, lotteryAt: DRAW_AT, viewerParticipationStatus: 'WAITLISTED' }),
       { requiresApproval: true },
     )).toBeNull();
+  });
+});
+
+describe('guest join button before the guest window', () => {
+  const opensAt = DRAW_AT;
+
+  it('closes the button only for a known guest before the opening time', () => {
+    expect(isGuestRegistrationClosed({
+      viewerIsInsider: false,
+      guestRegistrationOpensAt: opensAt,
+      now: BEFORE_DRAW,
+    })).toBe(true);
+    expect(guestJoinClosedLabel(opensAt)).toBe(`נפתח ב-${DRAW_WHEN}`);
+  });
+
+  it('stays open for insiders, unknown viewers, and after the window', () => {
+    expect(isGuestRegistrationClosed({
+      viewerIsInsider: true,
+      guestRegistrationOpensAt: opensAt,
+      now: BEFORE_DRAW,
+    })).toBe(false);
+    expect(isGuestRegistrationClosed({
+      guestRegistrationOpensAt: opensAt,
+      now: BEFORE_DRAW,
+    })).toBe(false);
+    expect(isGuestRegistrationClosed({
+      viewerIsInsider: false,
+      guestRegistrationOpensAt: opensAt,
+      now: AFTER_DRAW,
+    })).toBe(false);
+    expect(isGuestRegistrationClosed({ viewerIsInsider: false, now: BEFORE_DRAW })).toBe(false);
+    expect(guestJoinClosedLabel(null)).toBe('ההרשמה לאורחים טרם נפתחה');
+    expect(guestJoinClosedLabel('not-a-date')).toBe('ההרשמה לאורחים טרם נפתחה');
   });
 });
 

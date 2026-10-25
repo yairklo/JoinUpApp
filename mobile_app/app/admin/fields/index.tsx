@@ -9,6 +9,7 @@ import LoadingMotif from '@/components/loading/LoadingMotif';
 import { SPORT_MAPPING } from '@/utils/sports';
 import BackButton from '@/components/ui/BackButton';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 /**
  * Mobile counterpart of next_app's admin fields list
@@ -63,7 +64,7 @@ export default function AdminFieldsListScreen() {
             await fieldsApi.update(field.id, { available: !(field.available !== false) }, token);
             await load();
         } catch (e) {
-            Alert.alert('שגיאה', 'עדכון המגרש נכשל');
+            appAlert('שגיאה', 'עדכון המגרש נכשל');
         } finally {
             setBusyId(null);
         }
@@ -88,7 +89,7 @@ export default function AdminFieldsListScreen() {
             await fieldsApi.delete(field.id, token);
             await load();
         } catch (e) {
-            Alert.alert('שגיאה', 'מחיקת המגרש נכשלה');
+            appAlert('שגיאה', 'מחיקת המגרש נכשלה');
         } finally {
             setBusyId(null);
         }

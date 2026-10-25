@@ -8,6 +8,7 @@ import CancelGameButton from "@/components/CancelGameButton";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
+import { formatHebrewWhen } from "@joinup/shared/gameViewerCopy";
 import type { FriendsOnlyLinkPolicy } from "@/types/game";
 import { isGameFinished } from "@/utils/gameStatus";
 
@@ -57,6 +58,7 @@ type Game = {
   customLocation?: string | null;
   lotteryEnabled?: boolean;
   lotteryAt?: string | null;
+  lotteryExecutedAt?: string | null;
   lotteryPending?: boolean;
   organizerInLottery?: boolean;
   overbooked?: boolean;
@@ -144,8 +146,12 @@ export default async function GameDetails(props: {
     );
   }
 
+  const drawInProgress = !!game.lotteryEnabled
+    && game.lotteryExecutedAt === null
+    && !!game.lotteryAt
+    && game.lotteryPending === false;
   const headerCount =
-    (game.lotteryEnabled && game.lotteryPending
+    (game.lotteryEnabled && (game.lotteryPending || drawInProgress)
       ? game.totalSignups ?? game.currentPlayers
       : game.currentPlayers) || 0;
 
@@ -194,7 +200,11 @@ export default async function GameDetails(props: {
               viewerJoinRequiresApproval: game.viewerJoinRequiresApproval,
               lotteryEnabled: game.lotteryEnabled,
               lotteryPending: game.lotteryPending,
+              lotteryExecutedAt: game.lotteryExecutedAt,
               organizerInLottery: game.organizerInLottery,
+              membersOnlyPriority: game.membersOnlyPriority,
+              guestRegistrationOpensAt: game.guestRegistrationOpensAt,
+              viewerIsInsider: game.viewerIsInsider,
               totalSignups: game.totalSignups,
               organizerId: game.organizerId,
               chatRoomId: game.chatRoomId,
@@ -228,7 +238,7 @@ export default async function GameDetails(props: {
               )}
               {game.guestRegistrationOpensAt && new Date(game.guestRegistrationOpensAt) > new Date() && (
                 <Typography variant="body2">
-                  ההרשמה לאורחים נפתחת ב-{formatJerusalemDate(game.guestRegistrationOpensAt).split("-").reverse().join("/")} {formatJerusalemTime(game.guestRegistrationOpensAt)}
+                  ההרשמה לאורחים נפתחת ב-{formatHebrewWhen(game.guestRegistrationOpensAt) ?? ""}
                 </Typography>
               )}
             </Box>

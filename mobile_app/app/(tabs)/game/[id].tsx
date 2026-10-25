@@ -15,7 +15,7 @@ import GameResultSection from '@/components/GameResultSection';
 import GameDetailsSkeleton from '@/components/GameDetailsSkeleton';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
-import { lotteryViewerCopy, resolveNotSelectedJoinLabel } from '@joinup/shared/gameViewerCopy';
+import { guestJoinClosedLabel, isGuestRegistrationClosed, lotteryViewerCopy, resolveNotSelectedJoinLabel } from '@joinup/shared/gameViewerCopy';
 import { mapJoinAlert } from '@/utils/apiError';
 import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { tryParseJerusalemTimeToUTC } from '@/utils/timezone';
@@ -25,6 +25,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SPORT_MAPPING } from '@/utils/sports';
 import SafeImage from '@/components/SafeImage';
 import OpenInMapButton from '@/components/OpenInMapButton';
+import { appAlert } from '@/i18n/appAlert';
 
 const HERO_HEIGHT = 200;
 
@@ -132,7 +133,7 @@ export default function GameDetailsScreen() {
             }
             if (signedOutSinceMount()) return; // stale screen after sign-out: 401 is expected
             console.error("Failed to load game", err);
-            Alert.alert(t('common.error', 'שגיאה'), t('game.loadFailed', 'לא הצלחנו לטעון את פרטי המשחק'));
+            appAlert(t('common.error', 'שגיאה'), t('game.loadFailed', 'לא הצלחנו לטעון את פרטי המשחק'));
             setLoading(false);
         }
     }, [id, isAuthLoaded, isSignedIn, getTokenRef]);
@@ -156,26 +157,30 @@ export default function GameDetailsScreen() {
 
     const handleJoin = async () => {
         if (!game) return;
+        if (isGuestRegistrationClosed({
+            viewerIsInsider: game.viewerIsInsider,
+            guestRegistrationOpensAt: game.guestRegistrationOpensAt,
+        })) return;
         setActionLoading(true);
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert(t('common.error', 'שגיאה'), t('game.mustBeLoggedIn', 'עליך להיות מחובר כדי להצטרף'));
+                appAlert(t('common.error', 'שגיאה'), t('game.mustBeLoggedIn', 'עליך להיות מחובר כדי להצטרף'));
                 return;
             }
             const result = await gamesApi.join(game.id, token);
             if (result.pending) {
-                Alert.alert(t('game.requestSent'), t('game.requestPending'));
+                appAlert(t('game.requestSent'), t('game.requestPending'));
             } else if (result.viewerParticipationStatus === 'WAITLISTED') {
-                Alert.alert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
+                appAlert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
                 notifyGameUpdate(game.id, "waitlist", user?.id || "");
             } else {
-                Alert.alert(t('common.success', 'הצלחה'), t('game.joinSuccess', 'הצטרפת למשחק!'));
+                appAlert(t('common.success', 'הצלחה'), t('game.joinSuccess', 'הצטרפת למשחק!'));
                 notifyGameUpdate(game.id, "join", user?.id || "");
             }
             setGame(result);
         } catch (err: any) {
-            Alert.alert(t('common.error', 'שגיאה'), mapJoinAlert(err, t('game.joinFailed', 'ההצטרפות למשחק נכשלה')));
+            appAlert(t('common.error', 'שגיאה'), mapJoinAlert(err, t('game.joinFailed', 'ההצטרפות למשחק נכשלה')));
         } finally {
             setActionLoading(false);
         }
@@ -198,7 +203,7 @@ export default function GameDetailsScreen() {
                             if (!token) return;
                             const res = await gamesApi.leave(game.id, token);
                             notifyGameUpdate(game.id, "leave", user?.id || "");
-                            Alert.alert(
+                            appAlert(
                                 t('common.success', 'הצלחה'),
                                 t('game.leftGameSuccess', 'עזבת את המשחק בהצלחה.')
                             );
@@ -208,7 +213,7 @@ export default function GameDetailsScreen() {
                                 await fetchGame();
                             }
                         } catch (err: any) {
-                            Alert.alert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || t('game.actionFailed', 'הפעולה נכשלה'));
+                            appAlert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || t('game.actionFailed', 'הפעולה נכשלה'));
                         } finally {
                             setActionLoading(false);
                         }
@@ -224,7 +229,7 @@ export default function GameDetailsScreen() {
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert(t('common.error', 'שגיאה'), t('game.mustBeLoggedInToConfirm', 'עליך להיות מחובר כדי לאשר או לוותר'));
+                appAlert(t('common.error', 'שגיאה'), t('game.mustBeLoggedInToConfirm', 'עליך להיות מחובר כדי לאשר או לוותר'));
                 return;
             }
             const result = await gamesApi.waitlistConfirm(game.id, accept, token);
@@ -234,7 +239,7 @@ export default function GameDetailsScreen() {
             } else {
                 notifyGameUpdate(game.id, "leave", user?.id || "");
             }
-            Alert.alert(
+            appAlert(
                 t('common.success', 'הצלחה'),
                 accept
                     ? t('game.waitlistOfferJoined', 'הצטרפת למשחק בהצלחה!')
@@ -244,12 +249,12 @@ export default function GameDetailsScreen() {
         } catch (err: any) {
             const msg = err?.message || err?.response?.data?.error || "";
             if (String(msg).includes('No pending waitlist offer') || String(msg).includes('waitlist')) {
-                Alert.alert(
+                appAlert(
                     t('game.awaitingOrganizerApproval', 'ממתין לאישור המארגן'),
                     t('game.noActiveWaitlistOffer', 'אין הצעת מקום פעילה מרשימת ההמתנה. אם שלחת בקשת הצטרפות, המארגן צריך לאשר אותה.')
                 );
             } else {
-                Alert.alert(t('common.error', 'שגיאה'), msg || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
+                appAlert(t('common.error', 'שגיאה'), msg || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
             }
         } finally {
             setActionLoading(false);
@@ -296,6 +301,7 @@ export default function GameDetailsScreen() {
     const lotteryCopy = lotteryViewerCopy({
         lotteryEnabled: game.lotteryEnabled,
         lotteryPending: game.lotteryPending,
+        lotteryExecutedAt: game.lotteryExecutedAt,
         lotteryAt: game.lotteryAt,
         viewerParticipationStatus: game.viewerParticipationStatus,
         seatsFree,
@@ -303,6 +309,16 @@ export default function GameDetailsScreen() {
         organizerInLottery: game.organizerInLottery,
     });
     const isLotteryPool = lotteryCopy?.kind === 'pool';
+    const isLotteryDrawing = lotteryCopy?.kind === 'drawing';
+    const drawInProgress = !!game.lotteryEnabled
+        && game.lotteryExecutedAt === null
+        && !!game.lotteryAt
+        && game.lotteryPending === false;
+    const rosterCount = drawInProgress ? (game.totalSignups ?? game.currentPlayers) : game.currentPlayers;
+    const guestJoinClosed = isGuestRegistrationClosed({
+        viewerIsInsider: game.viewerIsInsider,
+        guestRegistrationOpensAt: game.guestRegistrationOpensAt,
+    });
     const notSelectedJoinLabel = resolveNotSelectedJoinLabel(lotteryCopy, {
         requiresApproval: !!game.viewerJoinRequiresApproval,
     });
@@ -330,7 +346,7 @@ export default function GameDetailsScreen() {
                             setGame(updated);
                         } catch (e) {
                             console.error('Cancel game failed', e);
-                            Alert.alert(t('common.error', 'שגיאה'), t('game.cancelGameFailed', 'ביטול המשחק נכשל'));
+                            appAlert(t('common.error', 'שגיאה'), t('game.cancelGameFailed', 'ביטול המשחק נכשל'));
                         }
                     },
                 },
@@ -379,7 +395,7 @@ export default function GameDetailsScreen() {
                         label={t('game.statWhen', 'מתי')}
                         value={`${new Date(game.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL', { day: 'numeric', month: 'numeric' })} · ${game.time}`}
                     />
-                    <StatTile label={t('game.players')} value={`${game.currentPlayers || 0}/${game.maxPlayers}`} />
+                    <StatTile label={t('game.players')} value={`${rosterCount || 0}/${game.maxPlayers}`} />
                     <StatTile label={t('game.statPrice', 'מחיר')} value={game.price ? `₪${game.price}` : t('game.free')} />
                 </View>
 
@@ -435,6 +451,12 @@ export default function GameDetailsScreen() {
                     </View>
                 )}
 
+                {isLotteryDrawing && lotteryCopy && (
+                    <View testID="lottery-drawing-banner" className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
+                        <Text className="text-brand-ink font-bold text-base text-center">{lotteryCopy.title}</Text>
+                    </View>
+                )}
+
                 {isLotteryPool && lotteryCopy && (
                     <View testID="lottery-pool-banner" className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
                         <Text className="text-brand-ink font-bold text-base text-center mb-1">{lotteryCopy.title}</Text>
@@ -459,7 +481,7 @@ export default function GameDetailsScreen() {
                     </View>
                 )}
 
-                {isWaitlisted && !isWaitlistOfferPending && !isLotteryPool && (
+                {isWaitlisted && !isWaitlistOfferPending && !isLotteryPool && !isLotteryDrawing && (
                     <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
                         <Text className="text-brand-ink font-bold text-base text-center mb-1">{t('game.waitlisted', 'ברשימת המתנה')}</Text>
                         <Text className="text-brand-dark text-sm text-center">
@@ -560,7 +582,7 @@ export default function GameDetailsScreen() {
                     <View className="flex-row justify-between items-center mb-4">
                         <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text">{t('game.players')}</Text>
                         <Text className="text-gray-500 dark:text-cyber-muted">
-                            {game.currentPlayers} / {game.maxPlayers}
+                            {rosterCount || 0} / {game.maxPlayers}
                         </Text>
                     </View>
 
@@ -746,7 +768,11 @@ export default function GameDetailsScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : isWaitlisted ? (
-                        isLotteryPool && lotteryCopy ? (
+                        isLotteryDrawing && lotteryCopy ? (
+                            <View testID="lottery-drawing-action" className="min-h-[52px] px-4 py-3 rounded-2xl items-center justify-center bg-gray-100 dark:bg-cyber-border">
+                                <Text className="text-gray-800 dark:text-cyber-text font-bold text-[15px] text-center">{lotteryCopy.title}</Text>
+                            </View>
+                        ) : isLotteryPool && lotteryCopy ? (
                             <View testID="lottery-pool-action">
                                 <Text className="text-gray-800 dark:text-cyber-text font-bold text-[15px] text-center">{lotteryCopy.title}</Text>
                                 {!!lotteryCopy.detail && (
@@ -781,6 +807,12 @@ export default function GameDetailsScreen() {
                     ) : isRejected ? (
                         <View className="h-[52px] rounded-2xl items-center justify-center bg-gray-100 dark:bg-cyber-border">
                             <Text className="text-gray-500 dark:text-cyber-muted font-bold text-[16px]">{t('game.reject')}</Text>
+                        </View>
+                    ) : guestJoinClosed ? (
+                        <View testID="join-guest-closed" className="min-h-[52px] px-4 py-3 rounded-2xl items-center justify-center bg-gray-100 dark:bg-cyber-border">
+                            <Text className="text-gray-700 dark:text-cyber-text font-bold text-[15px] text-center">
+                                {guestJoinClosedLabel(game.guestRegistrationOpensAt)}
+                            </Text>
                         </View>
                     ) : (
                         <TouchableOpacity
