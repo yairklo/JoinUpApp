@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import JoinGameButton from "./JoinGameButton";
 import SafeImage from "./ui/SafeImage";
+import { formatHebrewWhen } from "@joinup/shared/gameViewerCopy";
 
 type Game = {
   id: string;
@@ -48,7 +49,7 @@ export default function GameListClient({ games }: { games: Game[] }) {
                 <div className="mt-1 text-xs text-[rgb(var(--fg)/0.65)]">Spots left: {capacityLeft}</div>
                 {g.lotteryEnabled && g.lotteryPending && g.overbooked ? (
                   <div className="mt-1 text-[11px] text-amber-700">
-                    ממתין להגרלה ב-{g.lotteryAt ? new Date(g.lotteryAt).toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' }) : "—"} • רשומים: {g.totalSignups ?? 0}
+                    ממתין להגרלה ב-{g.lotteryAt ? (formatHebrewWhen(g.lotteryAt) ?? "—") : "—"} • רשומים: {g.totalSignups ?? 0}
                   </div>
                 ) : null}
               </div>

@@ -1,10 +1,16 @@
-export type LotteryViewerKind = 'pool' | 'not_selected' | 'selected';
+export type LotteryViewerKind = 'pool' | 'drawing' | 'not_selected' | 'selected';
 export type LotteryJoinMode = 'join' | 'waitlist';
 
 export interface LotteryViewerInput {
   lotteryEnabled?: boolean;
   lotteryPending?: boolean;
   lotteryAt?: string | null;
+  /**
+   * Set when the server included lotteryExecutedAt.
+   * null = the draw has not run. A string = it has. Omit when the payload has no field,
+   * so a real post-draw waitlist is not shown as "ההגרלה מתבצעת".
+   */
+  lotteryExecutedAt?: string | null;
   viewerParticipationStatus?: string | null;
   /** Confirmed seats still open. Only affects the not-selected detail and join label. */
   seatsFree?: boolean;
@@ -35,4 +41,12 @@ export function resolveNotSelectedJoinLabel(
 ): string | null;
 export function guestRegistrationNotOpenMessage(opensAt?: string | null): string;
 export function guestRegistrationOpensAtFromError(error: unknown): string | null;
+/** Disabled join-button label, including the Jerusalem opening time when it is known. */
+export function guestJoinClosedLabel(opensAt?: string | null): string;
+export function isGuestRegistrationClosed(input?: {
+  viewerIsInsider?: boolean;
+  guestRegistrationOpensAt?: string | null;
+  now?: Date;
+}): boolean;
 export function formatHebrewWhen(iso?: string | null): string | null;
+export const DRAWING_TITLE: string;

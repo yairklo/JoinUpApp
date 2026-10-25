@@ -6,7 +6,7 @@ import { useGameUpdate } from "@/context/GameUpdateContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { hasWaitlistOffer } from "@/utils/waitlistOffer";
-import { lotteryViewerCopy } from "@joinup/shared/gameViewerCopy";
+import { guestJoinClosedLabel, isGuestRegistrationClosed, lotteryViewerCopy } from "@joinup/shared/gameViewerCopy";
 import { mapJoinAlert } from "@/utils/apiError";
 import { appAlert } from "@/i18n/appAlert";
 
@@ -19,7 +19,10 @@ export default function JoinGameButton({
     isFull,
     lotteryEnabled,
     lotteryPending,
+    lotteryExecutedAt,
     lotteryAt,
+    guestRegistrationOpensAt,
+    viewerIsInsider,
     onJoined,
     onRequestSent,
 }: {
@@ -31,7 +34,11 @@ export default function JoinGameButton({
     /** Game.lotteryEnabled. Separate from lotteryPending so a finished draw is not treated as still open. */
     lotteryEnabled?: boolean;
     lotteryPending?: boolean;
+    lotteryExecutedAt?: string | null;
     lotteryAt?: string | null;
+    guestRegistrationOpensAt?: string | null;
+    /** false = guest. Undefined means the caller does not know, so the button stays enabled. */
+    viewerIsInsider?: boolean;
     /** When true, join goes to the standby queue — do not bump currentPlayers. */
     isFull?: boolean;
     onJoined?: () => void;
@@ -75,6 +82,7 @@ export default function JoinGameButton({
         ? lotteryViewerCopy({
             lotteryEnabled: !!lotteryEnabled,
             lotteryPending: !!lotteryPending,
+            lotteryExecutedAt,
             lotteryAt,
             viewerParticipationStatus: "WAITLISTED",
         })
@@ -83,9 +91,10 @@ export default function JoinGameButton({
     const now = new Date();
     const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
     const isRegistrationClosed = openDate && now < openDate;
+    const isGuestClosed = isGuestRegistrationClosed({ viewerIsInsider, guestRegistrationOpensAt, now });
 
     const join = async () => {
-        if (isRegistrationClosed || loading || pending || offerPending) return;
+        if (isRegistrationClosed || isGuestClosed || loading || pending || offerPending) return;
         setLoading(true);
         try {
             const token = await getToken().catch(() => "");
@@ -222,6 +231,21 @@ export default function JoinGameButton({
             >
                 <Ionicons name="lock-closed" size={16} color="#6b7280" />
                 <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 font-bold flex-shrink">{t("game.opensAt", { time: timeStr })}</Text>
+            </TouchableOpacity>
+        );
+    }
+
+    if (isGuestClosed) {
+        return (
+            <TouchableOpacity
+                disabled
+                testID="join-guest-closed"
+                className="bg-gray-100 flex-row items-center justify-center p-3 rounded-xl border border-gray-200"
+            >
+                <Ionicons name="lock-closed" size={16} color="#6b7280" />
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 font-bold flex-shrink">
+                    {guestJoinClosedLabel(guestRegistrationOpensAt)}
+                </Text>
             </TouchableOpacity>
         );
     }

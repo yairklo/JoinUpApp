@@ -15,7 +15,7 @@ import GameResultSection from '@/components/GameResultSection';
 import GameDetailsSkeleton from '@/components/GameDetailsSkeleton';
 import { useGameUpdatedListener, useGameUpdate } from '@/context/GameUpdateContext';
 import { hasWaitlistOffer, isOrganizerApprovalPending } from '@/utils/waitlistOffer';
-import { lotteryViewerCopy, resolveNotSelectedJoinLabel } from '@joinup/shared/gameViewerCopy';
+import { guestJoinClosedLabel, isGuestRegistrationClosed, lotteryViewerCopy, resolveNotSelectedJoinLabel } from '@joinup/shared/gameViewerCopy';
 import { mapJoinAlert } from '@/utils/apiError';
 import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
 import { tryParseJerusalemTimeToUTC } from '@/utils/timezone';
@@ -157,6 +157,10 @@ export default function GameDetailsScreen() {
 
     const handleJoin = async () => {
         if (!game) return;
+        if (isGuestRegistrationClosed({
+            viewerIsInsider: game.viewerIsInsider,
+            guestRegistrationOpensAt: game.guestRegistrationOpensAt,
+        })) return;
         setActionLoading(true);
         try {
             const token = await getToken();
@@ -297,6 +301,7 @@ export default function GameDetailsScreen() {
     const lotteryCopy = lotteryViewerCopy({
         lotteryEnabled: game.lotteryEnabled,
         lotteryPending: game.lotteryPending,
+        lotteryExecutedAt: game.lotteryExecutedAt,
         lotteryAt: game.lotteryAt,
         viewerParticipationStatus: game.viewerParticipationStatus,
         seatsFree,
@@ -304,6 +309,16 @@ export default function GameDetailsScreen() {
         organizerInLottery: game.organizerInLottery,
     });
     const isLotteryPool = lotteryCopy?.kind === 'pool';
+    const isLotteryDrawing = lotteryCopy?.kind === 'drawing';
+    const drawInProgress = !!game.lotteryEnabled
+        && game.lotteryExecutedAt === null
+        && !!game.lotteryAt
+        && game.lotteryPending === false;
+    const rosterCount = drawInProgress ? (game.totalSignups ?? game.currentPlayers) : game.currentPlayers;
+    const guestJoinClosed = isGuestRegistrationClosed({
+        viewerIsInsider: game.viewerIsInsider,
+        guestRegistrationOpensAt: game.guestRegistrationOpensAt,
+    });
     const notSelectedJoinLabel = resolveNotSelectedJoinLabel(lotteryCopy, {
         requiresApproval: !!game.viewerJoinRequiresApproval,
     });
@@ -380,7 +395,7 @@ export default function GameDetailsScreen() {
                         label={t('game.statWhen', 'מתי')}
                         value={`${new Date(game.date).toLocaleDateString(i18n.language === 'en' ? 'en-US' : 'he-IL', { day: 'numeric', month: 'numeric' })} · ${game.time}`}
                     />
-                    <StatTile label={t('game.players')} value={`${game.currentPlayers || 0}/${game.maxPlayers}`} />
+                    <StatTile label={t('game.players')} value={`${rosterCount || 0}/${game.maxPlayers}`} />
                     <StatTile label={t('game.statPrice', 'מחיר')} value={game.price ? `₪${game.price}` : t('game.free')} />
                 </View>
 
@@ -436,6 +451,12 @@ export default function GameDetailsScreen() {
                     </View>
                 )}
 
+                {isLotteryDrawing && lotteryCopy && (
+                    <View testID="lottery-drawing-banner" className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
+                        <Text className="text-brand-ink font-bold text-base text-center">{lotteryCopy.title}</Text>
+                    </View>
+                )}
+
                 {isLotteryPool && lotteryCopy && (
                     <View testID="lottery-pool-banner" className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
                         <Text className="text-brand-ink font-bold text-base text-center mb-1">{lotteryCopy.title}</Text>
@@ -460,7 +481,7 @@ export default function GameDetailsScreen() {
                     </View>
                 )}
 
-                {isWaitlisted && !isWaitlistOfferPending && !isLotteryPool && (
+                {isWaitlisted && !isWaitlistOfferPending && !isLotteryPool && !isLotteryDrawing && (
                     <View className="mx-4 mt-4 mb-2 p-4 rounded-xl bg-brand-mist border border-brand-pale">
                         <Text className="text-brand-ink font-bold text-base text-center mb-1">{t('game.waitlisted', 'ברשימת המתנה')}</Text>
                         <Text className="text-brand-dark text-sm text-center">
@@ -561,7 +582,7 @@ export default function GameDetailsScreen() {
                     <View className="flex-row justify-between items-center mb-4">
                         <Text className="text-lg font-bold text-gray-800 dark:text-cyber-text">{t('game.players')}</Text>
                         <Text className="text-gray-500 dark:text-cyber-muted">
-                            {game.currentPlayers} / {game.maxPlayers}
+                            {rosterCount || 0} / {game.maxPlayers}
                         </Text>
                     </View>
 
@@ -747,7 +768,11 @@ export default function GameDetailsScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : isWaitlisted ? (
-                        isLotteryPool && lotteryCopy ? (
+                        isLotteryDrawing && lotteryCopy ? (
+                            <View testID="lottery-drawing-action" className="min-h-[52px] px-4 py-3 rounded-2xl items-center justify-center bg-gray-100 dark:bg-cyber-border">
+                                <Text className="text-gray-800 dark:text-cyber-text font-bold text-[15px] text-center">{lotteryCopy.title}</Text>
+                            </View>
+                        ) : isLotteryPool && lotteryCopy ? (
                             <View testID="lottery-pool-action">
                                 <Text className="text-gray-800 dark:text-cyber-text font-bold text-[15px] text-center">{lotteryCopy.title}</Text>
                                 {!!lotteryCopy.detail && (
@@ -782,6 +807,12 @@ export default function GameDetailsScreen() {
                     ) : isRejected ? (
                         <View className="h-[52px] rounded-2xl items-center justify-center bg-gray-100 dark:bg-cyber-border">
                             <Text className="text-gray-500 dark:text-cyber-muted font-bold text-[16px]">{t('game.reject')}</Text>
+                        </View>
+                    ) : guestJoinClosed ? (
+                        <View testID="join-guest-closed" className="min-h-[52px] px-4 py-3 rounded-2xl items-center justify-center bg-gray-100 dark:bg-cyber-border">
+                            <Text className="text-gray-700 dark:text-cyber-text font-bold text-[15px] text-center">
+                                {guestJoinClosedLabel(game.guestRegistrationOpensAt)}
+                            </Text>
                         </View>
                     ) : (
                         <TouchableOpacity

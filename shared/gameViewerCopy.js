@@ -5,6 +5,7 @@ const { formatJerusalemDate, formatJerusalemTime } = require('./timezone');
 const POOL_TITLE = 'נרשמת להגרלה';
 const POOL_CANCEL = 'בטל הרשמה להגרלה';
 const POOL_DETAIL_FALLBACK = 'המקומות יוגרלו במועד ההגרלה';
+const DRAWING_TITLE = 'ההגרלה מתבצעת';
 const NOT_SELECTED_TITLE = 'לא נבחרת בהגרלה';
 const NOT_SELECTED_FREE = 'יש מקומות פנויים, אפשר להצטרף למשחק';
 const NOT_SELECTED_FULL = 'אין מקום פנוי, אפשר להצטרף לרשימת המתנה';
@@ -38,6 +39,8 @@ function drawHasPassed(lotteryAt, now) {
  * so callers keep their existing substitute/join copy.
  *
  * - pool: WAITLISTED while the draw has not run (lotteryPending).
+ * - drawing: WAITLISTED after lotteryAt, before lotteryExecutedAt. The overdue draw has
+ *   not landed yet, so this is not the substitute waitlist.
  * - not_selected: the draw left them out. They may join a free seat or the waitlist.
  * - selected: CONFIRMED after the draw time. Callers keep the normal confirmed controls
  *   and may show `selectedNote`. An organizer who opted out of the draw is not a winner.
@@ -62,6 +65,22 @@ function lotteryViewerCopy(input = {}) {
   }
 
   if (!enabled) return null;
+
+  // Both flags have to be explicit: executedAt null (not omitted) and lotteryPending
+  // false (the server clock has passed lotteryAt). A real substitute waitlist has
+  // lotteryExecutedAt set, so it must not land here.
+  if (status === 'WAITLISTED' && input.lotteryExecutedAt === null && input.lotteryPending === false && input.lotteryAt) {
+    return {
+      kind: 'drawing',
+      title: DRAWING_TITLE,
+      detail: null,
+      cancelLabel: null,
+      canRejoin: false,
+      joinMode: null,
+      joinLabel: null,
+      selectedNote: null,
+    };
+  }
 
   if (pending && status === 'WAITLISTED') {
     const when = formatHebrewWhen(input.lotteryAt);
@@ -107,6 +126,26 @@ function resolveNotSelectedJoinLabel(copy, { requiresApproval = false } = {}) {
   return copy.joinLabel;
 }
 
+/** Short disabled-button label. The opening time uses the same Jerusalem format as the draw. */
+function guestJoinClosedLabel(opensAt) {
+  const when = formatHebrewWhen(opensAt);
+  if (!when) return 'ההרשמה לאורחים טרם נפתחה';
+  return `נפתח ב-${when}`;
+}
+
+/**
+ * True only for a known guest (viewerIsInsider === false) before guestRegistrationOpensAt.
+ * Insiders and callers that do not know insider status stay open; the server gate is unchanged.
+ */
+function isGuestRegistrationClosed(input = {}) {
+  if (!input || input.viewerIsInsider !== false) return false;
+  if (!input.guestRegistrationOpensAt) return false;
+  const at = new Date(input.guestRegistrationOpensAt);
+  if (Number.isNaN(at.getTime())) return false;
+  const now = input.now instanceof Date ? input.now : new Date();
+  return now.getTime() < at.getTime();
+}
+
 function guestRegistrationNotOpenMessage(opensAt) {
   const when = formatHebrewWhen(opensAt);
   if (!when) return GUEST_BASE;
@@ -133,5 +172,8 @@ module.exports = {
   resolveNotSelectedJoinLabel,
   guestRegistrationNotOpenMessage,
   guestRegistrationOpensAtFromError,
+  guestJoinClosedLabel,
+  isGuestRegistrationClosed,
   formatHebrewWhen,
+  DRAWING_TITLE,
 };

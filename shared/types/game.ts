@@ -98,6 +98,8 @@ export type Game = {
     waitlistOfferPending?: boolean;
     lotteryEnabled?: boolean;
     lotteryAt?: string | null;
+    /** ISO time once the draw has run; null while it has not. */
+    lotteryExecutedAt?: string | null;
     lotteryPending?: boolean;
     overbooked?: boolean;
     totalSignups?: number;

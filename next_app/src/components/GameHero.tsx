@@ -21,6 +21,7 @@ import SportCover from "@/components/ui/SportCover";
 import { SPORT_MAPPING, getSportTheme } from "@/utils/sports";
 import SportIcon from "@/components/ui/SportIcon";
 import { formatHebrewDateRelative, toIsoDateInput } from "@/utils/hebrewDate";
+import { DRAWING_TITLE } from "@joinup/shared/gameViewerCopy";
 
 function formatEndTime(startTime: string, hours: number | undefined): string {
     const dur = typeof hours === "number" && Number.isFinite(hours) ? hours : 1;
@@ -58,7 +59,7 @@ const glassChipSx = {
     backdropFilter: "blur(10px)",
 } as const;
 
-export type HeroViewerState = "joined" | "waitlisted" | "lottery" | "pending" | null;
+export type HeroViewerState = "joined" | "waitlisted" | "lottery" | "drawing" | "pending" | null;
 
 function StatTile({
     icon,
@@ -192,6 +193,8 @@ export default function GameHero({
             />
         ) : viewerState === "lottery" ? (
             <Chip size="small" label="נרשמת להגרלה" sx={glassChipSx} />
+        ) : viewerState === "drawing" ? (
+            <Chip size="small" label={DRAWING_TITLE} sx={glassChipSx} />
         ) : viewerState === "waitlisted" ? (
             <Chip size="small" label="ברשימת המתנה" sx={glassChipSx} />
         ) : viewerState === "pending" ? (
