@@ -14,6 +14,7 @@ import { chatsApi, type MessageReportReason } from '@/services/api/chats';
 import { usersApi } from '@/services/api/users';
 import { ChatMessage } from '@/types/chat';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 export default function ChatScreen() {
     const { t } = useTranslation();
@@ -113,7 +114,7 @@ export default function ChatScreen() {
             // apiClient only logs; tell the user. A 4xx (e.g. message deleted meanwhile) won't
             // succeed on retry, so it gets its own wording.
             const status = e?.status as number | undefined;
-            Alert.alert(
+            appAlert(
                 t('chat.reportFailedTitle', 'הדיווח לא נשלח'),
                 status && status >= 400 && status < 500
                     ? t('chat.reportNotAllowed', 'לא ניתן לדווח על ההודעה הזו (ייתכן שהיא כבר נמחקה).')
@@ -121,7 +122,7 @@ export default function ChatScreen() {
             );
             throw e;
         }
-        Alert.alert(
+        appAlert(
             t('chat.reportSentTitle', 'תודה על הדיווח'),
             res?.alreadyReported
                 ? t('chat.reportAlreadySent', 'כבר דיווחת על ההודעה הזו. צוות הניהול יבדוק אותה.')
@@ -164,7 +165,7 @@ export default function ChatScreen() {
                             await usersApi.blockUser(targetId, token);
                             setBlockedIds((prev) => new Set(prev).add(targetId));
                         } catch {
-                            Alert.alert(t('common.error', 'שגיאה'), t('chat.blockFailed', 'החסימה נכשלה. נסו שוב.'));
+                            appAlert(t('common.error', 'שגיאה'), t('chat.blockFailed', 'החסימה נכשלה. נסו שוב.'));
                         }
                     },
                 },

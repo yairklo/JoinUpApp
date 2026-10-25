@@ -12,6 +12,7 @@ import { useTournamentCapabilities } from '@/hooks/useTournaments';
 import { tournamentErrorKey, tournamentErrorParams } from '@/utils/tournamentErrors';
 import TournamentWizard from './TournamentWizard';
 import { defaultWizardState, wizardFromTournament, wizardToInput, wizardToPatch, type WizardState } from './wizardModel';
+import { appAlert } from '@/i18n/appAlert';
 
 /** Hide-don't-disable surface for people who may not create / manage (spec 0.8). */
 function NoAccess({ onBack }: { onBack: () => void }) {
@@ -114,10 +115,10 @@ export default function TournamentWizardScreen({ tournamentId }: { tournamentId?
             if (editing) await api.update(wizardToPatch(s));
             else {
                 const created = await api.create(wizardToInput(s));
-                Alert.alert(t('tournaments.wizard.draftSaved'));
+                appAlert(t('tournaments.wizard.draftSaved'));
                 return goTournament(created.id);
             }
-            Alert.alert(t('tournaments.wizard.draftSaved'));
+            appAlert(t('tournaments.wizard.draftSaved'));
         } catch (err) {
             fail(err);
         }

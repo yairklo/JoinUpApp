@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+
 import { useTranslation } from 'react-i18next';
 import GameResultPanel from '@/components/GameResultPanel';
 import GameResultEditor, { type EditorErrorKind } from '@/components/GameResultEditor';
@@ -9,6 +9,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { SPORT_EMOJI } from '@/utils/sports';
 import { formatShortDate, toLang } from '@/components/results/resultUtils';
 import type { Game } from '@/types/game';
+import { appAlert } from '@/i18n/appAlert';
 
 const hasStatus = (e: any, s: number) => e?.status === s;
 
@@ -52,7 +53,7 @@ export default function GameResultSection({ game }: { game: Game }) {
         try {
             await r.save(body);
             setEditorOpen(false);
-            Alert.alert('', t('resultEditor.saved'));
+            appAlert('', t('resultEditor.saved'));
         } catch (err: any) {
             if (err?.code === 'RESULT_LOCKED') setEditorError('locked');
             else if (err?.status === 400) setEditorError('validation');

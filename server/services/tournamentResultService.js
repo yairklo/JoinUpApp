@@ -45,6 +45,14 @@ function standingsTableKey(stageId, groupId) {
   return groupId ? `${stageId}:${groupId}` : stageId;
 }
 
+/**
+ * One standings table for the whole stage. Same rule as getStandings: every stage that is
+ * not GROUP and not KNOCKOUT (LEAGUE today, any later table type the same way).
+ */
+function isSingleTableStage(stage) {
+  return !!stage && stage.type !== 'GROUP' && stage.type !== 'KNOCKOUT';
+}
+
 const autoRowExtras = (r) => ({
   autoPoints: r.points,
   pointsAdjustment: 0,
@@ -95,18 +103,21 @@ const groupComplete = (matches) => matches.length > 0 && matches.every((m) => DO
 // ---- slot resolution ---------------------------------------------------------------------
 
 /**
- * Recomputes every sourced slot (WINNER_OF / LOSER_OF / GROUP_RANK) from current results and
- * persists the differences. A finished match whose teams would change is a conflict: refused
- * unless `force`, in which case its result is reset (and its own dependents re-resolved).
+ * Recomputes every sourced slot (WINNER_OF / LOSER_OF / GROUP_RANK / LEAGUE_RANK) from current
+ * results and persists the differences. A finished match whose teams would change is a conflict:
+ * refused unless `force`, in which case its result is reset (and its own dependents re-resolved).
+ * Slots fed by a single-table stage use the same table getStandings shows (manual order and
+ * points adjustments). That is every stage that is not GROUP and not KNOCKOUT.
  */
 async function resolveSlots(tx, t, { force }) {
   const [stages, matchRows, teams, overrides] = await Promise.all([
-    tx.tournamentStage.findMany({ where: { tournamentId: t.id }, select: { id: true, order: true } }),
+    tx.tournamentStage.findMany({ where: { tournamentId: t.id }, select: { id: true, order: true, type: true } }),
     tx.tournamentMatch.findMany({ where: { tournamentId: t.id } }),
     tx.tournamentTeam.findMany({ where: { tournamentId: t.id, status: { in: ['APPROVED', 'WITHDRAWN'] } }, select: { id: true, groupId: true, manualRank: true, status: true } }),
     tx.tournamentStandingsOverride.findMany({ where: { tournamentId: t.id }, include: { adjustments: true } }),
   ]);
   const stageOrder = new Map(stages.map((s) => [s.id, s.order]));
+  const stageById = new Map(stages.map((s) => [s.id, s]));
   const ms = matchRows.map((m) => ({ ...m }));
   const byId = new Map(ms.map((m) => [m.id, m]));
   ms.sort((a, b) => stageOrder.get(a.stageId) - stageOrder.get(b.stageId) || a.round - b.round || a.number - b.number);
@@ -118,13 +129,28 @@ async function resolveSlots(tx, t, { force }) {
     const override = overrides.find((o) => o.groupId === groupId) || null;
     return rankTable(t, tableTeams(teams.filter((x) => x.groupId === groupId), gm), gm, override);
   };
+  // One non-group stage is one table. Same membership, override key, and stage predicate as getStandings.
+  const leagueRanking = (stageId) => {
+    const stage = stageById.get(stageId);
+    if (!isSingleTableStage(stage)) return null;
+    const lm = ms.filter((m) => m.stageId === stageId);
+    if (!groupComplete(lm)) return null;
+    const override = overrides.find((o) => o.tableKey === standingsTableKey(stageId, null)) || null;
+    const ids = new Set(lm.flatMap((m) => [m.homeTeamId, m.awayTeamId]).filter(Boolean));
+    return rankTable(t, tableTeams(teams.filter((x) => ids.has(x.id)), lm), lm, override);
+  };
+  const teamAtRank = (table, src) => {
+    const row = table && table[(src.rank || src.pos) - 1];
+    return row && !row.unresolved ? row.teamId : null;
+  };
   const desiredFor = (src) => {
     if (!src) return undefined;
     if (src.type === 'GROUP_RANK') {
-      const table = groupRanking(src.groupId);
-      const row = table && table[(src.rank || src.pos) - 1];
-      return row && !row.unresolved ? row.teamId : null;
+      // groupId set: group table (unchanged). No groupId: the league table named by stageId.
+      const table = src.groupId ? groupRanking(src.groupId) : leagueRanking(src.stageId);
+      return teamAtRank(table, src);
     }
+    if (src.type === 'LEAGUE_RANK') return teamAtRank(leagueRanking(src.stageId), src);
     const from = byId.get(src.matchId);
     if (!from || !DONE.includes(from.status) || !from.winnerTeamId) return null;
     if (src.type === 'WINNER_OF') return from.winnerTeamId;
@@ -418,7 +444,7 @@ async function getStandings(user, tournamentId) {
   };
   for (const stage of stages) {
     const stageMatches = matches.filter((m) => m.stageId === stage.id);
-    if (stage.type === 'GROUP') {
+    if (!isSingleTableStage(stage)) {
       for (const g of stage.groups) {
         const gm = stageMatches.filter((m) => m.groupId === g.id);
         build(stage, g, tableTeams(teams.filter((x) => x.groupId === g.id), gm), gm);
@@ -497,8 +523,12 @@ async function getLeaders(user, tournamentId, query = {}) {
 //   Teams missing from teamOrder (added later) append in automatic order.
 // - Points adjustments are added to the automatic points. They do not change W/D/L or goals
 //   and they do not re-sort the table.
-// - Knockout GROUP_RANK slots follow the same order viewers see. Changing it is refused when a
-//   finished downstream match would have to change (OVERRIDE_BLOCKED); the write rolls back.
+// - Knockout GROUP_RANK slots follow the same order viewers see. A knockout slot seeded from a
+//   single-table stage (LEAGUE_RANK, or GROUP_RANK with stageId and no groupId) uses that table
+//   too: the published order, with points adjustments already applied to the rows. A single-table
+//   stage is any stage that is not GROUP and not KNOCKOUT. Changing it
+//   is refused when a finished downstream match would have to change (OVERRIDE_BLOCKED); the
+//   write rolls back.
 // - Only ORGANIZER and MANAGER may write. SCOREKEEPER cannot.
 
 const ADJUSTMENT_MIN = -100;
@@ -553,7 +583,7 @@ async function loadTableSlice(tx, tournamentId, stageId, rawGroupId) {
   if (!stage) throw err(404, 'NOT_FOUND', 'Stage not found');
   if (stage.type === 'KNOCKOUT') throw err(400, 'VALIDATION', 'A knockout stage has no standings table');
   let groupId = null;
-  if (stage.type === 'GROUP') {
+  if (!isSingleTableStage(stage)) {
     if (typeof rawGroupId !== 'string' || !stage.groups.some((g) => g.id === rawGroupId)) {
       throw err(400, 'VALIDATION', 'groupId must be a group of this stage');
     }
@@ -663,6 +693,7 @@ module.exports = {
   forfeitWithdrawnTeam,
   forfeitTeamMatchesTx,
   tableTeams,
+  isSingleTableStage,
   recomputeAdvancement,
   resolveSlots,
   rankTable,

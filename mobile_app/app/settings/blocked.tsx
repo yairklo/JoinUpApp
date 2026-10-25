@@ -1,10 +1,11 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { usersApi, type BlockedUser } from '@/services/api/users';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 export default function BlockedUsersScreen() {
     const { t } = useTranslation();
@@ -33,7 +34,7 @@ export default function BlockedUsersScreen() {
             await usersApi.unblockUser(userId, token);
             setItems((prev) => prev.filter((b) => b.id !== userId));
         } catch {
-            Alert.alert(t('common.error', 'שגיאה'), t('profile.blockFailed', 'הפעולה נכשלה. נסו שוב.'));
+            appAlert(t('common.error', 'שגיאה'), t('profile.blockFailed', 'הפעולה נכשלה. נסו שוב.'));
         }
     };
 

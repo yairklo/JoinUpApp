@@ -1374,7 +1374,7 @@ model TournamentMatch {
   number        Int
   homeTeamId    String?
   awayTeamId    String?
-  /// {type:'WINNER_OF',matchId} | {type:'GROUP_RANK',groupId,pos} | {type:'SEED',n}
+  /// {type:'WINNER_OF',matchId} | {type:'GROUP_RANK',groupId,pos} | {type:'LEAGUE_RANK',stageId,rank} | {type:'SEED',n}
   homeSource    Json?
   awaySource    Json?
   scheduledAt   DateTime?

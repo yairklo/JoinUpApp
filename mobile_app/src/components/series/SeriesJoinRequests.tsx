@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { useTranslation } from 'react-i18next';
 import { seriesApi, type SeriesJoinRequest } from '@/services/api/series';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 // Managers only: outsiders asking to join a friends-only group. Renders nothing when empty.
 export default function SeriesJoinRequests({ seriesId, onApproved }: { seriesId: string; onApproved?: () => void }) {
@@ -37,7 +38,7 @@ export default function SeriesJoinRequests({ seriesId, onApproved }: { seriesId:
             setRequests((prev) => prev.filter((r) => r.userId !== userId));
             if (approve) onApproved?.();
         } catch (e: any) {
-            Alert.alert(t('common.error', 'שגיאה'), e?.message || t('series.requestError'));
+            appAlert(t('common.error', 'שגיאה'), e?.message || t('series.requestError'));
         } finally {
             setBusyId(null);
         }

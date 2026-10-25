@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import { useAdminUserReports } from '@/hooks/useAdminUserReports';
 import { USER_REPORT_RESOLUTION_MAX } from '@/types/results';
 import type { AdminUserReport, UserReportReason, UserReportStatus } from '@/types/results';
+import { appAlert } from '@/i18n/appAlert';
 
 // Admin screens are Hebrew only today (see app/admin/moderation.tsx).
 const REASON_LABELS: Record<UserReportReason, string> = {
@@ -136,8 +137,8 @@ export default function AdminUserReportsSection() {
     const [note, setNote] = useState('');
 
     const fail = (e: any) => {
-        if (e?.status === 409) Alert.alert('', 'הדיווח כבר טופל על ידי מנהל אחר.');
-        else Alert.alert('שגיאה', 'הפעולה נכשלה. נסו שוב.');
+        if (e?.status === 409) appAlert('', 'הדיווח כבר טופל על ידי מנהל אחר.');
+        else appAlert('שגיאה', 'הפעולה נכשלה. נסו שוב.');
     };
 
     // The server requires a non-empty resolution note, so "resolved" starts prefilled and "ban" must be written.

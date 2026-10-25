@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { TouchableOpacity, Text, ActivityIndicator, View, Alert } from "react-native";
+import { TouchableOpacity, Text, ActivityIndicator, View } from "react-native";
 import { gamesApi } from "@/services/api";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useGameUpdate } from "@/context/GameUpdateContext";
@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { hasWaitlistOffer } from "@/utils/waitlistOffer";
 import { lotteryViewerCopy } from "@joinup/shared/gameViewerCopy";
 import { mapJoinAlert } from "@/utils/apiError";
+import { appAlert } from "@/i18n/appAlert";
 
 export default function JoinGameButton({
     gameId,
@@ -101,7 +102,7 @@ export default function JoinGameButton({
                 // Waitlist join — keep roster count stable; only bump waitlist locally.
                 setWaitlisted(true);
                 notifyGameUpdate(gameId, "waitlist", user?.id || "");
-                Alert.alert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
+                appAlert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
                 if (onJoined) onJoined();
                 return;
             }
@@ -110,7 +111,7 @@ export default function JoinGameButton({
             if (onJoined) onJoined();
         } catch (e: any) {
             console.error("Join Failed:", e);
-            Alert.alert(t('common.error', 'שגיאה'), mapJoinAlert(e, t('game.joinFailed', 'ההצטרפות למשחק נכשלה')));
+            appAlert(t('common.error', 'שגיאה'), mapJoinAlert(e, t('game.joinFailed', 'ההצטרפות למשחק נכשלה')));
         } finally {
             setLoading(false);
         }
@@ -129,7 +130,7 @@ export default function JoinGameButton({
             } else {
                 setWaitlisted(false);
             }
-            Alert.alert(
+            appAlert(
                 t('common.success', 'הצלחה'),
                 accept
                     ? t('game.waitlistOfferJoined', 'הצטרפת למשחק בהצלחה!')
@@ -138,7 +139,7 @@ export default function JoinGameButton({
             if (onJoined) onJoined();
         } catch (e: any) {
             console.error("Waitlist confirm failed:", e);
-            Alert.alert(t('common.error', 'שגיאה'), e?.message || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
+            appAlert(t('common.error', 'שגיאה'), e?.message || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
         } finally {
             setLoading(false);
         }

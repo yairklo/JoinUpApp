@@ -13,6 +13,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { app } = require('../index');
+const { isSingleTableStage } = require('../services/tournamentResultService');
 const { prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
 
 const P = 'tovr_';
@@ -164,5 +165,90 @@ describe('manual standings override', () => {
 
     const koStage = stages.find((s) => s.type === 'KNOCKOUT');
     expect((await putOverride(id, { stageId: koStage.id, groupId: null, teamOrder: flipped })).status).toBe(400);
+  });
+
+  async function playLeague(id, leagueStageId, bestFirst) {
+    const rank = new Map(bestFirst.map((teamId, i) => [teamId, i]));
+    for (let guard = 0; guard < 12; guard += 1) {
+      const open = (await matchesOf(id)).filter((m) => m.stageId === leagueStageId && m.status === 'SCHEDULED');
+      if (!open.length) return;
+      for (const m of open) {
+        const homeWins = rank.get(m.homeTeamId) < rank.get(m.awayTeamId);
+        const res = await putResult(id, m, homeWins ? { homeScore: 1, awayScore: 0 } : { homeScore: 0, awayScore: 1 });
+        expect(res.status).toBe(200);
+      }
+    }
+    throw new Error('league matches did not finish');
+  }
+
+  async function addKnockoutFinal(id, leagueStageId) {
+    const ko = await prisma.tournamentStage.create({
+      data: { tournamentId: id, order: 1, type: 'KNOCKOUT', name: 'נוקאאוט', config: {} },
+    });
+    const max = await prisma.tournamentMatch.aggregate({ where: { tournamentId: id }, _max: { number: true } });
+    await prisma.tournamentMatch.create({
+      data: {
+        tournamentId: id,
+        stageId: ko.id,
+        round: 1,
+        number: (max._max.number || 0) + 1,
+        homeSource: { type: 'LEAGUE_RANK', stageId: leagueStageId, rank: 1, pos: 1 },
+        awaySource: { type: 'LEAGUE_RANK', stageId: leagueStageId, rank: 2, pos: 2 },
+      },
+    });
+    return ko;
+  }
+
+  const knockoutPair = (stageId) => prisma.tournamentMatch.findFirst({ where: { stageId } });
+
+  it('treats every non-group, non-knockout stage as one table', () => {
+    expect(isSingleTableStage({ type: 'LEAGUE' })).toBe(true);
+    expect(isSingleTableStage({ type: 'ROUND_ROBIN' })).toBe(true);
+    expect(isSingleTableStage({ type: 'GROUP' })).toBe(false);
+    expect(isSingleTableStage({ type: 'KNOCKOUT' })).toBe(false);
+    expect(isSingleTableStage(null)).toBe(false);
+  });
+
+  it('seeds a knockout final from the computed league table when there is no override', async () => {
+    const { id, teams } = await setup({ format: 'LEAGUE' }, 3);
+    const league = await prisma.tournamentStage.findFirst({ where: { tournamentId: id, type: 'LEAGUE' } });
+    const ko = await addKnockoutFinal(id, league.id);
+    const bestFirst = teams.map((team) => team.id);
+    await playLeague(id, league.id, bestFirst);
+    const table = (await standings(id)).body.tables[0];
+    expect(table.manualOrder).toBe(false);
+    expect(table.rows.map((r) => r.team.id)).toEqual(bestFirst);
+    const final = await knockoutPair(ko.id);
+    expect(final.homeTeamId).toBe(table.rows[0].team.id);
+    expect(final.awayTeamId).toBe(table.rows[1].team.id);
+  });
+
+  it('seeds a knockout final from the manual league order, not from adjusted points', async () => {
+    const { id, teams } = await setup({ format: 'LEAGUE' }, 3);
+    const league = await prisma.tournamentStage.findFirst({ where: { tournamentId: id, type: 'LEAGUE' } });
+    const ko = await addKnockoutFinal(id, league.id);
+    const bestFirst = teams.map((team) => team.id);
+    await playLeague(id, league.id, bestFirst);
+    const before = (await standings(id)).body.tables[0];
+    const computed = before.rows.map((r) => r.team.id);
+    expect(computed).toEqual(bestFirst);
+    const manual = [...computed].reverse();
+    const winner = computed[0];
+    const saved = await putOverride(id, {
+      stageId: before.stageId,
+      groupId: null,
+      teamOrder: manual,
+      adjustments: [{ teamId: winner, points: 5, reason: 'בונוס' }],
+    });
+    expect(saved.status).toBe(200);
+    const shown = (await standings(id)).body.tables[0];
+    expect(shown.manualOrder).toBe(true);
+    expect(shown.rows.map((r) => r.team.id)).toEqual(manual);
+    const adjusted = shown.rows.find((r) => r.team.id === winner);
+    expect(adjusted.points).toBe(adjusted.autoPoints + 5);
+    expect(adjusted.rank).not.toBe(1);
+    const final = await knockoutPair(ko.id);
+    expect([final.homeTeamId, final.awayTeamId]).toEqual([manual[0], manual[1]]);
+    expect(final.homeTeamId).not.toBe(winner);
   });
 });

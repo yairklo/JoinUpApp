@@ -25,6 +25,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SPORT_MAPPING } from '@/utils/sports';
 import SafeImage from '@/components/SafeImage';
 import OpenInMapButton from '@/components/OpenInMapButton';
+import { appAlert } from '@/i18n/appAlert';
 
 const HERO_HEIGHT = 200;
 
@@ -132,7 +133,7 @@ export default function GameDetailsScreen() {
             }
             if (signedOutSinceMount()) return; // stale screen after sign-out: 401 is expected
             console.error("Failed to load game", err);
-            Alert.alert(t('common.error', 'שגיאה'), t('game.loadFailed', 'לא הצלחנו לטעון את פרטי המשחק'));
+            appAlert(t('common.error', 'שגיאה'), t('game.loadFailed', 'לא הצלחנו לטעון את פרטי המשחק'));
             setLoading(false);
         }
     }, [id, isAuthLoaded, isSignedIn, getTokenRef]);
@@ -160,22 +161,22 @@ export default function GameDetailsScreen() {
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert(t('common.error', 'שגיאה'), t('game.mustBeLoggedIn', 'עליך להיות מחובר כדי להצטרף'));
+                appAlert(t('common.error', 'שגיאה'), t('game.mustBeLoggedIn', 'עליך להיות מחובר כדי להצטרף'));
                 return;
             }
             const result = await gamesApi.join(game.id, token);
             if (result.pending) {
-                Alert.alert(t('game.requestSent'), t('game.requestPending'));
+                appAlert(t('game.requestSent'), t('game.requestPending'));
             } else if (result.viewerParticipationStatus === 'WAITLISTED') {
-                Alert.alert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
+                appAlert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
                 notifyGameUpdate(game.id, "waitlist", user?.id || "");
             } else {
-                Alert.alert(t('common.success', 'הצלחה'), t('game.joinSuccess', 'הצטרפת למשחק!'));
+                appAlert(t('common.success', 'הצלחה'), t('game.joinSuccess', 'הצטרפת למשחק!'));
                 notifyGameUpdate(game.id, "join", user?.id || "");
             }
             setGame(result);
         } catch (err: any) {
-            Alert.alert(t('common.error', 'שגיאה'), mapJoinAlert(err, t('game.joinFailed', 'ההצטרפות למשחק נכשלה')));
+            appAlert(t('common.error', 'שגיאה'), mapJoinAlert(err, t('game.joinFailed', 'ההצטרפות למשחק נכשלה')));
         } finally {
             setActionLoading(false);
         }
@@ -198,7 +199,7 @@ export default function GameDetailsScreen() {
                             if (!token) return;
                             const res = await gamesApi.leave(game.id, token);
                             notifyGameUpdate(game.id, "leave", user?.id || "");
-                            Alert.alert(
+                            appAlert(
                                 t('common.success', 'הצלחה'),
                                 t('game.leftGameSuccess', 'עזבת את המשחק בהצלחה.')
                             );
@@ -208,7 +209,7 @@ export default function GameDetailsScreen() {
                                 await fetchGame();
                             }
                         } catch (err: any) {
-                            Alert.alert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || t('game.actionFailed', 'הפעולה נכשלה'));
+                            appAlert(t('common.error', 'שגיאה'), err?.message || err?.response?.data?.error || t('game.actionFailed', 'הפעולה נכשלה'));
                         } finally {
                             setActionLoading(false);
                         }
@@ -224,7 +225,7 @@ export default function GameDetailsScreen() {
         try {
             const token = await getToken();
             if (!token) {
-                Alert.alert(t('common.error', 'שגיאה'), t('game.mustBeLoggedInToConfirm', 'עליך להיות מחובר כדי לאשר או לוותר'));
+                appAlert(t('common.error', 'שגיאה'), t('game.mustBeLoggedInToConfirm', 'עליך להיות מחובר כדי לאשר או לוותר'));
                 return;
             }
             const result = await gamesApi.waitlistConfirm(game.id, accept, token);
@@ -234,7 +235,7 @@ export default function GameDetailsScreen() {
             } else {
                 notifyGameUpdate(game.id, "leave", user?.id || "");
             }
-            Alert.alert(
+            appAlert(
                 t('common.success', 'הצלחה'),
                 accept
                     ? t('game.waitlistOfferJoined', 'הצטרפת למשחק בהצלחה!')
@@ -244,12 +245,12 @@ export default function GameDetailsScreen() {
         } catch (err: any) {
             const msg = err?.message || err?.response?.data?.error || "";
             if (String(msg).includes('No pending waitlist offer') || String(msg).includes('waitlist')) {
-                Alert.alert(
+                appAlert(
                     t('game.awaitingOrganizerApproval', 'ממתין לאישור המארגן'),
                     t('game.noActiveWaitlistOffer', 'אין הצעת מקום פעילה מרשימת ההמתנה. אם שלחת בקשת הצטרפות, המארגן צריך לאשר אותה.')
                 );
             } else {
-                Alert.alert(t('common.error', 'שגיאה'), msg || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
+                appAlert(t('common.error', 'שגיאה'), msg || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
             }
         } finally {
             setActionLoading(false);
@@ -330,7 +331,7 @@ export default function GameDetailsScreen() {
                             setGame(updated);
                         } catch (e) {
                             console.error('Cancel game failed', e);
-                            Alert.alert(t('common.error', 'שגיאה'), t('game.cancelGameFailed', 'ביטול המשחק נכשל'));
+                            appAlert(t('common.error', 'שגיאה'), t('game.cancelGameFailed', 'ביטול המשחק נכשל'));
                         }
                     },
                 },
