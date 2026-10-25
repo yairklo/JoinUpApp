@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import GameParticipantsList from "@/components/GameParticipantsList";
 import TeamBuilderDialog, { Team } from "@/components/TeamBuilderDialog";
 import { normalizeName } from "@/utils/normalizeName";
+import { formatHebrewWhen } from "@joinup/shared/gameViewerCopy";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 type Manager = { id: string; name?: string; avatar?: string; role?: string };
@@ -48,6 +49,8 @@ interface WrapperProps {
     pending: boolean;
     overbooked: boolean;
     at: string | null;
+    /** null when the server says the draw has not run. Omit when the payload has no field. */
+    executedAt?: string | null;
     signups: number;
   };
   waitlistParticipants?: Participant[];
@@ -73,6 +76,12 @@ export default function TeamBuilderWrapper({
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const drawInProgress = !!lotteryData?.enabled
+    && lotteryData.executedAt === null
+    && !!lotteryData.at
+    && lotteryData.pending === false;
+  const drawWhen = lotteryData?.at ? formatHebrewWhen(lotteryData.at) : null;
 
   const isOrganizer = currentUserId === organizerId;
   const isManager = initialManagers.some((m) => m.id === currentUserId && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
@@ -181,7 +190,7 @@ export default function TeamBuilderWrapper({
             הגרלה ממתינה
           </Typography>
           <Typography variant="body2">
-            הגרלה ב: {lotteryData.at ? new Date(lotteryData.at).toLocaleString("he-IL") : "—"}
+            {drawWhen ? `ההגרלה ב-${drawWhen}` : "—"}
           </Typography>
           <Typography variant="caption">
             רשומים: {lotteryData.signups ?? 0} (מקסימום: {maxPlayers})
@@ -197,6 +206,7 @@ export default function TeamBuilderWrapper({
         maxPlayers={maxPlayers}
         finished={finished}
         confirmedCount={confirmedCount}
+        suppressOpenSlots={drawInProgress}
         teams={initialTeams}
       />
 

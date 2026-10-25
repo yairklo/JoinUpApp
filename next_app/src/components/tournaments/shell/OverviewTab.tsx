@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import MuiLink from "@mui/material/Link";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -11,6 +10,8 @@ import { alpha } from "@mui/material/styles";
 import MatchCard from "../MatchCard";
 import StandingsTable from "../StandingsTable";
 import UpdatedCue from "../UpdatedCue";
+import OpenInMapLinks from "@/components/OpenInMapLinks";
+import { buildMapLinks } from "@joinup/shared/mapLinks";
 import { TabError, TabSkeleton } from "../tabs/TabStates";
 import { useStandings, useTournamentSchedule } from "@/hooks/tournaments";
 import type { TournamentDetail, TournamentMatch } from "@/types/tournament";
@@ -75,6 +76,15 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
     const next = upcoming(matches);
     const mine = myTeamId ? next.find((m) => m.home.teamId === myTeamId || m.away.teamId === myTeamId) : undefined;
     const soon = next.filter((m) => m.id !== mine?.id).slice(0, 3);
+    const venueLocation = {
+        lat: t.fieldLat,
+        lng: t.fieldLng,
+        customLocation: t.customLocation,
+        address: t.fieldLocation,
+        name: t.fieldName,
+    };
+    const venueLabel = (t.customLocation || t.fieldLocation || t.fieldName || "").trim();
+    const canOpenMap = !!buildMapLinks(venueLocation);
     const tables = standings.tables.slice(0, 2);
     const rules = t.rules;
     const scoring = t.status === "IN_PROGRESS" && t.capabilities.canScore;
@@ -125,7 +135,7 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
             )}
             <Section title="על הטורניר">
                 <Stack spacing={2}>
-                    {(t.description || t.customLocation) && (
+                    {(t.description || venueLabel || canOpenMap) && (
                         <Box
                             sx={(theme) => ({
                                 p: 2.25,
@@ -141,7 +151,7 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
                                     {t.description}
                                 </Typography>
                             )}
-                            {t.customLocation && (
+                            {(venueLabel || canOpenMap) && (
                                 <Stack
                                     direction="row"
                                     alignItems="center"
@@ -149,19 +159,12 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
                                     spacing={1.5}
                                     sx={{ mt: t.description ? 1.75 : 0, pt: t.description ? 1.75 : 0, borderTop: t.description ? 1 : 0, borderColor: "divider" }}
                                 >
-                                    <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0 }}>
-                                        {`📍 ${t.customLocation}`}
-                                    </Typography>
-                                    <MuiLink
-                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.customLocation)}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        underline="hover"
-                                        variant="body2"
-                                        sx={{ fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" }}
-                                    >
-                                        פתיחה במפה
-                                    </MuiLink>
+                                    {venueLabel ? (
+                                        <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0 }}>
+                                            {`📍 ${venueLabel}`}
+                                        </Typography>
+                                    ) : <Box />}
+                                    {canOpenMap && <OpenInMapLinks location={venueLocation} variant="link" />}
                                 </Stack>
                             )}
                         </Box>

@@ -30,6 +30,10 @@ export interface StandingsTableProps {
     mode?: "compact" | "full";
     canManage?: boolean;
     onSetManualRank?: (table: StandingsTableData) => void;
+    /** Manager: open the manual-order editor (order sticks until reset; points adjustments are additive). */
+    onEditStandings?: (table: StandingsTableData) => void;
+    /** Manager: drop the override and return to the automatic table. */
+    onResetStandings?: (table: StandingsTableData) => void;
     /** The tournament is COMPLETED (a complete league table then crowns row 1). */
     tournamentCompleted?: boolean;
     sport?: "SOCCER" | "BASKETBALL" | "TENNIS";
@@ -53,6 +57,16 @@ function titleOf(t: StandingsTableData): string {
     return t.groupName ? `בית ${displayGroupName(t.groupName)}` : displayStageName(t.stageName);
 }
 
+function adjustmentCaption(row: StandingsRow): { delta: string | null; reason: string } | null {
+    if (!row.adjustmentReason) return null;
+    const d = row.pointsAdjustment;
+    if (typeof d === "number" && d !== 0) {
+        const sign = d > 0 ? "+" : "−";
+        return { delta: `${sign}${Math.abs(d)}`, reason: row.adjustmentReason };
+    }
+    return { delta: null, reason: row.adjustmentReason };
+}
+
 /** One standings table (spec 8). Compact on phones, full from 600px. Props only. */
 export default function StandingsTable({
     table,
@@ -61,6 +75,8 @@ export default function StandingsTable({
     mode = "full",
     canManage,
     onSetManualRank,
+    onEditStandings,
+    onResetStandings,
     tournamentCompleted,
     sport,
 }: StandingsTableProps) {
@@ -85,7 +101,7 @@ export default function StandingsTable({
     // inherited translucent row colour would otherwise be painted twice on them.
     const layer = (c: string) => `linear-gradient(${c}, ${c})`;
     const rowSx = (row: StandingsRow): SxProps<Theme> => (theme) => ({
-        height: 50,
+        height: row.adjustmentReason ? 68 : 50,
         cursor: compact ? "pointer" : "default",
         "& > td, & > th": {
             borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
@@ -121,16 +137,37 @@ export default function StandingsTable({
 
     return (
         <Box data-testid={`standings-table-${table.stageId}-${idPart}`} sx={{ minWidth: 0, px: { xs: 1, sm: 0 } }}>
-            <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
-                <Typography variant="subtitle1" fontWeight={800}>
-                    {titleOf(table)}
-                </Typography>
-                {!table.complete && (
-                    <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                        {played ? "הטבלה עדיין לא סופית" : "עוד לא שוחקו משחקים"}
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: table.manualOrder ? 0.5 : 1 }}>
+                <Stack direction="row" alignItems="baseline" spacing={1} sx={{ minWidth: 0 }}>
+                    <Typography variant="subtitle1" fontWeight={800}>
+                        {titleOf(table)}
                     </Typography>
+                    {!table.complete && (
+                        <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                            {played ? "הטבלה עדיין לא סופית" : "עוד לא שוחקו משחקים"}
+                        </Typography>
+                    )}
+                </Stack>
+                {canManage && (onEditStandings || (table.manualOrder && onResetStandings)) && (
+                    <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                        {onEditStandings && (
+                            <Button size="small" variant="outlined" onClick={() => onEditStandings(table)} data-testid="standings-edit-order" sx={{ minHeight: 40 }}>
+                                עריכת דירוג
+                            </Button>
+                        )}
+                        {table.manualOrder && onResetStandings && (
+                            <Button size="small" color="inherit" onClick={() => onResetStandings(table)} data-testid="standings-reset-order" sx={{ minHeight: 40 }}>
+                                איפוס לדירוג אוטומטי
+                            </Button>
+                        )}
+                    </Stack>
                 )}
             </Stack>
+            {table.manualOrder && (
+                <Typography variant="caption" color="text.secondary" data-testid="standings-manual-note" sx={{ display: "block", mb: 1 }}>
+                    דירוג עודכן ידנית
+                </Typography>
+            )}
 
             {table.needsManualRank && (
                 <Alert
@@ -197,6 +234,7 @@ export default function StandingsTable({
                         {table.rows.map((row) => {
                             const mine = row.team.id === myTeamId;
                             const expanded = compact && open === row.team.id;
+                            const adjustment = adjustmentCaption(row);
                             return (
                                 <Fragment key={row.team.id}>
                                     <TableRow
@@ -241,7 +279,22 @@ export default function StandingsTable({
                                         <TableCell sx={{ ...(stickyCell(RANK_W) as object), maxWidth: compact ? undefined : 140, minWidth: 0 }}>
                                             <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
                                                 {crown && row.rank === 1 && <span aria-label="מנצחת הליגה" role="img">🏆</span>}
-                                                <TeamBadge team={row.team} emphasis={mine ? "winner" : undefined} strikeThrough={!!row.withdrawn} testId={`standings-team-${row.team.id}`} />
+                                                <Stack sx={{ minWidth: 0 }}>
+                                                    <TeamBadge team={row.team} emphasis={mine ? "winner" : undefined} strikeThrough={!!row.withdrawn} testId={`standings-team-${row.team.id}`} />
+                                                    {adjustment && (
+                                                        <Typography
+                                                            variant="caption"
+                                                            color="text.secondary"
+                                                            noWrap
+                                                            data-testid={`standings-adjustment-${row.team.id}`}
+                                                            title={adjustment.reason}
+                                                        >
+                                                            {adjustment.delta && <bdi dir="ltr">{`\u2066${adjustment.delta}\u2069`}</bdi>}
+                                                            {adjustment.delta ? " · " : ""}
+                                                            {adjustment.reason}
+                                                        </Typography>
+                                                    )}
+                                                </Stack>
                                                 {row.withdrawn && (
                                                     <Chip label="פרשה" size="small" variant="outlined" data-testid={`standings-withdrawn-${row.team.id}`} sx={{ flexShrink: 0 }} />
                                                 )}

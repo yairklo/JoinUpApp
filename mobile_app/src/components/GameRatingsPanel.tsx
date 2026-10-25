@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { ratingsApi, GameRatingTeammate } from '@/services/api/ratings';
@@ -7,6 +7,7 @@ import LoadingMotif from '@/components/loading/LoadingMotif';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import ReportPlayerEntry from '@/components/ReportPlayerEntry';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 function StarRow({
     value,
@@ -75,13 +76,13 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
             setTeammates((prev) =>
                 prev.map((tm) => (tm.id === targetId ? { ...tm, myScore: score } : tm))
             );
-            Alert.alert('', t('ratings.submitted'));
+            appAlert('', t('ratings.submitted'));
         } catch (e: unknown) {
             const err = e as Error & { status?: number };
             if (err.status === 409) {
-                Alert.alert(t('common.error', 'Error'), t('ratings.alreadyRated'));
+                appAlert(t('common.error', 'Error'), t('ratings.alreadyRated'));
             } else {
-                Alert.alert(t('common.error', 'Error'), t('ratings.submitFailed'));
+                appAlert(t('common.error', 'Error'), t('ratings.submitFailed'));
             }
         } finally {
             setSubmittingId(null);

@@ -18,6 +18,10 @@ interface Props {
     tournamentCompleted?: boolean;
     canManage?: boolean;
     onSetManualRank?: () => void;
+    /** Manager: open the manual-order editor. */
+    onEditStandings?: () => void;
+    /** Manager: confirm and drop the override. */
+    onResetStandings?: () => void;
     /** Force a mode. Default: compact below 600px with a switch, full from 600px. */
     mode?: 'compact' | 'full';
     /** Show the table title (stage / group name). Default true. */
@@ -36,12 +40,22 @@ function cell(row: StandingsRow, k: NumKey): string {
     return k === 'gd' ? fmtGd(row.gd) : String(row[k]);
 }
 
+function rowHeight(r: StandingsRow): number {
+    return r.adjustmentReason ? 64 : ROW_H;
+}
+
+function adjustmentDelta(r: StandingsRow): string | null {
+    const d = r.pointsAdjustment;
+    if (typeof d !== 'number' || d === 0) return null;
+    return `${d > 0 ? '+' : '−'}${Math.abs(d)}`;
+}
+
 /**
  * Group / league table (spec 8). Compact 5-column table on a phone (rank, team, played, goal
  * difference, points; tap a row for W/D/L and goals), full 10-column table behind a switch with a
  * pinned rank+team column and a horizontal scroller for the numbers. Props only.
  */
-export default function StandingsTable({ table, myTeamId, advanceCount, tournamentCompleted, canManage, onSetManualRank, mode, showTitle = true }: Props) {
+export default function StandingsTable({ table, myTeamId, advanceCount, tournamentCompleted, canManage, onSetManualRank, onEditStandings, onResetStandings, mode, showTitle = true }: Props) {
     const { t, i18n } = useTranslation();
     const lang = i18n.language?.startsWith('en') ? 'en' : 'he';
     const { colorMode } = useColorMode();
@@ -75,10 +89,18 @@ export default function StandingsTable({ table, myTeamId, advanceCount, tourname
 
     const teamCell = (r: StandingsRow, w?: number) => {
         const winner = tournamentCompleted && table.complete && r.rank === 1 && !r.tied && table.stageType === 'LEAGUE';
+        const delta = adjustmentDelta(r);
         return (
-            <View className="flex-row items-center" style={w ? { width: w } : { flex: 1, minWidth: 0 }}>
-                {winner ? <Ionicons name={TOURNAMENT_ICONS.champion} size={14} color="#d97706" style={{ marginEnd: 4 }} /> : null}
-                <TeamBadge name={r.team.name} color={r.team.color} logoUrl={r.team.logoUrl} bold={r.team.id === myTeamId} />
+            <View style={w ? { width: w } : { flex: 1, minWidth: 0 }}>
+                <View className="flex-row items-center" style={{ minWidth: 0 }}>
+                    {winner ? <Ionicons name={TOURNAMENT_ICONS.champion} size={14} color="#d97706" style={{ marginEnd: 4 }} /> : null}
+                    <TeamBadge name={r.team.name} color={r.team.color} logoUrl={r.team.logoUrl} bold={r.team.id === myTeamId} />
+                </View>
+                {r.adjustmentReason ? (
+                    <Text testID={`standings-adjustment-${r.team.id}`} numberOfLines={1} className="text-[11px] text-gray-500 dark:text-cyber-muted" style={{ lineHeight: 14 }}>
+                        {delta ? `${delta} · ` : ''}{r.adjustmentReason}
+                    </Text>
+                ) : null}
             </View>
         );
     };
@@ -89,7 +111,7 @@ export default function StandingsTable({ table, myTeamId, advanceCount, tourname
         const content = (
             <View
                 className={`flex-row items-center ${mine ? 'bg-brand-mist dark:bg-brand-ink' : ''}`}
-                style={{ height: ROW_H }}
+                style={{ height: rowHeight(r) }}
             >
                 <View className={`self-stretch w-[3px] ${inZone ? 'bg-brand' : ''}`} />
                 {children}
@@ -185,7 +207,7 @@ export default function StandingsTable({ table, myTeamId, advanceCount, tourname
                     </View>
                     {rows.map((r) => (
                         <View key={r.team.id}>
-                            <View className={`flex-row items-center ${r.team.id === myTeamId ? 'bg-brand-mist dark:bg-brand-ink' : ''}`} style={{ height: ROW_H }}>
+                            <View className={`flex-row items-center ${r.team.id === myTeamId ? 'bg-brand-mist dark:bg-brand-ink' : ''}`} style={{ height: rowHeight(r) }}>
                                 {FULL_COLS.map((k) => (
                                     <Text
                                         key={k}
@@ -215,6 +237,37 @@ export default function StandingsTable({ table, myTeamId, advanceCount, tourname
                 <Text className="text-xs text-gray-500 dark:text-cyber-muted mb-2">
                     {noMatches ? t('tournaments.standings.noMatches') : t('tournaments.standings.notFinal')}
                 </Text>
+            ) : null}
+            {table.manualOrder ? (
+                <Text testID="standings-manual-note" className="text-xs text-gray-500 dark:text-cyber-muted mb-2">
+                    {t('tournaments.standings.manualOrderNote')}
+                </Text>
+            ) : null}
+            {canManage && (onEditStandings || (table.manualOrder && onResetStandings)) ? (
+                <View className="flex-row flex-wrap mb-2" style={{ gap: 8 }}>
+                    {onEditStandings ? (
+                        <Pressable
+                            testID="standings-edit-order"
+                            onPress={onEditStandings}
+                            accessibilityRole="button"
+                            className="px-3 rounded-full border border-gray-300 dark:border-cyber-border items-center justify-center"
+                            style={{ minHeight: 44 }}
+                        >
+                            <Text className="text-[13px] font-bold text-gray-800 dark:text-cyber-text">{t('tournaments.standings.editOrder')}</Text>
+                        </Pressable>
+                    ) : null}
+                    {table.manualOrder && onResetStandings ? (
+                        <Pressable
+                            testID="standings-reset-order"
+                            onPress={onResetStandings}
+                            accessibilityRole="button"
+                            className="px-3 rounded-full border border-gray-300 dark:border-cyber-border items-center justify-center"
+                            style={{ minHeight: 44 }}
+                        >
+                            <Text className="text-[13px] font-bold text-gray-800 dark:text-cyber-text">{t('tournaments.standings.resetOrder')}</Text>
+                        </Pressable>
+                    ) : null}
+                </View>
             ) : null}
             {table.needsManualRank ? (
                 <View testID="standings-needs-manual-rank" className="rounded-xl p-3 mb-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-800">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import JoinGameButton from "./JoinGameButton";
 import SafeImage from "./ui/SafeImage";
+import { formatHebrewWhen } from "@joinup/shared/gameViewerCopy";
 
 type Game = {
   id: string;
@@ -26,7 +27,7 @@ type Game = {
   registrationOpensAt?: string | null;
   title?: string | null;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
 };
 
 export default function GameListClient({ games }: { games: Game[] }) {
@@ -48,7 +49,7 @@ export default function GameListClient({ games }: { games: Game[] }) {
                 <div className="mt-1 text-xs text-[rgb(var(--fg)/0.65)]">Spots left: {capacityLeft}</div>
                 {g.lotteryEnabled && g.lotteryPending && g.overbooked ? (
                   <div className="mt-1 text-[11px] text-amber-700">
-                    ממתין להגרלה ב-{g.lotteryAt ? new Date(g.lotteryAt).toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' }) : "—"} • רשומים: {g.totalSignups ?? 0}
+                    ממתין להגרלה ב-{g.lotteryAt ? (formatHebrewWhen(g.lotteryAt) ?? "—") : "—"} • רשומים: {g.totalSignups ?? 0}
                   </div>
                 ) : null}
               </div>
@@ -76,6 +77,9 @@ export default function GameListClient({ games }: { games: Game[] }) {
                     registrationOpensAt={g.registrationOpensAt}
                     joinPolicy={g.joinPolicy}
                     viewerParticipationStatus={g.viewerParticipationStatus}
+                    lotteryEnabled={!!g.lotteryEnabled}
+                    lotteryPending={!!g.lotteryPending}
+                    lotteryAt={g.lotteryAt}
                   />
                 ) : null}
               </div>

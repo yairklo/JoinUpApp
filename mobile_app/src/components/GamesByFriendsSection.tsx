@@ -51,6 +51,9 @@ export default function GamesByFriendsSection({ sportFilter }: { sportFilter?: s
                                                 registrationOpensAt={game.registrationOpensAt}
                                                 joinPolicy={game.joinPolicy}
                                                 viewerParticipationStatus={game.viewerParticipationStatus}
+                                                lotteryEnabled={!!game.lotteryEnabled}
+                                                lotteryPending={!!game.lotteryPending}
+                                                lotteryAt={game.lotteryAt}
                                                 waitlistOfferPending={game.waitlistOfferPending}
                                                 isFull={game.currentPlayers >= game.maxPlayers}
                                                 onJoined={() => {}}

@@ -32,6 +32,7 @@ import { getGameVisibility } from "@/utils/gameStatus";
 import { normalizeIncomingGame } from "@/utils/timezone";
 import { gamesApi } from "@/services/api/games";
 import { useAuth } from "@clerk/nextjs";
+import { lotteryViewerCopy, resolveNotSelectedJoinLabel } from "@joinup/shared/gameViewerCopy";
 
 type Participant = { id: string; name: string | null; avatar?: string | null };
 
@@ -68,10 +69,16 @@ export type LiveGame = {
   participants: Participant[];
   registrationOpensAt?: string | null;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
   waitlistOfferPending?: boolean;
+  viewerJoinRequiresApproval?: boolean;
   lotteryEnabled?: boolean;
   lotteryPending?: boolean;
+  lotteryExecutedAt?: string | null;
+  organizerInLottery?: boolean;
+  membersOnlyPriority?: boolean;
+  guestRegistrationOpensAt?: string | null;
+  viewerIsInsider?: boolean;
   totalSignups?: number;
   organizerId: string;
   chatRoomId?: string;
@@ -245,14 +252,37 @@ export default function GameLiveSection({
   }
 
   const joined = !!viewerId && (game.participants || []).some((p) => p.id === viewerId);
+  // lotteryExecutedAt === null is the server saying the draw has not run. Undefined means
+  // this payload did not include the field (do not hide real free seats).
+  const drawInProgress = !!game.lotteryEnabled
+    && game.lotteryExecutedAt === null
+    && !!game.lotteryAt
+    && game.lotteryPending === false;
   const headerCount =
-    (game.lotteryEnabled && game.lotteryPending
+    (game.lotteryEnabled && (game.lotteryPending || drawInProgress)
       ? game.totalSignups ?? game.currentPlayers
       : game.currentPlayers) || 0;
 
   const { finished, showJoinCtas } = getGameVisibility(game);
   const isWaitlistOfferPending = game.waitlistOfferPending === true && !finished;
   const isWaitlisted = game.viewerParticipationStatus === "WAITLISTED" && !finished;
+  const lotteryCopy = lotteryViewerCopy({
+    lotteryEnabled: game.lotteryEnabled,
+    lotteryPending: game.lotteryPending,
+    lotteryExecutedAt: game.lotteryExecutedAt,
+    lotteryAt: game.lotteryAt,
+    viewerParticipationStatus: game.viewerParticipationStatus,
+    // `participants` is the confirmed roster. `currentPlayers` is sometimes the
+    // pre-draw signup total (the page header), which would hide free seats.
+    seatsFree: (game.participants?.length || 0) < (game.maxPlayers || 0),
+    viewerIsOrganizer: !!viewerId && viewerId === game.organizerId,
+    organizerInLottery: game.organizerInLottery,
+  });
+  const isLotteryPool = lotteryCopy?.kind === "pool" && !finished;
+  const isLotteryDrawing = lotteryCopy?.kind === "drawing" && !finished;
+  const notSelectedJoinLabel = resolveNotSelectedJoinLabel(lotteryCopy, {
+    requiresApproval: !!game.viewerJoinRequiresApproval,
+  });
 
   return (
     <>
@@ -308,8 +338,88 @@ export default function GameLiveSection({
         </Alert>
       )}
 
+      {/* ── Lottery pool: this banner is what a WAITLISTED member sees while the draw is pending. ── */}
+      {isLotteryPool && lotteryCopy && !isWaitlistOfferPending && (
+        <Alert
+          severity="info"
+          dir="rtl"
+          data-testid="lottery-pool-banner"
+          sx={{
+            mb: 2,
+            borderRadius: 2,
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+        >
+          <AlertTitle sx={{ fontWeight: "bold" }}>{lotteryCopy.title}</AlertTitle>
+          {lotteryCopy.detail && (
+            <Typography variant="body2" mb={1.5}>
+              {lotteryCopy.detail}
+            </Typography>
+          )}
+          {waitlistError && (
+            <Typography variant="caption" color="error" display="block" mb={1}>
+              {waitlistError}
+            </Typography>
+          )}
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            disabled={waitlistActionLoading}
+            onClick={leaveWaitlist}
+            data-testid="lottery-cancel"
+          >
+            {lotteryCopy.cancelLabel}
+          </Button>
+        </Alert>
+      )}
+
+      {isLotteryDrawing && lotteryCopy && !isWaitlistOfferPending && (
+        <Alert
+          severity="info"
+          dir="rtl"
+          data-testid="lottery-drawing-banner"
+          sx={{
+            mb: 2,
+            borderRadius: 2,
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+        >
+          <AlertTitle sx={{ fontWeight: "bold", mb: 0 }}>{lotteryCopy.title}</AlertTitle>
+        </Alert>
+      )}
+
+      {lotteryCopy?.kind === "not_selected" && !finished && (
+        <Alert
+          severity="warning"
+          dir="rtl"
+          data-testid="lottery-not-selected-banner"
+          sx={{
+            mb: 2,
+            borderRadius: 2,
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+        >
+          <AlertTitle sx={{ fontWeight: "bold" }}>{lotteryCopy.title}</AlertTitle>
+          {showJoinCtas && lotteryCopy.detail && (
+            <Typography variant="body2">{lotteryCopy.detail}</Typography>
+          )}
+        </Alert>
+      )}
+
+      {lotteryCopy?.kind === "selected" && !finished && (
+        <Alert
+          severity="success"
+          dir="rtl"
+          data-testid="lottery-selected-banner"
+          sx={{ mb: 2, borderRadius: 2 }}
+        >
+          <AlertTitle sx={{ fontWeight: "bold", mb: 0 }}>{lotteryCopy.title}</AlertTitle>
+        </Alert>
+      )}
+
       {/* ── Waitlist Status Banner (user waiting, no active offer yet) ── */}
-      {isWaitlisted && !isWaitlistOfferPending && (
+      {isWaitlisted && !isWaitlistOfferPending && !isLotteryPool && !isLotteryDrawing && (
         <Alert
           severity="info"
           dir="rtl"
@@ -323,6 +433,11 @@ export default function GameLiveSection({
           <Typography variant="body2" mb={1.5}>
             הרשמת כמחליף. אם יתפנה מקום, תקבל הודעה ותוכל לאשר כאן.
           </Typography>
+          {waitlistError && (
+            <Typography variant="caption" color="error" display="block" mb={1}>
+              {waitlistError}
+            </Typography>
+          )}
           <Button
             variant="outlined"
             color="error"
@@ -370,11 +485,15 @@ export default function GameLiveSection({
         viewerState={
           joined
             ? "joined"
-            : isWaitlisted || isWaitlistOfferPending
-              ? "waitlisted"
-              : game.viewerParticipationStatus === "PENDING"
-                ? "pending"
-                : null
+            : isLotteryDrawing
+              ? "drawing"
+              : isLotteryPool
+                ? "lottery"
+                : isWaitlisted || isWaitlistOfferPending
+                  ? "waitlisted"
+                  : game.viewerParticipationStatus === "PENDING"
+                    ? "pending"
+                    : null
         }
       >
         {!showJoinCtas ? null : joined ? (
@@ -394,7 +513,13 @@ export default function GameLiveSection({
             joinPolicy={game.joinPolicy}
             viewerParticipationStatus={game.viewerParticipationStatus}
             waitlistOfferPending={game.waitlistOfferPending}
+            lotteryEnabled={!!game.lotteryEnabled}
             lotteryPending={!!game.lotteryPending}
+            lotteryExecutedAt={game.lotteryExecutedAt}
+            lotteryAt={game.lotteryAt}
+            guestRegistrationOpensAt={game.guestRegistrationOpensAt}
+            viewerIsInsider={game.viewerIsInsider}
+            joinLabel={notSelectedJoinLabel}
             onJoined={mergeAndSet}
             onRequestSent={mergeAndSet}
           />
@@ -458,7 +583,14 @@ export default function GameLiveSection({
 
       {canManageSeries && (
         <Box mt={2} id="game-requests">
-          <PendingJoinRequests gameId={game.id} onDecision={mergeAndSet} />
+          <PendingJoinRequests
+            gameId={game.id}
+            onDecision={mergeAndSet}
+            lotteryEnabled={game.lotteryEnabled}
+            lotteryPending={game.lotteryPending}
+            lotteryExecutedAt={game.lotteryExecutedAt}
+            lotteryAt={game.lotteryAt}
+          />
         </Box>
       )}
 
@@ -485,7 +617,7 @@ export default function GameLiveSection({
             initialManagers={game.managers || []}
             finished={finished}
             maxPlayers={game.maxPlayers}
-            confirmedCount={game.currentPlayers}
+            confirmedCount={drawInProgress ? (game.totalSignups ?? game.currentPlayers) : game.currentPlayers}
             currentUserId={viewerId}
             initialTeams={game.teams || []}
             lotteryData={{
@@ -493,6 +625,7 @@ export default function GameLiveSection({
               pending: !!game.lotteryPending,
               overbooked: !!game.overbooked,
               at: game.lotteryAt || null,
+              executedAt: game.lotteryExecutedAt,
               signups: game.totalSignups || 0,
             }}
             waitlistParticipants={game.waitlistParticipants || []}

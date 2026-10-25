@@ -19,6 +19,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
+import { RATINGS_COPY } from "@joinup/shared/ratingsCopy";
 
 export default function GameRatingsPanel({ gameId }: { gameId: string }) {
     const { getToken } = useAuth();
@@ -66,9 +67,9 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
         } catch (e: unknown) {
             const err = e as Error & { status?: number };
             if (err.status === 409) {
-                setError("כבר דירגת שחקן זה במשחק זה");
+                setError(RATINGS_COPY.alreadyRated);
             } else {
-                setError(err.message || "שליחת הדירוג נכשלה");
+                setError(err.message || RATINGS_COPY.submitFailed);
             }
         } finally {
             setSubmittingId(null);
@@ -94,15 +95,15 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
             <Card variant="outlined" sx={{ borderRadius: 2, mt: 3 }} dir="rtl">
                 <CardContent>
                     <Typography variant="h6" fontWeight="bold" gutterBottom>
-                        דרג את חברי הקבוצה
+                        {RATINGS_COPY.title}
                     </Typography>
                     {allRated ? (
                         <Alert severity="success" sx={{ mb: 2 }}>
-                            תודה! דירגת את כל חברי הקבוצה.
+                            {RATINGS_COPY.allDone}
                         </Alert>
                     ) : (
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                            דרג את השחקנים ששיחקו איתך במשחק זה (1–5 כוכבים).
+                            {RATINGS_COPY.hint}
                         </Typography>
                     )}
                     <Stack spacing={2}>
@@ -168,7 +169,7 @@ export default function GameRatingsPanel({ gameId }: { gameId: string }) {
                 anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
             >
                 <Alert severity="success" variant="filled" onClose={() => setSuccess(false)}>
-                    הדירוג נשמר
+                    {RATINGS_COPY.submitted}
                 </Alert>
             </Snackbar>
 

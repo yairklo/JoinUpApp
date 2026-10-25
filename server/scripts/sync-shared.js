@@ -9,7 +9,7 @@ const ROOT_SHARED = path.join(__dirname, '..', '..', 'shared');
 const VENDORED = path.join(__dirname, '..', 'shared');
 const FILES = [
   'timezone.js', 'sports.js', 'upload.js', 'cityAliases.js', 'notificationPrefs.js', 'ageGate.js',
-  'matchStats.js',
+  'matchStats.js', 'eveningSummary.js',
   'tournament/rng.js', 'tournament/standings.js', 'tournament/roundRobin.js', 'tournament/bracket.js',
   'tournament/scheduler.js', 'tournament/rosterRules.js',
 ];

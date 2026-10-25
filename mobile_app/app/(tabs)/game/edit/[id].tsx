@@ -16,6 +16,7 @@ import { SPORT_MAPPING } from '@/utils/sports';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackButton from '@/components/ui/BackButton';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 interface ScrollSelectionModalProps<T> {
     visible: boolean;
@@ -297,7 +298,7 @@ export default function EditGameScreen() {
         } catch (error) {
             if (signedOutSinceMount()) return;
             console.error("Failed to load game", error);
-            Alert.alert(t('editGame.error', 'Error'), t('editGame.loadError', 'Failed to load game details'));
+            appAlert(t('editGame.error', 'Error'), t('editGame.loadError', 'Failed to load game details'));
             router.back();
         } finally {
             setLoading(false);
@@ -332,11 +333,11 @@ export default function EditGameScreen() {
             }
             setInvitedParticipantIds([]);
             setSearchFriendQuery('');
-            Alert.alert(t('common.success', 'הצלחה'), t('editGame.friendsAdded', 'החברים נוספו למשחק בהצלחה!'));
+            appAlert(t('common.success', 'הצלחה'), t('editGame.friendsAdded', 'החברים נוספו למשחק בהצלחה!'));
             await fetchGame();
         } catch (error) {
             console.error("Failed to add friends to game", error);
-            Alert.alert(t('common.error', 'שגיאה'), t('editGame.addFriendsFailed', 'הוספת חברים נכשלה. אנא נסה שנית.'));
+            appAlert(t('common.error', 'שגיאה'), t('editGame.addFriendsFailed', 'הוספת חברים נכשלה. אנא נסה שנית.'));
         } finally {
             setAddingFriends(false);
         }
@@ -347,11 +348,11 @@ export default function EditGameScreen() {
             const token = await getToken();
             if (!token) return;
             await gamesApi.removeParticipant(id, userId, token);
-            Alert.alert(t('common.success', 'הצלחה'), t('editGame.playerRemoved', 'השחקן הוסר מהמשחק בהצלחה!'));
+            appAlert(t('common.success', 'הצלחה'), t('editGame.playerRemoved', 'השחקן הוסר מהמשחק בהצלחה!'));
             await fetchGame();
         } catch (error) {
             console.error("Failed to remove participant", error);
-            Alert.alert(t('common.error', 'שגיאה'), t('editGame.removePlayerFailed', 'הסרת שחקן נכשלה.'));
+            appAlert(t('common.error', 'שגיאה'), t('editGame.removePlayerFailed', 'הסרת שחקן נכשלה.'));
         }
     };
 
@@ -360,11 +361,11 @@ export default function EditGameScreen() {
             const token = await getToken();
             if (!token) return;
             await gamesApi.assignRole(id, { userId, role: 'MANAGER' }, token);
-            Alert.alert(t('common.success', 'הצלחה'), t('editGame.managerAssigned', 'מונה למנהל משחק בהצלחה!'));
+            appAlert(t('common.success', 'הצלחה'), t('editGame.managerAssigned', 'מונה למנהל משחק בהצלחה!'));
             await fetchGame();
         } catch (error) {
             console.error("Failed to assign manager role", error);
-            Alert.alert(t('common.error', 'שגיאה'), t('editGame.assignManagerFailed', 'מינוי למנהל נכשל.'));
+            appAlert(t('common.error', 'שגיאה'), t('editGame.assignManagerFailed', 'מינוי למנהל נכשל.'));
         }
     };
 
@@ -374,11 +375,11 @@ export default function EditGameScreen() {
             if (!token) return;
             // The backend removeRole removes all roles. For now, since MANAGER is the only GameRole we use, this is fine.
             await gamesApi.removeRole(id, userId, token);
-            Alert.alert(t('common.success', 'הצלחה'), t('editGame.managerRemoved', 'הוסרו הרשאות ניהול בהצלחה!'));
+            appAlert(t('common.success', 'הצלחה'), t('editGame.managerRemoved', 'הוסרו הרשאות ניהול בהצלחה!'));
             await fetchGame();
         } catch (error) {
             console.error("Failed to remove manager role", error);
-            Alert.alert(t('common.error', 'שגיאה'), t('editGame.removeManagerFailed', 'הסרת מנהל נכשלה.'));
+            appAlert(t('common.error', 'שגיאה'), t('editGame.removeManagerFailed', 'הסרת מנהל נכשלה.'));
         }
     };
 
@@ -387,7 +388,7 @@ export default function EditGameScreen() {
             const token = await getToken();
             if (!token) return;
             await gamesApi.setCaptain(id, userId, isCaptain, token);
-            Alert.alert(
+            appAlert(
                 t('common.success', 'הצלחה'),
                 isCaptain
                     ? t('editGame.captainAssigned', 'מונה לקפטן קבוצה בהצלחה!')
@@ -396,7 +397,7 @@ export default function EditGameScreen() {
             await fetchGame();
         } catch (error) {
             console.error("Failed to set captain", error);
-            Alert.alert(t('common.error', 'שגיאה'), t('editGame.updateCaptainFailed', 'עדכון קפטן נכשל.'));
+            appAlert(t('common.error', 'שגיאה'), t('editGame.updateCaptainFailed', 'עדכון קפטן נכשל.'));
         }
     };
 
@@ -444,11 +445,11 @@ export default function EditGameScreen() {
 
     const handleSubmit = async () => {
         if (!newFieldMode && !selectedField?.id) {
-            Alert.alert(t('editGame.error', 'Error'), t('editGame.mustSelectField', 'אנא בחר מגרש או הוסף מגרש חדש'));
+            appAlert(t('editGame.error', 'Error'), t('editGame.mustSelectField', 'אנא בחר מגרש או הוסף מגרש חדש'));
             return;
         }
         if (newFieldMode && (!newFieldName.trim() || !newFieldLocation.trim())) {
-            Alert.alert(t('editGame.error', 'Error'), t('editGame.mustFillFieldNameAndLocation', 'יש למלא שם מגרש וכתובת'));
+            appAlert(t('editGame.error', 'Error'), t('editGame.mustFillFieldNameAndLocation', 'יש למלא שם מגרש וכתובת'));
             return;
         }
 
@@ -524,7 +525,7 @@ export default function EditGameScreen() {
             ]);
         } catch (error: any) {
             console.error("Update game failed", error);
-            Alert.alert(t('editGame.error', 'Error'), error.response?.data?.error || t('editGame.updateFailed', 'Failed to update game'));
+            appAlert(t('editGame.error', 'Error'), error.response?.data?.error || t('editGame.updateFailed', 'Failed to update game'));
         } finally {
             setSubmitting(false);
         }

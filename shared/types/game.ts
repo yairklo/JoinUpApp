@@ -92,12 +92,14 @@ export type Game = {
     viewerJoinRequiresApproval?: boolean;
     joinPolicy?: 'INSTANT' | 'REQUIRES_APPROVAL';
     pendingRequestCount?: number;
-    viewerParticipationStatus?: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'REJECTED' | null;
+    viewerParticipationStatus?: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'REJECTED' | 'NOT_SELECTED' | null;
     waitlistCount?: number;
     waitlistParticipants?: GameParticipant[];
     waitlistOfferPending?: boolean;
     lotteryEnabled?: boolean;
     lotteryAt?: string | null;
+    /** ISO time once the draw has run; null while it has not. */
+    lotteryExecutedAt?: string | null;
     lotteryPending?: boolean;
     overbooked?: boolean;
     totalSignups?: number;

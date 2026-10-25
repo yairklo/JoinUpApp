@@ -125,7 +125,8 @@
     "hiddenOwner": "Hidden from others. Only you can see this.",
     "changeInSettings": "Change in settings",
     "loadFailed": "Couldn't load stats",
-    "summaryLine": "{{games}} games"
+    "summaryLine": "{{games}} games",
+    "roundLine": "Rounds: {{w}}–{{d}}–{{l}} (W–D–L). An evening with several games counts once; the wins above are whole games."
   },
   "ratings": {
     "title": "Rate your teammates",
@@ -1163,7 +1164,33 @@
     "ctaBody": "Add the score and player stats. You can edit for 7 days.",
     "ctaButton": "Add result",
     "dispute": "Result looks wrong?",
-    "disputed": "You reported this result"
+    "disputed": "You reported this result",
+    "evening": {
+      "single": "One score",
+      "many": "Several games",
+      "intro": "Several games in one evening. Quick-add keeps the winner and brings on whoever sat out. The evening counts as one game on a profile.",
+      "fixed": "Fixed teams",
+      "rotating": "Rotating lineups",
+      "fixedHint": "The teams stay. Only who plays whom changes.",
+      "rotatingHint": "Each game starts from the previous lineup. Move players as needed.",
+      "round": "Game {{n}}",
+      "removeRound": "Remove game {{n}}",
+      "add": "Add game",
+      "players": "Players and scorers",
+      "hidePlayers": "Hide players",
+      "summary": "Evening summary",
+      "player": "Player",
+      "inc": "Add a goal for {{side}}",
+      "dec": "Remove a goal from {{side}}",
+      "goalFor": "Goal for {{name}}",
+      "errEmpty": "Pick at least one player on each side. ",
+      "errDup": "A player can't be on both sides. ",
+      "errSame": "A team can't play itself.",
+      "teamRecord": "{{label}}: {{w}} W · {{d}} D · {{l}} L · {{gf}}:{{ga}}",
+      "playerRecord": "{{name}}: {{w}}–{{d}}–{{l}}",
+      "goals": "{{n}} goals",
+      "roundRecord": "{{w}}–{{d}}–{{l}} in rounds"
+    }
   },
   "resultEditor": {
     "title": "Game result",
@@ -1379,8 +1406,30 @@
       "noMatches": "No matches played yet",
       "tied": "Tied on every tiebreaker",
       "manual": "Order set manually by the organizer",
+      "manualOrderNote": "Standings were updated manually",
+      "editOrder": "Edit standings",
+      "resetOrder": "Reset to automatic",
       "needsManualViewer": "There's a tie the tiebreakers couldn't split. The table updates once the organizer sets the order.",
       "setOrder": "Set order",
+      "override": {
+        "title": "Edit standings",
+        "help": "The order you save stays until you reset it, including after new results. Matches, goals and automatic points keep updating. A points adjustment is added to the automatic points and does not change the order.",
+        "autoPoints": "Automatic: {{points}} pts · P {{played}}",
+        "points": "Points adjustment",
+        "reason": "Reason",
+        "reasonPlaceholder": "Penalty, forfeit…",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "save": "Save",
+        "cancel": "Cancel",
+        "reset": "Reset to automatic",
+        "resetTitle": "Reset to automatic",
+        "resetBody": "Go back to the automatic table? The manual order and points adjustments will be removed. Match results stay as they are.",
+        "resetConfirm": "Reset",
+        "pointsInvalid": "A points adjustment must be a whole number from -100 to 100, or empty.",
+        "reasonRequired": "A points change needs a reason, for example a penalty or a forfeit.",
+        "saveFailed": "Couldn't save the standings. Try again."
+      },
       "detailLine": "{{w}}W · {{d}}D · {{l}}L · goals {{gf}}:{{ga}}",
       "empty": "The table appears once the schedule is built"
     },
@@ -1480,7 +1529,10 @@
       "INVALID_CODE": "This link is invalid or was replaced. Ask the captain for a new one.",
       "CAPTAIN_CANNOT_LEAVE": "Captains can't leave. You can withdraw the team instead.",
       "ROSTER_INVALID": "Teams under {{min}} players can't be approved",
-      "TOURNAMENT_FULL": "The tournament is full. Waitlist a team or raise the team limit."
+      "TOURNAMENT_FULL": "The tournament is full. Waitlist a team or raise the team limit.",
+      "VALIDATION": "Can't save the standings. The order must include every team, and every points adjustment needs a reason.",
+      "OVERRIDE_BLOCKED": "A finished knockout match depends on this order, so the standings can't change.",
+      "TOURNAMENT_CLOSED": "Standings can't be edited on a draft or cancelled tournament."
     },
     "minors": {
       "title": "This tournament is for players 18+",
@@ -1852,5 +1904,11 @@
       "dates": "{{from}}–{{to}}",
       "noResultsRetry": "Couldn't load tournaments"
     }
+  },
+  "map": {
+    "openInMap": "Open in map",
+    "waze": "Waze",
+    "googleMaps": "Google Maps",
+    "appleMaps": "Apple Maps"
   }
 }

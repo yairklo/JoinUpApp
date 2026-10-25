@@ -14,6 +14,7 @@ import ProfileStats from '@/components/ProfileStats';
 import MatchResultBadge from '@/components/MatchResultBadge';
 import ReportPlayerEntry from '@/components/ReportPlayerEntry';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 const PAGE_SIZE = 5;
 
@@ -68,7 +69,7 @@ export default function UserProfileScreen() {
                 }
             } catch (err) {
                 console.error('Error toggling block', err);
-                Alert.alert(t('common.error', 'Error'), t('profile.blockFailed', 'הפעולה נכשלה. נסו שוב.'));
+                appAlert(t('common.error', 'Error'), t('profile.blockFailed', 'הפעולה נכשלה. נסו שוב.'));
             } finally {
                 setActionLoading(false);
             }
@@ -139,7 +140,7 @@ export default function UserProfileScreen() {
             await usersApi.sendFriendRequest(id, token);
             setRelationship('pending_outgoing');
         } catch (error) {
-            Alert.alert(t('common.error', 'Error'), mapFriendRequestError(error));
+            appAlert(t('common.error', 'Error'), mapFriendRequestError(error));
             if (getErrorCode(error) === 'INCOMING_REQUEST_EXISTS') {
                 await loadUserData();
             }
@@ -156,7 +157,7 @@ export default function UserProfileScreen() {
             await usersApi.removeFriend(currentUser!.id, id, token);
             setRelationship('none');
         } catch (error) {
-            Alert.alert(t('common.error', 'Error'), t('profile.failedToRemove', 'Failed to remove friend.'));
+            appAlert(t('common.error', 'Error'), t('profile.failedToRemove', 'Failed to remove friend.'));
         } finally {
             setActionLoading(false);
         }
@@ -176,7 +177,7 @@ export default function UserProfileScreen() {
                 setRelationship('friends');
             }
         } catch (error) {
-            Alert.alert(t('common.error', 'Error'), t('profile.failedToAccept', 'Failed to accept request.'));
+            appAlert(t('common.error', 'Error'), t('profile.failedToAccept', 'Failed to accept request.'));
         } finally {
             setActionLoading(false);
         }
@@ -337,9 +338,9 @@ export default function UserProfileScreen() {
                                     } catch (err: any) {
                                         console.error('Error starting chat', err);
                                         if (err?.status === 403) {
-                                            Alert.alert(t('common.error', 'Error'), t('privacy.messagesBlocked', 'This user only accepts messages from friends'));
+                                            appAlert(t('common.error', 'Error'), t('privacy.messagesBlocked', 'This user only accepts messages from friends'));
                                         } else {
-                                            Alert.alert(t('common.error', 'Error'), t('profile.failedToStartChat', 'Failed to start chat.'));
+                                            appAlert(t('common.error', 'Error'), t('profile.failedToStartChat', 'Failed to start chat.'));
                                         }
                                     } finally {
                                         setActionLoading(false);

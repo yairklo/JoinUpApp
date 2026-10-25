@@ -8,6 +8,7 @@ import CancelGameButton from "@/components/CancelGameButton";
 import SeriesManager from "@/components/SeriesManager";
 import GameDetailsEditor from "@/components/GameDetailsEditor";
 import { formatJerusalemDate, formatJerusalemTime } from "@/utils/timezone";
+import { formatHebrewWhen } from "@joinup/shared/gameViewerCopy";
 import type { FriendsOnlyLinkPolicy } from "@/types/game";
 import { isGameFinished } from "@/utils/gameStatus";
 
@@ -52,9 +53,14 @@ type Game = {
   participants: Participant[];
   fieldLat?: number | null;
   fieldLng?: number | null;
+  customLat?: number | null;
+  customLng?: number | null;
+  customLocation?: string | null;
   lotteryEnabled?: boolean;
   lotteryAt?: string | null;
+  lotteryExecutedAt?: string | null;
   lotteryPending?: boolean;
+  organizerInLottery?: boolean;
   overbooked?: boolean;
   totalSignups?: number;
   waitlistCount?: number;
@@ -70,7 +76,7 @@ type Game = {
   friendsOnlyLinkPolicy?: FriendsOnlyLinkPolicy;
   viewerJoinRequiresApproval?: boolean;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
   waitlistOfferPending?: boolean;
   teamSize?: number | null;
   price?: number | null;
@@ -140,8 +146,12 @@ export default async function GameDetails(props: {
     );
   }
 
+  const drawInProgress = !!game.lotteryEnabled
+    && game.lotteryExecutedAt === null
+    && !!game.lotteryAt
+    && game.lotteryPending === false;
   const headerCount =
-    (game.lotteryEnabled && game.lotteryPending
+    (game.lotteryEnabled && (game.lotteryPending || drawInProgress)
       ? game.totalSignups ?? game.currentPlayers
       : game.currentPlayers) || 0;
 
@@ -187,8 +197,14 @@ export default async function GameDetails(props: {
               joinPolicy: game.joinPolicy,
               viewerParticipationStatus: game.viewerParticipationStatus,
               waitlistOfferPending: game.waitlistOfferPending,
+              viewerJoinRequiresApproval: game.viewerJoinRequiresApproval,
               lotteryEnabled: game.lotteryEnabled,
               lotteryPending: game.lotteryPending,
+              lotteryExecutedAt: game.lotteryExecutedAt,
+              organizerInLottery: game.organizerInLottery,
+              membersOnlyPriority: game.membersOnlyPriority,
+              guestRegistrationOpensAt: game.guestRegistrationOpensAt,
+              viewerIsInsider: game.viewerIsInsider,
               totalSignups: game.totalSignups,
               organizerId: game.organizerId,
               chatRoomId: game.chatRoomId,
@@ -222,7 +238,7 @@ export default async function GameDetails(props: {
               )}
               {game.guestRegistrationOpensAt && new Date(game.guestRegistrationOpensAt) > new Date() && (
                 <Typography variant="body2">
-                  ההרשמה לאורחים נפתחת ב-{formatJerusalemDate(game.guestRegistrationOpensAt).split("-").reverse().join("/")} {formatJerusalemTime(game.guestRegistrationOpensAt)}
+                  ההרשמה לאורחים נפתחת ב-{formatHebrewWhen(game.guestRegistrationOpensAt) ?? ""}
                 </Typography>
               )}
             </Box>
@@ -235,6 +251,10 @@ export default async function GameDetails(props: {
                 fieldName={game.fieldName}
                 lat={game.fieldLat ?? null}
                 lng={game.fieldLng ?? null}
+                address={game.fieldLocation}
+                customLat={game.customLat ?? null}
+                customLng={game.customLng ?? null}
+                customLocation={game.customLocation}
               />
             </SectionErrorBoundary>
 

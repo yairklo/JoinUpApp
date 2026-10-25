@@ -18,6 +18,7 @@ import { type RosterAction } from './RosterRow';
 import TeamPageView from './TeamPageView';
 import { describeTeamError, joinLink } from './teamUtils';
 import type { TeamMember } from '@/types/tournament';
+import { appAlert } from '@/i18n/appAlert';
 
 function State({ testID, children }: { testID: string; children: React.ReactNode }) {
     return (
@@ -150,7 +151,7 @@ export default function TeamPageScreen({ tournamentId, teamId }: { tournamentId:
             await fn();
             await refetch();
         } catch (err) {
-            Alert.alert(msg(err));
+            appAlert(msg(err));
         }
     };
 
@@ -168,7 +169,7 @@ export default function TeamPageScreen({ tournamentId, teamId }: { tournamentId:
                     await roster.remove(team.id, m.userId);
                     router.replace(`/tournaments/${tournamentId}` as any);
                 } catch (err) {
-                    Alert.alert(msg(err));
+                    appAlert(msg(err));
                 }
             });
     };
@@ -197,7 +198,7 @@ export default function TeamPageScreen({ tournamentId, teamId }: { tournamentId:
                     await teams.withdrawTeam(team.id);
                     await refetch();
                 } catch (err) {
-                    Alert.alert(msg(err));
+                    appAlert(msg(err));
                 }
             }
         );
@@ -245,7 +246,7 @@ export default function TeamPageScreen({ tournamentId, teamId }: { tournamentId:
                                         const res = await teams.rotateJoinCode(team.id);
                                         setCodeOverride(res.joinCode);
                                     } catch (err) {
-                                        Alert.alert(msg(err));
+                                        appAlert(msg(err));
                                     }
                                 }, false)
                             }

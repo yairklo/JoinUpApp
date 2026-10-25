@@ -9,6 +9,7 @@ import { getAgeInJerusalem, type AgeGateInfo } from '@joinup/shared/ageGate';
 import { getLegalTexts } from '@joinup/shared/legal';
 import { useTranslation } from 'react-i18next';
 import { usersApi } from '@/services/api/users';
+import { appAlert } from '@/i18n/appAlert';
 
 const toYmd = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -121,7 +122,7 @@ export default function AgeGate() {
                         if (token) await usersApi.deleteAccount(token);
                         try { await signOut(); } catch { /* Clerk user already gone */ }
                     } catch {
-                        Alert.alert(t('ageGate.deleteFailedTitle', 'מחיקת החשבון נכשלה'), t('ageGate.deleteFailedBody', 'בדקו את החיבור ונסו שוב.'));
+                        appAlert(t('ageGate.deleteFailedTitle', 'מחיקת החשבון נכשלה'), t('ageGate.deleteFailedBody', 'בדקו את החיבור ונסו שוב.'));
                     }
                 },
             },

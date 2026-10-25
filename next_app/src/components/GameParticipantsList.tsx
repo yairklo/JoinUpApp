@@ -48,6 +48,8 @@ interface GameParticipantsListProps {
   finished?: boolean;
   /** Server count; falls back to the roster length. The roster can be hidden for outsiders. */
   confirmedCount?: number;
+  /** Overdue lottery that has not seated anyone yet: do not advertise those seats as free. */
+  suppressOpenSlots?: boolean;
   teams?: Team[]; // Added teams prop
 }
 
@@ -59,6 +61,7 @@ export default function GameParticipantsList({
   maxPlayers,
   finished = false,
   confirmedCount,
+  suppressOpenSlots = false,
   teams = [],
 }: GameParticipantsListProps) {
   const { userId, getToken } = useAuth();
@@ -336,7 +339,7 @@ export default function GameParticipantsList({
 
   // Open seats are drawn as dashed placeholders so a half-empty game reads as "room for you".
   const filledCount = confirmedCount ?? participants.length;
-  const openSlots = finished ? 0 : Math.max(0, maxPlayers - filledCount);
+  const openSlots = finished || suppressOpenSlots ? 0 : Math.max(0, maxPlayers - filledCount);
   const shownSlots = Math.min(openSlots, 6);
   const renderOpenSlots = () =>
     Array.from({ length: shownSlots }, (_, i) => {

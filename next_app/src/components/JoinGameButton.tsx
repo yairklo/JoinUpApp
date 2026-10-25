@@ -14,6 +14,12 @@ import LockIcon from "@mui/icons-material/LockClock";
 
 import { gamesApi } from "@/services/api/games";
 import { mapJoinError } from "@/utils/apiError";
+import {
+  lotteryViewerCopy,
+  guestJoinClosedLabel,
+  guestRegistrationNotOpenMessage,
+  isGuestRegistrationClosed,
+} from "@joinup/shared/gameViewerCopy";
 
 export default function JoinGameButton({
   gameId,
@@ -23,16 +29,30 @@ export default function JoinGameButton({
   joinPolicy,
   viewerParticipationStatus,
   waitlistOfferPending,
-  lotteryPending
+  lotteryEnabled,
+  lotteryPending,
+  lotteryExecutedAt,
+  lotteryAt,
+  guestRegistrationOpensAt,
+  viewerIsInsider,
+  joinLabel,
 }: {
   gameId: string;
   onJoined?: (updatedGame?: any) => void;
   onRequestSent?: (updatedGame?: any) => void;
   registrationOpensAt?: string | null;
   joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+  viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
   waitlistOfferPending?: boolean;
+  lotteryEnabled?: boolean;
   lotteryPending?: boolean;
+  lotteryExecutedAt?: string | null;
+  lotteryAt?: string | null;
+  guestRegistrationOpensAt?: string | null;
+  /** false = guest. Undefined means the caller does not know, so the button stays enabled. */
+  viewerIsInsider?: boolean;
+  /** Overrides the default join label (not-selected rejoin: join vs waitlist). */
+  joinLabel?: string | null;
 }) {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -44,6 +64,15 @@ export default function JoinGameButton({
   // A REQUIRES_APPROVAL rejection is terminal (server blocks re-requesting); an INSTANT game lets
   // a previously-rejected user join normally, so this only locks the button for the approval flow.
   const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
+  const poolCopy = viewerParticipationStatus === "WAITLISTED"
+    ? lotteryViewerCopy({
+        lotteryEnabled: !!lotteryEnabled,
+        lotteryPending: !!lotteryPending,
+        lotteryExecutedAt,
+        lotteryAt,
+        viewerParticipationStatus: "WAITLISTED",
+      })
+    : null;
 
   useEffect(() => {
     const isOffer = !!waitlistOfferPending;
@@ -59,9 +88,11 @@ export default function JoinGameButton({
   const now = new Date();
   const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
   const isRegistrationClosed = openDate && now < openDate;
+  const isGuestClosed = isGuestRegistrationClosed({ viewerIsInsider, guestRegistrationOpensAt, now });
+  const guestClosedLabel = isGuestClosed ? guestJoinClosedLabel(guestRegistrationOpensAt) : "";
 
   async function join() {
-    if (isRegistrationClosed || pending || viewerParticipationStatus === "CONFIRMED") return;
+    if (isRegistrationClosed || isGuestClosed || pending || viewerParticipationStatus === "CONFIRMED") return;
     setError(null);
     setLoading(true);
     try {
@@ -158,10 +189,20 @@ export default function JoinGameButton({
             </Box>
           </Box>
         ) : viewerParticipationStatus === "WAITLISTED" ? (
+          poolCopy?.kind === "drawing" ? (
+            <Typography variant="body2" color="text.secondary" fontWeight="bold" align="right" data-testid="lottery-drawing">
+              {poolCopy.title}
+            </Typography>
+          ) : (
           <Box display="flex" flexDirection="column" gap={1} alignItems="flex-end">
             <Typography variant="body2" color="text.secondary" fontWeight="bold" align="right" sx={{ mb: 0.5 }}>
-              {lotteryPending ? "נרשמת להגרלה – המקומות יוגרלו במועד ההגרלה" : "הרשמת כמחליף (ברשימת המתנה)"}
+              {poolCopy ? poolCopy.title : "הרשמת כמחליף (ברשימת המתנה)"}
             </Typography>
+            {poolCopy?.detail && (
+              <Typography variant="caption" color="text.secondary" align="right">
+                {poolCopy.detail}
+              </Typography>
+            )}
             <Button
               onClick={leaveWaitlist}
               disabled={loading}
@@ -169,9 +210,10 @@ export default function JoinGameButton({
               color="error"
               size="small"
             >
-              {lotteryPending ? "בטל הרשמה להגרלה" : "בטל הרשמה כמחליף"}
+              {poolCopy?.cancelLabel || "בטל הרשמה כמחליף"}
             </Button>
           </Box>
+          )
         ) : viewerParticipationStatus === "CONFIRMED" ? (
           <Button disabled variant="outlined" color="success" size="small" data-testid="join-confirmed">
             אתה בפנים
@@ -215,6 +257,27 @@ export default function JoinGameButton({
               </Button>
             </span>
           </Tooltip>
+        ) : isGuestClosed ? (
+          <Tooltip title={guestRegistrationNotOpenMessage(guestRegistrationOpensAt)} arrow placement="top">
+            <span>
+              <Button
+                disabled
+                variant="contained"
+                color="inherit"
+                size="small"
+                startIcon={<LockIcon fontSize="small" />}
+                data-testid="join-guest-closed"
+                sx={{
+                  opacity: 0.8,
+                  backgroundColor: 'action.disabledBackground',
+                  color: 'text.primary',
+                  fontWeight: 'bold'
+                }}
+              >
+                {guestClosedLabel}
+              </Button>
+            </span>
+          </Tooltip>
         ) : (
           <Button
             onClick={join}
@@ -232,7 +295,7 @@ export default function JoinGameButton({
               },
             }}
           >
-            {loading ? "מצטרף..." : joinPolicy === "REQUIRES_APPROVAL" ? "בקש להצטרף" : "הצטרף למשחק"}
+            {loading ? "מצטרף..." : joinLabel || (joinPolicy === "REQUIRES_APPROVAL" ? "בקש להצטרף" : "הצטרף למשחק")}
           </Button>
         )}
 

@@ -26,7 +26,10 @@ export type TournamentErrorCode =
     | 'INVALID_STATS'
     | 'NOT_IN_PROGRESS'
     | 'TEAMS_UNKNOWN'
-    | 'WRONG_STATUS';
+    | 'WRONG_STATUS'
+    | 'VALIDATION'
+    | 'OVERRIDE_BLOCKED'
+    | 'TOURNAMENT_CLOSED';
 
 /** Base class for every failed tournaments call. `body` is the raw JSON error body (extras like `problems`). */
 export class TournamentApiError extends Error {
@@ -136,6 +139,9 @@ const MESSAGES_HE: Record<string, string> = {
     NOT_IN_PROGRESS: 'אפשר להזין תוצאות רק כשהטורניר מתקיים',
     TEAMS_UNKNOWN: 'הקבוצות במשחק עדיין לא ידועות',
     WRONG_STATUS: 'צריך לסגור את ההרשמה לפני שמירת לוח המשחקים',
+    VALIDATION: 'אי אפשר לשמור את הדירוג. בדקו שהסדר כולל כל קבוצה ושלכל התאמת נקודות יש סיבה.',
+    OVERRIDE_BLOCKED: 'משחק נוק-אאוט שכבר הסתיים תלוי בסדר הזה, אז אי אפשר לשנות את הדירוג.',
+    TOURNAMENT_CLOSED: 'אי אפשר לעדכן דירוג בטורניר טיוטה או מבוטל.',
 };
 
 /** Hebrew user copy for a known code, or `null` so the caller can fall back to getActionErrorMessage. */

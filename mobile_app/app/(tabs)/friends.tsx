@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import LoadingMotif from '@/components/loading/LoadingMotif';
 import PlayerSearch from '@/components/PlayerSearch';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 export default function FriendsScreen() {
     const { t } = useTranslation();
@@ -58,7 +59,7 @@ export default function FriendsScreen() {
                 loadSocialData();
             }
         } catch (err) {
-            Alert.alert(t('common.error', 'שגיאה'), t('profile.failedToAccept', 'Failed to accept request'));
+            appAlert(t('common.error', 'שגיאה'), t('profile.failedToAccept', 'Failed to accept request'));
         }
     };
 
@@ -70,7 +71,7 @@ export default function FriendsScreen() {
                 loadSocialData();
             }
         } catch (err) {
-            Alert.alert(t('common.error', 'שגיאה'), t('profile.failedToDecline', 'Failed to decline request'));
+            appAlert(t('common.error', 'שגיאה'), t('profile.failedToDecline', 'Failed to decline request'));
         }
     };
 
@@ -91,7 +92,7 @@ export default function FriendsScreen() {
                                 loadSocialData();
                             }
                         } catch (err) {
-                            Alert.alert(t('common.error', 'שגיאה'), t('profile.failedToRemove', 'Failed to remove friend'));
+                            appAlert(t('common.error', 'שגיאה'), t('profile.failedToRemove', 'Failed to remove friend'));
                         }
                     }
                 }

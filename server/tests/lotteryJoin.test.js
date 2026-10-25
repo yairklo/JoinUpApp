@@ -190,6 +190,41 @@ describe('Lottery join mode', () => {
     expect(parts.filter(p => p.status === 'NOT_SELECTED').length).toBeGreaterThan(0);
   });
 
+  test('concurrent GETs after lotteryAt run the overdue draw once', async () => {
+    const maxPlayers = 2;
+    const g = await makeGame({ lotteryAt: past(), maxPlayers });
+    for (let n = 10; n < 14; n++) {
+      const id = `user_play_${n}`;
+      await ensureUser(id);
+      await prisma.participation.create({ data: { gameId: g.id, userId: id, status: 'WAITLISTED' } });
+    }
+    const viewers = [1, 2, 3, 4, 5];
+    for (const n of viewers) await ensureUser(`user_play_${n}`);
+
+    const results = await Promise.all(viewers.map((n) =>
+      request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer mock_token_player${n}` })
+    ));
+    for (const res of results) {
+      expect(res.statusCode).toBe(200);
+      expect(res.body.lotteryExecutedAt).toBeTruthy();
+      expect(res.body.lotteryPending).toBe(false);
+    }
+
+    const parts = await prisma.participation.findMany({ where: { gameId: g.id } });
+    const confirmed = parts.filter(p => p.status === 'CONFIRMED');
+    expect(confirmed.length).toBeLessThanOrEqual(maxPlayers);
+    expect(confirmed.length).toBe(maxPlayers);
+    expect(parts.filter(p => p.status === 'NOT_SELECTED').length).toBeGreaterThan(0);
+    expect(parts.filter(p => p.status === 'WAITLISTED')).toHaveLength(0);
+
+    const before = parts.map(p => `${p.userId}:${p.status}`).sort();
+    const again = await request(app).get(`/api/games/${g.id}`).set({ Authorization: 'Bearer mock_token_player1' });
+    expect(again.statusCode).toBe(200);
+    expect(again.body.lotteryExecutedAt).toBe(results[0].body.lotteryExecutedAt);
+    const afterParts = await prisma.participation.findMany({ where: { gameId: g.id } });
+    expect(afterParts.map(p => `${p.userId}:${p.status}`).sort()).toEqual(before);
+  });
+
   test('a thrown draw rolls back lotteryExecutedAt and leaves the pool WAITLISTED', async () => {
     const gameScheduler = require('../services/gameScheduler');
     const g = await makeGame({ lotteryAt: past(), maxPlayers: 1 });
@@ -232,5 +267,91 @@ describe('Lottery join mode', () => {
     const res = await join(g.id, 2);
     expect(res.statusCode).toBe(200);
     expect(await statusOf(g.id, playerIds[2])).toBe('CONFIRMED');
+  });
+
+  test('GET returns the loaded game when the lazy draw throws', async () => {
+    const gameScheduler = require('../services/gameScheduler');
+    const g = await makeGame({ lotteryAt: past(), maxPlayers: 2 });
+    await ensureUser(playerIds[0]);
+    await prisma.participation.create({ data: { gameId: g.id, userId: playerIds[0], status: 'WAITLISTED' } });
+    const spy = jest.spyOn(gameScheduler, 'drawLottery').mockRejectedValue(new Error('lock timeout'));
+    try {
+      const res = await request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer ${tokens[0]}` });
+      expect(res.statusCode).toBe(200);
+      expect(res.body.id).toBe(g.id);
+      expect(res.body.lotteryExecutedAt).toBeNull();
+      expect(res.body.lotteryPending).toBe(false);
+      expect(await statusOf(g.id, playerIds[0])).toBe('WAITLISTED');
+    } finally {
+      spy.mockRestore();
+    }
+    // The failed read did not claim the draw, so the next GET runs it.
+    const again = await request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer ${tokens[0]}` });
+    expect(again.statusCode).toBe(200);
+    expect(again.body.lotteryExecutedAt).toBeTruthy();
+    expect(await statusOf(g.id, playerIds[0])).toBe('CONFIRMED');
+  });
+
+  test('GET returns the pending game when the post-draw reload fails', async () => {
+    const g = await makeGame({ lotteryAt: past(), maxPlayers: 2 });
+    await ensureUser(playerIds[2]);
+    await prisma.participation.create({ data: { gameId: g.id, userId: playerIds[2], status: 'WAITLISTED' } });
+    const realFind = prisma.game.findUnique.bind(prisma.game);
+    let detailLoads = 0;
+    const spy = jest.spyOn(prisma.game, 'findUnique').mockImplementation((args) => {
+      if (args && args.include && args.where && args.where.id === g.id) {
+        detailLoads += 1;
+        if (detailLoads > 1) return Promise.reject(new Error('reload failed'));
+      }
+      return realFind(args);
+    });
+    try {
+      const res = await request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer ${tokens[2]}` });
+      expect(res.statusCode).toBe(200);
+      expect(res.body.id).toBe(g.id);
+      expect(res.body.lotteryExecutedAt).toBeNull();
+      expect(res.body.lotteryPending).toBe(false);
+      expect(res.body.viewerParticipationStatus).toBe('WAITLISTED');
+      expect(detailLoads).toBeGreaterThan(1);
+      const stored = await realFind({ where: { id: g.id }, select: { lotteryExecutedAt: true } });
+      expect(stored.lotteryExecutedAt).toBeTruthy();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('GET does not wait out a slow lazy draw', async () => {
+    const gameScheduler = require('../services/gameScheduler');
+    const g = await makeGame({ lotteryAt: past(), maxPlayers: 2 });
+    await ensureUser(playerIds[1]);
+    await prisma.participation.create({ data: { gameId: g.id, userId: playerIds[1], status: 'WAITLISTED' } });
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    let finished = false;
+    const spy = jest.spyOn(gameScheduler, 'drawLottery').mockImplementation(() => gate.then(() => {
+      finished = true;
+    }));
+    try {
+      const started = Date.now();
+      const res = await request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer ${tokens[1]}` });
+      const elapsed = Date.now() - started;
+      expect(res.statusCode).toBe(200);
+      expect(res.body.id).toBe(g.id);
+      expect(res.body.lotteryExecutedAt).toBeNull();
+      expect(finished).toBe(false);
+      expect(elapsed).toBeGreaterThanOrEqual(2000);
+      expect(elapsed).toBeLessThan(5000);
+      release();
+      const deadline = Date.now() + 2000;
+      while (!finished && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      expect(finished).toBe(true);
+      // The read reloads after the draw promise settles. Let that query finish.
+      await new Promise((r) => setTimeout(r, 100));
+    } finally {
+      release();
+      spy.mockRestore();
+    }
   });
 });

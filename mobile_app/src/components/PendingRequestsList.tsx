@@ -6,13 +6,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { gamesApi } from '@/services/api';
 import { Game, JoinRequest } from '@/types/game';
 import SafeImage from '@/components/SafeImage';
+import { lotteryEntrantListCopy } from '@joinup/shared/gameViewerCopy';
 
 export default function PendingRequestsList({
     gameId,
-    onDecision
+    onDecision,
+    lotteryEnabled,
+    lotteryPending,
+    lotteryExecutedAt,
+    lotteryAt,
 }: {
     gameId: string;
     onDecision?: (updatedGame?: Game) => void;
+    /** Pre-draw lottery: the WAITLISTED rows are the pool, not a ranked waitlist. */
+    lotteryEnabled?: boolean;
+    lotteryPending?: boolean;
+    lotteryExecutedAt?: string | null;
+    lotteryAt?: string | null;
 }) {
     const { getToken } = useAuth();
     const { t } = useTranslation();
@@ -89,6 +99,14 @@ export default function PendingRequestsList({
 
     if (requests.length === 0 && !activeOffer && waitlist.length === 0 && rejected.length === 0) return null;
 
+    const entrantList = lotteryEntrantListCopy({
+        lotteryEnabled,
+        lotteryPending,
+        lotteryExecutedAt,
+        lotteryAt,
+        count: waitlist.length,
+    });
+
     return (
         <View className="bg-white p-6 mb-4 shadow-sm rounded-xl">
             {/* Active Offer Section */}
@@ -154,12 +172,20 @@ export default function PendingRequestsList({
                 </View>
             )}
 
-            {/* Waitlist Section */}
+            {/* Waitlist, or the unordered lottery pool until the draw runs. */}
             {waitlist.length > 0 && (
-                <View className="mb-6">
-                    <Text className="text-lg font-bold text-gray-800 mb-4">
-                        {t('game.waitlistTitle', 'רשימת המתנה')} ({waitlist.length})
+                <View className="mb-6" testID={entrantList ? 'lottery-entrant-roster' : 'waitlist-roster'}>
+                    <Text className={`text-lg font-bold text-gray-800 ${entrantList ? 'mb-1' : 'mb-4'}`}>
+                        {entrantList
+                            ? entrantList.title
+                            : `${t('game.waitlistTitle', 'רשימת המתנה')} (${waitlist.length})`}
                     </Text>
+                    {!!entrantList?.detail && (
+                        <Text className="text-sm text-gray-600 mb-1">{entrantList.detail}</Text>
+                    )}
+                    {!!entrantList?.registeredLabel && (
+                        <Text className="text-xs text-gray-500 mb-4">{entrantList.registeredLabel}</Text>
+                    )}
                     {waitlist.map(req => (
                         <View key={req.userId} className="flex-row items-center justify-between mb-3 last:mb-0">
                             <View className="flex-row items-center flex-1">
@@ -169,11 +195,19 @@ export default function PendingRequestsList({
                                 />
                                 <Text className="text-gray-800 font-bold flex-shrink" numberOfLines={1}>{req.name || t('game.user', 'משתמש')}</Text>
                             </View>
-                            <View className="bg-gray-100 px-3 py-1.5 rounded-lg">
-                                <Text className="text-gray-600 font-bold text-xs">
-                                    {t('game.waitlistQueuePosition', { position: req.queuePosition, defaultValue: `ממתין #${req.queuePosition}` })}
-                                </Text>
-                            </View>
+                            {entrantList ? (
+                                entrantList.rowLabel ? (
+                                    <View className="bg-gray-100 px-3 py-1.5 rounded-lg">
+                                        <Text className="text-gray-600 font-bold text-xs">{entrantList.rowLabel}</Text>
+                                    </View>
+                                ) : null
+                            ) : (
+                                <View className="bg-gray-100 px-3 py-1.5 rounded-lg">
+                                    <Text className="text-gray-600 font-bold text-xs">
+                                        {t('game.waitlistQueuePosition', { position: req.queuePosition, defaultValue: `ממתין #${req.queuePosition}` })}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     ))}
                 </View>

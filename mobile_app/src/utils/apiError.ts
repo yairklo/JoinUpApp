@@ -1,3 +1,5 @@
+import { guestRegistrationNotOpenMessage, guestRegistrationOpensAtFromError } from "@joinup/shared/gameViewerCopy";
+
 function getErrorStatus(error: unknown): number | undefined {
   if (error && typeof error === "object" && "status" in error) {
     const status = (error as { status?: unknown }).status;
@@ -38,4 +40,19 @@ export function mapFriendRequestError(error: unknown): string {
     return "בעיית תקשורת, בדוק את החיבור לאינטרנט";
   }
   return "שליחת הבקשה נכשלה, נסה שוב";
+}
+
+/** Join-failure copy. Guest-window errors include the opening time when the server sends it. */
+export function mapJoinAlert(error: unknown, fallback: string): string {
+  const code = getErrorCode(error);
+  const raw = error instanceof Error ? error.message : "";
+  if (code === "GUEST_REGISTRATION_NOT_OPEN" || raw.toLowerCase().includes("not yet open for guests")) {
+    return guestRegistrationNotOpenMessage(guestRegistrationOpensAtFromError(error));
+  }
+  const legacy = error && typeof error === "object" && "response" in error
+    ? (error as { response?: { data?: { error?: unknown } } }).response?.data?.error
+    : undefined;
+  if (raw) return raw;
+  if (typeof legacy === "string" && legacy) return legacy;
+  return fallback;
 }

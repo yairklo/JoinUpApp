@@ -18,6 +18,8 @@ import type {
     ScheduleFilters,
     ScheduleGenerateInput,
     SchedulePreviewResponse,
+    StandingsOverrideInput,
+    StandingsOverrideResult,
     StandingsResponse,
     TeamDecision,
     TeamMember,
@@ -177,6 +179,12 @@ export const tournamentsApi = {
     schedule: (id: string, filters: ScheduleFilters = {}, token?: string) =>
         call<TournamentSchedule>(`${t(id)}/schedule${buildQuery({ ...filters })}`, { token }),
     standings: (id: string, token?: string) => call<StandingsResponse>(`${t(id)}/standings`, { token }),
+    /** Manager+: publish a manual order. Points adjustments are additive and do not re-sort. */
+    putStandingsOverride: (id: string, data: StandingsOverrideInput, token: string) =>
+        call<StandingsOverrideResult>(`${t(id)}/standings/override`, { method: 'PUT', data, token }),
+    /** Manager+: delete the override so the table is automatic again. */
+    deleteStandingsOverride: (id: string, data: { stageId: string; groupId: string | null }, token: string) =>
+        call<StandingsOverrideResult>(`${t(id)}/standings/override`, { method: 'DELETE', data, token }),
     bracket: (id: string, token?: string) => call<BracketResponse>(`${t(id)}/bracket`, { token }),
     leaders: (id: string, opts: { key?: string; limit?: number } = {}, token?: string) =>
         call<LeadersResponse>(`${t(id)}/stats/leaders${buildQuery({ ...opts })}`, { token }),

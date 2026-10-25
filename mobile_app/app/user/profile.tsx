@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Alert, Modal, FlatList, KeyboardAvoidingView, Platform, I18nManager } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform, I18nManager } from 'react-native';
 import { gameStartMs } from '@/utils/timezone';
 import React, { useEffect, useState } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-expo';
@@ -19,6 +19,7 @@ import { pickOneImage } from '@/utils/pickImage';
 import ProfileStats from '@/components/ProfileStats';
 import SafeImage from '@/components/SafeImage';
 import { useColorMode } from '@/theme/ColorModeContext';
+import { appAlert } from '@/i18n/appAlert';
 
 const getPositionOptions = (t: any): Record<string, string[]> => ({
     SOCCER: [
@@ -162,7 +163,7 @@ export default function ProfileScreen() {
                 setIsEditing(false);
             }
         } catch (err) {
-            Alert.alert(t("profile.error", "שגיאה"), t("profile.updateFailed", "עדכון הפרופיל נכשל"));
+            appAlert(t("profile.error", "שגיאה"), t("profile.updateFailed", "עדכון הפרופיל נכשל"));
         } finally {
             setSaving(false);
         }

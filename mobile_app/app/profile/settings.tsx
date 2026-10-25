@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getTokenOrThrow } from '@/utils/apiErrors';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser, useAuth } from '@clerk/clerk-expo';
@@ -8,6 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTranslation } from 'react-i18next';
 import { usersApi, PrivacyLevel, PrivacySettings } from '../../src/services/api/users';
 import LoadingMotif from '@/components/loading/LoadingMotif';
+import { appAlert } from '@/i18n/appAlert';
 
 type FieldKey = 'privacyFriends' | 'privacyGames' | 'privacyMessages';
 type FieldValue = PrivacyLevel | 'DEFAULT';
@@ -85,10 +86,10 @@ export default function PrivacySettingsScreen() {
                 token
             );
             if (saved.ageDefaults) setAgeDefaults(saved.ageDefaults);
-            Alert.alert('', t('privacy.saved'));
+            appAlert('', t('privacy.saved'));
         } catch (e) {
             console.error('Failed to save privacy settings', e);
-            Alert.alert(t('common.error', 'Error'), t('privacy.saveFailed'));
+            appAlert(t('common.error', 'Error'), t('privacy.saveFailed'));
         } finally {
             setSaving(false);
         }

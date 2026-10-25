@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getSportTheme } from '@/components/ui/SportCover';
@@ -12,8 +12,10 @@ import {
     toLang,
     winnerOf,
 } from '@/components/results/resultUtils';
+import EveningSummaryLines from '@/components/results/EveningSummaryLines';
 import type { GameResultRecord, GameResultRosterEntry, GameResultSide } from '@/types/results';
 import type { Team } from '@/types/game';
+import { appAlert } from '@/i18n/appAlert';
 
 export interface GameResultPanelProps {
     sport: string;
@@ -37,6 +39,58 @@ export interface GameResultPanelProps {
 const cardShell =
     'bg-white dark:bg-cyber-card rounded-2xl p-5 border border-gray-100 dark:border-cyber-border mx-4 mt-4 overflow-hidden';
 const COLLAPSE_AT = 6;
+
+function EveningBoard({ result, roster, sport }: { result: GameResultRecord; roster: GameResultRosterEntry[]; sport: string }) {
+    const { t, i18n } = useTranslation();
+    const lang = i18n.language?.startsWith('en') ? 'en' : 'he';
+    const rounds = result.rounds || [];
+    const summary = result.summary;
+    const nameOf = (id: string) => roster.find((p) => p.userId === id)?.name || t('results.evening.player');
+    return (
+        <View testID="evening-board" className="mt-4">
+            {rounds.map((round) => {
+                const [a, b] = [...round.sides].sort((x, y) => x.order - y.order);
+                if (!a || !b) return null;
+                return (
+                    <View
+                        key={round.order}
+                        testID={`evening-round-row-${round.order}`}
+                        accessible
+                        accessibilityLabel={`${a.label} ${a.score}, ${b.label} ${b.score}`}
+                        className="flex-row items-center min-h-[44px]"
+                    >
+                        <Text
+                            numberOfLines={1}
+                            className={`flex-1 text-[15px] text-gray-900 dark:text-cyber-text ${a.outcome === 'WIN' ? 'font-extrabold' : 'font-semibold'}`}
+                        >
+                            {a.label}
+                        </Text>
+                        <Text className="text-xl font-extrabold text-gray-900 dark:text-cyber-text px-2" style={tabular}>
+                            {a.score}–{b.score}
+                        </Text>
+                        <Text
+                            numberOfLines={1}
+                            className={`flex-1 text-[15px] text-end text-gray-900 dark:text-cyber-text ${b.outcome === 'WIN' ? 'font-extrabold' : 'font-semibold'}`}
+                        >
+                            {b.label}
+                        </Text>
+                    </View>
+                );
+            })}
+            {summary && (summary.teams.length > 0 || summary.players.length > 0) ? (
+                <EveningSummaryLines
+                    testID="evening-summary"
+                    title={t('results.evening.summary')}
+                    summary={summary}
+                    sport={sport}
+                    lang={lang}
+                    nameOf={nameOf}
+                    className="mt-3 p-3 rounded-2xl bg-gray-50 dark:bg-cyber-bg"
+                />
+            ) : null}
+        </View>
+    );
+}
 
 function Swatch({ color }: { color: string }) {
     return (
@@ -250,7 +304,7 @@ export default function GameResultPanel({
                 {locked ? (
                     <TouchableOpacity
                         testID="game-result-locked"
-                        onPress={() => Alert.alert('', t('results.lockedHint'))}
+                        onPress={() => appAlert('', t('results.lockedHint'))}
                         accessibilityRole="button"
                         accessibilityLabel={`${t('results.locked')}. ${t('results.lockedHint')}`}
                         className="flex-row items-center bg-gray-100 dark:bg-cyber-border rounded-full px-3 py-1.5 min-h-[32px] me-2"
@@ -272,6 +326,10 @@ export default function GameResultPanel({
                 ) : null}
             </View>
 
+            {(result.rounds?.length ?? 0) > 1 ? (
+                <EveningBoard result={result} roster={roster} sport={sport} />
+            ) : (
+            <>
             {/* Scoreboard: three separate flex children so RTL puts side 0 at the start edge (rule 1.1) */}
             <View accessible accessibilityLabel={a11y} className="mt-5">
                 <View className="flex-row items-center" importantForAccessibility="no-hide-descendants">
@@ -366,6 +424,8 @@ export default function GameResultPanel({
                     })}
                 </View>
             ) : null}
+            </>
+            )}
 
             {result.notes ? (
                 <View testID="game-result-notes" className="mt-2 ps-3 border-s-[3px] border-gray-200 dark:border-cyber-border">

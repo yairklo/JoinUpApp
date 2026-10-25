@@ -27,7 +27,7 @@
     "@radix-ui/react-dialog": "^1.1.1",
     "@radix-ui/react-separator": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
-    "@sentry/nextjs": "^10.73.0",
+    "@sentry/nextjs": "^10.76.2",
     "@vis.gl/react-google-maps": "^1.9.0",
     "bootstrap": "^5.3.8",
     "caniuse-lite": "^1.0.30001806",
@@ -35,11 +35,11 @@
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
-    "express": "^4.18.3",
+    "express": "^4.22.3",
     "firebase": "^12.7.0",
     "framer-motion": "^13.1.1",
     "lucide-react": "^0.468.0",
-    "next": "^15.5.20",
+    "next": "^15.5.28",
     "next-pwa": "^5.6.0",
     "next-themes": "^0.4.6",
     "react": "^19.1.9",
@@ -47,8 +47,8 @@
     "react-bootstrap-icons": "^1.11.6",
     "react-dom": "^19.1.9",
     "recharts": "^3.1.2",
-    "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4",
     "stylis": "^4.4.0",
     "stylis-plugin-rtl": "^2.1.1",
     "tailwind-merge": "^2.6.0"
@@ -60,17 +60,37 @@
     "@types/cors": "^2.8.19",
     "@types/jest": "^30.0.0",
     "@types/minimatch": "^5.1.2",
-    "@types/next-pwa": "^5.6.9",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/stylis": "^4.2.7",
     "autoprefixer": "^10.4.21",
     "eslint": "^9",
-    "eslint-config-next": "^15.4.8",
+    "eslint-config-next": "^15.5.28",
     "jest": "^30.5.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.6",
+    "body-parser": "1.20.9",
+    "engine.io": "6.6.11",
+    "proxy-addr": "2.0.8",
+    "serialize-javascript": "7.1.4",
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2",
+    "minimatch@3": {
+      "brace-expansion": "1.1.21"
+    },
+    "minimatch@5": {
+      "brace-expansion": "2.1.7"
+    },
+    "minimatch@9": {
+      "brace-expansion": "2.1.7"
+    },
+    "minimatch@10": {
+      "brace-expansion": "5.0.12"
+    }
   }
 }

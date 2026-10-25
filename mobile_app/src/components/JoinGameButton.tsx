@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { TouchableOpacity, Text, ActivityIndicator, View, Alert } from "react-native";
+import { TouchableOpacity, Text, ActivityIndicator, View } from "react-native";
 import { gamesApi } from "@/services/api";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useGameUpdate } from "@/context/GameUpdateContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { hasWaitlistOffer } from "@/utils/waitlistOffer";
+import { guestJoinClosedLabel, isGuestRegistrationClosed, lotteryViewerCopy } from "@joinup/shared/gameViewerCopy";
+import { mapJoinAlert } from "@/utils/apiError";
+import { appAlert } from "@/i18n/appAlert";
 
 export default function JoinGameButton({
     gameId,
@@ -14,14 +17,28 @@ export default function JoinGameButton({
     viewerParticipationStatus,
     waitlistOfferPending,
     isFull,
+    lotteryEnabled,
+    lotteryPending,
+    lotteryExecutedAt,
+    lotteryAt,
+    guestRegistrationOpensAt,
+    viewerIsInsider,
     onJoined,
     onRequestSent,
 }: {
     gameId: string;
     registrationOpensAt?: string | null;
     joinPolicy?: "INSTANT" | "REQUIRES_APPROVAL";
-    viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | null;
+    viewerParticipationStatus?: "PENDING" | "CONFIRMED" | "WAITLISTED" | "REJECTED" | "NOT_SELECTED" | null;
     waitlistOfferPending?: boolean;
+    /** Game.lotteryEnabled. Separate from lotteryPending so a finished draw is not treated as still open. */
+    lotteryEnabled?: boolean;
+    lotteryPending?: boolean;
+    lotteryExecutedAt?: string | null;
+    lotteryAt?: string | null;
+    guestRegistrationOpensAt?: string | null;
+    /** false = guest. Undefined means the caller does not know, so the button stays enabled. */
+    viewerIsInsider?: boolean;
     /** When true, join goes to the standby queue — do not bump currentPlayers. */
     isFull?: boolean;
     onJoined?: () => void;
@@ -61,13 +78,23 @@ export default function JoinGameButton({
     // A REQUIRES_APPROVAL rejection is terminal (server blocks re-requesting); an INSTANT game lets
     // a previously-rejected user join normally, so this only locks the button for the approval flow.
     const isRejectedTerminal = viewerParticipationStatus === "REJECTED" && joinPolicy === "REQUIRES_APPROVAL";
+    const poolCopy = viewerParticipationStatus === "WAITLISTED"
+        ? lotteryViewerCopy({
+            lotteryEnabled: !!lotteryEnabled,
+            lotteryPending: !!lotteryPending,
+            lotteryExecutedAt,
+            lotteryAt,
+            viewerParticipationStatus: "WAITLISTED",
+        })
+        : null;
 
     const now = new Date();
     const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
     const isRegistrationClosed = openDate && now < openDate;
+    const isGuestClosed = isGuestRegistrationClosed({ viewerIsInsider, guestRegistrationOpensAt, now });
 
     const join = async () => {
-        if (isRegistrationClosed || loading || pending || offerPending) return;
+        if (isRegistrationClosed || isGuestClosed || loading || pending || offerPending) return;
         setLoading(true);
         try {
             const token = await getToken().catch(() => "");
@@ -84,7 +111,7 @@ export default function JoinGameButton({
                 // Waitlist join — keep roster count stable; only bump waitlist locally.
                 setWaitlisted(true);
                 notifyGameUpdate(gameId, "waitlist", user?.id || "");
-                Alert.alert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
+                appAlert(t('common.success', 'הצלחה'), t('game.joinWaitlistSuccess', 'נרשמת לרשימת ההמתנה'));
                 if (onJoined) onJoined();
                 return;
             }
@@ -93,7 +120,7 @@ export default function JoinGameButton({
             if (onJoined) onJoined();
         } catch (e: any) {
             console.error("Join Failed:", e);
-            Alert.alert(t('common.error', 'שגיאה'), e?.message || t('game.joinFailed', 'ההצטרפות למשחק נכשלה'));
+            appAlert(t('common.error', 'שגיאה'), mapJoinAlert(e, t('game.joinFailed', 'ההצטרפות למשחק נכשלה')));
         } finally {
             setLoading(false);
         }
@@ -112,7 +139,7 @@ export default function JoinGameButton({
             } else {
                 setWaitlisted(false);
             }
-            Alert.alert(
+            appAlert(
                 t('common.success', 'הצלחה'),
                 accept
                     ? t('game.waitlistOfferJoined', 'הצטרפת למשחק בהצלחה!')
@@ -121,7 +148,7 @@ export default function JoinGameButton({
             if (onJoined) onJoined();
         } catch (e: any) {
             console.error("Waitlist confirm failed:", e);
-            Alert.alert(t('common.error', 'שגיאה'), e?.message || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
+            appAlert(t('common.error', 'שגיאה'), e?.message || t('game.waitlistProcessFailed', 'לא הצלחנו לעבד את אישור רשימת ההמתנה'));
         } finally {
             setLoading(false);
         }
@@ -165,7 +192,7 @@ export default function JoinGameButton({
             >
                 <Ionicons name="time-outline" size={16} color="#6b7280" />
                 <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-600 font-bold flex-shrink">
-                    {t('game.waitlisted', 'ברשימת המתנה')}
+                    {poolCopy ? poolCopy.title : t('game.waitlisted', 'ברשימת המתנה')}
                 </Text>
             </TouchableOpacity>
         );
@@ -204,6 +231,21 @@ export default function JoinGameButton({
             >
                 <Ionicons name="lock-closed" size={16} color="#6b7280" />
                 <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 font-bold flex-shrink">{t("game.opensAt", { time: timeStr })}</Text>
+            </TouchableOpacity>
+        );
+    }
+
+    if (isGuestClosed) {
+        return (
+            <TouchableOpacity
+                disabled
+                testID="join-guest-closed"
+                className="bg-gray-100 flex-row items-center justify-center p-3 rounded-xl border border-gray-200"
+            >
+                <Ionicons name="lock-closed" size={16} color="#6b7280" />
+                <Text numberOfLines={1} ellipsizeMode="tail" className="ml-2 text-gray-500 font-bold flex-shrink">
+                    {guestJoinClosedLabel(guestRegistrationOpensAt)}
+                </Text>
             </TouchableOpacity>
         );
     }

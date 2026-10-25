@@ -28,6 +28,8 @@ import ResultStepper from '@/components/results/ResultStepper';
 import { BINARY_STAT_KEYS, OUTCOME_CLASSES, describeStats, formatShortDate, sideSwatchColor, tabular, toLang } from '@/components/results/resultUtils';
 import { getSportTheme } from '@/components/ui/SportCover';
 import type { GameResultRecord, GameResultRosterEntry, GameResultWarning, SaveGameResultInput, TennisSets } from '@/types/results';
+import EveningRoundsEditor from '@/components/results/EveningRoundsEditor';
+import { eveningFormErrors, initEveningForm, toEveningResultBody, type EveningForm } from '@joinup/shared/eveningSummary';
 import type { Team } from '@/types/game';
 
 export const RESULT_NOTES_MAX = 500;
@@ -143,6 +145,9 @@ function EditorBody({
         initialPlayers(roster, initial, teams, base.map((b) => b.teamId)),
     );
     const [notes, setNotes] = useState(initial?.notes ?? '');
+    const [eveningOn, setEveningOn] = useState(!!(initial?.lineupMode || (initial?.rounds?.length ?? 0) > 1));
+    const [eveningForm, setEveningForm] = useState<EveningForm>(() => initEveningForm({ result: initial, teams, roster }));
+    const [eveningTried, setEveningTried] = useState(false);
     const [expanded, setExpanded] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
     const touch = <T,>(fn: (v: T) => void) => (v: T) => {
@@ -217,9 +222,17 @@ function EditorBody({
         });
     };
 
-    const canSave = !readOnly && !lockedOut && !rosterLoading && (isTennis ? !!tennis?.valid : true);
+    const eveningErrors = eveningFormErrors(eveningForm);
+    const eveningReady = eveningErrors.length === 0;
+    const canSave = !readOnly && !lockedOut && !rosterLoading && (eveningOn ? !eveningTried || eveningReady : isTennis ? !!tennis?.valid : true);
 
     const save = () => {
+        if (eveningOn) {
+            setEveningTried(true);
+            if (readOnly || lockedOut || rosterLoading || !eveningReady) return;
+            onSave(toEveningResultBody({ ...eveningForm, notes }));
+            return;
+        }
         if (!canSave) return;
         const sideInput = (i: number) => ({
             label: sideName(i),
@@ -430,6 +443,40 @@ function EditorBody({
                     {errorKind === 'offline' ? alertBox('error', t('resultEditor.offline')) : null}
                     {isAdmin && locked ? alertBox('info', t('resultEditor.adminEdit')) : null}
 
+                    <View className="flex-row mb-4" style={{ gap: 8 }}>
+                        <TouchableOpacity
+                            onPress={() => setEveningOn(false)}
+                            accessibilityRole="button"
+                            className={`flex-1 min-h-[44px] rounded-2xl items-center justify-center ${eveningOn ? 'bg-gray-100 dark:bg-cyber-border' : 'bg-brand'}`}
+                        >
+                            <Text className={`font-bold ${eveningOn ? 'text-gray-800 dark:text-cyber-text' : 'text-white'}`}>{t('results.evening.single')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            testID="result-editor-evening"
+                            onPress={() => setEveningOn(true)}
+                            accessibilityRole="button"
+                            className={`flex-1 min-h-[44px] rounded-2xl items-center justify-center ${eveningOn ? 'bg-brand' : 'bg-gray-100 dark:bg-cyber-border'}`}
+                        >
+                            <Text className={`font-bold ${eveningOn ? 'text-white' : 'text-gray-800 dark:text-cyber-text'}`}>{t('results.evening.many')}</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {eveningOn ? (
+                        <EveningRoundsEditor
+                            form={{ ...eveningForm, notes }}
+                            teams={teams ?? []}
+                            roster={roster}
+                            sport={sport}
+                            disabled={readOnly}
+                            showErrors={eveningTried}
+                            onChange={(next) => {
+                                setDirty(true);
+                                setEveningForm(next);
+                                setNotes(next.notes);
+                            }}
+                        />
+                    ) : (
+                    <>
                     {/* Section A: score */}
                     {!isTennis ? (
                         <View style={{ gap: 12 }}>
@@ -604,6 +651,8 @@ function EditorBody({
                                 </View>
                             ) : null,
                         )
+                    )}
+                    </>
                     )}
 
                     {/* Section C: notes */}

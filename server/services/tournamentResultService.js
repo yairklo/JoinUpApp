@@ -1,9 +1,10 @@
 // Match results with optimistic concurrency, slot advancement, optional player stats and the
-// computed views (standings, bracket, schedule, leaders). Standings are never stored.
+// computed views (standings, bracket, schedule, leaders). Automatic standings are never stored:
+// a manager may store a manual order plus additive points adjustments (see putStandingsOverride).
 const { Prisma } = require('@prisma/client');
 const { prisma, TournamentError, lockTournament, loadForViewer, loadForRole } = require('./tournamentService');
 const { serializeMatch, MATCH_INCLUDE, DONE, REMINDER_KEY } = require('./tournamentScheduleService');
-const { computeStandings } = require('../shared/tournament/standings');
+const { applyStandingsOverride, computeStandings } = require('../shared/tournament/standings');
 const { roundName } = require('../shared/tournament/bracket');
 const {
   validateResult, validateStats, checkPlayerTotals, getStatKeys, getSummaryKeys, getStatLabel,
@@ -39,19 +40,45 @@ function tableTeams(teams, matches) {
   return teams.filter((x) => x.status === 'APPROVED' || (x.status === 'WITHDRAWN' && inMatches.has(x.id)));
 }
 
+/** `stageId` for a league table, `stageId:groupId` for a group. Avoids Postgres unique-null collisions. */
+function standingsTableKey(stageId, groupId) {
+  return groupId ? `${stageId}:${groupId}` : stageId;
+}
+
 /**
- * Ranks `teams` from `matches`, applying the organizer's manualRank override.
- * A manualRank pins that team at that position (clamped to the table size); the other teams fill the
- * remaining positions in computed order. Two pins on the same position: the better computed rank keeps
- * it and the other takes the nearest free position below (above when none is left).
- * `unresolved` rows are ties the tiebreakers could not separate and no manualRank resolves.
+ * One standings table for the whole stage. Same rule as getStandings: every stage that is
+ * not GROUP and not KNOCKOUT (LEAGUE today, any later table type the same way).
  */
-function rankTable(t, teams, matches) {
+function isSingleTableStage(stage) {
+  return !!stage && stage.type !== 'GROUP' && stage.type !== 'KNOCKOUT';
+}
+
+const autoRowExtras = (r) => ({
+  autoPoints: r.points,
+  pointsAdjustment: 0,
+  adjustmentReason: null,
+  manualOrder: false,
+});
+
+/**
+ * Ranks `teams` from `matches`.
+ * When `override` is set, its order is the table order until reset and points adjustments are
+ * added to the automatic points (see applyStandingsOverride). Per-team manualRank pins are not
+ * applied in that case.
+ * Without an override, a manualRank pins that team at that position (clamped to the table size);
+ * the other teams fill the remaining positions in computed order. Two pins on the same position:
+ * the better computed rank keeps it and the other takes the nearest free position below (above
+ * when none is left).
+ * `unresolved` rows are ties the tiebreakers could not separate and no manualRank (and no table
+ * override) resolves.
+ */
+function rankTable(t, teams, matches, override = null) {
   const rows = computeStandings(teams.map((x) => x.id), matches.map(toStandingsMatch), standingsOptions(t));
   const byId = new Map(teams.map((x) => [x.id, x]));
   const decorated = rows.map((r) => ({
     ...r, manualRank: byId.get(r.teamId).manualRank ?? null, withdrawn: byId.get(r.teamId).status === 'WITHDRAWN',
   }));
+  if (override) return applyStandingsOverride(decorated, override);
   const n = decorated.length;
   const slots = new Array(n).fill(null);
   const pinned = decorated.filter((r) => r.manualRank != null).sort((a, b) => a.manualRank - b.manualRank || a.rank - b.rank);
@@ -66,7 +93,9 @@ function rankTable(t, teams, matches) {
   for (let i = 0; i < n; i += 1) {
     if (!slots[i]) { slots[i] = rest[next]; next += 1; }
   }
-  return slots.map((r, i) => ({ ...r, rank: i + 1, unresolved: r.tied && r.manualRank == null }));
+  return slots.map((r, i) => ({
+    ...r, ...autoRowExtras(r), rank: i + 1, unresolved: r.tied && r.manualRank == null,
+  }));
 }
 
 const groupComplete = (matches) => matches.length > 0 && matches.every((m) => DONE.includes(m.status));
@@ -74,17 +103,21 @@ const groupComplete = (matches) => matches.length > 0 && matches.every((m) => DO
 // ---- slot resolution ---------------------------------------------------------------------
 
 /**
- * Recomputes every sourced slot (WINNER_OF / LOSER_OF / GROUP_RANK) from current results and
- * persists the differences. A finished match whose teams would change is a conflict: refused
- * unless `force`, in which case its result is reset (and its own dependents re-resolved).
+ * Recomputes every sourced slot (WINNER_OF / LOSER_OF / GROUP_RANK / LEAGUE_RANK) from current
+ * results and persists the differences. A finished match whose teams would change is a conflict:
+ * refused unless `force`, in which case its result is reset (and its own dependents re-resolved).
+ * Slots fed by a single-table stage use the same table getStandings shows (manual order and
+ * points adjustments). That is every stage that is not GROUP and not KNOCKOUT.
  */
 async function resolveSlots(tx, t, { force }) {
-  const [stages, matchRows, teams] = await Promise.all([
-    tx.tournamentStage.findMany({ where: { tournamentId: t.id }, select: { id: true, order: true } }),
+  const [stages, matchRows, teams, overrides] = await Promise.all([
+    tx.tournamentStage.findMany({ where: { tournamentId: t.id }, select: { id: true, order: true, type: true } }),
     tx.tournamentMatch.findMany({ where: { tournamentId: t.id } }),
     tx.tournamentTeam.findMany({ where: { tournamentId: t.id, status: { in: ['APPROVED', 'WITHDRAWN'] } }, select: { id: true, groupId: true, manualRank: true, status: true } }),
+    tx.tournamentStandingsOverride.findMany({ where: { tournamentId: t.id }, include: { adjustments: true } }),
   ]);
   const stageOrder = new Map(stages.map((s) => [s.id, s.order]));
+  const stageById = new Map(stages.map((s) => [s.id, s]));
   const ms = matchRows.map((m) => ({ ...m }));
   const byId = new Map(ms.map((m) => [m.id, m]));
   ms.sort((a, b) => stageOrder.get(a.stageId) - stageOrder.get(b.stageId) || a.round - b.round || a.number - b.number);
@@ -93,15 +126,31 @@ async function resolveSlots(tx, t, { force }) {
   const groupRanking = (groupId) => {
     const gm = ms.filter((m) => m.groupId === groupId);
     if (!groupComplete(gm)) return null;
-    return rankTable(t, tableTeams(teams.filter((x) => x.groupId === groupId), gm), gm);
+    const override = overrides.find((o) => o.groupId === groupId) || null;
+    return rankTable(t, tableTeams(teams.filter((x) => x.groupId === groupId), gm), gm, override);
+  };
+  // One non-group stage is one table. Same membership, override key, and stage predicate as getStandings.
+  const leagueRanking = (stageId) => {
+    const stage = stageById.get(stageId);
+    if (!isSingleTableStage(stage)) return null;
+    const lm = ms.filter((m) => m.stageId === stageId);
+    if (!groupComplete(lm)) return null;
+    const override = overrides.find((o) => o.tableKey === standingsTableKey(stageId, null)) || null;
+    const ids = new Set(lm.flatMap((m) => [m.homeTeamId, m.awayTeamId]).filter(Boolean));
+    return rankTable(t, tableTeams(teams.filter((x) => ids.has(x.id)), lm), lm, override);
+  };
+  const teamAtRank = (table, src) => {
+    const row = table && table[(src.rank || src.pos) - 1];
+    return row && !row.unresolved ? row.teamId : null;
   };
   const desiredFor = (src) => {
     if (!src) return undefined;
     if (src.type === 'GROUP_RANK') {
-      const table = groupRanking(src.groupId);
-      const row = table && table[(src.rank || src.pos) - 1];
-      return row && !row.unresolved ? row.teamId : null;
+      // groupId set: group table (unchanged). No groupId: the league table named by stageId.
+      const table = src.groupId ? groupRanking(src.groupId) : leagueRanking(src.stageId);
+      return teamAtRank(table, src);
     }
+    if (src.type === 'LEAGUE_RANK') return teamAtRank(leagueRanking(src.stageId), src);
     const from = byId.get(src.matchId);
     if (!from || !DONE.includes(from.status) || !from.winnerTeamId) return null;
     if (src.type === 'WINNER_OF') return from.winnerTeamId;
@@ -366,29 +415,36 @@ async function getSchedule(user, tournamentId, query = {}) {
 
 async function getStandings(user, tournamentId) {
   const { tournament: t } = await loadForViewer(prisma, tournamentId, user);
-  const [stages, matches, teams] = await Promise.all([
+  const [stages, matches, teams, overrides] = await Promise.all([
     prisma.tournamentStage.findMany({ where: { tournamentId, type: { not: 'KNOCKOUT' } }, orderBy: { order: 'asc' }, include: { groups: { orderBy: { name: 'asc' } } } }),
     prisma.tournamentMatch.findMany({ where: { tournamentId } }),
     prisma.tournamentTeam.findMany({ where: { tournamentId, status: { in: ['APPROVED', 'WITHDRAWN'] } } }),
+    prisma.tournamentStandingsOverride.findMany({ where: { tournamentId }, include: { adjustments: true } }),
   ]);
+  const overrideByKey = new Map(overrides.map((o) => [o.tableKey, o]));
   const tables = [];
   const build = (stage, group, tTeams, tMatches) => {
-    const rows = rankTable(t, tTeams, tMatches);
+    const groupId = group ? group.id : null;
+    const override = overrideByKey.get(standingsTableKey(stage.id, groupId)) || null;
+    const rows = rankTable(t, tTeams, tMatches, override);
     const byId = new Map(tTeams.map((x) => [x.id, x]));
     tables.push({
       stageId: stage.id, stageName: stage.name, stageType: stage.type,
-      groupId: group ? group.id : null, groupName: group ? group.name : null,
+      groupId, groupName: group ? group.name : null,
       complete: groupComplete(tMatches),
-      needsManualRank: groupComplete(tMatches) && rows.some((r) => r.unresolved),
+      needsManualRank: !override && groupComplete(tMatches) && rows.some((r) => r.unresolved),
+      manualOrder: !!override,
       rows: rows.map((r) => ({
         rank: r.rank, team: teamRef(byId.get(r.teamId)), played: r.played, won: r.won, drawn: r.drawn, lost: r.lost,
-        gf: r.gf, ga: r.ga, gd: r.gd, points: r.points, tied: r.tied, manualRank: r.manualRank, withdrawn: r.withdrawn,
+        gf: r.gf, ga: r.ga, gd: r.gd, points: r.points,
+        autoPoints: r.autoPoints, pointsAdjustment: r.pointsAdjustment, adjustmentReason: r.adjustmentReason,
+        tied: r.tied, manualRank: r.manualRank, withdrawn: r.withdrawn,
       })),
     });
   };
   for (const stage of stages) {
     const stageMatches = matches.filter((m) => m.stageId === stage.id);
-    if (stage.type === 'GROUP') {
+    if (!isSingleTableStage(stage)) {
       for (const g of stage.groups) {
         const gm = stageMatches.filter((m) => m.groupId === g.id);
         build(stage, g, tableTeams(teams.filter((x) => x.groupId === g.id), gm), gm);
@@ -459,14 +515,190 @@ async function getLeaders(user, tournamentId, query = {}) {
   return { tournamentId, key, label: { he: getStatLabel(t.sport, key, 'he'), en: getStatLabel(t.sport, key, 'en') }, keys, leaders };
 }
 
+// ---- manual standings override -----------------------------------------------------------
+// Interaction (also documented on GET /standings in docs/plans/2026-10-tournaments-api-contract.md):
+// - No override row: the table is the automatic ranking (manualRank pins still break ties).
+// - An override row keeps `teamOrder` until a manager deletes it. New results recompute
+//   played / W/D/L / goals / automatic points on the next read and do not reshuffle that order.
+//   Teams missing from teamOrder (added later) append in automatic order.
+// - Points adjustments are added to the automatic points. They do not change W/D/L or goals
+//   and they do not re-sort the table.
+// - Knockout GROUP_RANK slots follow the same order viewers see. A knockout slot seeded from a
+//   single-table stage (LEAGUE_RANK, or GROUP_RANK with stageId and no groupId) uses that table
+//   too: the published order, with points adjustments already applied to the rows. A single-table
+//   stage is any stage that is not GROUP and not KNOCKOUT. Changing it
+//   is refused when a finished downstream match would have to change (OVERRIDE_BLOCKED); the
+//   write rolls back.
+// - Only ORGANIZER and MANAGER may write. SCOREKEEPER cannot.
+
+const ADJUSTMENT_MIN = -100;
+const ADJUSTMENT_MAX = 100;
+const REASON_MAX = 200;
+
+function parseTeamOrder(raw, teamIds) {
+  if (!Array.isArray(raw) || raw.length !== teamIds.size || raw.length === 0) {
+    throw err(400, 'VALIDATION', 'teamOrder must list every team in the table exactly once');
+  }
+  const seen = new Set();
+  for (const id of raw) {
+    if (typeof id !== 'string' || !teamIds.has(id) || seen.has(id)) {
+      throw err(400, 'VALIDATION', 'teamOrder must list every team in the table exactly once');
+    }
+    seen.add(id);
+  }
+  return raw.slice();
+}
+
+function parseAdjustments(raw, teamIds) {
+  if (raw == null) return [];
+  if (!Array.isArray(raw)) throw err(400, 'VALIDATION', 'adjustments must be an array');
+  const seen = new Set();
+  const out = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') throw err(400, 'VALIDATION', 'invalid adjustment');
+    const teamId = item.teamId;
+    if (typeof teamId !== 'string' || !teamIds.has(teamId) || seen.has(teamId)) {
+      throw err(400, 'VALIDATION', 'each adjustment teamId must be a team in this table, once');
+    }
+    const points = item.points;
+    if (!Number.isInteger(points) || points === 0 || points < ADJUSTMENT_MIN || points > ADJUSTMENT_MAX) {
+      throw err(400, 'VALIDATION', 'adjustment points must be a non-zero integer from -100 to 100');
+    }
+    const reason = typeof item.reason === 'string' ? item.reason.trim() : '';
+    if (!reason || reason.length > REASON_MAX) {
+      throw err(400, 'VALIDATION', 'an adjustment needs a reason of 1 to 200 characters');
+    }
+    seen.add(teamId);
+    out.push({ teamId, points, reason });
+  }
+  return out;
+}
+
+/** Teams and matches of one group or league table. Same membership rules as getStandings. */
+async function loadTableSlice(tx, tournamentId, stageId, rawGroupId) {
+  const stage = await tx.tournamentStage.findFirst({
+    where: { id: stageId, tournamentId },
+    include: { groups: { select: { id: true } } },
+  });
+  if (!stage) throw err(404, 'NOT_FOUND', 'Stage not found');
+  if (stage.type === 'KNOCKOUT') throw err(400, 'VALIDATION', 'A knockout stage has no standings table');
+  let groupId = null;
+  if (!isSingleTableStage(stage)) {
+    if (typeof rawGroupId !== 'string' || !stage.groups.some((g) => g.id === rawGroupId)) {
+      throw err(400, 'VALIDATION', 'groupId must be a group of this stage');
+    }
+    groupId = rawGroupId;
+  } else if (rawGroupId) {
+    throw err(400, 'VALIDATION', 'A league table has no groupId');
+  }
+  const matches = await tx.tournamentMatch.findMany({
+    where: { tournamentId, stageId, ...(groupId ? { groupId } : {}) },
+  });
+  const teams = await tx.tournamentTeam.findMany({
+    where: { tournamentId, status: { in: ['APPROVED', 'WITHDRAWN'] } },
+    select: { id: true, groupId: true, status: true },
+  });
+  let slice = teams;
+  if (groupId) slice = teams.filter((x) => x.groupId === groupId);
+  else {
+    const ids = new Set(matches.flatMap((m) => [m.homeTeamId, m.awayTeamId]).filter(Boolean));
+    slice = teams.filter((x) => ids.has(x.id));
+  }
+  const table = tableTeams(slice, matches);
+  if (!table.length) throw err(400, 'VALIDATION', 'This table has no teams');
+  return { stage, groupId, teams: table };
+}
+
+async function writeOverride(tx, t, user, body) {
+  const b = body || {};
+  if (t.status === 'DRAFT' || t.status === 'CANCELLED') {
+    throw err(409, 'TOURNAMENT_CLOSED', 'Standings cannot be edited on a draft or cancelled tournament');
+  }
+  if (typeof b.stageId !== 'string' || !b.stageId) throw err(400, 'VALIDATION', 'stageId is required');
+  const slice = await loadTableSlice(tx, t.id, b.stageId, b.groupId || null);
+  const teamIds = new Set(slice.teams.map((x) => x.id));
+  const teamOrder = parseTeamOrder(b.teamOrder, teamIds);
+  const adjustments = parseAdjustments(b.adjustments, teamIds);
+  const tableKey = standingsTableKey(slice.stage.id, slice.groupId);
+  const existing = await tx.tournamentStandingsOverride.findUnique({ where: { tableKey } });
+  const row = existing
+    ? await tx.tournamentStandingsOverride.update({
+      where: { id: existing.id },
+      data: { teamOrder, updatedById: user.id },
+    })
+    : await tx.tournamentStandingsOverride.create({
+      data: {
+        tournamentId: t.id,
+        stageId: slice.stage.id,
+        groupId: slice.groupId,
+        tableKey,
+        teamOrder,
+        createdById: user.id,
+        updatedById: user.id,
+      },
+    });
+  await tx.tournamentStandingsAdjustment.deleteMany({ where: { overrideId: row.id } });
+  if (adjustments.length) {
+    await tx.tournamentStandingsAdjustment.createMany({
+      data: adjustments.map((a) => ({ ...a, overrideId: row.id })),
+    });
+  }
+  return recomputeAfterOverride(tx, t);
+}
+
+async function recomputeAfterOverride(tx, t) {
+  try {
+    return await resolveSlots(tx, t, { force: false });
+  } catch (e) {
+    if (e instanceof TournamentError && e.code === 'DOWNSTREAM_FINISHED') {
+      throw err(409, 'OVERRIDE_BLOCKED', 'A finished knockout match depends on this order', {
+        matchId: e.extra && e.extra.matchId,
+        matchNumber: e.extra && e.extra.matchNumber,
+      });
+    }
+    throw e;
+  }
+}
+
+/** Manager+: save the manual order (and optional points adjustments) for one table. */
+async function putStandingsOverride(user, tournamentId, body) {
+  return prisma.$transaction(async (tx) => {
+    await lockTournament(tx, tournamentId);
+    const { tournament: t } = await loadForRole(tx, tournamentId, user, 'MANAGER');
+    const changedMatchIds = await writeOverride(tx, t, user, body);
+    return { ok: true, changedMatchIds };
+  });
+}
+
+/** Manager+: delete the override so the table returns to automatic ranking. */
+async function deleteStandingsOverride(user, tournamentId, body) {
+  const b = body || {};
+  return prisma.$transaction(async (tx) => {
+    await lockTournament(tx, tournamentId);
+    const { tournament: t } = await loadForRole(tx, tournamentId, user, 'MANAGER');
+    if (typeof b.stageId !== 'string' || !b.stageId) throw err(400, 'VALIDATION', 'stageId is required');
+    const groupId = b.groupId || null;
+    const row = await tx.tournamentStandingsOverride.findUnique({
+      where: { tableKey: standingsTableKey(b.stageId, groupId) },
+    });
+    if (!row || row.tournamentId !== tournamentId) throw err(404, 'NOT_FOUND', 'No standings override');
+    await tx.tournamentStandingsOverride.delete({ where: { id: row.id } });
+    const changedMatchIds = await recomputeAfterOverride(tx, t);
+    return { ok: true, changedMatchIds };
+  });
+}
+
 module.exports = {
   putResult,
   forfeitWithdrawnTeam,
   forfeitTeamMatchesTx,
   tableTeams,
+  isSingleTableStage,
   recomputeAdvancement,
   resolveSlots,
   rankTable,
+  putStandingsOverride,
+  deleteStandingsOverride,
   getSchedule,
   getStandings,
   getBracket,

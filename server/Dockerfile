@@ -7,7 +7,7 @@
 # (scripts/render-start.js) applies Prisma migrations and then listens.
 # Do not point the health check at /api/health/deep — that query keeps Neon awake.
 # 1. השתמש באימג' רשמי וקל משקל של Node.js
-FROM node:20-alpine
+FROM node:24.22.1-alpine
 
 # 2. התקנת תלויות מערכת ש-Prisma צריכה בשביל לרוץ על Alpine (כמו openssl)
 RUN apk add --no-cache openssl

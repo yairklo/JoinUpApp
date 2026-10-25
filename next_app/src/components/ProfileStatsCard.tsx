@@ -331,6 +331,12 @@ export default function ProfileStatsCard({
                 <Tile testId="profile-stats-tile-losses" value={current.losses} label="הפסדים" outcome="LOSS" />
             </Stack>
 
+            {(current.roundWins ?? 0) + (current.roundDraws ?? 0) + (current.roundLosses ?? 0) > sided && (
+                <Typography variant="caption" color="text.secondary" data-testid="profile-stats-rounds" sx={{ display: "block", mb: 1.5 }}>
+                    סיבובים: {current.roundWins ?? 0}–{current.roundDraws ?? 0}–{current.roundLosses ?? 0} (נ׳–ת׳–ה׳). ערב עם כמה משחקים נספר פעם אחת כמשחק; הניצחונות למעלה הם משחקים שלמים.
+                </Typography>
+            )}
+
             {sided > 0 && (
                 <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2.25 }}>
                     <Box

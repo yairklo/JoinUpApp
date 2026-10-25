@@ -1,14 +1,25 @@
 import { loadFixture } from "../support/fixture";
 import { expect, jerusalemDate, signIn, signOut, test } from "../support/auth";
 
+// seed_game_series_next is jerusalemDatePlus(3) at 19:00 on seed_field_tlv.
+// jerusalemDatePlus adds N*24h to Date.now() and formats that instant in
+// Asia/Jerusalem. The fall-back at 02:00 on the last Sunday of October pulls
+// that +72h date back one calendar day during 00:00–00:59, so on 2026-10-23,
+// 2026-10-24, and 2026-10-25 it lands on the same court slot this test used
+// to book (calendar +2 days, 19:00). The API then rejects the create with
+// "השעה הזו כבר תפוסה במגרש" (exact fieldId + start). On 2026-10-25 that
+// shared start is 2026-10-27 19:00 Asia/Jerusalem (2026-10-27T17:00:00.000Z).
+// Day +30 at 11:00 is outside the seed, which only books +2..+6 elapsed days
+// (one calendar day of DST skew at most) at 18:00, 18:30, 19:00, 19:30, 20:00,
+// or 21:00.
 test("organizer creates a game", async ({ page }) => {
   const seed = loadFixture();
   await signIn(page, seed.users.organizerO.email);
   const fieldId = seed.fields?.seed_field_tlv?.id || "seed_field_tlv";
   await page.goto(`/games/new?fieldId=${fieldId}`);
   await page.getByTestId("game-title-input").fill("e2e משחק חדש");
-  await page.getByTestId("game-date-input").fill(jerusalemDate(2));
-  await page.getByTestId("game-time-input").fill("19:00");
+  await page.getByTestId("game-date-input").fill(jerusalemDate(30));
+  await page.getByTestId("game-time-input").fill("11:00");
   const submit = page.getByTestId("create-game-submit");
   await expect(submit).toBeEnabled();
   await submit.click();

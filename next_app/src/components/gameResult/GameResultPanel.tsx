@@ -22,6 +22,7 @@ import Avatar from "@/components/Avatar";
 import { getSportTheme } from "@/utils/sports";
 import { OUTCOME_LABEL_HE, formatStatParts, groupStatsBySide, scoreAriaLabel } from "@/utils/matchResultFormat";
 import type { GameResultData, GameResultRosterPlayer, GameResultSide } from "@/types/matchResult";
+import EveningSummaryLines from "./EveningSummaryLines";
 import { outcomeSx, swatchSx } from "./outcomeSx";
 
 export interface ResultTeam {
@@ -363,6 +364,36 @@ function StatsBlock({ result, roster, teams }: { result: GameResultData; roster:
   );
 }
 
+function EveningBoard({ result, roster, sport }: { result: GameResultData; roster: GameResultRosterPlayer[]; sport: string }) {
+  const rounds = result.rounds || [];
+  const summary = result.summary;
+  const nameOf = (id: string) => roster.find((p) => p.userId === id)?.name || "שחקן";
+  return (
+    <Stack spacing={1.5} data-testid="evening-board">
+      {rounds.map((round) => {
+        const [a, b] = [...round.sides].sort((x, y) => x.order - y.order);
+        if (!a || !b) return null;
+        return (
+          <Stack key={round.order} direction="row" alignItems="center" spacing={1} data-testid={`evening-round-row-${round.order}`}>
+            <Typography variant="body2" fontWeight={a.outcome === "WIN" ? 800 : 600} sx={{ flex: 1, minWidth: 0 }} noWrap>
+              {a.label}
+            </Typography>
+            <Typography variant="h6" fontWeight={800} sx={{ fontVariantNumeric: "tabular-nums" }}>
+              {a.score}–{b.score}
+            </Typography>
+            <Typography variant="body2" fontWeight={b.outcome === "WIN" ? 800 : 600} sx={{ flex: 1, minWidth: 0, textAlign: "end" }} noWrap>
+              {b.label}
+            </Typography>
+          </Stack>
+        );
+      })}
+      {summary && (summary.teams.length > 0 || summary.players.length > 0) && (
+        <EveningSummaryLines testId="evening-summary" summary={summary} sport={sport} nameOf={nameOf} />
+      )}
+    </Stack>
+  );
+}
+
 function ManagerCta({ onEdit }: { onEdit: () => void }) {
   return (
     <Card
@@ -475,9 +506,15 @@ export default function GameResultPanel(props: GameResultPanelProps) {
         </Stack>
       </Stack>
 
-      <Scoreboard sides={result.sides} teams={teams} />
-      {sport === "TENNIS" && <TennisGrid sides={result.sides} />}
-      <StatsBlock result={result} roster={roster} teams={teams} />
+      {(result.rounds?.length ?? 0) > 1 ? (
+        <EveningBoard result={result} roster={roster} sport={sport} />
+      ) : (
+        <>
+          <Scoreboard sides={result.sides} teams={teams} />
+          {sport === "TENNIS" && <TennisGrid sides={result.sides} />}
+          <StatsBlock result={result} roster={roster} teams={teams} />
+        </>
+      )}
 
       {result.notes && (
         <Typography

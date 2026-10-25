@@ -1,4 +1,4 @@
-const { validateResultInput } = require('../services/gameResultService');
+const { validateResultInput, validateRoundsInput } = require('../services/gameResultService');
 
 const soccer = (extra = {}) => ({
   sides: [{ label: 'A', score: 2 }, { label: 'B', score: 1 }],
@@ -44,6 +44,36 @@ describe('validateResultInput: gap rules', () => {
     }));
     expect(m.warnings.some((w) => w.code === 'MULTIPLE_MVP')).toBe(false);
     expect(m.stats[0].values.mvp).toBe(1);
+  });
+
+  test('two rounds without lineupMode are LINEUP_MODE_REQUIRED before any side check', () => {
+    const twoRounds = {
+      rounds: [
+        { sides: [{ label: 'א', score: 1 }, { label: 'ב', score: 0 }] },
+        { sides: [{ label: 'א', score: 2 }, { label: 'ב', score: 2 }] },
+      ],
+    };
+    const missingMode = fails(() => validateRoundsInput('SOCCER', twoRounds));
+    expect(missingMode).toMatchObject({ status: 400, code: 'LINEUP_MODE_REQUIRED' });
+
+    // Sides are also invalid. Mode is checked first, so this is not INVALID_SIDES.
+    const missingSides = fails(() => validateRoundsInput('SOCCER', { rounds: [{}, {}] }));
+    expect(missingSides).toMatchObject({ status: 400, code: 'LINEUP_MODE_REQUIRED' });
+
+    const badMode = fails(() => validateRoundsInput('SOCCER', { ...twoRounds, lineupMode: 'PICKUP' }));
+    expect(badMode).toMatchObject({ status: 400, code: 'LINEUP_MODE_REQUIRED' });
+
+    const badSides = fails(() => validateRoundsInput('SOCCER', {
+      lineupMode: 'FIXED_TEAMS',
+      rounds: [{ sides: [{ label: 'א', score: 1 }] }, { sides: [{ label: 'א', score: 1 }, { label: 'ב', score: 0 }] }],
+    }));
+    expect(badSides).toMatchObject({ status: 400, code: 'INVALID_SIDES' });
+
+    const single = validateRoundsInput('SOCCER', {
+      rounds: [{ sides: [{ label: 'א', score: 1 }, { label: 'ב', score: 0 }] }],
+    });
+    expect(single.lineupMode).toBeNull();
+    expect(single.rounds).toHaveLength(1);
   });
 
   test('notes: 500 chars ok, 501 rejected with NOTES_TOO_LONG, whitespace trimmed first', () => {
