@@ -31,6 +31,13 @@ function makePrisma({ friends = [], members = [], roles = [] } = {}) {
         return members.some((m) => m.seriesId === seriesId && m.userId === userId) ? { id: 'm' } : null;
       }),
     },
+    gameSeries: {
+      findUnique: jest.fn(async () => ({
+        isFriendsOnly: false,
+        joinPolicy: 'INSTANT',
+        membersOnlyPriority: true,
+      })),
+    },
   };
 }
 

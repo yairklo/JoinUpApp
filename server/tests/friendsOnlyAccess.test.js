@@ -6,7 +6,7 @@ const {
 } = require('../utils/friendsOnlyAccess');
 
 // Pure unit test: a hand-rolled prisma stub, no DB connection.
-function makePrisma({ friends = [], participants = [], roles = [], members = [] } = {}) {
+function makePrisma({ friends = [], participants = [], roles = [], members = [], seriesById = {} } = {}) {
   const pair = (a, b) => friends.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
   return {
     friendship: {
@@ -30,6 +30,9 @@ function makePrisma({ friends = [], participants = [], roles = [], members = [] 
         const { seriesId, userId } = where.seriesId_userId;
         return members.some((m) => m.seriesId === seriesId && m.userId === userId) ? { id: 'm' } : null;
       }),
+    },
+    gameSeries: {
+      findUnique: jest.fn(async ({ where }) => seriesById[where.id] || null),
     },
   };
 }
@@ -132,10 +135,42 @@ describe('getGameAccess', () => {
     expect(await getGameAccess(makePrisma({ roles: [{ gameId: 'g1', userId: 'mgr' }] }), blocked, 'mgr')).toBe('FULL');
   });
 
-  test("series member is FULL on the series' games", async () => {
-    const prisma = makePrisma({ members: [{ seriesId: 's1', userId: 'member' }] });
-    expect(await getGameAccess(prisma, game({ seriesId: 's1', friendsOnlyLinkPolicy: 'BLOCKED' }), 'member')).toBe('FULL');
-    expect(await getGameAccess(prisma, game({ seriesId: 's2', friendsOnlyLinkPolicy: 'BLOCKED' }), 'member')).toBe('NONE');
+  test('a member of a friends-only or approval-gated group is FULL on its games', async () => {
+    const memberOf = (seriesId, seriesRow) => makePrisma({
+      members: [{ seriesId, userId: 'member' }],
+      seriesById: { [seriesId]: seriesRow },
+    });
+    const blockedGame = (seriesId) => game({ seriesId, friendsOnlyLinkPolicy: 'BLOCKED' });
+
+    expect(await getGameAccess(
+      memberOf('s1', { isFriendsOnly: true, joinPolicy: 'INSTANT', membersOnlyPriority: false }),
+      blockedGame('s1'),
+      'member',
+    )).toBe('FULL');
+    expect(await getGameAccess(
+      memberOf('s2', { isFriendsOnly: false, joinPolicy: 'REQUIRES_APPROVAL', membersOnlyPriority: false }),
+      blockedGame('s2'),
+      'member',
+    )).toBe('FULL');
+    expect(await getGameAccess(
+      memberOf('s3', { isFriendsOnly: false, joinPolicy: 'INSTANT', membersOnlyPriority: true }),
+      blockedGame('s3'),
+      'member',
+    )).toBe('FULL');
+    expect(await getGameAccess(
+      memberOf('s1', { isFriendsOnly: true, joinPolicy: 'INSTANT', membersOnlyPriority: false }),
+      blockedGame('other'),
+      'member',
+    )).toBe('NONE');
+  });
+
+  test('a member of a public instant group does not unlock a friends-only game', async () => {
+    const prisma = makePrisma({
+      members: [{ seriesId: 'pub', userId: 'member' }],
+      seriesById: { pub: { isFriendsOnly: false, joinPolicy: 'INSTANT', membersOnlyPriority: false } },
+    });
+    expect(await getGameAccess(prisma, game({ seriesId: 'pub', friendsOnlyLinkPolicy: 'BLOCKED' }), 'member')).toBe('NONE');
+    expect(await getGameAccess(prisma, game({ seriesId: 'pub', friendsOnlyLinkPolicy: 'REQUEST_TO_JOIN' }), 'member')).toBe('REQUEST');
   });
 });
 

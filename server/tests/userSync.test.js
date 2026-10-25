@@ -79,4 +79,51 @@ describe('userSync', () => {
     await safeUpsertUserFromAuth(prisma, { id: 'u1', name: 'u1' });
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
+
+  test('an email unique conflict releases the other row and retries', async () => {
+    const conflict = Object.assign(new Error('unique'), { code: 'P2002', meta: { target: ['email'] } });
+    const created = { id: 'u1', name: 'Clerk Name', email: 'a@b.c' };
+    const prisma = {
+      user: {
+        upsert: jest.fn().mockRejectedValueOnce(conflict).mockResolvedValueOnce(created),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const res = await safeUpsertUserFromAuth(prisma, clerk);
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { email: 'a@b.c', NOT: { id: 'u1' } },
+      data: { email: null },
+    });
+    expect(prisma.user.upsert).toHaveBeenCalledTimes(2);
+    expect(res.email).toBe('a@b.c');
+  });
+
+  test('if the email is still taken after release, the user is created without it', async () => {
+    const conflict = Object.assign(new Error('unique'), { code: 'P2002', meta: { target: ['User_email_key'] } });
+    const created = { id: 'u1', name: 'Clerk Name', email: null };
+    const prisma = {
+      user: {
+        upsert: jest.fn()
+          .mockRejectedValueOnce(conflict)
+          .mockRejectedValueOnce(conflict)
+          .mockResolvedValueOnce(created),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const res = await safeUpsertUserFromAuth(prisma, clerk);
+    expect(res.id).toBe('u1');
+    expect(prisma.user.upsert.mock.calls[2][0].create.email).toBeUndefined();
+  });
+
+  test('a non-email unique conflict still throws', async () => {
+    const conflict = Object.assign(new Error('unique'), { code: 'P2002', meta: { target: ['id'] } });
+    const prisma = {
+      user: {
+        upsert: jest.fn().mockRejectedValue(conflict),
+        updateMany: jest.fn(),
+      },
+    };
+    await expect(safeUpsertUserFromAuth(prisma, clerk)).rejects.toBe(conflict);
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+  });
 });

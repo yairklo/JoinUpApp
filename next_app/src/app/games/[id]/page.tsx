@@ -87,7 +87,7 @@ type Game = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
-type FetchGameResult = { game: Game } | { friendsOnly: true } | null;
+type FetchGameResult = { game: Game } | { friendsOnly: true } | { signInRequired: true } | null;
 
 async function fetchGame(id: string, token?: string | null): Promise<FetchGameResult> {
   try {
@@ -95,6 +95,11 @@ async function fetchGame(id: string, token?: string | null): Promise<FetchGameRe
       cache: "no-store",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
+    if (res.status === 401) {
+      // A friends-only game: signed-out viewers must sign in before seeing anything about it.
+      const body = await res.json().catch(() => ({}));
+      return body?.code === "SIGN_IN_REQUIRED" ? { signInRequired: true } : null;
+    }
     if (res.status === 403) {
       // A friends-only game whose link is blocked for this viewer.
       const body = await res.json().catch(() => ({}));
@@ -120,11 +125,20 @@ export default async function GameDetails(props: {
 }) {
   const { id } = await props.params;
   const { getToken, userId: authUserId } = await auth();
-  // Game details (roster, location) are for signed-in users only.
-  if (!authUserId) redirect(`/sign-in?redirect_url=/games/${id}`);
-  const token = await getToken().catch(() => null);
+  // Public games are viewable signed-out (shared links); the API returns a sanitized guest view.
+  const token = authUserId ? await getToken().catch(() => null) : null;
   const result = await fetchGame(id, token);
   const userId = authUserId || "";
+
+  if (result && "signInRequired" in result) {
+    // redirect() throws, so it stays outside fetchGame's try/catch.
+    if (!userId) redirect(`/sign-in?redirect_url=/games/${id}`);
+    return (
+      <Container sx={{ py: 4 }}>
+        <Alert severity="warning">לא הצלחנו לאמת את החיבור שלך. רענן את הדף או התחבר מחדש.</Alert>
+      </Container>
+    );
+  }
 
   if (result && "friendsOnly" in result) {
     return (
@@ -226,7 +240,7 @@ export default async function GameDetails(props: {
           />
           </SectionErrorBoundary>
 
-          {game.membersOnlyPriority && game.viewerIsInsider === false
+          {game.membersOnlyPriority && (!userId || game.viewerIsInsider === false)
             && (game.guestDescription || game.guestPrice != null || game.guestRegistrationOpensAt) && (
             <Box mt={2} p={1.5} borderRadius={1} sx={{ bgcolor: "action.hover" }} data-testid="game-guest-info">
               <Typography variant="subtitle2" fontWeight="bold">לאורחים</Typography>
@@ -313,7 +327,7 @@ export default async function GameDetails(props: {
           </Box>
         </Box>
 
-        {!userId && game.status !== "CANCELLED" && !isGameFinished(game) && <GuestJoinBar />}
+        {!userId && game.status !== "CANCELLED" && !isGameFinished(game) && <GuestJoinBar gameId={game.id} />}
 
       </Container>
     </main>

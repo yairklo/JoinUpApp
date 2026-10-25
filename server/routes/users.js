@@ -59,6 +59,7 @@ const { SPORT_KEYS } = require('../utils/sports');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { isBlockedEitherWay, getBlockedEitherWayIds, getBlockedByMe } = require('../utils/blocks');
 const { revokePresenceSubscriptions } = require('../utils/presenceAuth');
+const { disconnectUserSockets } = require('../utils/socketChatRooms');
 const crypto = require('crypto');
 
 // After a decline the same requester must wait before asking the same person again, so a declined
@@ -545,6 +546,7 @@ router.delete('/:id/block', authenticateToken, async (req, res) => {
 // (e.g. Clerk unreachable) can simply be retried by the user.
 router.delete('/me', authenticateToken, async (req, res) => {
   const userId = String(req.user.id);
+  let wiped = false;
   try {
     const existing = await prisma.user.findUnique({ where: { id: userId }, select: { imageUrl: true } });
     if (existing) {
@@ -594,6 +596,7 @@ router.delete('/me', authenticateToken, async (req, res) => {
           },
         }),
       ]);
+      wiped = true;
       if (existing.imageUrl) {
         try { await deleteUploadedFile(existing.imageUrl); } catch (_) { /* best effort */ }
       }
@@ -606,8 +609,12 @@ router.delete('/me', authenticateToken, async (req, res) => {
       if (!(e && (e.status === 404 || e.errors?.[0]?.code === 'resource_not_found'))) throw e;
     }
     if (typeof invalidateClerkUser === 'function') invalidateClerkUser(userId);
+    disconnectUserSockets(req.app.get('io'), userId);
     res.json({ ok: true });
   } catch (error) {
+    // The tombstone is already committed. Close live sockets even when Clerk deletion
+    // still needs a retry.
+    if (wiped) disconnectUserSockets(req.app.get('io'), userId);
     console.error('Delete account error:', error);
     res.status(500).json({ error: 'Failed to delete account' });
   }
@@ -916,7 +923,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (req.params.id !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { name, email, phone, imageUrl, city, birthDate, gender, sportIds, sportsData, positionIds } = req.body;
+    // Email is owned by the auth provider (verified there). Ignore it if a client still sends it.
+    const { name, phone, imageUrl, city, birthDate, gender, sportIds, sportsData, positionIds } = req.body;
 
     if (typeof gender !== 'undefined' && gender !== null && !VALID_GENDERS.includes(gender)) {
       return res.status(400).json({ error: 'Invalid gender. Must be MALE or FEMALE.' });
@@ -953,7 +961,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     const data = {
       ...(typeof cleanName !== 'undefined' ? { name: cleanName } : {}),
-      ...(typeof email !== 'undefined' ? { email: email || null } : {}),
       ...(typeof phone !== 'undefined' ? { phone } : {}),
       ...(typeof imageUrl !== 'undefined' ? { imageUrl } : {}),
       ...(typeof city !== 'undefined' ? { city } : {}),
@@ -994,9 +1001,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
     });
     res.json(mapUserPublic(full, { includeContact: true }));
   } catch (error) {
-    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-      return res.status(409).json({ error: 'כתובת האימייל הזו כבר בשימוש על ידי משתמש אחר' });
-    }
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Failed to update user' });
   }

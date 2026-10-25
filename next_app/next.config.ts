@@ -1,14 +1,46 @@
 import path from "path";
 import type { NextConfig } from "next";
-import withPWAInit from "next-pwa";
+import withPWAInit, { type RuntimeCaching } from "next-pwa";
+import defaultCache from "next-pwa/cache";
 import { withSentryConfig } from "@sentry/nextjs/config";
 import { buildCsp } from "./src/lib/csp";
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+
+// Same base URL the web app's fetches use (src/**: NEXT_PUBLIC_API_URL || localhost:3005).
+const apiOrigin = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005").origin;
+  } catch {
+    return "http://localhost:3005";
+  }
+})();
+
+// Authenticated responses (/users/me, chats, notifications, Clerk sessions) must never land in
+// Cache Storage: next-pwa's catch-all "cross-origin" rule (NetworkFirst) would serve them on a
+// timeout/offline and keep them after sign-out on a shared device. Listed before defaultCache,
+// so it wins (Workbox uses the first matching route). A RegExp, not a function: GenerateSW
+// serializes urlPattern into sw.js, so a function could not read apiOrigin from this closure.
+// Matches: every request to the API origin, any /api/* or /__clerk/* path (same-origin routes,
+// the Clerk proxy), and Clerk hosts (*.clerk.com, *.clerk.accounts.dev, clerk.<domain>).
+const apiNetworkOnly: RuntimeCaching = {
+  urlPattern: new RegExp(
+    [
+      `^${escapeRegExp(apiOrigin)}(?:/|$)`,
+      String.raw`^https?://[^/]+/(?:api|__clerk)(?:[/?#]|$)`,
+      String.raw`^https://(?:[^/]+\.)?clerk\.(?:com|accounts\.dev)(?:[/:?#]|$)`,
+      String.raw`^https://clerk\.[^/]+/`,
+    ].join("|"),
+  ),
+  handler: "NetworkOnly",
+};
 
 const withPWA = withPWAInit({
   dest: "public",
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  runtimeCaching: [apiNetworkOnly, ...defaultCache],
   // Workbox aborts the whole service-worker install when any precache URL is
   // not 2xx, so the worker never reaches "activated". These compilation
   // assets are listed by GenerateSW and are not publicly served: source maps
