@@ -106,12 +106,14 @@ export default function GameDetailsScreen() {
     // Arriving from the create-game screen in "קבוצה קבועה" mode: open the create-group sheet once.
     const openedCreateGroup = React.useRef(false);
     useEffect(() => {
-        if (params.createGroup !== '1' || openedCreateGroup.current || !game) return;
+        if (params.createGroup !== '1' || openedCreateGroup.current || !game || !user) return;
         openedCreateGroup.current = true;
+        // One-shot: drop the param so a remount doesn't reopen the sheet.
+        router.setParams({ createGroup: undefined });
         const canManageGame = game.organizerId === user?.id
             || game.managers?.some(m => m.id === user?.id && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
         if (!game.seriesId && canManageGame) series.actions.setOpen(true);
-    }, [params.createGroup, game, user?.id]);
+    }, [params.createGroup, game, user, router]);
 
     // Web SSR always sends a Clerk token before first paint. On mobile, getToken() can briefly
     // return null even when signed in — a guest GET omits waitlistOfferPending and hides CTAs.

@@ -324,6 +324,9 @@
     "organizerTools": "Organizer tools"
   },
   "newGame": {
+    "modeSingle": "One-time game",
+    "modeGroup": "Recurring group",
+    "groupHint": "Fill in the first game's details. Right after creating it you can set up the group: automatic weekly games or custom dates.",
     "searchAddress": "Search an address…",
     "searchAddressGo": "Search",
     "addressNotFound": "Address not found",

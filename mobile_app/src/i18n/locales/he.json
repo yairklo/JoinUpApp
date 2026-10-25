@@ -324,6 +324,9 @@
     "organizerTools": "כלי מארגן"
   },
   "newGame": {
+    "modeSingle": "משחק חד-פעמי",
+    "modeGroup": "קבוצה קבועה",
+    "groupHint": "מלאו את פרטי המשחק הראשון. מיד אחרי היצירה תוכלו להגדיר את הקבוצה: משחקים שבועיים אוטומטיים או תאריכים מותאמים.",
     "searchAddress": "חפש כתובת…",
     "searchAddressGo": "חפש",
     "addressNotFound": "לא נמצאה כתובת",
