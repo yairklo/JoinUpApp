@@ -1,7 +1,7 @@
 const express = require('express');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { prisma } = require('../lib/prisma');
-const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile } = require('../middleware/upload');
+const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile, isManagedUploadUrl } = require('../middleware/upload');
 const { parseJerusalemTimeToUTC, formatJerusalemDate, formatJerusalemTime } = require('../utils/timezone');
 const {
   resolveSeriesRegistrationOpensAt,
@@ -461,6 +461,13 @@ router.patch('/:seriesId', authenticateToken, async (req, res) => {
     if (!series) return res.status(404).json({ error: 'Series not found' });
     if (!(await canManageSeries(series, req.user))) {
       return res.status(403).json({ error: 'Not allowed' });
+    }
+
+    // imageUrl may only point at storage we manage if it is already this series' image.
+    // Otherwise a manager could adopt someone else's upload URL and then delete it through
+    // DELETE/POST /:seriesId/image. New images go through POST /:seriesId/image.
+    if (typeof imageUrl === 'string' && isManagedUploadUrl(imageUrl) && imageUrl !== series.imageUrl) {
+      return res.status(400).json({ error: 'Use the image upload endpoint to set a series image' });
     }
 
     // Block changing dayOfWeek for existing WEEKLY series in MVP
