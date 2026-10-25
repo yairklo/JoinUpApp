@@ -20,6 +20,7 @@ const {
 const { notifyUserAddedToGame } = require('../utils/addedToGameNotification');
 const { isBlockedEitherWay } = require('../utils/blocks');
 const { getGameAccess, applyViewerAccess } = require('../utils/friendsOnlyAccess');
+const { leaveUserChatRoom, leaveChatMemberships } = require('../utils/socketChatRooms');
 const { isGameInsider, isGuestWindowClosed } = require('../utils/membersGuests');
 const { lockGameRow } = require('../utils/gameRowLock');
 
@@ -422,6 +423,7 @@ router.post('/:id/waitlist-bypass/:userId', authenticateToken, rejectIfCancelled
       await prisma.chatParticipant.deleteMany({
         where: { userId: targetUserId, chatId: gameId }
       });
+      leaveUserChatRoom(req.io, targetUserId, gameId);
     } catch (e) {}
 
     // Notify user they were bypassed
@@ -498,6 +500,10 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
     if (participants.length === 1 && participants[0].userId === req.user.id) {
       // Delete the game completely
       const gameId = game.id;
+      const removedChatMembers = await prisma.chatParticipant.findMany({
+        where: { chatId: gameId },
+        select: { userId: true, chatId: true },
+      });
       await prisma.$transaction([
         prisma.participation.deleteMany({ where: { gameId } }),
         prisma.gameRole.deleteMany({ where: { gameId } }),
@@ -510,6 +516,7 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
       const io = req.io;
       if (io) {
         io.emit('game:deleted', { gameIds: [gameId] });
+        leaveChatMemberships(io, removedChatMembers);
       }
       return res.json({ message: 'Game deleted because the last player left', deleted: true });
     }
@@ -550,6 +557,7 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
         await prisma.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
       } catch (e) { /* Ignore */ }
     }
+    leaveUserChatRoom(req.io, req.user.id, game.id);
 
     // If a confirmed player left, offer the spot to the next waitlisted user
     if (wasConfirmed) {
@@ -761,6 +769,7 @@ router.delete('/:id/participants/:userId', authenticateToken, rejectIfCancelled,
       await prisma.chatParticipant.deleteMany({
         where: { userId: targetUserId, chatId: gameId }
       });
+      leaveUserChatRoom(req.io, targetUserId, gameId);
     } catch (e) {
       // Ignore
     }

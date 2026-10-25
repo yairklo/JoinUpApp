@@ -20,7 +20,12 @@ jest.mock('../utils/auth', () => ({
     return next();
   },
   attachOptionalUser: (req, res, next) => {
-    req.user = { id: 'user_org_123', name: 'Organizer', avatar: 'org_img' };
+    // A player token wins (GET /api/games/:id uses optional auth); otherwise the organizer.
+    const token = (req.headers['authorization'] || '').split(' ')[1];
+    const playerMatch = /^mock_token_player(\d+)$/.exec(token || '');
+    req.user = playerMatch
+      ? { id: `user_play_${playerMatch[1]}`, name: `Player ${playerMatch[1]}`, avatar: 'p_img' }
+      : { id: 'user_org_123', name: 'Organizer', avatar: 'org_img' };
     return next();
   }
 }));

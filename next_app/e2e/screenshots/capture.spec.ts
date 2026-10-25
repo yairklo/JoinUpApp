@@ -130,9 +130,10 @@ async function waitReady(page: Page, screen: ScreenDef) {
     return;
   }
   if (screen.user === "guest") {
-    // Guests are redirected to /sign-in (game details are signed-in only); wait for the Clerk form.
-    await page.waitForURL(/\/sign-in/, { timeout });
-    await page.getByLabel(/דוא"ל/).first().waitFor({ timeout });
+    // Public game pages render read-only for guests (no redirect). Upcoming games show the
+    // sign-in Join CTA; finished ones hide it, so wait for the location card's share button.
+    await page.getByRole("button", { name: "שיתוף" }).first().waitFor({ timeout });
+    await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
     return;
   }
   if (screen.id === "profile") {
