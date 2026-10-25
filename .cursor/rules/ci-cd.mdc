@@ -7,10 +7,11 @@ alwaysApply: false
 # CI (joinUp)
 
 - `.github/workflows/ci.yml` must run the Next 15 build (`next_app`) + Prisma migrate + Jest
-  (`server`) on Node 20, against a disposable Postgres service, for PRs to `main`/`Dev` and pushes to
+  (`server`) on Node 24, against a disposable Postgres service, for PRs to `main`/`Dev` and pushes to
   `Dev`.
-- Do not scope it to Next-only builds on PRs to `main`, and do not pin Node 18 — both have shipped
-  broken before (server tests silently never ran).
+- Do not scope it to Next-only builds on PRs to `main`, and do not pin Node 18 or Node 20. Node 18
+  shipped broken before (server tests silently never ran). Node 20 is EOL and missed the 2026-10-21
+  security release; CI and the API image use Node 24 (`24.22.1` in `server/Dockerfile`).
 
 ## Playwright & dev seed isolation
 - Playwright must not inherit `server/.env`. `e2e/global-setup.ts` refuses unless `DATABASE_URL` and `DIRECT_DATABASE_URL` are already in the shell; the API it starts gets an explicit env and `JOINUP_SKIP_DOTENV=1` (`server/lib/loadEnv.js`). Every remote host needs `SEED_ALLOWED_DB_HOST` (pooler and direct count as one host). `JOINUP_SEED_CONFIRM=dev` does not choose the database. `MODERATION_PROVIDER=stub` is the CI moderation provider and must throw when `NODE_ENV=production`.

@@ -6,6 +6,10 @@ const POOL_TITLE = 'נרשמת להגרלה';
 const POOL_CANCEL = 'בטל הרשמה להגרלה';
 const POOL_DETAIL_FALLBACK = 'המקומות יוגרלו במועד ההגרלה';
 const DRAWING_TITLE = 'ההגרלה מתבצעת';
+// Same labels the game page already shows players on a pending lottery
+// (the "הגרלה ממתינה" alert, the entrant row "ממתין להגרלה", and "רשומים: N").
+const POOL_ALERT_TITLE = 'הגרלה ממתינה';
+const POOL_ENTRANT_LABEL = 'ממתין להגרלה';
 const NOT_SELECTED_TITLE = 'לא נבחרת בהגרלה';
 const NOT_SELECTED_FREE = 'יש מקומות פנויים, אפשר להצטרף למשחק';
 const NOT_SELECTED_FULL = 'אין מקום פנוי, אפשר להצטרף לרשימת המתנה';
@@ -152,6 +156,59 @@ function guestRegistrationNotOpenMessage(opensAt) {
   return `${GUEST_BASE}. נפתחת ב-${when}`;
 }
 
+function lotteryRegisteredLabel(count) {
+  const n = Number.isFinite(count) ? count : 0;
+  return `רשומים: ${n}`;
+}
+
+/**
+ * Organizer/manager list of WAITLISTED entrants.
+ * Before the draw they are an unordered lottery pool: the pending-lottery alert,
+ * the draw-time sentence, and the entrant label players already see — never a
+ * queue position. "נרשמת להגרלה" stays on the viewer's own banner; it addresses
+ * that person, not the list of everyone else.
+ * After the draw, returns null so the caller keeps the ranked substitute waitlist.
+ *
+ * lotteryExecutedAt must be an explicit null. A timestamp, or a payload that
+ * omitted the field, is not a pre-draw pool.
+ */
+function lotteryEntrantListCopy(input = {}) {
+  if (!input.lotteryEnabled) return null;
+  if (input.lotteryExecutedAt !== null) return null;
+
+  const player = lotteryViewerCopy({
+    lotteryEnabled: true,
+    lotteryPending: !!input.lotteryPending,
+    lotteryExecutedAt: null,
+    lotteryAt: input.lotteryAt || null,
+    viewerParticipationStatus: 'WAITLISTED',
+    now: input.now,
+  });
+  if (!player || (player.kind !== 'pool' && player.kind !== 'drawing')) return null;
+
+  const registeredLabel = lotteryRegisteredLabel(input.count);
+
+  if (player.kind === 'drawing') {
+    return {
+      kind: 'drawing',
+      title: player.title,
+      detail: null,
+      rowLabel: null,
+      registeredLabel,
+      showQueuePosition: false,
+    };
+  }
+
+  return {
+    kind: 'pool',
+    title: POOL_ALERT_TITLE,
+    detail: player.detail,
+    rowLabel: POOL_ENTRANT_LABEL,
+    registeredLabel,
+    showQueuePosition: false,
+  };
+}
+
 function guestRegistrationOpensAtFromError(error) {
   if (!error || typeof error !== 'object') return null;
   const body = error.body;
@@ -169,6 +226,7 @@ function guestRegistrationOpensAtFromError(error) {
 
 module.exports = {
   lotteryViewerCopy,
+  lotteryEntrantListCopy,
   resolveNotSelectedJoinLabel,
   guestRegistrationNotOpenMessage,
   guestRegistrationOpensAtFromError,

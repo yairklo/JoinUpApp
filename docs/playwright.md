@@ -18,7 +18,7 @@ The suite reads `server/fixtures/devSeed.json`, which `server/scripts/seedDev.js
 
 ## Run locally
 
-Needs Node 20, a dev database, and Clerk **test** keys (`pk_test_` / `sk_test_`). The sign-in code for the seeded users is `424242` (`name+clerk_test@example.com`).
+Needs Node 24, a dev database, and Clerk **test** keys (`pk_test_` / `sk_test_`). The sign-in code for the seeded users is `424242` (`name+clerk_test@example.com`).
 
 `DATABASE_URL` and `DIRECT_DATABASE_URL` must be exported in the shell that starts Playwright. Putting them only in `server/.env` is refused: global setup will not run, and the API process Playwright starts does not load that file (`JOINUP_SKIP_DOTENV=1` plus an explicit environment). Localhost, `127.0.0.1`, and `*.local` need no allowlist. Every remote host needs `SEED_ALLOWED_DB_HOST` set to the canonical host (`-pooler` removed). Both URLs must be that same database, and `DIRECT_DATABASE_URL` must not use a pooler host. `JOINUP_SEED_CONFIRM=dev` does not choose the database. Remote seeds also follow `docs/dev-seed.md` (a marker row, and the confirm flag only when the hostname has no `dev` / `preview` / `staging` / `test` / `branch` / `ci` token). If `PROD_DATABASE_URL` is set and either URL uses that host, the run refuses.
 

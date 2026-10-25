@@ -667,6 +667,10 @@ export default function GameDetailsScreen() {
                 {canManage && (
                     <PendingRequestsList
                         gameId={game.id}
+                        lotteryEnabled={game.lotteryEnabled}
+                        lotteryPending={game.lotteryPending}
+                        lotteryExecutedAt={game.lotteryExecutedAt}
+                        lotteryAt={game.lotteryAt}
                         onDecision={(updatedGame) => {
                             if (updatedGame) setGame(updatedGame);
                             else fetchGame();
