@@ -45,6 +45,14 @@ function standingsTableKey(stageId, groupId) {
   return groupId ? `${stageId}:${groupId}` : stageId;
 }
 
+/**
+ * One standings table for the whole stage. Same rule as getStandings: every stage that is
+ * not GROUP and not KNOCKOUT (LEAGUE today, any later table type the same way).
+ */
+function isSingleTableStage(stage) {
+  return !!stage && stage.type !== 'GROUP' && stage.type !== 'KNOCKOUT';
+}
+
 const autoRowExtras = (r) => ({
   autoPoints: r.points,
   pointsAdjustment: 0,
@@ -98,7 +106,8 @@ const groupComplete = (matches) => matches.length > 0 && matches.every((m) => DO
  * Recomputes every sourced slot (WINNER_OF / LOSER_OF / GROUP_RANK / LEAGUE_RANK) from current
  * results and persists the differences. A finished match whose teams would change is a conflict:
  * refused unless `force`, in which case its result is reset (and its own dependents re-resolved).
- * League-fed slots use the same table getStandings shows (manual order and points adjustments).
+ * Slots fed by a single-table stage use the same table getStandings shows (manual order and
+ * points adjustments). That is every stage that is not GROUP and not KNOCKOUT.
  */
 async function resolveSlots(tx, t, { force }) {
   const [stages, matchRows, teams, overrides] = await Promise.all([
@@ -120,10 +129,10 @@ async function resolveSlots(tx, t, { force }) {
     const override = overrides.find((o) => o.groupId === groupId) || null;
     return rankTable(t, tableTeams(teams.filter((x) => x.groupId === groupId), gm), gm, override);
   };
-  // One league stage is one table (no group). Same membership and override key as getStandings.
+  // One non-group stage is one table. Same membership, override key, and stage predicate as getStandings.
   const leagueRanking = (stageId) => {
     const stage = stageById.get(stageId);
-    if (!stage || stage.type !== 'LEAGUE') return null;
+    if (!isSingleTableStage(stage)) return null;
     const lm = ms.filter((m) => m.stageId === stageId);
     if (!groupComplete(lm)) return null;
     const override = overrides.find((o) => o.tableKey === standingsTableKey(stageId, null)) || null;
@@ -435,7 +444,7 @@ async function getStandings(user, tournamentId) {
   };
   for (const stage of stages) {
     const stageMatches = matches.filter((m) => m.stageId === stage.id);
-    if (stage.type === 'GROUP') {
+    if (!isSingleTableStage(stage)) {
       for (const g of stage.groups) {
         const gm = stageMatches.filter((m) => m.groupId === g.id);
         build(stage, g, tableTeams(teams.filter((x) => x.groupId === g.id), gm), gm);
@@ -515,8 +524,9 @@ async function getLeaders(user, tournamentId, query = {}) {
 // - Points adjustments are added to the automatic points. They do not change W/D/L or goals
 //   and they do not re-sort the table.
 // - Knockout GROUP_RANK slots follow the same order viewers see. A knockout slot seeded from a
-//   league table (LEAGUE_RANK, or GROUP_RANK with stageId and no groupId) uses that league table
-//   too: the published order, with points adjustments already applied to the rows. Changing it
+//   single-table stage (LEAGUE_RANK, or GROUP_RANK with stageId and no groupId) uses that table
+//   too: the published order, with points adjustments already applied to the rows. A single-table
+//   stage is any stage that is not GROUP and not KNOCKOUT. Changing it
 //   is refused when a finished downstream match would have to change (OVERRIDE_BLOCKED); the
 //   write rolls back.
 // - Only ORGANIZER and MANAGER may write. SCOREKEEPER cannot.
@@ -573,7 +583,7 @@ async function loadTableSlice(tx, tournamentId, stageId, rawGroupId) {
   if (!stage) throw err(404, 'NOT_FOUND', 'Stage not found');
   if (stage.type === 'KNOCKOUT') throw err(400, 'VALIDATION', 'A knockout stage has no standings table');
   let groupId = null;
-  if (stage.type === 'GROUP') {
+  if (!isSingleTableStage(stage)) {
     if (typeof rawGroupId !== 'string' || !stage.groups.some((g) => g.id === rawGroupId)) {
       throw err(400, 'VALIDATION', 'groupId must be a group of this stage');
     }
@@ -683,6 +693,7 @@ module.exports = {
   forfeitWithdrawnTeam,
   forfeitTeamMatchesTx,
   tableTeams,
+  isSingleTableStage,
   recomputeAdvancement,
   resolveSlots,
   rankTable,

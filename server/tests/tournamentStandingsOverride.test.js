@@ -13,6 +13,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { app } = require('../index');
+const { isSingleTableStage } = require('../services/tournamentResultService');
 const { prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
 
 const P = 'tovr_';
@@ -199,6 +200,14 @@ describe('manual standings override', () => {
   }
 
   const knockoutPair = (stageId) => prisma.tournamentMatch.findFirst({ where: { stageId } });
+
+  it('treats every non-group, non-knockout stage as one table', () => {
+    expect(isSingleTableStage({ type: 'LEAGUE' })).toBe(true);
+    expect(isSingleTableStage({ type: 'ROUND_ROBIN' })).toBe(true);
+    expect(isSingleTableStage({ type: 'GROUP' })).toBe(false);
+    expect(isSingleTableStage({ type: 'KNOCKOUT' })).toBe(false);
+    expect(isSingleTableStage(null)).toBe(false);
+  });
 
   it('seeds a knockout final from the computed league table when there is no override', async () => {
     const { id, teams } = await setup({ format: 'LEAGUE' }, 3);
