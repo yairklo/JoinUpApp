@@ -292,6 +292,34 @@ describe('Lottery join mode', () => {
     expect(await statusOf(g.id, playerIds[0])).toBe('CONFIRMED');
   });
 
+  test('GET returns the pending game when the post-draw reload fails', async () => {
+    const g = await makeGame({ lotteryAt: past(), maxPlayers: 2 });
+    await ensureUser(playerIds[2]);
+    await prisma.participation.create({ data: { gameId: g.id, userId: playerIds[2], status: 'WAITLISTED' } });
+    const realFind = prisma.game.findUnique.bind(prisma.game);
+    let detailLoads = 0;
+    const spy = jest.spyOn(prisma.game, 'findUnique').mockImplementation((args) => {
+      if (args && args.include && args.where && args.where.id === g.id) {
+        detailLoads += 1;
+        if (detailLoads > 1) return Promise.reject(new Error('reload failed'));
+      }
+      return realFind(args);
+    });
+    try {
+      const res = await request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer ${tokens[2]}` });
+      expect(res.statusCode).toBe(200);
+      expect(res.body.id).toBe(g.id);
+      expect(res.body.lotteryExecutedAt).toBeNull();
+      expect(res.body.lotteryPending).toBe(false);
+      expect(res.body.viewerParticipationStatus).toBe('WAITLISTED');
+      expect(detailLoads).toBeGreaterThan(1);
+      const stored = await realFind({ where: { id: g.id }, select: { lotteryExecutedAt: true } });
+      expect(stored.lotteryExecutedAt).toBeTruthy();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   test('GET does not wait out a slow lazy draw', async () => {
     const gameScheduler = require('../services/gameScheduler');
     const g = await makeGame({ lotteryAt: past(), maxPlayers: 2 });

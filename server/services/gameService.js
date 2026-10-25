@@ -2283,7 +2283,7 @@ function lotteryDrawIsOverdue(game, now = new Date()) {
 async function drawLotteryForRead(gameId) {
   try {
     await gameScheduler.drawLottery(prisma, gameId);
-    return prisma.game.findUnique({
+    return await prisma.game.findUnique({
       where: { id: gameId },
       include: GAME_DETAIL_INCLUDE,
     });
