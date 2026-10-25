@@ -583,7 +583,14 @@ export default function GameLiveSection({
 
       {canManageSeries && (
         <Box mt={2} id="game-requests">
-          <PendingJoinRequests gameId={game.id} onDecision={mergeAndSet} />
+          <PendingJoinRequests
+            gameId={game.id}
+            onDecision={mergeAndSet}
+            lotteryEnabled={game.lotteryEnabled}
+            lotteryPending={game.lotteryPending}
+            lotteryExecutedAt={game.lotteryExecutedAt}
+            lotteryAt={game.lotteryAt}
+          />
         </Box>
       )}
 

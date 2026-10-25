@@ -15,6 +15,7 @@ import IconButton from "@mui/material/IconButton";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Chip from "@mui/material/Chip";
 import LoadingMotif from "@/components/motion/LoadingMotif";
+import { lotteryEntrantListCopy } from "@joinup/shared/gameViewerCopy";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 
@@ -31,9 +32,18 @@ type JoinRequest = {
 export default function PendingJoinRequests({
   gameId,
   onDecision,
+  lotteryEnabled,
+  lotteryPending,
+  lotteryExecutedAt,
+  lotteryAt,
 }: {
   gameId: string;
   onDecision?: (updatedGame?: any) => void;
+  /** Pre-draw lottery: the WAITLISTED rows are the pool, not a ranked waitlist. */
+  lotteryEnabled?: boolean;
+  lotteryPending?: boolean;
+  lotteryExecutedAt?: string | null;
+  lotteryAt?: string | null;
 }) {
   const { getToken } = useAuth();
   const [requests, setRequests] = useState<JoinRequest[]>([]);
@@ -124,6 +134,14 @@ export default function PendingJoinRequests({
 
   if (requests.length === 0 && !activeOffer && waitlist.length === 0 && rejected.length === 0) return null;
 
+  const entrantList = lotteryEntrantListCopy({
+    lotteryEnabled,
+    lotteryPending,
+    lotteryExecutedAt,
+    lotteryAt,
+    count: waitlist.length,
+  });
+
   return (
     <Card elevation={2} sx={{ p: 2, mb: 2 }}>
       {/* Active Offer Section */}
@@ -195,12 +213,22 @@ export default function PendingJoinRequests({
         </Box>
       )}
 
-      {/* Waitlist Section */}
+      {/* Waitlist, or the unordered lottery pool until the draw runs. */}
       {waitlist.length > 0 && (
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3 }} data-testid={entrantList ? "lottery-entrant-roster" : "waitlist-roster"}>
           <Typography variant="h6" gutterBottom align="right">
-            רשימת המתנה ({waitlist.length})
+            {entrantList ? entrantList.title : `רשימת המתנה (${waitlist.length})`}
           </Typography>
+          {entrantList?.detail && (
+            <Typography variant="body2" align="right" color="text.secondary" sx={{ mb: 0.5 }}>
+              {entrantList.detail}
+            </Typography>
+          )}
+          {entrantList?.registeredLabel && (
+            <Typography variant="caption" align="right" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+              {entrantList.registeredLabel}
+            </Typography>
+          )}
           <Stack spacing={1.5}>
             {waitlist.map((req) => (
               <Box
@@ -213,11 +241,17 @@ export default function PendingJoinRequests({
                   <Avatar src={req.avatar || undefined}>{req.name?.[0] || "U"}</Avatar>
                   <Typography>{req.name || "User"}</Typography>
                 </Box>
-                <Chip
-                  label={`ממתין #${req.queuePosition}`}
-                  size="small"
-                  sx={{ fontWeight: "bold" }}
-                />
+                {entrantList ? (
+                  entrantList.rowLabel ? (
+                    <Chip label={entrantList.rowLabel} size="small" sx={{ fontWeight: "bold" }} />
+                  ) : null
+                ) : (
+                  <Chip
+                    label={`ממתין #${req.queuePosition}`}
+                    size="small"
+                    sx={{ fontWeight: "bold" }}
+                  />
+                )}
               </Box>
             ))}
           </Stack>
