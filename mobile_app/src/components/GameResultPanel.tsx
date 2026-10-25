@@ -12,6 +12,7 @@ import {
     toLang,
     winnerOf,
 } from '@/components/results/resultUtils';
+import EveningSummaryLines from '@/components/results/EveningSummaryLines';
 import type { GameResultRecord, GameResultRosterEntry, GameResultSide } from '@/types/results';
 import type { Team } from '@/types/game';
 import { appAlert } from '@/i18n/appAlert';
@@ -39,8 +40,9 @@ const cardShell =
     'bg-white dark:bg-cyber-card rounded-2xl p-5 border border-gray-100 dark:border-cyber-border mx-4 mt-4 overflow-hidden';
 const COLLAPSE_AT = 6;
 
-function EveningBoard({ result, roster }: { result: GameResultRecord; roster: GameResultRosterEntry[] }) {
-    const { t } = useTranslation();
+function EveningBoard({ result, roster, sport }: { result: GameResultRecord; roster: GameResultRosterEntry[]; sport: string }) {
+    const { t, i18n } = useTranslation();
+    const lang = i18n.language?.startsWith('en') ? 'en' : 'he';
     const rounds = result.rounds || [];
     const summary = result.summary;
     const nameOf = (id: string) => roster.find((p) => p.userId === id)?.name || t('results.evening.player');
@@ -76,32 +78,15 @@ function EveningBoard({ result, roster }: { result: GameResultRecord; roster: Ga
                 );
             })}
             {summary && (summary.teams.length > 0 || summary.players.length > 0) ? (
-                <View testID="evening-summary" className="mt-3 p-3 rounded-2xl bg-gray-50 dark:bg-cyber-bg">
-                    <Text className="font-extrabold text-gray-900 dark:text-cyber-text mb-1">{t('results.evening.summary')}</Text>
-                    {summary.teams.map((team) => (
-                        <Text key={team.teamId || team.label} className="text-gray-800 dark:text-cyber-text py-0.5">
-                            {t('results.evening.teamRecord', {
-                                label: team.label,
-                                w: team.wins,
-                                d: team.draws,
-                                l: team.losses,
-                                gf: team.goalsFor,
-                                ga: team.goalsAgainst,
-                            })}
-                        </Text>
-                    ))}
-                    {summary.players.map((player) => (
-                        <Text key={player.userId} className="text-gray-500 dark:text-cyber-muted py-0.5">
-                            {t('results.evening.playerRecord', {
-                                name: nameOf(player.userId),
-                                w: player.wins,
-                                d: player.draws,
-                                l: player.losses,
-                            })}
-                            {player.goals ? ` · ${t('results.evening.goals', { n: player.goals })}` : ''}
-                        </Text>
-                    ))}
-                </View>
+                <EveningSummaryLines
+                    testID="evening-summary"
+                    title={t('results.evening.summary')}
+                    summary={summary}
+                    sport={sport}
+                    lang={lang}
+                    nameOf={nameOf}
+                    className="mt-3 p-3 rounded-2xl bg-gray-50 dark:bg-cyber-bg"
+                />
             ) : null}
         </View>
     );
@@ -342,7 +327,7 @@ export default function GameResultPanel({
             </View>
 
             {(result.rounds?.length ?? 0) > 1 ? (
-                <EveningBoard result={result} roster={roster} />
+                <EveningBoard result={result} roster={roster} sport={sport} />
             ) : (
             <>
             {/* Scoreboard: three separate flex children so RTL puts side 0 at the start edge (rule 1.1) */}

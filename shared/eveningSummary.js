@@ -288,6 +288,73 @@ function setEveningLineupMode(form, mode, teams, roster) {
   };
 }
 
+// Counted nouns. Hebrew puts the number word after the noun for one ("שער אחד",
+// "נקודה אחת"); every other count keeps the digit and the plural ("0 שערים", "2 שערים").
+const SCORE_UNITS = {
+  SOCCER: { heOne: 'שער אחד', he: 'שערים', enOne: '1 goal', en: 'goals' },
+  BASKETBALL: { heOne: 'נקודה אחת', he: 'נקודות', enOne: '1 point', en: 'points' },
+  TENNIS: { heOne: 'נקודה אחת', he: 'נקודות', enOne: '1 point', en: 'points' },
+};
+
+const RECORD_COPY = {
+  he: { win: 'נ׳', draw: 'ת׳', loss: 'ה׳', legend: 'נ׳ ניצחון · ת׳ תיקו · ה׳ הפסד', against: (phrase) => `נגד ${phrase}` },
+  en: { win: 'W', draw: 'D', loss: 'L', legend: 'W win · D draw · L loss', against: (phrase) => `against ${phrase}` },
+};
+
+function eveningLang(lang) {
+  return lang === 'en' ? 'en' : 'he';
+}
+
+function scoreUnit(sport) {
+  return SCORE_UNITS[sport] || SCORE_UNITS.SOCCER;
+}
+
+function formatEveningCount(count, sport, lang) {
+  const language = eveningLang(lang);
+  const n = Number.isFinite(Number(count)) ? Math.max(0, Math.trunc(Number(count))) : 0;
+  const unit = scoreUnit(sport);
+  if (n === 1) return language === 'he' ? unit.heOne : unit.enOne;
+  return language === 'he' ? `${n} ${unit.he}` : `${n} ${unit.en}`;
+}
+
+function formatEveningRecord(wins, draws, losses, lang) {
+  const copy = RECORD_COPY[eveningLang(lang)];
+  const n = (value) => (Number.isFinite(Number(value)) ? Math.max(0, Math.trunc(Number(value))) : 0);
+  return `${n(wins)} ${copy.win} · ${n(draws)} ${copy.draw} · ${n(losses)} ${copy.loss}`;
+}
+
+/**
+ * One evening-summary rendering for the editor preview and the saved board.
+ * Teams and players share the record (`1 נ׳ · 0 ת׳ · 1 ה׳`) and `legend` spells it out.
+ */
+function formatEveningSummary({ teams, players, sport, lang } = {}) {
+  const language = eveningLang(lang);
+  const copy = RECORD_COPY[language];
+  const record = (row) => formatEveningRecord(row?.wins, row?.draws, row?.losses, language);
+  return {
+    legend: copy.legend,
+    teams: (teams || []).map((team, index) => {
+      const scored = formatEveningCount(team?.goalsFor, sport, language);
+      const against = team?.goalsAgainst == null
+        ? ''
+        : ` · ${copy.against(formatEveningCount(team.goalsAgainst, sport, language))}`;
+      return {
+        key: `${team?.teamId || team?.label || 'team'}:${index}`,
+        line: `${team?.label || ''}: ${record(team)} · ${scored}${against}`,
+      };
+    }),
+    players: (players || []).map((player, index) => {
+      const goals = Number(player?.goals) > 0
+        ? ` · ${formatEveningCount(player.goals, sport, language)}`
+        : '';
+      return {
+        key: `${player?.userId || 'player'}:${index}`,
+        line: `${player?.name || ''}: ${record(player)}${goals}`,
+      };
+    }),
+  };
+}
+
 function eveningFormErrors(form) {
   const errors = [];
   if (!form || !Array.isArray(form.rounds) || !form.rounds.length) {
@@ -350,4 +417,7 @@ module.exports = {
   setEveningLineupMode,
   eveningFormErrors,
   toEveningResultBody,
+  formatEveningCount,
+  formatEveningRecord,
+  formatEveningSummary,
 };

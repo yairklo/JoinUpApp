@@ -68,6 +68,10 @@
       "types": "./gameViewerCopy.d.ts",
       "default": "./gameViewerCopy.js"
     },
+    "./autocompleteCopy": {
+      "types": "./autocompleteCopy.d.ts",
+      "default": "./autocompleteCopy.js"
+    },
     "./ratingsCopy": {
       "types": "./ratingsCopy.d.ts",
       "default": "./ratingsCopy.js"

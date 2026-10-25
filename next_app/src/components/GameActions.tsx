@@ -102,14 +102,17 @@ export default function GameActions({
 
       <Stack
         direction="row"
-        spacing={1}
+        spacing={{ xs: 0.75, sm: 1 }}
+        useFlexGap
         sx={{
-          px: { xs: 2, sm: 2.5 },
+          px: { xs: 1.5, sm: 2.5 },
           pt: 1.5,
           pb: { xs: 2, sm: 2 },
           borderTop: "1px solid",
           borderColor: "divider",
-          "& > *": { flex: { xs: 1, sm: "0 0 auto" }, minHeight: 44 },
+          flexWrap: "wrap",
+          alignItems: "center",
+          "& > *": { flex: "0 0 auto", minHeight: 44 },
         }}
       >
         <OpenInMapLinks location={location} />
@@ -118,7 +121,7 @@ export default function GameActions({
           variant="outlined"
           startIcon={<IosShareRoundedIcon fontSize="small" />}
           onClick={doShare}
-          sx={{ borderRadius: 999, fontWeight: 800, px: 2.5 }}
+          sx={{ borderRadius: 999, fontWeight: 800, px: { xs: 1.5, sm: 2.5 }, whiteSpace: "nowrap", flexShrink: 0 }}
         >
           שיתוף
         </Button>

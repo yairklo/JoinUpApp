@@ -14,6 +14,7 @@ import {
     type EveningForm,
     type ResultLineupMode,
 } from '@joinup/shared/eveningSummary';
+import EveningSummaryLines from '@/components/results/EveningSummaryLines';
 import ResultStepper from '@/components/results/ResultStepper';
 import type { GameResultRosterEntry } from '@/types/results';
 import type { Team } from '@/types/game';
@@ -29,7 +30,8 @@ interface Props {
 }
 
 export default function EveningRoundsEditor({ form, teams, roster, sport, disabled, showErrors, onChange }: Props) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const lang = i18n.language?.startsWith('en') ? 'en' : 'he';
     const [open, setOpen] = useState<number | null>(0);
     const max = (MAX_TEAM_SCORE as Record<string, number>)[sport] ?? 99;
     const errors = showErrors ? eveningFormErrors(form) : [];
@@ -212,19 +214,14 @@ export default function EveningRoundsEditor({ form, teams, roster, sport, disabl
             </TouchableOpacity>
 
             {summary.teams.length > 0 || summary.players.length > 0 ? (
-                <View testID="evening-summary-preview" className="rounded-2xl bg-gray-50 dark:bg-cyber-card p-3">
-                    <Text className="font-bold text-gray-900 dark:text-cyber-text mb-1">{t('results.evening.summary')}</Text>
-                    {summary.teams.map((team) => (
-                        <Text key={team.teamId || team.label} className="text-gray-800 dark:text-cyber-text">
-                            {team.label}: {team.wins}–{team.draws}–{team.losses} · {team.goalsFor}
-                        </Text>
-                    ))}
-                    {summary.players.map((p) => (
-                        <Text key={p.userId} className="text-gray-500 dark:text-cyber-muted">
-                            {nameOf(p.userId)}: {p.wins}–{p.draws}–{p.losses}{p.goals ? ` · ${p.goals}` : ''}
-                        </Text>
-                    ))}
-                </View>
+                <EveningSummaryLines
+                    testID="evening-summary-preview"
+                    title={t('results.evening.summary')}
+                    summary={summary}
+                    sport={sport}
+                    lang={lang}
+                    nameOf={nameOf}
+                />
             ) : null}
         </View>
     );

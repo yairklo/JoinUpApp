@@ -22,6 +22,7 @@ import {
   type EveningForm,
   type ResultLineupMode,
 } from "@joinup/shared/eveningSummary";
+import EveningSummaryLines from "./EveningSummaryLines";
 import Stepper from "./Stepper";
 import type { EditorTeam } from "./resultEditorState";
 
@@ -263,19 +264,12 @@ export default function EveningRoundsEditor({ form, teams, roster, sport, disabl
       </Button>
 
       {(summary.teams.length > 0 || summary.players.length > 0) && (
-        <Box data-testid="evening-summary-preview" sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover" }}>
-          <Typography variant="subtitle2" fontWeight={800} mb={0.5}>סיכום הערב</Typography>
-          {summary.teams.map((t) => (
-            <Typography key={t.teamId || t.label} variant="body2">
-              {t.label}: {t.wins}–{t.draws}–{t.losses} · {t.goalsFor} שערים
-            </Typography>
-          ))}
-          {summary.players.map((p) => (
-            <Typography key={p.userId} variant="body2" color="text.secondary">
-              {nameOf(p.userId)}: {p.wins} נ׳, {p.draws} ת׳, {p.losses} ה׳{p.goals ? ` · ${p.goals} שערים` : ""}
-            </Typography>
-          ))}
-        </Box>
+        <EveningSummaryLines
+          testId="evening-summary-preview"
+          summary={summary}
+          sport={sport}
+          nameOf={nameOf}
+        />
       )}
     </Stack>
   );
