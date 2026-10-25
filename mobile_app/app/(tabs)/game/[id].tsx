@@ -81,7 +81,7 @@ function SecondaryAction({
 export default function GameDetailsScreen() {
     const { t, i18n } = useTranslation();
     const insets = useSafeAreaInsets();
-    const params = useLocalSearchParams<{ id: string | string[] }>();
+    const params = useLocalSearchParams<{ id: string | string[]; createGroup?: string }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const { getToken, isLoaded: isAuthLoaded, isSignedIn } = useAuth();
     const getTokenRef = useAuthTokenRef();
@@ -102,6 +102,16 @@ export default function GameDetailsScreen() {
         seriesId: game?.seriesId || null,
         initialTime: game?.time || "20:00"
     });
+
+    // Arriving from the create-game screen in "קבוצה קבועה" mode: open the create-group sheet once.
+    const openedCreateGroup = React.useRef(false);
+    useEffect(() => {
+        if (params.createGroup !== '1' || openedCreateGroup.current || !game) return;
+        openedCreateGroup.current = true;
+        const canManageGame = game.organizerId === user?.id
+            || game.managers?.some(m => m.id === user?.id && (m.role === 'MANAGER' || m.role === 'MODERATOR'));
+        if (!game.seriesId && canManageGame) series.actions.setOpen(true);
+    }, [params.createGroup, game, user?.id]);
 
     // Web SSR always sends a Clerk token before first paint. On mobile, getToken() can briefly
     // return null even when signed in — a guest GET omits waitlistOfferPending and hides CTAs.

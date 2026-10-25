@@ -71,6 +71,8 @@ export default function NewGameScreen() {
 
     // Form State
     const [sport, setSport] = useState('SOCCER');
+    // 'group' = create the first game, then land on it with the existing create-group sheet open.
+    const [createMode, setCreateMode] = useState<'single' | 'group'>('single');
     const [title, setTitle] = useState('');
     const [duration, setDuration] = useState('1');
     const [teamSize, setTeamSize] = useState('');
@@ -519,7 +521,11 @@ export default function NewGameScreen() {
             };
 
             const result = await gamesApi.create(payload, token);
-            router.replace(`/game/${result.id}`);
+            router.replace(
+                createMode === 'group' && !prefilledSeriesId
+                    ? { pathname: '/game/[id]', params: { id: result.id, createGroup: '1' } }
+                    : `/game/${result.id}`
+            );
         } catch (error: any) {
             console.error("Create game failed", error);
             appAlert(t('common.error', 'שגיאה'), error.response?.data?.error || t('newGame.createFailed', 'יצירת המשחק נכשלה'));
@@ -559,6 +565,31 @@ export default function NewGameScreen() {
                 className="flex-1 bg-gray-50"
                 contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom, 16) + 32 }}
             >
+
+                {/* Single game vs. recurring group */}
+                {!prefilledSeriesId && (
+                    <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
+                        <View className="flex-row bg-gray-100 p-1 rounded-lg">
+                            {([['single', t('newGame.modeSingle', 'משחק חד-פעמי')], ['group', t('newGame.modeGroup', 'קבוצה קבועה')]] as const).map(([mode, label]) => (
+                                <TouchableOpacity
+                                    key={mode}
+                                    testID={`new-game-mode-${mode}`}
+                                    accessibilityRole="button"
+                                    accessibilityState={{ selected: createMode === mode }}
+                                    onPress={() => setCreateMode(mode)}
+                                    className={`flex-1 py-2 rounded-md items-center ${createMode === mode ? 'bg-brand' : ''}`}
+                                >
+                                    <Text className={`font-bold ${createMode === mode ? 'text-white' : 'text-gray-700'}`}>{label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        {createMode === 'group' && (
+                            <Text className="text-gray-500 text-sm mt-3 text-right">
+                                {t('newGame.groupHint', 'מלאו את פרטי המשחק הראשון. מיד אחרי היצירה תוכלו להגדיר את הקבוצה: משחקים שבועיים אוטומטיים או תאריכים מותאמים.')}
+                            </Text>
+                        )}
+                    </View>
+                )}
 
                 {/* Sport Selection */}
                 <View className="bg-white p-4 rounded-xl mb-4 shadow-sm">
