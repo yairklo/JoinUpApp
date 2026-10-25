@@ -14,7 +14,12 @@ import LockIcon from "@mui/icons-material/LockClock";
 
 import { gamesApi } from "@/services/api/games";
 import { mapJoinError } from "@/utils/apiError";
-import { lotteryViewerCopy } from "@joinup/shared/gameViewerCopy";
+import {
+  lotteryViewerCopy,
+  guestJoinClosedLabel,
+  guestRegistrationNotOpenMessage,
+  isGuestRegistrationClosed,
+} from "@joinup/shared/gameViewerCopy";
 
 export default function JoinGameButton({
   gameId,
@@ -26,7 +31,10 @@ export default function JoinGameButton({
   waitlistOfferPending,
   lotteryEnabled,
   lotteryPending,
+  lotteryExecutedAt,
   lotteryAt,
+  guestRegistrationOpensAt,
+  viewerIsInsider,
   joinLabel,
 }: {
   gameId: string;
@@ -38,7 +46,11 @@ export default function JoinGameButton({
   waitlistOfferPending?: boolean;
   lotteryEnabled?: boolean;
   lotteryPending?: boolean;
+  lotteryExecutedAt?: string | null;
   lotteryAt?: string | null;
+  guestRegistrationOpensAt?: string | null;
+  /** false = guest. Undefined means the caller does not know, so the button stays enabled. */
+  viewerIsInsider?: boolean;
   /** Overrides the default join label (not-selected rejoin: join vs waitlist). */
   joinLabel?: string | null;
 }) {
@@ -56,6 +68,7 @@ export default function JoinGameButton({
     ? lotteryViewerCopy({
         lotteryEnabled: !!lotteryEnabled,
         lotteryPending: !!lotteryPending,
+        lotteryExecutedAt,
         lotteryAt,
         viewerParticipationStatus: "WAITLISTED",
       })
@@ -75,9 +88,11 @@ export default function JoinGameButton({
   const now = new Date();
   const openDate = registrationOpensAt ? new Date(registrationOpensAt) : null;
   const isRegistrationClosed = openDate && now < openDate;
+  const isGuestClosed = isGuestRegistrationClosed({ viewerIsInsider, guestRegistrationOpensAt, now });
+  const guestClosedLabel = isGuestClosed ? guestJoinClosedLabel(guestRegistrationOpensAt) : "";
 
   async function join() {
-    if (isRegistrationClosed || pending || viewerParticipationStatus === "CONFIRMED") return;
+    if (isRegistrationClosed || isGuestClosed || pending || viewerParticipationStatus === "CONFIRMED") return;
     setError(null);
     setLoading(true);
     try {
@@ -174,6 +189,11 @@ export default function JoinGameButton({
             </Box>
           </Box>
         ) : viewerParticipationStatus === "WAITLISTED" ? (
+          poolCopy?.kind === "drawing" ? (
+            <Typography variant="body2" color="text.secondary" fontWeight="bold" align="right" data-testid="lottery-drawing">
+              {poolCopy.title}
+            </Typography>
+          ) : (
           <Box display="flex" flexDirection="column" gap={1} alignItems="flex-end">
             <Typography variant="body2" color="text.secondary" fontWeight="bold" align="right" sx={{ mb: 0.5 }}>
               {poolCopy ? poolCopy.title : "הרשמת כמחליף (ברשימת המתנה)"}
@@ -193,6 +213,7 @@ export default function JoinGameButton({
               {poolCopy?.cancelLabel || "בטל הרשמה כמחליף"}
             </Button>
           </Box>
+          )
         ) : viewerParticipationStatus === "CONFIRMED" ? (
           <Button disabled variant="outlined" color="success" size="small" data-testid="join-confirmed">
             אתה בפנים
@@ -233,6 +254,27 @@ export default function JoinGameButton({
                 }}
               >
                 {`נפתח ב-${dateStr} ${timeStr}`}
+              </Button>
+            </span>
+          </Tooltip>
+        ) : isGuestClosed ? (
+          <Tooltip title={guestRegistrationNotOpenMessage(guestRegistrationOpensAt)} arrow placement="top">
+            <span>
+              <Button
+                disabled
+                variant="contained"
+                color="inherit"
+                size="small"
+                startIcon={<LockIcon fontSize="small" />}
+                data-testid="join-guest-closed"
+                sx={{
+                  opacity: 0.8,
+                  backgroundColor: 'action.disabledBackground',
+                  color: 'text.primary',
+                  fontWeight: 'bold'
+                }}
+              >
+                {guestClosedLabel}
               </Button>
             </span>
           </Tooltip>

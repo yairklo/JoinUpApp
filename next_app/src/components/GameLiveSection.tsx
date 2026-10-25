@@ -74,7 +74,11 @@ export type LiveGame = {
   viewerJoinRequiresApproval?: boolean;
   lotteryEnabled?: boolean;
   lotteryPending?: boolean;
+  lotteryExecutedAt?: string | null;
   organizerInLottery?: boolean;
+  membersOnlyPriority?: boolean;
+  guestRegistrationOpensAt?: string | null;
+  viewerIsInsider?: boolean;
   totalSignups?: number;
   organizerId: string;
   chatRoomId?: string;
@@ -248,8 +252,14 @@ export default function GameLiveSection({
   }
 
   const joined = !!viewerId && (game.participants || []).some((p) => p.id === viewerId);
+  // lotteryExecutedAt === null is the server saying the draw has not run. Undefined means
+  // this payload did not include the field (do not hide real free seats).
+  const drawInProgress = !!game.lotteryEnabled
+    && game.lotteryExecutedAt === null
+    && !!game.lotteryAt
+    && game.lotteryPending === false;
   const headerCount =
-    (game.lotteryEnabled && game.lotteryPending
+    (game.lotteryEnabled && (game.lotteryPending || drawInProgress)
       ? game.totalSignups ?? game.currentPlayers
       : game.currentPlayers) || 0;
 
@@ -259,6 +269,7 @@ export default function GameLiveSection({
   const lotteryCopy = lotteryViewerCopy({
     lotteryEnabled: game.lotteryEnabled,
     lotteryPending: game.lotteryPending,
+    lotteryExecutedAt: game.lotteryExecutedAt,
     lotteryAt: game.lotteryAt,
     viewerParticipationStatus: game.viewerParticipationStatus,
     // `participants` is the confirmed roster. `currentPlayers` is sometimes the
@@ -268,6 +279,7 @@ export default function GameLiveSection({
     organizerInLottery: game.organizerInLottery,
   });
   const isLotteryPool = lotteryCopy?.kind === "pool" && !finished;
+  const isLotteryDrawing = lotteryCopy?.kind === "drawing" && !finished;
   const notSelectedJoinLabel = resolveNotSelectedJoinLabel(lotteryCopy, {
     requiresApproval: !!game.viewerJoinRequiresApproval,
   });
@@ -362,6 +374,21 @@ export default function GameLiveSection({
         </Alert>
       )}
 
+      {isLotteryDrawing && lotteryCopy && !isWaitlistOfferPending && (
+        <Alert
+          severity="info"
+          dir="rtl"
+          data-testid="lottery-drawing-banner"
+          sx={{
+            mb: 2,
+            borderRadius: 2,
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+        >
+          <AlertTitle sx={{ fontWeight: "bold", mb: 0 }}>{lotteryCopy.title}</AlertTitle>
+        </Alert>
+      )}
+
       {lotteryCopy?.kind === "not_selected" && !finished && (
         <Alert
           severity="warning"
@@ -392,7 +419,7 @@ export default function GameLiveSection({
       )}
 
       {/* ── Waitlist Status Banner (user waiting, no active offer yet) ── */}
-      {isWaitlisted && !isWaitlistOfferPending && !isLotteryPool && (
+      {isWaitlisted && !isWaitlistOfferPending && !isLotteryPool && !isLotteryDrawing && (
         <Alert
           severity="info"
           dir="rtl"
@@ -458,13 +485,15 @@ export default function GameLiveSection({
         viewerState={
           joined
             ? "joined"
-            : isLotteryPool
-              ? "lottery"
-              : isWaitlisted || isWaitlistOfferPending
-                ? "waitlisted"
-                : game.viewerParticipationStatus === "PENDING"
-                  ? "pending"
-                  : null
+            : isLotteryDrawing
+              ? "drawing"
+              : isLotteryPool
+                ? "lottery"
+                : isWaitlisted || isWaitlistOfferPending
+                  ? "waitlisted"
+                  : game.viewerParticipationStatus === "PENDING"
+                    ? "pending"
+                    : null
         }
       >
         {!showJoinCtas ? null : joined ? (
@@ -486,7 +515,10 @@ export default function GameLiveSection({
             waitlistOfferPending={game.waitlistOfferPending}
             lotteryEnabled={!!game.lotteryEnabled}
             lotteryPending={!!game.lotteryPending}
+            lotteryExecutedAt={game.lotteryExecutedAt}
             lotteryAt={game.lotteryAt}
+            guestRegistrationOpensAt={game.guestRegistrationOpensAt}
+            viewerIsInsider={game.viewerIsInsider}
             joinLabel={notSelectedJoinLabel}
             onJoined={mergeAndSet}
             onRequestSent={mergeAndSet}
@@ -578,7 +610,7 @@ export default function GameLiveSection({
             initialManagers={game.managers || []}
             finished={finished}
             maxPlayers={game.maxPlayers}
-            confirmedCount={game.currentPlayers}
+            confirmedCount={drawInProgress ? (game.totalSignups ?? game.currentPlayers) : game.currentPlayers}
             currentUserId={viewerId}
             initialTeams={game.teams || []}
             lotteryData={{
@@ -586,6 +618,7 @@ export default function GameLiveSection({
               pending: !!game.lotteryPending,
               overbooked: !!game.overbooked,
               at: game.lotteryAt || null,
+              executedAt: game.lotteryExecutedAt,
               signups: game.totalSignups || 0,
             }}
             waitlistParticipants={game.waitlistParticipants || []}

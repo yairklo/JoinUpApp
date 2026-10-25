@@ -190,6 +190,41 @@ describe('Lottery join mode', () => {
     expect(parts.filter(p => p.status === 'NOT_SELECTED').length).toBeGreaterThan(0);
   });
 
+  test('concurrent GETs after lotteryAt run the overdue draw once', async () => {
+    const maxPlayers = 2;
+    const g = await makeGame({ lotteryAt: past(), maxPlayers });
+    for (let n = 10; n < 14; n++) {
+      const id = `user_play_${n}`;
+      await ensureUser(id);
+      await prisma.participation.create({ data: { gameId: g.id, userId: id, status: 'WAITLISTED' } });
+    }
+    const viewers = [1, 2, 3, 4, 5];
+    for (const n of viewers) await ensureUser(`user_play_${n}`);
+
+    const results = await Promise.all(viewers.map((n) =>
+      request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer mock_token_player${n}` })
+    ));
+    for (const res of results) {
+      expect(res.statusCode).toBe(200);
+      expect(res.body.lotteryExecutedAt).toBeTruthy();
+      expect(res.body.lotteryPending).toBe(false);
+    }
+
+    const parts = await prisma.participation.findMany({ where: { gameId: g.id } });
+    const confirmed = parts.filter(p => p.status === 'CONFIRMED');
+    expect(confirmed.length).toBeLessThanOrEqual(maxPlayers);
+    expect(confirmed.length).toBe(maxPlayers);
+    expect(parts.filter(p => p.status === 'NOT_SELECTED').length).toBeGreaterThan(0);
+    expect(parts.filter(p => p.status === 'WAITLISTED')).toHaveLength(0);
+
+    const before = parts.map(p => `${p.userId}:${p.status}`).sort();
+    const again = await request(app).get(`/api/games/${g.id}`).set({ Authorization: 'Bearer mock_token_player1' });
+    expect(again.statusCode).toBe(200);
+    expect(again.body.lotteryExecutedAt).toBe(results[0].body.lotteryExecutedAt);
+    const afterParts = await prisma.participation.findMany({ where: { gameId: g.id } });
+    expect(afterParts.map(p => `${p.userId}:${p.status}`).sort()).toEqual(before);
+  });
+
   test('a thrown draw rolls back lotteryExecutedAt and leaves the pool WAITLISTED', async () => {
     const gameScheduler = require('../services/gameScheduler');
     const g = await makeGame({ lotteryAt: past(), maxPlayers: 1 });

@@ -209,8 +209,8 @@ class GameScheduler {
     return this.drawLottery(this.prisma, gameId);
   }
 
-  // Idempotent: the updateMany claim means exactly one caller draws. Also called lazily from the
-  // join route when the timer was missed (process down at lotteryAt), with the route's own client.
+  // Idempotent: the updateMany claim means exactly one caller draws. Also called lazily from
+  // POST /join and GET /games/:id when the timer was missed (process down at lotteryAt).
   //
   // Claim, participant read, and CONFIRMED/NOT_SELECTED writes are one transaction that holds
   // lockGameRow the whole time. A /join that sees lotteryExecutedAt already set would otherwise

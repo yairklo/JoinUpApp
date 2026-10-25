@@ -209,6 +209,7 @@ function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
     waitlistOfferPending,
     lotteryEnabled: !!game.lotteryEnabled,
     lotteryAt: lotteryAtIso,
+    lotteryExecutedAt: game.lotteryExecutedAt ? new Date(game.lotteryExecutedAt).toISOString() : null,
     organizerInLottery: !!game.organizerInLottery,
     fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
     fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
@@ -2260,11 +2261,29 @@ async function getTodayCityGames(city, viewerId) {
 }
 
 async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
-  const game = await prisma.game.findUnique({
+  let game = await prisma.game.findUnique({
     where: { id: gameId },
     include: GAME_DETAIL_INCLUDE,
   });
   if (!game) throw httpError('Game not found', 404);
+
+  // The draw timer was missed (process down at lotteryAt). Same lazy path as POST /join:
+  // drawLottery holds lockGameRow, re-checks lotteryExecutedAt, and is a no-op if another
+  // GET or join already claimed the draw. Reload so this response shows the seated roster.
+  if (
+    game.status !== 'CANCELLED'
+    && game.lotteryEnabled
+    && !game.lotteryExecutedAt
+    && game.lotteryAt
+    && new Date() >= new Date(game.lotteryAt)
+  ) {
+    await gameScheduler.drawLottery(prisma, game.id);
+    game = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: GAME_DETAIL_INCLUDE,
+    });
+    if (!game) throw httpError('Game not found', 404);
+  }
 
   // Friends-only games: a BLOCKED link hides the game from outsiders; REQUEST_TO_JOIN shows it
   // but their join goes to the managers for approval (see POST /:id/join).
