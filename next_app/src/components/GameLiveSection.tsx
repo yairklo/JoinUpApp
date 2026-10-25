@@ -496,7 +496,19 @@ export default function GameLiveSection({
                     : null
         }
       >
-        {!showJoinCtas ? null : joined ? (
+        {!showJoinCtas ? null : !viewerId ? (
+          // Signed-out guest: joining needs an account, so the CTA goes to sign-in and back here.
+          <Button
+            component={NextLink}
+            href={`/sign-in?redirect_url=/games/${game.id}`}
+            variant="contained"
+            fullWidth
+            data-testid="guest-join-cta"
+            sx={{ fontWeight: 800, borderRadius: 999 }}
+          >
+            הצטרף
+          </Button>
+        ) : joined ? (
           canLeaveGame(game, viewerId) ? (
           <LeaveGameButton
             gameId={game.id}

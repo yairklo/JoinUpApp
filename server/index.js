@@ -25,6 +25,8 @@ const { attachSocketAdapter } = require('./socket/adapter');
 const { isUserOnline, hasOtherUserInRoom } = require('./utils/socketPresence');
 const { createTempIdDedupe } = require('./utils/tempIdDedupe');
 const { setChatView, canSocketMarkRead } = require('./utils/chatViewState');
+const { isSocketAccountClosed } = require('./utils/socketAccountGate');
+const { disconnectUserSockets } = require('./utils/socketChatRooms');
 
 // Import routes
 const fieldsRoutes = require('./routes/fields');
@@ -609,6 +611,15 @@ io.on('connection', async (socket) => {
       return;
     }
 
+    // Handshake checks suspension once. Re-check before storing a message so a ban or
+    // deletion that already landed is not followed by another send on this socket.
+    if (await isSocketAccountClosed(socket.userId)) {
+      fail('Unauthorized: Please login', 'UNAUTHORIZED', false);
+      disconnectUserSockets(io, socket.userId);
+      if (typeof socket.disconnect === 'function') socket.disconnect(true);
+      return;
+    }
+
     // Retries reuse the same tempId, so a retry after a lost echo must not store the message twice.
     // Already stored => re-send the stored echo to this sender (their client was left on "pending");
     // still in flight => ignore, the original will answer. Per instance by default; shared via
@@ -905,18 +916,17 @@ io.on('connection', async (socket) => {
     await chained;
   });
 
-  socket.on('addReaction', async ({ messageId, emoji, roomId }) => {
+  socket.on('addReaction', async ({ messageId, emoji }) => {
     if (!messageId || !emoji || !socket.userId) return;
     const userId = String(socket.userId);
     try {
-      let chatId = roomId ? String(roomId) : null;
-      if (!chatId) {
-        const existingMsg = await prisma.message.findUnique({
-          where: { id: String(messageId) },
-          select: { chatRoomId: true },
-        });
-        chatId = existingMsg?.chatRoomId || null;
-      }
+      // Membership is the message's chat. A client-supplied room id is not an authorization
+      // input and is not the broadcast target.
+      const existingMsg = await prisma.message.findUnique({
+        where: { id: String(messageId) },
+        select: { chatRoomId: true },
+      });
+      const chatId = existingMsg?.chatRoomId ? String(existingMsg.chatRoomId) : null;
       if (!chatId || !(await checkChatPermission(userId, chatId))) {
         socket.emit('error', 'Unauthorized access to room');
         return;

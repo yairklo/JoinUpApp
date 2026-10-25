@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken, attachOptionalUser } = require('../utils/auth');
 const { prisma } = require('../lib/prisma');
+const { leaveChatMemberships } = require('../utils/socketChatRooms');
 const { createImageUpload, handleSingleUpload, absoluteUrlFor, deleteUploadedFile, isManagedUploadUrl } = require('../middleware/upload');
 const { parseJerusalemTimeToUTC, formatJerusalemDate, formatJerusalemTime } = require('../utils/timezone');
 const {
@@ -989,9 +990,14 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
     }
 
     const ops = [];
+    let removedChatMembers = [];
 
     // 1. Delete Targets
     if (idsToDelete.length > 0) {
+      removedChatMembers = await prisma.chatParticipant.findMany({
+        where: { chatId: { in: idsToDelete } },
+        select: { userId: true, chatId: true },
+      });
       // Cascade delete dependencies manually
       ops.push(prisma.participation.deleteMany({ where: { gameId: { in: idsToDelete } } }));
       ops.push(prisma.gameRole.deleteMany({ where: { gameId: { in: idsToDelete } } }));
@@ -1021,6 +1027,7 @@ router.post('/:seriesId/delete', authenticateToken, async (req, res) => {
       const io = req.io;
       if (io) {
         io.emit('game:deleted', { gameIds: idsToDelete });
+        leaveChatMemberships(io, removedChatMembers);
       }
     }
 
