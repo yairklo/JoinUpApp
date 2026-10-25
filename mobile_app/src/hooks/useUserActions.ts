@@ -3,10 +3,11 @@ import { useUser } from '@clerk/clerk-expo';
 import { useRouter } from './useRouter.adapter';
 import { usersApi, chatsApi } from '@/services/api';
 import { useChat } from '@/context/ChatContext';
-import { Alert, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { getErrorCode, mapFriendRequestError } from '@/utils/apiError';
 import { useAuthTokenRef } from './useAuthTokenRef';
+import { appAlert } from '@/i18n/appAlert';
 
 export type FriendStatus = 'FRIEND' | 'REQUEST_SENT' | 'REQUEST_RECEIVED' | 'NONE' | 'SELF' | 'LOADING';
 
@@ -90,7 +91,7 @@ export function useUserActions({ targetUserId, targetUserName, targetUserImage }
             await checkStatus();
         } catch (e) {
             console.error(e);
-            Alert.alert(t('common.error', 'שגיאה'), mapFriendRequestError(e));
+            appAlert(t('common.error', 'שגיאה'), mapFriendRequestError(e));
             // Only an incoming request should resync the button. A generic failure must not
             // look like "request sent" just because a pending row already exists.
             if (getErrorCode(e) === 'INCOMING_REQUEST_EXISTS') {

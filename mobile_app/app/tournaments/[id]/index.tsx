@@ -25,6 +25,7 @@ import TeamsTab from '@/components/tournaments/tabs/TeamsTab';
 import TopPlayersTab from '@/components/tournaments/tabs/TopPlayersTab';
 import type { Lang } from '@/components/tournaments/matchFormat';
 import type { TournamentMatch } from '@/types/tournament';
+import { appAlert } from '@/i18n/appAlert';
 
 type TabKey = 'overview' | 'teams' | 'schedule' | 'standings' | 'bracket' | 'leaders';
 
@@ -124,7 +125,7 @@ export default function TournamentPageScreen() {
                         await refetch();
                     } catch (e) {
                         const key = tournamentErrorKey(e as any);
-                        Alert.alert(key ? (t(key, tournamentErrorParams(e as any)) as string) : (t('tournaments.view.loadFailed') as string));
+                        appAlert(key ? (t(key, tournamentErrorParams(e as any)) as string) : (t('tournaments.view.loadFailed') as string));
                     }
                 },
             },

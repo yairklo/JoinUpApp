@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import type { NotificationMute, NotificationMuteTarget } from '@joinup/shared/notificationPrefs';
 import { notificationsApi } from '@/services/api/notifications';
+import { appAlert } from '@/i18n/appAlert';
 
 interface Props {
     targetType: NotificationMuteTarget;
@@ -53,7 +54,7 @@ export default function MuteNotificationsButton({ targetType, targetId, labelKey
             setMute(pick(await fn(token)));
         } catch (error) {
             console.error('[MUTE] Failed to update mute:', error);
-            Alert.alert(t('common.error', 'שגיאה'), t('notificationSettings.actionFailed'));
+            appAlert(t('common.error', 'שגיאה'), t('notificationSettings.actionFailed'));
         } finally {
             setBusy(false);
         }

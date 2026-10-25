@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getSportTheme } from '@/components/ui/SportCover';
@@ -14,6 +14,7 @@ import {
 } from '@/components/results/resultUtils';
 import type { GameResultRecord, GameResultRosterEntry, GameResultSide } from '@/types/results';
 import type { Team } from '@/types/game';
+import { appAlert } from '@/i18n/appAlert';
 
 export interface GameResultPanelProps {
     sport: string;
@@ -318,7 +319,7 @@ export default function GameResultPanel({
                 {locked ? (
                     <TouchableOpacity
                         testID="game-result-locked"
-                        onPress={() => Alert.alert('', t('results.lockedHint'))}
+                        onPress={() => appAlert('', t('results.lockedHint'))}
                         accessibilityRole="button"
                         accessibilityLabel={`${t('results.locked')}. ${t('results.lockedHint')}`}
                         className="flex-row items-center bg-gray-100 dark:bg-cyber-border rounded-full px-3 py-1.5 min-h-[32px] me-2"

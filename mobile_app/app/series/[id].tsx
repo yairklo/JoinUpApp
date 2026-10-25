@@ -23,6 +23,7 @@ import SeriesJoinRequests from '@/components/series/SeriesJoinRequests';
 import type { FriendsOnlyLinkPolicy } from '@/types/game';
 import SafeImage from '@/components/SafeImage';
 import OpenInMapButton from '@/components/OpenInMapButton';
+import { appAlert } from '@/i18n/appAlert';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -142,7 +143,7 @@ export default function SeriesScreen() {
                 return;
             }
             console.error("Failed to load series", error);
-            Alert.alert(t('common.error', 'שגיאה'), t('series.loadError', 'Failed to load group details'));
+            appAlert(t('common.error', 'שגיאה'), t('series.loadError', 'Failed to load group details'));
         } finally {
             setLoading(false);
         }
@@ -158,24 +159,24 @@ export default function SeriesScreen() {
             // would overwrite per-game customizations.
             const nextMaxPlayers = maxPlayers ? parseInt(maxPlayers) : NaN;
             if (!Number.isInteger(nextMaxPlayers) || nextMaxPlayers < 2) {
-                Alert.alert(t('common.error', 'שגיאה'), t('series.maxPlayersInvalid', 'Max players must be at least 2'));
+                appAlert(t('common.error', 'שגיאה'), t('series.maxPlayersInvalid', 'Max players must be at least 2'));
                 return;
             }
             const nextDuration = Number(duration.trim().replace(',', '.'));
             if (!Number.isFinite(nextDuration) || nextDuration <= 0) {
-                Alert.alert(t('common.error', 'שגיאה'), t('series.durationInvalid', 'משך המשחק חייב להיות חיובי'));
+                appAlert(t('common.error', 'שגיאה'), t('series.durationInvalid', 'משך המשחק חייב להיות חיובי'));
                 return;
             }
             if (regMode === 'weekly' && !TIME_RE.test(regTime)) {
-                Alert.alert(t('common.error', 'שגיאה'), t('series.regTimeInvalid', 'יש לבחור שעה לפתיחת ההרשמה'));
+                appAlert(t('common.error', 'שגיאה'), t('series.regTimeInvalid', 'יש לבחור שעה לפתיחת ההרשמה'));
                 return;
             }
             if (regMode === 'hours' && !(Number(regHours) > 0)) {
-                Alert.alert(t('common.error', 'שגיאה'), t('series.regHoursInvalid', 'יש להזין מספר שעות חיובי לפתיחת ההרשמה'));
+                appAlert(t('common.error', 'שגיאה'), t('series.regHoursInvalid', 'יש להזין מספר שעות חיובי לפתיחת ההרשמה'));
                 return;
             }
             if (newFieldMode && !newFieldName.trim()) {
-                Alert.alert(t('common.error', 'שגיאה'), t('series.newFieldNameRequired', 'יש להזין שם למגרש החדש'));
+                appAlert(t('common.error', 'שגיאה'), t('series.newFieldNameRequired', 'יש להזין שם למגרש החדש'));
                 return;
             }
             const nextPrice = price ? parseInt(price) : 0;
@@ -203,7 +204,7 @@ export default function SeriesScreen() {
             if (membersOnlyPriority !== !!series.membersOnlyPriority) changes.membersOnlyPriority = membersOnlyPriority;
             const nextGuestHours = guestHours.trim() === '' ? null : Number(guestHours);
             if (nextGuestHours !== null && !(Number.isFinite(nextGuestHours) && nextGuestHours >= 0)) {
-                Alert.alert(t('common.error', 'שגיאה'), t('series.guestHoursInvalid', 'שעות פתיחה לאורחים חייבות להיות מספר חיובי'));
+                appAlert(t('common.error', 'שגיאה'), t('series.guestHoursInvalid', 'שעות פתיחה לאורחים חייבות להיות מספר חיובי'));
                 return;
             }
             if (nextGuestHours !== (series.guestRegistrationOpenHours ?? null)) changes.guestRegistrationOpenHours = nextGuestHours;
@@ -242,11 +243,11 @@ export default function SeriesScreen() {
                 ...fieldChange,
                 ...changes,
             }, token);
-            Alert.alert(t('common.success', 'הצלחה'), t('series.updateSuccess', 'Group updated successfully'));
+            appAlert(t('common.success', 'הצלחה'), t('series.updateSuccess', 'Group updated successfully'));
             fetchSeries();
         } catch (error) {
             console.error(error);
-            Alert.alert(t('common.error', 'שגיאה'), t('series.updateError', 'Failed to update group'));
+            appAlert(t('common.error', 'שגיאה'), t('series.updateError', 'Failed to update group'));
         } finally {
             setUpdating(false);
         }
@@ -263,7 +264,7 @@ export default function SeriesScreen() {
         try {
             await Share.share({ message, url: inviteUrl });
         } catch (e) {
-            Alert.alert(t('common.error', 'שגיאה'), t('series.shareError', 'Failed to share invite'));
+            appAlert(t('common.error', 'שגיאה'), t('series.shareError', 'Failed to share invite'));
         }
     };
 
@@ -277,14 +278,14 @@ export default function SeriesScreen() {
             const results = await usersApi.search(q, token);
             const hit = (results || []).find((u: { id: string }) => u.id !== user?.id);
             if (!hit) {
-                Alert.alert(t('common.error', 'שגיאה'), t('series.userNotFound', 'No matching user found'));
+                appAlert(t('common.error', 'שגיאה'), t('series.userNotFound', 'No matching user found'));
                 return;
             }
             await seriesApi.addMembers(id, [hit.id], token);
             setMemberQuery('');
             fetchSeries();
         } catch (e) {
-            Alert.alert(t('common.error', 'שגיאה'), t('series.addMemberError', 'Failed to add member'));
+            appAlert(t('common.error', 'שגיאה'), t('series.addMemberError', 'Failed to add member'));
         } finally {
             setAddingMember(false);
         }
@@ -297,7 +298,7 @@ export default function SeriesScreen() {
             await seriesApi.setMemberRole(id, userId, makeManager ? 'MANAGER' : 'MEMBER', token);
             fetchSeries();
         } catch (e) {
-            Alert.alert(t('common.error', 'שגיאה'), t('series.roleError', 'Failed to update role'));
+            appAlert(t('common.error', 'שגיאה'), t('series.roleError', 'Failed to update role'));
         }
     };
 
@@ -315,7 +316,7 @@ export default function SeriesScreen() {
                             await seriesApi.toggleSubscribe(id, true, token);
                             router.replace('/(tabs)');
                         } catch (e) {
-                            Alert.alert(t('common.error', 'שגיאה'), t('series.leaveError', 'Failed to leave group'));
+                            appAlert(t('common.error', 'שגיאה'), t('series.leaveError', 'Failed to leave group'));
                         }
                     }
                 }
@@ -341,7 +342,7 @@ export default function SeriesScreen() {
                 setRequestStatus('REJECTED');
                 return;
             }
-            Alert.alert(t('common.error', 'שגיאה'), t('series.subscribeError', 'Failed to update subscription'));
+            appAlert(t('common.error', 'שגיאה'), t('series.subscribeError', 'Failed to update subscription'));
         }
     };
 

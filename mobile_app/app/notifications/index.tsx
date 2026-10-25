@@ -16,6 +16,7 @@ import {
     ALWAYS_DELIVERED_TYPES,
     QUICK_OFF_EXCLUDED_CATEGORIES,
 } from '@joinup/shared/notificationPrefs';
+import { appAlert } from '@/i18n/appAlert';
 
 export default function NotificationsScreen() {
     const router = useRouter();
@@ -71,10 +72,10 @@ export default function NotificationsScreen() {
             const token = await getTokenRef.current();
             if (!token) return;
             await fn(token);
-            Alert.alert(doneText);
+            appAlert(doneText);
         } catch (error) {
             console.error('[NOTIFICATIONS] Preference action failed:', error);
-            Alert.alert(t('common.error', 'שגיאה'), t('notificationSettings.actionFailed'));
+            appAlert(t('common.error', 'שגיאה'), t('notificationSettings.actionFailed'));
         }
     };
 

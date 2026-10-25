@@ -6,6 +6,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { fieldsApi, FieldComment, FieldFlagReason } from '@/services/api';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
+import { appAlert } from '@/i18n/appAlert';
 
 function replaceInTree(list: FieldComment[], id: string, next: FieldComment): FieldComment[] {
     return list.map((c) => {
@@ -141,7 +142,7 @@ export default function FieldCommentsSection({ fieldId }: { fieldId: string }) {
             const token = await getToken();
             if (!token) return;
             await fieldsApi.flagComment(fieldId, commentId, reason, undefined, token);
-            Alert.alert(t('field.reportSent'));
+            appAlert(t('field.reportSent'));
         } catch (e) {
             console.error('Failed to flag field comment', e);
         }

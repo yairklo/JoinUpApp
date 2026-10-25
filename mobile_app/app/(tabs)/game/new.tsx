@@ -1,4 +1,4 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Modal } from 'react-native';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
@@ -21,6 +21,7 @@ import SuggestFieldModal from '@/components/SuggestFieldModal';
 import FriendsOnlyLinkPolicyPicker from '@/components/FriendsOnlyLinkPolicyPicker';
 import type { FriendsOnlyLinkPolicy } from '@/types/game';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 function filterFieldsWithCoords(fields: Field[]): Field[] {
     return fields.filter((f) => f.lat != null && f.lng != null);
@@ -413,7 +414,7 @@ export default function NewGameScreen() {
             }
         } catch (error) {
             console.error("Failed to load data", error);
-            Alert.alert(t('common.error', 'שגיאה'), t('newGame.loadFieldsFailed', 'טעינת המגרשים נכשלה'));
+            appAlert(t('common.error', 'שגיאה'), t('newGame.loadFieldsFailed', 'טעינת המגרשים נכשלה'));
         } finally {
             setLoading(false);
         }
@@ -443,7 +444,7 @@ export default function NewGameScreen() {
 
     const handleSubmit = async () => {
         if (!selectedField && !customPoint) {
-            Alert.alert(t('game.validationError', 'שגיאת ולידציה'), t('newGame.mustSelectFieldOrPoint', 'אנא בחר מגרש או סמן מיקום במפה'));
+            appAlert(t('game.validationError', 'שגיאת ולידציה'), t('newGame.mustSelectFieldOrPoint', 'אנא בחר מגרש או סמן מיקום במפה'));
             return;
         }
 
@@ -451,7 +452,7 @@ export default function NewGameScreen() {
         // Client-side validation: must be in the future
         const startDateTime = pickerToJerusalemUTC(new Date(date), time);
         if (startDateTime.getTime() <= Date.now()) {
-            Alert.alert(
+            appAlert(
                 t('game.validationError', 'שגיאת ולידציה'),
                 t('game.timeMustBeInFuture', 'שעת המשחק חייבת להיות בעתיד')
             );
@@ -521,7 +522,7 @@ export default function NewGameScreen() {
             router.replace(`/game/${result.id}`);
         } catch (error: any) {
             console.error("Create game failed", error);
-            Alert.alert(t('common.error', 'שגיאה'), error.response?.data?.error || t('newGame.createFailed', 'יצירת המשחק נכשלה'));
+            appAlert(t('common.error', 'שגיאה'), error.response?.data?.error || t('newGame.createFailed', 'יצירת המשחק נכשלה'));
         } finally {
             setSubmitting(false);
         }
@@ -982,7 +983,7 @@ export default function NewGameScreen() {
             <SuggestFieldModal
                 visible={showSuggestField}
                 onClose={() => setShowSuggestField(false)}
-                onSubmitted={() => Alert.alert(t('newGame.suggestSent', 'הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה'))}
+                onSubmitted={() => appAlert(t('newGame.suggestSent', 'הבקשה נשלחה! נוסיף את המגרש אחרי בדיקה'))}
             />
         </>
     );

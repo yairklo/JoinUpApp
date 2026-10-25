@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import FieldLocationPicker from '@/components/admin/FieldLocationPicker';
 import FieldImageUpload from '@/components/admin/FieldImageUpload';
 import FieldPhotoGallery from '@/components/admin/FieldPhotoGallery';
 import BackButton from '@/components/ui/BackButton';
+import { appAlert } from '@/i18n/appAlert';
 
 // Kept explicit and in sync with server/prisma/schema.prisma's SportType enum,
 // mirroring next_app's FieldEditorDialog (SPORT_MAPPING's own type is too loose
@@ -139,7 +140,7 @@ export default function FieldEditorForm({ field }: FieldEditorFormProps) {
             if (activeField) {
                 const updated = await fieldsApi.update(activeField.id, payload, token);
                 setSavedField(updated);
-                Alert.alert('נשמר', 'פרטי המגרש עודכנו בהצלחה');
+                appAlert('נשמר', 'פרטי המגרש עודכנו בהצלחה');
             } else {
                 const created = await fieldsApi.create(payload, token);
                 setSavedField(created);

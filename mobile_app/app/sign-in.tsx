@@ -1,10 +1,11 @@
 import { useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
-import { Text, TextInput, View, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from "react-native";
+import { Text, TextInput, View, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { OAuth } from "@/components/OAuth";
+import { appAlert } from "@/i18n/appAlert";
 
 export default function Page() {
     const { t } = useTranslation();
@@ -33,7 +34,7 @@ export default function Page() {
             }
         } catch (err: any) {
             console.error(JSON.stringify(err, null, 2));
-            Alert.alert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.loginFailed', 'Login failed'));
+            appAlert(t('common.error', 'שגיאה'), err.errors?.[0]?.message || t('auth.loginFailed', 'Login failed'));
         } finally {
             setLoading(false);
         }

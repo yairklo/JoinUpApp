@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChatLogic } from '@/hooks/useChatLogic';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef';
+import { appAlert } from '@/i18n/appAlert';
 
 type PickState = {
   gameId: string;
@@ -118,7 +119,7 @@ export default function LiveTeamManagementScreen() {
     } catch (e) {
       if (signedOutSinceMount()) return;
       console.error(e);
-      Alert.alert(t('teams.error'), t('teams.loadFailed'));
+      appAlert(t('teams.error'), t('teams.loadFailed'));
       router.back();
     } finally {
       setLoading(false);
@@ -203,7 +204,7 @@ export default function LiveTeamManagementScreen() {
     try {
       await fn();
     } catch (e: any) {
-      Alert.alert(t('teams.error'), e?.message || t('teams.failed'));
+      appAlert(t('teams.error'), e?.message || t('teams.failed'));
     } finally {
       setBusy(false);
     }
@@ -223,7 +224,7 @@ export default function LiveTeamManagementScreen() {
         token
       );
       setState(data);
-      Alert.alert(t('teams.success'), t('teams.scheduleSaved'));
+      appAlert(t('teams.success'), t('teams.scheduleSaved'));
     });
 
   const handleDateChange = (event: any, selectedDate?: Date) => {

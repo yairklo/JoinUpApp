@@ -14,6 +14,7 @@ import { useAuthTokenRef, useSignedOutSinceMount } from '@/hooks/useAuthTokenRef
 import { useColorMode } from '@/theme/ColorModeContext';
 import type { Team } from '@joinup/shared/types/game';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 type Player = { id: string; name?: string | null; avatar?: string | null };
 
@@ -134,7 +135,7 @@ export default function QuickTeamEditScreen() {
     } catch (e) {
       if (signedOutSinceMount()) return;
       console.error(e);
-      Alert.alert(t('teams.error'), t('teams.loadFailed'));
+      appAlert(t('teams.error'), t('teams.loadFailed'));
       router.back();
     } finally {
       setLoading(false);
@@ -246,11 +247,11 @@ export default function QuickTeamEditScreen() {
       await gamesApi.saveTeams(id, teams, token);
       snapshotRef.current = JSON.stringify(teams);
       dirtyRef.current = false;
-      Alert.alert(t('teams.success'), t('teams.saved'));
+      appAlert(t('teams.success'), t('teams.saved'));
       router.back();
     } catch (e) {
       console.error(e);
-      Alert.alert(t('teams.error'), t('teams.saveFailed'));
+      appAlert(t('teams.error'), t('teams.saveFailed'));
     } finally {
       setSaving(false);
     }

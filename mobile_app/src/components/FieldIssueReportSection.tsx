@@ -8,6 +8,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { formatJerusalemDate, formatJerusalemTime } from '@/utils/timezone';
 import { pickOneImage } from '@/utils/pickImage';
 import SafeImage from '@/components/SafeImage';
+import { appAlert } from '@/i18n/appAlert';
 
 const CATEGORIES: FieldIssueCategory[] = ['POTHOLE', 'LIGHTING', 'SURFACE', 'GOAL_NET', 'FENCE', 'OTHER'];
 
@@ -185,7 +186,7 @@ export default function FieldIssueReportSection({ fieldId }: { fieldId: string }
             const token = await getToken();
             if (!token) return;
             await fieldsApi.flagIssue(fieldId, issueId, reason, undefined, token);
-            Alert.alert(t('field.reportSent'));
+            appAlert(t('field.reportSent'));
         } catch (e) {
             console.error('Failed to flag field issue', e);
         }

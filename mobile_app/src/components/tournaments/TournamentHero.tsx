@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Image, Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { SPORT_EMOJI, SPORT_MAPPING } from '@/utils/sports';
@@ -9,6 +9,7 @@ import TournamentStatusChip from './TournamentStatusChip';
 import { fmtDateRange, fmtShortDate } from './shellUtils';
 import { pendingInvite } from './heroCta';
 import type { Lang } from './matchFormat';
+import { appAlert } from '@/i18n/appAlert';
 
 interface Props {
     tournament: TournamentDetail;
@@ -39,7 +40,7 @@ export default function TournamentHero({ tournament: tr, lang, liveCount, hasSch
         const buttons: { text: string; onPress?: () => void; style?: 'cancel' }[] = [{ text: t('tournaments.share') as string, onPress: onShare }];
         if (tr.capabilities?.canManage) buttons.push({ text: t('tournaments.hero.edit') as string, onPress: onEdit });
         buttons.push({ text: t('tournaments.hero.cancel') as string, style: 'cancel' });
-        Alert.alert(tr.title, undefined, buttons);
+        appAlert(tr.title, undefined, buttons);
     };
 
     return (
