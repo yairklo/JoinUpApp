@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
-import { SignInButton } from "@clerk/nextjs";
+import NextLink from "next/link";
 
 /**
  * Fixed "sign in to join" bar for logged-out visitors on the game page.
@@ -13,7 +13,7 @@ import { SignInButton } from "@clerk/nextjs";
  * function can't be passed from a Server Component to a client one -- doing that inline in
  * `app/games/[id]/page.tsx` crashed the whole page render for every guest.
  */
-export default function GuestJoinBar() {
+export default function GuestJoinBar({ gameId }: { gameId: string }) {
   const ref = useRef<HTMLDivElement>(null);
 
   // Publish the bar's real height as --guest-bar-height so the Footer (the last thing on the
@@ -52,9 +52,15 @@ export default function GuestJoinBar() {
       }}
     >
       <Typography variant="body2" fontWeight={600}>התחבר כדי להצטרף למשחק</Typography>
-      <SignInButton mode="modal">
-        <Button variant="contained" size="small" data-testid="guest-sign-in">התחבר</Button>
-      </SignInButton>
+      <Button
+        component={NextLink}
+        href={`/sign-in?redirect_url=/games/${gameId}`}
+        variant="contained"
+        size="small"
+        data-testid="guest-sign-in"
+      >
+        התחבר
+      </Button>
     </Box>
   );
 }
