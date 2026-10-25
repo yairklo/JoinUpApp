@@ -1,5 +1,6 @@
 const {
   lotteryViewerCopy,
+  lotteryEntrantListCopy,
   resolveNotSelectedJoinLabel,
   guestRegistrationNotOpenMessage,
   guestRegistrationOpensAtFromError,
@@ -47,6 +48,104 @@ describe('lotteryViewerCopy pool (pre-draw)', () => {
     expect(copy.title).not.toContain('המתנה');
     expect(copy.detail).not.toContain('מחליף');
     expect(copy.cancelLabel).not.toContain('מחליף');
+  });
+});
+
+describe('lotteryEntrantListCopy (organizer roster before the draw)', () => {
+  const playerPool = () => lotteryViewerCopy({
+    lotteryEnabled: true,
+    lotteryPending: true,
+    lotteryAt: DRAW_AT,
+    viewerParticipationStatus: 'WAITLISTED',
+    now: BEFORE_DRAW,
+  });
+
+  it('uses the player lottery sentences and no queue position', () => {
+    const player = playerPool();
+    expect(lotteryEntrantListCopy({
+      lotteryEnabled: true,
+      lotteryPending: true,
+      lotteryExecutedAt: null,
+      lotteryAt: DRAW_AT,
+      count: 4,
+      now: BEFORE_DRAW,
+    })).toEqual({
+      kind: 'pool',
+      title: 'הגרלה ממתינה',
+      detail: player.detail,
+      rowLabel: 'ממתין להגרלה',
+      registeredLabel: 'רשומים: 4',
+      showQueuePosition: false,
+    });
+    expect(player.detail).toBe(`ההגרלה ב-${DRAW_WHEN}`);
+  });
+
+  it('does not label the pool as a ranked waitlist', () => {
+    const copy = lotteryEntrantListCopy({
+      lotteryEnabled: true,
+      lotteryPending: true,
+      lotteryExecutedAt: null,
+      lotteryAt: DRAW_AT,
+      count: 4,
+    });
+    expect(copy.title).not.toContain('רשימת המתנה');
+    expect(copy.rowLabel).not.toContain('#');
+    expect(copy.showQueuePosition).toBe(false);
+    expect(copy.title).not.toBe('נרשמת להגרלה');
+  });
+
+  it('keeps the player fallback sentence when the draw time is missing', () => {
+    const copy = lotteryEntrantListCopy({
+      lotteryEnabled: true,
+      lotteryPending: true,
+      lotteryExecutedAt: null,
+      lotteryAt: null,
+      count: 1,
+    });
+    expect(copy.detail).toBe('המקומות יוגרלו במועד ההגרלה');
+    expect(copy.registeredLabel).toBe('רשומים: 1');
+  });
+
+  it('uses the player drawing title while the overdue draw has not run', () => {
+    expect(lotteryEntrantListCopy({
+      lotteryEnabled: true,
+      lotteryPending: false,
+      lotteryExecutedAt: null,
+      lotteryAt: DRAW_AT,
+      count: 4,
+      now: AFTER_DRAW,
+    })).toEqual({
+      kind: 'drawing',
+      title: 'ההגרלה מתבצעת',
+      detail: null,
+      rowLabel: null,
+      registeredLabel: 'רשומים: 4',
+      showQueuePosition: false,
+    });
+  });
+
+  it('keeps the ranked waitlist after the draw and when this is not a lottery', () => {
+    const ran = {
+      lotteryEnabled: true,
+      lotteryPending: false,
+      lotteryExecutedAt: '2026-10-24T15:05:00.000Z',
+      lotteryAt: DRAW_AT,
+      count: 2,
+    };
+    expect(lotteryEntrantListCopy(ran)).toBeNull();
+    expect(lotteryEntrantListCopy({ ...ran, lotteryExecutedAt: undefined })).toBeNull();
+    expect(lotteryEntrantListCopy({
+      lotteryEnabled: false,
+      lotteryPending: false,
+      lotteryExecutedAt: null,
+      count: 2,
+    })).toBeNull();
+    expect(lotteryEntrantListCopy({
+      lotteryEnabled: true,
+      lotteryPending: false,
+      lotteryExecutedAt: null,
+      count: 2,
+    })).toBeNull();
   });
 });
 

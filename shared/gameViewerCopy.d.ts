@@ -34,6 +34,33 @@ export interface LotteryViewerCopy {
 
 export function lotteryViewerCopy(input?: LotteryViewerInput): LotteryViewerCopy | null;
 
+export interface LotteryEntrantListInput {
+  lotteryEnabled?: boolean;
+  lotteryPending?: boolean;
+  lotteryAt?: string | null;
+  /** null = the draw has not run. Omit or pass a timestamp to keep the ranked waitlist. */
+  lotteryExecutedAt?: string | null;
+  /** Names in this list. Used only for the "רשומים: N" line players already see. */
+  count?: number;
+  now?: Date;
+}
+
+export interface LotteryEntrantListCopy {
+  kind: 'pool' | 'drawing';
+  title: string;
+  detail: string | null;
+  /** Per-person label. Null while the draw is running — never a queue position. */
+  rowLabel: string | null;
+  registeredLabel: string;
+  showQueuePosition: false;
+}
+
+/**
+ * Organizer list of lottery entrants before the draw. Null after the draw
+ * (and when this is not a lottery) so the ranked waitlist stays unchanged.
+ */
+export function lotteryEntrantListCopy(input?: LotteryEntrantListInput): LotteryEntrantListCopy | null;
+
 /** Request label used when a not-selected viewer still needs approval. */
 export function resolveNotSelectedJoinLabel(
   copy: LotteryViewerCopy | null | undefined,
