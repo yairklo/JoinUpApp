@@ -8,7 +8,7 @@ const results = require('./tournamentResultService');
 const { canAddMember, validateRoster } = require('../shared/tournament/rosterRules');
 const { getAgeInJerusalem, ADULT_AGE } = require('../shared/ageGate');
 const { publicDisplayName } = require('../utils/publicName');
-const { getTournamentRole, hasRoleAtLeast } = require('../utils/tournamentAccess');
+const { canViewTournament, getTournamentRole, hasRoleAtLeast } = require('../utils/tournamentAccess');
 const { leaveUserChatRoom } = require('../utils/socketChatRooms');
 
 const HELD = ['APPROVED', 'PENDING']; // statuses that occupy one of the maxTeams spots
@@ -85,6 +85,19 @@ async function addToChat(tx, tournamentId, userId) {
   await tx.chatParticipant.createMany({ data: [{ chatId: tournamentId, userId }], skipDuplicates: true });
 }
 
+/** Every accepted member of a team that is now approved. Pending and waitlisted teams stay out. */
+async function addAcceptedMembersToChat(tx, tournamentId, teamId) {
+  const members = await tx.tournamentTeamMember.findMany({
+    where: { teamId, status: 'ACCEPTED' },
+    select: { userId: true },
+  });
+  if (!members.length) return;
+  await tx.chatParticipant.createMany({
+    data: members.map((m) => ({ chatId: tournamentId, userId: m.userId })),
+    skipDuplicates: true,
+  });
+}
+
 async function voidOtherInvites(tx, tournamentId, userId, keepTeamId) {
   await tx.tournamentTeamMember.deleteMany({
     where: { tournamentId, userId, status: 'INVITED', ...(keepTeamId ? { teamId: { not: keepTeamId } } : {}) },
@@ -117,7 +130,9 @@ async function promoteWaitlist(tx, t, exceptTeamId) {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
     if (!next) break;
-    await tx.tournamentTeam.update({ where: { id: next.id }, data: { status: t.requireApproval ? 'PENDING' : 'APPROVED' } });
+    const nextStatus = t.requireApproval ? 'PENDING' : 'APPROVED';
+    await tx.tournamentTeam.update({ where: { id: next.id }, data: { status: nextStatus } });
+    if (nextStatus === 'APPROVED') await addAcceptedMembersToChat(tx, t.id, next.id);
     promoted.push(next.id);
   }
   return promoted;
@@ -133,6 +148,15 @@ async function createTeam(user, tournamentId, body) {
     await lockTournament(tx, tournamentId);
     const t = await loadTournament(tx, tournamentId);
     if (t.status === 'DRAFT') throw err(404, 'NOT_FOUND', 'Tournament not found');
+    // A private tournament is visible to roles and existing invitees (canViewTournament).
+    // Creating a team must not be what first grants that access. Joining an existing
+    // roster still goes through an invite or that team's join code.
+    if (!t.isPublic) {
+      const role = await getTournamentRole(tx, t, user);
+      if (!(await canViewTournament(tx, t, user, role))) {
+        throw err(404, 'NOT_FOUND', 'Tournament not found');
+      }
+    }
     if (!registrationWindowOpen(t)) throw err(409, 'REGISTRATION_CLOSED', 'Registration is not open');
     if (await acceptedElsewhere(tx, tournamentId, user.id)) {
       throw err(409, 'PLAYER_IN_OTHER_TEAM', 'You are already on a team in this tournament');
@@ -155,7 +179,7 @@ async function createTeam(user, tournamentId, body) {
     await tx.tournamentTeamMember.create({
       data: { teamId: team.id, tournamentId, userId: user.id, role: 'CAPTAIN', status: 'ACCEPTED' },
     });
-    await addToChat(tx, tournamentId, user.id);
+    if (status === 'APPROVED') await addToChat(tx, tournamentId, user.id);
     return { team: await serializeTeam(tx, team.id, { canSeeAll: true }), waitlisted: status === 'WAITLISTED' };
   });
 }
@@ -323,7 +347,7 @@ async function respondToInvite(user, tournamentId, teamId, userId, accept) {
     if (accepted >= t.maxPlayersPerTeam) throw err(409, 'TOO_MANY_PLAYERS', 'The roster is full');
     await tx.tournamentTeamMember.update({ where: { id: row.id }, data: { status: 'ACCEPTED' } });
     await voidOtherInvites(tx, tournamentId, userId, teamId);
-    await addToChat(tx, tournamentId, userId);
+    if (team.status === 'APPROVED') await addToChat(tx, tournamentId, userId);
     return { member: await memberOf(tx, row.id), team, t, accepted: true };
   });
 }
@@ -345,7 +369,7 @@ async function joinByCode(user, tournamentId, joinCode) {
       ? await tx.tournamentTeamMember.update({ where: { id: own.id }, data: { status: 'ACCEPTED', role: 'PLAYER' } })
       : await tx.tournamentTeamMember.create({ data: { teamId: team.id, tournamentId, userId: user.id, status: 'ACCEPTED' } });
     await voidOtherInvites(tx, tournamentId, user.id, team.id);
-    await addToChat(tx, tournamentId, user.id);
+    if (team.status === 'APPROVED') await addToChat(tx, tournamentId, user.id);
     return { member: await memberOf(tx, member.id), team: await serializeTeam(tx, team.id, { canSeeAll: false }), t, captainId: team.captainId };
   });
 }
@@ -427,6 +451,7 @@ async function decideTeam(user, tournamentId, teamId, decision) {
       nextStatus = decision === 'REJECT' ? 'REJECTED' : 'WAITLISTED';
     }
     await tx.tournamentTeam.update({ where: { id: teamId }, data: { status: nextStatus } });
+    if (nextStatus === 'APPROVED') await addAcceptedMembersToChat(tx, tournamentId, teamId);
     const promoted = wasHolding && nextStatus !== 'APPROVED' ? await promoteWaitlist(tx, t, teamId) : [];
     return { team: await serializeTeam(tx, teamId, { canSeeAll: true }), promoted, t, changed: true, decision: nextStatus };
   });

@@ -40,7 +40,15 @@ function buildSafeUserUpsertPayload(authUser) {
   };
 }
 
-async function safeUpsertUserFromAuth(prisma, authUser) {
+function isEmailUniqueConflict(error) {
+  if (!error || error.code !== 'P2002') return false;
+  const meta = error.meta || {};
+  const target = meta.target;
+  const parts = Array.isArray(target) ? target : [target, meta.constraint];
+  return parts.some((part) => typeof part === 'string' && part.toLowerCase().includes('email'));
+}
+
+async function applyUpsert(prisma, authUser) {
   const user = await prisma.user.upsert(buildSafeUserUpsertPayload(authUser));
   const name = usableClerkName(authUser);
   // No usable Clerk name or a real stored name -> no extra query.
@@ -52,6 +60,31 @@ async function safeUpsertUserFromAuth(prisma, authUser) {
     data: { name },
   });
   return count > 0 ? { ...user, name } : user;
+}
+
+async function safeUpsertUserFromAuth(prisma, authUser) {
+  try {
+    return await applyUpsert(prisma, authUser);
+  } catch (error) {
+    if (!isEmailUniqueConflict(error)) throw error;
+    const email = typeof authUser.email === 'string' ? authUser.email : '';
+    if (!email) throw error;
+    // Another row already holds this address. Release it and retry so creating
+    // the account succeeds. If it is taken again before the retry, create the
+    // row without the address rather than failing signup.
+    await prisma.user.updateMany({
+      where: { email, NOT: { id: authUser.id } },
+      data: { email: null },
+    });
+    try {
+      return await applyUpsert(prisma, authUser);
+    } catch (retryError) {
+      if (!isEmailUniqueConflict(retryError)) throw retryError;
+      const withoutEmail = { ...authUser };
+      delete withoutEmail.email;
+      return applyUpsert(prisma, withoutEmail);
+    }
+  }
 }
 
 module.exports = { buildSafeUserUpsertPayload, safeUpsertUserFromAuth, usableClerkName, isMissingStoredName };

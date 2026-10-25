@@ -362,7 +362,8 @@ export default function ProfilePage() {
       const token = await getToken({ template: undefined }).catch(() => "");
       // imageUrl is intentionally excluded: it's owned by the dedicated upload/remove
       // endpoints (usersApi.uploadImage/removeImage) and already persisted by the time Save runs.
-      const { imageUrl: _imageUrl, ...formWithoutImage } = form;
+      // email is owned by the sign-in account; the server ignores it, and we do not send it.
+      const { imageUrl: _imageUrl, email: _email, ...formWithoutImage } = form;
       const res = await fetch(`${API_BASE}/api/users/${userId}`, {
         method: "PUT",
         headers: {
@@ -681,7 +682,14 @@ export default function ProfilePage() {
                         />
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="אימייל" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} size="small" />
+                        <TextField
+                          fullWidth
+                          label="אימייל"
+                          value={form.email}
+                          size="small"
+                          disabled
+                          helperText="מנוהל בחשבון ההתחברות"
+                        />
                       </Grid>
                       <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField fullWidth label="טלפון" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} size="small" />

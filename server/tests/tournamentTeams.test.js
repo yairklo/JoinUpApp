@@ -1,3 +1,5 @@
+process.env.JOINUP_SKIP_DOTENV = '1';
+
 const request = require('supertest');
 
 jest.setTimeout(120000);
@@ -51,17 +53,18 @@ describe('tournament teams & roster', () => {
     await prisma.$disconnect();
   });
 
-  it('creates a team: captain ACCEPTED, status per requireApproval, chat access', async () => {
+  it('creates a team: captain ACCEPTED, status per requireApproval, chat only once approved', async () => {
     const tid = await newTournament();
     const res = await mkTeam(tid, u(1), 'Reds');
     expect(res.status).toBe(201);
     expect(res.body.team.status).toBe('PENDING');
     expect(res.body.team.joinCode).toBeTruthy();
     expect(res.body.team.members).toEqual([expect.objectContaining({ userId: u(1), role: 'CAPTAIN', status: 'ACCEPTED' })]);
-    expect((await prisma.chatParticipant.findFirst({ where: { chatId: tid, userId: u(1) } }))).toBeTruthy();
+    expect(await prisma.chatParticipant.findFirst({ where: { chatId: tid, userId: u(1) } })).toBeNull();
     expect((await mkTeam(tid, u(2), 'Reds')).body.code).toBe('NAME_TAKEN');
     const auto = await newTournament({ requireApproval: false });
     expect((await mkTeam(auto, u(3))).body.team.status).toBe('APPROVED');
+    expect(await prisma.chatParticipant.findFirst({ where: { chatId: auto, userId: u(3) } })).toBeTruthy();
   });
 
   it('requires open registration (draft hidden, closed 409)', async () => {
