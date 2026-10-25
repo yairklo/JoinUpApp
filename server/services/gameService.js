@@ -209,7 +209,11 @@ function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
     waitlistOfferPending,
     lotteryEnabled: !!game.lotteryEnabled,
     lotteryAt: lotteryAtIso,
-    lotteryExecutedAt: game.lotteryExecutedAt ? new Date(game.lotteryExecutedAt).toISOString() : null,
+    // Signed-in clients need an explicit null to tell "draw has not run" from a payload that
+    // omitted the field. That is the 'ההגרלה מתבצעת' state. Signed-out responses leave it off.
+    ...(viewerId ? {
+      lotteryExecutedAt: game.lotteryExecutedAt ? new Date(game.lotteryExecutedAt).toISOString() : null,
+    } : {}),
     organizerInLottery: !!game.organizerInLottery,
     fieldLat: typeof game.field?.lat === 'number' ? game.field.lat : null,
     fieldLng: typeof game.field?.lng === 'number' ? game.field.lng : null,
@@ -2260,6 +2264,46 @@ async function getTodayCityGames(city, viewerId) {
   );
 }
 
+// A GET must not sit on a locked draw. Past this, the response uses the game already loaded
+// and the draw keeps running; its own await stays inside this task so a late failure is logged
+// and never becomes an unhandled rejection.
+const GET_LOTTERY_DRAW_WAIT_MS = 2500;
+
+function lotteryDrawIsOverdue(game, now = new Date()) {
+  return !!(
+    game
+    && game.status !== 'CANCELLED'
+    && game.lotteryEnabled
+    && !game.lotteryExecutedAt
+    && game.lotteryAt
+    && now >= new Date(game.lotteryAt)
+  );
+}
+
+async function drawLotteryForRead(gameId) {
+  try {
+    await gameScheduler.drawLottery(prisma, gameId);
+    return prisma.game.findUnique({
+      where: { id: gameId },
+      include: GAME_DETAIL_INCLUDE,
+    });
+  } catch (err) {
+    console.error(`[LOTTERY] Lazy draw on GET failed for game ${gameId}:`, err);
+    return null;
+  }
+}
+
+function raceDraw(drawTask, ms) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ timedOut: true }), ms);
+  });
+  return Promise.race([
+    drawTask.then((reloaded) => ({ timedOut: false, reloaded })),
+    timeout,
+  ]).finally(() => clearTimeout(timer));
+}
+
 async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
   let game = await prisma.game.findUnique({
     where: { id: gameId },
@@ -2269,20 +2313,14 @@ async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
 
   // The draw timer was missed (process down at lotteryAt). Same lazy path as POST /join:
   // drawLottery holds lockGameRow, re-checks lotteryExecutedAt, and is a no-op if another
-  // GET or join already claimed the draw. Reload so this response shows the seated roster.
-  if (
-    game.status !== 'CANCELLED'
-    && game.lotteryEnabled
-    && !game.lotteryExecutedAt
-    && game.lotteryAt
-    && new Date() >= new Date(game.lotteryAt)
-  ) {
-    await gameScheduler.drawLottery(prisma, game.id);
-    game = await prisma.game.findUnique({
-      where: { id: gameId },
-      include: GAME_DETAIL_INCLUDE,
-    });
-    if (!game) throw httpError('Game not found', 404);
+  // GET or join already claimed the draw. A throw or a draw that outlives the wait does not
+  // fail this read; the next GET or join tries again, and a timed-out draw still finishes.
+  if (lotteryDrawIsOverdue(game)) {
+    const drawTask = drawLotteryForRead(game.id);
+    const outcome = await raceDraw(drawTask, GET_LOTTERY_DRAW_WAIT_MS);
+    if (!outcome.timedOut && outcome.reloaded) {
+      game = outcome.reloaded;
+    }
   }
 
   // Friends-only games: a BLOCKED link hides the game from outsiders; REQUEST_TO_JOIN shows it

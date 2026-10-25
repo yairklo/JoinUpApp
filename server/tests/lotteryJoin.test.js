@@ -268,4 +268,62 @@ describe('Lottery join mode', () => {
     expect(res.statusCode).toBe(200);
     expect(await statusOf(g.id, playerIds[2])).toBe('CONFIRMED');
   });
+
+  test('GET returns the loaded game when the lazy draw throws', async () => {
+    const gameScheduler = require('../services/gameScheduler');
+    const g = await makeGame({ lotteryAt: past(), maxPlayers: 2 });
+    await ensureUser(playerIds[0]);
+    await prisma.participation.create({ data: { gameId: g.id, userId: playerIds[0], status: 'WAITLISTED' } });
+    const spy = jest.spyOn(gameScheduler, 'drawLottery').mockRejectedValue(new Error('lock timeout'));
+    try {
+      const res = await request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer ${tokens[0]}` });
+      expect(res.statusCode).toBe(200);
+      expect(res.body.id).toBe(g.id);
+      expect(res.body.lotteryExecutedAt).toBeNull();
+      expect(res.body.lotteryPending).toBe(false);
+      expect(await statusOf(g.id, playerIds[0])).toBe('WAITLISTED');
+    } finally {
+      spy.mockRestore();
+    }
+    // The failed read did not claim the draw, so the next GET runs it.
+    const again = await request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer ${tokens[0]}` });
+    expect(again.statusCode).toBe(200);
+    expect(again.body.lotteryExecutedAt).toBeTruthy();
+    expect(await statusOf(g.id, playerIds[0])).toBe('CONFIRMED');
+  });
+
+  test('GET does not wait out a slow lazy draw', async () => {
+    const gameScheduler = require('../services/gameScheduler');
+    const g = await makeGame({ lotteryAt: past(), maxPlayers: 2 });
+    await ensureUser(playerIds[1]);
+    await prisma.participation.create({ data: { gameId: g.id, userId: playerIds[1], status: 'WAITLISTED' } });
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    let finished = false;
+    const spy = jest.spyOn(gameScheduler, 'drawLottery').mockImplementation(() => gate.then(() => {
+      finished = true;
+    }));
+    try {
+      const started = Date.now();
+      const res = await request(app).get(`/api/games/${g.id}`).set({ Authorization: `Bearer ${tokens[1]}` });
+      const elapsed = Date.now() - started;
+      expect(res.statusCode).toBe(200);
+      expect(res.body.id).toBe(g.id);
+      expect(res.body.lotteryExecutedAt).toBeNull();
+      expect(finished).toBe(false);
+      expect(elapsed).toBeGreaterThanOrEqual(2000);
+      expect(elapsed).toBeLessThan(5000);
+      release();
+      const deadline = Date.now() + 2000;
+      while (!finished && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      expect(finished).toBe(true);
+      // The read reloads after the draw promise settles. Let that query finish.
+      await new Promise((r) => setTimeout(r, 100));
+    } finally {
+      release();
+      spy.mockRestore();
+    }
+  });
 });
