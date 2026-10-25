@@ -1,3 +1,4 @@
+import path from "path";
 import type { NextConfig } from "next";
 import withPWAInit from "next-pwa";
 import { withSentryConfig } from "@sentry/nextjs/config";
@@ -8,10 +9,64 @@ const withPWA = withPWAInit({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  // Workbox aborts the whole service-worker install when any precache URL is
+  // not 2xx, so the worker never reaches "activated". These compilation
+  // assets are listed by GenerateSW and are not publicly served: source maps
+  // are dropped from the deployment, and Next 15 does not expose
+  // app-build-manifest.json or dynamic-css-manifest.json.
+  buildExcludes: [
+    /\.map$/,
+    /app-build-manifest\.json$/,
+    /dynamic-css-manifest\.json$/,
+  ],
 });
+
+const pwaRegisterDisabled = process.env.NODE_ENV === "development";
+
+/** next-pwa's register.js is an entry side effect; entries are string[] or `{ import }`. */
+function prependRegister(entry: unknown, registerJs: string): boolean {
+  if (Array.isArray(entry)) {
+    if (!entry.includes(registerJs)) entry.unshift(registerJs);
+    return true;
+  }
+  if (entry && typeof entry === "object" && "import" in entry) {
+    const spec = (entry as { import?: unknown }).import;
+    if (typeof spec === "string") {
+      (entry as { import: string[] }).import = spec === registerJs ? [spec] : [registerJs, spec];
+      return true;
+    }
+    if (Array.isArray(spec)) {
+      if (!spec.includes(registerJs)) spec.unshift(registerJs);
+      return true;
+    }
+  }
+  return false;
+}
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@joinup/shared'],
+  webpack(config, options) {
+    // next-pwa calls this webpack hook first, then prepends register.js only to
+    // the Pages Router entry `main.js`. App Router pages load `main-app` and
+    // never execute that chunk, so the register call is in the build output
+    // and never runs. Prepend the same file to `main-app` here. Skipped when
+    // PWA is disabled: register.js expects next-pwa's DefinePlugin globals.
+    if (pwaRegisterDisabled || options.dev || options.isServer) return config;
+
+    const registerJs = path.join(process.cwd(), "node_modules/next-pwa/register.js");
+    const originalEntry = config.entry;
+    config.entry = async () => {
+      const entries = typeof originalEntry === "function" ? await originalEntry() : { ...originalEntry };
+      const key = (["main-app", "main-app.js"] as const).find((name) => entries[name]);
+      if (!key || !prependRegister(entries[key], registerJs)) {
+        throw new Error(
+          `next-pwa register.js was not injected into the App Router client entry (keys: ${Object.keys(entries).join(", ")})`,
+        );
+      }
+      return entries;
+    };
+    return config;
+  },
   eslint: {
     // ESLint errors fail the build (warnings don't). src/ had 0 errors when this was turned on.
     ignoreDuringBuilds: false,

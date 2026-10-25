@@ -29,4 +29,4 @@ Lessons are maintained in glob-scoped rule files under `.cursor/rules/`:
 2. Promote it into the matching `.mdc` file above (or a new glob-scoped `.mdc`) once ~5 bullets accumulate. **Default to the narrowest file that fits**. `00-core-invariants.mdc` is the last resort for rules that apply before picking any file.
 
 ## New lessons (not yet promoted)
-*(None currently — all promoted into `.cursor/rules/*.mdc`)*
+- **next-pwa service worker never activates on the App Router deploy.** `register: true` only prepends `register.js` to the Pages entry `main.js`; App Router loads `main-app`, so the register call is in the build and never runs. `GenerateSW` also precaches `*.map`, `app-build-manifest.json`, and `dynamic-css-manifest.json`, which are not served (404). Workbox then fails install and `navigator.serviceWorker.ready` never resolves — including a manual `register('/sw.js')`. Fix: inject `register.js` into `main-app`, and `buildExcludes` those assets (`next_app/next.config.ts`).
