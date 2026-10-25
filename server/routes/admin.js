@@ -1,6 +1,7 @@
 const express = require('express');
 const { prisma } = require('../lib/prisma');
 const { authenticateToken, clerkClient, invalidateClerkUser } = require('../utils/auth');
+const { disconnectUserSockets } = require('../utils/socketChatRooms');
 const { requireAdmin } = require('../utils/admin');
 const { deleteMessageFromChat } = require('../workers/reviewWorker');
 
@@ -125,7 +126,7 @@ router.post('/flagged-messages/:id/remove-message', authenticateToken, requireAd
 });
 
 // Suspend an account via Clerk privateMetadata (shared by the ban endpoint and report resolution).
-async function banUserAccount(targetId, adminId, reason) {
+async function banUserAccount(targetId, adminId, reason, io) {
   await clerkClient.users.updateUserMetadata(targetId, {
     privateMetadata: {
       isBanned: true,
@@ -136,6 +137,7 @@ async function banUserAccount(targetId, adminId, reason) {
   });
   // Drop the cached Clerk user so the ban applies on the target's next request, not after the TTL.
   invalidateClerkUser(targetId);
+  disconnectUserSockets(io, targetId);
 }
 
 // Suspend an account: blocks future authenticateToken calls (HTTP + socket).
@@ -146,7 +148,7 @@ router.post('/users/:id/ban', authenticateToken, requireAdmin, async (req, res) 
       return res.status(400).json({ error: 'Cannot ban your own account' });
     }
     const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
-    await banUserAccount(targetId, req.user.id, reason);
+    await banUserAccount(targetId, req.user.id, reason, req.io);
     res.json({ ok: true });
   } catch (error) {
     console.error('Ban user error:', error);
@@ -433,7 +435,7 @@ router.post('/user-reports/:id/resolve', authenticateToken, requireAdmin, async 
       return res.status(outcome === 'not_found' ? 404 : 409).json({ error: 'Report already closed' });
     }
     if (action === 'BAN') {
-      await banUserAccount(report.targetId, req.user.id, resolution);
+      await banUserAccount(report.targetId, req.user.id, resolution, req.io);
     }
     res.json({ ok: true, action });
   } catch (error) {

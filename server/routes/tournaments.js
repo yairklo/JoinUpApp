@@ -121,7 +121,7 @@ router.post('/:id/teams/:teamId/members/:userId/respond', authenticateToken, han
 router.patch('/:id/teams/:teamId/members/:userId', authenticateToken, handle((req) => teams.updateMember(req.user, req.params.id, req.params.teamId, req.params.userId, req.body)));
 
 router.delete('/:id/teams/:teamId/members/:userId', authenticateToken, handle(async (req) => {
-  await teams.removeMember(req.user, req.params.id, req.params.teamId, req.params.userId);
+  await teams.removeMember(req.user, req.params.id, req.params.teamId, req.params.userId, req.app.get('io'));
   emit(req, 'teams');
   return { ok: true };
 }));
