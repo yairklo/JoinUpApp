@@ -916,7 +916,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (req.params.id !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { name, email, phone, imageUrl, city, birthDate, gender, sportIds, sportsData, positionIds } = req.body;
+    // Email is owned by the auth provider (verified there). Ignore it if a client still sends it.
+    const { name, phone, imageUrl, city, birthDate, gender, sportIds, sportsData, positionIds } = req.body;
 
     if (typeof gender !== 'undefined' && gender !== null && !VALID_GENDERS.includes(gender)) {
       return res.status(400).json({ error: 'Invalid gender. Must be MALE or FEMALE.' });
@@ -953,7 +954,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     const data = {
       ...(typeof cleanName !== 'undefined' ? { name: cleanName } : {}),
-      ...(typeof email !== 'undefined' ? { email: email || null } : {}),
       ...(typeof phone !== 'undefined' ? { phone } : {}),
       ...(typeof imageUrl !== 'undefined' ? { imageUrl } : {}),
       ...(typeof city !== 'undefined' ? { city } : {}),
@@ -994,9 +994,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
     });
     res.json(mapUserPublic(full, { includeContact: true }));
   } catch (error) {
-    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-      return res.status(409).json({ error: 'כתובת האימייל הזו כבר בשימוש על ידי משתמש אחר' });
-    }
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Failed to update user' });
   }
