@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -33,6 +35,7 @@ import DeleteSeriesDialog from "./DeleteSeriesDialog";
 import Avatar from "./Avatar";
 import { useSeriesLogic } from "@/hooks/useSeriesLogic";
 import { HebrewTimeField } from "@/components/HebrewDateTimeField";
+import { CREATE_GROUP_PARAM } from "@/lib/createGroupEntry";
 
 interface SeriesManagerProps {
   gameId: string;
@@ -50,6 +53,18 @@ export default function SeriesManager({ gameId, seriesId, canManage, gameData }:
     seriesId,
     initialTime: gameData.time
   });
+
+  // Arriving from /games/new in "קבוצה קבועה" mode: open the create-group dialog right away.
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+  const wantsCreateGroup = searchParams?.get(CREATE_GROUP_PARAM) === "1";
+  const { setOpen } = actions;
+  useEffect(() => {
+    if (!wantsCreateGroup) return;
+    if (!seriesId && canManage) setOpen(true);
+    router.replace(pathname ?? `/games/${gameId}`, { scroll: false });
+  }, [wantsCreateGroup, seriesId, canManage, setOpen, router, pathname, gameId]);
 
   if (seriesId) {
     return (

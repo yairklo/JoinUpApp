@@ -40,6 +40,9 @@ import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import IconButton from "@mui/material/IconButton";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import { parseCreateMode, postCreateGamePath, type CreateMode } from "@/lib/createGroupEntry";
 
 import { SPORT_MAPPING, SportType } from "@/utils/sports";
 import { usePaginatedFields } from "@/hooks/usePaginatedFields";
@@ -76,6 +79,9 @@ function NewGamePageInner() {
   const params = useSearchParams();
   const urlFieldId = params?.get("fieldId") ?? "";
   const urlSeriesId = params?.get("seriesId") ?? "";
+  // Adding a game to an existing group never offers "create a group".
+  const [createMode, setCreateMode] = useState<CreateMode>(parseCreateMode(params?.get("mode")));
+  const isGroupMode = createMode === "group" && !urlSeriesId;
 
   const { getToken, isSignedIn } = useAuth();
   const { user } = useUser();
@@ -417,7 +423,7 @@ function NewGamePageInner() {
       }
 
       const created = await res.json();
-      router.replace(`/games/${created.id}`);
+      router.replace(postCreateGamePath(created.id, isGroupMode ? "group" : "single"));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
@@ -438,9 +444,35 @@ function NewGamePageInner() {
           <ArrowForwardIcon />
         </IconButton>
         <Typography variant="h4" component="h1" fontWeight="bold">
-          משחק חדש
+          {isGroupMode ? "קבוצה קבועה חדשה" : "משחק חדש"}
         </Typography>
       </Box>
+
+      {!urlSeriesId && (
+        <SignedIn>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            color="primary"
+            value={createMode}
+            onChange={(_, v: CreateMode | null) => { if (v) setCreateMode(v); }}
+            aria-label="סוג יצירה"
+            sx={{ mb: isGroupMode ? 1.5 : 3, direction: "rtl" }}
+          >
+            <ToggleButton value="single" data-testid="create-mode-single" sx={{ fontWeight: 700 }}>
+              משחק חד-פעמי
+            </ToggleButton>
+            <ToggleButton value="group" data-testid="create-mode-group" sx={{ fontWeight: 700 }}>
+              קבוצה קבועה
+            </ToggleButton>
+          </ToggleButtonGroup>
+          {isGroupMode && (
+            <Alert severity="info" sx={{ mb: 3 }} data-testid="create-group-hint">
+              מלאו את פרטי המשחק הראשון. מיד אחרי היצירה תוכלו להגדיר את הקבוצה: משחקים שבועיים אוטומטיים או תאריכים מותאמים.
+            </Alert>
+          )}
+        </SignedIn>
+      )}
 
       {/* Display pre-selected info if exists */}
       {urlFieldId && selectedField && (
@@ -961,7 +993,7 @@ function NewGamePageInner() {
                   disabled={!canSubmit || submitting}
                   startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
                 >
-                  {submitting ? "יוצר..." : "צור משחק"}
+                  {submitting ? "יוצר..." : isGroupMode ? "צור משחק והמשך להגדרת קבוצה" : "צור משחק"}
                 </Button>
                 {!canSubmit && !submitting && formTouched && missingReason && (
                   <Typography variant="caption" color="error" align="right" sx={{ width: "100%" }}>
