@@ -390,7 +390,7 @@ export default function LiveTeamManagementScreen() {
                 onPress={() => setActivePicker('drawDate')}
                 style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
               >
-                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleDateString() : t('teams.selectDate', 'בחר תאריך')}</Text>
+                <Text style={{ textAlign: 'center' }}>{drawDate ? drawDate.toLocaleDateString('he-IL') : t('teams.selectDate', 'בחר תאריך')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setActivePicker('drawTime')}
@@ -406,7 +406,7 @@ export default function LiveTeamManagementScreen() {
                 onPress={() => setActivePicker('pickDate')}
                 style={{ flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, backgroundColor: '#f9fafb' }}
               >
-                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleDateString() : t('teams.selectDate', 'בחר תאריך')}</Text>
+                <Text style={{ textAlign: 'center' }}>{pickDate ? pickDate.toLocaleDateString('he-IL') : t('teams.selectDate', 'בחר תאריך')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setActivePicker('pickTime')}

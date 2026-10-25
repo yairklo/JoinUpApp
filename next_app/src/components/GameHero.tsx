@@ -7,7 +7,7 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
-import { alpha } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
@@ -83,8 +83,8 @@ function StatTile({
                 p: { xs: 1.25, sm: 1.75 },
                 borderRadius: 3,
                 bgcolor: alpha(accent, t.palette.mode === "dark" ? 0.14 : 0.08),
-                border: "1px solid",
-                borderColor: alpha(accent, t.palette.mode === "dark" ? 0.28 : 0.16),
+                border: t.palette.mode === "dark" ? "1px solid" : "none",
+                borderColor: alpha(accent, 0.28),
             })}
         >
             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.75, minWidth: 0 }}>
@@ -174,6 +174,7 @@ export default function GameHero({
     children?: React.ReactNode;
 }) {
     const theme = getSportTheme(sport);
+    const errorMain = useTheme().palette.error.main;
     const end = formatEndTime(time, durationHours);
     const pct = maxPlayers > 0 ? Math.min((currentPlayers / maxPlayers) * 100, 100) : 0;
     const isFull = currentPlayers >= maxPlayers;
@@ -200,7 +201,7 @@ export default function GameHero({
         ) : viewerState === "pending" ? (
             <Chip size="small" label="ממתין לאישור" sx={glassChipSx} />
         ) : finished ? null : isFull ? (
-            <Chip size="small" label="מלא" sx={{ ...glassChipSx, bgcolor: "#ef4444", border: "none" }} />
+            <Chip size="small" label="מלא" sx={{ ...glassChipSx, bgcolor: errorMain, border: "none" }} />
         ) : almostFull ? (
             <Chip
                 size="small"
@@ -270,7 +271,7 @@ export default function GameHero({
                                     color: theme.ink,
                                     fontWeight: 800,
                                     fontSize: { xs: "0.78rem", md: "0.85rem" },
-                                    boxShadow: `0 6px 20px -6px ${alpha(theme.glow, 0.8)}`,
+                                    boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
                                 }}
                             >
                                 <BoltRoundedIcon sx={{ fontSize: 16 }} />
@@ -362,7 +363,7 @@ export default function GameHero({
                         caption={date ? <span suppressHydrationWarning>{formatHebrewDateRelative(date)}</span> : undefined}
                     />
                     <StatTile
-                        accent={isFull ? "#ef4444" : almostFull ? "#f59e0b" : theme.base}
+                        accent={isFull ? errorMain : almostFull ? "#f59e0b" : theme.base}
                         icon={<GroupsRoundedIcon />}
                         label="שחקנים"
                         value={
@@ -387,7 +388,7 @@ export default function GameHero({
                                     width: `${Math.max(pct, 4)}%`,
                                     borderRadius: 999,
                                     background: isFull
-                                        ? "#ef4444"
+                                        ? errorMain
                                         : almostFull
                                           ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
                                           : `linear-gradient(90deg, ${theme.base}, ${theme.glow})`,

@@ -180,7 +180,7 @@ export default function OverviewTab({ tournament: t, onGoTab, onScoreMatch }: { 
                         })}
                         data-testid="tournament-rules"
                     >
-                        <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>
+                        <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 800, mb: 1 }}>
                             {`חוקים · ${FORMAT_LABEL[t.format]}`}
                         </Typography>
                         <Stack spacing={0.75} sx={{ color: "text.secondary" }}>

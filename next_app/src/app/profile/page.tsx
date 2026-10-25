@@ -485,7 +485,7 @@ export default function ProfilePage() {
     <Container maxWidth="lg" sx={{ py: { xs: 2.5, md: 4 }, pb: { xs: 11, md: 5 } }}>
       <SignedOut>
         <Box sx={{ textAlign: "center", py: 6, px: 2 }}>
-          <Typography variant="h5" fontWeight={700} mb={1.5}>
+          <Typography variant="h5" component="h2" fontWeight={700} mb={1.5}>
             הפרופיל שלך מחכה לך
           </Typography>
           <Typography variant="body1" color="text.secondary" mb={3} maxWidth={420} mx="auto">
@@ -725,7 +725,7 @@ export default function ProfilePage() {
                             return (
                               <Box key={s.sportId} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                                  <Typography variant="subtitle1" fontWeight="bold">{hebrewName}</Typography>
+                                  <Typography variant="subtitle1" component="h3" fontWeight="bold">{hebrewName}</Typography>
                                   <IconButton size="small" color="error" onClick={() => {
                                     const newData = form.sportsData.filter(x => x.sportId !== s.sportId);
                                     setForm({ ...form, sportsData: newData });
@@ -909,7 +909,7 @@ export default function ProfilePage() {
                             onClick={() => router.push(`/games/${g.id}`)}
                           >
                             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                              <Typography variant="subtitle1" fontWeight={800}>{g.title || g.fieldName}</Typography>
+                              <Typography variant="subtitle1" component="h3" fontWeight={800}>{g.title || g.fieldName}</Typography>
                               <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.25 }}>
                                 <EventOutlinedIcon sx={{ fontSize: 15, color: "text.secondary" }} />
                                 <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: "tabular-nums" }}>
@@ -940,7 +940,7 @@ export default function ProfilePage() {
                             onClick={() => router.push(`/games/${g.id}`)}
                           >
                             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                              <Typography variant="subtitle1" fontWeight={800}>{g.title || g.fieldName}</Typography>
+                              <Typography variant="subtitle1" component="h3" fontWeight={800}>{g.title || g.fieldName}</Typography>
                               <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.25 }}>
                                 <EventOutlinedIcon sx={{ fontSize: 15, color: "text.secondary" }} />
                                 <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: "tabular-nums" }}>
@@ -977,7 +977,7 @@ export default function ProfilePage() {
                 {/* 0. Search Players Bar */}
                 <Card elevation={2} sx={{ overflow: 'visible', borderRadius: 2.5 }}>
                   <CardContent sx={{ position: 'relative', p: { xs: 2.25, sm: 2.5 } }}>
-                    <Typography variant="h6" fontWeight={800} mb={1.5} sx={{ letterSpacing: "-0.02em" }}>חיפוש שחקנים</Typography>
+                    <Typography variant="h6" component="h2" fontWeight={800} mb={1.5} sx={{ letterSpacing: "-0.02em" }}>חיפוש שחקנים</Typography>
                     <TextField
                       placeholder="חפש שחקנים לפי שם או אימייל..."
                       size="small"
@@ -1023,7 +1023,7 @@ export default function ProfilePage() {
                   <CardContent sx={{ p: { xs: 2.25, sm: 2.5 } }}>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>חברים</Typography>
+                        <Typography variant="h6" component="h2" fontWeight={800} sx={{ letterSpacing: "-0.02em" }}>חברים</Typography>
                         {friends.length > 0 && (
                           <Chip label={friends.length} size="small" sx={{ height: 22, fontSize: 12, fontWeight: 700 }} />
                         )}
@@ -1068,7 +1068,7 @@ export default function ProfilePage() {
                 {incoming.length > 0 && (
                   <Card elevation={2} sx={(t) => ({ bgcolor: alpha(t.palette.primary.main, 0.06), borderRadius: 2.5, borderColor: alpha(t.palette.primary.main, 0.25) })}>
                     <CardContent sx={{ p: { xs: 2.25, sm: 2.5 } }}>
-                      <Typography variant="h6" fontWeight={800} gutterBottom sx={{ letterSpacing: "-0.02em" }}>בקשות חברות</Typography>
+                      <Typography variant="h6" component="h2" fontWeight={800} gutterBottom sx={{ letterSpacing: "-0.02em" }}>בקשות חברות</Typography>
                       <List dense disablePadding>
                         {incoming.map((r) => (
                           <ListItem key={r.id} disableGutters sx={{ py: 0.5 }}>
@@ -1090,7 +1090,7 @@ export default function ProfilePage() {
                 {/* 3. People You May Know */}
                 <Card elevation={2} sx={{ borderRadius: 2.5 }}>
                   <CardContent sx={{ p: { xs: 2.25, sm: 2.5 } }}>
-                    <Typography variant="h6" fontWeight={800} mb={1.5} sx={{ letterSpacing: "-0.02em" }}>אנשים</Typography>
+                    <Typography variant="h6" component="h2" fontWeight={800} mb={1.5} sx={{ letterSpacing: "-0.02em" }}>אנשים</Typography>
                     <List dense disablePadding>
                       {allUsers.filter(u => u.id !== profile.id).slice(0, 6).map((u) => {
                         const isFriend = friendIdSet.has(u.id);

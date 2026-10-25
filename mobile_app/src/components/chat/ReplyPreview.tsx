@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { ChatMessage } from "@/types/chat";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 interface ReplyPreviewProps {
     message: ChatMessage | null;
@@ -9,6 +10,7 @@ interface ReplyPreviewProps {
 }
 
 export default function ReplyPreview({ message, onCancel }: ReplyPreviewProps) {
+    const { t } = useTranslation();
     if (!message) return null;
 
     return (
@@ -16,7 +18,7 @@ export default function ReplyPreview({ message, onCancel }: ReplyPreviewProps) {
             <View className="w-1 bg-brand h-full rounded-full mr-3" />
             <View className="flex-1">
                 <Text className="text-xs font-black text-brand uppercase tracking-tighter">
-                    Replying to {message.sender?.name || message.senderName || "User"}
+                    {t('chat.replyingTo', 'משיב/ה ל־')}{message.sender?.name || message.senderName || t('common.user', 'משתמש')}
                 </Text>
                 <Text className="text-gray-500 text-xs" numberOfLines={1}>
                     {message.text || message.content}

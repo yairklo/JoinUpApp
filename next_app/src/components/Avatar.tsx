@@ -12,8 +12,8 @@ const sizePx: Record<AvatarSize, number> = {
 
 // Deterministic pastel color from a name, for pleasant initials fallbacks
 const FALLBACK_COLORS = [
-  "#059669", "#6366f1", "#f59e0b", "#0ea5e9",
-  "#ec4899", "#8b5cf6", "#14b8a6", "#f97316",
+  "#047857", "#4f46e5", "#b45309", "#0369a1",
+  "#be185d", "#6d28d9", "#0f766e", "#c2410c",
 ];
 
 function colorFor(name: string): string {

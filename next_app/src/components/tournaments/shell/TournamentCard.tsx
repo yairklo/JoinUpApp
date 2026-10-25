@@ -93,6 +93,7 @@ export default function TournamentCard({ t }: { t: Tournament }) {
             <Box sx={{ p: 2.25, flex: 1, display: "flex", flexDirection: "column" }}>
                 <Typography
                     variant="h6"
+                    component="h3"
                     sx={{
                         fontWeight: 800,
                         letterSpacing: "-0.02em",

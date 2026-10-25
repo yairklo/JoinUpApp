@@ -84,7 +84,7 @@ export default function Footer() {
           </Stack>
 
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <Typography variant="caption" sx={{ color: "text.disabled" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               © {new Date().getFullYear()} JoinUp
             </Typography>
             {/* Reachable on every breakpoint -- AppNavbar's copy of this same
