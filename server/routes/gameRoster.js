@@ -557,7 +557,7 @@ router.post('/:id/leave', authenticateToken, rejectIfCancelled, async (req, res)
         await prisma.chatParticipant.deleteMany({ where: { userId: req.user.id, chatId: game.id } });
       } catch (e) { /* Ignore */ }
     }
-    leaveUserChatRoom(req.io, req.user.id, game.id);
+    try { leaveUserChatRoom(req.io, req.user.id, game.id); } catch (e) { /* Ignore */ }
 
     // If a confirmed player left, offer the spot to the next waitlisted user
     if (wasConfirmed) {
