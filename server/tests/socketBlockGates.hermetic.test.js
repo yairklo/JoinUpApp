@@ -28,6 +28,8 @@ const mockPrisma = new Proxy({}, {
 const mockGetBlock = jest.fn();
 const mockAssess = jest.fn();
 const mockCounters = jest.fn(async () => {});
+const mockGetClerkUserCached = jest.fn(async () => ({ privateMetadata: {} }));
+const mockIsAccountDeleted = jest.fn(async () => false);
 
 jest.mock('../lib/prisma', () => ({ prisma: mockPrisma }));
 jest.mock('../utils/auth', () => ({
@@ -36,6 +38,8 @@ jest.mock('../utils/auth', () => ({
   invalidateClerkUser: jest.fn(),
   invalidateAccountState: jest.fn(),
   clerkClient: {},
+  getClerkUserCached: (...args) => mockGetClerkUserCached(...args),
+  isAccountDeleted: (...args) => mockIsAccountDeleted(...args),
 }));
 jest.mock('../utils/chatAuth', () => ({
   checkChatPermission: jest.fn(async () => true),
@@ -60,6 +64,7 @@ jest.mock('../workers/cleanupWorker', () => ({ startCleanupWorker: jest.fn(), st
 
 const { io } = require('../index');
 const { sendRateLimiter } = require('../services/chatSafety');
+const { checkChatPermission } = require('../utils/chatAuth');
 
 const ROOM = 'room_1';
 const ME = 'user_me';
@@ -98,11 +103,12 @@ async function connect(userId = ME) {
     to(room) {
       return { emit: (event, payload) => local.push({ event, payload, room: String(room), broadcast: true }) };
     },
+    disconnect(...args) { this.disconnectArgs = args; },
     on(event, fn) { handlers[event] = fn; },
   };
   const [onConnection] = io.listeners('connection');
   await onConnection(socket);
-  return { handlers, local };
+  return { handlers, local, socket };
 }
 
 let capture;
@@ -111,6 +117,11 @@ beforeEach(() => {
   mockGetBlock.mockReset();
   mockAssess.mockReset();
   mockAssess.mockResolvedValue({ status: 'sent', recipientIds: [OTHER] });
+  mockGetClerkUserCached.mockReset();
+  mockGetClerkUserCached.mockResolvedValue({ privateMetadata: {} });
+  mockIsAccountDeleted.mockReset();
+  mockIsAccountDeleted.mockResolvedValue(false);
+  checkChatPermission.mockImplementation(async () => true);
   capture = installBroadcastCapture();
   jest.spyOn(console, 'error').mockImplementation(() => {});
   jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -131,6 +142,7 @@ describe.each([['blocker', BLOCKER], ['blocked party', BLOCKED]])('%s: typing / 
   });
 
   test('a reaction is not stored and the room is not told', async () => {
+    mockPrisma.message.findUnique.mockResolvedValueOnce(ownMessage);
     const { handlers } = await connect();
     await handlers.addReaction({ messageId: 'm1', emoji: 'x', roomId: ROOM });
     expect(mockPrisma.reaction.create).not.toHaveBeenCalled();
@@ -257,6 +269,96 @@ describe('message send across a block', () => {
     mockGetBlock.mockRejectedValue(new Error('db down'));
     const { local } = await send();
     expect(local.find((l) => l.event === 'messageFailed')).toBeDefined();
+    expect(mockPrisma.message.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('addReaction uses the message chat', () => {
+  const SECRET = 'secret_room';
+
+  afterEach(() => {
+    mockPrisma.message.findUnique.mockImplementation(async () => null);
+    mockPrisma.reaction.findFirst.mockImplementation(async () => null);
+    mockPrisma.reaction.findMany.mockImplementation(async () => []);
+    checkChatPermission.mockImplementation(async () => true);
+  });
+
+  test('a client room id is not the membership check or the broadcast target', async () => {
+    mockGetBlock.mockResolvedValue(null);
+    mockPrisma.message.findUnique.mockResolvedValue({ id: 'm1', chatRoomId: SECRET });
+    mockPrisma.reaction.findFirst.mockResolvedValue(null);
+    mockPrisma.reaction.findMany.mockResolvedValue([{ emoji: 'x', userId: ME }]);
+    const { handlers } = await connect();
+    await handlers.addReaction({ messageId: 'm1', emoji: 'x', roomId: ROOM });
+    expect(checkChatPermission).toHaveBeenCalledWith(ME, SECRET);
+    expect(checkChatPermission).not.toHaveBeenCalledWith(ME, ROOM);
+    const ev = capture.events.find((e) => e.event === 'messageReaction');
+    expect(ev.rooms).toEqual([SECRET]);
+    expect(ev.payload.roomId).toBe(SECRET);
+    expect(mockPrisma.reaction.create).toHaveBeenCalled();
+  });
+
+  test('membership in a different room does not authorize the reaction', async () => {
+    mockPrisma.message.findUnique.mockResolvedValue({ id: 'm1', chatRoomId: SECRET });
+    checkChatPermission.mockImplementation(async (_userId, chatId) => chatId !== SECRET);
+    const { handlers, local } = await connect();
+    await handlers.addReaction({ messageId: 'm1', emoji: 'x', roomId: ROOM });
+    expect(checkChatPermission).toHaveBeenCalledWith(ME, SECRET);
+    expect(mockPrisma.reaction.create).not.toHaveBeenCalled();
+    expect(local.find((l) => l.event === 'error').payload).toBe('Unauthorized access to room');
+    expect(capture.events.filter((e) => e.event === 'messageReaction')).toHaveLength(0);
+  });
+
+  test('a missing message is refused without using the client room id', async () => {
+    mockPrisma.message.findUnique.mockResolvedValue(null);
+    const { handlers, local } = await connect();
+    await handlers.addReaction({ messageId: 'missing', emoji: 'x', roomId: ROOM });
+    expect(checkChatPermission).not.toHaveBeenCalled();
+    expect(local.find((l) => l.event === 'error').payload).toBe('Unauthorized access to room');
+    expect(mockPrisma.reaction.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('message handler rechecks a closed account', () => {
+  async function captureDisconnects(run) {
+    const calls = [];
+    const original = io.in.bind(io);
+    const spy = jest.spyOn(io, 'in').mockImplementation((room) => {
+      const op = original(room);
+      const disconnectSockets = op.disconnectSockets.bind(op);
+      op.disconnectSockets = (close) => {
+        calls.push([String(room), close]);
+        return disconnectSockets(close);
+      };
+      return op;
+    });
+    try {
+      await run();
+    } finally {
+      spy.mockRestore();
+    }
+    return calls;
+  }
+
+  test('a banned sender is refused and their sockets are closed', async () => {
+    mockGetClerkUserCached.mockResolvedValue({ privateMetadata: { isBanned: true } });
+    const { handlers, local, socket } = await connect();
+    const calls = await captureDisconnects(() => handlers.message({ text: 'hello', roomId: ROOM, tempId: 'ban1' }));
+    const failed = local.find((l) => l.event === 'messageFailed');
+    expect(failed.payload).toMatchObject({ code: 'UNAUTHORIZED', retryable: false });
+    expect(calls).toEqual([[`user_${ME}`, true]]);
+    expect(socket.disconnectArgs).toEqual([true]);
+    expect(mockPrisma.message.create).not.toHaveBeenCalled();
+    expect(mockIsAccountDeleted).not.toHaveBeenCalled();
+  });
+
+  test('a deleted account is refused the same way', async () => {
+    mockIsAccountDeleted.mockResolvedValue(true);
+    const { handlers, local, socket } = await connect();
+    const calls = await captureDisconnects(() => handlers.message({ text: 'hello', roomId: ROOM, tempId: 'del1' }));
+    expect(local.find((l) => l.event === 'messageFailed').payload).toMatchObject({ code: 'UNAUTHORIZED', retryable: false });
+    expect(calls).toEqual([[`user_${ME}`, true]]);
+    expect(socket.disconnectArgs).toEqual([true]);
     expect(mockPrisma.message.create).not.toHaveBeenCalled();
   });
 });

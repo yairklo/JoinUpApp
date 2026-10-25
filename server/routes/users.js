@@ -59,6 +59,7 @@ const { SPORT_KEYS } = require('../utils/sports');
 const { sanitizeFreeText } = require('../utils/sanitize');
 const { isBlockedEitherWay, getBlockedEitherWayIds, getBlockedByMe } = require('../utils/blocks');
 const { revokePresenceSubscriptions } = require('../utils/presenceAuth');
+const { disconnectUserSockets } = require('../utils/socketChatRooms');
 const crypto = require('crypto');
 
 // After a decline the same requester must wait before asking the same person again, so a declined
@@ -545,6 +546,7 @@ router.delete('/:id/block', authenticateToken, async (req, res) => {
 // (e.g. Clerk unreachable) can simply be retried by the user.
 router.delete('/me', authenticateToken, async (req, res) => {
   const userId = String(req.user.id);
+  let wiped = false;
   try {
     const existing = await prisma.user.findUnique({ where: { id: userId }, select: { imageUrl: true } });
     if (existing) {
@@ -594,6 +596,7 @@ router.delete('/me', authenticateToken, async (req, res) => {
           },
         }),
       ]);
+      wiped = true;
       if (existing.imageUrl) {
         try { await deleteUploadedFile(existing.imageUrl); } catch (_) { /* best effort */ }
       }
@@ -606,8 +609,12 @@ router.delete('/me', authenticateToken, async (req, res) => {
       if (!(e && (e.status === 404 || e.errors?.[0]?.code === 'resource_not_found'))) throw e;
     }
     if (typeof invalidateClerkUser === 'function') invalidateClerkUser(userId);
+    disconnectUserSockets(req.app.get('io'), userId);
     res.json({ ok: true });
   } catch (error) {
+    // The tombstone is already committed. Close live sockets even when Clerk deletion
+    // still needs a retry.
+    if (wiped) disconnectUserSockets(req.app.get('io'), userId);
     console.error('Delete account error:', error);
     res.status(500).json({ error: 'Failed to delete account' });
   }

@@ -9,6 +9,7 @@ const { canAddMember, validateRoster } = require('../shared/tournament/rosterRul
 const { getAgeInJerusalem, ADULT_AGE } = require('../shared/ageGate');
 const { publicDisplayName } = require('../utils/publicName');
 const { getTournamentRole, hasRoleAtLeast } = require('../utils/tournamentAccess');
+const { leaveUserChatRoom } = require('../utils/socketChatRooms');
 
 const HELD = ['APPROVED', 'PENDING']; // statuses that occupy one of the maxTeams spots
 const DEAD_TEAM = ['REJECTED', 'WITHDRAWN'];
@@ -372,8 +373,8 @@ async function updateMember(user, tournamentId, teamId, targetId, body) {
   return memberOf(prisma, row.id);
 }
 
-async function removeMember(user, tournamentId, teamId, targetId) {
-  return prisma.$transaction(async (tx) => {
+async function removeMember(user, tournamentId, teamId, targetId, io) {
+  const result = await prisma.$transaction(async (tx) => {
     await lockTournament(tx, tournamentId);
     const t = await loadTournament(tx, tournamentId);
     const team = await loadTeam(tx, tournamentId, teamId);
@@ -387,11 +388,15 @@ async function removeMember(user, tournamentId, teamId, targetId) {
     if (!row) throw err(404, 'MEMBER_NOT_FOUND', 'Member not found');
     await tx.tournamentTeamMember.update({ where: { id: row.id }, data: { status: 'REMOVED' } });
     const stillRole = await tx.tournamentRole.findFirst({ where: { tournamentId, userId: targetId } });
+    let leftChat = false;
     if (row.status === 'ACCEPTED' && !stillRole) {
       await tx.chatParticipant.deleteMany({ where: { chatId: tournamentId, userId: targetId } });
+      leftChat = true;
     }
-    return { ok: true, t, team, wasAccepted: row.status === 'ACCEPTED' };
+    return { ok: true, t, team, wasAccepted: row.status === 'ACCEPTED', leftChat };
   });
+  if (result.leftChat) leaveUserChatRoom(io, targetId, tournamentId);
+  return result;
 }
 
 async function decideTeam(user, tournamentId, teamId, decision) {

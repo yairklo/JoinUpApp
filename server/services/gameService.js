@@ -90,6 +90,7 @@ async function sendAutoWelcomeMessage(game, newPlayerId) {
 }
 
 const { prisma } = require('../lib/prisma');
+const { leaveChatMemberships } = require('../utils/socketChatRooms');
 const { notificationName, publicDisplayName } = require('../utils/publicName');
 const { getAgeInJerusalem } = require('../shared/ageGate');
 const notificationService = new NotificationService(prisma);
@@ -2065,6 +2066,13 @@ async function deleteGame(gameId, userId, isAdmin, io) {
     throw httpError('Only organizer or admin can delete game', 403);
   }
 
+  const chatIds = [gameId];
+  if (game.managerPickChatId) chatIds.push(game.managerPickChatId);
+  const removedChatMembers = await prisma.chatParticipant.findMany({
+    where: { chatId: { in: chatIds } },
+    select: { userId: true, chatId: true },
+  });
+
   await prisma.$transaction([
     prisma.playerTrade.deleteMany({ where: { gameId } }),
     prisma.participation.deleteMany({ where: { gameId } }),
@@ -2082,6 +2090,7 @@ async function deleteGame(gameId, userId, isAdmin, io) {
   ]);
 
   if (io) {
+    leaveChatMemberships(io, removedChatMembers);
     io.emit('game:deleted', { gameIds: [gameId] });
 
     if (game.seriesId) {
