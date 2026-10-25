@@ -209,14 +209,24 @@ describe('Q-02: friends-only game details for logged-out and outsider viewers', 
     expect(res.body.managers).toEqual([]);
   }
 
-  test('logged-out requests are rejected with 401 and carry no game data', async () => {
-    for (const url of [`/api/games/${game.id}`, `/api/games/${publicGame.id}`, `/api/games/${game.id}/roles`]) {
+  test('logged-out requests for the friends-only game and roles are rejected with 401 and carry no game data', async () => {
+    for (const url of [`/api/games/${game.id}`, `/api/games/${game.id}/roles`]) {
       const res = await request(app).get(url);
       expect(res.statusCode).toBe(401);
       const raw = JSON.stringify(res.body);
       expect(raw).not.toContain('qp_g_');
       expect(raw).not.toContain(EMAIL);
     }
+  });
+
+  test('a logged-out request for the public game gets the sanitized guest view (no minors, no email)', async () => {
+    const res = await request(app).get(`/api/games/${publicGame.id}`);
+    expect(res.statusCode).toBe(200);
+    const raw = JSON.stringify(res.body);
+    expect(raw).not.toContain(EMAIL);
+    expect(raw).not.toContain('qp_g_minor');
+    expect(raw).not.toContain('Kid QA');
+    expect(res.body.confirmedCount).toBe(3); // counts still include the hidden minor
   });
 
   test('a logged-in outsider gets no roster, no minors, no email, no address', async () => {

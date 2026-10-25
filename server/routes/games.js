@@ -216,7 +216,9 @@ router.get('/:id/ratings', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/:id', authenticateToken, async (req, res) => {
+// Public games are viewable signed-out (shared links); getGameById returns a sanitized guest
+// view, and a friends-only game asks a guest to sign in (401 SIGN_IN_REQUIRED).
+router.get('/:id', attachOptionalUser, async (req, res) => {
   try {
     res.json(await getGameById(req.params.id, req.user?.id, { isAdmin: !!req.user?.isAdmin }));
   } catch (error) {
