@@ -9,6 +9,7 @@ declare module "next-pwa" {
     disable?: boolean;
     register?: boolean;
     skipWaiting?: boolean;
+    buildExcludes?: Array<RegExp | string>;
   }
 
   type WithPWA = (nextConfig: NextConfig) => NextConfig;

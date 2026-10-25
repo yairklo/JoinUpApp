@@ -1376,7 +1376,10 @@ router.delete('/:id/friends/:friendId', authenticateToken, async (req, res) => {
   try {
     if (req.params.id !== req.user.id) return res.status(403).json({ error: 'Access denied' });
     const [a, b] = orderPair(req.user.id, req.params.friendId);
-    await prisma.friendship.delete({ where: { userAId_userBId: { userAId: a, userBId: b } } });
+    // delete() throws P2025 when no row matches, and this handler turned that into 500.
+    // deleteMany reports a count so "not friends" is a 404 (concurrent unfriend included).
+    const removed = await prisma.friendship.deleteMany({ where: { userAId: a, userBId: b } });
+    if (removed.count === 0) return res.status(404).json({ error: 'Not friends' });
     await revokePresenceSubscriptions(req.app.get('io'), req.user.id, req.params.friendId)
       .catch((e) => console.error('[presence] revoke after unfriend failed:', e.message));
     res.json({ ok: true });
