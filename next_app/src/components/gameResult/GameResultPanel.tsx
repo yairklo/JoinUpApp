@@ -22,6 +22,7 @@ import Avatar from "@/components/Avatar";
 import { getSportTheme } from "@/utils/sports";
 import { OUTCOME_LABEL_HE, formatStatParts, groupStatsBySide, scoreAriaLabel } from "@/utils/matchResultFormat";
 import type { GameResultData, GameResultRosterPlayer, GameResultSide } from "@/types/matchResult";
+import EveningSummaryLines from "./EveningSummaryLines";
 import { outcomeSx, swatchSx } from "./outcomeSx";
 
 export interface ResultTeam {
@@ -363,7 +364,7 @@ function StatsBlock({ result, roster, teams }: { result: GameResultData; roster:
   );
 }
 
-function EveningBoard({ result, roster }: { result: GameResultData; roster: GameResultRosterPlayer[] }) {
+function EveningBoard({ result, roster, sport }: { result: GameResultData; roster: GameResultRosterPlayer[]; sport: string }) {
   const rounds = result.rounds || [];
   const summary = result.summary;
   const nameOf = (id: string) => roster.find((p) => p.userId === id)?.name || "שחקן";
@@ -387,19 +388,7 @@ function EveningBoard({ result, roster }: { result: GameResultData; roster: Game
         );
       })}
       {summary && (summary.teams.length > 0 || summary.players.length > 0) && (
-        <Box data-testid="evening-summary" sx={{ p: 1.5, borderRadius: 2, bgcolor: "action.hover" }}>
-          <Typography variant="subtitle2" fontWeight={800} mb={0.5}>סיכום הערב</Typography>
-          {summary.teams.map((t) => (
-            <Typography key={t.teamId || t.label} variant="body2">
-              {t.label}: {t.wins} נ׳ · {t.draws} ת׳ · {t.losses} ה׳ · {t.goalsFor}:{t.goalsAgainst}
-            </Typography>
-          ))}
-          {summary.players.map((p) => (
-            <Typography key={p.userId} variant="body2" color="text.secondary">
-              {nameOf(p.userId)}: {p.wins}–{p.draws}–{p.losses}{p.goals ? ` · ${p.goals} שערים` : ""}
-            </Typography>
-          ))}
-        </Box>
+        <EveningSummaryLines testId="evening-summary" summary={summary} sport={sport} nameOf={nameOf} />
       )}
     </Stack>
   );
@@ -518,7 +507,7 @@ export default function GameResultPanel(props: GameResultPanelProps) {
       </Stack>
 
       {(result.rounds?.length ?? 0) > 1 ? (
-        <EveningBoard result={result} roster={roster} />
+        <EveningBoard result={result} roster={roster} sport={sport} />
       ) : (
         <>
           <Scoreboard sides={result.sides} teams={teams} />

@@ -111,6 +111,23 @@ export function setEveningLineupMode(
   roster?: EveningRosterPerson[],
 ): EveningForm;
 export function eveningFormErrors(form: EveningForm): EveningFormError[];
+
+export type EveningSummaryLang = 'he' | 'en';
+
+/** "שער אחד" / "נקודה אחת" when the count is 1; "2 שערים" otherwise. */
+export function formatEveningCount(count: number, sport?: string | null, lang?: EveningSummaryLang): string;
+/** "1 נ׳ · 0 ת׳ · 1 ה׳" (or W/D/L in English). */
+export function formatEveningRecord(wins: number, draws: number, losses: number, lang?: EveningSummaryLang): string;
+export function formatEveningSummary(input?: {
+  teams?: Array<Pick<EveningTeamStanding, 'teamId' | 'label' | 'wins' | 'draws' | 'losses' | 'goalsFor' | 'goalsAgainst'>>;
+  players?: Array<Pick<EveningPlayerStanding, 'userId' | 'wins' | 'draws' | 'losses' | 'goals'> & { name?: string }>;
+  sport?: string | null;
+  lang?: EveningSummaryLang;
+}): {
+  legend: string;
+  teams: Array<{ key: string; line: string }>;
+  players: Array<{ key: string; line: string }>;
+};
 export function toEveningResultBody(form: EveningForm): {
   lineupMode: ResultLineupMode;
   notes: string | null;

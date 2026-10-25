@@ -14,6 +14,7 @@ import TextField from "@mui/material/TextField";
 import Stack from "@mui/material/Stack";
 import Grid from "@mui/material/Grid"; // MUI v6 Grid
 import Autocomplete from "@mui/material/Autocomplete";
+import { AUTOCOMPLETE_COPY } from "@joinup/shared/autocompleteCopy";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import Switch from "@mui/material/Switch";
@@ -551,6 +552,7 @@ function NewGamePageInner() {
                         </Box>
                       ) : (
                         <Autocomplete
+                          {...AUTOCOMPLETE_COPY}
                           value={selectedField}
                           inputValue={fieldSearchInput}
                           onInputChange={(event, newInputValue) => setFieldSearchInput(newInputValue)}

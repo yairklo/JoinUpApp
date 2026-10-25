@@ -329,6 +329,8 @@ function validateRoundsInput(sport, body) {
   if (!Array.isArray(input.rounds) || input.rounds.length < 1 || input.rounds.length > MAX_ROUNDS) {
     throw toBadRequest('INVALID_ROUNDS', `Add between 1 and ${MAX_ROUNDS} rounds`);
   }
+  // Mode before side shape: two rounds and no lineupMode is LINEUP_MODE_REQUIRED
+  // even when a round is also missing its sides (that would be INVALID_SIDES later).
   const rawMode = input.lineupMode;
   if (rawMode != null && !LINEUP_MODES.has(rawMode)) {
     throw toBadRequest('LINEUP_MODE_REQUIRED', 'Choose fixed teams or rotating lineups');
@@ -646,6 +648,7 @@ module.exports = {
   isEligible,
   isLocked,
   validateResultInput,
+  validateRoundsInput,
   getGameResult,
   upsertGameResult,
   deleteGameResult,

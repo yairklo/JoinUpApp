@@ -5,6 +5,9 @@ const {
   toEveningResultBody,
   eveningFormErrors,
   initEveningForm,
+  formatEveningCount,
+  formatEveningRecord,
+  formatEveningSummary,
 } = require('./eveningSummary');
 
 const teams = [
@@ -114,6 +117,36 @@ describe('suggestNextRound winner stays', () => {
     expect(next.sides[0].players).toEqual([{ userId: 'p1', goals: 0 }]);
     expect(next.sides[1].players).toEqual([{ userId: 'p2', goals: 0 }]);
     expect(next.sides[0].score).toBe(0);
+  });
+});
+
+describe('formatEveningSummary', () => {
+  test('one goal is שער אחד and other counts keep the plural', () => {
+    expect(formatEveningCount(1, 'SOCCER')).toBe('שער אחד');
+    expect(formatEveningCount(0, 'SOCCER')).toBe('0 שערים');
+    expect(formatEveningCount(2, 'SOCCER')).toBe('2 שערים');
+    expect(formatEveningCount(1, 'BASKETBALL')).toBe('נקודה אחת');
+    expect(formatEveningCount(3, 'BASKETBALL')).toBe('3 נקודות');
+    expect(formatEveningCount(1, 'SOCCER', 'en')).toBe('1 goal');
+    expect(formatEveningCount(2, 'SOCCER', 'en')).toBe('2 goals');
+  });
+
+  test('editor preview and saved board share one record and a legend', () => {
+    const lines = formatEveningSummary({
+      sport: 'SOCCER',
+      teams: [{ teamId: 'A', label: 'אדומים', wins: 1, draws: 0, losses: 1, goalsFor: 1, goalsAgainst: 2 }],
+      players: [
+        { userId: 'p1', name: 'דני', wins: 1, draws: 1, losses: 1, goals: 1 },
+        { userId: 'p2', name: 'נועה', wins: 0, draws: 0, losses: 1, goals: 0 },
+      ],
+    });
+    expect(lines.legend).toBe('נ׳ ניצחון · ת׳ תיקו · ה׳ הפסד');
+    expect(formatEveningRecord(1, 0, 1)).toBe('1 נ׳ · 0 ת׳ · 1 ה׳');
+    expect(lines.teams[0].line).toBe('אדומים: 1 נ׳ · 0 ת׳ · 1 ה׳ · שער אחד · נגד 2 שערים');
+    expect(lines.players[0].line).toBe('דני: 1 נ׳ · 1 ת׳ · 1 ה׳ · שער אחד');
+    expect(lines.players[1].line).toBe('נועה: 0 נ׳ · 0 ת׳ · 1 ה׳');
+    expect(lines.players[0].line).not.toMatch(/שערים/);
+    expect(lines.teams[0].line).not.toMatch(/\d–\d–\d/);
   });
 });
 

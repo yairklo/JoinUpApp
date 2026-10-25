@@ -1,5 +1,6 @@
 "use client";
 import { createTheme, ThemeOptions } from "@mui/material/styles";
+import { AUTOCOMPLETE_COPY } from "@joinup/shared/autocompleteCopy";
 
 // ─── Soft, modern shadow scale (replaces harsh MUI defaults) ───
 const softShadows = [
@@ -112,6 +113,9 @@ const componentOverrides: ThemeOptions["components"] = {
       emptyLabelText: "ריק",
       getLabelText: (value: number) => `${value} ${value === 1 ? "כוכב" : "כוכבים"}`,
     },
+  },
+  MuiAutocomplete: {
+    defaultProps: { ...AUTOCOMPLETE_COPY },
   },
 };
 
