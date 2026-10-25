@@ -102,6 +102,31 @@ describe('Series permission checks reuse canManageSeries consistently', () => {
     expect(res.statusCode).toEqual(403);
   });
 
+  test('a manager cannot point the series image at an upload it does not own', async () => {
+    const res = await request(app)
+      .patch(`/api/series/${testSeries.id}`)
+      .set('Authorization', `Bearer ${mgrToken}`)
+      .send({ imageUrl: 'https://api.example.com/uploads/avatars/someone-else.jpg', updateFutureGames: false });
+
+    expect(res.statusCode).toEqual(400);
+    const after = await prisma.gameSeries.findUnique({ where: { id: testSeries.id }, select: { imageUrl: true } });
+    expect(after.imageUrl).toBeNull();
+  });
+
+  test('a manager can still clear the series image or set an external link', async () => {
+    const external = await request(app)
+      .patch(`/api/series/${testSeries.id}`)
+      .set('Authorization', `Bearer ${mgrToken}`)
+      .send({ imageUrl: 'https://images.example.com/cover.jpg', updateFutureGames: false });
+    expect(external.statusCode).toEqual(200);
+
+    const cleared = await request(app)
+      .patch(`/api/series/${testSeries.id}`)
+      .set('Authorization', `Bearer ${mgrToken}`)
+      .send({ imageUrl: null, updateFutureGames: false });
+    expect(cleared.statusCode).toEqual(200);
+  });
+
   test('a non-manager stranger still cannot edit series settings', async () => {
     const res = await request(app)
       .patch(`/api/series/${testSeries.id}`)
