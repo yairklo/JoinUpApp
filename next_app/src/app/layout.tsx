@@ -12,6 +12,7 @@ import ThemeRegistry from "@/components/theme/themeRegistry";
 import NotificationAsker from "@/components/NotificationAsker";
 import AgeGate from "@/components/AgeGate";
 import OfflineStatusToast from "@/components/OfflineStatusToast";
+import PwaCacheCleanup from "@/components/PwaCacheCleanup";
 
 import { ChatProvider } from "@/context/ChatContext";
 import FloatingChatWindow from "@/components/FloatingChatWindow";
@@ -92,6 +93,7 @@ export default function RootLayout({
                   <NotificationAsker />
                   <AgeGate />
                   <OfflineStatusToast />
+                  <PwaCacheCleanup />
                 </NotificationCountersProvider>
               </ChatProvider>
             </ThemeRegistry>
