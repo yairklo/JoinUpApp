@@ -266,6 +266,29 @@ function mapGameForClient(game, viewerId, { anonymous = false } = {}) {
   };
 }
 
+// Fields a signed-out viewer may see on a public game. An allow-list, so a field added to
+// mapGameForClient later stays hidden from guests until someone adds it here on purpose.
+const GUEST_GAME_FIELDS = [
+  'id', 'title', 'seriesId', 'fieldId', 'fieldName', 'fieldLocation', 'fieldImage', 'imageUrl',
+  'seriesImageUrl', 'joinPolicy', 'lotteryEnabled', 'lotteryAt', 'lotteryPending', 'overbooked',
+  'fieldLat', 'fieldLng', 'customLat', 'customLng', 'customLocation', 'start', 'date', 'time',
+  'duration', 'maxPlayers', 'teamSize', 'price', 'currentPlayers', 'totalSignups', 'confirmedCount',
+  'waitlistCount', 'description', 'isOpenToJoin', 'organizerId', 'sport', 'city',
+  'registrationOpensAt', 'status', 'membersOnlyPriority', 'guestRegistrationOpensAt',
+  'guestDescription', 'guestPrice',
+];
+
+/** Signed-out view of a public game: no contact data, chat ids, roles, teams or join internals. */
+function toGuestGameView(dto) {
+  const view = {};
+  for (const key of GUEST_GAME_FIELDS) {
+    if (dto[key] !== undefined) view[key] = dto[key];
+  }
+  // Adult confirmed players only (mapGameForClient already drops minors for anonymous viewers).
+  view.participants = (dto.participants || []).map((p) => ({ id: p.id, name: p.name, avatar: p.avatar }));
+  return view;
+}
+
 /** Slim Prisma select for map + list search — avoids nested user joins. */
 const SEARCH_GAME_SELECT = {
   id: true,
@@ -2311,6 +2334,14 @@ async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
   });
   if (!game) throw httpError('Game not found', 404);
 
+  // Signed-out viewers see public games only. A friends-only game (either link policy) asks them
+  // to sign in and reveals nothing about it; signed-in outsiders keep the 403 below.
+  if (!viewerId && (await getGameAccess(prisma, game, null, { isAdmin })) !== 'FULL') {
+    const err = httpError('Sign in to view this game', 401);
+    err.code = 'SIGN_IN_REQUIRED';
+    throw err;
+  }
+
   // The draw timer was missed (process down at lotteryAt). Same lazy path as POST /join:
   // drawLottery holds lockGameRow, re-checks lotteryExecutedAt, and is a no-op if another
   // GET or join already claimed the draw. A throw or a draw that outlives the wait does not
@@ -2351,6 +2382,7 @@ async function getGameById(gameId, viewerId, { isAdmin = false } = {}) {
   // Per-viewer response: an outsider sees the game as approval-gated, so the existing
   // "request to join" UI kicks in on web and mobile.
   const dto = applyViewerAccess(mapGameForClient(game, viewerId, { anonymous: !viewerId }), access);
+  if (!viewerId) return toGuestGameView(dto);
   // Members-only priority: clients show the guest info / "guests open at" hint to non-members only.
   if (game.membersOnlyPriority) {
     dto.viewerIsInsider = await isGameInsider(prisma, game, viewerId, { isAdmin });
@@ -2403,6 +2435,7 @@ module.exports = {
   isSeriesSlotConflict,
   SERIES_SLOT_CONFLICT_MESSAGE,
   mapGameForClient,
+  toGuestGameView,
   loadGameForImageEdit,
   SEARCH_GAME_SELECT,
   mapGameForSearchClient,
