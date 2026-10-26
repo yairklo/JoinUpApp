@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin, InfoWindow, useMap } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
+import Box from "@mui/material/Box";
 import { isGeolocationPermissionGranted } from "@/utils/geolocation";
 import MapAddressSearch from "@/components/MapAddressSearch";
 
@@ -108,10 +109,10 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
   }, [fields]);
 
   if (!GOOGLE_MAPS_API_KEY) {
-    return <div style={{ color: "#64748b", fontSize: 14 }}>מפה לא זמינה כרגע.</div>;
+    return <Box sx={{ color: "text.secondary", fontSize: 14 }}>מפה לא זמינה כרגע.</Box>;
   }
 
-  if (!userLocation) return <div style={{ color: "#64748b", fontSize: 14 }}>טוען מפה…</div>;
+  if (!userLocation) return <Box sx={{ color: "text.secondary", fontSize: 14 }}>טוען מפה…</Box>;
 
   return (
     <div style={{ width: "100%", height: 450, position: "relative" }}>
@@ -134,9 +135,9 @@ export default function MapComponent({ onSelect, pickMode, picked, onPick }: Map
           {pickMode ? <PickLocationLayer picked={picked} onPick={onPick} /> : null}
         </GoogleMap>
       </APIProvider>
-      {loading ? <div style={{ color: "#64748b", fontSize: 13, marginTop: 8 }}>טוען מגרשים…</div> : null}
+      {loading ? <Box sx={{ color: "text.secondary", fontSize: 13, mt: 1 }}>טוען מגרשים…</Box> : null}
       {!loading && fieldMarkers.length === 0 ? (
-        <div style={{ color: "#64748b", fontSize: 13, marginTop: 8 }}>אין מגרשים עם מיקום להצגה.</div>
+        <Box sx={{ color: "text.secondary", fontSize: 13, mt: 1 }}>אין מגרשים עם מיקום להצגה.</Box>
       ) : null}
     </div>
   );

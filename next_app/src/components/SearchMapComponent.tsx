@@ -11,6 +11,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import Box from "@mui/material/Box";
+import { alpha } from "@mui/material/styles";
 import GlobalStyles from "@mui/material/GlobalStyles";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
@@ -146,14 +147,14 @@ export default function SearchMapComponent({
   }
 
   if (!GOOGLE_MAPS_API_KEY) {
-    return <div style={{ color: "#64748b", fontSize: 14, padding: 16 }}>מפה לא זמינה כרגע.</div>;
+    return <Box sx={{ color: "text.secondary", fontSize: 14, p: 2 }}>מפה לא זמינה כרגע.</Box>;
   }
 
   if (apiError) {
     return (
-      <div style={{ color: "#64748b", fontSize: 14, padding: 16, height: "100%" }}>
+      <Box sx={{ color: "text.secondary", fontSize: 14, p: 2, height: "100%" }}>
         המפה לא נטענה. אפשר להמשיך לחפש ברשימה.
-      </div>
+      </Box>
     );
   }
 
@@ -168,7 +169,7 @@ export default function SearchMapComponent({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            bgcolor: "rgba(248, 250, 252, 0.78)",
+            bgcolor: (t) => alpha(t.palette.background.default, 0.78),
             pointerEvents: "none",
           }}
         >
@@ -551,12 +552,36 @@ function ClusteredGameMarkers({
     }
   }, [hoveredGameId, groups]);
 
+  // The native InfoWindow auto-pan only keeps the bubble inside the map div and misses the
+  // left edge at narrow widths, so measure the rendered bubble and pan the remainder in.
+  const selectedKey = selectedGroup?.key ?? null;
+  useEffect(() => {
+    if (!map || !selectedKey) return;
+    const timer = setTimeout(() => {
+      try {
+        const div = map.getDiv();
+        const bubble = div.querySelector(".gm-style-iw-c");
+        if (!bubble) return;
+        const m = div.getBoundingClientRect();
+        const b = bubble.getBoundingClientRect();
+        const pad = 16;
+        const dx = b.left < m.left + pad ? b.left - (m.left + pad) : b.right > m.right - pad ? b.right - (m.right - pad) : 0;
+        const dy = b.top < m.top + pad ? b.top - (m.top + pad) : b.bottom > m.bottom - pad ? b.bottom - (m.bottom - pad) : 0;
+        if (dx || dy) map.panBy(dx, dy);
+      } catch (e) {
+        console.warn("[SearchMap] popup panBy failed:", e);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [map, selectedKey]);
+
   if (!selectedGroup) return null;
 
   return (
     <InfoWindow
       position={{ lat: selectedGroup.lat, lng: selectedGroup.lng }}
       onCloseClick={() => setSelectedGroup(null)}
+      disableAutoPan={false}
       headerDisabled
       minWidth={252}
       maxWidth={300}
