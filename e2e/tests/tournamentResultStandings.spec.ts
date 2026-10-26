@@ -11,9 +11,12 @@ test.describe("Tournament match result entry and standings update", () => {
   const tournamentId = process.env.DEV_TOURNAMENT_ID || "cmvjad6r3000gqe0iifmjp349";
   const matchId = process.env.DEV_MATCH_ID || "aadf456d-ce2f-472b-8d7a-5a4d6f35737b";
   const organizerEmail = "organizer-o+clerk_test@example.com";
-  const participantEmail = "adult-a+clerk_test@example.com";
+  // Tournaments are gated (tournamentsPublic off by default), so the second viewer must be someone the
+  // gate lets in: the organizer holds a TournamentRole. Override with an admin / TOURNAMENT_CREATOR_IDS
+  // account via DEV_VIEWER_EMAIL. The spec never touches the tournamentsPublic switch.
+  const viewerEmail = process.env.DEV_VIEWER_EMAIL || organizerEmail;
 
-  test("organizer enters match result -> participant sees it -> tournament standings update", async ({
+  test("organizer enters match result -> viewer sees it -> tournament standings update", async ({
     page,
   }) => {
     // 1. Organizer signs in
@@ -38,11 +41,11 @@ test.describe("Tournament match result entry and standings update", () => {
     // 6. Verify sheet closes or toast/update appears
     await expect(page.getByTestId("tournament-page")).toBeVisible();
 
-    // 7. Organizer signs out and participant signs in
+    // 7. Organizer signs out and the viewer signs in (a fresh session)
     await signOut(page);
-    await signIn(page, participantEmail);
+    await signIn(page, viewerEmail);
 
-    // 8. Participant navigates to the tournament standings tab
+    // 8. Viewer navigates to the tournament standings tab
     await page.goto(`/tournaments/${tournamentId}?tab=standings`);
     await expect(page.getByTestId("tournament-page")).toBeVisible();
 
