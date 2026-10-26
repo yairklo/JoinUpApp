@@ -31,18 +31,22 @@ function UserMenu() {
 
   return (
     <>
-      <IconButton
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-        aria-label="פתח תפריט משתמש"
-        aria-haspopup="menu"
-        aria-expanded={!!anchorEl}
-        size="small"
-        sx={{ p: 0.25 }}
-      >
-        <Badge badgeContent={friendRequests} color="error">
+      <Badge badgeContent={friendRequests} color="error" overlap="circular">
+        <IconButton
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          aria-label={
+            friendRequests > 0
+              ? `פתח תפריט משתמש, ${friendRequests} בקשות חברות ממתינות`
+              : "פתח תפריט משתמש"
+          }
+          aria-haspopup="menu"
+          aria-expanded={!!anchorEl}
+          size="small"
+          sx={{ p: 0.25 }}
+        >
           <Avatar src={avatarUrl} name={name} alt={name} size="md" />
-        </Badge>
-      </IconButton>
+        </IconButton>
+      </Badge>
       <Menu anchorEl={anchorEl} open={!!anchorEl} onClose={close}>
         <MenuItem component={Link} href="/profile" onClick={close}>
           <ListItemIcon><PersonOutlineIcon fontSize="small" /></ListItemIcon>

@@ -62,7 +62,7 @@ export default function BottomNav() {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(5, 1fr)",
           alignItems: "center",
           height: 64,
           maxWidth: 480,
@@ -154,6 +154,8 @@ export default function BottomNav() {
             </Box>
           );
         })}
+        {/* Keeps the FAB in the exact center of the 5 equal slots */}
+        <Box aria-hidden />
       </Box>
     </Box>
   );
