@@ -16,15 +16,12 @@ import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import StadiumRoundedIcon from "@mui/icons-material/StadiumRounded";
 import StadiumOutlinedIcon from "@mui/icons-material/StadiumOutlined";
-import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
-import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 
 const ITEMS = [
   { href: "/games", label: "בית", icon: HomeOutlinedIcon, activeIcon: HomeRoundedIcon },
   { href: "/search", label: "מפה", icon: MapOutlinedIcon, activeIcon: MapRoundedIcon },
   { href: "/games/new", label: "", icon: AddRoundedIcon, activeIcon: AddRoundedIcon, fab: true },
   { href: "/fields", label: "מגרשים", icon: StadiumOutlinedIcon, activeIcon: StadiumRoundedIcon },
-  { href: "/profile", label: "פרופיל", icon: PersonOutlineRoundedIcon, activeIcon: PersonRoundedIcon },
 ];
 
 export default function BottomNav() {
@@ -65,7 +62,7 @@ export default function BottomNav() {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
+          gridTemplateColumns: "repeat(4, 1fr)",
           alignItems: "center",
           height: 64,
           maxWidth: 480,
