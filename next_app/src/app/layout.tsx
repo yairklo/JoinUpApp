@@ -31,6 +31,11 @@ const heebo = Heebo({
   display: "swap",
 });
 
+// Bump when the brand icons change: icons are cached for a week (next.config.ts headers) and the
+// service worker serves static images stale-while-revalidate, so a new query string is what forces
+// every client to fetch the new files. Keep in sync with the icon `src` query strings in public/manifest.json.
+const ICON_VERSION = "brand2";
+
 export const viewport: Viewport = {
   themeColor: "#047857",
   width: "device-width",
@@ -45,11 +50,12 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/icons/favicon.ico" },
-      { url: "/icons/favicon.svg", type: "image/svg+xml" },
-      { url: "/icons/favicon-96x96.png", sizes: "96x96", type: "image/png" }
+      { url: `/icons/favicon.ico?v=${ICON_VERSION}`, sizes: "16x16 32x32 48x48" },
+      { url: `/icons/favicon.svg?v=${ICON_VERSION}`, type: "image/svg+xml" },
+      { url: `/icons/favicon-32x32.png?v=${ICON_VERSION}`, sizes: "32x32", type: "image/png" },
+      { url: `/icons/favicon-96x96.png?v=${ICON_VERSION}`, sizes: "96x96", type: "image/png" }
     ],
-    apple: "/icons/apple-touch-icon.png",
+    apple: `/icons/apple-touch-icon.png?v=${ICON_VERSION}`,
   },
   appleWebApp: {
     capable: true,
@@ -71,7 +77,7 @@ export default function RootLayout({
     >
       <html lang="he" dir="rtl">
         <head>
-          <link rel="icon" href="/favicon.svg" />
+          <link rel="icon" href={`/favicon.svg?v=${ICON_VERSION}`} type="image/svg+xml" />
         </head>
         <body className={heebo.variable}>
           <ClerkDevKeyGuard />
