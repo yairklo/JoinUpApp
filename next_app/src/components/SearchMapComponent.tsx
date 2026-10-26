@@ -11,6 +11,7 @@ import {
 } from "@vis.gl/react-google-maps";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import Box from "@mui/material/Box";
+import GlobalStyles from "@mui/material/GlobalStyles";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
@@ -197,6 +198,15 @@ export default function SearchMapComponent({
           </Typography>
         </Box>
       )}
+      <GlobalStyles
+        styles={(t) => ({
+          ".gm-style .gm-style-iw-c": {
+            backgroundColor: t.palette.background.paper,
+            color: t.palette.text.primary,
+          },
+          ".gm-style .gm-style-iw-tc::after": { background: t.palette.background.paper },
+        })}
+      />
       <APIProvider
         apiKey={GOOGLE_MAPS_API_KEY}
         language="he"
@@ -552,7 +562,7 @@ function ClusteredGameMarkers({
       maxWidth={300}
       pixelOffset={[0, -10]}
     >
-      <Box sx={{ p: 1.5 }}>
+      <Box sx={{ p: 1.5, bgcolor: "background.paper", color: "text.primary" }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1.25 }}>
           <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
             <PlaceRoundedIcon sx={{ fontSize: 18, color: "primary.main", flexShrink: 0 }} />
@@ -669,7 +679,7 @@ function EmptyFieldMarker({ field }: { field: any }) {
           maxWidth={260}
           pixelOffset={[0, -10]}
         >
-          <Box sx={{ p: 1.5, textAlign: "center", position: "relative" }}>
+          <Box sx={{ p: 1.5, textAlign: "center", position: "relative", bgcolor: "background.paper", color: "text.primary" }}>
             <IconButton
               size="small"
               onClick={() => setOpen(false)}
