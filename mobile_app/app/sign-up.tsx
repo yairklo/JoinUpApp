@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { OAuth } from "@/components/OAuth";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { appAlert } from '@/i18n/appAlert'
+import BrandLogo from '@/components/BrandLogo'
 
 export default function SignUpScreen() {
     const { t } = useTranslation()
@@ -78,8 +79,8 @@ export default function SignUpScreen() {
                     {!pendingVerification ? (
                         <View className="flex-1 justify-center py-10">
                             <View className="items-center mb-10">
-                                <View className="w-16 h-16 bg-brand rounded-2xl items-center justify-center shadow-lg shadow-brand-pale mb-6">
-                                    <Text className="text-white text-3xl font-black">J</Text>
+                                <View className="mb-6">
+                                    <BrandLogo variant="symbol" height={64} mode="light" />
                                 </View>
                                 <Text className="text-4xl font-black text-gray-900 mb-2">{t('auth.createAccount', 'Create Account')}</Text>
                                 <Text className="text-gray-500 font-medium text-lg">{t('auth.joinCommunity', 'Join the JoinUp community!')}</Text>
