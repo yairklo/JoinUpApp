@@ -24,7 +24,7 @@ export default function ReplyPreview({ message, onCancel }: ReplyPreviewProps) {
                     {message.text || message.content}
                 </Text>
             </View>
-            <TouchableOpacity onPress={onCancel} className="p-1">
+            <TouchableOpacity onPress={onCancel} className="p-1" accessibilityRole="button" accessibilityLabel={t('chat.cancelReply', 'ביטול תשובה')}>
                 <Ionicons name="close-circle" size={20} color="#9ca3af" />
             </TouchableOpacity>
         </View>

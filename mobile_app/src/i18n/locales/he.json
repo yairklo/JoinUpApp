@@ -407,6 +407,11 @@
   "chat": {
     "message": "הודעה...",
     "send": "שלח",
+    "back": "חזרה",
+    "cancelReply": "ביטול תשובה",
+    "cancelEdit": "ביטול עריכה",
+    "emojiPicker": "הוסף אימוג׳י",
+    "reactWith": "הגב ב-{{emoji}}",
     "options": "אפשרויות הודעה",
     "reply": "השב",
     "delete": "מחק",

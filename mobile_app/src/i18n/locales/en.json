@@ -407,6 +407,11 @@
   "chat": {
     "message": "Message...",
     "send": "Send",
+    "back": "Back",
+    "cancelReply": "Cancel reply",
+    "cancelEdit": "Cancel editing",
+    "emojiPicker": "Add emoji",
+    "reactWith": "React with {{emoji}}",
     "options": "Message Options",
     "reply": "Reply",
     "delete": "Delete",

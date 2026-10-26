@@ -713,7 +713,7 @@ export default function ProfilePage() {
                       </Grid>
                       {/* Sports Editing */}
                       <Grid size={12}>
-                        <Typography variant="subtitle2" gutterBottom>ספורט ועמדות</Typography>
+                        <Typography variant="subtitle2" component="h2" gutterBottom>ספורט ועמדות</Typography>
                         <Stack spacing={2}>
                           {form.sportsData.map((s) => {
                             // Using simplified logic assuming s.sportId is the key (or even if it is ID, we show it if not in mapping)
