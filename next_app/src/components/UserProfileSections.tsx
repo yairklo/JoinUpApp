@@ -97,7 +97,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
             {/* Groups (recurring series) the user belongs to; absent when hidden */}
             {groups.length > 0 && (
                 <Box mb={4}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    <Typography variant="h6" component="h2" fontWeight="bold" gutterBottom>
                         קבוצות
                     </Typography>
                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -121,7 +121,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
             {/* Friends */}
             {showFriends && (
                 <Box mb={4}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    <Typography variant="h6" component="h2" fontWeight="bold" gutterBottom>
                         חברים
                     </Typography>
                     {profile.friends!.length === 0 ? (
@@ -151,7 +151,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
             {/* Match history */}
             {showHistory && (
                 <Box mb={2}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    <Typography variant="h6" component="h2" fontWeight="bold" gutterBottom>
                         היסטוריית משחקים
                     </Typography>
 
@@ -179,7 +179,7 @@ export default function UserProfileSections({ userId }: { userId: string }) {
                                 const emoji = m.sport ? SPORT_EMOJI[m.sport] || "🏅" : "🏅";
                                 return (
                                     <Link key={m.id} href={`/games/${m.id}`} style={{ textDecoration: "none" }}>
-                                        <Card variant="outlined" sx={{ borderRadius: 2 }}>
+                                        <Card variant="outlined" sx={(t) => ({ borderRadius: 2, ...(t.palette.mode === "light" && { border: "none", bgcolor: "action.hover" }) })}>
                                             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
                                                 <Stack direction="row" alignItems="center" spacing={1.5}>
                                                     <SportsSoccerIcon color="primary" fontSize="small" />

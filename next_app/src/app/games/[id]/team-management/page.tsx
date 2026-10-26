@@ -6,7 +6,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Link from "next/link";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import LiveTeamManagement from "@/components/LiveTeamManagement";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
@@ -53,7 +53,7 @@ export default async function TeamManagementPage(props: {
     return (
       <Container sx={{ py: 4 }}>
         <Alert severity="warning">למנהלים בלבד — ניהול קבוצות חי אינו זמין לשחקנים.</Alert>
-        <Button component={Link} href={`/games/${id}`} sx={{ mt: 2 }} startIcon={<ArrowBackIcon />}>
+        <Button component={Link} href={`/games/${id}`} sx={{ mt: 2 }} startIcon={<ArrowForwardIcon />}>
           חזרה למשחק
         </Button>
       </Container>
@@ -64,7 +64,7 @@ export default async function TeamManagementPage(props: {
     <main>
       <Container maxWidth="lg" sx={{ py: { xs: 2, md: 3 } }}>
         <Box mb={2} display="flex" alignItems="center" gap={2}>
-          <Button component={Link} href={`/games/${id}`} startIcon={<ArrowBackIcon />} size="small">
+          <Button component={Link} href={`/games/${id}`} startIcon={<ArrowForwardIcon />} size="small">
             חזרה
           </Button>
           <Typography variant="h5" fontWeight={800}>

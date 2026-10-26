@@ -46,9 +46,9 @@ export default function GameListClient({ games }: { games: Game[] }) {
                 <div className="mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-xs text-[rgb(var(--fg)/0.8)]">
                   {g.currentPlayers}/{g.maxPlayers}
                 </div>
-                <div className="mt-1 text-xs text-[rgb(var(--fg)/0.65)]">Spots left: {capacityLeft}</div>
+                <div className="mt-1 text-xs text-[rgb(var(--fg)/0.65)]">מקומות פנויים: {capacityLeft}</div>
                 {g.lotteryEnabled && g.lotteryPending && g.overbooked ? (
-                  <div className="mt-1 text-[11px] text-amber-700">
+                  <div className="mt-1 text-xs text-amber-700">
                     ממתין להגרלה ב-{g.lotteryAt ? (formatHebrewWhen(g.lotteryAt) ?? "—") : "—"} • רשומים: {g.totalSignups ?? 0}
                   </div>
                 ) : null}
@@ -95,10 +95,10 @@ export default function GameListClient({ games }: { games: Game[] }) {
                           src={p.avatar}
                           alt={p.name || p.id}
                           className="w-full h-full object-cover block"
-                          fallback={<span className="text-[11px] font-semibold">{getInitials(p.name || '')}</span>}
+                          fallback={<span className="text-xs font-semibold">{getInitials(p.name || '')}</span>}
                         />
                       ) : (
-                        <span className="text-[11px] font-semibold">
+                        <span className="text-xs font-semibold">
                           {getInitials(p.name || '')}
                         </span>
                       )}

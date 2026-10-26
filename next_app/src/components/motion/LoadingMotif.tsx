@@ -261,7 +261,7 @@ export function BrandPulseMotif({ label }: MotifProps) {
               width: 52,
               height: 52,
               borderRadius: "50%",
-              background: "#059669",
+              background: "#047857",
             }}
             animate={reduced ? { opacity: 0.08, scale: 1 } : { scale: [0.7, 1.7], opacity: [0.28, 0] }}
             transition={reduced ? { duration: 0 } : { duration: 1.6, delay, ...LOOP, ease: "easeOut" }}

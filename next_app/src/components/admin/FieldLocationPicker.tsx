@@ -116,7 +116,7 @@ function PickerInner({ lat, lng, addressForGeocoding, onChange }: FieldLocationP
         >
           {hasPosition && (
             <AdvancedMarker position={position} draggable onDragEnd={handleMarkerDragEnd}>
-              <Pin background="#059669" borderColor="#047857" glyphColor="#fff" />
+              <Pin background="#047857" borderColor="#065f46" glyphColor="#fff" />
             </AdvancedMarker>
           )}
         </Map>

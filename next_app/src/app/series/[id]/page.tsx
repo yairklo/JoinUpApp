@@ -308,7 +308,7 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
 
                 {/* 2. Regulars List */}
                 <Grid size={{ xs: 12, md: 7 }}>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
+                    <Typography variant="h6" component="h2" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1}>
                         <GroupsIcon color="primary" />
                         חברי הקבוצה הקבועים ({series.subscribers.length})
                     </Typography>
