@@ -534,8 +534,10 @@ io.on('connection', async (socket) => {
     try {
       if (typeof tournamentId !== 'string' || !tournamentId) return;
       const { canViewTournament } = require('./utils/tournamentAccess');
-      const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+      const { canViewTournaments } = require('./utils/tournamentGate');
       const viewer = socket.userId ? { id: socket.userId, isAdmin: !!socket.data?.isAdmin } : null;
+      if (!(await canViewTournaments(viewer))) return;
+      const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
       if (t && (await canViewTournament(prisma, t, viewer))) socket.join(`tournament:${tournamentId}`);
     } catch (e) {
       console.warn('[socket] joinTournament failed:', e && e.message);

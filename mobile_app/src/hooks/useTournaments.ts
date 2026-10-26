@@ -8,10 +8,16 @@ import type { MyInvite, Tournament, TournamentFilters } from '@/types/tournament
  * unless `canCreate` (spec 0.8: hide, never disable). Signed-out or on error: `canCreate=false`.
  */
 export function useTournamentCapabilities() {
-    const q = useTournamentQuery('capabilities', (token, signal) => tournamentsApi.getCapabilities(token as string, { signal }), {
-        requireAuth: true,
-    });
-    return { canCreate: q.data?.canCreateTournaments === true, loading: q.loading, error: q.error, refetch: q.refetch };
+    const { isSignedIn } = useAuth();
+    // The answer depends on who is asking, so signing in/out must refetch.
+    const q = useTournamentQuery(`capabilities:${isSignedIn ? 'in' : 'out'}`, (token, signal) => tournamentsApi.getCapabilities(token, { signal }));
+    return {
+        canView: q.data?.canView === true,
+        canCreate: (q.data?.canCreate ?? q.data?.canCreateTournaments) === true,
+        loading: q.loading,
+        error: q.error,
+        refetch: q.refetch,
+    };
 }
 
 /**

@@ -3,6 +3,7 @@ const { prisma } = require('../lib/prisma');
 const { authenticateToken, clerkClient, invalidateClerkUser } = require('../utils/auth');
 const { disconnectUserSockets } = require('../utils/socketChatRooms');
 const { requireAdmin } = require('../utils/admin');
+const { getSetting, setSetting } = require('../utils/appSettings');
 const { deleteMessageFromChat } = require('../workers/reviewWorker');
 
 const router = express.Router();
@@ -493,6 +494,41 @@ router.post('/support-messages/:id/resolve', authenticateToken, requireAdmin, as
     }
     console.error('Resolve support message error:', error);
     res.status(500).json({ error: 'Failed to resolve support message' });
+  }
+});
+
+// App-wide switches. Only keys listed here are readable/writable.
+const SETTING_DEFAULTS = { tournamentsPublic: false };
+
+router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const out = {};
+    for (const [key, def] of Object.entries(SETTING_DEFAULTS)) out[key] = await getSetting(key, def);
+    res.json(out);
+  } catch (e) {
+    console.error('[admin] get settings failed:', e);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const body = req.body || {};
+    if (Object.prototype.hasOwnProperty.call(body, 'tournamentsPublic') && typeof body.tournamentsPublic !== 'boolean') {
+      return res.status(400).json({ error: 'tournamentsPublic must be a boolean' });
+    }
+    if (!Object.keys(SETTING_DEFAULTS).some((k) => Object.prototype.hasOwnProperty.call(body, k))) {
+      return res.status(400).json({ error: 'No known setting provided' });
+    }
+    for (const key of Object.keys(SETTING_DEFAULTS)) {
+      if (Object.prototype.hasOwnProperty.call(body, key)) await setSetting(key, body[key]);
+    }
+    const out = {};
+    for (const [key, def] of Object.entries(SETTING_DEFAULTS)) out[key] = await getSetting(key, def);
+    res.json(out);
+  } catch (e) {
+    console.error('[admin] put settings failed:', e);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

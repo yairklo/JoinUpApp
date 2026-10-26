@@ -13,7 +13,7 @@ const CARD_W = 280;
 
 /**
  * Home rail "Tournaments" (spec 1.1): the app's entry point to the tournaments list (no tab slot).
- * Renders only when relevant: the viewer can create tournaments, or at least one tournament exists.
+ * Renders only when the server lets this viewer into the feature (`canView`) and the viewer can create tournaments, or at least one tournament exists.
  * Up to 6 cards horizontally; the header link opens the full list.
  */
 export default function TournamentsSection() {
@@ -21,8 +21,9 @@ export default function TournamentsSection() {
     const router = useRouter();
     const lang: Lang = i18n.language?.startsWith('en') ? 'en' : 'he';
     const { tournaments } = useTournaments({ limit: RAIL_LIMIT });
-    const { canCreate } = useTournamentCapabilities();
+    const { canCreate, canView } = useTournamentCapabilities();
 
+    if (!canView) return null;
     if (tournaments.length === 0 && !canCreate) return null;
 
     return (

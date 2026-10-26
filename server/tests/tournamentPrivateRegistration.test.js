@@ -15,7 +15,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { app } = require('../index');
-const { prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
+const { openTournaments, prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
 
 const P = 'tpriv_';
 const ORG = `${P}org`;
@@ -43,6 +43,7 @@ const inChat = (tid, userId) => prisma.chatParticipant.findFirst({ where: { chat
 
 describe('private tournament registration and approved-only chat', () => {
   beforeAll(async () => {
+    await openTournaments();
     process.env.TOURNAMENT_CREATOR_IDS = ORG;
     await cleanup(P);
     const ids = [ORG, MGR, u(1), u(2), u(3), u(4)];

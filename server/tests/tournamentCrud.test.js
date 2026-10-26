@@ -13,7 +13,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { app } = require('../index');
-const { prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
+const { openTournaments, prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
 
 const P = 'tcrud_';
 const ADMIN = `${P}admin`;
@@ -29,6 +29,7 @@ describe('tournaments CRUD, state machine, roles, visibility', () => {
   let t;
 
   beforeAll(async () => {
+    await openTournaments();
     process.env.TOURNAMENT_CREATOR_IDS = CREATOR;
     await cleanup(P);
     await ensureUsers([ADMIN, CREATOR, MGR, SCORER, PLAIN]);

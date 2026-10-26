@@ -13,7 +13,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { app } = require('../index');
-const { prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
+const { openTournaments, prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
 
 const P = 'tres_';
 const ORG = `${P}org`;
@@ -43,6 +43,7 @@ const fresh = async (id, matchId) => prisma.tournamentMatch.findUnique({ where: 
 
 describe('tournament results, advancement and views', () => {
   beforeAll(async () => {
+    await openTournaments();
     process.env.TOURNAMENT_CREATOR_IDS = ORG;
     await cleanup(P);
     await ensureUsers([ORG, MGR, SCORER, STRANGER]);

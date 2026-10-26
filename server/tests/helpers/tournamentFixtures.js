@@ -56,5 +56,14 @@ async function seedTeams(prefix, tournamentId, n, players = 2) {
   return teams;
 }
 
+/** Tournaments are admin-gated by default (tournamentsPublic=false); feature tests run with them open. */
+async function openTournaments() {
+  await prisma.appSetting.upsert({
+    where: { key: 'tournamentsPublic' },
+    update: { value: true },
+    create: { key: 'tournamentsPublic', value: true },
+  });
+}
+
 module.exports = {
-  seedTeams, prisma, ensureUsers, tournamentBody, cleanup };
+  openTournaments, seedTeams, prisma, ensureUsers, tournamentBody, cleanup };

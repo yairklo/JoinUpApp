@@ -34,11 +34,14 @@ function useLiveResource<T>(
     return { ...res, ...state };
 }
 
-/** Does the signed-in user get the "create tournament" entry points? (`false` while loading / signed out). */
-export function useTournamentCapabilities(): { canCreateTournaments: boolean; loading: boolean; error: ResourceState<unknown>['error']; reload: () => Promise<void> } {
-    const fetcher = useCallback((token: string | undefined) => tournamentsApi.capabilities(token as string), []);
-    const { data, loading, error, reload } = useResource(fetcher, { auth: 'required' });
-    return { canCreateTournaments: data?.canCreateTournaments === true, loading, error, reload };
+/**
+ * Feature visibility (`canView`: tournaments are public or the viewer is allowed in) and the "create tournament" entry
+ * points (`canCreateTournaments`). Both are `false` while loading; guests get `canView` = the public switch.
+ */
+export function useTournamentCapabilities(): { canView: boolean; canCreateTournaments: boolean; loading: boolean; error: ResourceState<unknown>['error']; reload: () => Promise<void> } {
+    const fetcher = useCallback((token: string | undefined) => tournamentsApi.capabilities(token), []);
+    const { data, loading, error, reload } = useResource(fetcher, { auth: 'optional' });
+    return { canView: data?.canView === true, canCreateTournaments: (data?.canCreate ?? data?.canCreateTournaments) === true, loading, error, reload };
 }
 
 /** Tournament summaries. `filters` is compared by value, so an inline object literal is fine. */
