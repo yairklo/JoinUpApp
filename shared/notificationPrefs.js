@@ -68,6 +68,36 @@ const SNOOZE_HOURS_OPTIONS = [1, 2, 4, 8, 24];
 /** hours; null = until unmuted */
 const MUTE_DURATION_OPTIONS = [8, 24 * 7, null];
 
+/** Game-reminder lead time: how long before kickoff the reminder goes out. Free value on a 5-minute grid. */
+const GAME_REMINDER_LEAD_MIN = 5;
+const GAME_REMINDER_LEAD_MAX = 48 * 60;
+const GAME_REMINDER_LEAD_STEP = 5;
+const GAME_REMINDER_LEAD_DEFAULT = 60;
+/** Quick-pick chips (minutes) */
+const GAME_REMINDER_LEAD_PRESETS = [15, 30, 60, 120, 1440];
+
+function isValidGameReminderLead(v) {
+  return Number.isInteger(v)
+    && v >= GAME_REMINDER_LEAD_MIN
+    && v <= GAME_REMINDER_LEAD_MAX
+    && v % GAME_REMINDER_LEAD_STEP === 0;
+}
+
+/** "45 minutes" / "2 hours 15 minutes" in words, for the lead-time picker. lang: 'he' | 'en'. */
+function describeLeadMinutes(minutes, lang) {
+  const total = Math.max(0, Math.round(Number(minutes) || 0));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (lang === 'en') {
+    const hs = h + (h === 1 ? ' hour' : ' hours');
+    const ms = m + (m === 1 ? ' minute' : ' minutes');
+    return h === 0 ? ms : m === 0 ? hs : hs + ' ' + ms;
+  }
+  const hs = h === 1 ? 'שעה' : h === 2 ? 'שעתיים' : h + ' שעות';
+  const ms = m === 1 ? 'דקה' : m + ' דקות';
+  return h === 0 ? ms : m === 0 ? hs : hs + ' ו-' + ms;
+}
+
 function minutesToHHMM(minutes) {
   const m = ((Number(minutes) % 1440) + 1440) % 1440;
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -91,6 +121,13 @@ module.exports = {
   QUICK_OFF_EXCLUDED_CATEGORIES,
   SNOOZE_HOURS_OPTIONS,
   MUTE_DURATION_OPTIONS,
+  GAME_REMINDER_LEAD_MIN,
+  GAME_REMINDER_LEAD_MAX,
+  GAME_REMINDER_LEAD_STEP,
+  GAME_REMINDER_LEAD_DEFAULT,
+  GAME_REMINDER_LEAD_PRESETS,
+  isValidGameReminderLead,
+  describeLeadMinutes,
   minutesToHHMM,
   HHMMToMinutes,
 };

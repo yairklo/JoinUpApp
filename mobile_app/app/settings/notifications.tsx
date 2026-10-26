@@ -10,6 +10,11 @@ import {
     NOTIFICATION_CATEGORIES,
     NOTIFICATION_CATEGORY_GROUPS,
     SNOOZE_HOURS_OPTIONS,
+    GAME_REMINDER_LEAD_MIN,
+    GAME_REMINDER_LEAD_MAX,
+    GAME_REMINDER_LEAD_STEP,
+    GAME_REMINDER_LEAD_PRESETS,
+    describeLeadMinutes,
     minutesToHHMM,
     type NotificationCategoryKey,
     type NotificationMute,
@@ -79,8 +84,40 @@ function Row({ icon, title, subtitle, right, onPress }: {
     return onPress ? <TouchableOpacity onPress={onPress}>{content}</TouchableOpacity> : content;
 }
 
+function Stepper({ label, valueText, onMinus, onPlus, minusDisabled, plusDisabled }: {
+    label: string; valueText: string; onMinus: () => void; onPlus: () => void; minusDisabled: boolean; plusDisabled: boolean;
+}) {
+    return (
+        <View className="flex-1 items-center">
+            <Text className="text-xs text-gray-500 mb-1">{label}</Text>
+            <View className="flex-row items-center">
+                <TouchableOpacity
+                    onPress={onMinus}
+                    disabled={minusDisabled}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${label} -`}
+                    className={`w-9 h-9 rounded-full items-center justify-center bg-white border border-gray-200 ${minusDisabled ? 'opacity-40' : ''}`}
+                >
+                    <FontAwesome name="minus" size={12} color="#374151" />
+                </TouchableOpacity>
+                <Text className="w-12 text-center text-lg font-bold text-gray-800">{valueText}</Text>
+                <TouchableOpacity
+                    onPress={onPlus}
+                    disabled={plusDisabled}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${label} +`}
+                    className={`w-9 h-9 rounded-full items-center justify-center bg-white border border-gray-200 ${plusDisabled ? 'opacity-40' : ''}`}
+                >
+                    <FontAwesome name="plus" size={12} color="#374151" />
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+}
+
 export default function NotificationSettingsScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const [leadCustomOpen, setLeadCustomOpen] = useState(false);
     const { getToken, isLoaded, userId } = useAuth();
     const getTokenRef = useRef(getToken);
     useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
@@ -337,6 +374,64 @@ export default function NotificationSettingsScreen() {
                                         ) : null}
                                     </View>
                                 </View>
+
+                                {cat.key === 'gameReminders' && (() => {
+                                    const lead = settings.gameReminderLeadMinutes;
+                                    const lang = i18n.language?.startsWith('en') ? 'en' : 'he';
+                                    const leadDisabled = !(settings.gameRemindersEnabled && settings.pushEnabled) && !settings.gameRemindersInApp;
+                                    const isPreset = GAME_REMINDER_LEAD_PRESETS.includes(lead);
+                                    const showCustom = leadCustomOpen || !isPreset;
+                                    const setLead = (m: number) => apply({
+                                        gameReminderLeadMinutes: Math.min(GAME_REMINDER_LEAD_MAX, Math.max(GAME_REMINDER_LEAD_MIN, m)),
+                                    });
+                                    return (
+                                        <View className={`mx-4 mb-4 p-3 rounded-lg bg-gray-50 ${leadDisabled ? 'opacity-50' : ''}`} pointerEvents={leadDisabled ? 'none' : 'auto'}>
+                                            <Text className="text-sm font-bold text-gray-700 mb-2">{t('notificationSettings.leadTitle')}</Text>
+                                            <View className="flex-row flex-wrap">
+                                                {GAME_REMINDER_LEAD_PRESETS.map(p => (
+                                                    <TouchableOpacity
+                                                        key={p}
+                                                        onPress={() => { setLeadCustomOpen(false); setLead(p); }}
+                                                        accessibilityRole="button"
+                                                        accessibilityState={{ selected: lead === p }}
+                                                        className={`px-3 py-1.5 rounded-full mr-2 mb-2 ${lead === p ? 'bg-brand-dark' : 'bg-white border border-gray-200'}`}
+                                                    >
+                                                        <Text className={lead === p ? 'text-white font-bold' : 'text-gray-700'}>{describeLeadMinutes(p, lang)}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                                <TouchableOpacity
+                                                    onPress={() => setLeadCustomOpen(o => !o)}
+                                                    accessibilityRole="button"
+                                                    accessibilityState={{ selected: !isPreset }}
+                                                    className={`px-3 py-1.5 rounded-full mr-2 mb-2 ${!isPreset ? 'bg-brand-dark' : 'bg-white border border-gray-200'}`}
+                                                >
+                                                    <Text className={!isPreset ? 'text-white font-bold' : 'text-gray-700'}>{t('notificationSettings.leadCustom')}</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                            {showCustom && (
+                                                <View className="flex-row mt-1">
+                                                    <Stepper
+                                                        label={t('notificationSettings.leadHours')}
+                                                        valueText={String(Math.floor(lead / 60))}
+                                                        onMinus={() => setLead(lead - 60)}
+                                                        onPlus={() => setLead(lead + 60)}
+                                                        minusDisabled={lead - 60 < GAME_REMINDER_LEAD_MIN}
+                                                        plusDisabled={lead + 60 > GAME_REMINDER_LEAD_MAX}
+                                                    />
+                                                    <Stepper
+                                                        label={t('notificationSettings.leadMinutes')}
+                                                        valueText={String(lead % 60)}
+                                                        onMinus={() => setLead(lead - GAME_REMINDER_LEAD_STEP)}
+                                                        onPlus={() => setLead(lead + GAME_REMINDER_LEAD_STEP)}
+                                                        minusDisabled={lead - GAME_REMINDER_LEAD_STEP < GAME_REMINDER_LEAD_MIN}
+                                                        plusDisabled={lead + GAME_REMINDER_LEAD_STEP > GAME_REMINDER_LEAD_MAX}
+                                                    />
+                                                </View>
+                                            )}
+                                            <Text className="text-xs text-gray-500 mt-2">{t('notificationSettings.leadChosen', { words: describeLeadMinutes(lead, lang) })}</Text>
+                                        </View>
+                                    );
+                                })()}
 
                                 {cat.key === 'cityGames' && cityOpen && (
                                     <View className="mx-4 mb-4 p-3 rounded-lg bg-gray-50">

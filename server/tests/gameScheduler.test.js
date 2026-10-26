@@ -58,7 +58,7 @@ describe('gameScheduler cross-process resync bridge', () => {
 
     expect(published).toEqual([]);
     expect(gameScheduler.timers.has('completion:game-3')).toBe(true);
-    expect(gameScheduler.timers.has('reminder:game-3')).toBe(true);
+    expect(gameScheduler.timers.has('reminder:game-3')).toBe(false); // reminders are a per-user sweep now
   });
 
   test('triggerReviewQueue publishes a reviewQueue signal when disabled', () => {

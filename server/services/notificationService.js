@@ -527,6 +527,16 @@ class NotificationService {
 
     /** @param {object} data - already validated by sanitizeSettingsUpdate */
     async updateSettings(userId, data) {
+        // gameReminderLeadUpdatedAt moves only when the lead value really changes, so editing any
+        // other setting never affects the "no catch-up reminder after a changed lead" rule.
+        if (data.gameReminderLeadMinutes !== undefined) {
+            const current = await this.prisma.userNotificationSettings.findUnique({
+                where: { userId },
+                select: { gameReminderLeadMinutes: true },
+            });
+            const before = current ? current.gameReminderLeadMinutes : 60;
+            if (before !== data.gameReminderLeadMinutes) data = { ...data, gameReminderLeadUpdatedAt: new Date() };
+        }
         await this.prisma.userNotificationSettings.upsert({
             where: { userId },
             create: { userId, ...data },

@@ -26,10 +26,6 @@ jest.mock('../workers/reviewWorker', () => ({
 jest.mock('../workers/cleanupWorker', () => ({
   startCleanupWorker: jest.fn(),
 }));
-jest.mock('../workers/gameReminderWorker', () => ({
-  startGameReminderWorker: jest.fn(),
-  checkUpcomingGames: jest.fn().mockResolvedValue(undefined),
-}));
 
 const { prisma, createGroupChatForGame } = require('../services/gameService');
 const { app } = require('../index');

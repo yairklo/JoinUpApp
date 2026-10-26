@@ -961,6 +961,11 @@
     "osPermissionOff": "ההרשאה כבויה בהגדרות המכשיר",
     "snooze": "השהיית התראות",
     "snoozeSubtitle": "עצור את כל הפוש לזמן קצוב",
+    "leadTitle": "מתי לקבל תזכורת לפני משחק",
+    "leadCustom": "מותאם אישית",
+    "leadHours": "שעות",
+    "leadMinutes": "דקות",
+    "leadChosen": "התזכורת תגיע {{words}} לפני המשחק",
     "snoozeTitle": "להשהות את הפוש ל…",
     "snoozeFor_one": "שעה",
     "snoozeFor_two": "שעתיים",
@@ -997,7 +1002,7 @@
       },
       "gameReminders": {
         "title": "תזכורות למשחק",
-        "subtitle": "שעה לפני משחק שנרשמת אליו"
+        "subtitle": "לפני משחק שנרשמת אליו, בזמן שתבחר"
       },
       "myGames": {
         "title": "עדכונים במשחקים שלי",

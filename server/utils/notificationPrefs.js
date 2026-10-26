@@ -8,6 +8,11 @@ const {
   CATEGORY_BY_NOTIFICATION_TYPE,
   ALWAYS_DELIVERED_TYPES,
   URGENT_PUSH_TYPES,
+  GAME_REMINDER_LEAD_DEFAULT,
+  GAME_REMINDER_LEAD_MIN,
+  GAME_REMINDER_LEAD_MAX,
+  GAME_REMINDER_LEAD_STEP,
+  isValidGameReminderLead,
 } = require('../shared/notificationPrefs');
 
 const SPORTS = ['SOCCER', 'BASKETBALL', 'TENNIS'];
@@ -68,6 +73,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   timezone: 'Asia/Jerusalem',
   snoozeUntil: null,
   cityPromptDismissedAt: null,
+  gameReminderLeadMinutes: GAME_REMINDER_LEAD_DEFAULT,
 });
 
 const BOOLEAN_KEYS = Object.keys(DEFAULT_SETTINGS).filter(k => typeof DEFAULT_SETTINGS[k] === 'boolean');
@@ -114,6 +120,12 @@ function sanitizeSettingsUpdate(body, now = new Date()) {
     if (body[key] === undefined) continue;
     if (!isMinuteOfDay(body[key])) errors.push(`${key} must be an integer 0-1439`);
     else data[key] = body[key];
+  }
+
+  if (body.gameReminderLeadMinutes !== undefined) {
+    if (!isValidGameReminderLead(body.gameReminderLeadMinutes)) {
+      errors.push(`gameReminderLeadMinutes must be a multiple of ${GAME_REMINDER_LEAD_STEP} between ${GAME_REMINDER_LEAD_MIN} and ${GAME_REMINDER_LEAD_MAX}`);
+    } else data.gameReminderLeadMinutes = body.gameReminderLeadMinutes;
   }
 
   if (body.timezone !== undefined) {

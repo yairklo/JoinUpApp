@@ -1482,6 +1482,8 @@ const jobsRuntime = createJobsRuntime({
   runWeeklySeriesGeneration,
   runTournamentReminders: ({ io: jobIo, shouldContinue }) => require('./services/tournamentReminders')
     .runReminderSweep({ prisma, notificationService, io: jobIo, shouldContinue }),
+  runGameReminders: ({ io: jobIo, shouldContinue }) => require('./services/gameReminders')
+    .runGameReminderSweep({ prisma, notificationService, io: jobIo, shouldContinue }),
   createLeaderLock,
   getRedis,
   adapterEnabled: () => socketAdapter.enabled,

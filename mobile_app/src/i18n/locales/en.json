@@ -961,6 +961,11 @@
     "osPermissionOff": "Permission is off in device settings",
     "snooze": "Pause notifications",
     "snoozeSubtitle": "Stop all push for a while",
+    "leadTitle": "When to get a reminder before a game",
+    "leadCustom": "Custom",
+    "leadHours": "Hours",
+    "leadMinutes": "Minutes",
+    "leadChosen": "You will be reminded {{words}} before the game",
     "snoozeTitle": "Pause push for…",
     "snoozeFor_one": "1 hour",
     "snoozeFor_other": "{{count}} hours",
@@ -995,7 +1000,7 @@
       },
       "gameReminders": {
         "title": "Game reminders",
-        "subtitle": "One hour before a game you joined"
+        "subtitle": "Before a game you joined, at the time you choose"
       },
       "myGames": {
         "title": "Updates to my games",

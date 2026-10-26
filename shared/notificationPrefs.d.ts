@@ -46,6 +46,8 @@ export interface NotificationSettings {
   /** ISO; null when not snoozed */
   snoozeUntil: string | null;
   cityPromptDismissedAt: string | null;
+  /** minutes before a game start; multiple of 5 within [MIN, MAX] */
+  gameReminderLeadMinutes: number;
   mutes: NotificationMute[];
 }
 
@@ -70,5 +72,12 @@ export const URGENT_PUSH_TYPES: string[];
 export const QUICK_OFF_EXCLUDED_CATEGORIES: NotificationCategoryKey[];
 export const SNOOZE_HOURS_OPTIONS: number[];
 export const MUTE_DURATION_OPTIONS: Array<number | null>;
+export const GAME_REMINDER_LEAD_MIN: number;
+export const GAME_REMINDER_LEAD_MAX: number;
+export const GAME_REMINDER_LEAD_STEP: number;
+export const GAME_REMINDER_LEAD_DEFAULT: number;
+export const GAME_REMINDER_LEAD_PRESETS: number[];
+export function isValidGameReminderLead(v: unknown): boolean;
+export function describeLeadMinutes(minutes: number, lang: 'he' | 'en'): string;
 export function minutesToHHMM(minutes: number): string;
 export function HHMMToMinutes(value: string): number | null;
