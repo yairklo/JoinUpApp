@@ -9,8 +9,11 @@ import { useNotificationCounters } from '@/context/NotificationCountersContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorMode } from '@/theme/ColorModeContext';
 import SafeImage from '@/components/SafeImage';
+import BrandLogo from '@/components/BrandLogo';
 
 const BRAND = '#059669';
+
+const HomeHeaderTitle = () => <BrandLogo variant="lockup" height={24} />;
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -137,7 +140,7 @@ export default function TabLayout() {
           tabBarButtonTestID: 'tab-home',
           title: t('tabs.home', 'בית'),
           tabBarIcon: ({ color, focused }) => <TabBarIcon name="home" focused={focused} color={color} isDark={isDark} />,
-          headerTitle: 'JoinUp',
+          headerTitle: HomeHeaderTitle,
           headerRight: HeaderRight,
         }}
       />

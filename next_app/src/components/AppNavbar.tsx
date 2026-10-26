@@ -8,7 +8,6 @@ import { ClerkLoaded, SignedIn, useUser } from "@clerk/nextjs";
 // MUI Imports
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
-import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
@@ -19,7 +18,6 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { motion } from "framer-motion";
 
 // Icons
-import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
@@ -30,12 +28,16 @@ import EmojiEventsRounded from "@mui/icons-material/EmojiEventsRounded";
 
 // Internal Components & Context
 import AuthButtons from "@/components/AuthButtons";
+import JoinUpLogo from "@/components/brand/JoinUpLogo";
 import { ColorModeContext } from "@/components/theme/themeRegistry";
 import ChatList from "@/components/ChatList";
 import NotificationPanel from "@/components/NotificationPanel";
 import GlobalSearchOmnibar from "@/components/GlobalSearchOmnibar";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useTournamentsNav } from "@/components/tournaments/shell/useTournamentsNav";
+
+// Below this width the lockup would crowd the right-hand header buttons, so only the symbol shows.
+const NARROW = "@media (max-width:359.95px)";
 
 export default function AppNavbar() {
   const [mounted, setMounted] = useState(false);
@@ -75,40 +77,26 @@ export default function AppNavbar() {
         >
           {/* Start: Logo + desktop nav links */}
           <Stack direction="row" alignItems="center" spacing={{ xs: 0.75, md: 2.5 }} sx={{ minWidth: 0 }}>
-            <Link href="/" style={{ textDecoration: "none", color: "inherit" }}>
-              <Stack direction="row" alignItems="center" spacing={1} sx={{ cursor: "pointer" }}>
-                <Box
-                  component={motion.div}
-                  whileHover={{ rotate: -8, scale: 1.06 }}
-                  whileTap={{ scale: 0.94 }}
-                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  sx={{
-                    width: { xs: 34, md: 38 },
-                    height: { xs: 34, md: 38 },
-                    borderRadius: "11px",
-                    display: "grid",
-                    placeItems: "center",
-                    color: "#fff",
-                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                    boxShadow: "0 4px 12px rgba(5,150,105,0.35)",
-                    flexShrink: 0,
-                  }}
-                >
-                  <SportsSoccerIcon sx={{ fontSize: { xs: 18, md: 20 } }} />
+            <Link
+              href="/"
+              aria-label="JoinUp"
+              style={{ textDecoration: "none", color: "inherit", display: "block", flexShrink: 0 }}
+            >
+              <Box
+                component={motion.div}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                sx={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+              >
+                {/* Full lockup; symbol-only below 360px so it never crowds the header buttons. */}
+                <Box sx={{ display: "block", [NARROW]: { display: "none" }, "& svg": { height: { xs: 28, md: 32 }, width: "auto" } }}>
+                  <JoinUpLogo variant="lockup" height={28} />
                 </Box>
-                <Typography
-                  variant="h6"
-                  component="div"
-                  sx={{
-                    fontWeight: 800,
-                    letterSpacing: "-0.5px",
-                    color: "text.primary",
-                    fontSize: { xs: "1.05rem", md: "1.25rem" },
-                  }}
-                >
-                  JoinUp
-                </Typography>
-              </Stack>
+                <Box sx={{ display: "none", [NARROW]: { display: "block" }, "& svg": { height: { xs: 32, md: 36 }, width: "auto" } }}>
+                  <JoinUpLogo variant="symbol" height={32} />
+                </Box>
+              </Box>
             </Link>
 
             {/* Desktop navigation */}

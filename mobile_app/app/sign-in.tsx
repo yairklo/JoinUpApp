@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { OAuth } from "@/components/OAuth";
 import { appAlert } from "@/i18n/appAlert";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function Page() {
     const { t } = useTranslation();
@@ -49,10 +50,9 @@ export default function Page() {
                 <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="px-8">
                     <View className="flex-1 justify-center py-10">
                         <View className="items-center mb-12">
-                            <View className="w-20 h-20 bg-brand rounded-3xl items-center justify-center shadow-lg shadow-brand-pale mb-6">
-                                <Text className="text-white text-4xl font-black">J</Text>
+                            <View className="mb-4">
+                                <BrandLogo variant="lockup" height={56} mode="light" />
                             </View>
-                            <Text className="text-4xl font-black text-gray-900 mb-2">JoinUp</Text>
                             <Text className="text-gray-500 font-medium text-lg text-center">
                                 {t('auth.tagline', 'Connect, Play, and Enjoy the Game')}
                             </Text>
