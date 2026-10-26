@@ -166,7 +166,7 @@ export default function FloatingChatWindow() {
             >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
                     {activeChatId && (
-                        <IconButton onClick={(e) => { e.stopPropagation(); goBackToList(); }} size="small" sx={{ color: 'inherit' }}>
+                        <IconButton aria-label={isRTL ? "חזרה לרשימה" : "Back to list"} onClick={(e) => { e.stopPropagation(); goBackToList(); }} size="small" sx={{ color: 'inherit' }}>
                             <ArrowForwardIcon fontSize="small" />
                         </IconButton>
                     )}
@@ -224,15 +224,15 @@ export default function FloatingChatWindow() {
 
                 <Box onClick={(e) => e.stopPropagation()}>
                     {isMinimized ? (
-                        <IconButton size="small" sx={{ color: "inherit" }} onClick={maximizeChat}>
+                        <IconButton size="small" aria-label={isRTL ? "הגדל" : "Maximize"} sx={{ color: "inherit" }} onClick={maximizeChat}>
                             <OpenInFullIcon fontSize="small" />
                         </IconButton>
                     ) : (
-                        <IconButton size="small" sx={{ color: "inherit" }} onClick={minimizeChat}>
+                        <IconButton size="small" aria-label={isRTL ? "מזער" : "Minimize"} sx={{ color: "inherit" }} onClick={minimizeChat}>
                             <RemoveIcon fontSize="small" />
                         </IconButton>
                     )}
-                    <IconButton size="small" sx={{ color: "inherit" }} onClick={closeChat}>
+                    <IconButton size="small" aria-label={isRTL ? "סגור" : "Close"} sx={{ color: "inherit" }} onClick={closeChat}>
                         <CloseIcon fontSize="small" />
                     </IconButton>
                 </Box>

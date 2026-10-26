@@ -219,7 +219,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
           gap: 1.5
         }}>
           {/* Back Button */}
-          <IconButton
+          <IconButton aria-label={isRTL ? "חזרה" : "Back"}
             onClick={() => router.back()}
             sx={{ color: "inherit", p: 0.5 }}
           >
@@ -388,7 +388,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
               </>
             )}
           </Box>
-          <IconButton size="small" onClick={() => { actions.setReplyToMessage(null); actions.setEditingMessage(null); actions.setInputValue(""); }}><CloseIcon fontSize="small" /></IconButton>
+          <IconButton size="small" aria-label={isRTL ? "ביטול" : "Cancel"} onClick={() => { actions.setReplyToMessage(null); actions.setEditingMessage(null); actions.setInputValue(""); }}><CloseIcon fontSize="small" /></IconButton>
         </Box>
       )}
 
@@ -409,7 +409,7 @@ export default function Chat({ roomId = "global", language = "he", isWidget = fa
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
             slotProps={{ htmlInput: { "data-testid": "chat-input" } }}
           />
-          <IconButton color="primary" onClick={actions.handleSendMessage} disabled={!state.inputValue.trim() || state.inputValue.trim().length > MAX_MESSAGE_LENGTH} sx={{ mb: 0.5, transform: isRTL ? "scaleX(-1)" : "none" }} data-testid="chat-send">
+          <IconButton color="primary" aria-label={isRTL ? "שלח" : "Send"} onClick={actions.handleSendMessage} disabled={!state.inputValue.trim() || state.inputValue.trim().length > MAX_MESSAGE_LENGTH} sx={{ mb: 0.5, transform: isRTL ? "scaleX(-1)" : "none" }} data-testid="chat-send">
             {state.editingMessage ? <CheckIcon /> : <SendIcon />}
           </IconButton>
         </Stack>

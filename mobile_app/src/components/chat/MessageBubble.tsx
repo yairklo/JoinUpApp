@@ -213,6 +213,8 @@ function MessageBubble({
                                 return (
                                     <TouchableOpacity
                                         key={emoji}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`${t('chat.reactWith', { emoji, defaultValue: 'הגב ב-{{emoji}}' })}${count > 1 ? ` (${count})` : ''}`}
                                         onPress={() => onReact?.(message, emoji)}
                                         disabled={!onReact || !isInteractive}
                                         activeOpacity={0.7}
@@ -232,12 +234,12 @@ function MessageBubble({
                         <View className="flex-row items-center mt-1 px-2">
                             <Text className="text-red-500 text-xs">{t('chat.sendFailed', 'ההודעה לא נשלחה')}</Text>
                             {message.retryable !== false && !!onRetry && (
-                                <TouchableOpacity onPress={() => onRetry(message.id)} hitSlop={8} className="ml-3">
+                                <TouchableOpacity onPress={() => onRetry(message.id)} hitSlop={8} className="ml-3" accessibilityRole="button" accessibilityLabel={t('chat.retry', 'נסה שוב')}>
                                     <Text className="text-brand text-xs font-bold">{t('chat.retry', 'נסה שוב')}</Text>
                                 </TouchableOpacity>
                             )}
                             {!!onDiscard && (
-                                <TouchableOpacity onPress={() => onDiscard(message.id)} hitSlop={8} className="ml-3">
+                                <TouchableOpacity onPress={() => onDiscard(message.id)} hitSlop={8} className="ml-3" accessibilityRole="button" accessibilityLabel={t('chat.discard', 'מחק')}>
                                     <Text className="text-gray-500 text-xs">{t('chat.discard', 'מחק')}</Text>
                                 </TouchableOpacity>
                             )}

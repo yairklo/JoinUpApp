@@ -17,6 +17,8 @@ declare module "next-pwa" {
     disable?: boolean;
     register?: boolean;
     skipWaiting?: boolean;
+    cacheStartUrl?: boolean;
+    dynamicStartUrl?: boolean;
     buildExcludes?: Array<RegExp | string>;
     runtimeCaching?: RuntimeCaching[];
   }

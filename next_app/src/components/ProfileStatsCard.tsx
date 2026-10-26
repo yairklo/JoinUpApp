@@ -224,7 +224,7 @@ export default function ProfileStatsCard({
                         <Typography sx={{ fontSize: 32, lineHeight: 1 }} aria-hidden>
                             ⚽🏀🎾
                         </Typography>
-                        <Typography variant="subtitle1" fontWeight={800}>
+                        <Typography variant="subtitle1" component="h3" fontWeight={800}>
                             עוד אין תוצאות
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360 }}>
