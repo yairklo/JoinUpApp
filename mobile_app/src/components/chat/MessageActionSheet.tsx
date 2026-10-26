@@ -106,6 +106,7 @@ export default function MessageActionSheet({
                                                 key={emoji}
                                                 onPress={run(() => onReact(message, emoji))}
                                                 activeOpacity={0.6}
+                                                accessibilityRole="button"
                                                 accessibilityLabel={emoji}
                                                 style={{ width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: selected ? "#D1FAE5" : "transparent", marginHorizontal: 1 }}
                                             >
@@ -136,6 +137,8 @@ export default function MessageActionSheet({
                                 {actions.map((a, i) => (
                                     <TouchableOpacity
                                         key={a.key}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={a.label}
                                         onPress={a.onPress}
                                         activeOpacity={0.6}
                                         className={`flex-row items-center justify-between px-4 py-3.5 ${i > 0 ? "border-t border-gray-100" : ""}`}
@@ -152,7 +155,7 @@ export default function MessageActionSheet({
                             style={{ shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
                         >
                             <View className="flex-row items-center px-4 pt-4 pb-2">
-                                <TouchableOpacity onPress={() => setMode("actions")} disabled={submitting} className="p-1 mr-2">
+                                <TouchableOpacity onPress={() => setMode("actions")} disabled={submitting} className="p-1 mr-2" accessibilityRole="button" accessibilityLabel={t("chat.back", "חזרה")}>
                                     <Ionicons name={I18nManager.isRTL ? "arrow-forward" : "arrow-back"} size={22} color="#374151" />
                                 </TouchableOpacity>
                                 <Text className="flex-1 text-lg font-black text-gray-900 text-left">{t("chat.reportTitle", "דיווח על הודעה")}</Text>
@@ -163,6 +166,8 @@ export default function MessageActionSheet({
                             {REPORT_REASONS.map((r) => (
                                 <TouchableOpacity
                                     key={r.value}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={t(r.key, r.fallback)}
                                     onPress={() => submitReport(r.value)}
                                     disabled={submitting}
                                     activeOpacity={0.6}

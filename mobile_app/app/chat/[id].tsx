@@ -235,7 +235,7 @@ export default function ChatScreen() {
             
             {/* Custom Header */}
             <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100 shadow-sm z-10">
-                <TouchableOpacity onPress={() => router.back()} className="ml-4 p-2 -mr-2 rounded-full active:bg-gray-100">
+                <TouchableOpacity onPress={() => router.back()} className="ml-4 p-2 -mr-2 rounded-full active:bg-gray-100" accessibilityRole="button" accessibilityLabel={t('chat.back', 'חזרה')}>
                     <Ionicons name="arrow-back" size={26} color="#111827" />
                 </TouchableOpacity>
 
@@ -321,7 +321,7 @@ export default function ChatScreen() {
                     <View className="flex-row items-center bg-brand-mist p-3 border-t border-brand-pale">
                         <Ionicons name="pencil" size={16} color="#059669" />
                         <Text className="flex-1 mr-2 text-brand text-left text-xs font-bold">{t('chat.editingMessage', 'עורך הודעה')}</Text>
-                        <TouchableOpacity onPress={() => { setEditingMessage(null); setInputValue(""); }}>
+                        <TouchableOpacity onPress={() => { setEditingMessage(null); setInputValue(""); }} accessibilityRole="button" accessibilityLabel={t('chat.cancelEdit', 'ביטול עריכה')}>
                             <Ionicons name="close-circle" size={20} color="#059669" />
                         </TouchableOpacity>
                     </View>
@@ -343,13 +343,15 @@ export default function ChatScreen() {
                             multiline
                             textAlignVertical="bottom"
                         />
-                        <TouchableOpacity className="mr-2 mb-1 p-1">
+                        <TouchableOpacity className="mr-2 mb-1 p-1" accessibilityRole="button" accessibilityLabel={t('chat.emojiPicker', 'הוסף אימוג׳י')}>
                             <Ionicons name="happy-outline" size={24} color="#9ca3af" />
                         </TouchableOpacity>
                     </View>
 
                     <TouchableOpacity
                         testID="chat-send"
+                        accessibilityRole="button"
+                        accessibilityLabel={t('chat.send', 'שלח')}
                         onPress={() => {
                             isNearBottomRef.current = true;
                             handleSendMessage();

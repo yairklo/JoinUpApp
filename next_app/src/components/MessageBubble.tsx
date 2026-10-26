@@ -295,10 +295,10 @@ export default function MessageBubble({
 
             {!message.isDeleted && message.status !== 'blocked' && message.status !== 'failed' && message.status !== 'pending' && (
                 <Stack direction={isRTL ? "row-reverse" : "row"} spacing={0} sx={{ opacity: hover || menuAnchorEl ? 1 : 0, transition: "opacity 0.2s", alignSelf: "center" }}>
-                    <IconButton size="small" onClick={() => onReply(message)}><ReplyIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" onClick={handleReactionClick}><AddReactionIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" aria-label={isRTL ? "הגב" : "Reply"} onClick={() => onReply(message)}><ReplyIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" aria-label={isRTL ? "הוסף תגובה" : "Add reaction"} onClick={handleReactionClick}><AddReactionIcon fontSize="small" /></IconButton>
                     {(isMine || onReport || onBlock) && (
-                        <IconButton size="small" onClick={handleMenuOpen} data-testid="message-actions"><MoreVertIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" aria-label={isRTL ? "פעולות נוספות" : "More actions"} onClick={handleMenuOpen} data-testid="message-actions"><MoreVertIcon fontSize="small" /></IconButton>
                     )}
                 </Stack>
             )}
@@ -313,7 +313,7 @@ export default function MessageBubble({
             >
                 <Box sx={{ p: 1, display: "flex", gap: 1 }}>
                     {COMMON_REACTIONS.map(emoji => (
-                        <IconButton key={emoji} onClick={() => handleSelectEmoji(emoji)} size="small">{emoji}</IconButton>
+                        <IconButton key={emoji} aria-label={isRTL ? `הגב ב-${emoji}` : `React with ${emoji}`} onClick={() => handleSelectEmoji(emoji)} size="small">{emoji}</IconButton>
                     ))}
                 </Box>
             </Menu>

@@ -83,6 +83,16 @@ function NewGamePageInner() {
   const [createMode, setCreateMode] = useState<CreateMode>(parseCreateMode(params?.get("mode")));
   const isGroupMode = createMode === "group" && !urlSeriesId;
 
+  // Keep ?mode= in sync with the toggle so refresh / back / a shared link restore it.
+  const selectCreateMode = (next: CreateMode) => {
+    setCreateMode(next);
+    const sp = new URLSearchParams(params?.toString() ?? "");
+    if (next === "group") sp.set("mode", "group");
+    else sp.delete("mode");
+    const qs = sp.toString();
+    router.replace(qs ? `?${qs}` : "?", { scroll: false });
+  };
+
   const { getToken, isSignedIn } = useAuth();
   const { user } = useUser();
 
@@ -455,7 +465,7 @@ function NewGamePageInner() {
             fullWidth
             color="primary"
             value={createMode}
-            onChange={(_, v: CreateMode | null) => { if (v) setCreateMode(v); }}
+            onChange={(_, v: CreateMode | null) => { if (v) selectCreateMode(v); }}
             aria-label="סוג יצירה"
             sx={{ mb: isGroupMode ? 1.5 : 3, direction: "rtl" }}
           >

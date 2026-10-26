@@ -67,7 +67,7 @@ export default function TournamentCard({ t }: { t: Tournament }) {
             <Box sx={{ position: "relative" }}>
                 <TournamentCover t={t} height={{ xs: 124, sm: 148 }} />
                 <Box sx={{ position: "absolute", top: 10, insetInlineStart: 10, zIndex: 2 }}>
-                    <TournamentStatusChip status={t.status} />
+                    <TournamentStatusChip status={t.status} onMedia />
                 </Box>
                 <Box
                     aria-hidden

@@ -83,7 +83,7 @@ export default function GameActions({
           <PlaceRoundedIcon fontSize="small" />
         </Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="subtitle2" fontWeight={800} lineHeight={1.2}>
+          <Typography variant="subtitle2" component="h2" fontWeight={800} lineHeight={1.2}>
             מיקום
           </Typography>
           {fieldName && (

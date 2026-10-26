@@ -12,7 +12,7 @@ module.exports = {
                     soft: '#10b981',
                     light: '#34d399',
                     pale: '#a7f3d0',
-                    dark: '#047857',
+                    dark: '#065f46',
                     ink: '#022c22',
                     mist: '#ecfdf5',
                 },
