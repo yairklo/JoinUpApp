@@ -25,6 +25,8 @@ import { SPORT_MAPPING } from "@/utils/sports";
 import SportIcon from "@/components/ui/SportIcon";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import { isValidLatLng } from "@/utils/geo";
+import { SPORT_THEME } from "@joinup/shared/sports";
+import { getFieldMarkerVisual, getFieldSportTags } from "@joinup/shared/mapSport";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
@@ -32,7 +34,9 @@ const MAPS_LIBRARIES: ("marker")[] = ["marker"];
 
 interface SearchMapComponentProps {
   games: Game[];
-  emptyFields?: any[];
+  // All fields in view (already sport-filtered by the page). Fields that have a game marker
+  // on the map are skipped here so a venue is never drawn twice.
+  fields?: any[];
   onBoundsChanged?: (bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => void;
   onGameSelect?: (gameId: string) => void;
   targetLocation?: [number, number] | null;
@@ -52,10 +56,11 @@ interface SearchMapComponentProps {
   fitToResultsKey?: string | null;
 }
 
+// Single source of truth for sport colour (shared with mobile).
 const SPORT_COLORS: Record<string, string> = {
-  SOCCER: "#16a34a", // green-600
-  BASKETBALL: "#f97316", // orange-500
-  TENNIS: "#eab308", // yellow-500
+  SOCCER: SPORT_THEME.SOCCER.base,
+  BASKETBALL: SPORT_THEME.BASKETBALL.base,
+  TENNIS: SPORT_THEME.TENNIS.base,
 };
 
 // Games can arrive with either the DB enum ("SOCCER") or a free-text Hebrew
@@ -102,7 +107,7 @@ const DEFAULT_CENTER = { lat: 32.0853, lng: 34.7818 }; // Tel Aviv
 
 export default function SearchMapComponent({
   games,
-  emptyFields = [],
+  fields = [],
   onBoundsChanged,
   onGameSelect,
   targetLocation,
@@ -134,6 +139,17 @@ export default function SearchMapComponent({
     }
     return Array.from(map.values());
   }, [games]);
+
+  const gameFieldIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const group of groupedGames) {
+      for (const g of group.games) {
+        const id = g.fieldId || g.field?.id;
+        if (id) ids.add(String(id));
+      }
+    }
+    return ids;
+  }, [groupedGames]);
 
   const pinnedGamesCount = useMemo(
     () => groupedGames.reduce((sum, g) => sum + g.games.length, 0),
@@ -240,9 +256,10 @@ export default function SearchMapComponent({
             onHoverGame={onHoverGame}
           />
 
-          {emptyFields.map((field, idx) => {
+          {fields.map((field) => {
             if (!isValidLatLng(field.lat, field.lng)) return null;
-            return <EmptyFieldMarker key={`empty-${idx}`} field={field} />;
+            if (gameFieldIds.has(String(field.id))) return null;
+            return <FieldMarker key={`field-${field.id}`} field={field} />;
           })}
         </GoogleMap>
       </APIProvider>
@@ -552,30 +569,13 @@ function ClusteredGameMarkers({
     }
   }, [hoveredGameId, groups]);
 
-  // The native InfoWindow auto-pan only keeps the bubble inside the map div and misses the
-  // left edge at narrow widths, so measure the rendered bubble and pan the remainder in.
-  const selectedKey = selectedGroup?.key ?? null;
-  useEffect(() => {
-    if (!map || !selectedKey) return;
-    const timer = setTimeout(() => {
-      try {
-        const div = map.getDiv();
-        const bubble = div.querySelector(".gm-style-iw-c");
-        if (!bubble) return;
-        const m = div.getBoundingClientRect();
-        const b = bubble.getBoundingClientRect();
-        const pad = 16;
-        const dx = b.left < m.left + pad ? b.left - (m.left + pad) : b.right > m.right - pad ? b.right - (m.right - pad) : 0;
-        const dy = b.top < m.top + pad ? b.top - (m.top + pad) : b.bottom > m.bottom - pad ? b.bottom - (m.bottom - pad) : 0;
-        if (dx || dy) map.panBy(dx, dy);
-      } catch (e) {
-        console.warn("[SearchMap] popup panBy failed:", e);
-      }
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [map, selectedKey]);
+  usePanPopupIntoView(map, selectedGroup?.key ?? null);
 
   if (!selectedGroup) return null;
+
+  // Link to the venue only when every game in the popup is at the same field.
+  const fieldIds = new Set(selectedGroup.games.map((g) => g.fieldId || g.field?.id || ""));
+  const sharedFieldId = fieldIds.size === 1 ? [...fieldIds][0] : "";
 
   return (
     <InfoWindow
@@ -598,9 +598,21 @@ function ClusteredGameMarkers({
               {selectedGroup.games[0].field?.name || selectedGroup.games[0].fieldName || "מיקום המשחק"}
             </Typography>
           </Stack>
-          <IconButton size="small" onClick={() => setSelectedGroup(null)} aria-label="סגירה" sx={{ flexShrink: 0, m: -0.5 }}>
-            <CloseRoundedIcon fontSize="small" />
-          </IconButton>
+          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+            {sharedFieldId && (
+              <Button
+                href={`/fields/${sharedFieldId}`}
+                size="small"
+                aria-label="לדף המגרש"
+                sx={{ minWidth: 0, px: 0.75, py: 0, fontWeight: 700, fontSize: 12 }}
+              >
+                לדף המגרש
+              </Button>
+            )}
+            <IconButton size="small" onClick={() => setSelectedGroup(null)} aria-label="סגירה" sx={{ m: -0.5 }}>
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
         </Stack>
         <Stack spacing={0.75}>
           {selectedGroup.games.map((g) => {
@@ -666,33 +678,116 @@ function ClusteredGameMarkers({
   );
 }
 
-function EmptyFieldMarker({ field }: { field: any }) {
+// The native InfoWindow auto-pan only keeps the bubble inside the map div and misses the
+// left edge at narrow widths, so measure the rendered bubble and pan the remainder in.
+function usePanPopupIntoView(map: google.maps.Map | null, activeKey: string | null) {
+  useEffect(() => {
+    if (!map || !activeKey) return;
+    const timer = setTimeout(() => {
+      try {
+        const div = map.getDiv();
+        const bubble = div.querySelector(".gm-style-iw-c");
+        if (!bubble) return;
+        const m = div.getBoundingClientRect();
+        const b = bubble.getBoundingClientRect();
+        const pad = 16;
+        const dx = b.left < m.left + pad ? b.left - (m.left + pad) : b.right > m.right - pad ? b.right - (m.right - pad) : 0;
+        const dy = b.top < m.top + pad ? b.top - (m.top + pad) : b.bottom > m.bottom - pad ? b.bottom - (m.bottom - pad) : 0;
+        if (dx || dy) map.panBy(dx, dy);
+      } catch (e) {
+        console.warn("[SearchMap] popup panBy failed:", e);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [map, activeKey]);
+}
+
+function FieldMarker({ field }: { field: any }) {
   const [open, setOpen] = useState(false);
+  const map = useMap();
   const markerLib = useMapsLibrary("marker");
+  usePanPopupIntoView(map, open ? String(field.id) : null);
   if (!markerLib) return null;
+
+  const visual = getFieldMarkerVisual(field);
+  const tags = getFieldSportTags(field);
+  const isSingle = visual.variant === "sport" && tags.length === 1;
+  // Tennis yellow is too light for a white glyph -- use its dark ink for contrast.
+  const iconColor = isSingle && tags[0] === "TENNIS" ? SPORT_THEME.TENNIS.ink : "#ffffff";
+  const fieldName = field.name || "מגרש";
+  const sportsLabel = tags.map((t) => SPORT_MAPPING[t] || t).join(", ");
+  const markerLabel = `מגרש ${fieldName}${sportsLabel ? ` — ${sportsLabel}` : ""}`;
+  const upcoming = typeof field.upcomingGamesCount === "number" ? field.upcomingGamesCount : null;
+  const address = [field.location, field.city].filter((v, i, a) => v && a.indexOf(v) === i).join(", ");
+
   return (
     <>
-      <AdvancedMarker position={{ lat: field.lat, lng: field.lng }} onClick={() => setOpen((v) => !v)}>
-        <div style={{ position: "relative", width: 36, height: 36 }}>
+      <AdvancedMarker
+        position={{ lat: field.lat, lng: field.lng }}
+        onClick={() => setOpen((v) => !v)}
+        title={markerLabel}
+      >
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={markerLabel}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setOpen((v) => !v);
+            }
+          }}
+          style={{ position: "relative", width: 40, height: 40, cursor: "pointer" }}
+        >
+          {/* Dashed outer ring distinguishes a venue marker from a (solid) game marker. */}
           <div
             style={{
-              backgroundColor: "#94a3b8",
-              width: "100%",
-              height: "100%",
+              position: "absolute",
+              inset: 0,
               borderRadius: "50%",
-              border: "3px solid white",
-              boxShadow: "0 4px 6px rgba(0,0,0,0.3)",
+              border: `2px dashed ${visual.colorHex}`,
+              background: "rgba(255,255,255,0.85)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 4,
+              backgroundColor: visual.colorHex,
+              borderRadius: "50%",
+              border: "2px solid #ffffff",
+              boxShadow: "0 3px 6px rgba(0,0,0,0.35)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              cursor: "pointer",
             }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
+            {isSingle ? (
+              <SportIcon sport={tags[0]} sx={{ fontSize: 16, color: iconColor }} />
+            ) : (
+              <PlaceRoundedIcon aria-hidden sx={{ fontSize: 16, color: iconColor }} />
+            )}
           </div>
+          {!isSingle && tags.length > 1 && (
+            <div
+              aria-hidden
+              style={{ position: "absolute", bottom: -4, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 2 }}
+            >
+              {tags.slice(0, 3).map((t) => (
+                <span
+                  key={t}
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: SPORT_COLORS[t] || "#64748b",
+                    border: "1.5px solid #ffffff",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.35)",
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </AdvancedMarker>
       {open && (
@@ -700,34 +795,74 @@ function EmptyFieldMarker({ field }: { field: any }) {
           position={{ lat: field.lat, lng: field.lng }}
           onCloseClick={() => setOpen(false)}
           headerDisabled
-          minWidth={220}
-          maxWidth={260}
+          minWidth={252}
+          maxWidth={300}
           pixelOffset={[0, -10]}
         >
-          <Box sx={{ p: 1.5, textAlign: "center", position: "relative", bgcolor: "background.paper", color: "text.primary" }}>
-            <IconButton
-              size="small"
-              onClick={() => setOpen(false)}
-              aria-label="סגירה"
-              sx={{ position: "absolute", top: 0, insetInlineEnd: 0 }}
-            >
-              <CloseRoundedIcon fontSize="small" />
-            </IconButton>
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5} sx={{ mb: 0.5, px: 3 }}>
-              <PlaceRoundedIcon sx={{ fontSize: 18, color: "text.secondary", flexShrink: 0 }} />
-              <Typography
-                variant="subtitle2"
-                sx={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-              >
-                {field.name}
-              </Typography>
+          <Box sx={{ p: 1.5, bgcolor: "background.paper", color: "text.primary" }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1.25 }}>
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
+                <PlaceRoundedIcon sx={{ fontSize: 18, color: "primary.main", flexShrink: 0 }} />
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontWeight: 800, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {fieldName}
+                </Typography>
+              </Stack>
+              <IconButton size="small" onClick={() => setOpen(false)} aria-label="סגירה" sx={{ flexShrink: 0, m: -0.5 }}>
+                <CloseRoundedIcon fontSize="small" />
+              </IconButton>
             </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-              {field.location || "אין מידע מיקום"}
+            {tags.length > 0 && (
+              <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mb: 1 }}>
+                {tags.map((t) => (
+                  <Chip
+                    key={t}
+                    size="small"
+                    label={SPORT_MAPPING[t] || t}
+                    icon={<SportIcon sport={t} sx={{ fontSize: 15 }} />}
+                    variant="outlined"
+                    sx={{
+                      fontWeight: 700,
+                      height: 22,
+                      borderColor: SPORT_COLORS[t] || "divider",
+                      "& .MuiChip-icon": { color: SPORT_COLORS[t] || "inherit" },
+                    }}
+                  />
+                ))}
+              </Stack>
+            )}
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: upcoming === null ? 1.5 : 0.5 }}>
+              {address || "אין מידע מיקום"}
             </Typography>
-            <Button href={`/games/new?fieldId=${field.id}`} variant="contained" color="primary" fullWidth size="small">
-              פתח משחק במגרש זה
-            </Button>
+            {upcoming !== null && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5, fontWeight: 700 }}>
+                {upcoming === 0 ? "אין משחקים קרובים" : `${upcoming} משחקים קרובים`}
+              </Typography>
+            )}
+            <Stack spacing={0.75}>
+              <Button
+                href={`/fields/${field.id}`}
+                variant="contained"
+                color="primary"
+                fullWidth
+                size="small"
+                aria-label={`לדף המגרש ${fieldName}`}
+              >
+                לדף המגרש
+              </Button>
+              <Button
+                href={`/games/new?fieldId=${field.id}`}
+                variant="outlined"
+                color="primary"
+                fullWidth
+                size="small"
+                aria-label={`פתח משחק ב${fieldName}`}
+              >
+                פתח משחק כאן
+              </Button>
+            </Stack>
           </Box>
         </InfoWindow>
       )}

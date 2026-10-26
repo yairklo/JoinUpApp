@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { gamesApi } from "@/services/api/games";
 import { fieldsApi } from "@/services/api/fields";
+import { fieldMatchesSportFilter } from "@joinup/shared/mapSport";
 import { Game } from "@/types/game";
 import { SPORT_MAPPING, SportFilter } from "@/utils/sports";
 import SportFilterBar from "@/components/SportFilterBar";
@@ -219,7 +220,7 @@ function SearchPageInner() {
       setGames(finalGames);
       setResultsFitKey(currentFitKey);
 
-      // Fetch empty fields in bounding box if filter is enabled
+      // Fetch fields in the bounding box when the fields toggle is on
       if (emptyFieldsBounds) {
         const fieldParams = new URLSearchParams();
         fieldParams.append("minLat", emptyFieldsBounds.minLat.toString());
@@ -229,11 +230,12 @@ function SearchPageInner() {
         if (selectedDate) {
           fieldParams.append("date", selectedDate);
         }
+        if (selectedSport) fieldParams.append("sport", selectedSport);
         const allFields = await fieldsApi.search(fieldParams, controller.signal);
         if (controller.signal.aborted) return;
-        // Filter out fields that have 0 upcoming games
-        const empty = allFields.filter(f => f.upcomingGamesCount === 0);
-        setEmptyFields(empty);
+        // Show every field (fields with games are de-duplicated against game markers in the
+        // map); /fields/search may ignore `sport` server-side, so filter here too like mobile.
+        setEmptyFields(allFields.filter((f) => fieldMatchesSportFilter(f, selectedSport || null)));
       } else {
         setEmptyFields([]);
       }
@@ -525,7 +527,7 @@ function SearchPageInner() {
                 />
                 <Chip
                   icon={<MapIcon />}
-                  label="מגרשים פנויים על המפה"
+                  label="הצג מגרשים"
                   onClick={() => setShowEmptyFields(!showEmptyFields)}
                   color={showEmptyFields ? "primary" : "default"}
                   variant={showEmptyFields ? "filled" : "outlined"}
@@ -595,7 +597,7 @@ function SearchPageInner() {
           <MapErrorBoundary>
             <SearchMapComponent
               games={games}
-              emptyFields={emptyFields}
+              fields={emptyFields}
               onBoundsChanged={handleBoundsChanged}
               onGameSelect={(id) => router.push(`/games/${id}`)}
               targetLocation={targetLocation}
