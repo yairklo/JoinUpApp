@@ -15,7 +15,6 @@ import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
-import Badge from "@mui/material/Badge";
 import { alpha, useTheme } from "@mui/material/styles";
 import { motion } from "framer-motion";
 
@@ -24,7 +23,6 @@ import SportsSoccerIcon from "@mui/icons-material/SportsSoccer";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import StadiumOutlinedIcon from "@mui/icons-material/StadiumOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
@@ -36,7 +34,6 @@ import { ColorModeContext } from "@/components/theme/themeRegistry";
 import ChatList from "@/components/ChatList";
 import NotificationPanel from "@/components/NotificationPanel";
 import GlobalSearchOmnibar from "@/components/GlobalSearchOmnibar";
-import { useNotificationCounters } from "@/context/NotificationCountersContext";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useTournamentsNav } from "@/components/tournaments/shell/useTournamentsNav";
 
@@ -46,7 +43,6 @@ export default function AppNavbar() {
   const { user } = useUser();
   const router = useRouter();
   const theme = useTheme();
-  const { friendRequests } = useNotificationCounters();
   const { isAdmin } = useIsAdmin();
   const showTournaments = useTournamentsNav();
 
@@ -233,21 +229,6 @@ export default function AppNavbar() {
                     />
                   )}
 
-                  {user && (
-                    <Tooltip title="פרופיל">
-                      <IconButton
-                        color="inherit"
-                        size="small"
-                        aria-label="פרופיל"
-                        sx={{ p: 1, display: { xs: "none", md: "inline-flex" } }}
-                        onClick={() => router.push("/profile")}
-                      >
-                        <Badge badgeContent={friendRequests} color="error">
-                          <PersonOutlineIcon fontSize="small" />
-                        </Badge>
-                      </IconButton>
-                    </Tooltip>
-                  )}
                 </SignedIn>
               </ClerkLoaded>
             )}

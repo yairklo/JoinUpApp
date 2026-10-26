@@ -4,6 +4,7 @@ import Link from "next/link";
 import { SignedIn, SignedOut, SignInButton, ClerkLoaded, useClerk } from "@clerk/nextjs";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import Badge from "@mui/material/Badge";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -15,6 +16,7 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import Avatar from "@/components/Avatar";
 import { useMyAvatar, useMyName } from "@/hooks/useMyAvatar";
+import { useNotificationCounters } from "@/context/NotificationCountersContext";
 
 // Replaces Clerk's <UserButton>, which can only render Clerk's own image and so never showed the
 // avatar stored in our DB. Same menu entries, rendered from our imageUrl.
@@ -23,21 +25,28 @@ function UserMenu() {
   const avatarUrl = useMyAvatar();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const close = () => setAnchorEl(null);
+  const { friendRequests } = useNotificationCounters();
   const myName = useMyName();
   const name = myName || "משתמש";
 
   return (
     <>
-      <IconButton
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-        aria-label="פתח תפריט משתמש"
-        aria-haspopup="menu"
-        aria-expanded={!!anchorEl}
-        size="small"
-        sx={{ p: 0.25 }}
-      >
-        <Avatar src={avatarUrl} name={name} alt={name} size="md" />
-      </IconButton>
+      <Badge badgeContent={friendRequests} color="error" overlap="circular">
+        <IconButton
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          aria-label={
+            friendRequests > 0
+              ? `פתח תפריט משתמש, ${friendRequests} בקשות חברות ממתינות`
+              : "פתח תפריט משתמש"
+          }
+          aria-haspopup="menu"
+          aria-expanded={!!anchorEl}
+          size="small"
+          sx={{ p: 0.25 }}
+        >
+          <Avatar src={avatarUrl} name={name} alt={name} size="md" />
+        </IconButton>
+      </Badge>
       <Menu anchorEl={anchorEl} open={!!anchorEl} onClose={close}>
         <MenuItem component={Link} href="/profile" onClick={close}>
           <ListItemIcon><PersonOutlineIcon fontSize="small" /></ListItemIcon>
