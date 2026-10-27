@@ -12,6 +12,7 @@ import GamesByDateClient from "@/components/GamesByDateClient";
 import GamesByFriendsClient from "@/components/GamesByFriendsClient";
 import GamesByCityClient from "@/components/GamesByCityClient";
 import SeriesSectionClient from "@/components/SeriesSectionClient";
+import MySeriesRail from "@/components/MySeriesRail";
 import LoginInventoryToast from "@/components/LoginInventoryToast";
 import SportFilterBar from "@/components/SportFilterBar";
 import { SportFilter } from "@/utils/sports";
@@ -59,6 +60,8 @@ export default function GamesPageContent({
                     </Box>
 
                     <ManageSection />
+
+                    <MySeriesRail />
 
                     <Box>
                         <MyJoinedGames sportFilter={sportFilter} />

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import MyGamesSection from '@/components/MyGamesSection';
 import SeriesSection from '@/components/SeriesSection';
+import MySeriesRail from '@/components/MySeriesRail';
 import TournamentsSection from '@/components/tournaments/TournamentsSection';
 import ManageSection from '@/components/ManageSection';
 import { useManageOverview } from '@/hooks/useManageOverview';
@@ -159,6 +160,7 @@ export default function HomeScreen() {
         </ScrollView>
 
         <ManageSection overview={manage.data} />
+        <MySeriesRail />
         <MyGamesSection />
         <TournamentsSection />
         <SeriesSection />

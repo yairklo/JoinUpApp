@@ -4,7 +4,6 @@ import { apiClient } from '@/services/api/client';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@clerk/clerk-expo';
 import { useAuthTokenRef } from '@/hooks/useAuthTokenRef';
 import { getFriendlyFetchError, isAbortError } from '@/utils/apiErrors';
 import SportCover from '@/components/ui/SportCover';
@@ -27,7 +26,6 @@ const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 const HEBREW_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 export default function SeriesSection() {
-    const { isSignedIn } = useAuth();
     const getTokenRef = useAuthTokenRef();
     const { t } = useTranslation();
     const [series, setSeries] = useState<Series[]>([]);
@@ -64,10 +62,9 @@ export default function SeriesSection() {
     if (loading) return null;
     if (error) return null;
 
-    const subscribedSeries = isSignedIn ? series.filter((s) => s.isSubscribed) : [];
     const unsubscribedSeries = series.filter((s) => !s.isSubscribed);
 
-    if (subscribedSeries.length === 0 && unsubscribedSeries.length === 0) return null;
+    if (unsubscribedSeries.length === 0) return null;
 
     const renderSeriesCard = (s: Series) => {
         const dayName = typeof s.dayOfWeek === 'number' && s.dayOfWeek >= 0 && s.dayOfWeek < 7
@@ -135,15 +132,6 @@ export default function SeriesSection() {
 
     return (
         <View className="mb-6">
-            {subscribedSeries.length > 0 && (
-                <>
-                    <SectionHeader title={t('home.mySeries')} className="mt-2" />
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 10 }}>
-                        {subscribedSeries.map(renderSeriesCard)}
-                    </ScrollView>
-                </>
-            )}
-
             {unsubscribedSeries.length > 0 && (
                 <>
                     <SectionHeader title={t('home.joinGroup')} className="mt-4" />
