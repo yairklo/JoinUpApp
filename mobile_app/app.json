@@ -70,8 +70,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
-          "color": "#2563eb"
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#047857"
         }
       ],
       "@sentry/react-native",
