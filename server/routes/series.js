@@ -22,6 +22,7 @@ const {
   isGuestWindowOrderValid,
 } = require('../utils/membersGuests');
 const { publicDisplayName } = require('../utils/publicName');
+const { getBlockedEitherWayIds } = require('../utils/blocks');
 
 const WELCOME_MESSAGE_MAX_LENGTH = 2000;
 const DESCRIPTION_MAX_LENGTH = 2000;
@@ -892,7 +893,17 @@ router.post('/:seriesId/members', authenticateToken, async (req, res) => {
       where: { id: { in: userIds } },
       select: { id: true },
     });
-    const validIds = existingUsers.map((u) => u.id);
+    const blockedIds = new Set(await getBlockedEitherWayIds(req.user.id));
+    const validIds = existingUsers
+      .map((u) => u.id)
+      .filter((id) => id !== req.user.id && !blockedIds.has(id));
+
+    const alreadyIn = await prisma.seriesParticipant.findMany({
+      where: { seriesId, userId: { in: validIds } },
+      select: { userId: true },
+    });
+    const alreadyInIds = new Set(alreadyIn.map((p) => p.userId));
+    const newIds = validIds.filter((id) => !alreadyInIds.has(id));
 
     await prisma.$transaction(
       validIds.map((userId) =>
@@ -904,7 +915,19 @@ router.post('/:seriesId/members', authenticateToken, async (req, res) => {
       )
     );
 
-    return res.json({ ok: true, added: validIds.length });
+    const adderName = publicDisplayName(req.user.name, 'משתמש');
+    for (const userId of newIds) {
+      notificationService.sendNotification(
+        userId,
+        'GAME_INVITATION',
+        'צורפת לקבוצה',
+        `${adderName} צירף/ה אותך לקבוצה ${seriesDisplayName(series)}`,
+        { seriesId, link: `/series/${seriesId}` },
+        req.io
+      ).catch(err => console.error('[NOTIFICATIONS] Failed to notify series member add', seriesId, err));
+    }
+
+    return res.json({ ok: true, added: newIds.length });
   } catch (e) {
     console.error('Series add members error:', e);
     return res.status(500).json({ error: 'Failed to add members' });
