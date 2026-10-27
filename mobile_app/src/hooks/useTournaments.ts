@@ -8,21 +8,34 @@ import type { MyInvite, Tournament, TournamentFilters } from '@/types/tournament
  * unless `canCreate` (spec 0.8: hide, never disable). Signed-out or on error: `canCreate=false`.
  */
 export function useTournamentCapabilities() {
-    const q = useTournamentQuery('capabilities', (token, signal) => tournamentsApi.getCapabilities(token as string, { signal }), {
-        requireAuth: true,
-    });
-    return { canCreate: q.data?.canCreateTournaments === true, loading: q.loading, error: q.error, refetch: q.refetch };
+    const { isSignedIn } = useAuth();
+    // The answer depends on who is asking, so signing in/out must refetch.
+    const q = useTournamentQuery(`capabilities:${isSignedIn ? 'in' : 'out'}`, async (token, signal) => ({
+        ...(await tournamentsApi.getCapabilities(token, { signal })),
+        asSignedIn: token !== undefined,
+    }));
+    // Right after sign-in/out the previous answer can still be in state for a render: ignore it.
+    const stale = !!q.data && q.data.asSignedIn !== !!isSignedIn;
+    const data = stale ? null : q.data;
+    return {
+        canView: data?.canView === true,
+        canCreate: (data?.canCreate ?? data?.canCreateTournaments) === true,
+        loading: q.loading || stale,
+        error: q.error,
+        refetch: q.refetch,
+    };
 }
 
 /**
  * Tournament summaries (no `rules`; has `approvedTeams`). Guests see public non-draft tournaments.
  * `filters` is compared by value, so an inline object literal is fine. Refetches when it changes.
+ * `enabled: false` makes no request (the home rail waits for `canView`, avoiding 404s while tournaments are gated).
  * Pagination: pass `limit`/`offset` and call `refetch`; no infinite scroll in the hook.
  */
-export function useTournaments(filters: TournamentFilters = {}) {
+export function useTournaments(filters: TournamentFilters = {}, { enabled = true }: { enabled?: boolean } = {}) {
     const { isSignedIn } = useAuth();
     const key = `list:${JSON.stringify(filters)}:${isSignedIn ? 'u' : 'g'}`;
-    const q = useTournamentQuery<Tournament[]>(key, (token, signal) => tournamentsApi.list(filters, token, { signal }));
+    const q = useTournamentQuery<Tournament[]>(key, (token, signal) => tournamentsApi.list(filters, token, { signal }), { enabled });
     return { tournaments: q.data ?? [], loading: q.loading, error: q.error, refetch: q.refetch };
 }
 

@@ -14,7 +14,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 
 const { app } = require('../index');
 const { isSingleTableStage } = require('../services/tournamentResultService');
-const { prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
+const { useOpenTournaments, prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
 
 const P = 'tovr_';
 const ORG = `${P}org`;
@@ -46,6 +46,8 @@ const putOverride = (id, body, user = MGR) => as('put', `/api/tournaments/${id}/
 const delOverride = (id, body, user = MGR) => as('delete', `/api/tournaments/${id}/standings/override`, user).send(body);
 
 describe('manual standings override', () => {
+  useOpenTournaments();
+
   beforeAll(async () => {
     process.env.TOURNAMENT_CREATOR_IDS = ORG;
     await cleanup(P);

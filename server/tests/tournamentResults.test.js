@@ -13,7 +13,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { app } = require('../index');
-const { prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
+const { useOpenTournaments, prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
 
 const P = 'tres_';
 const ORG = `${P}org`;
@@ -42,6 +42,8 @@ const putResult = (id, m, body, user = SCORER) => as('put', `/api/tournaments/${
 const fresh = async (id, matchId) => prisma.tournamentMatch.findUnique({ where: { id: matchId } });
 
 describe('tournament results, advancement and views', () => {
+  useOpenTournaments();
+
   beforeAll(async () => {
     process.env.TOURNAMENT_CREATOR_IDS = ORG;
     await cleanup(P);

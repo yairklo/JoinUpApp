@@ -20,6 +20,7 @@ const mockResolveIsBanned = jest.fn();
 jest.mock('../utils/admin', () => ({
   requireAdmin: (_req, _res, next) => next(),
   resolveIsBanned: mockResolveIsBanned,
+  resolveIsAdmin: (id) => id === 'user_admin',
 }));
 
 jest.mock('../workers/reviewWorker', () => ({
@@ -120,5 +121,17 @@ describe('socketAuthMiddleware (Socket.IO connection auth)', () => {
     expect(socket.userId).toEqual('user_abc');
     expect(socket.data.userId).toEqual('user_abc');
     expect(next).toHaveBeenCalledWith();
+  });
+
+  test('caches the admin flag on socket.data.isAdmin (used by joinTournament)', async () => {
+    verifyToken.mockResolvedValue({ sub: 'user_admin' });
+    const admin = mockSocket({ authToken: 'good' });
+    await socketAuthMiddleware(admin, jest.fn());
+    expect(admin.data.isAdmin).toBe(true);
+
+    verifyToken.mockResolvedValue({ sub: 'user_abc' });
+    const plain = mockSocket({ authToken: 'good' });
+    await socketAuthMiddleware(plain, jest.fn());
+    expect(plain.data.isAdmin).toBe(false);
   });
 });
