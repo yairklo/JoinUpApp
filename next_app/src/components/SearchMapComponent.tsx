@@ -95,6 +95,16 @@ const formatShortDate = (dateStr?: string) => {
   return `${Number(day)}.${Number(month)}`;
 };
 
+// Grid cell size (~11 m of latitude) for the same-spot lookup; neighbours are checked too.
+const GRID_DEG = 0.0001;
+
+// Equirectangular distance -- plenty accurate at the ~10 m scale it is used for.
+function metersBetween(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const dLat = (lat2 - lat1) * 111320;
+  const dLng = (lng2 - lng1) * 111320 * Math.cos(((lat1 + lat2) / 2) * (Math.PI / 180));
+  return Math.hypot(dLat, dLng);
+}
+
 type GameGroup = { key: string; lat: number; lng: number; games: Game[] };
 
 // Uncontrolled initial center -- @vis.gl/react-google-maps only applies this
@@ -103,6 +113,12 @@ type GameGroup = { key: string; lat: number; lng: number; games: Game[] };
 // once it resolves geolocation and which BoundsListener below reacts to on
 // every change (see its `targetLocation` effect) -- unlike this prop, that
 // one actually re-pans an already-mounted map.
+// Stacking: venue pins sit under game pins (which sit under the user's own dot).
+const FIELD_MARKER_Z = 0;
+const GAME_MARKER_Z = 10;
+const USER_MARKER_Z = 20;
+// A venue pin this close to a game pin is considered the same spot and is not drawn.
+const SAME_SPOT_METERS = 10;
 const DEFAULT_CENTER = { lat: 32.0853, lng: 34.7818 }; // Tel Aviv
 
 export default function SearchMapComponent({
@@ -150,6 +166,32 @@ export default function SearchMapComponent({
     }
     return ids;
   }, [groupedGames]);
+
+  // Fields to draw: not already represented by a game pin (same fieldId, or within ~10 m of
+  // one). Game pins are bucketed into a coarse grid so this stays ~O(fields) with many markers.
+  const visibleFields = useMemo(() => {
+    const cell = (v: number) => Math.floor(v / GRID_DEG);
+    const grid = new Map<string, GameGroup[]>();
+    for (const group of groupedGames) {
+      const k = `${cell(group.lat)}:${cell(group.lng)}`;
+      const bucket = grid.get(k);
+      if (bucket) bucket.push(group);
+      else grid.set(k, [group]);
+    }
+    return fields.filter((field) => {
+      if (!isValidLatLng(field.lat, field.lng)) return false;
+      if (gameFieldIds.has(String(field.id))) return false;
+      const cy = cell(field.lat);
+      const cx = cell(field.lng);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const bucket = grid.get(`${cy + dy}:${cx + dx}`);
+          if (bucket?.some((g) => metersBetween(g.lat, g.lng, field.lat, field.lng) <= SAME_SPOT_METERS)) return false;
+        }
+      }
+      return true;
+    });
+  }, [fields, groupedGames, gameFieldIds]);
 
   const pinnedGamesCount = useMemo(
     () => groupedGames.reduce((sum, g) => sum + g.games.length, 0),
@@ -256,11 +298,9 @@ export default function SearchMapComponent({
             onHoverGame={onHoverGame}
           />
 
-          {fields.map((field) => {
-            if (!isValidLatLng(field.lat, field.lng)) return null;
-            if (gameFieldIds.has(String(field.id))) return null;
-            return <FieldMarker key={`field-${field.id}`} field={field} />;
-          })}
+          {visibleFields.map((field) => (
+            <FieldMarker key={`field-${field.id}`} field={field} />
+          ))}
         </GoogleMap>
       </APIProvider>
     </div>
@@ -278,6 +318,12 @@ function BoundsListener({
 }) {
   const map = useMap();
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep the latest callback in a ref so a new parent callback identity doesn't re-attach the
+  // listener (and re-report bounds) on every parent render.
+  const onBoundsRef = useRef(onBoundsChanged);
+  useEffect(() => {
+    onBoundsRef.current = onBoundsChanged;
+  }, [onBoundsChanged]);
 
   const handleCameraChanged = useCallback(() => {
     if (!map) return;
@@ -288,18 +334,22 @@ function BoundsListener({
       if (!b) return;
       const ne = b.getNorthEast();
       const sw = b.getSouthWest();
-      onBoundsChanged?.({
+      onBoundsRef.current?.({
         minLat: sw.lat(),
         maxLat: ne.lat(),
         minLng: sw.lng(),
         maxLng: ne.lng(),
       });
     }, 800);
-  }, [map, onBoundsChanged]);
+  }, [map]);
 
   useEffect(() => {
     if (!map) return;
     const idleListener = map.addListener("idle", handleCameraChanged);
+    // The map may already have gone idle before this listener existed (the first idle fires
+    // as soon as tiles load), in which case it never fires again until the user pans. Report
+    // the current viewport once now so the initial bounds are known.
+    if (map.getBounds()) handleCameraChanged();
     return () => {
       idleListener?.remove();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -366,7 +416,7 @@ function UserLocationMarker({ lat, lng }: { lat: number; lng: number }) {
   const markerLib = useMapsLibrary("marker");
   if (!markerLib) return null;
   return (
-    <AdvancedMarker position={{ lat, lng }} zIndex={1}>
+    <AdvancedMarker position={{ lat, lng }} zIndex={USER_MARKER_Z}>
       <div style={{ position: "relative", width: 22, height: 22 }}>
         <div
           style={{
@@ -519,6 +569,7 @@ function ClusteredGameMarkers({
         const marker = new AdvancedMarkerElement({
           position: { lat: group.lat, lng: group.lng },
           content,
+          zIndex: GAME_MARKER_Z,
         });
 
         // AdvancedMarkerElement dispatches "gmp-click", not the classic Marker's "click" --
@@ -726,19 +777,12 @@ function FieldMarker({ field }: { field: any }) {
         position={{ lat: field.lat, lng: field.lng }}
         onClick={() => setOpen((v) => !v)}
         title={markerLabel}
+        zIndex={FIELD_MARKER_Z}
       >
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label={markerLabel}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setOpen((v) => !v);
-            }
-          }}
-          style={{ position: "relative", width: 40, height: 40, cursor: "pointer" }}
-        >
+        {/* Presentational only: the AdvancedMarker itself is the click/keyboard target (it is
+            made focusable and named via `title` when clickable). A nested role="button" div
+            made Google's marker.js re-dispatch the click to itself recursively. */}
+        <div style={{ position: "relative", width: 40, height: 40, cursor: "pointer" }}>
           {/* Dashed outer ring distinguishes a venue marker from a (solid) game marker. */}
           <div
             style={{
