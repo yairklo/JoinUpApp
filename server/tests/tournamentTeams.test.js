@@ -15,7 +15,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { app } = require('../index');
-const { openTournaments, prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
+const { useOpenTournaments, prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
 
 const P = 'tteam_';
 const ORG = `${P}org`;
@@ -40,8 +40,9 @@ const invite = (tid, teamId, by, target) => as('post', `/api/tournaments/${tid}/
 const respond = (tid, teamId, user, accept) => as('post', `/api/tournaments/${tid}/teams/${teamId}/members/${user}/respond`, user).send({ accept });
 
 describe('tournament teams & roster', () => {
+  useOpenTournaments();
+
   beforeAll(async () => {
-    await openTournaments();
     process.env.TOURNAMENT_CREATOR_IDS = ORG;
     await cleanup(P);
     const ids = [ORG, MGR, ...Array.from({ length: 12 }, (_, i) => u(i + 1))];

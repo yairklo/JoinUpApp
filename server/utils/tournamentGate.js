@@ -2,7 +2,7 @@
 // creators and anyone holding a TournamentRole may see the feature at all.
 const { prisma } = require('../lib/prisma');
 const { getSetting } = require('./appSettings');
-const { canCreateTournament, parseCreatorAllowlist } = require('./tournamentAccess');
+const { canCreateTournament, parseCreatorAllowlist, canViewTournament } = require('./tournamentAccess');
 const { parseAdminAllowlist } = require('./admin');
 const { attachOptionalUser } = require('./auth');
 
@@ -17,6 +17,13 @@ async function canViewTournaments(user) {
   if (user.isAdmin || canCreateTournament(user)) return true;
   const role = await prisma.tournamentRole.findFirst({ where: { userId: user.id }, select: { id: true } });
   return !!role;
+}
+
+/** Socket `joinTournament`: feature gate first, then the per-tournament visibility rule. */
+async function canJoinTournamentRoom(viewer, tournamentId) {
+  if (!(await canViewTournaments(viewer))) return false;
+  const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+  return !!t && (await canViewTournament(prisma, t, viewer));
 }
 
 /**
@@ -49,4 +56,4 @@ async function tournamentsGate(req, res, next) {
   }
 }
 
-module.exports = { SETTING_KEY, isTournamentsPublic, canViewTournaments, filterViewableUserIds, tournamentsGate };
+module.exports = { SETTING_KEY, isTournamentsPublic, canViewTournaments, canJoinTournamentRoom, filterViewableUserIds, tournamentsGate };

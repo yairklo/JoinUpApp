@@ -308,9 +308,12 @@ async function socketAuthMiddleware(socket, next) {
     // socket.data survives fetchSockets()/RemoteSocket, so other instances can see who is online.
     socket.data = socket.data || {};
     socket.data.userId = String(socket.userId);
+    const { resolveIsBanned, resolveIsAdmin } = require('./utils/admin');
+    // Same rule as REST auth (mapAuthenticatedUser): ADMIN_USER_IDS first, then Clerk metadata below.
+    // Cached for the connection's lifetime; used by joinTournament (tournament feature gate).
+    socket.data.isAdmin = resolveIsAdmin(socket.userId, null);
     try {
       const { getClerkUserCached, isAccountDeleted } = require('./utils/auth');
-      const { resolveIsBanned } = require('./utils/admin');
       const clerkUser = await getClerkUserCached(socket.userId);
       if (resolveIsBanned(clerkUser)) {
         return next(new Error('Account suspended'));
@@ -318,6 +321,7 @@ async function socketAuthMiddleware(socket, next) {
       if (await isAccountDeleted(socket.userId)) {
         return next(new Error('Account deleted'));
       }
+      socket.data.isAdmin = resolveIsAdmin(socket.userId, clerkUser);
     } catch (e) {
       // Clerk lookup failure shouldn't block a socket that already has a valid JWT
       console.warn('[socket auth] ban check failed:', e.message);
@@ -533,12 +537,9 @@ io.on('connection', async (socket) => {
   socket.on('joinTournament', async (tournamentId) => {
     try {
       if (typeof tournamentId !== 'string' || !tournamentId) return;
-      const { canViewTournament } = require('./utils/tournamentAccess');
-      const { canViewTournaments } = require('./utils/tournamentGate');
+      const { canJoinTournamentRoom } = require('./utils/tournamentGate');
       const viewer = socket.userId ? { id: socket.userId, isAdmin: !!socket.data?.isAdmin } : null;
-      if (!(await canViewTournaments(viewer))) return;
-      const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-      if (t && (await canViewTournament(prisma, t, viewer))) socket.join(`tournament:${tournamentId}`);
+      if (await canJoinTournamentRoom(viewer, tournamentId)) socket.join(`tournament:${tournamentId}`);
     } catch (e) {
       console.warn('[socket] joinTournament failed:', e && e.message);
     }

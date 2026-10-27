@@ -74,7 +74,7 @@ export default function AdminSettingsPage() {
                   onChange={(e) => void toggle(e.target.checked)}
                 />
               }
-              label="Tournaments visible to all players"
+              label="טורנירים גלויים לכל השחקנים"
             />
             <Typography variant="body2" color="text.secondary">
               כשהאפשרות כבויה, טורנירים גלויים רק למנהלים, ליוצרי טורנירים ולבעלי תפקיד בטורניר.

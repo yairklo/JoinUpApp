@@ -2,6 +2,7 @@ const request = require('supertest');
 
 jest.setTimeout(60000);
 jest.mock('../utils/auth', () => require('./helpers/tournamentAuthMock'));
+jest.mock('@clerk/backend', () => ({ verifyToken: jest.fn() }));
 jest.mock('../workers/reviewWorker', () => ({ processReviewQueue: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../workers/gameReminderWorker', () => ({
   startGameReminderWorker: jest.fn().mockResolvedValue(undefined),
@@ -12,10 +13,11 @@ jest.mock('../workers/cleanupWorker', () => ({
   runCleanup: jest.fn().mockResolvedValue(undefined),
 }));
 
-const { app } = require('../index');
+const { verifyToken } = require('@clerk/backend');
+const { app, socketAuthMiddleware } = require('../index');
 const { prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
 const { invalidateSetting } = require('../utils/appSettings');
-const { canViewTournaments, filterViewableUserIds } = require('../utils/tournamentGate');
+const { canViewTournaments, canJoinTournamentRoom, filterViewableUserIds } = require('../utils/tournamentGate');
 
 const P = 'tgate_';
 const ADMIN = `${P}admin`;
@@ -23,6 +25,8 @@ const CREATOR = `${P}creator`;
 const HOLDER = `${P}holder`;
 const PLAIN = `${P}plain`;
 const OLD_ENV = process.env.TOURNAMENT_CREATOR_IDS;
+const OLD_ADMINS = process.env.ADMIN_USER_IDS;
+const ENV_ADMIN = `${P}envadmin`;
 
 const as = (method, url, user) => request(app)[method](url).set('Authorization', `Bearer ${user}`);
 const setPublic = async (value) => {
@@ -32,11 +36,14 @@ const setPublic = async (value) => {
 
 describe('tournaments feature gate (tournamentsPublic)', () => {
   let t;
+  let previousSetting = null;
 
   beforeAll(async () => {
     process.env.TOURNAMENT_CREATOR_IDS = CREATOR;
+    process.env.ADMIN_USER_IDS = ENV_ADMIN;
+    previousSetting = await prisma.appSetting.findUnique({ where: { key: 'tournamentsPublic' } });
     await cleanup(P);
-    await ensureUsers([ADMIN, CREATOR, HOLDER, PLAIN]);
+    await ensureUsers([ADMIN, CREATOR, HOLDER, PLAIN, ENV_ADMIN]);
     await setPublic(true);
     const res = await as('post', '/api/tournaments', CREATOR).send(tournamentBody());
     t = res.body;
@@ -45,8 +52,10 @@ describe('tournaments feature gate (tournamentsPublic)', () => {
   });
   afterAll(async () => {
     process.env.TOURNAMENT_CREATOR_IDS = OLD_ENV;
+    process.env.ADMIN_USER_IDS = OLD_ADMINS;
     await cleanup(P);
-    await prisma.appSetting.deleteMany({ where: { key: 'tournamentsPublic' } });
+    if (previousSetting) await setPublic(previousSetting.value);
+    else await prisma.appSetting.deleteMany({ where: { key: 'tournamentsPublic' } });
     invalidateSetting();
     await prisma.$disconnect();
   });
@@ -89,6 +98,23 @@ describe('tournaments feature gate (tournamentsPublic)', () => {
       expect(await canViewTournaments({ id: HOLDER })).toBe(true);
       expect(await canViewTournaments({ id: CREATOR })).toBe(true);
       expect(await canViewTournaments({ id: ADMIN, isAdmin: true })).toBe(true);
+    });
+
+    it('an ADMIN_USER_IDS admin with no TournamentRole can join the live room (socket.data.isAdmin)', async () => {
+      const connect = async (sub) => {
+        verifyToken.mockResolvedValue({ sub });
+        const socket = { handshake: { auth: { token: 'good' }, headers: {} } };
+        const next = jest.fn();
+        await socketAuthMiddleware(socket, next);
+        expect(next).toHaveBeenCalledWith();
+        return { id: socket.userId, isAdmin: !!socket.data.isAdmin };
+      };
+      const admin = await connect(ENV_ADMIN);
+      expect(admin.isAdmin).toBe(true);
+      expect(await prisma.tournamentRole.count({ where: { userId: ENV_ADMIN } })).toBe(0);
+      expect(await canJoinTournamentRoom(admin, t.id)).toBe(true);
+      expect(await canJoinTournamentRoom(await connect(PLAIN), t.id)).toBe(false);
+      expect(await canJoinTournamentRoom(await connect(HOLDER), t.id)).toBe(true);
     });
 
     it('notification recipients are filtered the same way', async () => {
@@ -134,6 +160,9 @@ describe('tournaments feature gate (tournamentsPublic)', () => {
     it('rejects non-boolean and unknown payloads', async () => {
       expect((await as('put', '/api/admin/settings', `${ADMIN}:admin`).send({ tournamentsPublic: 'yes' })).status).toBe(400);
       expect((await as('put', '/api/admin/settings', `${ADMIN}:admin`).send({ other: 1 })).status).toBe(400);
+      const mixed = await as('put', '/api/admin/settings', `${ADMIN}:admin`).send({ tournamentsPublic: true, other: 1 });
+      expect(mixed.status).toBe(400);
+      expect(mixed.body.error).toMatch(/other/);
     });
   });
 });

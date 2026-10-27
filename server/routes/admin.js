@@ -514,6 +514,8 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const body = req.body || {};
+    const unknown = Object.keys(body).filter((k) => !Object.prototype.hasOwnProperty.call(SETTING_DEFAULTS, k));
+    if (unknown.length) return res.status(400).json({ error: `Unknown setting: ${unknown.join(', ')}` });
     if (Object.prototype.hasOwnProperty.call(body, 'tournamentsPublic') && typeof body.tournamentsPublic !== 'boolean') {
       return res.status(400).json({ error: 'tournamentsPublic must be a boolean' });
     }

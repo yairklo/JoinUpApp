@@ -56,14 +56,29 @@ async function seedTeams(prefix, tournamentId, n, players = 2) {
   return teams;
 }
 
-/** Tournaments are admin-gated by default (tournamentsPublic=false); feature tests run with them open. */
-async function openTournaments() {
-  await prisma.appSetting.upsert({
-    where: { key: 'tournamentsPublic' },
-    update: { value: true },
-    create: { key: 'tournamentsPublic', value: true },
+/**
+ * Tournaments are admin-gated by default (tournamentsPublic=false); feature tests run with them open.
+ * Call at describe level, before the file's own hooks: opens the switch in beforeAll and restores the
+ * previous value (or removes the row) in afterAll, so files do not depend on each other's order.
+ */
+function useOpenTournaments() {
+  let previous = null;
+  beforeAll(async () => {
+    previous = await prisma.appSetting.findUnique({ where: { key: 'tournamentsPublic' } });
+    await prisma.appSetting.upsert({
+      where: { key: 'tournamentsPublic' },
+      update: { value: true },
+      create: { key: 'tournamentsPublic', value: true },
+    });
+  });
+  afterAll(async () => {
+    if (previous) {
+      await prisma.appSetting.update({ where: { key: 'tournamentsPublic' }, data: { value: previous.value } });
+    } else {
+      await prisma.appSetting.deleteMany({ where: { key: 'tournamentsPublic' } });
+    }
   });
 }
 
 module.exports = {
-  openTournaments, seedTeams, prisma, ensureUsers, tournamentBody, cleanup };
+  useOpenTournaments, seedTeams, prisma, ensureUsers, tournamentBody, cleanup };

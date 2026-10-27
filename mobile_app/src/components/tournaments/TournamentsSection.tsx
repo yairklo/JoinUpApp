@@ -20,8 +20,8 @@ export default function TournamentsSection() {
     const { t, i18n } = useTranslation();
     const router = useRouter();
     const lang: Lang = i18n.language?.startsWith('en') ? 'en' : 'he';
-    const { tournaments } = useTournaments({ limit: RAIL_LIMIT });
     const { canCreate, canView } = useTournamentCapabilities();
+    const { tournaments } = useTournaments({ limit: RAIL_LIMIT }, { enabled: canView });
 
     if (!canView) return null;
     if (tournaments.length === 0 && !canCreate) return null;
