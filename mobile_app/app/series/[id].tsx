@@ -323,7 +323,10 @@ export default function SeriesScreen() {
         try {
             const token = await getToken();
             if (!token) return;
-            await seriesApi.addMembers(id, selectedMembers.map((m) => m.id), token);
+            const res: any = await seriesApi.addMembers(id, selectedMembers.map((m) => m.id), token);
+            if (typeof res?.added === 'number' && res.added < selectedMembers.length) {
+                appAlert(t('common.error', 'שגיאה'), t('series.someNotAdded', 'לא ניתן היה להוסיף חלק מהמשתמשים'));
+            }
             setSelectedMembers([]);
             setMemberQuery('');
             fetchSeries();
@@ -715,7 +718,7 @@ export default function SeriesScreen() {
                         {memberQuery.trim().length >= 2 && (
                             <View className="mt-3 rounded-lg border border-gray-100 overflow-hidden">
                                 {memberSearching ? (
-                                    <View className="py-4 items-center"><ActivityIndicator /></View>
+                                    <View className="py-4 items-center"><ActivityIndicator accessibilityLabel={t('series.searching', 'מחפש…')} /></View>
                                 ) : memberSearchError ? (
                                     <Text className="text-red-500 text-center py-4">{t('series.searchError', 'החיפוש נכשל. נסו שוב.')}</Text>
                                 ) : visibleResults.length === 0 ? (
@@ -1080,8 +1083,8 @@ export default function SeriesScreen() {
                 onClose={() => setDeleteModalOpen(false)}
                 onDeleted={handleDeleted}
             />
-            <Modal visible={!!memberMenu} transparent animationType="fade" onRequestClose={() => setMemberMenu(null)}>
-                <Pressable className="flex-1 bg-black/40 justify-end" onPress={() => setMemberMenu(null)}>
+            <Modal visible={!!memberMenu} transparent animationType="fade" onRequestClose={() => setMemberMenu(null)} accessibilityViewIsModal>
+                <Pressable className="flex-1 bg-black/40 justify-end" onPress={() => setMemberMenu(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel', 'ביטול')}>
                     <Pressable className="bg-white rounded-t-2xl p-4" onPress={() => {}}>
                         <Text className="text-center text-gray-800 font-bold mb-3" numberOfLines={1}>{memberMenu?.name}</Text>
                         <TouchableOpacity

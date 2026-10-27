@@ -590,6 +590,8 @@
     "inviteMembers": "Invite & add members",
     "shareInvite": "Share invite link",
     "searchUsers": "Search users to add",
+    "someNotAdded": "Some users could not be added",
+    "searching": "Searching…",
     "noUsersFound": "No users found",
     "searchError": "Search failed. Try again.",
     "addSelected": "Add",

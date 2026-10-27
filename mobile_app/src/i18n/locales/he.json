@@ -590,6 +590,8 @@
     "inviteMembers": "הזמנה והוספת חברים",
     "shareInvite": "שיתוף קישור הזמנה",
     "searchUsers": "חיפוש משתמשים להוספה",
+    "someNotAdded": "לא ניתן היה להוסיף חלק מהמשתמשים",
+    "searching": "מחפש…",
     "noUsersFound": "לא נמצאו משתמשים",
     "searchError": "החיפוש נכשל. נסו שוב.",
     "addSelected": "הוסף",

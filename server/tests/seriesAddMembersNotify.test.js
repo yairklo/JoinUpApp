@@ -61,9 +61,10 @@ describe('POST /api/series/:id/members notifications', () => {
 
   afterAll(async () => {
     try {
+      await prisma.userBlock.deleteMany({ where: { blockerId: orgId, blockedId } });
       await prisma.seriesParticipant.deleteMany({ where: { seriesId: series.id } });
       await prisma.gameSeries.delete({ where: { id: series.id } });
-      await prisma.userBlock.deleteMany({ where: { blockerId: orgId, blockedId } });
+      await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     } catch (err) {
       console.warn('Clean up skipped:', err.message);
     }
@@ -100,6 +101,14 @@ describe('POST /api/series/:id/members notifications', () => {
     expect(sendSpy).not.toHaveBeenCalled();
     const row = await prisma.seriesParticipant.findFirst({ where: { seriesId: series.id, userId: blockedId } });
     expect(row).toBeNull();
+  });
+
+  test('concurrent duplicate adds notify once', async () => {
+    const [a, b] = await Promise.all([add([strId]), add([strId])]);
+    expect(a.statusCode).toEqual(200);
+    expect(b.statusCode).toEqual(200);
+    expect(a.body.added + b.body.added).toEqual(1);
+    expect(sendSpy).toHaveBeenCalledTimes(1);
   });
 
   test('non-managers still get 403 and nothing is sent', async () => {

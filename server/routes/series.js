@@ -898,22 +898,17 @@ router.post('/:seriesId/members', authenticateToken, async (req, res) => {
       .map((u) => u.id)
       .filter((id) => id !== req.user.id && !blockedIds.has(id));
 
-    const alreadyIn = await prisma.seriesParticipant.findMany({
-      where: { seriesId, userId: { in: validIds } },
-      select: { userId: true },
-    });
-    const alreadyInIds = new Set(alreadyIn.map((p) => p.userId));
-    const newIds = validIds.filter((id) => !alreadyInIds.has(id));
-
-    await prisma.$transaction(
-      validIds.map((userId) =>
-        prisma.seriesParticipant.upsert({
-          where: { seriesId_userId: { seriesId, userId } },
-          update: {},
-          create: { seriesId, userId, role: 'MEMBER' },
-        })
-      )
-    );
+    // Create (not upsert) per row so only rows this request actually inserted are counted and notified;
+    // a concurrent duplicate request hits the unique constraint (P2002) and is skipped.
+    const newIds = [];
+    for (const userId of validIds) {
+      try {
+        await prisma.seriesParticipant.create({ data: { seriesId, userId, role: 'MEMBER' } });
+        newIds.push(userId);
+      } catch (err) {
+        if (err?.code !== 'P2002') throw err;
+      }
+    }
 
     const adderName = publicDisplayName(req.user.name, 'משתמש');
     for (const userId of newIds) {

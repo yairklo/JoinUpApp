@@ -96,7 +96,10 @@ export default function SeriesMembersPanel({
         try {
             const token = await getToken();
             if (!token) return;
-            await seriesApi.addMembers(seriesId, selected.map((u) => u.id), token);
+            const res: any = await seriesApi.addMembers(seriesId, selected.map((u) => u.id), token);
+            if (typeof res?.added === "number" && res.added < selected.length) {
+                setAddError("לא ניתן היה להוסיף חלק מהמשתמשים");
+            }
             setSelected([]);
             setQuery("");
             router.refresh();

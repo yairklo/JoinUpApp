@@ -62,7 +62,7 @@ export default function MySeriesRail() {
                             onPress={() => router.push(`/series/${s.id}`)}
                             accessibilityRole="button"
                             accessibilityLabel={s.name}
-                            className="items-center mr-4"
+                            className="items-center me-4"
                             style={{ width: AVATAR + 8 }}
                         >
                             {uri ? (

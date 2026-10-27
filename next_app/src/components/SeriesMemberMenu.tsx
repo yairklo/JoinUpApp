@@ -79,7 +79,7 @@ export default function SeriesMemberMenu({
                 </Typography>
             </ButtonBase>
             <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
-                <MenuItem component="a" href={`/users/${userId}`} onClick={() => setAnchor(null)}>
+                <MenuItem onClick={() => { setAnchor(null); router.push(`/users/${userId}`); }}>
                     <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
                     פתח פרופיל
                 </MenuItem>
