@@ -3,17 +3,13 @@ const request = require('supertest');
 jest.setTimeout(180000);
 jest.mock('../utils/auth', () => require('./helpers/tournamentAuthMock'));
 jest.mock('../workers/reviewWorker', () => ({ processReviewQueue: jest.fn().mockResolvedValue(undefined) }));
-jest.mock('../workers/gameReminderWorker', () => ({
-  startGameReminderWorker: jest.fn().mockResolvedValue(undefined),
-  checkUpcomingGames: jest.fn().mockResolvedValue(undefined),
-}));
 jest.mock('../workers/cleanupWorker', () => ({
   startCleanupWorker: jest.fn().mockResolvedValue(undefined),
   runCleanup: jest.fn().mockResolvedValue(undefined),
 }));
 
 const { app } = require('../index');
-const { prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
+const { useOpenTournaments, prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
 const results = require('../services/tournamentResultService');
 const { REMINDER_KEY } = require('../services/tournamentScheduleService');
 
@@ -88,6 +84,8 @@ describe('rankTable manualRank semantics (pure)', () => {
 });
 
 describe('withdrawn teams, atomic withdraw + forfeit', () => {
+  useOpenTournaments();
+
   beforeAll(async () => {
     process.env.TOURNAMENT_CREATOR_IDS = ORG;
     await cleanup(P);

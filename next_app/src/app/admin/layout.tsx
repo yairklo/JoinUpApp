@@ -21,6 +21,7 @@ const ADMIN_TABS = [
   { href: "/admin/moderation", label: "הודעות שסומנו" },
   { href: "/admin/moderation/player-reports", label: "דיווחים על שחקנים" },
   { href: "/admin/feedback", label: "פניות ודיווחי באגים" },
+  { href: "/admin/settings", label: "הגדרות" },
 ] as const;
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

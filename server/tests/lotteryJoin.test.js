@@ -35,10 +35,6 @@ jest.mock('../workers/reviewWorker', () => ({
   processReviewQueue: jest.fn().mockResolvedValue(undefined)
 }));
 
-jest.mock('../workers/gameReminderWorker', () => ({
-  startGameReminderWorker: jest.fn().mockResolvedValue(undefined),
-  checkUpcomingGames: jest.fn().mockResolvedValue(undefined)
-}));
 
 jest.mock('../workers/cleanupWorker', () => ({
   startCleanupWorker: jest.fn().mockResolvedValue(undefined),

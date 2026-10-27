@@ -54,8 +54,8 @@ function qs(params: Record<string, string | number | boolean | undefined | null>
  * Map them with `tournamentErrorKey` / `tournamentErrorParams` (utils/tournamentErrors.ts).
  */
 export const tournamentsApi = {
-    getCapabilities: (token: string, opts: Opts = {}) =>
-        apiClient<{ canCreateTournaments: boolean }>('/api/tournaments/capabilities', { token, cache: 'no-store', ...opts }),
+    getCapabilities: (token: string | undefined, opts: Opts = {}) =>
+        apiClient<{ public: boolean; canView: boolean; canCreate: boolean; canCreateTournaments?: boolean }>('/api/tournaments/capabilities', { token, cache: 'no-store', ...opts }),
 
     list: (filters: TournamentFilters, token: string | undefined, opts: Opts = {}) =>
         apiClient<Tournament[]>(

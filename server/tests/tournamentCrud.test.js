@@ -3,17 +3,13 @@ const request = require('supertest');
 jest.setTimeout(60000);
 jest.mock('../utils/auth', () => require('./helpers/tournamentAuthMock'));
 jest.mock('../workers/reviewWorker', () => ({ processReviewQueue: jest.fn().mockResolvedValue(undefined) }));
-jest.mock('../workers/gameReminderWorker', () => ({
-  startGameReminderWorker: jest.fn().mockResolvedValue(undefined),
-  checkUpcomingGames: jest.fn().mockResolvedValue(undefined),
-}));
 jest.mock('../workers/cleanupWorker', () => ({
   startCleanupWorker: jest.fn().mockResolvedValue(undefined),
   runCleanup: jest.fn().mockResolvedValue(undefined),
 }));
 
 const { app } = require('../index');
-const { prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
+const { useOpenTournaments, prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
 
 const P = 'tcrud_';
 const ADMIN = `${P}admin`;
@@ -27,6 +23,8 @@ const as = (method, url, user) => request(app)[method](url).set('Authorization',
 
 describe('tournaments CRUD, state machine, roles, visibility', () => {
   let t;
+
+  useOpenTournaments();
 
   beforeAll(async () => {
     process.env.TOURNAMENT_CREATOR_IDS = CREATOR;

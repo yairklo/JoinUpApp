@@ -1,6 +1,7 @@
 // "Starting soon" reminders for tournament matches. Runs from the leader-locked jobs runtime
 // (services/jobsRuntime.js), so one process sweeps; the claim below makes a second sweeper (or a
 // stale one after a leader hand-over) a no-op anyway.
+const { filterViewableUserIds } = require('../utils/tournamentGate');
 const { formatJerusalemTime } = require('../shared/timezone');
 
 const LEAD_MS = 60 * 60 * 1000;
@@ -44,12 +45,15 @@ async function runReminderSweep({ prisma, notificationService, io = null, now = 
   for (const m of due) {
     if (!shouldContinue()) break;
     if (m.details && m.details[SENTINEL]) continue;
-    if (!(await claimReminder(prisma, m.id, now))) continue;
     const members = await prisma.tournamentTeamMember.findMany({
       where: { teamId: { in: [m.homeTeamId, m.awayTeamId] }, status: 'ACCEPTED' },
       select: { userId: true },
     });
-    const userIds = [...new Set(members.map((x) => x.userId))];
+    const userIds = await filterViewableUserIds(members.map((x) => x.userId));
+    // Tournaments gated off for every recipient: leave the match unclaimed so the reminder still goes
+    // out if the switch opens before kickoff (claiming first would lose it for good).
+    if (members.length && !userIds.length) continue;
+    if (!(await claimReminder(prisma, m.id, now))) continue;
     await notificationService.sendNotificationToMany(
       userIds,
       'TOURNAMENT_STARTING_SOON',

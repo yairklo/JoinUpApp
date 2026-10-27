@@ -5,17 +5,13 @@ const request = require('supertest');
 jest.setTimeout(120000);
 jest.mock('../utils/auth', () => require('./helpers/tournamentAuthMock'));
 jest.mock('../workers/reviewWorker', () => ({ processReviewQueue: jest.fn().mockResolvedValue(undefined) }));
-jest.mock('../workers/gameReminderWorker', () => ({
-  startGameReminderWorker: jest.fn().mockResolvedValue(undefined),
-  checkUpcomingGames: jest.fn().mockResolvedValue(undefined),
-}));
 jest.mock('../workers/cleanupWorker', () => ({
   startCleanupWorker: jest.fn().mockResolvedValue(undefined),
   runCleanup: jest.fn().mockResolvedValue(undefined),
 }));
 
 const { app } = require('../index');
-const { prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
+const { useOpenTournaments, prisma, ensureUsers, tournamentBody, cleanup } = require('./helpers/tournamentFixtures');
 
 const P = 'tteam_';
 const ORG = `${P}org`;
@@ -40,6 +36,8 @@ const invite = (tid, teamId, by, target) => as('post', `/api/tournaments/${tid}/
 const respond = (tid, teamId, user, accept) => as('post', `/api/tournaments/${tid}/teams/${teamId}/members/${user}/respond`, user).send({ accept });
 
 describe('tournament teams & roster', () => {
+  useOpenTournaments();
+
   beforeAll(async () => {
     process.env.TOURNAMENT_CREATOR_IDS = ORG;
     await cleanup(P);

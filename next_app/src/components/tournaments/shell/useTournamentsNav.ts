@@ -1,15 +1,11 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
-import { useTournamentCapabilities, useTournaments } from "@/hooks/tournaments";
+import { useTournamentCapabilities } from "@/hooks/tournaments";
 
 /**
- * Nav entry rule (spec 1.1): show the tournaments link only when the viewer can create tournaments or at least one
- * public tournament exists. Nothing is rendered while either answer is still loading.
+ * Nav entry rule: show the tournaments link only when the server says this viewer may see the feature
+ * (tournaments switched on for everyone, or the viewer is an admin / creator / role holder).
  */
 export function useTournamentsNav(): boolean {
-    const { isSignedIn } = useAuth();
-    const caps = useTournamentCapabilities();
-    const { data } = useTournaments({ limit: 1 });
-    return (isSignedIn && caps.canCreateTournaments) || (data?.length ?? 0) > 0;
+    return useTournamentCapabilities().canView;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   APIProvider,
   Map as GoogleMap,
@@ -25,6 +25,8 @@ import { SPORT_MAPPING } from "@/utils/sports";
 import SportIcon from "@/components/ui/SportIcon";
 import LoadingMotif from "@/components/motion/LoadingMotif";
 import { isValidLatLng } from "@/utils/geo";
+import { SPORT_THEME } from "@joinup/shared/sports";
+import { getFieldMarkerVisual, getFieldSportTags } from "@joinup/shared/mapSport";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
@@ -32,7 +34,9 @@ const MAPS_LIBRARIES: ("marker")[] = ["marker"];
 
 interface SearchMapComponentProps {
   games: Game[];
-  emptyFields?: any[];
+  // All fields in view (already sport-filtered by the page). Fields that have a game marker
+  // on the map are skipped here so a venue is never drawn twice.
+  fields?: any[];
   onBoundsChanged?: (bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => void;
   onGameSelect?: (gameId: string) => void;
   targetLocation?: [number, number] | null;
@@ -52,10 +56,11 @@ interface SearchMapComponentProps {
   fitToResultsKey?: string | null;
 }
 
+// Single source of truth for sport colour (shared with mobile).
 const SPORT_COLORS: Record<string, string> = {
-  SOCCER: "#16a34a", // green-600
-  BASKETBALL: "#f97316", // orange-500
-  TENNIS: "#eab308", // yellow-500
+  SOCCER: SPORT_THEME.SOCCER.base,
+  BASKETBALL: SPORT_THEME.BASKETBALL.base,
+  TENNIS: SPORT_THEME.TENNIS.base,
 };
 
 // Games can arrive with either the DB enum ("SOCCER") or a free-text Hebrew
@@ -90,6 +95,17 @@ const formatShortDate = (dateStr?: string) => {
   return `${Number(day)}.${Number(month)}`;
 };
 
+// Grid cell size for the same-spot lookup (~22 m of latitude, ~19 m of longitude at 32 N), so
+// checking the 8 neighbouring cells always covers SAME_SPOT_METERS in either axis.
+const GRID_DEG = 0.0002;
+
+// Equirectangular distance -- plenty accurate at the ~10 m scale it is used for.
+function metersBetween(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const dLat = (lat2 - lat1) * 111320;
+  const dLng = (lng2 - lng1) * 111320 * Math.cos(((lat1 + lat2) / 2) * (Math.PI / 180));
+  return Math.hypot(dLat, dLng);
+}
+
 type GameGroup = { key: string; lat: number; lng: number; games: Game[] };
 
 // Uncontrolled initial center -- @vis.gl/react-google-maps only applies this
@@ -98,11 +114,19 @@ type GameGroup = { key: string; lat: number; lng: number; games: Game[] };
 // once it resolves geolocation and which BoundsListener below reacts to on
 // every change (see its `targetLocation` effect) -- unlike this prop, that
 // one actually re-pans an already-mounted map.
+// Stacking: venue pins sit under game pins, which sit under the user's own dot (cluster
+// bubbles use the clusterer's own, higher z-index).
+const FIELD_MARKER_Z = 0;
+const GAME_MARKER_Z = 10;
+const USER_MARKER_Z = 30;
+const GAME_MARKER_HOVER_Z = 15;
+// A venue pin this close to a game pin is considered the same spot and is not drawn.
+const SAME_SPOT_METERS = 10;
 const DEFAULT_CENTER = { lat: 32.0853, lng: 34.7818 }; // Tel Aviv
 
 export default function SearchMapComponent({
   games,
-  emptyFields = [],
+  fields = [],
   onBoundsChanged,
   onGameSelect,
   targetLocation,
@@ -134,6 +158,43 @@ export default function SearchMapComponent({
     }
     return Array.from(map.values());
   }, [games]);
+
+  const gameFieldIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const group of groupedGames) {
+      for (const g of group.games) {
+        const id = g.fieldId || g.field?.id;
+        if (id) ids.add(String(id));
+      }
+    }
+    return ids;
+  }, [groupedGames]);
+
+  // Fields to draw: not already represented by a game pin (same fieldId, or within ~10 m of
+  // one). Game pins are bucketed into a coarse grid so this stays ~O(fields) with many markers.
+  const visibleFields = useMemo(() => {
+    const cell = (v: number) => Math.floor(v / GRID_DEG);
+    const grid = new Map<string, GameGroup[]>();
+    for (const group of groupedGames) {
+      const k = `${cell(group.lat)}:${cell(group.lng)}`;
+      const bucket = grid.get(k);
+      if (bucket) bucket.push(group);
+      else grid.set(k, [group]);
+    }
+    return fields.filter((field) => {
+      if (!isValidLatLng(field.lat, field.lng)) return false;
+      if (gameFieldIds.has(String(field.id))) return false;
+      const cy = cell(field.lat);
+      const cx = cell(field.lng);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const bucket = grid.get(`${cy + dy}:${cx + dx}`);
+          if (bucket?.some((g) => metersBetween(g.lat, g.lng, field.lat, field.lng) <= SAME_SPOT_METERS)) return false;
+        }
+      }
+      return true;
+    });
+  }, [fields, groupedGames, gameFieldIds]);
 
   const pinnedGamesCount = useMemo(
     () => groupedGames.reduce((sum, g) => sum + g.games.length, 0),
@@ -240,10 +301,9 @@ export default function SearchMapComponent({
             onHoverGame={onHoverGame}
           />
 
-          {emptyFields.map((field, idx) => {
-            if (!isValidLatLng(field.lat, field.lng)) return null;
-            return <EmptyFieldMarker key={`empty-${idx}`} field={field} />;
-          })}
+          {visibleFields.map((field) => (
+            <FieldMarker key={`field-${field.id}`} field={field} />
+          ))}
         </GoogleMap>
       </APIProvider>
     </div>
@@ -261,6 +321,18 @@ function BoundsListener({
 }) {
   const map = useMap();
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep the latest callback in a ref so a new parent callback identity doesn't re-attach the
+  // listener (and re-report bounds) on every parent render.
+  const onBoundsRef = useRef(onBoundsChanged);
+  useEffect(() => {
+    onBoundsRef.current = onBoundsChanged;
+  }, [onBoundsChanged]);
+  // A pending targetLocation will pan the map right after mount; the idle that follows reports
+  // the right viewport, so the mount report is skipped rather than searching the default one.
+  const targetLocationRef = useRef(targetLocation);
+  useEffect(() => {
+    targetLocationRef.current = targetLocation;
+  }, [targetLocation]);
 
   const handleCameraChanged = useCallback(() => {
     if (!map) return;
@@ -271,18 +343,22 @@ function BoundsListener({
       if (!b) return;
       const ne = b.getNorthEast();
       const sw = b.getSouthWest();
-      onBoundsChanged?.({
+      onBoundsRef.current?.({
         minLat: sw.lat(),
         maxLat: ne.lat(),
         minLng: sw.lng(),
         maxLng: ne.lng(),
       });
     }, 800);
-  }, [map, onBoundsChanged]);
+  }, [map]);
 
   useEffect(() => {
     if (!map) return;
     const idleListener = map.addListener("idle", handleCameraChanged);
+    // The map may already have gone idle before this listener existed (the first idle fires
+    // as soon as tiles load), in which case it never fires again until the user pans. Report
+    // the current viewport once now so the initial bounds are known.
+    if (map.getBounds() && !targetLocationRef.current) handleCameraChanged();
     return () => {
       idleListener?.remove();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -349,7 +425,7 @@ function UserLocationMarker({ lat, lng }: { lat: number; lng: number }) {
   const markerLib = useMapsLibrary("marker");
   if (!markerLib) return null;
   return (
-    <AdvancedMarker position={{ lat, lng }} zIndex={1}>
+    <AdvancedMarker position={{ lat, lng }} zIndex={USER_MARKER_Z}>
       <div style={{ position: "relative", width: 22, height: 22 }}>
         <div
           style={{
@@ -460,6 +536,7 @@ function ClusteredGameMarkers({
   const markerLib = useMapsLibrary("marker");
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const contentByKeyRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const markerByKeyRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map());
   const [selectedGroup, setSelectedGroup] = useState<GameGroup | null>(null);
 
   // The clusterer instance itself is created once per `map` (not per `groups` change) --
@@ -502,10 +579,12 @@ function ClusteredGameMarkers({
         const marker = new AdvancedMarkerElement({
           position: { lat: group.lat, lng: group.lng },
           content,
+          zIndex: GAME_MARKER_Z,
         });
 
         // AdvancedMarkerElement dispatches "gmp-click", not the classic Marker's "click" --
         // using "click" here still works but logs a deprecation warning in the console.
+        markerByKeyRef.current.set(group.key, marker);
         marker.addListener("gmp-click", () => setSelectedGroup(group));
         content.addEventListener("mouseenter", () => onHoverGame?.(group.games[0].id));
         content.addEventListener("mouseleave", () => onHoverGame?.(null));
@@ -519,6 +598,7 @@ function ClusteredGameMarkers({
       return () => {
         clusterer.clearMarkers();
         contentByKeyRef.current.clear();
+        markerByKeyRef.current.clear();
       };
     } catch (e) {
       console.error("[SearchMap] Failed to create clustered markers:", e);
@@ -548,34 +628,18 @@ function ClusteredGameMarkers({
       const isHovered = !!hoveredGameId && group.games.some((g) => g.id === hoveredGameId);
       content.style.transform = isHovered ? "scale(1.28)" : "scale(1)";
       content.style.filter = isHovered ? "drop-shadow(0 0 0 3px rgba(37,99,235,0.55))" : "none";
-      content.style.zIndex = isHovered ? "3" : "0";
+      const marker = markerByKeyRef.current.get(group.key);
+      if (marker) marker.zIndex = isHovered ? GAME_MARKER_HOVER_Z : GAME_MARKER_Z;
     }
   }, [hoveredGameId, groups]);
 
-  // The native InfoWindow auto-pan only keeps the bubble inside the map div and misses the
-  // left edge at narrow widths, so measure the rendered bubble and pan the remainder in.
-  const selectedKey = selectedGroup?.key ?? null;
-  useEffect(() => {
-    if (!map || !selectedKey) return;
-    const timer = setTimeout(() => {
-      try {
-        const div = map.getDiv();
-        const bubble = div.querySelector(".gm-style-iw-c");
-        if (!bubble) return;
-        const m = div.getBoundingClientRect();
-        const b = bubble.getBoundingClientRect();
-        const pad = 16;
-        const dx = b.left < m.left + pad ? b.left - (m.left + pad) : b.right > m.right - pad ? b.right - (m.right - pad) : 0;
-        const dy = b.top < m.top + pad ? b.top - (m.top + pad) : b.bottom > m.bottom - pad ? b.bottom - (m.bottom - pad) : 0;
-        if (dx || dy) map.panBy(dx, dy);
-      } catch (e) {
-        console.warn("[SearchMap] popup panBy failed:", e);
-      }
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [map, selectedKey]);
+  usePanPopupIntoView(map, selectedGroup?.key ?? null);
 
   if (!selectedGroup) return null;
+
+  // Link to the venue only when every game in the popup is at the same field.
+  const fieldIds = new Set(selectedGroup.games.map((g) => g.fieldId || g.field?.id || ""));
+  const sharedFieldId = fieldIds.size === 1 ? [...fieldIds][0] : "";
 
   return (
     <InfoWindow
@@ -598,9 +662,21 @@ function ClusteredGameMarkers({
               {selectedGroup.games[0].field?.name || selectedGroup.games[0].fieldName || "מיקום המשחק"}
             </Typography>
           </Stack>
-          <IconButton size="small" onClick={() => setSelectedGroup(null)} aria-label="סגירה" sx={{ flexShrink: 0, m: -0.5 }}>
-            <CloseRoundedIcon fontSize="small" />
-          </IconButton>
+          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+            {sharedFieldId && (
+              <Button
+                href={`/fields/${sharedFieldId}`}
+                size="small"
+                aria-label="לדף המגרש"
+                sx={{ minWidth: 0, px: 0.75, py: 0, fontWeight: 700, fontSize: 12 }}
+              >
+                לדף המגרש
+              </Button>
+            )}
+            <IconButton size="small" onClick={() => setSelectedGroup(null)} aria-label="סגירה" sx={{ m: -0.5 }}>
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
         </Stack>
         <Stack spacing={0.75}>
           {selectedGroup.games.map((g) => {
@@ -666,33 +742,109 @@ function ClusteredGameMarkers({
   );
 }
 
-function EmptyFieldMarker({ field }: { field: any }) {
+// The native InfoWindow auto-pan only keeps the bubble inside the map div and misses the
+// left edge at narrow widths, so measure the rendered bubble and pan the remainder in.
+function usePanPopupIntoView(map: google.maps.Map | null, activeKey: string | null) {
+  useEffect(() => {
+    if (!map || !activeKey) return;
+    const timer = setTimeout(() => {
+      try {
+        const div = map.getDiv();
+        const bubble = div.querySelector(".gm-style-iw-c");
+        if (!bubble) return;
+        const m = div.getBoundingClientRect();
+        const b = bubble.getBoundingClientRect();
+        const pad = 16;
+        const dx = b.left < m.left + pad ? b.left - (m.left + pad) : b.right > m.right - pad ? b.right - (m.right - pad) : 0;
+        const dy = b.top < m.top + pad ? b.top - (m.top + pad) : b.bottom > m.bottom - pad ? b.bottom - (m.bottom - pad) : 0;
+        if (dx || dy) map.panBy(dx, dy);
+      } catch (e) {
+        console.warn("[SearchMap] popup panBy failed:", e);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [map, activeKey]);
+}
+
+const FieldMarker = memo(function FieldMarker({ field }: { field: any }) {
   const [open, setOpen] = useState(false);
+  const map = useMap();
   const markerLib = useMapsLibrary("marker");
+  usePanPopupIntoView(map, open ? String(field.id) : null);
   if (!markerLib) return null;
+
+  const visual = getFieldMarkerVisual(field);
+  const tags = getFieldSportTags(field);
+  const isSingle = visual.variant === "sport" && tags.length === 1;
+  // Tennis yellow is too light for a white glyph -- use its dark ink for contrast.
+  const iconColor = isSingle && tags[0] === "TENNIS" ? SPORT_THEME.TENNIS.ink : "#ffffff";
+  const fieldName = field.name || "מגרש";
+  const sportsLabel = tags.map((t) => SPORT_MAPPING[t] || t).join(", ");
+  const markerLabel = `מגרש ${fieldName}${sportsLabel ? ` — ${sportsLabel}` : ""}`;
+  const upcoming = typeof field.upcomingGamesCount === "number" ? field.upcomingGamesCount : null;
+  const address = [field.location, field.city].filter((v, i, a) => v && a.indexOf(v) === i).join(", ");
+
   return (
     <>
-      <AdvancedMarker position={{ lat: field.lat, lng: field.lng }} onClick={() => setOpen((v) => !v)}>
-        <div style={{ position: "relative", width: 36, height: 36 }}>
+      <AdvancedMarker
+        position={{ lat: field.lat, lng: field.lng }}
+        onClick={() => setOpen((v) => !v)}
+        title={markerLabel}
+        zIndex={FIELD_MARKER_Z}
+      >
+        {/* Presentational only: the AdvancedMarker itself is the click/keyboard target (it is
+            made focusable and named via `title` when clickable). A nested role="button" div
+            made Google's marker.js re-dispatch the click to itself recursively. */}
+        <div style={{ position: "relative", width: 40, height: 40, cursor: "pointer" }}>
+          {/* Dashed outer ring distinguishes a venue marker from a (solid) game marker. */}
           <div
             style={{
-              backgroundColor: "#94a3b8",
-              width: "100%",
-              height: "100%",
+              position: "absolute",
+              inset: 0,
               borderRadius: "50%",
-              border: "3px solid white",
-              boxShadow: "0 4px 6px rgba(0,0,0,0.3)",
+              border: `2px dashed ${visual.colorHex}`,
+              background: "rgba(255,255,255,0.85)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 4,
+              backgroundColor: visual.colorHex,
+              borderRadius: "50%",
+              border: "2px solid #ffffff",
+              boxShadow: "0 3px 6px rgba(0,0,0,0.35)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              cursor: "pointer",
             }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
+            {isSingle ? (
+              <SportIcon sport={tags[0]} sx={{ fontSize: 16, color: iconColor }} />
+            ) : (
+              <PlaceRoundedIcon aria-hidden sx={{ fontSize: 16, color: iconColor }} />
+            )}
           </div>
+          {!isSingle && tags.length > 1 && (
+            <div
+              aria-hidden
+              style={{ position: "absolute", bottom: -4, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 2 }}
+            >
+              {tags.slice(0, 3).map((t) => (
+                <span
+                  key={t}
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: SPORT_COLORS[t] || "#64748b",
+                    border: "1.5px solid #ffffff",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.35)",
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </AdvancedMarker>
       {open && (
@@ -700,37 +852,77 @@ function EmptyFieldMarker({ field }: { field: any }) {
           position={{ lat: field.lat, lng: field.lng }}
           onCloseClick={() => setOpen(false)}
           headerDisabled
-          minWidth={220}
-          maxWidth={260}
+          minWidth={252}
+          maxWidth={300}
           pixelOffset={[0, -10]}
         >
-          <Box sx={{ p: 1.5, textAlign: "center", position: "relative", bgcolor: "background.paper", color: "text.primary" }}>
-            <IconButton
-              size="small"
-              onClick={() => setOpen(false)}
-              aria-label="סגירה"
-              sx={{ position: "absolute", top: 0, insetInlineEnd: 0 }}
-            >
-              <CloseRoundedIcon fontSize="small" />
-            </IconButton>
-            <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5} sx={{ mb: 0.5, px: 3 }}>
-              <PlaceRoundedIcon sx={{ fontSize: 18, color: "text.secondary", flexShrink: 0 }} />
-              <Typography
-                variant="subtitle2"
-                sx={{ fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-              >
-                {field.name}
-              </Typography>
+          <Box sx={{ p: 1.5, bgcolor: "background.paper", color: "text.primary" }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1.25 }}>
+              <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
+                <PlaceRoundedIcon sx={{ fontSize: 18, color: "primary.main", flexShrink: 0 }} />
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontWeight: 800, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {fieldName}
+                </Typography>
+              </Stack>
+              <IconButton size="small" onClick={() => setOpen(false)} aria-label="סגירה" sx={{ flexShrink: 0, m: -0.5 }}>
+                <CloseRoundedIcon fontSize="small" />
+              </IconButton>
             </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-              {field.location || "אין מידע מיקום"}
+            {tags.length > 0 && (
+              <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ mb: 1 }}>
+                {tags.map((t) => (
+                  <Chip
+                    key={t}
+                    size="small"
+                    label={SPORT_MAPPING[t] || t}
+                    icon={<SportIcon sport={t} sx={{ fontSize: 15 }} />}
+                    variant="outlined"
+                    sx={{
+                      fontWeight: 700,
+                      height: 22,
+                      borderColor: SPORT_COLORS[t] || "divider",
+                      "& .MuiChip-icon": { color: SPORT_COLORS[t] || "inherit" },
+                    }}
+                  />
+                ))}
+              </Stack>
+            )}
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: upcoming === null ? 1.5 : 0.5 }}>
+              {address || "אין מידע מיקום"}
             </Typography>
-            <Button href={`/games/new?fieldId=${field.id}`} variant="contained" color="primary" fullWidth size="small">
-              פתח משחק במגרש זה
-            </Button>
+            {upcoming !== null && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5, fontWeight: 700 }}>
+                {upcoming === 0 ? "אין משחקים קרובים" : `${upcoming} משחקים קרובים`}
+              </Typography>
+            )}
+            <Stack spacing={0.75}>
+              <Button
+                href={`/fields/${field.id}`}
+                variant="contained"
+                color="primary"
+                fullWidth
+                size="small"
+                aria-label={`לדף המגרש ${fieldName}`}
+              >
+                לדף המגרש
+              </Button>
+              <Button
+                href={`/games/new?fieldId=${field.id}`}
+                variant="outlined"
+                color="primary"
+                fullWidth
+                size="small"
+                aria-label={`פתח משחק ב${fieldName}`}
+              >
+                פתח משחק כאן
+              </Button>
+            </Stack>
           </Box>
         </InfoWindow>
       )}
     </>
   );
-}
+});

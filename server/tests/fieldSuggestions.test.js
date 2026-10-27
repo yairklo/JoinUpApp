@@ -20,7 +20,6 @@ jest.mock('../utils/auth', () => ({
   clerkClient: { users: { updateUserMetadata: jest.fn().mockResolvedValue({}) } },
 }));
 
-jest.mock('../workers/gameReminderWorker', () => ({ startGameReminderWorker: jest.fn() }));
 jest.mock('../workers/cleanupWorker', () => ({ startCleanupWorker: jest.fn() }));
 
 const { prisma } = require('../services/gameService');

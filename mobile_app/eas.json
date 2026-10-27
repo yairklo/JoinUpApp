@@ -51,6 +51,14 @@
         "SENTRY_PROJECT": "joinup-mobile",
         "SENTRY_ALLOW_FAILURE": "true"
       }
+    },
+    "production-apk": {
+      "extends": "production",
+      "distribution": "internal",
+      "environment": "production",
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {

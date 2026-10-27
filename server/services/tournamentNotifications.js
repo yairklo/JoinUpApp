@@ -4,6 +4,7 @@
 const { prisma } = require('../lib/prisma');
 const { NotificationService } = require('./notificationService');
 const { publicDisplayName } = require('../utils/publicName');
+const { filterViewableUserIds } = require('../utils/tournamentGate');
 const { formatJerusalemDate, formatJerusalemTime } = require('../shared/timezone');
 
 const notificationService = new NotificationService(prisma);
@@ -30,6 +31,7 @@ async function acceptedUserIds(db, teamIds) {
 
 /** Captain invited `inviteeId` to `team`. */
 const notifyTeamInvite = safe('invite', async ({ tournament, team, inviterId, inviteeId, io }) => {
+  if (!(await filterViewableUserIds([inviteeId])).length) return null;
   const inviter = await prisma.user.findUnique({ where: { id: inviterId }, select: { name: true } });
   const who = publicDisplayName(inviter && inviter.name);
   return notificationService.sendNotification(
@@ -53,6 +55,7 @@ const DECISION_COPY = {
 const notifyTeamDecision = safe('decision', async ({ tournament, team, status, io }) => {
   const copy = DECISION_COPY[status];
   if (!copy) return null;
+  if (!(await filterViewableUserIds([team.captainId])).length) return null;
   const [title, body] = copy(team, tournament);
   return notificationService.sendNotification(
     team.captainId,
@@ -91,8 +94,10 @@ const notifyMatchesScheduled = safe('scheduled', async ({ tournament, matchIds, 
     where: { teamId: { in: teamIds }, status: 'ACCEPTED' },
     select: { userId: true, teamId: true },
   });
+  const viewable = new Set(await filterViewableUserIds(rows.map((r) => r.userId)));
   const byUser = new Map();
   for (const r of rows) {
+    if (!viewable.has(r.userId)) continue;
     const mine = playable.filter((m) => m.homeTeamId === r.teamId || m.awayTeamId === r.teamId);
     if (!mine.length) continue;
     byUser.set(r.userId, [...(byUser.get(r.userId) || []), ...mine]);
