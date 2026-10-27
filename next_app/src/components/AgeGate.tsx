@@ -60,7 +60,7 @@ export default function AgeGate() {
         else setGate(null);
     }, [isSignedIn, load]);
 
-    if (!isSignedIn || !gate || gate.status === "OK" || pathname?.startsWith("/legal")) return null;
+    if (!isSignedIn || !gate || gate.status === "OK" || pathname?.startsWith("/legal") || pathname === "/account-deletion") return null;
 
     const needsBirthDate = gate.status === "NEEDS_BIRTHDATE";
     const age = needsBirthDate ? (birthDate ? getAgeInJerusalem(birthDate) : null) : gate.age;

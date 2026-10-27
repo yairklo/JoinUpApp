@@ -55,6 +55,13 @@ export default function LegalDocumentView({ kind, path, lang }: Props) {
                 <Typography key={i}>{block.p}</Typography>
               )
             )}
+            {kind === "privacy" && section.heading.startsWith("10.") && (
+              <Typography>
+                <Link component={NextLink} href={isEn ? "/account-deletion?lang=en" : "/account-deletion"} underline="hover">
+                  {isEn ? "How to delete your account" : "איך מוחקים את החשבון"}
+                </Link>
+              </Typography>
+            )}
           </Stack>
         ))}
       </Stack>

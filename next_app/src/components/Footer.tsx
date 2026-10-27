@@ -16,6 +16,7 @@ import SupportFeedbackDialog from "@/components/SupportFeedbackDialog";
 const LINKS = [
   { href: "/legal/terms", label: "תנאי שימוש" },
   { href: "/legal/privacy", label: "פרטיות" },
+  { href: "/account-deletion", label: "מחיקת חשבון" },
 ];
 
 /**

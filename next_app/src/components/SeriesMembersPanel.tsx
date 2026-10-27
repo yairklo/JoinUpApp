@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -12,6 +12,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import Alert from "@mui/material/Alert";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ShareIcon from "@mui/icons-material/Share";
@@ -51,6 +52,7 @@ export default function SeriesMembersPanel({
     const [searching, setSearching] = useState(false);
     const [busy, setBusy] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [addError, setAddError] = useState<string | null>(null);
 
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const inviteUrl = `${origin}/series/${seriesId}`;
@@ -58,35 +60,51 @@ export default function SeriesMembersPanel({
 
     const memberIds = useMemo(() => new Set(subscribers.map((s) => s.userId)), [subscribers]);
 
-    const search = async (q: string) => {
-        setQuery(q);
-        if (q.trim().length < 2) {
+    // Debounced search; the sequence counter drops responses from superseded queries.
+    const searchSeq = useRef(0);
+    useEffect(() => {
+        const q = query.trim();
+        const seq = ++searchSeq.current;
+        if (q.length < 2) {
             setOptions([]);
+            setSearching(false);
             return;
         }
         setSearching(true);
-        try {
-            const token = await getToken();
-            if (!token) return;
-            const results = await usersApi.search(q.trim(), token);
-            setOptions((results || []).filter((u) => u.id !== organizerId && !memberIds.has(u.id)));
-        } catch {
-            setOptions([]);
-        } finally {
-            setSearching(false);
-        }
-    };
+        const timer = setTimeout(async () => {
+            try {
+                const token = await getToken();
+                if (!token) return;
+                const results = await usersApi.search(q, token);
+                if (seq !== searchSeq.current) return;
+                setOptions((results || []).filter((u) => u.id !== organizerId && !memberIds.has(u.id)));
+            } catch {
+                if (seq !== searchSeq.current) return;
+                setOptions([]);
+            } finally {
+                if (seq === searchSeq.current) setSearching(false);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [query]);
 
     const addMembers = async () => {
         if (!selected.length) return;
         setBusy(true);
+        setAddError(null);
         try {
             const token = await getToken();
             if (!token) return;
-            await seriesApi.addMembers(seriesId, selected.map((u) => u.id), token);
+            const res: any = await seriesApi.addMembers(seriesId, selected.map((u) => u.id), token);
+            if (typeof res?.added === "number" && res.added < selected.length) {
+                setAddError("לא ניתן היה להוסיף חלק מהמשתמשים");
+            }
             setSelected([]);
             setQuery("");
             router.refresh();
+        } catch {
+            setAddError("הוספת החברים נכשלה. נסו שוב.");
         } finally {
             setBusy(false);
         }
@@ -145,7 +163,7 @@ export default function SeriesMembersPanel({
                     isOptionEqualToValue={(a, b) => a.id === b.id}
                     loading={searching}
                     onChange={(_, value) => setSelected(value)}
-                    onInputChange={(_, value) => search(value)}
+                    onInputChange={(_, value) => setQuery(value)}
                     renderInput={(params) => (
                         <TextField
                             {...params}
@@ -173,6 +191,8 @@ export default function SeriesMembersPanel({
                     הוסף
                 </Button>
             </Stack>
+
+            {addError && <Alert severity="error" sx={{ mt: 1 }} onClose={() => setAddError(null)}>{addError}</Alert>}
 
             {isOrganizer && (
                 <Typography variant="caption" color="text.secondary" display="block" mt={1.5}>

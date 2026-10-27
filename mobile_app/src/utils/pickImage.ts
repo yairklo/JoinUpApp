@@ -1,4 +1,5 @@
 
+import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { MAX_IMAGE_FILE_SIZE, ACCEPTED_IMAGE_TYPES } from '@joinup/shared/upload';
 import type { PickedImage } from '@/services/api/fields';
@@ -11,8 +12,10 @@ import { appAlert } from '@/i18n/appAlert';
  * the server's upload middleware enforces (server/middleware/upload.js).
  */
 export async function pickOneImage(): Promise<PickedImage | null> {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
+    // Android launches the system photo picker, which needs no storage permission (READ/WRITE_EXTERNAL_STORAGE
+    // are blocked in app.json); asking would be denied on Android 12 and below.
+    const permission = Platform.OS === 'android' ? null : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission && !permission.granted) {
         appAlert(
             i18n.t('upload.permissionRequired', 'נדרשת הרשאה'),
             i18n.t('upload.permissionMessage', 'כדי לצרף תמונה יש לאשר גישה לגלריית התמונות בהגדרות המכשיר')

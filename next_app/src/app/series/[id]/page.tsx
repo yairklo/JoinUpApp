@@ -6,6 +6,7 @@ import SeriesSubscribeButton from "@/components/SeriesSubscribeButton";
 import MuteNotificationsButton from "@/components/notifications/MuteNotificationsButton";
 import SeriesSettingsEditor from "@/components/SeriesSettingsEditor";
 import SeriesMembersPanel from "@/components/SeriesMembersPanel";
+import SeriesMemberMenu from "@/components/SeriesMemberMenu";
 import SeriesJoinRequestsPanel from "@/components/SeriesJoinRequestsPanel";
 import type { FriendsOnlyLinkPolicy } from "@/types/game";
 import GameLocationMap from "@/components/GameLocationMap";
@@ -321,17 +322,12 @@ export default async function SeriesPage(props: { params: Promise<{ id: string }
                                 <Grid container spacing={2}>
                                     {series.subscribers.map((sub) => (
                                         <Grid size={{ xs: 6, sm: 4 }} key={sub.userId}>
-                                            <Box display="flex" alignItems="center" gap={1.5} p={1} borderRadius={2} sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
-                                                <Avatar
-                                                    src={sub.user.avatar}
-                                                    name={sub.user.name || "User"}
-                                                    alt={sub.user.name || "User"}
-                                                    size="md"
-                                                />
-                                                <Typography variant="body2" fontWeight={500} noWrap>
-                                                    {sub.user.name}
-                                                </Typography>
-                                            </Box>
+                                            <SeriesMemberMenu
+                                                userId={sub.userId}
+                                                name={sub.user.name}
+                                                avatar={sub.user.avatar}
+                                                isMe={sub.userId === userId}
+                                            />
                                         </Grid>
                                     ))}
                                 </Grid>

@@ -1,9 +1,9 @@
-import { View, Text, Switch, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Share } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, Share, Modal, Pressable } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { seriesApi, usersApi } from '@/services/api';
+import { seriesApi, usersApi, chatsApi } from '@/services/api';
 import type { UpdateSeriesDTO } from '@/services/api/series';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -90,6 +90,11 @@ export default function SeriesScreen() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [memberQuery, setMemberQuery] = useState('');
     const [addingMember, setAddingMember] = useState(false);
+    const [memberResults, setMemberResults] = useState<any[]>([]);
+    const [memberSearching, setMemberSearching] = useState(false);
+    const [memberSearchError, setMemberSearchError] = useState(false);
+    const [selectedMembers, setSelectedMembers] = useState<{ id: string; name: string; avatar: string | null }[]>([]);
+    const [memberMenu, setMemberMenu] = useState<{ id: string; name: string } | null>(null);
 
     const [isSubscribed, setIsSubscribed] = useState(false);
 
@@ -268,20 +273,61 @@ export default function SeriesScreen() {
         }
     };
 
-    const addMemberBySearch = async () => {
+    // Debounced user search for the add-member picker. A request counter drops stale responses.
+    const searchSeq = useRef(0);
+    useEffect(() => {
         const q = memberQuery.trim();
-        if (q.length < 2) return;
+        const seq = ++searchSeq.current;
+        if (q.length < 2) {
+            setMemberResults([]);
+            setMemberSearching(false);
+            setMemberSearchError(false);
+            return;
+        }
+        setMemberSearching(true);
+        setMemberSearchError(false);
+        const timer = setTimeout(async () => {
+            try {
+                const token = await getToken();
+                if (!token) return;
+                const results = await usersApi.search(q, token);
+                if (seq !== searchSeq.current) return;
+                setMemberResults(Array.isArray(results) ? results : []);
+            } catch (e) {
+                if (seq !== searchSeq.current) return;
+                setMemberResults([]);
+                setMemberSearchError(true);
+            } finally {
+                if (seq === searchSeq.current) setMemberSearching(false);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [memberQuery]);
+
+    const existingMemberIds = new Set<string>([
+        ...(series?.subscribers || []).map((sub: any) => sub.userId),
+        series?.organizer?.id,
+        user?.id,
+    ].filter(Boolean));
+    const visibleResults = memberResults.filter((u) => !existingMemberIds.has(u.id));
+
+    const toggleSelectedMember = (u: { id: string; name?: string; avatar?: string | null }) => {
+        setSelectedMembers((prev) =>
+            prev.some((m) => m.id === u.id) ? prev.filter((m) => m.id !== u.id) : [...prev, { id: u.id, name: u.name || '', avatar: u.avatar ?? null }]
+        );
+    };
+
+    const addSelectedMembers = async () => {
+        if (!selectedMembers.length) return;
         setAddingMember(true);
         try {
             const token = await getToken();
             if (!token) return;
-            const results = await usersApi.search(q, token);
-            const hit = (results || []).find((u: { id: string }) => u.id !== user?.id);
-            if (!hit) {
-                appAlert(t('common.error', 'שגיאה'), t('series.userNotFound', 'No matching user found'));
-                return;
+            const res: any = await seriesApi.addMembers(id, selectedMembers.map((m) => m.id), token);
+            if (typeof res?.added === 'number' && res.added < selectedMembers.length) {
+                appAlert(t('common.error', 'שגיאה'), t('series.someNotAdded', 'לא ניתן היה להוסיף חלק מהמשתמשים'));
             }
-            await seriesApi.addMembers(id, [hit.id], token);
+            setSelectedMembers([]);
             setMemberQuery('');
             fetchSeries();
         } catch (e) {
@@ -289,6 +335,29 @@ export default function SeriesScreen() {
         } finally {
             setAddingMember(false);
         }
+    };
+
+    const messageMember = async (userId: string) => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const res = await chatsApi.createPrivate(userId, token);
+            router.push(`/chat/${(res as any).chatId || (res as any).id}`);
+        } catch (err: any) {
+            if (err?.status === 403) {
+                appAlert(t('common.error', 'שגיאה'), t('privacy.messagesBlocked', 'משתמש זה מקבל הודעות מחברים בלבד'));
+            } else {
+                appAlert(t('common.error', 'שגיאה'), t('profile.failedToStartChat', "פתיחת הצ'אט נכשלה."));
+            }
+        }
+    };
+
+    const onMemberPress = (sub: any) => {
+        if (sub.userId === user?.id) {
+            router.push(`/user/${sub.userId}`);
+            return;
+        }
+        setMemberMenu({ id: sub.userId, name: sub.user?.name || t('game.user', 'משתמש') });
     };
 
     const toggleManager = async (userId: string, makeManager: boolean) => {
@@ -576,16 +645,23 @@ export default function SeriesScreen() {
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             {series.subscribers.map((sub: any) => (
                                 <View key={sub.userId} className="items-center mr-4 w-16">
-                                    {sub.user?.avatar ? (
-                                        <SafeImage source={{ uri: sub.user.avatar }} className="w-14 h-14 rounded-full mb-1 border border-gray-200" />
-                                    ) : (
-                                        <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-1 border border-gray-200">
-                                            <FontAwesome name="user" size={20} color="#9ca3af" />
-                                        </View>
-                                    )}
-                                    <Text className="text-xs text-gray-700 text-center font-medium" numberOfLines={1}>
-                                        {sub.user?.name || t('game.user', 'משתמש')}
-                                    </Text>
+                                    <TouchableOpacity
+                                        onPress={() => onMemberPress(sub)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('series.memberActions', 'פעולות עבור {{name}}', { name: sub.user?.name || t('game.user', 'משתמש') })}
+                                        className="items-center"
+                                    >
+                                        {sub.user?.avatar ? (
+                                            <SafeImage source={{ uri: sub.user.avatar }} className="w-14 h-14 rounded-full mb-1 border border-gray-200" />
+                                        ) : (
+                                            <View className="w-14 h-14 rounded-full bg-gray-100 items-center justify-center mb-1 border border-gray-200">
+                                                <FontAwesome name="user" size={20} color="#9ca3af" />
+                                            </View>
+                                        )}
+                                        <Text className="text-xs text-gray-700 text-center font-medium" numberOfLines={1}>
+                                            {sub.user?.name || t('game.user', 'משתמש')}
+                                        </Text>
+                                    </TouchableOpacity>
                                     {sub.role === 'MANAGER' && (
                                         <Text className="text-[10px] text-brand font-bold">{t('series.manager', 'Manager')}</Text>
                                     )}
@@ -615,21 +691,74 @@ export default function SeriesScreen() {
                         <TouchableOpacity onPress={shareInvite} className="py-3 rounded-xl items-center bg-brand mb-3">
                             <Text className="text-white font-bold">{t('series.shareInvite', 'Share invite link')}</Text>
                         </TouchableOpacity>
-                        <View className="flex-row gap-2">
-                            <TextInput
-                                value={memberQuery}
-                                onChangeText={setMemberQuery}
-                                placeholder={t('series.searchUsers', 'Search users to add')}
-                                className="flex-1 bg-gray-50 p-3 rounded-lg border border-gray-200"
-                            />
+                        <TextInput
+                            value={memberQuery}
+                            onChangeText={setMemberQuery}
+                            placeholder={t('series.searchUsers', 'חיפוש משתמשים להוספה')}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            className="bg-gray-50 p-3 rounded-lg border border-gray-200"
+                        />
+                        {selectedMembers.length > 0 && (
+                            <View className="flex-row flex-wrap gap-2 mt-3">
+                                {selectedMembers.map((m) => (
+                                    <TouchableOpacity
+                                        key={m.id}
+                                        onPress={() => toggleSelectedMember(m)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={t('series.removeSelected', 'הסר את {{name}}', { name: m.name })}
+                                        className="flex-row items-center bg-brand-mist border border-brand-pale rounded-full px-3 py-1"
+                                    >
+                                        <Text className="text-brand-dark text-sm font-medium">{m.name}</Text>
+                                        <FontAwesome name="times" size={12} color="#047857" style={{ marginStart: 6 }} />
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                        {memberQuery.trim().length >= 2 && (
+                            <View className="mt-3 rounded-lg border border-gray-100 overflow-hidden">
+                                {memberSearching ? (
+                                    <View className="py-4 items-center"><ActivityIndicator accessibilityLabel={t('series.searching', 'מחפש…')} /></View>
+                                ) : memberSearchError ? (
+                                    <Text className="text-red-500 text-center py-4">{t('series.searchError', 'החיפוש נכשל. נסו שוב.')}</Text>
+                                ) : visibleResults.length === 0 ? (
+                                    <Text className="text-gray-400 text-center py-4">{t('series.noUsersFound', 'לא נמצאו משתמשים')}</Text>
+                                ) : (
+                                    visibleResults.map((u, index) => {
+                                        const picked = selectedMembers.some((m) => m.id === u.id);
+                                        return (
+                                            <TouchableOpacity
+                                                key={u.id}
+                                                onPress={() => toggleSelectedMember(u)}
+                                                accessibilityRole="button"
+                                                accessibilityState={{ selected: picked }}
+                                                className={`flex-row items-center p-3 ${picked ? 'bg-brand-mist' : 'bg-white'} ${index !== visibleResults.length - 1 ? 'border-b border-gray-100' : ''}`}
+                                            >
+                                                {u.avatar || u.imageUrl ? (
+                                                    <SafeImage source={{ uri: u.avatar || u.imageUrl }} className="w-9 h-9 rounded-full border border-gray-200" />
+                                                ) : (
+                                                    <View className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center border border-gray-200">
+                                                        <FontAwesome name="user" size={14} color="#9ca3af" />
+                                                    </View>
+                                                )}
+                                                <Text className="flex-1 mx-3 text-gray-800 font-medium" numberOfLines={1}>{u.name || t('game.user', 'משתמש')}</Text>
+                                                {picked && <FontAwesome name="check" size={14} color="#059669" />}
+                                            </TouchableOpacity>
+                                        );
+                                    })
+                                )}
+                            </View>
+                        )}
+                        {selectedMembers.length > 0 && (
                             <TouchableOpacity
-                                onPress={addMemberBySearch}
+                                onPress={addSelectedMembers}
                                 disabled={addingMember}
-                                className={`px-4 rounded-lg items-center justify-center ${addingMember ? 'bg-gray-400' : 'bg-brand'}`}
+                                accessibilityRole="button"
+                                className={`mt-3 py-3 rounded-xl items-center ${addingMember ? 'bg-gray-400' : 'bg-brand'}`}
                             >
-                                <Text className="text-white font-bold">{t('series.add', 'Add')}</Text>
+                                <Text className="text-white font-bold">{t('series.addSelected', 'הוסף')} ({selectedMembers.length})</Text>
                             </TouchableOpacity>
-                        </View>
+                        )}
                     </View>
                 )}
 
@@ -954,6 +1083,32 @@ export default function SeriesScreen() {
                 onClose={() => setDeleteModalOpen(false)}
                 onDeleted={handleDeleted}
             />
+            <Modal visible={!!memberMenu} transparent animationType="fade" onRequestClose={() => setMemberMenu(null)} accessibilityViewIsModal>
+                <Pressable className="flex-1 bg-black/40 justify-end" onPress={() => setMemberMenu(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel', 'ביטול')}>
+                    <Pressable className="bg-white rounded-t-2xl p-4" onPress={() => {}}>
+                        <Text className="text-center text-gray-800 font-bold mb-3" numberOfLines={1}>{memberMenu?.name}</Text>
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            className="flex-row items-center py-3"
+                            onPress={() => { const m = memberMenu; setMemberMenu(null); if (m) router.push(`/user/${m.id}`); }}
+                        >
+                            <FontAwesome name="user" size={16} color="#059669" style={{ marginEnd: 12 }} />
+                            <Text className="text-gray-800 font-medium">{t('series.openProfile', 'פתח פרופיל')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            className="flex-row items-center py-3"
+                            onPress={() => { const m = memberMenu; setMemberMenu(null); if (m) messageMember(m.id); }}
+                        >
+                            <FontAwesome name="paper-plane" size={16} color="#059669" style={{ marginEnd: 12 }} />
+                            <Text className="text-gray-800 font-medium">{t('series.sendMessage', 'שלח הודעה')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity accessibilityRole="button" className="py-3 items-center" onPress={() => setMemberMenu(null)}>
+                            <Text className="text-gray-500 font-medium">{t('common.cancel', 'ביטול')}</Text>
+                        </TouchableOpacity>
+                    </Pressable>
+                </Pressable>
+            </Modal>
         </SafeAreaView>
     );
 }
