@@ -49,7 +49,7 @@ const CATEGORY_COPY: Record<NotificationCategoryKey, { title: string; subtitle: 
     friendJoins: { title: 'חבר הצטרף למשחק', subtitle: 'כשחבר נרשם למשחק שאתה לא בו', icon: <DirectionsRunOutlinedIcon /> },
     gameReminders: { title: 'תזכורות למשחק', subtitle: 'לפני משחק שנרשמת אליו, בזמן שתבחר', icon: <AlarmOutlinedIcon /> },
     myGames: { title: 'עדכונים במשחקים שלי', subtitle: 'שינויים, אישור/דחייה, מקום שהתפנה', icon: <EventNoteOutlinedIcon /> },
-    invitations: { title: 'הזמנות למשחק', subtitle: 'כשמישהו מוסיף אותך למשחק', icon: <MailOutlineIcon /> },
+    invitations: { title: 'הזמנות וצירוף למשחקים ולקבוצות', subtitle: 'כשמישהו מוסיף אותך למשחק, לקבוצה או לקבוצת טורניר', icon: <MailOutlineIcon /> },
     organizer: { title: 'בקשות הצטרפות', subtitle: 'למשחקים שאתה מארגן', icon: <AdminPanelSettingsOutlinedIcon /> },
     groupGames: { title: 'משחקים בקבוצות שלי', subtitle: 'משחק חדש בקבוצה שאתה חבר בה', icon: <GroupsOutlinedIcon /> },
     cityGames: { title: 'משחקים חדשים באזור', subtitle: 'משחקים פתוחים שנפתחו בעיר שלך', icon: <LocationCityOutlinedIcon /> },
