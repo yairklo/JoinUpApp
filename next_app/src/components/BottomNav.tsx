@@ -5,7 +5,10 @@ import { usePathname } from "next/navigation";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
+import Badge from "@mui/material/Badge";
 import { motion } from "framer-motion";
+import { useAuth } from "@clerk/nextjs";
+import { useNotificationCounters } from "@/context/NotificationCountersContext";
 
 const MotionLink = motion.create(Link);
 
@@ -16,17 +19,24 @@ import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import StadiumRoundedIcon from "@mui/icons-material/StadiumRounded";
 import StadiumOutlinedIcon from "@mui/icons-material/StadiumOutlined";
+import PeopleOutlinedIcon from "@mui/icons-material/PeopleOutlined";
+import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
+
+const FRIENDS_HREF = "/profile/friends";
 
 const ITEMS = [
   { href: "/games", label: "בית", icon: HomeOutlinedIcon, activeIcon: HomeRoundedIcon },
   { href: "/search", label: "מפה", icon: MapOutlinedIcon, activeIcon: MapRoundedIcon },
   { href: "/games/new", label: "", icon: AddRoundedIcon, activeIcon: AddRoundedIcon, fab: true },
   { href: "/fields", label: "מגרשים", icon: StadiumOutlinedIcon, activeIcon: StadiumRoundedIcon },
+  { href: FRIENDS_HREF, label: "חברים", icon: PeopleOutlinedIcon, activeIcon: PeopleRoundedIcon },
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
   const theme = useTheme();
+  const { isSignedIn } = useAuth();
+  const { friendRequests } = useNotificationCounters();
 
   // Hide on immersive full-screen surfaces
   if (pathname?.startsWith("/chat/")) return null;
@@ -73,6 +83,9 @@ export default function BottomNav() {
         {ITEMS.map((item) => {
           const active = isActive(item.href);
           const Icon = active ? item.activeIcon : item.icon;
+          const isFriends = item.href === FRIENDS_HREF;
+          const href = isFriends && isSignedIn === false ? `/sign-in?redirect_url=${encodeURIComponent(FRIENDS_HREF)}` : item.href;
+          const pending = isFriends && isSignedIn ? friendRequests : 0;
 
           if (item.fab) {
             return (
@@ -109,7 +122,8 @@ export default function BottomNav() {
               component={MotionLink}
               whileTap={{ scale: 0.92 }}
               transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
-              href={item.href}
+              href={href}
+              aria-label={pending > 0 ? `${item.label}, ${pending} בקשות חברות ממתינות` : undefined}
               sx={{
                 display: "flex",
                 flexDirection: "column",
@@ -139,7 +153,14 @@ export default function BottomNav() {
                   }}
                 />
               )}
-              <Icon sx={{ fontSize: 24 }} />
+              <Badge
+                badgeContent={pending || undefined}
+                color="error"
+                max={9}
+                sx={{ "& .MuiBadge-badge": { fontSize: 10, height: 16, minWidth: 16, px: 0.5 } }}
+              >
+                <Icon sx={{ fontSize: 24 }} />
+              </Badge>
               <Typography
                 variant="caption"
                 sx={{
@@ -154,8 +175,6 @@ export default function BottomNav() {
             </Box>
           );
         })}
-        {/* Keeps the FAB in the exact center of the 5 equal slots */}
-        <Box aria-hidden />
       </Box>
     </Box>
   );
