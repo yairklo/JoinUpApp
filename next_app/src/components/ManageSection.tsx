@@ -21,7 +21,7 @@ export default function ManageSection() {
 
   return (
     <GamesHorizontalList
-      title="הניהול שלי"
+      title="בניהולי"
       seeAllHref={items.length > MANAGE_HOME_LIMIT || attentionGames > 0 ? "/manage" : undefined}
       customHeaderAction={
         attentionGames > 0 ? (

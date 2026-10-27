@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "הניהול שלי | JoinUp",
+  title: "בניהולי | JoinUp",
 };
 
 export default function ManageLayout({ children }: { children: React.ReactNode }) {
