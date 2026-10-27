@@ -24,6 +24,7 @@ import type { FriendsOnlyLinkPolicy } from '@/types/game';
 import SafeImage from '@/components/SafeImage';
 import OpenInMapButton from '@/components/OpenInMapButton';
 import { appAlert } from '@/i18n/appAlert';
+import { friendSuggestions, mergeFriendsFirst } from '@/utils/friendSuggestions';
 
 export default function SeriesScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -93,6 +94,12 @@ export default function SeriesScreen() {
     const [memberResults, setMemberResults] = useState<any[]>([]);
     const [memberSearching, setMemberSearching] = useState(false);
     const [memberSearchError, setMemberSearchError] = useState(false);
+    const [memberFocused, setMemberFocused] = useState(false);
+    // Friends are fetched once per screen (first focus of the add-member field) and reused.
+    const [myFriends, setMyFriends] = useState<any[] | null>(null);
+    const [friendsLoading, setFriendsLoading] = useState(false);
+    const [friendsError, setFriendsError] = useState(false);
+    const friendsInflight = useRef(false);
     const [selectedMembers, setSelectedMembers] = useState<{ id: string; name: string; avatar: string | null }[]>([]);
     const [memberMenu, setMemberMenu] = useState<{ id: string; name: string } | null>(null);
 
@@ -309,11 +316,63 @@ export default function SeriesScreen() {
         series?.organizer?.id,
         user?.id,
     ].filter(Boolean));
-    const visibleResults = memberResults.filter((u) => !existingMemberIds.has(u.id));
+
+    const loadFriends = async () => {
+        if (myFriends !== null || friendsInflight.current || !user?.id) return;
+        friendsInflight.current = true;
+        setFriendsLoading(true);
+        setFriendsError(false);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const list = await usersApi.getFriends(user.id, token);
+            setMyFriends(Array.isArray(list) ? list : []);
+        } catch (e) {
+            setFriendsError(true);
+        } finally {
+            friendsInflight.current = false;
+            setFriendsLoading(false);
+        }
+    };
+
+    const trimmedQuery = memberQuery.trim();
+    const searchMode = trimmedQuery.length >= 2;
+    const visibleResults = searchMode
+        ? mergeFriendsFirst(memberResults, myFriends || [], trimmedQuery, existingMemberIds)
+        : [];
+    const friendOptions = friendSuggestions(myFriends || [], existingMemberIds);
 
     const toggleSelectedMember = (u: { id: string; name?: string; avatar?: string | null }) => {
         setSelectedMembers((prev) =>
             prev.some((m) => m.id === u.id) ? prev.filter((m) => m.id !== u.id) : [...prev, { id: u.id, name: u.name || '', avatar: u.avatar ?? null }]
+        );
+    };
+
+    const renderMemberRow = (u: any, isLast: boolean, showFriendBadge: boolean) => {
+        const picked = selectedMembers.some((m) => m.id === u.id);
+        const label = u.name || t('game.user', 'משתמש');
+        return (
+            <TouchableOpacity
+                key={u.id}
+                onPress={() => toggleSelectedMember(u)}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: picked }}
+                className={`flex-row items-center p-3 ${picked ? 'bg-brand-mist' : 'bg-white'} ${!isLast ? 'border-b border-gray-100' : ''}`}
+            >
+                {u.avatar || u.imageUrl ? (
+                    <SafeImage source={{ uri: u.avatar || u.imageUrl }} className="w-9 h-9 rounded-full border border-gray-200" />
+                ) : (
+                    <View className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center border border-gray-200">
+                        <FontAwesome name="user" size={14} color="#9ca3af" />
+                    </View>
+                )}
+                <Text className="flex-1 mx-3 text-gray-800 font-medium" numberOfLines={1}>{label}</Text>
+                {showFriendBadge && (
+                    <Text className="text-xs text-brand-dark bg-brand-mist rounded-full px-2 py-0.5 mx-2">{t('series.friendBadge', 'חבר/ה')}</Text>
+                )}
+                {picked && <FontAwesome name="check" size={14} color="#059669" />}
+            </TouchableOpacity>
         );
     };
 
@@ -694,6 +753,8 @@ export default function SeriesScreen() {
                         <TextInput
                             value={memberQuery}
                             onChangeText={setMemberQuery}
+                            onFocus={() => { setMemberFocused(true); loadFriends(); }}
+                            onBlur={() => setMemberFocused(false)}
                             placeholder={t('series.searchUsers', 'חיפוש משתמשים להוספה')}
                             autoCapitalize="none"
                             autoCorrect={false}
@@ -715,37 +776,44 @@ export default function SeriesScreen() {
                                 ))}
                             </View>
                         )}
-                        {memberQuery.trim().length >= 2 && (
+                        {searchMode && (
                             <View className="mt-3 rounded-lg border border-gray-100 overflow-hidden">
                                 {memberSearching ? (
                                     <View className="py-4 items-center"><ActivityIndicator accessibilityLabel={t('series.searching', 'מחפש…')} /></View>
-                                ) : memberSearchError ? (
-                                    <Text className="text-red-500 text-center py-4">{t('series.searchError', 'החיפוש נכשל. נסו שוב.')}</Text>
                                 ) : visibleResults.length === 0 ? (
-                                    <Text className="text-gray-400 text-center py-4">{t('series.noUsersFound', 'לא נמצאו משתמשים')}</Text>
+                                    memberSearchError ? (
+                                        <Text className="text-red-500 text-center py-4">{t('series.searchError', 'החיפוש נכשל. נסו שוב.')}</Text>
+                                    ) : (
+                                        <Text className="text-gray-400 text-center py-4">{t('series.noUsersFound', 'לא נמצאו משתמשים')}</Text>
+                                    )
                                 ) : (
-                                    visibleResults.map((u, index) => {
-                                        const picked = selectedMembers.some((m) => m.id === u.id);
-                                        return (
-                                            <TouchableOpacity
-                                                key={u.id}
-                                                onPress={() => toggleSelectedMember(u)}
-                                                accessibilityRole="button"
-                                                accessibilityState={{ selected: picked }}
-                                                className={`flex-row items-center p-3 ${picked ? 'bg-brand-mist' : 'bg-white'} ${index !== visibleResults.length - 1 ? 'border-b border-gray-100' : ''}`}
-                                            >
-                                                {u.avatar || u.imageUrl ? (
-                                                    <SafeImage source={{ uri: u.avatar || u.imageUrl }} className="w-9 h-9 rounded-full border border-gray-200" />
-                                                ) : (
-                                                    <View className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center border border-gray-200">
-                                                        <FontAwesome name="user" size={14} color="#9ca3af" />
-                                                    </View>
-                                                )}
-                                                <Text className="flex-1 mx-3 text-gray-800 font-medium" numberOfLines={1}>{u.name || t('game.user', 'משתמש')}</Text>
-                                                {picked && <FontAwesome name="check" size={14} color="#059669" />}
-                                            </TouchableOpacity>
-                                        );
-                                    })
+                                    visibleResults.map((u, index) => renderMemberRow(u, index === visibleResults.length - 1, u.isFriend))
+                                )}
+                            </View>
+                        )}
+                        {!searchMode && memberFocused && (
+                            <View className="mt-3 rounded-lg border border-gray-100 overflow-hidden">
+                                <Text className="text-xs font-bold text-gray-500 px-3 pt-2 pb-1">{t('series.yourFriends', 'החברים שלך')}</Text>
+                                {friendsLoading ? (
+                                    <View className="py-4 items-center"><ActivityIndicator accessibilityLabel={t('series.loadingFriends', 'טוען חברים…')} /></View>
+                                ) : friendsError ? (
+                                    <View className="py-4 items-center">
+                                        <Text className="text-red-500 text-center">{t('series.friendsError', 'טעינת החברים נכשלה.')}</Text>
+                                        <TouchableOpacity
+                                            onPress={loadFriends}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={t('series.retryFriends', 'נסו שוב')}
+                                            className="mt-2 px-4 py-2 rounded-lg bg-gray-100"
+                                        >
+                                            <Text className="text-gray-700 font-medium">{t('series.retryFriends', 'נסו שוב')}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : myFriends !== null && myFriends.length === 0 ? (
+                                    <Text className="text-gray-400 text-center py-4">{t('series.noFriendsYet', 'עדיין אין לך חברים. אפשר לחפש לפי שם')}</Text>
+                                ) : myFriends !== null && friendOptions.length === 0 ? (
+                                    <Text className="text-gray-400 text-center py-4">{t('series.allFriendsInGroup', 'כל החברים שלך כבר בקבוצה')}</Text>
+                                ) : (
+                                    friendOptions.map((u, index) => renderMemberRow(u, index === friendOptions.length - 1, false))
                                 )}
                             </View>
                         )}
