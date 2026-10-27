@@ -40,7 +40,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "monochromeImage": "./assets/images/adaptive-icon-monochrome.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#047857"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
