@@ -851,6 +851,7 @@ model GameReminderSent {
 
   @@unique([userId, gameId, gameStart])
   @@index([gameId])
+  @@index([gameStart])
 }
 
 /// Silences notifications originating from a user, a group (series) or a single game.

@@ -54,6 +54,16 @@ test('leader runs tournament AND game reminders at startup and every 5 minutes',
   expect(f.deps.runGameReminders).toHaveBeenCalledTimes(2); // stopped with the lock
 });
 
+test('a failing sweep is logged, not silently swallowed', async () => {
+  const boom = new Error('boom');
+  const f = build({ runGameReminders: jest.fn().mockRejectedValue(boom) });
+  const rt = createJobsRuntime(f.deps);
+  await rt.start('IO');
+  await f.acquire();
+  await Promise.resolve(); await Promise.resolve();
+  expect(quiet.error).toHaveBeenCalledWith(expect.stringContaining('game reminder sweep failed'), boom);
+});
+
 test('a failing game sweep does not stop the tournament sweep (and vice versa)', async () => {
   const f = build({
     runGameReminders: jest.fn().mockRejectedValue(new Error('boom')),

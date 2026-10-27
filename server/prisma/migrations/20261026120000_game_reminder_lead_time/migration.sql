@@ -14,6 +14,7 @@ CREATE TABLE "GameReminderSent" (
 
 CREATE UNIQUE INDEX "GameReminderSent_userId_gameId_gameStart_key" ON "GameReminderSent"("userId", "gameId", "gameStart");
 CREATE INDEX "GameReminderSent_gameId_idx" ON "GameReminderSent"("gameId");
+CREATE INDEX "GameReminderSent_gameStart_idx" ON "GameReminderSent"("gameStart");
 
 -- Games whose single 1h reminder already went out under the old Game.reminderSent flag must not be
 -- reminded a second time by the new per-user sweep: seed their dedupe rows for the current start.

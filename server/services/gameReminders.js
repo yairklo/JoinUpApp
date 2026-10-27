@@ -7,7 +7,6 @@ const { formatJerusalemTime } = require('../shared/timezone');
 const { GAME_REMINDER_LEAD_DEFAULT, GAME_REMINDER_LEAD_MAX } = require('../shared/notificationPrefs');
 
 const MINUTE_MS = 60 * 1000;
-const HORIZON_MS = GAME_REMINDER_LEAD_MAX * MINUTE_MS;
 const TZ = 'Asia/Jerusalem';
 const PAGE_SIZE = 200;
 const MAX_PAGES = 50; // safety cap: 10k games per sweep
@@ -83,9 +82,37 @@ function buildReminderMessage({ now, start, fieldName, lang = 'he' }) {
   };
 }
 
-function fetchPage(prisma, now, cursor) {
+const SENT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Furthest ahead any reminder can be due: the largest lead in use (min the default), capped at the max. */
+async function reminderHorizonMs(prisma) {
+  let maxLead = GAME_REMINDER_LEAD_MAX;
+  try {
+    const agg = await prisma.userNotificationSettings.aggregate({ _max: { gameReminderLeadMinutes: true } });
+    const used = agg && agg._max && agg._max.gameReminderLeadMinutes;
+    maxLead = Math.min(GAME_REMINDER_LEAD_MAX, Math.max(GAME_REMINDER_LEAD_DEFAULT, used || 0));
+  } catch (error) {
+    console.error('[GAME-REMINDERS] Could not read max lead, using the full horizon:', error);
+  }
+  return maxLead * MINUTE_MS;
+}
+
+// Keyset paging on (start, id): unlike a cursor row it keeps working when the last game of a page
+// is deleted, cancelled or rescheduled while the sweep is running.
+function fetchPage(prisma, now, horizonMs, after) {
+  const window = { gt: now, lte: new Date(now.getTime() + horizonMs) };
   return prisma.game.findMany({
-    where: { status: 'OPEN', start: { gt: now, lte: new Date(now.getTime() + HORIZON_MS) } },
+    where: {
+      status: 'OPEN',
+      ...(after
+        ? {
+          OR: [
+            { start: { gt: after.start, lte: window.lte } },
+            { start: after.start, id: { gt: after.id } },
+          ],
+        }
+        : { start: window }),
+    },
     select: {
       id: true,
       start: true,
@@ -107,16 +134,25 @@ function fetchPage(prisma, now, cursor) {
     },
     orderBy: [{ start: 'asc' }, { id: 'asc' }],
     take: PAGE_SIZE,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 }
 
 async function remindPage({ games, prisma, notificationService, io, now, shouldContinue }) {
   let sent = 0;
+  // One read for the whole page instead of an insert attempt per due participant per sweep.
+  const already = new Set();
+  if (games.length) {
+    const rows = await prisma.gameReminderSent.findMany({
+      where: { gameId: { in: games.map((g) => g.id) } },
+      select: { userId: true, gameId: true, gameStart: true },
+    });
+    for (const r of rows) already.add(`${r.userId}|${r.gameId}|${new Date(r.gameStart).getTime()}`);
+  }
   for (const game of games) {
     if (!shouldContinue()) break;
     for (const p of game.participants) {
       if (!shouldContinue()) break;
+      if (already.has(`${p.userId}|${game.id}|${new Date(game.start).getTime()}`)) continue;
       const s = p.user && p.user.notificationSettings;
       if (s && s.gameRemindersEnabled === false && s.gameRemindersInApp === false) continue;
       const due = isReminderDue({
@@ -128,7 +164,7 @@ async function remindPage({ games, prisma, notificationService, io, now, shouldC
       });
       if (!due) continue;
 
-      // Claim before sending: at-most-once per (user, game, start).
+      // Claim before sending (still the race guard between sweepers): at-most-once per (user, game, start).
       const claim = await prisma.gameReminderSent.createMany({
         data: [{ userId: p.userId, gameId: game.id, gameStart: game.start }],
         skipDuplicates: true,
@@ -151,22 +187,30 @@ async function remindPage({ games, prisma, notificationService, io, now, shouldC
 }
 
 /**
- * Pages through every OPEN game starting within the horizon (cursor on id, ordered by start) so a
- * busy window can never silently skip games. A safety cap bounds a runaway sweep and logs a warning.
+ * Pages through every OPEN game starting within the horizon (keyset on start,id) so a busy window can
+ * never silently skip games. A safety cap bounds a runaway sweep and logs a warning. Old dedupe rows
+ * (games that already started a week ago) are pruned at the end.
  */
 async function runGameReminderSweep({ prisma, notificationService, io = null, now = new Date(), shouldContinue = () => true }) {
+  const horizonMs = await reminderHorizonMs(prisma);
   let sent = 0;
-  let cursor = null;
+  let after = null;
   for (let page = 0; ; page += 1) {
-    if (!shouldContinue()) break;
+    if (!shouldContinue()) return { sent };
     if (page >= MAX_PAGES) {
       console.warn(`[GAME-REMINDERS] Page cap (${MAX_PAGES} x ${PAGE_SIZE} games) hit; remaining games wait for the next sweep`);
       break;
     }
-    const games = await fetchPage(prisma, now, cursor);
+    const games = await fetchPage(prisma, now, horizonMs, after);
     sent += await remindPage({ games, prisma, notificationService, io, now, shouldContinue });
     if (games.length < PAGE_SIZE) break;
-    cursor = games[games.length - 1].id;
+    const last = games[games.length - 1];
+    after = { start: last.start, id: last.id };
+  }
+  try {
+    await prisma.gameReminderSent.deleteMany({ where: { gameStart: { lt: new Date(now.getTime() - SENT_RETENTION_MS) } } });
+  } catch (error) {
+    console.error('[GAME-REMINDERS] Failed to prune old dedupe rows:', error);
   }
   return { sent };
 }

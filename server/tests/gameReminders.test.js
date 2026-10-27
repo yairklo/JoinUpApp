@@ -55,6 +55,13 @@ describe('describeTimeLeft / buildReminderMessage', () => {
     expect(describeTimeLeft({ now, start: START })).toBe('מחר ב-19:00');
     expect(describeTimeLeft({ now, start: START, lang: 'en' })).toBe('tomorrow at 19:00');
   });
+  test('DST change night (Asia/Jerusalem falls back on 2026-10-25)', () => {
+    const start = new Date('2026-10-25T18:00:00Z'); // 20:00 local, UTC+2
+    // 25h of real time earlier, the previous local day -> tomorrow
+    expect(describeTimeLeft({ now: new Date('2026-10-24T17:00:00Z'), start })).toBe('מחר ב-20:00');
+    // 00:30 local the same day (20.5h real) -> today
+    expect(describeTimeLeft({ now: new Date('2026-10-24T21:30:00Z'), start })).toBe('היום ב-20:00');
+  });
   test('message carries the real time left', () => {
     const m = buildReminderMessage({ now: at(45), start: START, fieldName: 'מגרש' });
     expect(m.body).toBe('המשחק שלך ב-מגרש מתחיל בעוד 45 דקות (19:00)');
@@ -67,7 +74,11 @@ function makePrisma(game) {
   return {
     sent,
     game: { findMany: jest.fn(async () => (game.status === 'OPEN' && game.start > game._now ? [game] : [])) },
+    userNotificationSettings: { aggregate: jest.fn(async () => ({ _max: { gameReminderLeadMinutes: 2880 } })) },
     gameReminderSent: {
+      findMany: jest.fn(async ({ where }) => [...sent]
+        .map((k) => { const [userId, gameId, iso] = k.split('|'); return { userId, gameId, gameStart: new Date(iso) }; })
+        .filter((r) => where.gameId.in.includes(r.gameId))),
       createMany: jest.fn(async ({ data }) => {
         let count = 0;
         for (const r of data) {
@@ -76,6 +87,7 @@ function makePrisma(game) {
         }
         return { count };
       }),
+      deleteMany: jest.fn(async () => ({ count: 0 })),
     },
   };
 }
@@ -193,12 +205,17 @@ describe('runGameReminderSweep paging', () => {
     const claimed = new Set();
     return {
       game: {
-        findMany: jest.fn(async ({ take, cursor, skip }) => {
-          const from = cursor ? all.findIndex((g) => g.id === cursor.id) + (skip || 0) : 0;
-          return all.slice(from, from + take);
+        findMany: jest.fn(async ({ take, where }) => {
+          // keyset: rows strictly after (start,id); a deleted "last row" cannot break it
+          const after = where.OR && { start: where.OR[1].start, id: where.OR[1].id.gt };
+          const rows = after ? all.filter((g) => g.id > after.id) : all;
+          return rows.slice(0, take);
         }),
       },
+      userNotificationSettings: { aggregate: jest.fn(async () => ({ _max: { gameReminderLeadMinutes: null } })) },
       gameReminderSent: {
+        findMany: jest.fn(async () => []),
+        deleteMany: jest.fn(async () => ({ count: 0 })),
         createMany: jest.fn(async ({ data }) => {
           const k = data[0].userId + '|' + data[0].gameId;
           if (claimed.has(k)) return { count: 0 };
@@ -218,12 +235,50 @@ describe('runGameReminderSweep paging', () => {
     expect(prisma.game.findMany).toHaveBeenCalledTimes(3);
   });
 
+  test('keyset paging survives the last row of a page vanishing between pages', async () => {
+    const all = manyGames(PAGE_SIZE + 30);
+    const prisma = pagedPrisma(all);
+    const real = prisma.game.findMany;
+    let call = 0;
+    prisma.game.findMany = jest.fn(async (args) => {
+      const rows = await real(args);
+      if (++call === 1) all.splice(PAGE_SIZE - 1, 1); // last row of page 1 is deleted right after being read
+      return rows;
+    });
+    const ns = { sendNotification: jest.fn().mockResolvedValue({}) };
+    const r = await runGameReminderSweep({ prisma, notificationService: ns, now: at(30) });
+    expect(r.sent).toBe(PAGE_SIZE + 30); // page 1 was fully read; page 2 still found
+  });
+
+  test('already-claimed reminders are skipped with one read, no insert attempts', async () => {
+    const prisma = pagedPrisma(manyGames(3));
+    prisma.gameReminderSent.findMany = jest.fn(async () => [
+      { userId: 'u0', gameId: 'g00000', gameStart: START },
+      { userId: 'u1', gameId: 'g00001', gameStart: START },
+    ]);
+    const ns = { sendNotification: jest.fn().mockResolvedValue({}) };
+    const r = await runGameReminderSweep({ prisma, notificationService: ns, now: at(30) });
+    expect(r.sent).toBe(1);
+    expect(prisma.gameReminderSent.createMany).toHaveBeenCalledTimes(1);
+  });
+
+  test('horizon follows the largest lead in use; old dedupe rows are pruned', async () => {
+    const game = { id: 'g1', status: 'OPEN', start: START, field: { name: 'F' }, participants: [], _now: at(30) };
+    const prisma = makePrisma(game);
+    prisma.userNotificationSettings.aggregate = jest.fn(async () => ({ _max: { gameReminderLeadMinutes: 180 } }));
+    await runGameReminderSweep({ prisma, notificationService: {}, now: at(30) });
+    const lte = prisma.game.findMany.mock.calls[0][0].where.start.lte;
+    expect(lte.getTime() - at(30).getTime()).toBe(180 * MIN);
+    expect(prisma.gameReminderSent.deleteMany).toHaveBeenCalledWith({ where: { gameStart: { lt: expect.any(Date) } } });
+  });
+
   test('page cap stops a runaway sweep with a warning', async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     let n = 0;
     const prisma = {
       game: { findMany: jest.fn(async ({ take }) => Array.from({ length: take }, () => ({ id: 'x' + (n++), start: START, field: { name: 'F' }, participants: [] }))) },
-      gameReminderSent: { createMany: jest.fn() },
+      userNotificationSettings: { aggregate: jest.fn(async () => ({ _max: { gameReminderLeadMinutes: null } })) },
+      gameReminderSent: { findMany: jest.fn(async () => []), createMany: jest.fn(), deleteMany: jest.fn() },
     };
     await runGameReminderSweep({ prisma, notificationService: {}, now: at(30) });
     expect(prisma.game.findMany).toHaveBeenCalledTimes(MAX_PAGES);

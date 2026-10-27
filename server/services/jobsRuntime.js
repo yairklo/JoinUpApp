@@ -53,8 +53,10 @@ function createJobsRuntime({
     // Tournament + game reminders: every 5 min, plus once now. Each match is claimed in the
     // DB, so a duplicate runner would be a no-op.
     const sweep = () => {
-      runTournamentReminders({ io: jobIo, shouldContinue: mayContinue }).catch(() => { });
-      runGameReminders({ io: jobIo, shouldContinue: mayContinue }).catch(() => { });
+      runTournamentReminders({ io: jobIo, shouldContinue: mayContinue })
+        .catch((e) => logger.error('[JOBS] tournament reminder sweep failed:', e));
+      runGameReminders({ io: jobIo, shouldContinue: mayContinue })
+        .catch((e) => logger.error('[JOBS] game reminder sweep failed:', e));
     };
     reminderTimer = setInterval(sweep, 5 * 60 * 1000);
     sweep();

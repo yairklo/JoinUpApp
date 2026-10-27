@@ -36,12 +36,17 @@ const STRINGS: Record<Lang, {
     },
 };
 
-function currentLang(): Lang {
-    if (typeof document !== 'undefined' && document.documentElement.lang?.toLowerCase().startsWith('en')) return 'en';
-    return 'he';
+function readLang(): Lang {
+    return document.documentElement.lang?.toLowerCase().startsWith('en') ? 'en' : 'he';
 }
 
 const SAVE_DELAY_MS = 600;
+
+/** Whole non-negative integers only; an empty or fractional box is not a value (null), never silently 0. */
+function parseParts(h: string, m: string): number | null {
+    if (!/^d+$/.test(h.trim()) || !/^d+$/.test(m.trim())) return null;
+    return Number(h) * 60 + Number(m);
+}
 
 interface Props {
     /** may be missing/NaN while settings load or from an old server: treated as the default */
@@ -55,7 +60,9 @@ interface Props {
  * pause (never per keystroke), and only when valid.
  */
 export default function GameReminderLeadControl({ value, disabled, onChange }: Props) {
-    const lang = currentLang();
+    // Resolved after mount so server and first client render agree (Hebrew), then switch if needed.
+    const [lang, setLang] = useState<Lang>('he');
+    useEffect(() => { setLang(readLang()); }, []);
     const t = STRINGS[lang];
     const current = typeof value === 'number' && Number.isFinite(value) ? value : GAME_REMINDER_LEAD_DEFAULT;
     const [hours, setHours] = useState(String(Math.floor(current / 60)));
@@ -70,13 +77,14 @@ export default function GameReminderLeadControl({ value, disabled, onChange }: P
         setMinutes(String(current % 60));
     }, [current]);
 
-    const total = (Number(hours) || 0) * 60 + (Number(minutes) || 0);
-    const invalid = !isValidGameReminderLead(total);
+    const parts = parseParts(hours, minutes);
+    const total = parts ?? 0;
+    const invalid = parts === null || !isValidGameReminderLead(parts);
 
     const commit = (h: string, m: string) => {
         if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-        const next = (Number(h) || 0) * 60 + (Number(m) || 0);
-        if (isValidGameReminderLead(next) && next !== draftRef.current.current) draftRef.current.onChange(next);
+        const next = parseParts(h, m);
+        if (next !== null && isValidGameReminderLead(next) && next !== draftRef.current.current) draftRef.current.onChange(next);
     };
 
     const scheduleCommit = (h: string, m: string) => {
@@ -100,6 +108,7 @@ export default function GameReminderLeadControl({ value, disabled, onChange }: P
                         disabled={disabled}
                         color={current === p ? 'primary' : 'default'}
                         variant={current === p ? 'filled' : 'outlined'}
+                        onMouseDown={e => e.preventDefault() /* keep focus: no blur-commit racing the chip's own save */}
                         onClick={() => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } onChange(p); }}
                     />
                 ))}
