@@ -40,6 +40,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/sign-up`, changeFrequency: "yearly", priority: 0.5 },
     { url: `${SITE_URL}/legal/terms`, changeFrequency: "yearly", priority: 0.2 },
     { url: `${SITE_URL}/legal/privacy`, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${SITE_URL}/account-deletion`, changeFrequency: "yearly", priority: 0.2 },
   ].map((p) => ({ ...p, lastModified: now }) as MetadataRoute.Sitemap[number]);
 
   const fieldPages: MetadataRoute.Sitemap = (await fetchFieldIds()).map((id) => ({
