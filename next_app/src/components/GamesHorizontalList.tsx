@@ -5,7 +5,6 @@ import Link from "next/link";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
-import { useTheme } from "@mui/material/styles";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -37,7 +36,6 @@ export default function GamesHorizontalList({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const childCount = React.Children.count(children);
   const showArrows = !staticContent && childCount > 1;
-  const isRtl = useTheme().direction === "rtl";
   const [edges, setEdges] = useState({ start: false, end: false });
 
   // Fade only the edges that actually have more content: the start edge once the user has
@@ -62,8 +60,10 @@ export default function GamesHorizontalList({
   }, [updateEdges, childCount]);
 
   const FADE = 24;
-  const leftEdgeOn = isRtl ? edges.end : edges.start;
-  const rightEdgeOn = isRtl ? edges.start : edges.end;
+  // Authored in LTR terms: stylis-plugin-rtl (themeRegistry emotion cache) mirrors `to right`
+  // to `to left` in the RTL app, so do not swap the edges by hand here.
+  const leftEdgeOn = edges.start;
+  const rightEdgeOn = edges.end;
   const edgeMask = `linear-gradient(to right, ${leftEdgeOn ? `transparent 0, black ${FADE}px` : "black 0"}, ${
     rightEdgeOn ? `black calc(100% - ${FADE}px), transparent 100%` : "black 100%"
   })`;

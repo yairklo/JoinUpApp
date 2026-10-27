@@ -84,7 +84,7 @@ export default function BottomNav() {
           const active = isActive(item.href);
           const Icon = active ? item.activeIcon : item.icon;
           const isFriends = item.href === FRIENDS_HREF;
-          const href = isFriends && isSignedIn === false ? `/sign-in?redirect_url=${FRIENDS_HREF}` : item.href;
+          const href = isFriends && isSignedIn === false ? `/sign-in?redirect_url=${encodeURIComponent(FRIENDS_HREF)}` : item.href;
           const pending = isFriends && isSignedIn ? friendRequests : 0;
 
           if (item.fab) {
