@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   APIProvider,
   Map as GoogleMap,
@@ -95,8 +95,9 @@ const formatShortDate = (dateStr?: string) => {
   return `${Number(day)}.${Number(month)}`;
 };
 
-// Grid cell size (~11 m of latitude) for the same-spot lookup; neighbours are checked too.
-const GRID_DEG = 0.0001;
+// Grid cell size for the same-spot lookup (~22 m of latitude, ~19 m of longitude at 32 N), so
+// checking the 8 neighbouring cells always covers SAME_SPOT_METERS in either axis.
+const GRID_DEG = 0.0002;
 
 // Equirectangular distance -- plenty accurate at the ~10 m scale it is used for.
 function metersBetween(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -113,10 +114,12 @@ type GameGroup = { key: string; lat: number; lng: number; games: Game[] };
 // once it resolves geolocation and which BoundsListener below reacts to on
 // every change (see its `targetLocation` effect) -- unlike this prop, that
 // one actually re-pans an already-mounted map.
-// Stacking: venue pins sit under game pins (which sit under the user's own dot).
+// Stacking: venue pins sit under game pins, which sit under the user's own dot (cluster
+// bubbles use the clusterer's own, higher z-index).
 const FIELD_MARKER_Z = 0;
 const GAME_MARKER_Z = 10;
-const USER_MARKER_Z = 20;
+const USER_MARKER_Z = 30;
+const GAME_MARKER_HOVER_Z = 15;
 // A venue pin this close to a game pin is considered the same spot and is not drawn.
 const SAME_SPOT_METERS = 10;
 const DEFAULT_CENTER = { lat: 32.0853, lng: 34.7818 }; // Tel Aviv
@@ -324,6 +327,12 @@ function BoundsListener({
   useEffect(() => {
     onBoundsRef.current = onBoundsChanged;
   }, [onBoundsChanged]);
+  // A pending targetLocation will pan the map right after mount; the idle that follows reports
+  // the right viewport, so the mount report is skipped rather than searching the default one.
+  const targetLocationRef = useRef(targetLocation);
+  useEffect(() => {
+    targetLocationRef.current = targetLocation;
+  }, [targetLocation]);
 
   const handleCameraChanged = useCallback(() => {
     if (!map) return;
@@ -349,7 +358,7 @@ function BoundsListener({
     // The map may already have gone idle before this listener existed (the first idle fires
     // as soon as tiles load), in which case it never fires again until the user pans. Report
     // the current viewport once now so the initial bounds are known.
-    if (map.getBounds()) handleCameraChanged();
+    if (map.getBounds() && !targetLocationRef.current) handleCameraChanged();
     return () => {
       idleListener?.remove();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -527,6 +536,7 @@ function ClusteredGameMarkers({
   const markerLib = useMapsLibrary("marker");
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const contentByKeyRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const markerByKeyRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map());
   const [selectedGroup, setSelectedGroup] = useState<GameGroup | null>(null);
 
   // The clusterer instance itself is created once per `map` (not per `groups` change) --
@@ -574,6 +584,7 @@ function ClusteredGameMarkers({
 
         // AdvancedMarkerElement dispatches "gmp-click", not the classic Marker's "click" --
         // using "click" here still works but logs a deprecation warning in the console.
+        markerByKeyRef.current.set(group.key, marker);
         marker.addListener("gmp-click", () => setSelectedGroup(group));
         content.addEventListener("mouseenter", () => onHoverGame?.(group.games[0].id));
         content.addEventListener("mouseleave", () => onHoverGame?.(null));
@@ -587,6 +598,7 @@ function ClusteredGameMarkers({
       return () => {
         clusterer.clearMarkers();
         contentByKeyRef.current.clear();
+        markerByKeyRef.current.clear();
       };
     } catch (e) {
       console.error("[SearchMap] Failed to create clustered markers:", e);
@@ -616,7 +628,8 @@ function ClusteredGameMarkers({
       const isHovered = !!hoveredGameId && group.games.some((g) => g.id === hoveredGameId);
       content.style.transform = isHovered ? "scale(1.28)" : "scale(1)";
       content.style.filter = isHovered ? "drop-shadow(0 0 0 3px rgba(37,99,235,0.55))" : "none";
-      content.style.zIndex = isHovered ? "3" : "0";
+      const marker = markerByKeyRef.current.get(group.key);
+      if (marker) marker.zIndex = isHovered ? GAME_MARKER_HOVER_Z : GAME_MARKER_Z;
     }
   }, [hoveredGameId, groups]);
 
@@ -753,7 +766,7 @@ function usePanPopupIntoView(map: google.maps.Map | null, activeKey: string | nu
   }, [map, activeKey]);
 }
 
-function FieldMarker({ field }: { field: any }) {
+const FieldMarker = memo(function FieldMarker({ field }: { field: any }) {
   const [open, setOpen] = useState(false);
   const map = useMap();
   const markerLib = useMapsLibrary("marker");
@@ -912,4 +925,4 @@ function FieldMarker({ field }: { field: any }) {
       )}
     </>
   );
-}
+});
