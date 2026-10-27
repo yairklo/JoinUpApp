@@ -535,7 +535,7 @@ export default function SeriesScreen() {
                 )}
             </View>
 
-            <ScrollView ref={scrollViewRef} className="flex-1 bg-gray-50">
+            <ScrollView ref={scrollViewRef} keyboardShouldPersistTaps="handled" className="flex-1 bg-gray-50">
 
                 {/* Hero Header Card */}
                 <View className="bg-white p-6 mb-4 shadow-sm">

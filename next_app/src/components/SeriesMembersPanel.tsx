@@ -223,7 +223,11 @@ export default function SeriesMembersPanel({
                     noOptionsText={noOptionsText}
                     onFocus={loadFriends}
                     onChange={(_, value) => setSelected(value)}
-                    onInputChange={(_, value) => setQuery(value)}
+                    inputValue={query}
+                    onInputChange={(_, value, reason) => {
+                        // "reset" fires after each pick; keep the query so several search hits can be ticked in a row.
+                        if (reason !== "reset") setQuery(value);
+                    }}
                     renderOption={(props, option, { selected: isSel }) => {
                         const { key, ...rest } = props as typeof props & { key: string };
                         return (
@@ -235,7 +239,7 @@ export default function SeriesMembersPanel({
                                     {option.name || option.id}
                                 </Typography>
                                 {option.isFriend && <Chip size="small" label="חבר/ה" />}
-                                {isSel && <CheckIcon fontSize="small" color="primary" aria-label="נבחר" />}
+                                {isSel && <CheckIcon fontSize="small" color="primary" />}
                             </Box>
                         );
                     }}
