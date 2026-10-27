@@ -6,6 +6,7 @@ const teams = require('../services/tournamentTeamService');
 const schedule = require('../services/tournamentScheduleService');
 const results = require('../services/tournamentResultService');
 const notify = require('../services/tournamentNotifications');
+const { tournamentsGate, isTournamentsPublic, canViewTournaments } = require('../utils/tournamentGate');
 
 const router = express.Router();
 
@@ -23,10 +24,19 @@ const handle = (fn) => async (req, res) => {
   }
 };
 
-// Declared before any `/:id` route so "capabilities" is never read as a tournament id.
-router.get('/capabilities', authenticateToken, (req, res) => {
-  res.json({ canCreateTournaments: canCreateTournament(req.user) });
-});
+// Declared before any `/:id` route so "capabilities" is never read as a tournament id. Also before
+// the gate: guests and outsiders must be able to ask whether the feature is visible to them.
+router.get('/capabilities', attachOptionalUser, handle(async (req) => {
+  const canCreate = canCreateTournament(req.user);
+  return {
+    public: await isTournamentsPublic(),
+    canView: await canViewTournaments(req.user),
+    canCreate,
+    canCreateTournaments: canCreate, // legacy field read by shipped clients
+  };
+}));
+
+router.use(tournamentsGate);
 
 // Pending team invitations of the caller; also before `/:id`.
 router.get('/my-invites', authenticateToken, handle((req) => teams.myInvites(req.user)));

@@ -16,7 +16,7 @@ jest.mock('../utils/auth', () => ({
   getClerkUserCached: jest.fn(async () => ({})),
   isAccountDeleted: jest.fn(async () => false),
 }));
-jest.mock('../utils/admin', () => ({ requireAdmin: (_r, _s, n) => n(), resolveIsBanned: () => false }));
+jest.mock('../utils/admin', () => ({ requireAdmin: (_r, _s, n) => n(), resolveIsBanned: () => false, resolveIsAdmin: () => false }));
 jest.mock('../workers/reviewWorker', () => ({ processReviewQueue: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../workers/cleanupWorker', () => ({ startCleanupWorker: jest.fn(), stopCleanupWorker: jest.fn() }));
 jest.mock('../moderationInstance', () => ({ moderator: {} }));

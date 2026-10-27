@@ -1472,4 +1472,12 @@ model TournamentRole {
   user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tournamentId, userId])
+  @@index([userId])
+}
+
+/// Admin-toggled app-wide switches (e.g. `tournamentsPublic`). Read through utils/appSettings.js.
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }

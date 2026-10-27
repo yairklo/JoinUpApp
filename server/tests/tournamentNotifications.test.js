@@ -11,7 +11,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 const { app } = require('../index');
 const { runReminderSweep } = require('../services/tournamentReminders');
 const { notificationService } = require('../services/tournamentNotifications');
-const { prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
+const { useOpenTournaments, prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
 
 const P = 'tnotif_';
 const ORG = `${P}org`;
@@ -33,6 +33,8 @@ async function newTournament(over = {}, { open = true } = {}) {
 }
 
 describe('tournament notifications and reminders', () => {
+  useOpenTournaments();
+
   beforeAll(async () => {
     process.env.TOURNAMENT_CREATOR_IDS = ORG;
     await cleanup(P);

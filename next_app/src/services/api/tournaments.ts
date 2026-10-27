@@ -85,7 +85,9 @@ const tm = (id: string, teamId: string) => `${t(id)}/teams/${encodeURIComponent(
  */
 export const tournamentsApi = {
     // ---- capabilities / list / create ----
-    capabilities: (token: string) => call<{ canCreateTournaments: boolean }>('/capabilities', { token }),
+    /** Works for guests too: `canView` is the feature gate, `canCreate` the create entry point. */
+    capabilities: (token?: string) =>
+        call<{ public: boolean; canView: boolean; canCreate: boolean; canCreateTournaments?: boolean }>('/capabilities', { token }),
     list: (filters: TournamentFilters = {}, token?: string) =>
         call<Tournament[]>(
             `/${buildQuery({

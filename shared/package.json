@@ -20,6 +20,10 @@
       "types": "./sports.d.ts",
       "default": "./sports.js"
     },
+    "./mapSport": {
+      "types": "./mapSport.d.ts",
+      "default": "./mapSport.js"
+    },
     "./upload": {
       "types": "./upload.d.ts",
       "default": "./upload.js"

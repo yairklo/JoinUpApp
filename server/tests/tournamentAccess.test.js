@@ -53,14 +53,16 @@ describe('GET /api/tournaments/capabilities', () => {
   beforeAll(() => { process.env.TOURNAMENT_CREATOR_IDS = 'ta_creator'; });
   afterAll(() => { process.env.TOURNAMENT_CREATOR_IDS = OLD; });
 
-  it('requires auth', async () => {
-    expect((await request(app).get('/api/tournaments/capabilities')).status).toBe(401);
+  it('works for guests (canView follows the public switch, canCreate is false)', async () => {
+    const res = await request(app).get('/api/tournaments/capabilities');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ canView: res.body.public, canCreate: false });
   });
 
-  it('reports the flag per caller', async () => {
+  it('reports the create flag per caller', async () => {
     const get = (token) => request(app).get('/api/tournaments/capabilities').set('Authorization', `Bearer ${token}`);
-    expect((await get('ta_creator')).body).toEqual({ canCreateTournaments: true });
-    expect((await get('ta_plain')).body).toEqual({ canCreateTournaments: false });
-    expect((await get('ta_plain:admin')).body).toEqual({ canCreateTournaments: true });
+    expect((await get('ta_creator')).body).toMatchObject({ canCreate: true, canCreateTournaments: true, canView: true });
+    expect((await get('ta_plain')).body).toMatchObject({ canCreate: false, canCreateTournaments: false });
+    expect((await get('ta_plain:admin')).body).toMatchObject({ canCreate: true, canCreateTournaments: true, canView: true });
   });
 });

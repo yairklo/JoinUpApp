@@ -9,7 +9,7 @@ jest.mock('../workers/cleanupWorker', () => ({
 }));
 
 const { app } = require('../index');
-const { prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
+const { useOpenTournaments, prisma, ensureUsers, tournamentBody, cleanup, seedTeams } = require('./helpers/tournamentFixtures');
 const results = require('../services/tournamentResultService');
 const { REMINDER_KEY } = require('../services/tournamentScheduleService');
 
@@ -84,6 +84,8 @@ describe('rankTable manualRank semantics (pure)', () => {
 });
 
 describe('withdrawn teams, atomic withdraw + forfeit', () => {
+  useOpenTournaments();
+
   beforeAll(async () => {
     process.env.TOURNAMENT_CREATOR_IDS = ORG;
     await cleanup(P);
