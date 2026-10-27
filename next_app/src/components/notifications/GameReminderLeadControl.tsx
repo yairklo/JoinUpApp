@@ -44,7 +44,7 @@ const SAVE_DELAY_MS = 600;
 
 /** Whole non-negative integers only; an empty or fractional box is not a value (null), never silently 0. */
 function parseParts(h: string, m: string): number | null {
-    if (!/^d+$/.test(h.trim()) || !/^d+$/.test(m.trim())) return null;
+    if (!/^\d+$/.test(h.trim()) || !/^\d+$/.test(m.trim())) return null;
     return Number(h) * 60 + Number(m);
 }
 
