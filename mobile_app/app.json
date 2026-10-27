@@ -50,6 +50,13 @@
         "RECEIVE_BOOT_COMPLETED",
         "POST_NOTIFICATIONS"
       ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCSkGsi2WtND71FfLA3h5o0IMje_veOPxw"
@@ -78,7 +85,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "כדי לצרף תמונות למגרש שאתם מנהלים באפליקציה"
+          "photosPermission": "כדי לצרף תמונות למגרש שאתם מנהלים באפליקציה",
+          "microphonePermission": false
         }
       ]
     ],
