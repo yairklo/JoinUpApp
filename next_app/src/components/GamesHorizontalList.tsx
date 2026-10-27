@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
+import { useTheme } from "@mui/material/styles";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -36,6 +37,36 @@ export default function GamesHorizontalList({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const childCount = React.Children.count(children);
   const showArrows = !staticContent && childCount > 1;
+  const isRtl = useTheme().direction === "rtl";
+  const [edges, setEdges] = useState({ start: false, end: false });
+
+  // Fade only the edges that actually have more content: the start edge once the user has
+  // scrolled away from it, the end edge until they reach the last card. scrollLeft is
+  // negative in RTL, so measure its magnitude.
+  const updateEdges = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const scrolled = Math.abs(el.scrollLeft);
+    const max = el.scrollWidth - el.clientWidth;
+    const next = { start: scrolled > 4, end: max > 4 && scrolled < max - 4 };
+    setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+  }, []);
+
+  useEffect(() => {
+    updateEdges();
+    const el = scrollerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(updateEdges);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [updateEdges, childCount]);
+
+  const FADE = 24;
+  const leftEdgeOn = isRtl ? edges.end : edges.start;
+  const rightEdgeOn = isRtl ? edges.start : edges.end;
+  const edgeMask = `linear-gradient(to right, ${leftEdgeOn ? `transparent 0, black ${FADE}px` : "black 0"}, ${
+    rightEdgeOn ? `black calc(100% - ${FADE}px), transparent 100%` : "black 100%"
+  })`;
 
   const scrollByCard = (direction: 1 | -1) => {
     const el = scrollerRef.current;
@@ -159,12 +190,13 @@ export default function GamesHorizontalList({
             ref={scrollerRef}
             direction="row"
             spacing={1.5}
-            className="carousel-edge"
+            onScroll={updateEdges}
             sx={{
               overflowX: "auto",
               pb: 1.5,
               px: { xs: 2, sm: 1 },
-              paddingInlineEnd: { xs: 6, sm: 5 },
+              WebkitMaskImage: edgeMask,
+              maskImage: edgeMask,
               // A single card centered in a full-width rail on desktop reads as a rendering
               // glitch (floating alone in a sea of whitespace) rather than "here's one result" --
               // keep it aligned with the rail's start like every other card count instead.
@@ -177,23 +209,19 @@ export default function GamesHorizontalList({
               "& > *": {
                 scrollSnapAlign: "start",
               },
+              // Mobile: size cards so only ~28px of the next card peeks in, which reads as
+              // an intentional "more this way" hint instead of a half-clipped card.
+              "@media (max-width:599.95px)": {
+                "&& > *": {
+                  width: "calc(100% - 24px)",
+                  minWidth: 0,
+                  maxWidth: "none",
+                },
+              },
             }}
           >
             {children}
           </Stack>
-          {showArrows && (
-            <Box
-              sx={{
-                display: { xs: "block", md: "none" },
-                pointerEvents: "none",
-                position: "absolute",
-                insetBlock: 0,
-                insetInlineEnd: 0,
-                width: 40,
-                background: "linear-gradient(to right, var(--mui-palette-background-default, #fff) 0%, transparent 100%)",
-              }}
-            />
-          )}
         </Box>
       </Reveal>
       )}

@@ -1,0 +1,282 @@
+[
+ {
+  "name": "guest-360x780-light",
+  "items": [
+   {
+    "label": "בית",
+    "href": "/games",
+    "x": 321
+   },
+   {
+    "label": "מפה",
+    "href": "/search",
+    "x": 250
+   },
+   {
+    "label": "צור משחק",
+    "href": "/games/new",
+    "x": 180
+   },
+   {
+    "label": "מגרשים",
+    "href": "/fields",
+    "x": 110
+   },
+   {
+    "label": "חברים",
+    "href": "/sign-in?redirect_url=/profile/friends",
+    "x": 39
+   }
+  ],
+  "fabCenter": 180,
+  "innerWidth": 360,
+  "scrollWidth": 360,
+  "dir": "rtl",
+  "ok": true
+ },
+ {
+  "name": "guest-390x844-light",
+  "items": [
+   {
+    "label": "בית",
+    "href": "/games",
+    "x": 348
+   },
+   {
+    "label": "מפה",
+    "href": "/search",
+    "x": 271
+   },
+   {
+    "label": "צור משחק",
+    "href": "/games/new",
+    "x": 195
+   },
+   {
+    "label": "מגרשים",
+    "href": "/fields",
+    "x": 119
+   },
+   {
+    "label": "חברים",
+    "href": "/sign-in?redirect_url=/profile/friends",
+    "x": 42
+   }
+  ],
+  "fabCenter": 195,
+  "innerWidth": 390,
+  "scrollWidth": 390,
+  "dir": "rtl",
+  "ok": true
+ },
+ {
+  "name": "guest-360x780-dark",
+  "items": [
+   {
+    "label": "בית",
+    "href": "/games",
+    "x": 321
+   },
+   {
+    "label": "מפה",
+    "href": "/search",
+    "x": 250
+   },
+   {
+    "label": "צור משחק",
+    "href": "/games/new",
+    "x": 180
+   },
+   {
+    "label": "מגרשים",
+    "href": "/fields",
+    "x": 110
+   },
+   {
+    "label": "חברים",
+    "href": "/sign-in?redirect_url=/profile/friends",
+    "x": 39
+   }
+  ],
+  "fabCenter": 180,
+  "innerWidth": 360,
+  "scrollWidth": 360,
+  "dir": "rtl",
+  "ok": true
+ },
+ {
+  "name": "guest-390x844-dark",
+  "items": [
+   {
+    "label": "בית",
+    "href": "/games",
+    "x": 348
+   },
+   {
+    "label": "מפה",
+    "href": "/search",
+    "x": 271
+   },
+   {
+    "label": "צור משחק",
+    "href": "/games/new",
+    "x": 195
+   },
+   {
+    "label": "מגרשים",
+    "href": "/fields",
+    "x": 119
+   },
+   {
+    "label": "חברים",
+    "href": "/sign-in?redirect_url=/profile/friends",
+    "x": 42
+   }
+  ],
+  "fabCenter": 195,
+  "innerWidth": 390,
+  "scrollWidth": 390,
+  "dir": "rtl",
+  "ok": true
+ },
+ {
+  "name": "signed-in-adult-a-360x780-light",
+  "items": [
+   {
+    "label": "בית",
+    "href": "/games",
+    "x": 321
+   },
+   {
+    "label": "מפה",
+    "href": "/search",
+    "x": 250
+   },
+   {
+    "label": "צור משחק",
+    "href": "/games/new",
+    "x": 180
+   },
+   {
+    "label": "מגרשים",
+    "href": "/fields",
+    "x": 110
+   },
+   {
+    "label": "חברים",
+    "href": "/profile/friends",
+    "x": 39
+   }
+  ],
+  "fabCenter": 180,
+  "innerWidth": 360,
+  "scrollWidth": 360,
+  "dir": "rtl",
+  "ok": true
+ },
+ {
+  "name": "signed-in-adult-a-390x844-light",
+  "items": [
+   {
+    "label": "בית",
+    "href": "/games",
+    "x": 348
+   },
+   {
+    "label": "מפה",
+    "href": "/search",
+    "x": 271
+   },
+   {
+    "label": "צור משחק",
+    "href": "/games/new",
+    "x": 195
+   },
+   {
+    "label": "מגרשים",
+    "href": "/fields",
+    "x": 119
+   },
+   {
+    "label": "חברים",
+    "href": "/profile/friends",
+    "x": 42
+   }
+  ],
+  "fabCenter": 195,
+  "innerWidth": 390,
+  "scrollWidth": 390,
+  "dir": "rtl",
+  "ok": true
+ },
+ {
+  "name": "signed-in-adult-a-360x780-dark",
+  "items": [
+   {
+    "label": "בית",
+    "href": "/games",
+    "x": 321
+   },
+   {
+    "label": "מפה",
+    "href": "/search",
+    "x": 250
+   },
+   {
+    "label": "צור משחק",
+    "href": "/games/new",
+    "x": 180
+   },
+   {
+    "label": "מגרשים",
+    "href": "/fields",
+    "x": 110
+   },
+   {
+    "label": "חברים",
+    "href": "/profile/friends",
+    "x": 39
+   }
+  ],
+  "fabCenter": 180,
+  "innerWidth": 360,
+  "scrollWidth": 360,
+  "dir": "rtl",
+  "ok": true
+ },
+ {
+  "name": "signed-in-adult-a-390x844-dark",
+  "items": [
+   {
+    "label": "בית",
+    "href": "/games",
+    "x": 348
+   },
+   {
+    "label": "מפה",
+    "href": "/search",
+    "x": 271
+   },
+   {
+    "label": "צור משחק",
+    "href": "/games/new",
+    "x": 195
+   },
+   {
+    "label": "מגרשים",
+    "href": "/fields",
+    "x": 119
+   },
+   {
+    "label": "חברים",
+    "href": "/profile/friends",
+    "x": 42
+   }
+  ],
+  "fabCenter": 195,
+  "innerWidth": 390,
+  "scrollWidth": 390,
+  "dir": "rtl",
+  "ok": true
+ }
+]
