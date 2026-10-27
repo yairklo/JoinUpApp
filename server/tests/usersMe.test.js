@@ -2,15 +2,20 @@ const request = require('supertest');
 
 jest.setTimeout(30000);
 
+// Unique per run so rows never collide with (or leak into) other suites.
+const mockRunId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const mockAdminId = `test_usersme_admin_${mockRunId}`;
+const mockOrgId = `test_usersme_org_${mockRunId}`;
+
 jest.mock('../utils/auth', () => ({
   authenticateToken: (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'No token provided' });
     if (token === 'mock_admin') {
-      req.user = { id: 'user_admin_1', name: 'Admin', isAdmin: true };
+      req.user = { id: mockAdminId, name: 'Admin', isAdmin: true };
     } else if (token === 'mock_token_organizer') {
-      req.user = { id: 'user_org_123', name: 'Organizer', isAdmin: false };
+      req.user = { id: mockOrgId, name: 'Organizer', isAdmin: false };
     } else {
       return res.status(403).json({ error: 'Invalid token' });
     }
@@ -35,14 +40,14 @@ describe('Current user + admin field writes', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.upsert({
-      where: { id: 'user_admin_1' },
+      where: { id: mockAdminId },
       update: { name: 'Admin' },
-      create: { id: 'user_admin_1', name: 'Admin' },
+      create: { id: mockAdminId, name: 'Admin' },
     });
     await prisma.user.upsert({
-      where: { id: 'user_org_123' },
+      where: { id: mockOrgId },
       update: {},
-      create: { id: 'user_org_123', name: 'Organizer' },
+      create: { id: mockOrgId, name: 'Organizer' },
     });
   });
 
@@ -53,6 +58,11 @@ describe('Current user + admin field writes', () => {
       }
     } catch (err) {
       console.warn('usersMe cleanup skipped:', err.message);
+    }
+    try {
+      await prisma.user.deleteMany({ where: { id: { in: [mockAdminId, mockOrgId] } } });
+    } catch (err) {
+      console.warn('usersMe user cleanup skipped:', err.message);
     }
   });
 
@@ -66,7 +76,7 @@ describe('Current user + admin field writes', () => {
       .get('/api/users/me')
       .set('Authorization', 'Bearer mock_admin');
     expect(admin.statusCode).toEqual(200);
-    expect(admin.body.id).toEqual('user_admin_1');
+    expect(admin.body.id).toEqual(mockAdminId);
     expect(admin.body.isAdmin).toEqual(true);
 
     const member = await request(app)
