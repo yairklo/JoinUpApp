@@ -7,6 +7,8 @@ import Link from "next/link";
 
 // MUI Imports
 import Avatar from "@/components/Avatar";
+import PickerUserLabel from "@/components/PickerUserLabel";
+import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import { alpha } from "@mui/material/styles";
 import IconButton from "@mui/material/IconButton";
@@ -462,11 +464,26 @@ export default function GameParticipantsList({
                     sx={{ "& .MuiOutlinedInput-root": { bgcolor: "background.paper", borderRadius: 2 } }}
                   />
                 )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    const label = normalizeName(option.name);
+                    return (
+                      <Chip
+                        key={key}
+                        {...tagProps}
+                        size="small"
+                        label={label}
+                        avatar={<Avatar src={option.imageUrl} alt={label} name={label} size="sm" />}
+                      />
+                    );
+                  })
+                }
                 renderOption={(props, option) => {
                   const { key, ...otherProps } = props;
                   return (
                     <li key={option.id} {...otherProps} style={{ direction: "rtl" }}>
-                      {normalizeName(option.name)}
+                      <PickerUserLabel name={normalizeName(option.name)} imageUrl={option.imageUrl} />
                     </li>
                   );
                 }}

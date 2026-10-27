@@ -13,7 +13,8 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
-import Avatar from "@mui/material/Avatar";
+import Avatar from "@/components/Avatar";
+import PickerUserLabel from "@/components/PickerUserLabel";
 import Chip from "@mui/material/Chip";
 import CheckIcon from "@mui/icons-material/Check";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -228,16 +229,26 @@ export default function SeriesMembersPanel({
                         // "reset" fires after each pick; keep the query so several search hits can be ticked in a row.
                         if (reason !== "reset") setQuery(value);
                     }}
+                    renderTags={(value, getTagProps) =>
+                        value.map((option, index) => {
+                            const { key, ...tagProps } = getTagProps({ index });
+                            const label = option.name || option.id;
+                            return (
+                                <Chip
+                                    key={key}
+                                    {...tagProps}
+                                    size="small"
+                                    label={label}
+                                    avatar={<Avatar src={option.imageUrl} alt={label} name={label} size="sm" />}
+                                />
+                            );
+                        })
+                    }
                     renderOption={(props, option, { selected: isSel }) => {
                         const { key, ...rest } = props as typeof props & { key: string };
                         return (
                             <Box component="li" key={key} {...rest} sx={{ gap: 1 }}>
-                                <Avatar src={option.imageUrl || undefined} sx={{ width: 28, height: 28 }}>
-                                    {(option.name || "?").charAt(0)}
-                                </Avatar>
-                                <Typography variant="body2" sx={{ flex: 1 }} noWrap>
-                                    {option.name || option.id}
-                                </Typography>
+                                <PickerUserLabel name={option.name || option.id} imageUrl={option.imageUrl} />
                                 {option.isFriend && <Chip size="small" label="חבר/ה" />}
                                 {isSel && <CheckIcon fontSize="small" color="primary" />}
                             </Box>
