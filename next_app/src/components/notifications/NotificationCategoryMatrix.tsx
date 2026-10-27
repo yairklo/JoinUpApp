@@ -32,6 +32,7 @@ import {
     type NotificationSettingsUpdate,
     type NotificationSport,
 } from '@joinup/shared/notificationPrefs';
+import GameReminderLeadControl from './GameReminderLeadControl';
 import { CITY_ALIASES } from '@joinup/shared/cityAliases';
 import { SPORT_MAPPING } from '@/utils/sports';
 
@@ -46,7 +47,7 @@ const CATEGORY_COPY: Record<NotificationCategoryKey, { title: string; subtitle: 
     messages: { title: 'הודעות צ׳אט', subtitle: 'הודעה חדשה בצ׳אט (פוש בלבד)', icon: <ChatBubbleOutlineIcon /> },
     friendGames: { title: 'חבר פתח משחק', subtitle: 'כשחבר שלך יוצר משחק חדש', icon: <SportsSoccerOutlinedIcon /> },
     friendJoins: { title: 'חבר הצטרף למשחק', subtitle: 'כשחבר נרשם למשחק שאתה לא בו', icon: <DirectionsRunOutlinedIcon /> },
-    gameReminders: { title: 'תזכורות למשחק', subtitle: 'שעה לפני משחק שנרשמת אליו', icon: <AlarmOutlinedIcon /> },
+    gameReminders: { title: 'תזכורות למשחק', subtitle: 'לפני משחק שנרשמת אליו, בזמן שתבחר', icon: <AlarmOutlinedIcon /> },
     myGames: { title: 'עדכונים במשחקים שלי', subtitle: 'שינויים, אישור/דחייה, מקום שהתפנה', icon: <EventNoteOutlinedIcon /> },
     invitations: { title: 'הזמנות למשחק', subtitle: 'כשמישהו מוסיף אותך למשחק', icon: <MailOutlineIcon /> },
     organizer: { title: 'בקשות הצטרפות', subtitle: 'למשחקים שאתה מארגן', icon: <AdminPanelSettingsOutlinedIcon /> },
@@ -152,6 +153,14 @@ export default function NotificationCategoryMatrix({ settings, onChange }: Props
                                             )}
                                         </Stack>
                                     </Stack>
+
+                                    {cat.key === 'gameReminders' && (
+                                        <GameReminderLeadControl
+                                            value={settings.gameReminderLeadMinutes}
+                                            disabled={!(settings.gameRemindersEnabled && settings.pushEnabled) && !settings.gameRemindersInApp}
+                                            onChange={minutes => onChange({ gameReminderLeadMinutes: minutes })}
+                                        />
+                                    )}
 
                                     {isCity && (
                                         <Collapse in={cityOpen} unmountOnExit>

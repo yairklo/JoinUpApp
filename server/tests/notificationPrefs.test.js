@@ -169,6 +169,23 @@ describe('notificationPrefs', () => {
     expect(cityMatchKeys('חיפה')).toContain('חיפה');
   });
 
+  test.each([5, 45, 60, 135, 1440, 2880])('gameReminderLeadMinutes accepts %i', (v) => {
+    const { data, errors } = sanitizeSettingsUpdate({ gameReminderLeadMinutes: v });
+    expect(errors).toEqual([]);
+    expect(data.gameReminderLeadMinutes).toBe(v);
+  });
+
+  test.each([0, 4, 7, 2881, 2885, -5, 12.5, '60', null])('gameReminderLeadMinutes rejects %p', (v) => {
+    const { data, errors } = sanitizeSettingsUpdate({ gameReminderLeadMinutes: v });
+    expect(errors.length).toBe(1);
+    expect(data.gameReminderLeadMinutes).toBeUndefined();
+  });
+
+  test('gameReminderLeadMinutes is returned by toClientSettings, defaulting to 60', () => {
+    expect(toClientSettings(null).gameReminderLeadMinutes).toBe(60);
+    expect(toClientSettings({ gameReminderLeadMinutes: 135 }).gameReminderLeadMinutes).toBe(135);
+  });
+
   test('toClientSettings hides expired snooze and mutes', () => {
     const dto = toClientSettings(
       { pushEnabled: false, snoozeUntil: new Date('2026-10-14T11:00:00Z') },
@@ -179,5 +196,40 @@ describe('notificationPrefs', () => {
     expect(dto.snoozeUntil).toBeNull();
     expect(dto.mutes.map(m => m.targetId)).toEqual(['b']);
     expect(dto.cityGamesInApp).toBe(true);
+  });
+});
+
+describe('updateSettings stamps gameReminderLeadUpdatedAt only on a real lead change', () => {
+  const { NotificationService } = require('../services/notificationService');
+  const make = (existing) => {
+    const upsert = jest.fn().mockResolvedValue({});
+    const prisma = {
+      userNotificationSettings: {
+        findUnique: jest.fn().mockResolvedValue(existing),
+        upsert,
+      },
+    };
+    const svc = new NotificationService(prisma);
+    svc.getSettings = jest.fn().mockResolvedValue({});
+    return { svc, upsert };
+  };
+
+  test('changed lead -> stamped', async () => {
+    const { svc, upsert } = make({ gameReminderLeadMinutes: 60 });
+    await svc.updateSettings('u1', { gameReminderLeadMinutes: 120 });
+    expect(upsert.mock.calls[0][0].update.gameReminderLeadUpdatedAt).toBeInstanceOf(Date);
+  });
+  test('same lead / unrelated edit -> not stamped', async () => {
+    const same = make({ gameReminderLeadMinutes: 60 });
+    await same.svc.updateSettings('u1', { gameReminderLeadMinutes: 60 });
+    expect(same.upsert.mock.calls[0][0].update.gameReminderLeadUpdatedAt).toBeUndefined();
+    const other = make({ gameReminderLeadMinutes: 60 });
+    await other.svc.updateSettings('u1', { quietHoursEnabled: true });
+    expect(other.upsert.mock.calls[0][0].update.gameReminderLeadUpdatedAt).toBeUndefined();
+  });
+  test('no row yet: default 60 is the baseline', async () => {
+    const { svc, upsert } = make(null);
+    await svc.updateSettings('u1', { gameReminderLeadMinutes: 60 });
+    expect(upsert.mock.calls[0][0].create.gameReminderLeadUpdatedAt).toBeUndefined();
   });
 });

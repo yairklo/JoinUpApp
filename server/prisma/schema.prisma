@@ -401,6 +401,7 @@ model Game {
   /// Display-only ILS amount. Collected at the field or by the organizer — joinUp does not process payments.
   price                Int?
   status               GameStatus        @default(OPEN)
+  /// Retired: reminders are deduped per user in GameReminderSent. Column kept (no destructive migration).
   reminderSent         Boolean           @default(false)
   joinPolicy           JoinPolicy        @default(INSTANT)
   pickDrawAt           DateTime?
@@ -832,8 +833,25 @@ model UserNotificationSettings {
   snoozeUntil           DateTime?
   /// one-time "turn on city-game push?" suggestion dismissed/answered
   cityPromptDismissedAt DateTime?
+  /// how long before a game start the GAME_REMINDER goes out; multiple of 5, 5..2880 (shared/notificationPrefs.js)
+  gameReminderLeadMinutes Int       @default(60)
+  /// set only when gameReminderLeadMinutes actually changes (reminder rule: no catch-up after a lengthen)
+  gameReminderLeadUpdatedAt DateTime?
   updatedAt             DateTime    @default(now()) @updatedAt
   user                  User        @relation("UserNotificationSettings", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Per-user dedupe for GAME_REMINDER: one row per (user, game, game start). An edited start is a new key.
+model GameReminderSent {
+  id        String   @id @default(cuid())
+  userId    String
+  gameId    String
+  gameStart DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([userId, gameId, gameStart])
+  @@index([gameId])
+  @@index([gameStart])
 }
 
 /// Silences notifications originating from a user, a group (series) or a single game.

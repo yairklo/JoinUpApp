@@ -8,7 +8,6 @@ jest.mock('../utils/auth', () => require('./helpers/userReportsMocks').authMock(
   invalidateClerkUser: (...a) => mockInvalidateClerkUser(...a),
   clerkClient: { users: { updateUserMetadata: (...a) => mockUpdateUserMetadata(...a) } },
 }));
-jest.mock('../workers/gameReminderWorker', () => ({ startGameReminderWorker: jest.fn() }));
 jest.mock('../workers/cleanupWorker', () => ({ startCleanupWorker: jest.fn() }));
 
 const { prisma } = require('../services/gameService');

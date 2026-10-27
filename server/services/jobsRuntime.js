@@ -20,6 +20,7 @@ function createJobsRuntime({
   stopCleanupWorker,
   runWeeklySeriesGeneration,
   runTournamentReminders = async () => {},
+  runGameReminders = async () => {},
   createLeaderLock,
   getRedis,
   adapterEnabled = () => false,
@@ -49,9 +50,14 @@ function createJobsRuntime({
       24 * 60 * 60 * 1000,
     );
     runWeeklySeriesGeneration({ shouldContinue: mayContinue }).catch(() => { });
-    // Tournament "starting soon" reminders: every 5 min, plus once now. Each match is claimed in the
+    // Tournament + game reminders: every 5 min, plus once now. Each match is claimed in the
     // DB, so a duplicate runner would be a no-op.
-    const sweep = () => runTournamentReminders({ io: jobIo, shouldContinue: mayContinue }).catch(() => { });
+    const sweep = () => {
+      runTournamentReminders({ io: jobIo, shouldContinue: mayContinue })
+        .catch((e) => logger.error('[JOBS] tournament reminder sweep failed:', e));
+      runGameReminders({ io: jobIo, shouldContinue: mayContinue })
+        .catch((e) => logger.error('[JOBS] game reminder sweep failed:', e));
+    };
     reminderTimer = setInterval(sweep, 5 * 60 * 1000);
     sweep();
     // Drain any review backlog left by a crash/redeploy/previous leader.

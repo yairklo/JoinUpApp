@@ -28,9 +28,6 @@ jest.mock('../utils/auth', () => ({
   },
 }));
 
-jest.mock('../workers/gameReminderWorker', () => ({
-  startGameReminderWorker: jest.fn(),
-}));
 jest.mock('../workers/cleanupWorker', () => ({
   startCleanupWorker: jest.fn(),
 }));

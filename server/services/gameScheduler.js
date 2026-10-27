@@ -1,5 +1,5 @@
 // Event-driven replacement for the old setInterval polling sweeps (lottery, pick sessions,
-// game completion, reminders, review queue). Each item's due timestamp gets its own in-memory
+// game completion, review queue). Each item's due timestamp gets its own in-memory
 // timer instead of the whole table being scanned every 30-60s — that polling never let Neon's
 // compute suspend, since the DB was touched every tick regardless of whether anything was due.
 const { lockGameRow } = require('../utils/gameRowLock');
@@ -150,12 +150,6 @@ class GameScheduler {
       this._disarm(`completion:${game.id}`);
     }
 
-    if (game.status === 'OPEN' && !game.reminderSent && game.start) {
-      const reminderAt = new Date(new Date(game.start).getTime() - 3600000);
-      this._arm(`reminder:${game.id}`, reminderAt, () => this._sendReminder(game.id));
-    } else {
-      this._disarm(`reminder:${game.id}`);
-    }
   }
 
   // Re-fetches and resyncs a single game by id — used when this process's scheduler is
@@ -317,48 +311,7 @@ class GameScheduler {
     console.log(`🏁 [SCHEDULER] Auto-completed game ${game.id}.`);
   }
 
-  async _sendReminder(gameId) {
-    const prisma = this.prisma;
-    const game = await prisma.game.findUnique({
-      where: { id: gameId },
-      include: {
-        participants: { where: { status: 'CONFIRMED' }, select: { userId: true } },
-        field: { select: { name: true, location: true } },
-      },
-    });
-    if (!game || game.status !== 'OPEN') return;
-
-    const claimed = await prisma.game.updateMany({
-      where: { id: game.id, reminderSent: false, status: 'OPEN' },
-      data: { reminderSent: true },
-    });
-    if (claimed.count === 0) return;
-
-    if (new Date(game.start).getTime() <= Date.now()) {
-      return;
-    }
-
-    const gameTime = new Date(game.start).toLocaleTimeString('he-IL', {
-      timeZone: 'Asia/Jerusalem',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    const title = 'משחק מתקרב!';
-    const body = `המשחק שלך ב-${game.field.name} מתחיל בעוד שעה (${gameTime})`;
-    const data = { gameId: game.id, link: `/games/${game.id}`, type: 'GAME_REMINDER' };
-
-    for (const participant of game.participants) {
-      try {
-        await this.notificationService.sendNotification(
-          participant.userId, 'GAME_REMINDER', title, body, data, this.io
-        );
-      } catch (error) {
-        console.error(`[SCHEDULER] Failed to send reminder to ${participant.userId}:`, error);
-      }
-    }
-
-    console.log(`[SCHEDULER] Sent reminders for game ${game.id} to ${game.participants.length} participants`);
-  }
+  // Game reminders are a per-user sweep now (services/gameReminders.js), not a per-game timer.
 
   // --- review queue (FlaggedMessage backlog table - not timestamp-driven like the above,
   // so it's triggered on insert instead of armed against a due column). ----------------------
