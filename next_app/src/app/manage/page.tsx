@@ -24,7 +24,7 @@ export default function ManagePage() {
   return (
     <Container maxWidth="md" sx={{ py: 3 }}>
       <Typography variant="h4" fontWeight={800} sx={{ mb: 3 }}>
-        הניהול שלי
+        בניהולי
       </Typography>
 
       <SignedOut>

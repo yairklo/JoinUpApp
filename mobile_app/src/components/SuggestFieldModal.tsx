@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import { useTranslation } from 'react-i18next';
 import { fieldsApi } from '@/services/api';
@@ -19,6 +20,8 @@ interface SuggestFieldModalProps {
 export default function SuggestFieldModal({ visible, onClose, onSubmitted }: SuggestFieldModalProps) {
     const { t } = useTranslation();
     const { getToken } = useAuth();
+    const insets = useSafeAreaInsets();
+    const { height: windowHeight } = useWindowDimensions();
     const [name, setName] = useState('');
     const [address, setAddress] = useState('');
     const [paid, setPaid] = useState<PaidChoice>('unknown');
@@ -71,9 +74,20 @@ export default function SuggestFieldModal({ visible, onClose, onSubmitted }: Sug
     ];
 
     return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={submitting ? undefined : onClose}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1 justify-end bg-black/50">
-                <View className="bg-white rounded-t-3xl p-5">
+        <Modal
+            visible={visible}
+            transparent
+            animationType="slide"
+            statusBarTranslucent
+            navigationBarTranslucent
+            onRequestClose={submitting ? undefined : onClose}
+        >
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-end bg-black/50">
+                <View
+                    className="bg-white rounded-t-3xl px-5 pt-5"
+                    style={{ maxHeight: windowHeight - insets.top - 24, paddingBottom: Math.max(insets.bottom, 16) + 4 }}
+                >
+                    <ScrollView keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
                     <Text className="text-xl font-bold text-gray-800 mb-1">{t('newGame.suggestTitle', 'הצע מגרש חדש')}</Text>
                     <Text className="text-gray-500 text-sm mb-4">
                         {t('newGame.suggestExplainer', 'הבקשה תישלח לצוות JoinUp. אחרי בדיקה נוסיף את המגרש לרשימה וכולם יוכלו לבחור בו.')}
@@ -139,6 +153,7 @@ export default function SuggestFieldModal({ visible, onClose, onSubmitted }: Sug
                             )}
                         </TouchableOpacity>
                     </View>
+                    </ScrollView>
                 </View>
             </KeyboardAvoidingView>
         </Modal>

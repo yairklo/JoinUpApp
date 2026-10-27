@@ -22,6 +22,7 @@ import FriendsOnlyLinkPolicyPicker from '@/components/FriendsOnlyLinkPolicyPicke
 import type { FriendsOnlyLinkPolicy } from '@/types/game';
 import SafeImage from '@/components/SafeImage';
 import { appAlert } from '@/i18n/appAlert';
+import { orderFieldsWithSelectedFirst } from '@/utils/orderFields';
 
 function filterFieldsWithCoords(fields: Field[]): Field[] {
     return fields.filter((f) => f.lat != null && f.lng != null);
@@ -79,6 +80,7 @@ export default function NewGameScreen() {
 
     const [selectedCity, setSelectedCity] = useState('');
     const [selectedField, setSelectedField] = useState<any>(null);
+    const orderedFields = useMemo(() => orderFieldsWithSelectedFirst(fields, selectedField), [fields, selectedField]);
     const [date, setDate] = useState(new Date());
     const [time, setTime] = useState(getInitialGameTime);
     const [maxPlayers, setMaxPlayers] = useState('14');
@@ -666,8 +668,23 @@ export default function NewGameScreen() {
                         <Text className="text-sm text-gray-500">{t('newGame.selectFieldPrompt', 'בחר מגרש:')}</Text>
                         {fieldsLoading && <ActivityIndicator size="small" className="ml-2" />}
                     </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
-                        {fields.map((field, index) => (
+                    {selectedField && (
+                        <View testID="new-game-selected-field" className="flex-row items-center bg-brand-mist border border-brand rounded-xl p-3 mb-3">
+                            <View className="flex-1 mr-3">
+                                <Text className="text-xs text-gray-500">{t('newGame.selectedField', 'המגרש שנבחר')}</Text>
+                                <Text className="font-bold text-brand-dark" numberOfLines={1}>{selectedField.name}</Text>
+                                {!!selectedField.location && (
+                                    <Text className="text-xs text-gray-500" numberOfLines={1}>{selectedField.location}</Text>
+                                )}
+                            </View>
+                            <TouchableOpacity testID="new-game-change-field" onPress={openMapModal} className="px-3 py-1 rounded-full bg-white border border-brand-pale">
+                                <Text className="text-brand-dark font-bold text-xs">{t('newGame.changeField', 'שינוי')}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                    {/* key remounts the list on selection change: a fresh horizontal ScrollView opens at its logical start on iOS and Android RTL, and the selection is ordered first. */}
+                    <ScrollView key={selectedField?.id ?? 'none'} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
+                        {orderedFields.map((field, index) => (
                             <TouchableOpacity
                                 key={field.id}
                                 testID={`new-game-field-${index}`}
