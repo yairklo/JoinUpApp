@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import { tournamentsApi } from '@/services/api/tournaments';
 import { groupNameMap, matchNumberMap } from '@/utils/tournament';
 import type {
@@ -39,9 +40,14 @@ function useLiveResource<T>(
  * points (`canCreateTournaments`). Both are `false` while loading; guests get `canView` = the public switch.
  */
 export function useTournamentCapabilities(): { canView: boolean; canCreateTournaments: boolean; loading: boolean; error: ResourceState<unknown>['error']; reload: () => Promise<void> } {
-    const fetcher = useCallback((token: string | undefined) => tournamentsApi.capabilities(token), []);
+    const { isSignedIn } = useAuth();
+    // Tag the answer with who asked: right after sign-in/out the previous (guest/user) answer is still
+    // in state for one render and must not drive a notFound()/redirect.
+    const fetcher = useCallback(async (token: string | undefined) => ({ ...(await tournamentsApi.capabilities(token)), asSignedIn: token !== undefined }), []);
     const { data, loading, error, reload } = useResource(fetcher, { auth: 'optional' });
-    return { canView: data?.canView === true, canCreateTournaments: (data?.canCreate ?? data?.canCreateTournaments) === true, loading, error, reload };
+    const stale = !!data && data.asSignedIn !== !!isSignedIn;
+    const fresh = stale ? null : data;
+    return { canView: fresh?.canView === true, canCreateTournaments: (fresh?.canCreate ?? fresh?.canCreateTournaments) === true, loading: loading || stale, error, reload };
 }
 
 /** Tournament summaries. `filters` is compared by value, so an inline object literal is fine. */

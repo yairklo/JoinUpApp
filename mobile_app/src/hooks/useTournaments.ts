@@ -10,11 +10,17 @@ import type { MyInvite, Tournament, TournamentFilters } from '@/types/tournament
 export function useTournamentCapabilities() {
     const { isSignedIn } = useAuth();
     // The answer depends on who is asking, so signing in/out must refetch.
-    const q = useTournamentQuery(`capabilities:${isSignedIn ? 'in' : 'out'}`, (token, signal) => tournamentsApi.getCapabilities(token, { signal }));
+    const q = useTournamentQuery(`capabilities:${isSignedIn ? 'in' : 'out'}`, async (token, signal) => ({
+        ...(await tournamentsApi.getCapabilities(token, { signal })),
+        asSignedIn: token !== undefined,
+    }));
+    // Right after sign-in/out the previous answer can still be in state for a render: ignore it.
+    const stale = !!q.data && q.data.asSignedIn !== !!isSignedIn;
+    const data = stale ? null : q.data;
     return {
-        canView: q.data?.canView === true,
-        canCreate: (q.data?.canCreate ?? q.data?.canCreateTournaments) === true,
-        loading: q.loading,
+        canView: data?.canView === true,
+        canCreate: (data?.canCreate ?? data?.canCreateTournaments) === true,
+        loading: q.loading || stale,
         error: q.error,
         refetch: q.refetch,
     };

@@ -4,6 +4,7 @@ const { authenticateToken, clerkClient, invalidateClerkUser } = require('../util
 const { disconnectUserSockets } = require('../utils/socketChatRooms');
 const { requireAdmin } = require('../utils/admin');
 const { getSetting, setSetting } = require('../utils/appSettings');
+const { evictUnauthorizedTournamentSockets } = require('../utils/tournamentGate');
 const { deleteMessageFromChat } = require('../workers/reviewWorker');
 
 const router = express.Router();
@@ -524,6 +525,10 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
     }
     for (const key of Object.keys(SETTING_DEFAULTS)) {
       if (Object.prototype.hasOwnProperty.call(body, key)) await setSetting(key, body[key]);
+    }
+    if (body.tournamentsPublic === false) {
+      // Sockets that joined while tournaments were public must not keep receiving live updates.
+      evictUnauthorizedTournamentSockets(req.app.get('io')).catch((e) => console.error('[admin] socket eviction failed:', e && e.message));
     }
     const out = {};
     for (const [key, def] of Object.entries(SETTING_DEFAULTS)) out[key] = await getSetting(key, def);

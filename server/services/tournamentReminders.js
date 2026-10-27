@@ -45,12 +45,15 @@ async function runReminderSweep({ prisma, notificationService, io = null, now = 
   for (const m of due) {
     if (!shouldContinue()) break;
     if (m.details && m.details[SENTINEL]) continue;
-    if (!(await claimReminder(prisma, m.id, now))) continue;
     const members = await prisma.tournamentTeamMember.findMany({
       where: { teamId: { in: [m.homeTeamId, m.awayTeamId] }, status: 'ACCEPTED' },
       select: { userId: true },
     });
     const userIds = await filterViewableUserIds(members.map((x) => x.userId));
+    // Tournaments gated off for every recipient: leave the match unclaimed so the reminder still goes
+    // out if the switch opens before kickoff (claiming first would lose it for good).
+    if (members.length && !userIds.length) continue;
+    if (!(await claimReminder(prisma, m.id, now))) continue;
     await notificationService.sendNotificationToMany(
       userIds,
       'TOURNAMENT_STARTING_SOON',
