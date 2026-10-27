@@ -673,7 +673,14 @@
     "cancelRequest": "Cancel request",
     "requestDeclined": "Request declined",
     "joinRequests": "Join requests",
-    "requestError": "Action failed"
+    "requestError": "Action failed",
+    "yourFriends": "Your friends",
+    "loadingFriends": "Loading friends…",
+    "friendsError": "Couldn't load your friends.",
+    "retryFriends": "Try again",
+    "noFriendsYet": "You have no friends yet. Try searching by name",
+    "allFriendsInGroup": "All your friends are already in the group",
+    "friendBadge": "Friend"
   },
   "editGame": {
     "title": "Edit Game",

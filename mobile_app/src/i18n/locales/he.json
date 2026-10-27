@@ -673,7 +673,14 @@
     "cancelRequest": "ביטול בקשה",
     "requestDeclined": "הבקשה נדחתה",
     "joinRequests": "בקשות הצטרפות",
-    "requestError": "הפעולה נכשלה"
+    "requestError": "הפעולה נכשלה",
+    "yourFriends": "החברים שלך",
+    "loadingFriends": "טוען חברים…",
+    "friendsError": "טעינת החברים נכשלה.",
+    "retryFriends": "נסו שוב",
+    "noFriendsYet": "עדיין אין לך חברים. אפשר לחפש לפי שם",
+    "allFriendsInGroup": "כל החברים שלך כבר בקבוצה",
+    "friendBadge": "חבר/ה"
   },
   "editGame": {
     "title": "עריכת משחק",
