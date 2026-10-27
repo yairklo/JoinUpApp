@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -13,6 +13,10 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
+import Avatar from "@/components/Avatar";
+import PickerUserLabel from "@/components/PickerUserLabel";
+import Chip from "@mui/material/Chip";
+import CheckIcon from "@mui/icons-material/Check";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ShareIcon from "@mui/icons-material/Share";
@@ -20,8 +24,9 @@ import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import { seriesApi, usersApi } from "@/services/api";
 import { tryNativeShare } from "@/utils/share";
+import { friendSuggestions, mergeFriendsFirst } from "@/utils/friendSuggestions";
 
-type SearchUser = { id: string; name?: string | null; imageUrl?: string | null };
+type SearchUser = { id: string; name?: string | null; imageUrl?: string | null; friendshipStatus?: string; isFriend?: boolean };
 
 type Subscriber = {
     userId: string;
@@ -44,15 +49,20 @@ export default function SeriesMembersPanel({
     canManage: boolean;
     isOrganizer: boolean;
 }) {
-    const { getToken } = useAuth();
+    const { getToken, userId } = useAuth();
     const router = useRouter();
     const [query, setQuery] = useState("");
-    const [options, setOptions] = useState<SearchUser[]>([]);
+    const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
     const [selected, setSelected] = useState<SearchUser[]>([]);
     const [searching, setSearching] = useState(false);
     const [busy, setBusy] = useState(false);
     const [copied, setCopied] = useState(false);
     const [addError, setAddError] = useState<string | null>(null);
+    // Friends are fetched once per panel (first focus of the field) and reused.
+    const [friends, setFriends] = useState<SearchUser[] | null>(null);
+    const [friendsLoading, setFriendsLoading] = useState(false);
+    const [friendsError, setFriendsError] = useState(false);
+    const friendsInflight = useRef(false);
 
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const inviteUrl = `${origin}/series/${seriesId}`;
@@ -66,7 +76,7 @@ export default function SeriesMembersPanel({
         const q = query.trim();
         const seq = ++searchSeq.current;
         if (q.length < 2) {
-            setOptions([]);
+            setSearchResults([]);
             setSearching(false);
             return;
         }
@@ -77,10 +87,10 @@ export default function SeriesMembersPanel({
                 if (!token) return;
                 const results = await usersApi.search(q, token);
                 if (seq !== searchSeq.current) return;
-                setOptions((results || []).filter((u) => u.id !== organizerId && !memberIds.has(u.id)));
+                setSearchResults(results || []);
             } catch {
                 if (seq !== searchSeq.current) return;
-                setOptions([]);
+                setSearchResults([]);
             } finally {
                 if (seq === searchSeq.current) setSearching(false);
             }
@@ -88,6 +98,51 @@ export default function SeriesMembersPanel({
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query]);
+
+    const loadFriends = useCallback(async () => {
+        if (friends !== null || friendsInflight.current || !userId) return;
+        friendsInflight.current = true;
+        setFriendsLoading(true);
+        setFriendsError(false);
+        try {
+            const token = await getToken();
+            if (!token) return;
+            const list = await usersApi.getFriends(userId, token);
+            setFriends(Array.isArray(list) ? list : []);
+        } catch {
+            setFriendsError(true);
+        } finally {
+            friendsInflight.current = false;
+            setFriendsLoading(false);
+        }
+    }, [friends, userId, getToken]);
+
+    const excludeIds = useMemo(() => {
+        const ids = new Set(memberIds);
+        ids.add(organizerId);
+        if (userId) ids.add(userId);
+        return ids;
+    }, [memberIds, organizerId, userId]);
+
+    const trimmedQuery = query.trim();
+    const searchMode = trimmedQuery.length >= 2;
+    const options: SearchUser[] = useMemo(
+        () =>
+            searchMode
+                ? mergeFriendsFirst(searchResults, friends || [], trimmedQuery, excludeIds)
+                : friendSuggestions(friends || [], excludeIds),
+        [searchMode, searchResults, friends, trimmedQuery, excludeIds],
+    );
+    const showingFriendsList = !searchMode;
+    const noOptionsText = friendsError
+        ? "טעינת החברים נכשלה."
+        : searchMode
+            ? "לא נמצאו משתמשים"
+            : friends && friends.length === 0
+                ? "עדיין אין לך חברים. אפשר לחפש לפי שם"
+                : friends
+                    ? "כל החברים שלך כבר בקבוצה"
+                    : "";
 
     const addMembers = async () => {
         if (!selected.length) return;
@@ -155,15 +210,50 @@ export default function SeriesMembersPanel({
             <Stack direction={{ xs: "column", sm: "row" }} gap={1} alignItems={{ sm: "center" }}>
                 <Autocomplete
                     multiple
+                    openOnFocus
+                    disableCloseOnSelect
                     sx={{ flex: 1, minWidth: 220 }}
                     options={options}
                     value={selected}
                     filterOptions={(x) => x}
+                    groupBy={showingFriendsList ? () => "החברים שלך" : undefined}
                     getOptionLabel={(o) => o.name || o.id}
                     isOptionEqualToValue={(a, b) => a.id === b.id}
-                    loading={searching}
+                    loading={searching || friendsLoading}
+                    loadingText={friendsLoading && showingFriendsList ? "טוען חברים…" : "מחפש…"}
+                    noOptionsText={noOptionsText}
+                    onFocus={loadFriends}
                     onChange={(_, value) => setSelected(value)}
-                    onInputChange={(_, value) => setQuery(value)}
+                    inputValue={query}
+                    onInputChange={(_, value, reason) => {
+                        // "reset" fires after each pick; keep the query so several search hits can be ticked in a row.
+                        if (reason !== "reset") setQuery(value);
+                    }}
+                    renderTags={(value, getTagProps) =>
+                        value.map((option, index) => {
+                            const { key, ...tagProps } = getTagProps({ index });
+                            const label = option.name || option.id;
+                            return (
+                                <Chip
+                                    key={key}
+                                    {...tagProps}
+                                    size="small"
+                                    label={label}
+                                    avatar={<Avatar src={option.imageUrl} alt={label} name={label} size="sm" />}
+                                />
+                            );
+                        })
+                    }
+                    renderOption={(props, option, { selected: isSel }) => {
+                        const { key, ...rest } = props as typeof props & { key: string };
+                        return (
+                            <Box component="li" key={key} {...rest} sx={{ gap: 1 }}>
+                                <PickerUserLabel name={option.name || option.id} imageUrl={option.imageUrl} />
+                                {option.isFriend && <Chip size="small" label="חבר/ה" />}
+                                {isSel && <CheckIcon fontSize="small" color="primary" />}
+                            </Box>
+                        );
+                    }}
                     renderInput={(params) => (
                         <TextField
                             {...params}
@@ -174,7 +264,7 @@ export default function SeriesMembersPanel({
                                 ...params.InputProps,
                                 endAdornment: (
                                     <>
-                                        {searching ? <CircularProgress color="inherit" size={16} /> : null}
+                                        {searching || friendsLoading ? <CircularProgress color="inherit" size={16} /> : null}
                                         {params.InputProps.endAdornment}
                                     </>
                                 ),
@@ -191,6 +281,16 @@ export default function SeriesMembersPanel({
                     הוסף
                 </Button>
             </Stack>
+
+            {friendsError && (
+                <Alert
+                    severity="error"
+                    sx={{ mt: 1 }}
+                    action={<Button color="inherit" size="small" onClick={loadFriends}>נסו שוב</Button>}
+                >
+                    טעינת החברים נכשלה.
+                </Alert>
+            )}
 
             {addError && <Alert severity="error" sx={{ mt: 1 }} onClose={() => setAddError(null)}>{addError}</Alert>}
 

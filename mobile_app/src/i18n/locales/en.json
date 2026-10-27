@@ -325,6 +325,8 @@
     "organizerTools": "Organizer tools"
   },
   "newGame": {
+    "selectedField": "Selected field",
+    "changeField": "Change",
     "modeSingle": "One-time game",
     "modeGroup": "Recurring group",
     "groupHint": "Fill in the first game's details. Right after creating it you can set up the group: automatic weekly games or custom dates.",
@@ -673,7 +675,14 @@
     "cancelRequest": "Cancel request",
     "requestDeclined": "Request declined",
     "joinRequests": "Join requests",
-    "requestError": "Action failed"
+    "requestError": "Action failed",
+    "yourFriends": "Your friends",
+    "loadingFriends": "Loading friends…",
+    "friendsError": "Couldn't load your friends.",
+    "retryFriends": "Try again",
+    "noFriendsYet": "You have no friends yet. Try searching by name",
+    "allFriendsInGroup": "All your friends are already in the group",
+    "friendBadge": "Friend"
   },
   "editGame": {
     "title": "Edit Game",
@@ -1018,8 +1027,8 @@
         "subtitle": "Changes, approvals, freed-up spots"
       },
       "invitations": {
-        "title": "Game invitations",
-        "subtitle": "When someone adds you to a game"
+        "title": "Invites & adds to games and groups",
+        "subtitle": "When someone adds you to a game, a group or a tournament team"
       },
       "organizer": {
         "title": "Join requests",
@@ -1101,7 +1110,7 @@
     "deleteFailedBody": "Check your connection and try again."
   },
   "manage": {
-    "title": "My management",
+    "title": "Managed by me",
     "seeAll": "All",
     "allMine": "My groups and games",
     "needsAttention": "Needs attention",

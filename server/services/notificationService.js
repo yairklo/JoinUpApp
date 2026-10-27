@@ -311,17 +311,15 @@ class NotificationService {
 
         if (validDevices.length === 0) return;
 
-        // Prefer English title/body for Expo (mobile) when bilingual fields are present.
-        const pushTitle = (typeof data.titleEn === 'string' && data.titleEn.trim()) || title;
-        const pushBody = (typeof data.bodyEn === 'string' && data.bodyEn.trim()) || body;
-
+        // Always push the Hebrew title/body: the server stores no per-user language. data.titleEn/bodyEn
+        // still travel in `data`, so an app set to English shows English in-app and in the foreground.
         const messages = validDevices.map(d => ({
             to: d.expoPushToken,
             sound: 'default',
             priority: 'high',
             channelId: 'default',
-            title: pushTitle,
-            body: pushBody,
+            title,
+            body,
             data: { ...data, type, notificationId: data.notificationId || '', link: data.link || '/' }
         }));
 

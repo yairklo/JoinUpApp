@@ -325,6 +325,8 @@
     "organizerTools": "כלי מארגן"
   },
   "newGame": {
+    "selectedField": "המגרש שנבחר",
+    "changeField": "שינוי",
     "modeSingle": "משחק חד-פעמי",
     "modeGroup": "קבוצה קבועה",
     "groupHint": "מלאו את פרטי המשחק הראשון. מיד אחרי היצירה תוכלו להגדיר את הקבוצה: משחקים שבועיים אוטומטיים או תאריכים מותאמים.",
@@ -673,7 +675,14 @@
     "cancelRequest": "ביטול בקשה",
     "requestDeclined": "הבקשה נדחתה",
     "joinRequests": "בקשות הצטרפות",
-    "requestError": "הפעולה נכשלה"
+    "requestError": "הפעולה נכשלה",
+    "yourFriends": "החברים שלך",
+    "loadingFriends": "טוען חברים…",
+    "friendsError": "טעינת החברים נכשלה.",
+    "retryFriends": "נסו שוב",
+    "noFriendsYet": "עדיין אין לך חברים. אפשר לחפש לפי שם",
+    "allFriendsInGroup": "כל החברים שלך כבר בקבוצה",
+    "friendBadge": "חבר/ה"
   },
   "editGame": {
     "title": "עריכת משחק",
@@ -1020,8 +1029,8 @@
         "subtitle": "שינויים, אישור או דחייה, מקום שהתפנה"
       },
       "invitations": {
-        "title": "הזמנות למשחק",
-        "subtitle": "כשמישהו מוסיף אותך למשחק"
+        "title": "הזמנות וצירוף למשחקים ולקבוצות",
+        "subtitle": "כשמישהו מוסיף אותך למשחק, לקבוצה או לקבוצת טורניר"
       },
       "organizer": {
         "title": "בקשות הצטרפות",
@@ -1103,7 +1112,7 @@
     "deleteFailedBody": "בדקו את החיבור ונסו שוב."
   },
   "manage": {
-    "title": "הניהול שלי",
+    "title": "בניהולי",
     "seeAll": "הכל",
     "allMine": "הקבוצות והמשחקים שלי",
     "needsAttention": "דורש טיפול",

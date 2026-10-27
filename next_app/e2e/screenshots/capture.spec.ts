@@ -120,7 +120,7 @@ async function openDetail(page: Page, screen: ScreenDef) {
 async function waitReady(page: Page, screen: ScreenDef) {
   const timeout = 25_000;
   if (screen.id === "home-managed") {
-    await page.getByRole("heading", { name: "הניהול שלי" }).waitFor({ timeout });
+    await page.getByRole("heading", { name: "בניהולי" }).waitFor({ timeout });
     // Lazy home sections only load once scrolled into view.
     for (let y = 0; y <= 4000; y += 500) {
       await page.evaluate((top) => window.scrollTo(0, top), y);
