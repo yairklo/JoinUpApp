@@ -9,6 +9,8 @@ const { GAME_REMINDER_LEAD_DEFAULT, GAME_REMINDER_LEAD_MAX } = require('../share
 const MINUTE_MS = 60 * 1000;
 const HORIZON_MS = GAME_REMINDER_LEAD_MAX * MINUTE_MS;
 const TZ = 'Asia/Jerusalem';
+const PAGE_SIZE = 200;
+const MAX_PAGES = 50; // safety cap: 10k games per sweep
 const FAR_MINUTES = 20 * 60; // beyond this, say "tomorrow at HH:MM" instead of a duration
 
 function dayKey(date) {
@@ -81,8 +83,8 @@ function buildReminderMessage({ now, start, fieldName, lang = 'he' }) {
   };
 }
 
-async function runGameReminderSweep({ prisma, notificationService, io = null, now = new Date(), shouldContinue = () => true }) {
-  const games = await prisma.game.findMany({
+function fetchPage(prisma, now, cursor) {
+  return prisma.game.findMany({
     where: { status: 'OPEN', start: { gt: now, lte: new Date(now.getTime() + HORIZON_MS) } },
     select: {
       id: true,
@@ -103,10 +105,13 @@ async function runGameReminderSweep({ prisma, notificationService, io = null, no
         },
       },
     },
-    orderBy: { start: 'asc' },
-    take: 1000,
+    orderBy: [{ start: 'asc' }, { id: 'asc' }],
+    take: PAGE_SIZE,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
+}
 
+async function remindPage({ games, prisma, notificationService, io, now, shouldContinue }) {
   let sent = 0;
   for (const game of games) {
     if (!shouldContinue()) break;
@@ -142,7 +147,28 @@ async function runGameReminderSweep({ prisma, notificationService, io = null, no
       }
     }
   }
+  return sent;
+}
+
+/**
+ * Pages through every OPEN game starting within the horizon (cursor on id, ordered by start) so a
+ * busy window can never silently skip games. A safety cap bounds a runaway sweep and logs a warning.
+ */
+async function runGameReminderSweep({ prisma, notificationService, io = null, now = new Date(), shouldContinue = () => true }) {
+  let sent = 0;
+  let cursor = null;
+  for (let page = 0; ; page += 1) {
+    if (!shouldContinue()) break;
+    if (page >= MAX_PAGES) {
+      console.warn(`[GAME-REMINDERS] Page cap (${MAX_PAGES} x ${PAGE_SIZE} games) hit; remaining games wait for the next sweep`);
+      break;
+    }
+    const games = await fetchPage(prisma, now, cursor);
+    sent += await remindPage({ games, prisma, notificationService, io, now, shouldContinue });
+    if (games.length < PAGE_SIZE) break;
+    cursor = games[games.length - 1].id;
+  }
   return { sent };
 }
 
-module.exports = { runGameReminderSweep, isReminderDue, describeTimeLeft, buildReminderMessage };
+module.exports = { PAGE_SIZE, MAX_PAGES, runGameReminderSweep, isReminderDue, describeTimeLeft, buildReminderMessage };

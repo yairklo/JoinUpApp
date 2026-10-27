@@ -1,4 +1,6 @@
 const {
+  PAGE_SIZE,
+  MAX_PAGES,
   runGameReminderSweep,
   isReminderDue,
   describeTimeLeft,
@@ -157,6 +159,17 @@ describe('runGameReminderSweep', () => {
     expect((await run(prisma, game, at(40), ns)).sent).toBe(1);
   });
 
+  test('waitlist promotion: joined before the moment, CONFIRMED after it -> still reminded', async () => {
+    // createdAt is the row creation (waitlist join) time; promotion later does not move it, and
+    // the query only returns currently CONFIRMED participants. Current behaviour is pinned here.
+    const game = mk([participant('promoted', { joined: at(300) })]);
+    const prisma = makePrisma(game);
+    const ns = { sendNotification: jest.fn().mockResolvedValue({}) };
+    expect((await run(prisma, game, at(40), ns)).sent).toBe(1);
+    expect(ns.sendNotification.mock.calls[0][0]).toBe('promoted');
+    expect(prisma.game.findMany.mock.calls[0][0].select.participants.where).toEqual({ status: 'CONFIRMED' });
+  });
+
   test('survives a send failure for one recipient', async () => {
     const game = mk([participant('a'), participant('b')]);
     const prisma = makePrisma(game);
@@ -166,5 +179,55 @@ describe('runGameReminderSweep', () => {
     const r = await runGameReminderSweep({ prisma, notificationService: ns, now: at(30) });
     expect(r.sent).toBe(1);
     expect(ns.sendNotification).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('runGameReminderSweep paging', () => {
+  const manyGames = (n) => Array.from({ length: n }, (_, i) => ({
+    id: 'g' + String(i).padStart(5, '0'),
+    start: START,
+    field: { name: 'F' },
+    participants: [participant('u' + i)],
+  }));
+  const pagedPrisma = (all) => {
+    const claimed = new Set();
+    return {
+      game: {
+        findMany: jest.fn(async ({ take, cursor, skip }) => {
+          const from = cursor ? all.findIndex((g) => g.id === cursor.id) + (skip || 0) : 0;
+          return all.slice(from, from + take);
+        }),
+      },
+      gameReminderSent: {
+        createMany: jest.fn(async ({ data }) => {
+          const k = data[0].userId + '|' + data[0].gameId;
+          if (claimed.has(k)) return { count: 0 };
+          claimed.add(k);
+          return { count: 1 };
+        }),
+      },
+    };
+  };
+
+  test('walks past the first page so no game is skipped', async () => {
+    const total = PAGE_SIZE * 2 + 50;
+    const prisma = pagedPrisma(manyGames(total));
+    const ns = { sendNotification: jest.fn().mockResolvedValue({}) };
+    const r = await runGameReminderSweep({ prisma, notificationService: ns, now: at(30) });
+    expect(r.sent).toBe(total);
+    expect(prisma.game.findMany).toHaveBeenCalledTimes(3);
+  });
+
+  test('page cap stops a runaway sweep with a warning', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    let n = 0;
+    const prisma = {
+      game: { findMany: jest.fn(async ({ take }) => Array.from({ length: take }, () => ({ id: 'x' + (n++), start: START, field: { name: 'F' }, participants: [] }))) },
+      gameReminderSent: { createMany: jest.fn() },
+    };
+    await runGameReminderSweep({ prisma, notificationService: {}, now: at(30) });
+    expect(prisma.game.findMany).toHaveBeenCalledTimes(MAX_PAGES);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Page cap'));
+    warn.mockRestore();
   });
 });

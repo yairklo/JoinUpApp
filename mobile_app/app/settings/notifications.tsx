@@ -10,6 +10,7 @@ import {
     NOTIFICATION_CATEGORIES,
     NOTIFICATION_CATEGORY_GROUPS,
     SNOOZE_HOURS_OPTIONS,
+    GAME_REMINDER_LEAD_DEFAULT,
     GAME_REMINDER_LEAD_MIN,
     GAME_REMINDER_LEAD_MAX,
     GAME_REMINDER_LEAD_STEP,
@@ -376,7 +377,8 @@ export default function NotificationSettingsScreen() {
                                 </View>
 
                                 {cat.key === 'gameReminders' && (() => {
-                                    const lead = settings.gameReminderLeadMinutes;
+                                    const rawLead = settings.gameReminderLeadMinutes;
+                                    const lead = typeof rawLead === 'number' && Number.isFinite(rawLead) ? rawLead : GAME_REMINDER_LEAD_DEFAULT;
                                     const lang = i18n.language?.startsWith('en') ? 'en' : 'he';
                                     const leadDisabled = !(settings.gameRemindersEnabled && settings.pushEnabled) && !settings.gameRemindersInApp;
                                     const isPreset = GAME_REMINDER_LEAD_PRESETS.includes(lead);

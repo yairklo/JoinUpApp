@@ -52,7 +52,10 @@ function createJobsRuntime({
     runWeeklySeriesGeneration({ shouldContinue: mayContinue }).catch(() => { });
     // Tournament + game reminders: every 5 min, plus once now. Each match is claimed in the
     // DB, so a duplicate runner would be a no-op.
-    const sweep = () => runTournamentReminders({ io: jobIo, shouldContinue: mayContinue }).catch(() => { });
+    const sweep = () => {
+      runTournamentReminders({ io: jobIo, shouldContinue: mayContinue }).catch(() => { });
+      runGameReminders({ io: jobIo, shouldContinue: mayContinue }).catch(() => { });
+    };
     reminderTimer = setInterval(sweep, 5 * 60 * 1000);
     sweep();
     // Drain any review backlog left by a crash/redeploy/previous leader.

@@ -23,12 +23,3 @@ FROM "Game" g
 JOIN "Participation" p ON p."gameId" = g."id" AND p."status" = 'CONFIRMED'
 WHERE g."reminderSent" = true AND g."status" = 'OPEN' AND g."start" > NOW()
 ON CONFLICT DO NOTHING;
-
--- Games whose single 1h reminder already went out under the old Game.reminderSent flag must not be
--- reminded a second time by the new per-user sweep: seed their dedupe rows for the current start.
-INSERT INTO "GameReminderSent" ("id", "userId", "gameId", "gameStart")
-SELECT gen_random_uuid()::text, p."userId", g."id", g."start"
-FROM "Game" g
-JOIN "Participation" p ON p."gameId" = g."id" AND p."status" = 'CONFIRMED'
-WHERE g."reminderSent" = true AND g."status" = 'OPEN' AND g."start" > NOW()
-ON CONFLICT DO NOTHING;

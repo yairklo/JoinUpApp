@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -7,6 +7,7 @@ import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
 
 import {
+    GAME_REMINDER_LEAD_DEFAULT,
     GAME_REMINDER_LEAD_MAX,
     GAME_REMINDER_LEAD_STEP,
     GAME_REMINDER_LEAD_PRESETS,
@@ -40,32 +41,53 @@ function currentLang(): Lang {
     return 'he';
 }
 
+const SAVE_DELAY_MS = 600;
+
 interface Props {
-    value: number;
+    /** may be missing/NaN while settings load or from an old server: treated as the default */
+    value: number | null | undefined;
     disabled: boolean;
     onChange: (minutes: number) => void;
 }
 
-/** Free lead time (5 min – 48 h) with quick-pick chips. Saves only valid values. */
+/**
+ * Free lead time (5 min – 48 h) with quick-pick chips. Typed values are saved on blur or after a short
+ * pause (never per keystroke), and only when valid.
+ */
 export default function GameReminderLeadControl({ value, disabled, onChange }: Props) {
     const lang = currentLang();
     const t = STRINGS[lang];
-    const [hours, setHours] = useState(String(Math.floor(value / 60)));
-    const [minutes, setMinutes] = useState(String(value % 60));
+    const current = typeof value === 'number' && Number.isFinite(value) ? value : GAME_REMINDER_LEAD_DEFAULT;
+    const [hours, setHours] = useState(String(Math.floor(current / 60)));
+    const [minutes, setMinutes] = useState(String(current % 60));
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const draftRef = useRef({ hours, minutes, current, onChange });
+    draftRef.current = { hours, minutes, current, onChange };
 
     // Re-sync when the server value changes (load, rollback after a failed save, chip click).
     useEffect(() => {
-        setHours(String(Math.floor(value / 60)));
-        setMinutes(String(value % 60));
-    }, [value]);
+        setHours(String(Math.floor(current / 60)));
+        setMinutes(String(current % 60));
+    }, [current]);
 
     const total = (Number(hours) || 0) * 60 + (Number(minutes) || 0);
     const invalid = !isValidGameReminderLead(total);
 
-    const edit = (h: string, m: string) => {
+    const commit = (h: string, m: string) => {
+        if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
         const next = (Number(h) || 0) * 60 + (Number(m) || 0);
-        if (isValidGameReminderLead(next)) onChange(next);
+        if (isValidGameReminderLead(next) && next !== draftRef.current.current) draftRef.current.onChange(next);
     };
+
+    const scheduleCommit = (h: string, m: string) => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => commit(h, m), SAVE_DELAY_MS);
+    };
+
+    // Don't lose a pending edit if the user navigates away mid-delay.
+    useEffect(() => () => {
+        if (timerRef.current) commit(draftRef.current.hours, draftRef.current.minutes);
+    }, []);
 
     return (
         <Box sx={{ mt: 1.5, p: 2, borderRadius: 2, bgcolor: 'action.hover', opacity: disabled ? 0.6 : 1 }}>
@@ -76,9 +98,9 @@ export default function GameReminderLeadControl({ value, disabled, onChange }: P
                         key={p}
                         label={describeLeadMinutes(p, lang)}
                         disabled={disabled}
-                        color={value === p ? 'primary' : 'default'}
-                        variant={value === p ? 'filled' : 'outlined'}
-                        onClick={() => onChange(p)}
+                        color={current === p ? 'primary' : 'default'}
+                        variant={current === p ? 'filled' : 'outlined'}
+                        onClick={() => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } onChange(p); }}
                     />
                 ))}
             </Stack>
@@ -90,7 +112,8 @@ export default function GameReminderLeadControl({ value, disabled, onChange }: P
                     value={hours}
                     disabled={disabled}
                     error={invalid}
-                    onChange={e => { setHours(e.target.value); edit(e.target.value, minutes); }}
+                    onChange={e => { setHours(e.target.value); scheduleCommit(e.target.value, minutes); }}
+                    onBlur={() => commit(hours, minutes)}
                     inputProps={{ min: 0, max: GAME_REMINDER_LEAD_MAX / 60, step: 1, inputMode: 'numeric' }}
                     fullWidth
                 />
@@ -101,7 +124,8 @@ export default function GameReminderLeadControl({ value, disabled, onChange }: P
                     value={minutes}
                     disabled={disabled}
                     error={invalid}
-                    onChange={e => { setMinutes(e.target.value); edit(hours, e.target.value); }}
+                    onChange={e => { setMinutes(e.target.value); scheduleCommit(hours, e.target.value); }}
+                    onBlur={() => commit(hours, minutes)}
                     inputProps={{ min: 0, max: 55, step: GAME_REMINDER_LEAD_STEP, inputMode: 'numeric' }}
                     fullWidth
                 />
