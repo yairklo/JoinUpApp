@@ -1,11 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import { useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { useAuth } from '@clerk/clerk-expo';
 import * as Notifications from 'expo-notifications';
-import {
-  NOTIFICATIONS_FALLBACK_ROUTE,
-  resolveNotificationRoute,
-} from '@/utils/notificationRoute';
+import { resolveNotificationRoute } from '@/utils/notificationRoute';
+import { shouldHandlePushTap } from '@/utils/pushTapGuard';
 import { notificationsApi } from '@/services/api';
 import { isPersistedNotificationId } from '@/utils/notificationDisplay';
 
@@ -16,8 +15,7 @@ import { isPersistedNotificationId } from '@/utils/notificationDisplay';
  * Navigation waits for Clerk to load, a signed-in session, the router to be mounted and the auth
  * redirects to settle; each response is handled once.
  */
-// Module scope: survives a remount of the handler, so the same tap is never navigated twice.
-let lastHandledKey: string | null = null;
+const HANDLED_KEY = 'joinup.lastHandledPushId';
 
 export function usePushNavigation(onHandled?: () => void) {
   const response = Notifications.useLastNotificationResponse();
@@ -25,20 +23,40 @@ export function usePushNavigation(onHandled?: () => void) {
   const router = useRouter();
   const segments = useSegments();
   const navState = useRootNavigationState();
+  // The hook re-delivers the last tap on every launch, so the handled id must survive restarts.
+  const lastHandledRef = useRef<string | null>(null);
+  const [guardLoaded, setGuardLoaded] = useState(false);
 
-  const ready = isLoaded && isSignedIn && !!navState?.key && segments.length > 0 && segments[0] !== 'sign-in' && segments[0] !== 'sign-up';
+  useEffect(() => {
+    SecureStore.getItemAsync(HANDLED_KEY)
+      .then((v) => { lastHandledRef.current = v; })
+      .catch(() => {})
+      .finally(() => setGuardLoaded(true));
+  }, []);
+
+  const ready = guardLoaded && isLoaded && isSignedIn && !!navState?.key && segments.length > 0 && segments[0] !== 'sign-in' && segments[0] !== 'sign-up';
 
   useEffect(() => {
     if (!response || !ready) return;
-    if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
+    // id + date: a server that reuses a request identifier must still get each tap handled.
+    const identifier = `${response.notification.request.identifier}:${response.notification.date}`;
+    if (!shouldHandlePushTap({
+      actionIdentifier: response.actionIdentifier,
+      defaultActionIdentifier: Notifications.DEFAULT_ACTION_IDENTIFIER,
+      identifier,
+      date: response.notification.date,
+      lastHandledId: lastHandledRef.current,
+      now: Date.now(),
+    })) return;
 
-    const key = `${response.notification.request.identifier}:${response.notification.date}`;
-    if (lastHandledKey === key) return;
-    lastHandledKey = key;
+    lastHandledRef.current = identifier;
+    SecureStore.setItemAsync(HANDLED_KEY, identifier).catch(() => {});
+    try { Notifications.clearLastNotificationResponse(); } catch { /* older native module */ }
 
     const data = (response.notification.request.content.data || {}) as Record<string, unknown>;
-    const target = resolveNotificationRoute({ type: data.type as string | undefined, data }) ?? NOTIFICATIONS_FALLBACK_ROUTE;
-    router.push(target as never);
+    const target = resolveNotificationRoute({ type: data.type as string | undefined, data });
+    // Nothing to open: stay where the app launched rather than hijacking the launch.
+    if (target) router.push(target as never);
 
     const notificationId = typeof data.notificationId === 'string' ? data.notificationId : '';
     (async () => {
